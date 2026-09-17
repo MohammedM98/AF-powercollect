@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
@@ -15,11 +16,20 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $password = config('powercollect.super_admin.password');
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        if (! $password) {
+            if (app()->environment('production')) {
+                throw new RuntimeException('SUPER_ADMIN_PASSWORD must be set before seeding in production.');
+            }
+
+            $password = 'password';
+        }
+
+        User::factory()->superAdmin()->create([
+            'name' => config('powercollect.super_admin.name'),
+            'email' => config('powercollect.super_admin.email'),
+            'password' => $password,
         ]);
     }
 }

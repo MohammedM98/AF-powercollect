@@ -11,12 +11,6 @@
 </div>
 
 <div class="mt-4">
-    <x-input-label for="email" :value="__('Email')" />
-    <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" dir="ltr" :value="old('email', $user->email ?? '')" required />
-    <x-input-error :messages="$errors->get('email')" class="mt-2" />
-</div>
-
-<div class="mt-4">
     <x-input-label for="password" :value="isset($user) ? __('New Password (leave blank to keep current)') : __('Password')" />
     @if (isset($user))
         <x-text-input id="password" name="password" type="password" class="mt-1 block w-full" />

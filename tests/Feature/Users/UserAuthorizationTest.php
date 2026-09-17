@@ -35,7 +35,6 @@ class UserAuthorizationTest extends TestCase
         $response = $this->actingAs($superAdmin)->post(route('users.store'), [
             'name' => 'Alice Admin',
             'username' => 'alice.admin',
-            'email' => 'alice@example.test',
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'role' => UserRole::BranchAdmin->value,
@@ -45,7 +44,7 @@ class UserAuthorizationTest extends TestCase
 
         $response->assertRedirect(route('users.index'));
         $this->assertDatabaseHas('users', [
-            'email' => 'alice@example.test',
+            'username' => 'alice.admin',
             'role' => UserRole::BranchAdmin->value,
             'branch_id' => $branch->id,
         ]);
@@ -76,7 +75,6 @@ class UserAuthorizationTest extends TestCase
         $response = $this->actingAs($branchAdmin)->post(route('users.store'), [
             'name' => 'Bob Collector',
             'username' => 'bob.collector',
-            'email' => 'bob@example.test',
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'role' => UserRole::BranchAdmin->value,
@@ -85,7 +83,7 @@ class UserAuthorizationTest extends TestCase
 
         $response->assertRedirect(route('users.index'));
         $this->assertDatabaseHas('users', [
-            'email' => 'bob@example.test',
+            'username' => 'bob.collector',
             'role' => UserRole::Collector->value,
             'branch_id' => $ownBranch->id,
         ]);
@@ -121,7 +119,6 @@ class UserAuthorizationTest extends TestCase
         $this->actingAs($branchAdmin)->put(route('users.update', $collector), [
             'name' => $collector->name,
             'username' => $collector->username,
-            'email' => $collector->email,
             'role' => UserRole::SuperAdmin->value,
             'branch_id' => $branch->id,
         ])->assertRedirect(route('users.index'));

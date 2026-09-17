@@ -120,7 +120,6 @@ class PermissionsTest extends TestCase
             ->put(route('users.update', $peer), [
                 'name' => 'Updated Name',
                 'username' => $peer->username,
-                'email' => $peer->email,
             ])
             ->assertRedirect(route('users.index'));
         $this->assertDatabaseHas('users', ['id' => $peer->id, 'name' => 'Updated Name']);

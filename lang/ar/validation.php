@@ -165,7 +165,6 @@ return [
     'attributes' => [
         'name' => 'الاسم',
         'username' => 'اسم المستخدم',
-        'email' => 'البريد الإلكتروني',
         'password' => 'كلمة المرور',
         'password_confirmation' => 'تأكيد كلمة المرور',
         'role' => 'الدور',

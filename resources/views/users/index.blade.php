@@ -24,7 +24,6 @@
                         <tr>
                             <th class="px-6 py-3">{{ __('Name') }}</th>
                             <th class="px-6 py-3">{{ __('Username') }}</th>
-                            <th class="px-6 py-3">{{ __('Email') }}</th>
                             <th class="px-6 py-3">{{ __('Role') }}</th>
                             <th class="px-6 py-3">{{ __('Branch') }}</th>
                             <th class="px-6 py-3">{{ __('Status') }}</th>
@@ -36,7 +35,6 @@
                             <tr>
                                 <td class="px-6 py-4 font-medium text-gray-900">{{ $user->name }}</td>
                                 <td class="px-6 py-4 text-gray-600"><span dir="ltr">{{ $user->username }}</span></td>
-                                <td class="px-6 py-4 text-gray-600"><span dir="ltr">{{ $user->email }}</span></td>
                                 <td class="px-6 py-4 text-gray-600">{{ __($user->role->label()) }}</td>
                                 <td class="px-6 py-4 text-gray-600">{{ $user->branch?->name ?? '—' }}</td>
                                 <td class="px-6 py-4">

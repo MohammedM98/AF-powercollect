@@ -34,7 +34,6 @@ class UpdateUserRequest extends FormRequest
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:255', 'regex:/^[\w.-]+$/', Rule::unique('users', 'username')->ignore($target->id)],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($target->id)],
             'password' => ['nullable', 'confirmed', Password::defaults()],
             'is_active' => ['boolean'],
         ];

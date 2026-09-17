@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
@@ -14,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'username', 'email', 'password', 'role', 'branch_id', 'is_active'])]
+#[Fillable(['name', 'username', 'password', 'role', 'branch_id', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -29,7 +28,6 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
             'is_active' => 'boolean',

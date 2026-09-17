@@ -5,8 +5,14 @@
 </div>
 
 <div class="mt-4">
+    <x-input-label for="username" value="Username" />
+    <x-text-input id="username" name="username" type="text" class="mt-1 block w-full" dir="ltr" :value="old('username', $user->username ?? '')" required />
+    <x-input-error :messages="$errors->get('username')" class="mt-2" />
+</div>
+
+<div class="mt-4">
     <x-input-label for="email" value="Email" />
-    <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email ?? '')" required />
+    <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" dir="ltr" :value="old('email', $user->email ?? '')" required />
     <x-input-error :messages="$errors->get('email')" class="mt-2" />
 </div>
 

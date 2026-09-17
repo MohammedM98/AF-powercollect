@@ -34,6 +34,7 @@ class UserAuthorizationTest extends TestCase
 
         $response = $this->actingAs($superAdmin)->post(route('users.store'), [
             'name' => 'Alice Admin',
+            'username' => 'alice.admin',
             'email' => 'alice@example.test',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -74,6 +75,7 @@ class UserAuthorizationTest extends TestCase
         // Attempt to tamper: request a super-privileged role in a different branch.
         $response = $this->actingAs($branchAdmin)->post(route('users.store'), [
             'name' => 'Bob Collector',
+            'username' => 'bob.collector',
             'email' => 'bob@example.test',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -118,6 +120,7 @@ class UserAuthorizationTest extends TestCase
 
         $this->actingAs($branchAdmin)->put(route('users.update', $collector), [
             'name' => $collector->name,
+            'username' => $collector->username,
             'email' => $collector->email,
             'role' => UserRole::SuperAdmin->value,
             'branch_id' => $branch->id,

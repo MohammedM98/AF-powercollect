@@ -19,10 +19,11 @@
             @endif
 
             <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
-                <table class="w-full text-sm text-left">
+                <table class="w-full text-sm text-start">
                     <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
                         <tr>
                             <th class="px-6 py-3">{{ __('Name') }}</th>
+                            <th class="px-6 py-3">{{ __('Username') }}</th>
                             <th class="px-6 py-3">{{ __('Email') }}</th>
                             <th class="px-6 py-3">{{ __('Role') }}</th>
                             <th class="px-6 py-3">{{ __('Branch') }}</th>
@@ -34,7 +35,8 @@
                         @foreach ($users as $user)
                             <tr>
                                 <td class="px-6 py-4 font-medium text-gray-900">{{ $user->name }}</td>
-                                <td class="px-6 py-4 text-gray-600">{{ $user->email }}</td>
+                                <td class="px-6 py-4 text-gray-600"><span dir="ltr">{{ $user->username }}</span></td>
+                                <td class="px-6 py-4 text-gray-600"><span dir="ltr">{{ $user->email }}</span></td>
                                 <td class="px-6 py-4 text-gray-600">{{ $user->role->label() }}</td>
                                 <td class="px-6 py-4 text-gray-600">{{ $user->branch?->name ?? '—' }}</td>
                                 <td class="px-6 py-4">
@@ -44,7 +46,7 @@
                                         <span class="text-gray-400">{{ __('Stopped') }}</span>
                                     @endif
                                 </td>
-                                <td class="px-6 py-4 text-right">
+                                <td class="px-6 py-4 text-end">
                                     @can('update', $user)
                                         <a href="{{ route('users.edit', $user) }}" class="text-indigo-600 hover:underline">{{ __('Edit') }}</a>
                                     @endcan

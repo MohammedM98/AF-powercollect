@@ -19,7 +19,7 @@
             @endif
 
             <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
-                <table class="w-full text-sm text-left">
+                <table class="w-full text-sm text-start">
                     <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
                         <tr>
                             <th class="px-6 py-3">{{ __('Name') }}</th>
@@ -42,7 +42,7 @@
                                         <span class="text-gray-400">{{ __('Stopped') }}</span>
                                     @endif
                                 </td>
-                                <td class="px-6 py-4 text-right">
+                                <td class="px-6 py-4 text-end">
                                     <a href="{{ route('branches.edit', $branch) }}" class="text-indigo-600 hover:underline">{{ __('Edit') }}</a>
                                 </td>
                             </tr>

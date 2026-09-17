@@ -28,8 +28,11 @@ class DatabaseSeeder extends Seeder
 
         User::factory()->superAdmin()->create([
             'name' => config('powercollect.super_admin.name'),
+            'username' => config('powercollect.super_admin.username'),
             'email' => config('powercollect.super_admin.email'),
             'password' => $password,
         ]);
+
+        $this->call(PermissionSeeder::class);
     }
 }

@@ -23,7 +23,7 @@ class UserController extends Controller
         $actor = auth()->user();
 
         $users = User::query()
-            ->when($actor->isBranchAdmin(), fn ($query) => $query->where('branch_id', $actor->branch_id))
+            ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('branch_id', $actor->branch_id))
             ->with('branch')
             ->orderBy('name')
             ->paginate(15);

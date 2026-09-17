@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\PermissionKey;
 use App\Models\User;
 
 class UserPolicy
@@ -11,7 +12,7 @@ class UserPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isSuperAdmin() || $user->isBranchAdmin();
+        return $user->isSuperAdmin() || $user->isBranchAdmin() || $user->hasPermission(PermissionKey::ManageUsers);
     }
 
     /**
@@ -23,11 +24,17 @@ class UserPolicy
             return true;
         }
 
-        return $user->isBranchAdmin() && $model->branch_id === $user->branch_id;
+        return ($user->isBranchAdmin() || $user->hasPermission(PermissionKey::ManageUsers))
+            && $model->branch_id === $user->branch_id;
     }
 
     /**
      * Determine whether the user can create models.
+     *
+     * Deliberately role-based only (not grantable via a custom permission):
+     * creating a user assigns them a role/branch, and both the form and the
+     * controller's server-side forcing logic are built around the actor
+     * being a Super Admin or Branch Admin specifically.
      */
     public function create(User $user): bool
     {
@@ -43,7 +50,7 @@ class UserPolicy
             return true;
         }
 
-        return $user->isBranchAdmin()
+        return ($user->isBranchAdmin() || $user->hasPermission(PermissionKey::ManageUsers))
             && $model->isCollector()
             && $model->branch_id === $user->branch_id;
     }

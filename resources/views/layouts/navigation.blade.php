@@ -27,6 +27,12 @@
                             {{ __('Users') }}
                         </x-nav-link>
                     @endcan
+
+                    @can('manage', App\Models\Permission::class)
+                        <x-nav-link :href="route('settings.permissions.edit')" :active="request()->routeIs('settings.permissions.*')">
+                            {{ __('Settings') }}
+                        </x-nav-link>
+                    @endcan
                 </div>
             </div>
 
@@ -92,6 +98,12 @@
             @can('viewAny', App\Models\User::class)
                 <x-responsive-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                     {{ __('Users') }}
+                </x-responsive-nav-link>
+            @endcan
+
+            @can('manage', App\Models\Permission::class)
+                <x-responsive-nav-link :href="route('settings.permissions.edit')" :active="request()->routeIs('settings.permissions.*')">
+                    {{ __('Settings') }}
                 </x-responsive-nav-link>
             @endcan
         </div>

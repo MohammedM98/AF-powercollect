@@ -18,6 +18,6 @@
 
 <div class="mt-4 flex items-center">
     <input type="hidden" name="is_active" value="0">
-    <input type="checkbox" id="is_active" name="is_active" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm" @checked(old('is_active', $branch->is_active ?? true))>
+    <input type="checkbox" id="is_active" name="is_active" value="1" class="rounded border-gray-300 text-brand-600 shadow-sm" @checked(old('is_active', $branch->is_active ?? true))>
     <x-input-label for="is_active" :value="__('Active')" class="ms-2 !mb-0" />
 </div>

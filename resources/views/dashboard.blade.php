@@ -28,7 +28,7 @@
 
     <div class="space-y-6">
         <!-- Hero banner -->
-        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-l from-ink-900 via-brand-700 to-brand-500 px-8 py-10 text-white">
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-l from-brand-600 to-pink-500 px-8 py-10 text-white">
             <svg class="pointer-events-none absolute inset-y-0 start-0 h-full w-1/2 max-w-md opacity-20" viewBox="0 0 300 200" fill="none">
                 <circle cx="40" cy="150" r="4" fill="white" />
                 <circle cx="110" cy="90" r="4" fill="white" />
@@ -57,7 +57,7 @@
             </div>
 
             <div class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-                <x-stat-ring :percent="$stats['users_active_pct']" color="text-blue-500" />
+                <x-stat-ring :percent="$stats['users_active_pct']" color="text-pink-500" />
                 <div>
                     <div class="text-2xl font-extrabold text-gray-900">{{ $stats['users_active'] }}</div>
                     <div class="text-sm text-gray-500">{{ __('Active Users') }}</div>

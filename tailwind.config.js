@@ -12,20 +12,20 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Cairo', ...defaultTheme.fontFamily.sans],
+                sans: ['Tajawal', ...defaultTheme.fontFamily.sans],
             },
             colors: {
                 brand: {
-                    50: '#faf4f3',
-                    100: '#f3e2e0',
-                    200: '#e6c1bd',
-                    300: '#d59a93',
-                    400: '#bf6e65',
-                    500: '#9c4a44',
-                    600: '#833d38',
-                    700: '#6b312d',
-                    800: '#552724',
-                    900: '#41201d',
+                    50: '#f5f3ff',
+                    100: '#ede9fe',
+                    200: '#ddd6fe',
+                    300: '#c4b5fd',
+                    400: '#a78bfa',
+                    500: '#8b5cf6',
+                    600: '#7c3aed',
+                    700: '#6d28d9',
+                    800: '#5b21b6',
+                    900: '#4c1d95',
                 },
                 ink: {
                     900: '#15161a',

@@ -38,11 +38,11 @@ class UserController extends Controller
     {
         $this->authorize('create', User::class);
 
-        $branches = auth()->user()->isSuperAdmin()
-            ? Branch::orderBy('name')->get()
-            : collect();
+        $actor = auth()->user();
+        $canChooseRole = $actor->isSuperAdmin();
+        $branches = $canChooseRole ? Branch::orderBy('name')->get() : collect();
 
-        return view('users.create', compact('branches'));
+        return view('users.create', compact('branches', 'canChooseRole'));
     }
 
     /**
@@ -74,11 +74,11 @@ class UserController extends Controller
     {
         $this->authorize('update', $user);
 
-        $branches = auth()->user()->isSuperAdmin()
-            ? Branch::orderBy('name')->get()
-            : collect();
+        $actor = auth()->user();
+        $canChooseRole = $actor->isSuperAdmin() && ! $user->isSuperAdmin();
+        $branches = $actor->isSuperAdmin() ? Branch::orderBy('name')->get() : collect();
 
-        return view('users.edit', compact('user', 'branches'));
+        return view('users.edit', compact('user', 'branches', 'canChooseRole'));
     }
 
     /**

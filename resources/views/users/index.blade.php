@@ -37,7 +37,7 @@
                                 <td class="px-6 py-4 font-medium text-gray-900">{{ $user->name }}</td>
                                 <td class="px-6 py-4 text-gray-600"><span dir="ltr">{{ $user->username }}</span></td>
                                 <td class="px-6 py-4 text-gray-600"><span dir="ltr">{{ $user->email }}</span></td>
-                                <td class="px-6 py-4 text-gray-600">{{ $user->role->label() }}</td>
+                                <td class="px-6 py-4 text-gray-600">{{ __($user->role->label()) }}</td>
                                 <td class="px-6 py-4 text-gray-600">{{ $user->branch?->name ?? '—' }}</td>
                                 <td class="px-6 py-4">
                                     @if ($user->is_active)

@@ -11,7 +11,7 @@
                 <form method="POST" action="{{ route('users.update', $user) }}">
                     @csrf
                     @method('PUT')
-                    @include('users._form', ['user' => $user, 'branches' => $branches])
+                    @include('users._form', ['user' => $user, 'branches' => $branches, 'canChooseRole' => $canChooseRole])
 
                     <div class="mt-6 flex items-center gap-4">
                         <x-primary-button>{{ __('Save') }}</x-primary-button>

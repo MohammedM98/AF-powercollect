@@ -27,7 +27,7 @@
                                 <th class="px-6 py-3">{{ __('Role') }}</th>
                                 <th class="px-6 py-3">{{ __('Branch') }}</th>
                                 @foreach ($permissions as $permission)
-                                    <th class="px-6 py-3 text-center">{{ $permission->label }}</th>
+                                    <th class="px-6 py-3 text-center">{{ __($permission->label) }}</th>
                                 @endforeach
                             </tr>
                         </thead>
@@ -38,7 +38,7 @@
                                         <div class="font-medium text-gray-900">{{ $user->name }}</div>
                                         <div class="text-gray-500"><span dir="ltr">{{ '@'.$user->username }}</span></div>
                                     </td>
-                                    <td class="px-6 py-4 text-gray-600">{{ $user->role->label() }}</td>
+                                    <td class="px-6 py-4 text-gray-600">{{ __($user->role->label()) }}</td>
                                     <td class="px-6 py-4 text-gray-600">{{ $user->branch?->name ?? '—' }}</td>
                                     @foreach ($permissions as $permission)
                                         <td class="px-6 py-4 text-center">

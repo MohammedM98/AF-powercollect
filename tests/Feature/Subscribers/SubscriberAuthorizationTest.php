@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Subscribers;
 
+use App\Enums\BillingType;
 use App\Enums\SubscriberStatus;
 use App\Models\Branch;
 use App\Models\MeterBox;
@@ -63,6 +64,10 @@ class SubscriberAuthorizationTest extends TestCase
             'meter_box_id' => $box->id,
             'tariff_id' => $tariff->id,
             'status' => SubscriberStatus::Active->value,
+            'billing_type' => BillingType::Meter->value,
+            'unit_price' => 5,
+            'minimum_charge' => 10,
+            'notes' => 'No notes',
             // Attempt to tamper: request a different branch — must be ignored.
             'branch_id' => $otherBranch->id,
         ]);
@@ -83,9 +88,15 @@ class SubscriberAuthorizationTest extends TestCase
 
         $response = $this->actingAs($dataEntry)->post(route('subscribers.store'), [
             'full_name' => 'No Box Yet',
+            'phone' => '0770000001',
+            'address' => 'Some other street',
             'meter_number' => 'MTR-0002',
             'tariff_id' => $tariff->id,
             'status' => SubscriberStatus::Active->value,
+            'billing_type' => BillingType::Ampere->value,
+            'unit_price' => 5,
+            'minimum_charge' => 10,
+            'notes' => 'No notes',
         ]);
 
         $response->assertRedirect(route('subscribers.index'));

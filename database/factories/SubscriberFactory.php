@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\BillingType;
 use App\Enums\SubscriberStatus;
 use App\Models\Branch;
 use App\Models\MeterBox;
@@ -35,6 +36,13 @@ class SubscriberFactory extends Factory
             'branch_id' => Branch::factory(),
             'registered_by' => User::factory(),
             'status' => SubscriberStatus::Active,
+            'billing_type' => fake()->randomElement(BillingType::cases()),
+            'unit_price' => fake()->randomFloat(2, 1, 20),
+            'minimum_charge' => fake()->randomFloat(2, 5, 50),
+            'ampere_count' => fake()->randomElement([5, 10, 16, 20]),
+            'area_1' => fake()->citySuffix(),
+            'area_2' => fake()->streetName(),
+            'notes' => fake()->sentence(),
         ];
     }
 }

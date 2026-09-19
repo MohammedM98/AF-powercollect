@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\BillingType;
 use App\Http\Requests\StoreSubscriberRequest;
 use App\Http\Requests\UpdateSubscriberRequest;
 use App\Models\Branch;
@@ -94,6 +95,18 @@ class SubscriberController extends Controller
                 'tariff_id' => $subscriber->tariff_id,
                 'branch_id' => $subscriber->branch_id,
                 'status' => $subscriber->status->value,
+                'billing_type' => $subscriber->billing_type?->value,
+                'unit_price' => $subscriber->unit_price,
+                'minimum_charge' => $subscriber->minimum_charge,
+                'ampere_count' => $subscriber->ampere_count,
+                'area_1' => $subscriber->area_1,
+                'area_2' => $subscriber->area_2,
+                'customer_classification' => $subscriber->customer_classification,
+                'previous_reading' => $subscriber->previous_reading,
+                'subscription_fee' => $subscriber->subscription_fee,
+                'subscription_date' => $subscriber->subscription_date?->format('Y-m-d'),
+                'charge_subscription_fee' => $subscriber->charge_subscription_fee,
+                'notes' => $subscriber->notes,
             ],
             ...$this->formOptions(),
         ]);
@@ -140,11 +153,17 @@ class SubscriberController extends Controller
             'categoryLabel' => __($tariff->category->label()),
         ]);
 
+        $billingTypeOptions = collect(BillingType::cases())->map(fn (BillingType $type) => [
+            'value' => $type->value,
+            'label' => __($type->label()),
+        ]);
+
         return [
             'branches' => $branches,
             'meterBoxes' => $meterBoxes,
             'tariffs' => $tariffs,
             'canChooseBranch' => $canChooseBranch,
+            'billingTypeOptions' => $billingTypeOptions,
         ];
     }
 }

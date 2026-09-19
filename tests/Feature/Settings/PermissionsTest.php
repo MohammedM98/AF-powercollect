@@ -157,9 +157,15 @@ class PermissionsTest extends TestCase
 
         $this->actingAs($collector)->post(route('subscribers.store'), [
             'full_name' => 'Granted Subscriber',
+            'phone' => '0770000002',
+            'address' => 'Some street',
             'meter_number' => 'MTR-9999',
             'tariff_id' => $tariff->id,
             'status' => \App\Enums\SubscriberStatus::Active->value,
+            'billing_type' => \App\Enums\BillingType::Meter->value,
+            'unit_price' => 5,
+            'minimum_charge' => 10,
+            'notes' => 'No notes',
         ])->assertRedirect(route('subscribers.index'));
 
         $this->assertDatabaseHas('subscribers', ['meter_number' => 'MTR-9999', 'branch_id' => $branch->id]);

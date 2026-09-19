@@ -179,6 +179,18 @@ return [
         'meter_box_id' => 'صندوق العداد',
         'tariff_id' => 'التعرفة',
         'status' => 'الحالة',
+        'billing_type' => 'نوع التحاسب',
+        'unit_price' => 'السعر',
+        'minimum_charge' => 'الحد الادنى',
+        'ampere_count' => 'عدد الامبير',
+        'area_1' => 'المنطقة 1',
+        'area_2' => 'المنطقة 2',
+        'customer_classification' => 'تصنيف الزبائن',
+        'previous_reading' => 'القراءة السابقة',
+        'subscription_fee' => 'رسوم الاشتراك',
+        'subscription_date' => 'تاريخ الاشتراك',
+        'charge_subscription_fee' => 'تحميل رسوم الاشتراك',
+        'notes' => 'معلومات أخرى',
     ],
 
 ];

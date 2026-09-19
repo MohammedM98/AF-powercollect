@@ -3,7 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SubscriberForm from './SubscriberForm';
 
-export default function Create({ branches, meterBoxes, tariffs, canChooseBranch }) {
+export default function Create({ branches, meterBoxes, tariffs, billingTypeOptions, canChooseBranch }) {
     const { data, setData, post, processing, errors } = useForm({
         full_name: '',
         phone: '',
@@ -13,6 +13,18 @@ export default function Create({ branches, meterBoxes, tariffs, canChooseBranch 
         tariff_id: '',
         status: 'active',
         branch_id: '',
+        billing_type: '',
+        unit_price: '',
+        minimum_charge: '',
+        ampere_count: '',
+        area_1: '',
+        area_2: '',
+        customer_classification: '',
+        previous_reading: '',
+        subscription_fee: '',
+        subscription_date: '',
+        charge_subscription_fee: true,
+        notes: '',
     });
 
     function submit(e) {
@@ -24,7 +36,7 @@ export default function Create({ branches, meterBoxes, tariffs, canChooseBranch 
         <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">إنشاء مشترك</h2>}>
             <Head title="إنشاء مشترك" />
 
-            <div className="max-w-2xl">
+            <div className="max-w-4xl">
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                     <form onSubmit={submit}>
                         <SubscriberForm
@@ -34,6 +46,7 @@ export default function Create({ branches, meterBoxes, tariffs, canChooseBranch 
                             branches={branches}
                             meterBoxes={meterBoxes}
                             tariffs={tariffs}
+                            billingTypeOptions={billingTypeOptions}
                             canChooseBranch={canChooseBranch}
                         />
 

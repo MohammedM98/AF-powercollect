@@ -5,7 +5,7 @@
         </h2>
     </x-slot>
 
-    <div class="max-w-2xl">
+    <div class="max-w-4xl">
         <div class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <form method="POST" action="{{ route('subscribers.update', $subscriber) }}">
                 @csrf

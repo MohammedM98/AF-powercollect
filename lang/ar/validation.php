@@ -173,6 +173,12 @@ return [
         'phone' => 'الهاتف',
         'is_active' => 'نشط',
         'current_password' => 'كلمة المرور الحالية',
+        'full_name' => 'الاسم الكامل',
+        'address' => 'العنوان',
+        'meter_number' => 'رقم العداد',
+        'meter_box_id' => 'صندوق العداد',
+        'tariff_id' => 'التعرفة',
+        'status' => 'الحالة',
     ],
 
 ];

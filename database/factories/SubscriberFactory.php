@@ -28,7 +28,10 @@ class SubscriberFactory extends Factory
             'address' => fake()->address(),
             'meter_number' => fake()->unique()->numerify('MTR-#######'),
             'meter_box_id' => MeterBox::factory(),
-            'tariff_id' => Tariff::factory(),
+            // Tariffs are fixed reference data (only Home/Business ever
+            // exist) — reuse one instead of risking a unique-category
+            // collision when creating several subscribers at once.
+            'tariff_id' => fn () => Tariff::query()->inRandomOrder()->value('id') ?? Tariff::factory()->home()->create()->id,
             'branch_id' => Branch::factory(),
             'registered_by' => User::factory(),
             'status' => SubscriberStatus::Active,

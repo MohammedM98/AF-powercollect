@@ -82,5 +82,21 @@
     "Home": "منزلي",
     "Business": "تجاري",
     "Suspended": "موقوف",
-    "Disconnected": "مقطوع"
+    "Disconnected": "مقطوع",
+    "Subscribers": "المشتركون",
+    "New Subscriber": "مشترك جديد",
+    "Create Subscriber": "إنشاء مشترك",
+    "Edit Subscriber": "تعديل المشترك",
+    "Subscriber created.": "تم إنشاء المشترك.",
+    "Subscriber updated.": "تم تحديث المشترك.",
+    "No subscribers registered yet.": "لا يوجد مشتركون مسجّلون بعد.",
+    "Full Name": "الاسم الكامل",
+    "Address": "العنوان",
+    "Meter Number": "رقم العداد",
+    "Meter Box": "صندوق العداد",
+    "Tariff": "التعرفة",
+    "— No Meter Box Yet —": "— بلا صندوق عداد بعد —",
+    "— Select Tariff —": "— اختر تعرفة —",
+    "No meter boxes exist yet — the subscriber can be registered without one for now.": "لا توجد صناديق عدادات بعد — يمكن تسجيل المشترك بدون صندوق حاليًا.",
+    "This subscriber will belong to your branch.": "سينتمي هذا المشترك إلى فرعك."
 }

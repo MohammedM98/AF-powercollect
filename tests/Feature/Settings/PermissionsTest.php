@@ -142,6 +142,40 @@ class PermissionsTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_granting_manage_subscribers_lets_a_collector_manage_subscribers(): void
+    {
+        $this->seedPermissions();
+        $branch = Branch::factory()->create();
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $manageSubscribers = Permission::where('key', PermissionKey::ManageSubscribers->value)->firstOrFail();
+        $collector->permissions()->attach($manageSubscribers);
+        $tariff = \App\Models\Tariff::factory()->home()->create();
+
+        $this->actingAs($collector)
+            ->get(route('subscribers.index'))
+            ->assertOk();
+
+        $this->actingAs($collector)->post(route('subscribers.store'), [
+            'full_name' => 'Granted Subscriber',
+            'meter_number' => 'MTR-9999',
+            'tariff_id' => $tariff->id,
+            'status' => \App\Enums\SubscriberStatus::Active->value,
+        ])->assertRedirect(route('subscribers.index'));
+
+        $this->assertDatabaseHas('subscribers', ['meter_number' => 'MTR-9999', 'branch_id' => $branch->id]);
+    }
+
+    public function test_collector_without_the_permission_still_cannot_manage_subscribers(): void
+    {
+        $this->seedPermissions();
+        $branch = Branch::factory()->create();
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+
+        $this->actingAs($collector)
+            ->get(route('subscribers.index'))
+            ->assertForbidden();
+    }
+
     public function test_super_admin_implicitly_has_every_permission_without_any_grants(): void
     {
         $this->seedPermissions();

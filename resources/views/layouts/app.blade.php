@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" class="overflow-x-hidden">
+<html lang="ar" dir="rtl">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -14,26 +14,24 @@
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased bg-gray-50 text-gray-900 overflow-x-hidden">
-        <div class="flex min-h-screen">
+    <body class="font-sans antialiased bg-gray-50 text-gray-900">
+        <div class="min-h-screen">
             @include('layouts.navigation')
 
-            <div class="flex-1 flex flex-col min-w-0 pt-14 lg:pt-0">
-                @isset($header)
-                    <header class="bg-white border-b border-gray-100 px-6 sm:px-8 py-5">
-                        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div class="min-w-0">{{ $header }}</div>
-                            @isset($actions)
-                                <div class="shrink-0">{{ $actions }}</div>
-                            @endisset
-                        </div>
-                    </header>
-                @endisset
+            @isset($header)
+                <div class="border-b border-gray-100 bg-white">
+                    <div class="mx-auto flex max-w-screen-2xl flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+                        <div class="min-w-0">{{ $header }}</div>
+                        @isset($actions)
+                            <div class="shrink-0">{{ $actions }}</div>
+                        @endisset
+                    </div>
+                </div>
+            @endisset
 
-                <main class="flex-1 px-6 sm:px-8 py-8">
-                    {{ $slot }}
-                </main>
-            </div>
+            <main class="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+                {{ $slot }}
+            </main>
         </div>
     </body>
 </html>

@@ -32,6 +32,9 @@ class DatabaseSeeder extends Seeder
             'password' => $password,
         ]);
 
-        $this->call(PermissionSeeder::class);
+        $this->call([
+            PermissionSeeder::class,
+            TariffSeeder::class,
+        ]);
     }
 }

@@ -78,5 +78,9 @@
     "Manage Subscribers": "إدارة المشتركين",
     "Record Collections": "تسجيل التحصيلات",
     "Confirm Collections": "تأكيد التحصيلات",
-    "View Collections": "عرض التحصيلات"
+    "View Collections": "عرض التحصيلات",
+    "Home": "منزلي",
+    "Business": "تجاري",
+    "Suspended": "موقوف",
+    "Disconnected": "مقطوع"
 }

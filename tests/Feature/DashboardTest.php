@@ -24,8 +24,10 @@ class DashboardTest extends TestCase
         $response->assertOk();
         $response->assertSee('Alpha Collector');
         $response->assertSee('Beta Collector');
-        $response->assertSee($branchA->name);
-        $response->assertSee($branchB->name);
+        // Rendered via Inertia now: branch names sit inside the raw JSON
+        // page payload, not HTML-escaped Blade output — compare unescaped.
+        $response->assertSee($branchA->name, false);
+        $response->assertSee($branchB->name, false);
     }
 
     public function test_branch_admin_only_sees_their_own_branch_in_dashboard_stats(): void
@@ -41,8 +43,8 @@ class DashboardTest extends TestCase
         $response->assertOk();
         $response->assertSee('My Branch Collector');
         $response->assertDontSee('Other Branch Collector');
-        $response->assertSee($ownBranch->name);
-        $response->assertDontSee($otherBranch->name);
+        $response->assertSee($ownBranch->name, false);
+        $response->assertDontSee($otherBranch->name, false);
     }
 
     public function test_guest_is_redirected_to_login(): void

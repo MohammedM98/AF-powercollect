@@ -7,16 +7,17 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\Branch;
 use App\Models\User;
-use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Hash;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class UserController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index(): View
+    public function index(): InertiaResponse
     {
         $this->authorize('viewAny', User::class);
 
@@ -26,15 +27,28 @@ class UserController extends Controller
             ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('branch_id', $actor->branch_id))
             ->with('branch')
             ->orderBy('name')
-            ->paginate(15);
+            ->paginate(15)
+            ->through(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'roleLabel' => __($user->role->label()),
+                'branchName' => $user->branch?->name,
+                'is_active' => $user->is_active,
+                'canUpdate' => $actor->can('update', $user),
+            ]);
 
-        return view('users.index', compact('users'));
+        return Inertia::render('Users/Index', [
+            'users' => $users,
+            'canCreate' => $actor->can('create', User::class),
+            'status' => session('status'),
+        ]);
     }
 
     /**
      * Show the form for creating a new resource.
      */
-    public function create(): View
+    public function create(): InertiaResponse
     {
         $this->authorize('create', User::class);
 
@@ -45,7 +59,14 @@ class UserController extends Controller
             ? [UserRole::BranchAdmin, ...UserRole::staffRoles()]
             : UserRole::staffRoles();
 
-        return view('users.create', compact('branches', 'canChooseBranch', 'roleOptions'));
+        return Inertia::render('Users/Create', [
+            'branches' => $branches,
+            'canChooseBranch' => $canChooseBranch,
+            'roleOptions' => collect($roleOptions)->map(fn (UserRole $role) => [
+                'value' => $role->value,
+                'label' => __($role->label()),
+            ]),
+        ]);
     }
 
     /**
@@ -73,7 +94,7 @@ class UserController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(User $user): View
+    public function edit(User $user): InertiaResponse
     {
         $this->authorize('update', $user);
 
@@ -86,7 +107,22 @@ class UserController extends Controller
             default => UserRole::staffRoles(),
         };
 
-        return view('users.edit', compact('user', 'branches', 'canChooseBranch', 'roleOptions'));
+        return Inertia::render('Users/Edit', [
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'role' => $user->role->value,
+                'branch_id' => $user->branch_id,
+                'is_active' => $user->is_active,
+            ],
+            'branches' => $branches,
+            'canChooseBranch' => $canChooseBranch,
+            'roleOptions' => collect($roleOptions)->map(fn (UserRole $role) => [
+                'value' => $role->value,
+                'label' => __($role->label()),
+            ]),
+        ]);
     }
 
     /**

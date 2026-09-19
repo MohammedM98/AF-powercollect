@@ -5,11 +5,12 @@ namespace App\Http\Controllers;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\User;
-use Illuminate\Contracts\View\View;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class DashboardController extends Controller
 {
-    public function index(): View
+    public function index(): InertiaResponse
     {
         $actor = auth()->user();
         $scopedToBranch = ! $actor->isSuperAdmin();
@@ -52,12 +53,18 @@ class DashboardController extends Controller
             default => __('Good evening'),
         };
 
-        return view('dashboard', [
+        return Inertia::render('Dashboard', [
             'greeting' => $greeting,
             'stats' => $stats,
-            'recentBranches' => $branches->take(5),
-            'recentUsers' => $users->take(5),
+            'recentBranches' => $branches->take(5)->values(),
+            'recentUsers' => $users->take(5)->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'roleLabel' => __($user->role->label()),
+            ])->values(),
             'scopedToBranch' => $scopedToBranch,
+            'canCreateBranch' => $actor->can('create', Branch::class),
+            'canCreateUser' => $actor->can('create', User::class),
         ]);
     }
 }

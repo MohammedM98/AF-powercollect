@@ -36,7 +36,7 @@ export default function Create({ branches, meterBoxes, tariffs, billingTypeOptio
         <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">إنشاء مشترك</h2>}>
             <Head title="إنشاء مشترك" />
 
-            <div className="max-w-4xl">
+            <div className="max-w-6xl">
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                     <form onSubmit={submit}>
                         <SubscriberForm

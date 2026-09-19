@@ -9,9 +9,9 @@ const STATUS_OPTIONS = [
     { value: 'disconnected', label: 'مقطوع' },
 ];
 
-function Field({ id, label, required, error, children }) {
+function Field({ id, label, required, error, span = '', children }) {
     return (
-        <div>
+        <div className={span}>
             <InputLabel htmlFor={id}>
                 {label}
                 {required && <span className="text-red-500"> *</span>}
@@ -24,7 +24,7 @@ function Field({ id, label, required, error, children }) {
 
 export default function SubscriberForm({ data, setData, errors, meterBoxes, tariffs, branches, billingTypeOptions, canChooseBranch }) {
     return (
-        <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field id="full_name" label="الاسم" required error={errors.full_name}>
                 <TextInput className="block w-full" value={data.full_name} autoFocus onChange={(e) => setData('full_name', e.target.value)} />
             </Field>
@@ -82,18 +82,18 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 />
             </Field>
 
-            <Field id="address" label="العنوان" required error={errors.address}>
+            <Field id="address" label="العنوان" required error={errors.address} span="sm:col-span-2 lg:col-span-3">
                 <textarea
-                    rows={3}
+                    rows={2}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
                     value={data.address}
                     onChange={(e) => setData('address', e.target.value)}
                 />
             </Field>
 
-            <Field id="notes" label="معلومات أخرى" required error={errors.notes}>
+            <Field id="notes" label="معلومات أخرى" required error={errors.notes} span="sm:col-span-2 lg:col-span-3">
                 <textarea
-                    rows={3}
+                    rows={2}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
                     value={data.notes}
                     onChange={(e) => setData('notes', e.target.value)}

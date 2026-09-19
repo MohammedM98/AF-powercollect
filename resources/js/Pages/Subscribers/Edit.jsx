@@ -36,7 +36,7 @@ export default function Edit({ subscriber, branches, meterBoxes, tariffs, billin
         <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">تعديل المشترك</h2>}>
             <Head title="تعديل المشترك" />
 
-            <div className="max-w-4xl">
+            <div className="max-w-6xl">
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                     <form onSubmit={submit}>
                         <SubscriberForm

@@ -1,4 +1,4 @@
-<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
     <div>
         <x-input-label for="full_name"><span>{{ __('Full Name') }}</span> <span class="text-red-500">*</span></x-input-label>
         <x-text-input id="full_name" name="full_name" type="text" class="mt-1 block w-full" :value="old('full_name', $subscriber->full_name ?? '')" required autofocus />
@@ -44,15 +44,15 @@
         <x-input-error :messages="$errors->get('minimum_charge')" class="mt-1" />
     </div>
 
-    <div>
+    <div class="sm:col-span-2 lg:col-span-3">
         <x-input-label for="address"><span>{{ __('Address') }}</span> <span class="text-red-500">*</span></x-input-label>
-        <textarea id="address" name="address" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500">{{ old('address', $subscriber->address ?? '') }}</textarea>
+        <textarea id="address" name="address" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500">{{ old('address', $subscriber->address ?? '') }}</textarea>
         <x-input-error :messages="$errors->get('address')" class="mt-1" />
     </div>
 
-    <div>
+    <div class="sm:col-span-2 lg:col-span-3">
         <x-input-label for="notes"><span>{{ __('Other Information') }}</span> <span class="text-red-500">*</span></x-input-label>
-        <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500">{{ old('notes', $subscriber->notes ?? '') }}</textarea>
+        <textarea id="notes" name="notes" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500">{{ old('notes', $subscriber->notes ?? '') }}</textarea>
         <x-input-error :messages="$errors->get('notes')" class="mt-1" />
     </div>
 

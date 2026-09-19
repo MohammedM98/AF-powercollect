@@ -12,7 +12,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Tajawal', ...defaultTheme.fontFamily.sans],
+                sans: ['IBM Plex Sans Arabic', ...defaultTheme.fontFamily.sans],
             },
             colors: {
                 brand: {

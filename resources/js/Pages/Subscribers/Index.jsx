@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SubscriberModal from './SubscriberModal';
 
 const STATUS_STYLES = {
     active: 'bg-emerald-50 text-emerald-700',
@@ -7,7 +9,12 @@ const STATUS_STYLES = {
     disconnected: 'bg-gray-100 text-gray-500',
 };
 
-export default function Index({ subscribers, canCreate, status }) {
+export default function Index({ subscribers, canCreate, status, branches, meterBoxes, tariffs, billingTypeOptions, canChooseBranch }) {
+    const [modalSubscriber, setModalSubscriber] = useState(null);
+    const [creating, setCreating] = useState(false);
+
+    const modalProps = { branches, meterBoxes, tariffs, billingTypeOptions, canChooseBranch };
+
     return (
         <AuthenticatedLayout
             header={
@@ -17,15 +24,15 @@ export default function Index({ subscribers, canCreate, status }) {
                     </div>
                     {canCreate && (
                         <div className="shrink-0">
-                            <a
-                                href="/subscribers/create"
+                            <button
+                                onClick={() => setCreating(true)}
                                 className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
                             >
                                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
                                 </svg>
                                 مشترك جديد
-                            </a>
+                            </button>
                         </div>
                     )}
                 </>
@@ -79,9 +86,12 @@ export default function Index({ subscribers, canCreate, status }) {
                                     </td>
                                     <td className="px-6 py-4 text-end">
                                         {subscriber.canUpdate && (
-                                            <a href={`/subscribers/${subscriber.id}/edit`} className="font-medium text-brand-600 hover:underline">
+                                            <button
+                                                onClick={() => setModalSubscriber(subscriber)}
+                                                className="font-medium text-brand-600 hover:underline"
+                                            >
                                                 تعديل
-                                            </a>
+                                            </button>
                                         )}
                                     </td>
                                 </tr>
@@ -104,6 +114,22 @@ export default function Index({ subscribers, canCreate, status }) {
                         </a>
                     )}
                 </div>
+            )}
+
+            <SubscriberModal show={creating} onClose={() => setCreating(false)} subscriber={null} {...modalProps} />
+
+            {/* Keyed by subscriber id so switching who's being edited remounts
+                the form with fresh initial values — useForm() only captures
+                its initial data once, it won't pick up a changed `subscriber`
+                prop on an already-mounted instance. */}
+            {modalSubscriber && (
+                <SubscriberModal
+                    key={modalSubscriber.id}
+                    show
+                    onClose={() => setModalSubscriber(null)}
+                    subscriber={modalSubscriber}
+                    {...modalProps}
+                />
             )}
         </AuthenticatedLayout>
     );

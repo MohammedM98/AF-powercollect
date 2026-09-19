@@ -30,13 +30,10 @@ class SubscriberController extends Controller
             ->orderBy('full_name')
             ->paginate(15)
             ->through(fn (Subscriber $subscriber) => [
-                'id' => $subscriber->id,
-                'full_name' => $subscriber->full_name,
-                'meter_number' => $subscriber->meter_number,
+                ...$this->editableFields($subscriber),
                 'meterBoxNumber' => $subscriber->meterBox?->box_number,
                 'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
                 'branchName' => $subscriber->branch->name,
-                'status' => $subscriber->status->value,
                 'statusLabel' => __($subscriber->status->label()),
                 'canUpdate' => $actor->can('update', $subscriber),
             ]);
@@ -45,6 +42,7 @@ class SubscriberController extends Controller
             'subscribers' => $subscribers,
             'canCreate' => $actor->can('create', Subscriber::class),
             'status' => session('status'),
+            ...$this->formOptions(),
         ]);
     }
 
@@ -85,29 +83,7 @@ class SubscriberController extends Controller
         $this->authorize('update', $subscriber);
 
         return Inertia::render('Subscribers/Edit', [
-            'subscriber' => [
-                'id' => $subscriber->id,
-                'full_name' => $subscriber->full_name,
-                'phone' => $subscriber->phone,
-                'address' => $subscriber->address,
-                'meter_number' => $subscriber->meter_number,
-                'meter_box_id' => $subscriber->meter_box_id,
-                'tariff_id' => $subscriber->tariff_id,
-                'branch_id' => $subscriber->branch_id,
-                'status' => $subscriber->status->value,
-                'billing_type' => $subscriber->billing_type?->value,
-                'unit_price' => $subscriber->unit_price,
-                'minimum_charge' => $subscriber->minimum_charge,
-                'ampere_count' => $subscriber->ampere_count,
-                'area_1' => $subscriber->area_1,
-                'area_2' => $subscriber->area_2,
-                'customer_classification' => $subscriber->customer_classification,
-                'previous_reading' => $subscriber->previous_reading,
-                'subscription_fee' => $subscriber->subscription_fee,
-                'subscription_date' => $subscriber->subscription_date?->format('Y-m-d'),
-                'charge_subscription_fee' => $subscriber->charge_subscription_fee,
-                'notes' => $subscriber->notes,
-            ],
+            'subscriber' => $this->editableFields($subscriber),
             ...$this->formOptions(),
         ]);
     }
@@ -122,6 +98,40 @@ class SubscriberController extends Controller
         $subscriber->update($data);
 
         return redirect()->route('subscribers.index')->with('status', 'subscriber-updated');
+    }
+
+    /**
+     * The full set of a subscriber's editable fields — used both for the
+     * dedicated edit page and for the edit modal's initial form data on
+     * the index page, so both stay backed by the same shape.
+     *
+     * @return array<string, mixed>
+     */
+    private function editableFields(Subscriber $subscriber): array
+    {
+        return [
+            'id' => $subscriber->id,
+            'full_name' => $subscriber->full_name,
+            'phone' => $subscriber->phone,
+            'address' => $subscriber->address,
+            'meter_number' => $subscriber->meter_number,
+            'meter_box_id' => $subscriber->meter_box_id,
+            'tariff_id' => $subscriber->tariff_id,
+            'branch_id' => $subscriber->branch_id,
+            'status' => $subscriber->status->value,
+            'billing_type' => $subscriber->billing_type?->value,
+            'unit_price' => $subscriber->unit_price,
+            'minimum_charge' => $subscriber->minimum_charge,
+            'ampere_count' => $subscriber->ampere_count,
+            'area_1' => $subscriber->area_1,
+            'area_2' => $subscriber->area_2,
+            'customer_classification' => $subscriber->customer_classification,
+            'previous_reading' => $subscriber->previous_reading,
+            'subscription_fee' => $subscriber->subscription_fee,
+            'subscription_date' => $subscriber->subscription_date?->format('Y-m-d'),
+            'charge_subscription_fee' => $subscriber->charge_subscription_fee,
+            'notes' => $subscriber->notes,
+        ];
     }
 
     /**

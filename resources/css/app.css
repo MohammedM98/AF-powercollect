@@ -5,3 +5,21 @@
 [x-cloak] {
     display: none !important;
 }
+
+@keyframes modal-backdrop-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modal-panel-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-modal-backdrop {
+    animation: modal-backdrop-in 150ms ease-out;
+}
+
+.animate-modal-panel {
+    animation: modal-panel-in 180ms ease-out;
+}

@@ -65,28 +65,46 @@ class UserAuthorizationTest extends TestCase
         $response->assertDontSee('In Other Branch');
     }
 
-    public function test_branch_admin_creating_a_user_is_forced_to_collector_in_their_own_branch(): void
+    public function test_branch_admin_can_create_a_staff_member_in_their_own_branch(): void
     {
         $ownBranch = Branch::factory()->create();
         $otherBranch = Branch::factory()->create();
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id]);
 
-        // Attempt to tamper: request a super-privileged role in a different branch.
+        // Attempt to tamper: request a different branch — must be ignored.
         $response = $this->actingAs($branchAdmin)->post(route('users.store'), [
-            'name' => 'Bob Collector',
-            'username' => 'bob.collector',
+            'name' => 'Dana Entry',
+            'username' => 'dana.entry',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'role' => UserRole::BranchAdmin->value,
+            'role' => UserRole::DataEntry->value,
             'branch_id' => $otherBranch->id,
         ]);
 
         $response->assertRedirect(route('users.index'));
         $this->assertDatabaseHas('users', [
-            'username' => 'bob.collector',
-            'role' => UserRole::Collector->value,
+            'username' => 'dana.entry',
+            'role' => UserRole::DataEntry->value,
             'branch_id' => $ownBranch->id,
         ]);
+    }
+
+    public function test_branch_admin_cannot_create_a_user_with_a_super_privileged_role(): void
+    {
+        $ownBranch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id]);
+
+        // Attempt to tamper: request a super-privileged role.
+        $response = $this->actingAs($branchAdmin)->post(route('users.store'), [
+            'name' => 'Bob Admin',
+            'username' => 'bob.admin',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role' => UserRole::BranchAdmin->value,
+        ]);
+
+        $response->assertSessionHasErrors('role');
+        $this->assertDatabaseMissing('users', ['username' => 'bob.admin']);
     }
 
     public function test_branch_admin_cannot_update_a_user_from_another_branch(): void
@@ -121,12 +139,41 @@ class UserAuthorizationTest extends TestCase
             'username' => $collector->username,
             'role' => UserRole::SuperAdmin->value,
             'branch_id' => $branch->id,
-        ])->assertRedirect(route('users.index'));
+        ])->assertSessionHasErrors('role');
 
         $this->assertDatabaseHas('users', [
             'id' => $collector->id,
             'role' => UserRole::Collector->value,
         ]);
+    }
+
+    public function test_branch_admin_can_reassign_a_staff_members_role_among_staff_roles(): void
+    {
+        $branch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+
+        $this->actingAs($branchAdmin)->put(route('users.update', $collector), [
+            'name' => $collector->name,
+            'username' => $collector->username,
+            'role' => UserRole::FinancialAuditor->value,
+        ])->assertRedirect(route('users.index'));
+
+        $this->assertDatabaseHas('users', [
+            'id' => $collector->id,
+            'role' => UserRole::FinancialAuditor->value,
+        ]);
+    }
+
+    public function test_branch_admin_can_manage_data_entry_and_financial_auditor_staff(): void
+    {
+        $branch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $branch->id]);
+        $auditor = User::factory()->financialAuditor()->create(['branch_id' => $branch->id]);
+
+        $this->actingAs($branchAdmin)->get(route('users.edit', $dataEntry))->assertOk();
+        $this->actingAs($branchAdmin)->get(route('users.edit', $auditor))->assertOk();
     }
 
     public function test_collector_has_no_access_to_user_management(): void

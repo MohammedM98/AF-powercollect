@@ -58,7 +58,7 @@
     "Stopped": "متوقف",
     "Super Admin always has every permission implicitly. Grant individual permissions to specific users here, independent of their role.": "يمتلك المدير العام جميع الصلاحيات ضمنيًا دائمًا. امنح صلاحيات فردية لمستخدمين محددين هنا، بغض النظر عن دورهم.",
     "This is a secure area of the application. Please confirm your password before continuing.": "هذه منطقة آمنة من التطبيق. الرجاء تأكيد كلمة المرور قبل المتابعة.",
-    "This user will be created as a Collector in your branch.": "سيتم إنشاء هذا المستخدم كمحصّل في فرعك.",
+    "This user will belong to your branch.": "سينتمي هذا المستخدم إلى فرعك.",
     "Update Password": "تحديث كلمة المرور",
     "Update your account's profile information.": "قم بتحديث معلومات ملفك الشخصي.",
     "User": "المستخدم",
@@ -71,6 +71,12 @@
     "Super Admin": "المدير العام",
     "Branch Admin": "مدير الفرع",
     "Collector": "محصّل",
+    "Data Entry": "مدخل بيانات",
+    "Financial Auditor": "مدقق مالي",
     "Manage Branches": "إدارة الفروع",
-    "Manage Users": "إدارة المستخدمين"
+    "Manage Users": "إدارة المستخدمين",
+    "Manage Subscribers": "إدارة المشتركين",
+    "Record Collections": "تسجيل التحصيلات",
+    "Confirm Collections": "تأكيد التحصيلات",
+    "View Collections": "عرض التحصيلات"
 }

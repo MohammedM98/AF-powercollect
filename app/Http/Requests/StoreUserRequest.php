@@ -22,11 +22,11 @@ class StoreUserRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * Branch Admins may only create Collectors within their own branch, and
-     * the form never offers them a role/branch choice — the controller
-     * forces both server-side. Validating 'role'/'branch_id' as required
-     * for a Branch Admin would reject every submission, since those fields
-     * are absent from their form.
+     * A Super Admin may assign any role and any branch. A Branch Admin may
+     * only assign the branch-level staff roles (Collector, Data Entry,
+     * Financial Auditor) — the controller forces branch_id to their own
+     * branch server-side regardless of what's submitted, so branch_id isn't
+     * validated for them at all.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -41,8 +41,11 @@ class StoreUserRequest extends FormRequest
         ];
 
         if ($actor->isSuperAdmin()) {
-            $rules['role'] = ['required', Rule::in([UserRole::BranchAdmin->value, UserRole::Collector->value])];
+            $assignable = [UserRole::BranchAdmin, ...UserRole::staffRoles()];
+            $rules['role'] = ['required', Rule::in(array_column($assignable, 'value'))];
             $rules['branch_id'] = ['required', Rule::exists('branches', 'id')];
+        } elseif ($actor->isBranchAdmin()) {
+            $rules['role'] = ['required', Rule::in(array_column(UserRole::staffRoles(), 'value'))];
         }
 
         return $rules;

@@ -21,8 +21,10 @@ class UpdateUserRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * Role/branch reassignment is only offered to Super Admins, and never
-     * for a target who is already a Super Admin.
+     * A Super Admin may reassign role/branch for any target except another
+     * Super Admin. A Branch Admin may reassign a staff member's role among
+     * the branch-level staff roles, but never their branch — branch_id
+     * isn't validated for them at all.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -39,8 +41,11 @@ class UpdateUserRequest extends FormRequest
         ];
 
         if ($actor->isSuperAdmin() && ! $target->isSuperAdmin()) {
-            $rules['role'] = ['required', Rule::in([UserRole::BranchAdmin->value, UserRole::Collector->value])];
+            $assignable = [UserRole::BranchAdmin, ...UserRole::staffRoles()];
+            $rules['role'] = ['required', Rule::in(array_column($assignable, 'value'))];
             $rules['branch_id'] = ['required', Rule::exists('branches', 'id')];
+        } elseif ($actor->isBranchAdmin()) {
+            $rules['role'] = ['required', Rule::in(array_column(UserRole::staffRoles(), 'value'))];
         }
 
         return $rules;

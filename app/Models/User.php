@@ -59,6 +59,16 @@ class User extends Authenticatable
         return $this->role === UserRole::Collector;
     }
 
+    public function isDataEntry(): bool
+    {
+        return $this->role === UserRole::DataEntry;
+    }
+
+    public function isFinancialAuditor(): bool
+    {
+        return $this->role === UserRole::FinancialAuditor;
+    }
+
     /**
      * Super Admins implicitly hold every permission; everyone else needs an
      * explicit grant recorded in the permission_user pivot.

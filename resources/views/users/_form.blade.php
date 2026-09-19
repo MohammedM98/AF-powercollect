@@ -25,18 +25,19 @@
     <x-text-input id="password_confirmation" name="password_confirmation" type="password" class="mt-1 block w-full" />
 </div>
 
-@if ($canChooseRole)
+@if (! empty($roleOptions))
     <div class="mt-4">
         <x-input-label for="role" :value="__('Role')" />
         <select id="role" name="role" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-            @foreach (\App\Enums\UserRole::cases() as $role)
-                @continue($role === \App\Enums\UserRole::SuperAdmin)
+            @foreach ($roleOptions as $role)
                 <option value="{{ $role->value }}" @selected(old('role', $user->role->value ?? '') === $role->value)>{{ __($role->label()) }}</option>
             @endforeach
         </select>
         <x-input-error :messages="$errors->get('role')" class="mt-2" />
     </div>
+@endif
 
+@if ($canChooseBranch)
     <div class="mt-4">
         <x-input-label for="branch_id" :value="__('Branch')" />
         @if ($branches->isEmpty())
@@ -52,7 +53,7 @@
         <x-input-error :messages="$errors->get('branch_id')" class="mt-2" />
     </div>
 @else
-    <p class="mt-4 text-sm text-gray-500">{{ __('This user will be created as a Collector in your branch.') }}</p>
+    <p class="mt-4 text-sm text-gray-500">{{ __('This user will belong to your branch.') }}</p>
 @endif
 
 <div class="mt-4 flex items-center">

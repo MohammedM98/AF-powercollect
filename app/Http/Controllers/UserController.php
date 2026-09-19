@@ -39,10 +39,13 @@ class UserController extends Controller
         $this->authorize('create', User::class);
 
         $actor = auth()->user();
-        $canChooseRole = $actor->isSuperAdmin();
-        $branches = $canChooseRole ? Branch::orderBy('name')->get() : collect();
+        $canChooseBranch = $actor->isSuperAdmin();
+        $branches = $canChooseBranch ? Branch::orderBy('name')->get() : collect();
+        $roleOptions = $actor->isSuperAdmin()
+            ? [UserRole::BranchAdmin, ...UserRole::staffRoles()]
+            : UserRole::staffRoles();
 
-        return view('users.create', compact('branches', 'canChooseRole'));
+        return view('users.create', compact('branches', 'canChooseBranch', 'roleOptions'));
     }
 
     /**
@@ -53,10 +56,10 @@ class UserController extends Controller
         $actor = auth()->user();
         $data = $request->validated();
 
-        // Branch Admins may only ever create Collectors within their own
-        // branch — force these regardless of what the request contains.
+        // A Branch Admin may choose the new user's role (among the staff
+        // roles), but never their branch — force it regardless of what the
+        // request contains.
         if ($actor->isBranchAdmin()) {
-            $data['role'] = UserRole::Collector->value;
             $data['branch_id'] = $actor->branch_id;
         }
 
@@ -75,10 +78,15 @@ class UserController extends Controller
         $this->authorize('update', $user);
 
         $actor = auth()->user();
-        $canChooseRole = $actor->isSuperAdmin() && ! $user->isSuperAdmin();
-        $branches = $actor->isSuperAdmin() ? Branch::orderBy('name')->get() : collect();
+        $canChooseBranch = $actor->isSuperAdmin();
+        $branches = $canChooseBranch ? Branch::orderBy('name')->get() : collect();
+        $roleOptions = match (true) {
+            $actor->isSuperAdmin() && ! $user->isSuperAdmin() => [UserRole::BranchAdmin, ...UserRole::staffRoles()],
+            $actor->isSuperAdmin() => [],
+            default => UserRole::staffRoles(),
+        };
 
-        return view('users.edit', compact('user', 'branches', 'canChooseRole'));
+        return view('users.edit', compact('user', 'branches', 'canChooseBranch', 'roleOptions'));
     }
 
     /**

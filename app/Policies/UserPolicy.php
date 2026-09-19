@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Enums\PermissionKey;
+use App\Enums\UserRole;
 use App\Models\User;
 
 class UserPolicy
@@ -51,7 +52,7 @@ class UserPolicy
         }
 
         return ($user->isBranchAdmin() || $user->hasPermission(PermissionKey::ManageUsers))
-            && $model->isCollector()
+            && in_array($model->role, UserRole::staffRoles(), true)
             && $model->branch_id === $user->branch_id;
     }
 

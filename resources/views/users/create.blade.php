@@ -9,7 +9,7 @@
         <div class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <form method="POST" action="{{ route('users.store') }}">
                 @csrf
-                @include('users._form', ['user' => null, 'branches' => $branches, 'canChooseRole' => $canChooseRole])
+                @include('users._form', ['user' => null, 'branches' => $branches, 'canChooseBranch' => $canChooseBranch, 'roleOptions' => $roleOptions])
 
                 <div class="mt-6 flex items-center gap-4">
                     <x-primary-button>{{ __('Save') }}</x-primary-button>

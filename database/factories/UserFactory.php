@@ -67,4 +67,24 @@ class UserFactory extends Factory
             'role' => UserRole::Collector,
         ]);
     }
+
+    /**
+     * Indicate that the user registers subscribers and enters readings.
+     */
+    public function dataEntry(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::DataEntry,
+        ]);
+    }
+
+    /**
+     * Indicate that the user confirms or rejects recorded collections.
+     */
+    public function financialAuditor(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::FinancialAuditor,
+        ]);
+    }
 }

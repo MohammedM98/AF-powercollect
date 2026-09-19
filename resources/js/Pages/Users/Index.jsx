@@ -1,7 +1,12 @@
+import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import UserModal from './UserModal';
 
-export default function Index({ users, canCreate, status }) {
+export default function Index({ users, canCreate, status, branches, canChooseBranch, createRoleOptions }) {
+    const [modalUser, setModalUser] = useState(null);
+    const [creating, setCreating] = useState(false);
+
     return (
         <AuthenticatedLayout
             header={
@@ -11,15 +16,15 @@ export default function Index({ users, canCreate, status }) {
                     </div>
                     {canCreate && (
                         <div className="shrink-0">
-                            <a
-                                href="/users/create"
+                            <button
+                                onClick={() => setCreating(true)}
                                 className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
                             >
                                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
                                 </svg>
                                 مستخدم جديد
-                            </a>
+                            </button>
                         </div>
                     )}
                 </>
@@ -64,9 +69,9 @@ export default function Index({ users, canCreate, status }) {
                                 </td>
                                 <td className="px-6 py-4 text-end">
                                     {user.canUpdate && (
-                                        <a href={`/users/${user.id}/edit`} className="font-medium text-brand-600 hover:underline">
+                                        <button onClick={() => setModalUser(user)} className="font-medium text-brand-600 hover:underline">
                                             تعديل
-                                        </a>
+                                        </button>
                                     )}
                                 </td>
                             </tr>
@@ -88,6 +93,31 @@ export default function Index({ users, canCreate, status }) {
                         </a>
                     )}
                 </div>
+            )}
+
+            <UserModal
+                show={creating}
+                onClose={() => setCreating(false)}
+                user={null}
+                branches={branches}
+                canChooseBranch={canChooseBranch}
+                roleOptions={createRoleOptions}
+            />
+
+            {/* Keyed by user id so switching who's being edited remounts the
+                form with fresh initial values — useForm() only captures its
+                initial data once, it won't pick up a changed `user` prop on
+                an already-mounted instance. */}
+            {modalUser && (
+                <UserModal
+                    key={modalUser.id}
+                    show
+                    onClose={() => setModalUser(null)}
+                    user={modalUser}
+                    branches={branches}
+                    canChooseBranch={canChooseBranch}
+                    roleOptions={modalUser.roleOptions}
+                />
             )}
         </AuthenticatedLayout>
     );

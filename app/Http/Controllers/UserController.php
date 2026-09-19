@@ -29,12 +29,9 @@ class UserController extends Controller
             ->orderBy('name')
             ->paginate(15)
             ->through(fn (User $user) => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'username' => $user->username,
+                ...$this->editableFields($user),
                 'roleLabel' => __($user->role->label()),
                 'branchName' => $user->branch?->name,
-                'is_active' => $user->is_active,
                 'canUpdate' => $actor->can('update', $user),
             ]);
 
@@ -42,6 +39,8 @@ class UserController extends Controller
             'users' => $users,
             'canCreate' => $actor->can('create', User::class),
             'status' => session('status'),
+            'createRoleOptions' => $this->roleOptionsFor(null),
+            ...$this->formOptions(),
         ]);
     }
 
@@ -52,20 +51,9 @@ class UserController extends Controller
     {
         $this->authorize('create', User::class);
 
-        $actor = auth()->user();
-        $canChooseBranch = $actor->isSuperAdmin();
-        $branches = $canChooseBranch ? Branch::orderBy('name')->get() : collect();
-        $roleOptions = $actor->isSuperAdmin()
-            ? [UserRole::BranchAdmin, ...UserRole::staffRoles()]
-            : UserRole::staffRoles();
-
         return Inertia::render('Users/Create', [
-            'branches' => $branches,
-            'canChooseBranch' => $canChooseBranch,
-            'roleOptions' => collect($roleOptions)->map(fn (UserRole $role) => [
-                'value' => $role->value,
-                'label' => __($role->label()),
-            ]),
+            ...$this->formOptions(),
+            'roleOptions' => $this->roleOptionsFor(null),
         ]);
     }
 
@@ -98,30 +86,10 @@ class UserController extends Controller
     {
         $this->authorize('update', $user);
 
-        $actor = auth()->user();
-        $canChooseBranch = $actor->isSuperAdmin();
-        $branches = $canChooseBranch ? Branch::orderBy('name')->get() : collect();
-        $roleOptions = match (true) {
-            $actor->isSuperAdmin() && ! $user->isSuperAdmin() => [UserRole::BranchAdmin, ...UserRole::staffRoles()],
-            $actor->isSuperAdmin() => [],
-            default => UserRole::staffRoles(),
-        };
-
         return Inertia::render('Users/Edit', [
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'username' => $user->username,
-                'role' => $user->role->value,
-                'branch_id' => $user->branch_id,
-                'is_active' => $user->is_active,
-            ],
-            'branches' => $branches,
-            'canChooseBranch' => $canChooseBranch,
-            'roleOptions' => collect($roleOptions)->map(fn (UserRole $role) => [
-                'value' => $role->value,
-                'label' => __($role->label()),
-            ]),
+            'user' => $this->editableFields($user),
+            ...$this->formOptions(),
+            'roleOptions' => $this->roleOptionsFor($user),
         ]);
     }
 
@@ -141,5 +109,62 @@ class UserController extends Controller
         $user->update($data);
 
         return redirect()->route('users.index')->with('status', 'user-updated');
+    }
+
+    /**
+     * A user's editable fields — used both for the dedicated edit page and
+     * for the edit modal's initial form data on the index page.
+     *
+     * @return array<string, mixed>
+     */
+    private function editableFields(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'username' => $user->username,
+            'role' => $user->role->value,
+            'branch_id' => $user->branch_id,
+            'is_active' => $user->is_active,
+            'roleOptions' => $this->roleOptionsFor($user),
+        ];
+    }
+
+    /**
+     * The branch options for the create/edit forms, and whether the actor
+     * may choose the branch themselves.
+     *
+     * @return array{branches: \Illuminate\Support\Collection, canChooseBranch: bool}
+     */
+    private function formOptions(): array
+    {
+        $actor = auth()->user();
+        $canChooseBranch = $actor->isSuperAdmin();
+
+        return [
+            'branches' => $canChooseBranch ? Branch::orderBy('name')->get() : collect(),
+            'canChooseBranch' => $canChooseBranch,
+        ];
+    }
+
+    /**
+     * The roles the current actor may assign, given the user being edited
+     * (or null when creating a new user).
+     */
+    private function roleOptionsFor(?User $user): \Illuminate\Support\Collection
+    {
+        $actor = auth()->user();
+
+        $roleOptions = match (true) {
+            $user === null => $actor->isSuperAdmin() ? [UserRole::BranchAdmin, ...UserRole::staffRoles()] : UserRole::staffRoles(),
+            $actor->isSuperAdmin() && ! $user->isSuperAdmin() => [UserRole::BranchAdmin, ...UserRole::staffRoles()],
+            $actor->isSuperAdmin() => [],
+            default => UserRole::staffRoles(),
+        };
+
+        return collect($roleOptions)->map(fn (UserRole $role) => [
+            'value' => $role->value,
+            'label' => __($role->label()),
+        ]);
     }
 }

@@ -7,19 +7,27 @@ use App\Http\Requests\UpdateBranchRequest;
 use App\Models\Branch;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class BranchController extends Controller
 {
     /**
      * Display a listing of the resource.
+     *
+     * Rendered with Inertia + React as a trial — every other view in the
+     * app is still Blade. See BranchController only; nothing else changed.
      */
-    public function index(): View
+    public function index(): InertiaResponse
     {
         $this->authorize('viewAny', Branch::class);
 
         $branches = Branch::orderBy('name')->paginate(15);
 
-        return view('branches.index', compact('branches'));
+        return Inertia::render('Branches/Index', [
+            'branches' => $branches,
+            'status' => session('status'),
+        ]);
     }
 
     /**

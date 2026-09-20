@@ -3,8 +3,10 @@
 namespace App\Http\Middleware;
 
 use App\Models\Branch;
+use App\Models\MeterBox;
 use App\Models\Permission;
 use App\Models\Subscriber;
+use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -56,6 +58,8 @@ class HandleInertiaRequests extends Middleware
                 'viewBranches' => $user->can('viewAny', Branch::class),
                 'viewSubscribers' => $user->can('viewAny', Subscriber::class),
                 'viewUsers' => $user->can('viewAny', User::class),
+                'viewTariffs' => $user->can('viewAny', Tariff::class),
+                'viewMeterBoxes' => $user->can('viewAny', MeterBox::class),
                 'manageSettings' => $user->can('manage', Permission::class),
             ] : null,
         ];

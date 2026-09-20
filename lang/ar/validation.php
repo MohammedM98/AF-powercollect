@@ -191,6 +191,10 @@ return [
         'subscription_date' => 'تاريخ الاشتراك',
         'charge_subscription_fee' => 'تحميل رسوم الاشتراك',
         'notes' => 'معلومات أخرى',
+        'category' => 'الفئة',
+        'rate' => 'السعر',
+        'box_number' => 'رقم الصندوق',
+        'area' => 'المنطقة',
     ],
 
 ];

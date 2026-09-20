@@ -2,27 +2,13 @@ import { useForm } from '@inertiajs/react';
 import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
-import MeterBoxForm from './MeterBoxForm';
+import AreaForm from './AreaForm';
 
-const BLANK = {
-    box_number: '',
-    area_id: '',
-    location: '',
-    branch_id: '',
-};
-
-export default function MeterBoxModal({ show, onClose, meterBox, branches, canChooseBranch, areas }) {
-    const isEdit = Boolean(meterBox);
+export default function AreaModal({ show, onClose, area }) {
+    const isEdit = Boolean(area);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(
-        isEdit
-            ? {
-                  box_number: meterBox.box_number,
-                  area_id: meterBox.area_id ?? '',
-                  location: meterBox.location ?? '',
-                  branch_id: meterBox.branch_id,
-              }
-            : BLANK,
+        isEdit ? { name: area.name } : { name: '' },
     );
 
     function close() {
@@ -37,9 +23,9 @@ export default function MeterBoxModal({ show, onClose, meterBox, branches, canCh
         const options = { preserveScroll: true, onSuccess: close };
 
         if (isEdit) {
-            put(`/meter-boxes/${meterBox.id}`, options);
+            put(`/areas/${area.id}`, options);
         } else {
-            post('/meter-boxes', options);
+            post('/areas', options);
         }
     }
 
@@ -54,11 +40,11 @@ export default function MeterBoxModal({ show, onClose, meterBox, branches, canCh
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     strokeWidth="1.5"
-                                    d="M3.75 3.75v16.5h16.5V3.75H3.75zM3.75 9h16.5M9 3.75v16.5"
+                                    d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"
                                 />
                             </svg>
                         </span>
-                        <h3 className="text-lg font-bold text-gray-900">{isEdit ? 'تعديل صندوق العداد' : 'إنشاء صندوق عداد'}</h3>
+                        <h3 className="text-lg font-bold text-gray-900">{isEdit ? 'تعديل المنطقة' : 'إنشاء منطقة'}</h3>
                     </div>
                     <button
                         type="button"
@@ -72,14 +58,7 @@ export default function MeterBoxModal({ show, onClose, meterBox, branches, canCh
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 py-5">
-                    <MeterBoxForm
-                        data={data}
-                        setData={setData}
-                        errors={errors}
-                        branches={branches}
-                        canChooseBranch={canChooseBranch}
-                        areas={areas}
-                    />
+                    <AreaForm data={data} setData={setData} errors={errors} />
                 </div>
 
                 <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">

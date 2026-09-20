@@ -30,7 +30,7 @@ class StoreMeterBoxRequest extends FormRequest
     {
         $rules = [
             'box_number' => ['required', 'string', 'max:255', Rule::unique('meter_boxes', 'box_number')],
-            'area' => ['nullable', 'string', 'max:255'],
+            'area_id' => ['nullable', Rule::exists('areas', 'id')],
             'location' => ['nullable', 'string', 'max:255'],
         ];
 

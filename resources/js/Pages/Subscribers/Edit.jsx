@@ -3,7 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SubscriberForm from './SubscriberForm';
 
-export default function Edit({ subscriber, branches, meterBoxes, tariffs, billingTypeOptions, canChooseBranch }) {
+export default function Edit({ subscriber, branches, meterBoxes, tariffs, areas, billingTypeOptions, canChooseBranch }) {
     const { data, setData, put, processing, errors } = useForm({
         full_name: subscriber.full_name,
         phone: subscriber.phone ?? '',
@@ -17,8 +17,8 @@ export default function Edit({ subscriber, branches, meterBoxes, tariffs, billin
         unit_price: subscriber.unit_price ?? '',
         minimum_charge: subscriber.minimum_charge ?? '',
         ampere_count: subscriber.ampere_count ?? '',
-        area_1: subscriber.area_1 ?? '',
-        area_2: subscriber.area_2 ?? '',
+        area_1_id: subscriber.area_1_id ?? '',
+        area_2_id: subscriber.area_2_id ?? '',
         customer_classification: subscriber.customer_classification ?? '',
         previous_reading: subscriber.previous_reading ?? '',
         subscription_fee: subscriber.subscription_fee ?? '',
@@ -46,6 +46,7 @@ export default function Edit({ subscriber, branches, meterBoxes, tariffs, billin
                             branches={branches}
                             meterBoxes={meterBoxes}
                             tariffs={tariffs}
+                            areas={areas}
                             billingTypeOptions={billingTypeOptions}
                             canChooseBranch={canChooseBranch}
                         />

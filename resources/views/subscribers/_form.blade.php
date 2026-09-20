@@ -57,15 +57,33 @@
     </div>
 
     <div>
-        <x-input-label for="area_1" :value="__('Area 1')" />
-        <x-text-input id="area_1" name="area_1" type="text" class="mt-1 block w-full" :value="old('area_1', $subscriber->area_1 ?? '')" />
-        <x-input-error :messages="$errors->get('area_1')" class="mt-1" />
+        <x-input-label for="area_1_id" :value="__('Area 1')" />
+        @if ($areas->isEmpty())
+            <p class="mt-1 text-sm text-gray-500">{{ __('No areas configured yet.') }}</p>
+        @else
+            <select id="area_1_id" name="area_1_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                <option value="">{{ __('— No Area —') }}</option>
+                @foreach ($areas as $area)
+                    <option value="{{ $area->id }}" @selected((string) old('area_1_id', $subscriber->area_1_id ?? '') === (string) $area->id)>{{ $area->name }}</option>
+                @endforeach
+            </select>
+        @endif
+        <x-input-error :messages="$errors->get('area_1_id')" class="mt-1" />
     </div>
 
     <div>
-        <x-input-label for="area_2" :value="__('Area 2')" />
-        <x-text-input id="area_2" name="area_2" type="text" class="mt-1 block w-full" :value="old('area_2', $subscriber->area_2 ?? '')" />
-        <x-input-error :messages="$errors->get('area_2')" class="mt-1" />
+        <x-input-label for="area_2_id" :value="__('Area 2')" />
+        @if ($areas->isEmpty())
+            <p class="mt-1 text-sm text-gray-500">{{ __('No areas configured yet.') }}</p>
+        @else
+            <select id="area_2_id" name="area_2_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                <option value="">{{ __('— No Area —') }}</option>
+                @foreach ($areas as $area)
+                    <option value="{{ $area->id }}" @selected((string) old('area_2_id', $subscriber->area_2_id ?? '') === (string) $area->id)>{{ $area->name }}</option>
+                @endforeach
+            </select>
+        @endif
+        <x-input-error :messages="$errors->get('area_2_id')" class="mt-1" />
     </div>
 
     <div>

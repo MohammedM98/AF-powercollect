@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\BillingType;
 use App\Http\Requests\StoreSubscriberRequest;
 use App\Http\Requests\UpdateSubscriberRequest;
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\MeterBox;
 use App\Models\Subscriber;
@@ -123,8 +124,8 @@ class SubscriberController extends Controller
             'unit_price' => $subscriber->unit_price,
             'minimum_charge' => $subscriber->minimum_charge,
             'ampere_count' => $subscriber->ampere_count,
-            'area_1' => $subscriber->area_1,
-            'area_2' => $subscriber->area_2,
+            'area_1_id' => $subscriber->area_1_id,
+            'area_2_id' => $subscriber->area_2_id,
             'customer_classification' => $subscriber->customer_classification,
             'previous_reading' => $subscriber->previous_reading,
             'subscription_fee' => $subscriber->subscription_fee,
@@ -138,7 +139,7 @@ class SubscriberController extends Controller
      * The branch/meter-box/tariff options for the create/edit forms, and
      * whether the actor may choose the branch themselves.
      *
-     * @return array{branches: \Illuminate\Support\Collection, meterBoxes: \Illuminate\Support\Collection, tariffs: \Illuminate\Support\Collection, canChooseBranch: bool}
+     * @return array{branches: \Illuminate\Support\Collection, meterBoxes: \Illuminate\Support\Collection, tariffs: \Illuminate\Support\Collection, areas: \Illuminate\Support\Collection, canChooseBranch: bool}
      */
     private function formOptions(): array
     {
@@ -172,6 +173,7 @@ class SubscriberController extends Controller
             'branches' => $branches,
             'meterBoxes' => $meterBoxes,
             'tariffs' => $tariffs,
+            'areas' => Area::orderBy('name')->get(),
             'canChooseBranch' => $canChooseBranch,
             'billingTypeOptions' => $billingTypeOptions,
         ];

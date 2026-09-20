@@ -3,7 +3,7 @@ import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import MeterBoxModal from './MeterBoxModal';
 
-export default function Index({ meterBoxes, status, branches, canChooseBranch }) {
+export default function Index({ meterBoxes, status, branches, canChooseBranch, areas }) {
     const [modalMeterBox, setModalMeterBox] = useState(null);
     const [creating, setCreating] = useState(false);
 
@@ -57,7 +57,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch })
                                     <td className="px-6 py-4 font-medium text-gray-900" dir="ltr">
                                         {meterBox.box_number}
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600">{meterBox.area}</td>
+                                    <td className="px-6 py-4 text-gray-600">{meterBox.areaName}</td>
                                     <td className="px-6 py-4 text-gray-600">{meterBox.location}</td>
                                     <td className="px-6 py-4 text-gray-600">{meterBox.branchName}</td>
                                     <td className="px-6 py-4 text-end">
@@ -93,6 +93,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch })
                 meterBox={null}
                 branches={branches}
                 canChooseBranch={canChooseBranch}
+                areas={areas}
             />
 
             {/* Keyed by meter box id so switching who's being edited remounts
@@ -107,6 +108,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch })
                     meterBox={modalMeterBox}
                     branches={branches}
                     canChooseBranch={canChooseBranch}
+                    areas={areas}
                 />
             )}
         </AuthenticatedLayout>

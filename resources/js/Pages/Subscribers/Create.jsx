@@ -3,7 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SubscriberForm from './SubscriberForm';
 
-export default function Create({ branches, meterBoxes, tariffs, billingTypeOptions, canChooseBranch }) {
+export default function Create({ branches, meterBoxes, tariffs, areas, billingTypeOptions, canChooseBranch }) {
     const { data, setData, post, processing, errors } = useForm({
         full_name: '',
         phone: '',
@@ -17,8 +17,8 @@ export default function Create({ branches, meterBoxes, tariffs, billingTypeOptio
         unit_price: '',
         minimum_charge: '',
         ampere_count: '',
-        area_1: '',
-        area_2: '',
+        area_1_id: '',
+        area_2_id: '',
         customer_classification: '',
         previous_reading: '',
         subscription_fee: '',
@@ -46,6 +46,7 @@ export default function Create({ branches, meterBoxes, tariffs, billingTypeOptio
                             branches={branches}
                             meterBoxes={meterBoxes}
                             tariffs={tariffs}
+                            areas={areas}
                             billingTypeOptions={billingTypeOptions}
                             canChooseBranch={canChooseBranch}
                         />

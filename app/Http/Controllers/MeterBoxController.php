@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreMeterBoxRequest;
 use App\Http\Requests\UpdateMeterBoxRequest;
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\MeterBox;
 use Illuminate\Http\RedirectResponse;
@@ -23,12 +24,13 @@ class MeterBoxController extends Controller
 
         $meterBoxes = MeterBox::query()
             ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('branch_id', $actor->branch_id))
-            ->with('branch')
+            ->with(['branch', 'area'])
             ->orderBy('box_number')
             ->paginate(15)
             ->through(fn (MeterBox $meterBox) => [
                 ...$this->editableFields($meterBox),
                 'branchName' => $meterBox->branch->name,
+                'areaName' => $meterBox->area?->name,
             ]);
 
         return Inertia::render('MeterBoxes/Index', [
@@ -102,7 +104,7 @@ class MeterBoxController extends Controller
             'id' => $meterBox->id,
             'box_number' => $meterBox->box_number,
             'branch_id' => $meterBox->branch_id,
-            'area' => $meterBox->area,
+            'area_id' => $meterBox->area_id,
             'location' => $meterBox->location,
         ];
     }
@@ -111,7 +113,7 @@ class MeterBoxController extends Controller
      * The branch options for the create/edit forms, and whether the actor
      * may choose the branch themselves.
      *
-     * @return array{branches: \Illuminate\Support\Collection, canChooseBranch: bool}
+     * @return array{branches: \Illuminate\Support\Collection, canChooseBranch: bool, areas: \Illuminate\Support\Collection}
      */
     private function formOptions(): array
     {
@@ -121,6 +123,7 @@ class MeterBoxController extends Controller
         return [
             'branches' => $canChooseBranch ? Branch::orderBy('name')->get() : collect(),
             'canChooseBranch' => $canChooseBranch,
+            'areas' => Area::orderBy('name')->get(),
         ];
     }
 }

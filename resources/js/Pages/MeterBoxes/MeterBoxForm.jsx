@@ -2,7 +2,7 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 
-export default function MeterBoxForm({ data, setData, errors, branches, canChooseBranch }) {
+export default function MeterBoxForm({ data, setData, errors, branches, canChooseBranch, areas }) {
     return (
         <>
             <div>
@@ -19,9 +19,25 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
             </div>
 
             <div className="mt-4">
-                <InputLabel htmlFor="area" value="المنطقة" />
-                <TextInput id="area" className="mt-1 block w-full" value={data.area} onChange={(e) => setData('area', e.target.value)} />
-                <InputError message={errors.area} className="mt-2" />
+                <InputLabel htmlFor="area_id" value="المنطقة" />
+                {areas.length === 0 ? (
+                    <p className="mt-1 text-sm text-gray-500">لا توجد مناطق بعد.</p>
+                ) : (
+                    <select
+                        id="area_id"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                        value={data.area_id}
+                        onChange={(e) => setData('area_id', e.target.value)}
+                    >
+                        <option value="">— بلا منطقة —</option>
+                        {areas.map((area) => (
+                            <option key={area.id} value={area.id}>
+                                {area.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
+                <InputError message={errors.area_id} className="mt-2" />
             </div>
 
             <div className="mt-4">

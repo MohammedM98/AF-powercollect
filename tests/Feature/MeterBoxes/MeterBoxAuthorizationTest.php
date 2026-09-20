@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\MeterBoxes;
 
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\MeterBox;
 use App\Models\User;
@@ -25,10 +26,11 @@ class MeterBoxAuthorizationTest extends TestCase
     {
         $superAdmin = User::factory()->superAdmin()->create();
         $branch = Branch::factory()->create();
+        $area = Area::factory()->create();
 
         $response = $this->actingAs($superAdmin)->post(route('meter-boxes.store'), [
             'box_number' => 'BOX-100',
-            'area' => 'Downtown',
+            'area_id' => $area->id,
             'location' => 'Main St',
             'branch_id' => $branch->id,
         ]);

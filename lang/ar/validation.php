@@ -183,8 +183,8 @@ return [
         'unit_price' => 'السعر',
         'minimum_charge' => 'الحد الادنى',
         'ampere_count' => 'عدد الامبير',
-        'area_1' => 'المنطقة 1',
-        'area_2' => 'المنطقة 2',
+        'area_1_id' => 'المنطقة 1',
+        'area_2_id' => 'المنطقة 2',
         'customer_classification' => 'تصنيف الزبائن',
         'previous_reading' => 'القراءة السابقة',
         'subscription_fee' => 'رسوم الاشتراك',
@@ -194,7 +194,7 @@ return [
         'category' => 'الفئة',
         'rate' => 'السعر',
         'box_number' => 'رقم الصندوق',
-        'area' => 'المنطقة',
+        'area_id' => 'المنطقة',
     ],
 
 ];

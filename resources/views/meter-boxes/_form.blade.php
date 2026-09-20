@@ -5,9 +5,18 @@
 </div>
 
 <div class="mt-4">
-    <x-input-label for="area" :value="__('Area')" />
-    <x-text-input id="area" name="area" type="text" class="mt-1 block w-full" :value="old('area', $meterBox->area ?? '')" />
-    <x-input-error :messages="$errors->get('area')" class="mt-2" />
+    <x-input-label for="area_id" :value="__('Area')" />
+    @if ($areas->isEmpty())
+        <p class="mt-1 text-sm text-gray-500">{{ __('No areas configured yet.') }}</p>
+    @else
+        <select id="area_id" name="area_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+            <option value="">{{ __('— No Area —') }}</option>
+            @foreach ($areas as $area)
+                <option value="{{ $area->id }}" @selected((string) old('area_id', $meterBox->area_id ?? '') === (string) $area->id)>{{ $area->name }}</option>
+            @endforeach
+        </select>
+    @endif
+    <x-input-error :messages="$errors->get('area_id')" class="mt-2" />
 </div>
 
 <div class="mt-4">

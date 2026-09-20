@@ -10,7 +10,7 @@
             <form method="POST" action="{{ route('subscribers.update', $subscriber) }}">
                 @csrf
                 @method('PUT')
-                @include('subscribers._form', ['subscriber' => $subscriber, 'branches' => $branches, 'meterBoxes' => $meterBoxes, 'tariffs' => $tariffs, 'canChooseBranch' => $canChooseBranch])
+                @include('subscribers._form', ['subscriber' => $subscriber, 'branches' => $branches, 'meterBoxes' => $meterBoxes, 'tariffs' => $tariffs, 'areas' => $areas, 'canChooseBranch' => $canChooseBranch])
 
                 <div class="mt-6 flex items-center gap-4">
                     <x-primary-button>{{ __('Save') }}</x-primary-button>

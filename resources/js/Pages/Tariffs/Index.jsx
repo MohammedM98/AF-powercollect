@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { formatCurrency } from '@/lib/currency';
 import TariffModal from './TariffModal';
 
 export default function Index({ tariffs, status, categoryOptions }) {
@@ -38,7 +39,7 @@ export default function Index({ tariffs, status, categoryOptions }) {
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
                             <th className="px-6 py-3">الفئة</th>
-                            <th className="px-6 py-3">السعر</th>
+                            <th className="px-6 py-3">السعر (₪)</th>
                             <th className="px-6 py-3"></th>
                         </tr>
                     </thead>
@@ -53,7 +54,9 @@ export default function Index({ tariffs, status, categoryOptions }) {
                             tariffs.data.map((tariff) => (
                                 <tr key={tariff.id}>
                                     <td className="px-6 py-4 font-medium text-gray-900">{tariff.categoryLabel}</td>
-                                    <td className="px-6 py-4 text-gray-600">{tariff.rate}</td>
+                                    <td className="px-6 py-4 text-gray-600" dir="ltr">
+                                        {formatCurrency(tariff.rate)}
+                                    </td>
                                     <td className="px-6 py-4 text-end">
                                         <button onClick={() => setModalTariff(tariff)} className="font-medium text-brand-600 hover:underline">
                                             تعديل

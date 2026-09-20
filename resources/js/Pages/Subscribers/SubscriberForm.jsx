@@ -22,7 +22,7 @@ function Field({ id, label, required, error, span = '', children }) {
     );
 }
 
-export default function SubscriberForm({ data, setData, errors, meterBoxes, tariffs, branches, billingTypeOptions, canChooseBranch }) {
+export default function SubscriberForm({ data, setData, errors, meterBoxes, tariffs, branches, areas, billingTypeOptions, canChooseBranch }) {
     return (
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field id="full_name" label="الاسم" required error={errors.full_name}>
@@ -62,7 +62,7 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 </select>
             </Field>
 
-            <Field id="unit_price" label="السعر" required error={errors.unit_price}>
+            <Field id="unit_price" label="السعر (₪)" required error={errors.unit_price}>
                 <TextInput
                     type="number"
                     step="0.01"
@@ -72,7 +72,7 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 />
             </Field>
 
-            <Field id="minimum_charge" label="الحد الادنى" required error={errors.minimum_charge}>
+            <Field id="minimum_charge" label="الحد الادنى (₪)" required error={errors.minimum_charge}>
                 <TextInput
                     type="number"
                     step="0.01"
@@ -100,12 +100,42 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 />
             </Field>
 
-            <Field id="area_1" label="المنطقة 1" error={errors.area_1}>
-                <TextInput className="block w-full" value={data.area_1} onChange={(e) => setData('area_1', e.target.value)} />
+            <Field id="area_1_id" label="المنطقة 1" error={errors.area_1_id}>
+                {areas.length === 0 ? (
+                    <p className="text-sm text-gray-500">لا توجد مناطق بعد.</p>
+                ) : (
+                    <select
+                        className="block w-full rounded-md border-gray-300 shadow-sm"
+                        value={data.area_1_id}
+                        onChange={(e) => setData('area_1_id', e.target.value)}
+                    >
+                        <option value="">---</option>
+                        {areas.map((area) => (
+                            <option key={area.id} value={area.id}>
+                                {area.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </Field>
 
-            <Field id="area_2" label="المنطقة 2" error={errors.area_2}>
-                <TextInput className="block w-full" value={data.area_2} onChange={(e) => setData('area_2', e.target.value)} />
+            <Field id="area_2_id" label="المنطقة 2" error={errors.area_2_id}>
+                {areas.length === 0 ? (
+                    <p className="text-sm text-gray-500">لا توجد مناطق بعد.</p>
+                ) : (
+                    <select
+                        className="block w-full rounded-md border-gray-300 shadow-sm"
+                        value={data.area_2_id}
+                        onChange={(e) => setData('area_2_id', e.target.value)}
+                    >
+                        <option value="">---</option>
+                        {areas.map((area) => (
+                            <option key={area.id} value={area.id}>
+                                {area.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </Field>
 
             <Field id="ampere_count" label="عدد الامبير" error={errors.ampere_count}>
@@ -177,7 +207,7 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 </select>
             </Field>
 
-            <Field id="subscription_fee" label="رسوم الاشتراك" error={errors.subscription_fee}>
+            <Field id="subscription_fee" label="رسوم الاشتراك (₪)" error={errors.subscription_fee}>
                 <TextInput
                     type="number"
                     step="0.01"

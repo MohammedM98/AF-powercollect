@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\MeterBox;
 use App\Models\Permission;
@@ -60,6 +61,7 @@ class HandleInertiaRequests extends Middleware
                 'viewUsers' => $user->can('viewAny', User::class),
                 'viewTariffs' => $user->can('viewAny', Tariff::class),
                 'viewMeterBoxes' => $user->can('viewAny', MeterBox::class),
+                'viewAreas' => $user->can('viewAny', Area::class),
                 'manageSettings' => $user->can('manage', Permission::class),
             ] : null,
         ];

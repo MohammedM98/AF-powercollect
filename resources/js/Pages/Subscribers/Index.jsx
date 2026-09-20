@@ -9,11 +9,11 @@ const STATUS_STYLES = {
     disconnected: 'bg-gray-100 text-gray-500',
 };
 
-export default function Index({ subscribers, canCreate, status, branches, meterBoxes, tariffs, billingTypeOptions, canChooseBranch }) {
+export default function Index({ subscribers, canCreate, status, branches, meterBoxes, tariffs, areas, billingTypeOptions, canChooseBranch }) {
     const [modalSubscriber, setModalSubscriber] = useState(null);
     const [creating, setCreating] = useState(false);
 
-    const modalProps = { branches, meterBoxes, tariffs, billingTypeOptions, canChooseBranch };
+    const modalProps = { branches, meterBoxes, tariffs, areas, billingTypeOptions, canChooseBranch };
 
     return (
         <AuthenticatedLayout

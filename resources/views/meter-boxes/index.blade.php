@@ -33,7 +33,7 @@
                 @forelse ($meterBoxes as $meterBox)
                     <tr>
                         <td class="px-6 py-4 font-medium text-gray-900" dir="ltr">{{ $meterBox->box_number }}</td>
-                        <td class="px-6 py-4 text-gray-600">{{ $meterBox->area }}</td>
+                        <td class="px-6 py-4 text-gray-600">{{ $meterBox->area?->name }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $meterBox->location }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $meterBox->branch->name }}</td>
                         <td class="px-6 py-4 text-end">

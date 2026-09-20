@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['box_number', 'branch_id', 'area', 'location'])]
+#[Fillable(['box_number', 'branch_id', 'area_id', 'location'])]
 class MeterBox extends Model
 {
     /** @use HasFactory<MeterBoxFactory> */
@@ -18,6 +18,11 @@ class MeterBox extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
     }
 
     public function subscribers(): HasMany

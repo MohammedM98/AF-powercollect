@@ -23,7 +23,7 @@ export default function TariffForm({ data, setData, errors, categoryOptions }) {
             </div>
 
             <div className="mt-4">
-                <InputLabel htmlFor="rate" value="السعر" />
+                <InputLabel htmlFor="rate" value="السعر (₪)" />
                 <TextInput
                     id="rate"
                     type="number"

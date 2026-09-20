@@ -17,8 +17,8 @@ const BLANK = {
     unit_price: '',
     minimum_charge: '',
     ampere_count: '',
-    area_1: '',
-    area_2: '',
+    area_1_id: '',
+    area_2_id: '',
     customer_classification: '',
     previous_reading: '',
     subscription_fee: '',
@@ -27,7 +27,7 @@ const BLANK = {
     notes: '',
 };
 
-export default function SubscriberModal({ show, onClose, subscriber, branches, meterBoxes, tariffs, billingTypeOptions, canChooseBranch }) {
+export default function SubscriberModal({ show, onClose, subscriber, branches, meterBoxes, tariffs, areas, billingTypeOptions, canChooseBranch }) {
     const isEdit = Boolean(subscriber);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(
@@ -45,8 +45,8 @@ export default function SubscriberModal({ show, onClose, subscriber, branches, m
                   unit_price: subscriber.unit_price ?? '',
                   minimum_charge: subscriber.minimum_charge ?? '',
                   ampere_count: subscriber.ampere_count ?? '',
-                  area_1: subscriber.area_1 ?? '',
-                  area_2: subscriber.area_2 ?? '',
+                  area_1_id: subscriber.area_1_id ?? '',
+                  area_2_id: subscriber.area_2_id ?? '',
                   customer_classification: subscriber.customer_classification ?? '',
                   previous_reading: subscriber.previous_reading ?? '',
                   subscription_fee: subscriber.subscription_fee ?? '',
@@ -111,6 +111,7 @@ export default function SubscriberModal({ show, onClose, subscriber, branches, m
                         branches={branches}
                         meterBoxes={meterBoxes}
                         tariffs={tariffs}
+                        areas={areas}
                         billingTypeOptions={billingTypeOptions}
                         canChooseBranch={canChooseBranch}
                     />

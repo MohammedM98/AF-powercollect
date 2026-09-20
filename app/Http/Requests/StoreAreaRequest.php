@@ -26,6 +26,7 @@ class StoreAreaRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('areas', 'name')],
+            'governorate_id' => ['nullable', Rule::exists('governorates', 'id')],
         ];
     }
 }

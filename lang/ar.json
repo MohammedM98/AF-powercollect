@@ -144,5 +144,17 @@
     "Area updated.": "تم تحديث المنطقة.",
     "No areas configured yet.": "لا توجد مناطق بعد.",
     "— No Area —": "— بلا منطقة —",
-    "— Select Area —": "— اختر منطقة —"
+    "— Select Area —": "— اختر منطقة —",
+    "Governorate": "المحافظة",
+    "Governorates": "المحافظات",
+    "Manage Governorates": "إدارة المحافظات",
+    "New Governorate": "محافظة جديدة",
+    "Create Governorate": "إنشاء محافظة",
+    "Edit Governorate": "تعديل المحافظة",
+    "Governorate created.": "تم إنشاء المحافظة.",
+    "Governorate updated.": "تم تحديث المحافظة.",
+    "No governorates configured yet.": "لا توجد محافظات بعد.",
+    "— No Governorate —": "— بلا محافظة —",
+    "Check every area that belongs to this governorate.": "حدد كل منطقة تابعة لهذه المحافظة.",
+    "currently in :governorate": "حاليًا في :governorate"
 }

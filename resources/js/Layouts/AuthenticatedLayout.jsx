@@ -131,6 +131,20 @@ export default function AuthenticatedLayout({ header, children }) {
                         </NavLink>
                     )}
 
+                    {can?.viewGovernorates && (
+                        <NavLink href="/governorates" active={url.startsWith('/governorates')}>
+                            المحافظات
+                            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="1.5"
+                                    d="M2.25 21h19.5M6.75 21V6.75A2.25 2.25 0 019 4.5h6a2.25 2.25 0 012.25 2.25V21M9 8.25h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15"
+                                />
+                            </svg>
+                        </NavLink>
+                    )}
+
                     {can?.manageSettings && (
                         <NavLink href="/settings/permissions" active={url.startsWith('/settings')}>
                             الإعدادات

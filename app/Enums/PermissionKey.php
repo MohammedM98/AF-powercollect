@@ -10,6 +10,7 @@ enum PermissionKey: string
     case ManageTariffs = 'tariffs.manage';
     case ManageMeterBoxes = 'meter_boxes.manage';
     case ManageAreas = 'areas.manage';
+    case ManageGovernorates = 'governorates.manage';
     case RecordCollections = 'collections.record';
     case ConfirmCollections = 'collections.confirm';
     case ViewCollections = 'collections.view';
@@ -23,6 +24,7 @@ enum PermissionKey: string
             self::ManageTariffs => 'Manage Tariffs',
             self::ManageMeterBoxes => 'Manage Meter Boxes',
             self::ManageAreas => 'Manage Areas',
+            self::ManageGovernorates => 'Manage Governorates',
             self::RecordCollections => 'Record Collections',
             self::ConfirmCollections => 'Confirm Collections',
             self::ViewCollections => 'View Collections',

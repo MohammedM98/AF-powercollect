@@ -23,20 +23,22 @@
             <thead class="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
                     <th class="px-6 py-3">{{ __('Name') }}</th>
+                    <th class="px-6 py-3">{{ __('Governorate') }}</th>
                     <th class="px-6 py-3"></th>
                 </tr>
             </thead>
             <tbody class="divide-y">
                 @forelse ($areas as $area)
                     <tr>
-                        <td class="px-6 py-4 font-medium text-gray-900">{{ $area->name }}</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">{{ $area['name'] }}</td>
+                        <td class="px-6 py-4 text-gray-600">{{ $area['governorateName'] ?? '—' }}</td>
                         <td class="px-6 py-4 text-end">
-                            <a href="{{ route('areas.edit', $area) }}" class="font-medium text-brand-600 hover:underline">{{ __('Edit') }}</a>
+                            <a href="{{ route('areas.edit', $area['id']) }}" class="font-medium text-brand-600 hover:underline">{{ __('Edit') }}</a>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td class="px-6 py-4 text-gray-500" colspan="2">{{ __('No areas configured yet.') }}</td>
+                        <td class="px-6 py-4 text-gray-500" colspan="3">{{ __('No areas configured yet.') }}</td>
                     </tr>
                 @endforelse
             </tbody>

@@ -123,6 +123,17 @@
                 </a>
             @endcan
 
+            @can('viewAny', App\Models\Governorate::class)
+                <a href="{{ route('governorates.index') }}"
+                   class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition
+                          {{ request()->routeIs('governorates.*') ? 'bg-brand-600 text-white shadow-sm' : 'text-violet-200 hover:bg-white/5 hover:text-white' }}">
+                    {{ __('Governorates') }}
+                    <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 21h19.5M6.75 21V6.75A2.25 2.25 0 019 4.5h6a2.25 2.25 0 012.25 2.25V21M9 8.25h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15" />
+                    </svg>
+                </a>
+            @endcan
+
             @can('manage', App\Models\Permission::class)
                 <a href="{{ route('settings.permissions.edit') }}"
                    class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition

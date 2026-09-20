@@ -6,6 +6,7 @@ use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreAreaRequest;
 use App\Http\Requests\UpdateAreaRequest;
 use App\Models\Area;
+use App\Models\Governorate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -24,17 +25,21 @@ class AreaController extends Controller
     {
         $this->authorize('viewAny', Area::class);
 
-        $query = Area::query();
+        $query = Area::query()->with('governorate');
         $this->applyDataTableFilters($query, $request, ['name'], self::SORTABLE, 'name');
 
         $areas = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
-            ->through(fn (Area $area) => $this->editableFields($area));
+            ->through(fn (Area $area) => [
+                ...$this->editableFields($area),
+                'governorateName' => $area->governorate?->name,
+            ]);
 
         return Inertia::render('Areas/Index', [
             'areas' => $areas,
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
+            'governorates' => Governorate::orderBy('name')->get(),
         ]);
     }
 
@@ -45,7 +50,9 @@ class AreaController extends Controller
     {
         $this->authorize('create', Area::class);
 
-        return Inertia::render('Areas/Create');
+        return Inertia::render('Areas/Create', [
+            'governorates' => Governorate::orderBy('name')->get(),
+        ]);
     }
 
     /**
@@ -67,6 +74,7 @@ class AreaController extends Controller
 
         return Inertia::render('Areas/Edit', [
             'area' => $this->editableFields($area),
+            'governorates' => Governorate::orderBy('name')->get(),
         ]);
     }
 
@@ -91,6 +99,7 @@ class AreaController extends Controller
         return [
             'id' => $area->id,
             'name' => $area->name,
+            'governorate_id' => $area->governorate_id,
         ];
     }
 }

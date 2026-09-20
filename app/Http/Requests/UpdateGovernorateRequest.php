@@ -6,14 +6,14 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateAreaRequest extends FormRequest
+class UpdateGovernorateRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
-        return $this->user()->can('update', $this->route('area'));
+        return $this->user()->can('update', $this->route('governorate'));
     }
 
     /**
@@ -24,8 +24,9 @@ class UpdateAreaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255', Rule::unique('areas', 'name')->ignore($this->route('area'))],
-            'governorate_id' => ['nullable', Rule::exists('governorates', 'id')],
+            'name' => ['required', 'string', 'max:255', Rule::unique('governorates', 'name')->ignore($this->route('governorate'))],
+            'area_ids' => ['nullable', 'array'],
+            'area_ids.*' => [Rule::exists('areas', 'id')],
         ];
     }
 }

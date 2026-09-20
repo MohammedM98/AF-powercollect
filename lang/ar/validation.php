@@ -195,6 +195,8 @@ return [
         'rate' => 'السعر',
         'box_number' => 'رقم الصندوق',
         'area_id' => 'المنطقة',
+        'governorate_id' => 'المحافظة',
+        'area_ids' => 'المناطق',
     ],
 
 ];

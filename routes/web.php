@@ -3,6 +3,7 @@
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GovernorateController;
 use App\Http\Controllers\MeterBoxController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
@@ -28,6 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('tariffs', TariffController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('meter-boxes', MeterBoxController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('areas', AreaController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::resource('governorates', GovernorateController::class)->only(['index', 'create', 'store', 'edit', 'update']);
 
     Route::get('/settings/permissions', [PermissionController::class, 'edit'])->name('settings.permissions.edit');
     Route::put('/settings/permissions', [PermissionController::class, 'update'])->name('settings.permissions.update');

@@ -2,13 +2,21 @@ import { useForm } from '@inertiajs/react';
 import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
-import AreaForm from './AreaForm';
+import GovernorateForm from './GovernorateForm';
 
-export default function AreaModal({ show, onClose, area, governorates }) {
-    const isEdit = Boolean(area);
+export default function GovernorateModal({ show, onClose, governorate, areas }) {
+    const isEdit = Boolean(governorate);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(
-        isEdit ? { name: area.name, governorate_id: area.governorate_id ?? '' } : { name: '', governorate_id: '' },
+        isEdit
+            ? {
+                  name: governorate.name,
+                  area_ids: governorate.area_ids,
+              }
+            : {
+                  name: '',
+                  area_ids: [],
+              },
     );
 
     function close() {
@@ -23,9 +31,9 @@ export default function AreaModal({ show, onClose, area, governorates }) {
         const options = { preserveScroll: true, onSuccess: close };
 
         if (isEdit) {
-            put(`/areas/${area.id}`, options);
+            put(`/governorates/${governorate.id}`, options);
         } else {
-            post('/areas', options);
+            post('/governorates', options);
         }
     }
 
@@ -40,11 +48,11 @@ export default function AreaModal({ show, onClose, area, governorates }) {
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     strokeWidth="1.5"
-                                    d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"
+                                    d="M2.25 21h19.5M6.75 21V6.75A2.25 2.25 0 019 4.5h6a2.25 2.25 0 012.25 2.25V21M9 8.25h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15"
                                 />
                             </svg>
                         </span>
-                        <h3 className="text-lg font-bold text-gray-900">{isEdit ? 'تعديل المنطقة' : 'إنشاء منطقة'}</h3>
+                        <h3 className="text-lg font-bold text-gray-900">{isEdit ? 'تعديل المحافظة' : 'إنشاء محافظة'}</h3>
                     </div>
                     <button
                         type="button"
@@ -58,7 +66,7 @@ export default function AreaModal({ show, onClose, area, governorates }) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 py-5">
-                    <AreaForm data={data} setData={setData} errors={errors} governorates={governorates} />
+                    <GovernorateForm data={data} setData={setData} errors={errors} areas={areas} currentGovernorateName={governorate?.name} />
                 </div>
 
                 <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">

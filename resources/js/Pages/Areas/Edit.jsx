@@ -3,9 +3,10 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import AreaForm from './AreaForm';
 
-export default function Edit({ area }) {
+export default function Edit({ area, governorates }) {
     const { data, setData, put, processing, errors } = useForm({
         name: area.name,
+        governorate_id: area.governorate_id ?? '',
     });
 
     function submit(e) {
@@ -20,7 +21,7 @@ export default function Edit({ area }) {
             <div className="max-w-2xl">
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                     <form onSubmit={submit}>
-                        <AreaForm data={data} setData={setData} errors={errors} />
+                        <AreaForm data={data} setData={setData} errors={errors} governorates={governorates} />
 
                         <div className="mt-6 flex items-center gap-4">
                             <PrimaryButton disabled={processing}>حفظ</PrimaryButton>

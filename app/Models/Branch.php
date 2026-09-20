@@ -6,9 +6,10 @@ use Database\Factories\BranchFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'location', 'phone', 'is_active'])]
+#[Fillable(['name', 'location', 'phone', 'is_active', 'governorate_id'])]
 class Branch extends Model
 {
     /** @use HasFactory<BranchFactory> */
@@ -19,6 +20,11 @@ class Branch extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    public function governorate(): BelongsTo
+    {
+        return $this->belongsTo(Governorate::class);
     }
 
     public function users(): HasMany

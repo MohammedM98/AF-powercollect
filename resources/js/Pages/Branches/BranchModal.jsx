@@ -9,9 +9,10 @@ const BLANK = {
     location: '',
     phone: '',
     is_active: true,
+    governorate_id: '',
 };
 
-export default function BranchModal({ show, onClose, branch }) {
+export default function BranchModal({ show, onClose, branch, governorates }) {
     const isEdit = Boolean(branch);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(
@@ -21,6 +22,7 @@ export default function BranchModal({ show, onClose, branch }) {
                   location: branch.location ?? '',
                   phone: branch.phone ?? '',
                   is_active: branch.is_active,
+                  governorate_id: branch.governorate_id ?? '',
               }
             : BLANK,
     );
@@ -72,7 +74,7 @@ export default function BranchModal({ show, onClose, branch }) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 py-5">
-                    <BranchForm data={data} setData={setData} errors={errors} />
+                    <BranchForm data={data} setData={setData} errors={errors} governorates={governorates} />
                 </div>
 
                 <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">

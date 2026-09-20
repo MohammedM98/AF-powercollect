@@ -25,6 +25,7 @@
                     <th class="px-6 py-3">{{ __('Name') }}</th>
                     <th class="px-6 py-3">{{ __('Location') }}</th>
                     <th class="px-6 py-3">{{ __('Phone') }}</th>
+                    <th class="px-6 py-3">{{ __('Governorate') }}</th>
                     <th class="px-6 py-3">{{ __('Status') }}</th>
                     <th class="px-6 py-3"></th>
                 </tr>
@@ -35,6 +36,7 @@
                         <td class="px-6 py-4 font-medium text-gray-900">{{ $branch->name }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $branch->location }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $branch->phone }}</td>
+                        <td class="px-6 py-4 text-gray-600">{{ $branch->governorate?->name ?? '—' }}</td>
                         <td class="px-6 py-4">
                             @if ($branch->is_active)
                                 <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">{{ __('Active') }}</span>

@@ -6,6 +6,7 @@ use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreBranchRequest;
 use App\Http\Requests\UpdateBranchRequest;
 use App\Models\Branch;
+use App\Models\Governorate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -24,7 +25,7 @@ class BranchController extends Controller
     {
         $this->authorize('viewAny', Branch::class);
 
-        $query = Branch::query();
+        $query = Branch::query()->with('governorate');
         $this->applyDataTableFilters($query, $request, ['name', 'location', 'phone'], self::SORTABLE, 'name');
 
         $branches = $query->paginate($this->dataTablePerPage($request))->withQueryString();
@@ -33,6 +34,7 @@ class BranchController extends Controller
             'branches' => $branches,
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
+            'governorates' => Governorate::orderBy('name')->get(),
         ]);
     }
 
@@ -43,7 +45,9 @@ class BranchController extends Controller
     {
         $this->authorize('create', Branch::class);
 
-        return Inertia::render('Branches/Create');
+        return Inertia::render('Branches/Create', [
+            'governorates' => Governorate::orderBy('name')->get(),
+        ]);
     }
 
     /**
@@ -63,7 +67,10 @@ class BranchController extends Controller
     {
         $this->authorize('update', $branch);
 
-        return Inertia::render('Branches/Edit', ['branch' => $branch]);
+        return Inertia::render('Branches/Edit', [
+            'branch' => $branch,
+            'governorates' => Governorate::orderBy('name')->get(),
+        ]);
     }
 
     /**

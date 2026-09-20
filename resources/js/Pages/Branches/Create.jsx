@@ -3,12 +3,13 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import BranchForm from './BranchForm';
 
-export default function Create() {
+export default function Create({ governorates }) {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         location: '',
         phone: '',
         is_active: true,
+        governorate_id: '',
     });
 
     function submit(e) {
@@ -23,7 +24,7 @@ export default function Create() {
             <div className="max-w-2xl">
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                     <form onSubmit={submit}>
-                        <BranchForm data={data} setData={setData} errors={errors} />
+                        <BranchForm data={data} setData={setData} errors={errors} governorates={governorates} />
 
                         <div className="mt-6 flex items-center gap-4">
                             <PrimaryButton disabled={processing}>حفظ</PrimaryButton>

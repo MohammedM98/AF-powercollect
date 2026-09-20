@@ -3,6 +3,7 @@
 namespace Tests\Feature\Branches;
 
 use App\Models\Branch;
+use App\Models\Governorate;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -18,6 +19,23 @@ class BranchAuthorizationTest extends TestCase
         $this->actingAs($superAdmin)
             ->get(route('branches.index'))
             ->assertOk();
+    }
+
+    public function test_super_admin_can_link_a_branch_to_a_governorate(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $governorate = Governorate::factory()->create();
+
+        $response = $this->actingAs($superAdmin)->post(route('branches.store'), [
+            'name' => 'Downtown Branch',
+            'governorate_id' => $governorate->id,
+        ]);
+
+        $response->assertRedirect(route('branches.index'));
+        $this->assertDatabaseHas('branches', [
+            'name' => 'Downtown Branch',
+            'governorate_id' => $governorate->id,
+        ]);
     }
 
     public function test_super_admin_can_create_a_branch(): void

@@ -7,7 +7,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import BranchModal from './BranchModal';
 
-export default function Index({ branches, status, filters }) {
+export default function Index({ branches, status, filters, governorates }) {
     const [modalBranch, setModalBranch] = useState(null);
     const [creating, setCreating] = useState(false);
     const { search, setSearch, sort, setPerPage } = useDataTable('/branches', filters);
@@ -58,6 +58,7 @@ export default function Index({ branches, status, filters }) {
                             <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
                             <SortableTh column="location" label="الموقع" sortState={filters} onSort={sort} />
                             <SortableTh column="phone" label="الهاتف" sortState={filters} onSort={sort} />
+                            <th className="px-6 py-3">المحافظة</th>
                             <SortableTh column="is_active" label="الحالة" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3"></th>
                         </tr>
@@ -65,7 +66,7 @@ export default function Index({ branches, status, filters }) {
                     <tbody className="divide-y">
                         {branches.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={5}>
+                                <td className="px-6 py-4 text-gray-500" colSpan={6}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
@@ -75,6 +76,7 @@ export default function Index({ branches, status, filters }) {
                                     <td className="px-6 py-4 font-medium text-gray-900">{branch.name}</td>
                                     <td className="px-6 py-4 text-gray-600">{branch.location}</td>
                                     <td className="px-6 py-4 text-gray-600">{branch.phone}</td>
+                                    <td className="px-6 py-4 text-gray-600">{branch.governorate?.name ?? '—'}</td>
                                     <td className="px-6 py-4">
                                         {branch.is_active ? (
                                             <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
@@ -100,14 +102,20 @@ export default function Index({ branches, status, filters }) {
 
             <Pagination meta={branches} filters={filters} baseUrl="/branches" />
 
-            <BranchModal show={creating} onClose={() => setCreating(false)} branch={null} />
+            <BranchModal show={creating} onClose={() => setCreating(false)} branch={null} governorates={governorates} />
 
             {/* Keyed by branch id so switching who's being edited remounts
                 the form with fresh initial values — useForm() only captures
                 its initial data once, it won't pick up a changed `branch`
                 prop on an already-mounted instance. */}
             {modalBranch && (
-                <BranchModal key={modalBranch.id} show onClose={() => setModalBranch(null)} branch={modalBranch} />
+                <BranchModal
+                    key={modalBranch.id}
+                    show
+                    onClose={() => setModalBranch(null)}
+                    branch={modalBranch}
+                    governorates={governorates}
+                />
             )}
         </AuthenticatedLayout>
     );

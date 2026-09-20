@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import SortableTh from '@/Components/DataTable/SortableTh';
+import Pagination from '@/Components/DataTable/Pagination';
+import { useDataTable } from '@/hooks/useDataTable';
 import BranchModal from './BranchModal';
 
-export default function Index({ branches, status }) {
+export default function Index({ branches, status, filters }) {
     const [modalBranch, setModalBranch] = useState(null);
     const [creating, setCreating] = useState(false);
+    const { search, setSearch, sort, setPerPage } = useDataTable('/branches', filters);
 
     return (
         <AuthenticatedLayout
@@ -37,59 +42,63 @@ export default function Index({ branches, status }) {
                 <div className="mb-4 text-sm font-medium text-green-600">تم تحديث الفرع.</div>
             )}
 
-            <div className="mb-4 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-4 py-2 text-xs font-medium text-brand-700">
-                تجربة React عبر Inertia — بقية النظام لا يزال Blade.
-            </div>
+            <DataTableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="بحث بالاسم أو الموقع أو الهاتف..."
+                perPage={filters.per_page}
+                onPerPageChange={setPerPage}
+                total={branches.total}
+            />
 
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
                 <table className="w-full text-sm text-start">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
-                            <th className="px-6 py-3">الاسم</th>
-                            <th className="px-6 py-3">الموقع</th>
-                            <th className="px-6 py-3">الهاتف</th>
-                            <th className="px-6 py-3">الحالة</th>
+                            <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
+                            <SortableTh column="location" label="الموقع" sortState={filters} onSort={sort} />
+                            <SortableTh column="phone" label="الهاتف" sortState={filters} onSort={sort} />
+                            <SortableTh column="is_active" label="الحالة" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y">
-                        {branches.data.map((branch) => (
-                            <tr key={branch.id}>
-                                <td className="px-6 py-4 font-medium text-gray-900">{branch.name}</td>
-                                <td className="px-6 py-4 text-gray-600">{branch.location}</td>
-                                <td className="px-6 py-4 text-gray-600">{branch.phone}</td>
-                                <td className="px-6 py-4">
-                                    {branch.is_active ? (
-                                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">نشط</span>
-                                    ) : (
-                                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">متوقف</span>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4 text-end">
-                                    <button onClick={() => setModalBranch(branch)} className="font-medium text-brand-600 hover:underline">
-                                        تعديل
-                                    </button>
+                        {branches.data.length === 0 ? (
+                            <tr>
+                                <td className="px-6 py-4 text-gray-500" colSpan={5}>
+                                    لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
-                        ))}
+                        ) : (
+                            branches.data.map((branch) => (
+                                <tr key={branch.id} className="transition hover:bg-gray-50">
+                                    <td className="px-6 py-4 font-medium text-gray-900">{branch.name}</td>
+                                    <td className="px-6 py-4 text-gray-600">{branch.location}</td>
+                                    <td className="px-6 py-4 text-gray-600">{branch.phone}</td>
+                                    <td className="px-6 py-4">
+                                        {branch.is_active ? (
+                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                                نشط
+                                            </span>
+                                        ) : (
+                                            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">
+                                                متوقف
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 text-end">
+                                        <button onClick={() => setModalBranch(branch)} className="font-medium text-brand-600 hover:underline">
+                                            تعديل
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>
 
-            {(branches.prev_page_url || branches.next_page_url) && (
-                <div className="mt-4 flex items-center gap-4 text-sm">
-                    {branches.prev_page_url && (
-                        <a href={branches.prev_page_url} className="font-medium text-brand-600 hover:underline">
-                            السابق
-                        </a>
-                    )}
-                    {branches.next_page_url && (
-                        <a href={branches.next_page_url} className="font-medium text-brand-600 hover:underline">
-                            التالي
-                        </a>
-                    )}
-                </div>
-            )}
+            <Pagination meta={branches} filters={filters} baseUrl="/branches" />
 
             <BranchModal show={creating} onClose={() => setCreating(false)} branch={null} />
 

@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import SortableTh from '@/Components/DataTable/SortableTh';
+import Pagination from '@/Components/DataTable/Pagination';
+import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
 import TariffModal from './TariffModal';
 
-export default function Index({ tariffs, status, categoryOptions }) {
+export default function Index({ tariffs, status, categoryOptions, filters }) {
     const [modalTariff, setModalTariff] = useState(null);
     const [creating, setCreating] = useState(false);
+    const { setPerPage, sort } = useDataTable('/tariffs', filters);
 
     return (
         <AuthenticatedLayout
@@ -34,12 +39,14 @@ export default function Index({ tariffs, status, categoryOptions }) {
             {status === 'tariff-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء التعرفة.</div>}
             {status === 'tariff-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث التعرفة.</div>}
 
+            <DataTableToolbar showSearch={false} perPage={filters.per_page} onPerPageChange={setPerPage} total={tariffs.total} />
+
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
                 <table className="w-full text-sm text-start">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
-                            <th className="px-6 py-3">الفئة</th>
-                            <th className="px-6 py-3">السعر (₪)</th>
+                            <SortableTh column="category" label="الفئة" sortState={filters} onSort={sort} />
+                            <SortableTh column="rate" label="السعر (₪)" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3"></th>
                         </tr>
                     </thead>
@@ -52,7 +59,7 @@ export default function Index({ tariffs, status, categoryOptions }) {
                             </tr>
                         ) : (
                             tariffs.data.map((tariff) => (
-                                <tr key={tariff.id}>
+                                <tr key={tariff.id} className="transition hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">{tariff.categoryLabel}</td>
                                     <td className="px-6 py-4 text-gray-600" dir="ltr">
                                         {formatCurrency(tariff.rate)}
@@ -69,20 +76,7 @@ export default function Index({ tariffs, status, categoryOptions }) {
                 </table>
             </div>
 
-            {(tariffs.prev_page_url || tariffs.next_page_url) && (
-                <div className="mt-4 flex items-center gap-4 text-sm">
-                    {tariffs.prev_page_url && (
-                        <a href={tariffs.prev_page_url} className="font-medium text-brand-600 hover:underline">
-                            السابق
-                        </a>
-                    )}
-                    {tariffs.next_page_url && (
-                        <a href={tariffs.next_page_url} className="font-medium text-brand-600 hover:underline">
-                            التالي
-                        </a>
-                    )}
-                </div>
-            )}
+            <Pagination meta={tariffs} filters={filters} baseUrl="/tariffs" />
 
             <TariffModal show={creating} onClose={() => setCreating(false)} tariff={null} categoryOptions={categoryOptions} />
 

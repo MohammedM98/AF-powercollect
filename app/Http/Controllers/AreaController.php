@@ -2,29 +2,39 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreAreaRequest;
 use App\Http\Requests\UpdateAreaRequest;
 use App\Models\Area;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class AreaController extends Controller
 {
+    use FiltersDataTable;
+
+    private const SORTABLE = ['name', 'created_at'];
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): InertiaResponse
+    public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', Area::class);
 
-        $areas = Area::orderBy('name')
-            ->paginate(15)
+        $query = Area::query();
+        $this->applyDataTableFilters($query, $request, ['name'], self::SORTABLE, 'name');
+
+        $areas = $query->paginate($this->dataTablePerPage($request))
+            ->withQueryString()
             ->through(fn (Area $area) => $this->editableFields($area));
 
         return Inertia::render('Areas/Index', [
             'areas' => $areas,
             'status' => session('status'),
+            'filters' => $this->dataTableState($request, 'name'),
         ]);
     }
 

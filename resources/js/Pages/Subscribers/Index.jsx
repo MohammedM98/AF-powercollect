@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import SortableTh from '@/Components/DataTable/SortableTh';
+import Pagination from '@/Components/DataTable/Pagination';
+import { useDataTable } from '@/hooks/useDataTable';
 import SubscriberModal from './SubscriberModal';
 
 const STATUS_STYLES = {
@@ -9,9 +13,21 @@ const STATUS_STYLES = {
     disconnected: 'bg-gray-100 text-gray-500',
 };
 
-export default function Index({ subscribers, canCreate, status, branches, meterBoxes, tariffs, areas, billingTypeOptions, canChooseBranch }) {
+export default function Index({
+    subscribers,
+    canCreate,
+    status,
+    branches,
+    meterBoxes,
+    tariffs,
+    areas,
+    billingTypeOptions,
+    canChooseBranch,
+    filters,
+}) {
     const [modalSubscriber, setModalSubscriber] = useState(null);
     const [creating, setCreating] = useState(false);
+    const { search, setSearch, sort, setPerPage } = useDataTable('/subscribers', filters);
 
     const modalProps = { branches, meterBoxes, tariffs, areas, billingTypeOptions, canChooseBranch };
 
@@ -43,20 +59,25 @@ export default function Index({ subscribers, canCreate, status, branches, meterB
             {status === 'subscriber-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء المشترك.</div>}
             {status === 'subscriber-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث المشترك.</div>}
 
-            <div className="mb-4 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-4 py-2 text-xs font-medium text-brand-700">
-                تجربة React عبر Inertia — بقية النظام لا يزال Blade.
-            </div>
+            <DataTableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="بحث بالاسم أو رقم الهاتف أو العداد أو العنوان..."
+                perPage={filters.per_page}
+                onPerPageChange={setPerPage}
+                total={subscribers.total}
+            />
 
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
                 <table className="w-full text-sm text-start">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
-                            <th className="px-6 py-3">الاسم الكامل</th>
-                            <th className="px-6 py-3">رقم العداد</th>
+                            <SortableTh column="full_name" label="الاسم الكامل" sortState={filters} onSort={sort} />
+                            <SortableTh column="meter_number" label="رقم العداد" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3">صندوق العداد</th>
                             <th className="px-6 py-3">التعرفة</th>
                             <th className="px-6 py-3">الفرع</th>
-                            <th className="px-6 py-3">الحالة</th>
+                            <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3"></th>
                         </tr>
                     </thead>
@@ -64,12 +85,12 @@ export default function Index({ subscribers, canCreate, status, branches, meterB
                         {subscribers.data.length === 0 ? (
                             <tr>
                                 <td className="px-6 py-4 text-gray-500" colSpan={7}>
-                                    لا يوجد مشتركون مسجّلون بعد.
+                                    لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
                         ) : (
                             subscribers.data.map((subscriber) => (
-                                <tr key={subscriber.id}>
+                                <tr key={subscriber.id} className="transition hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">{subscriber.full_name}</td>
                                     <td className="px-6 py-4 text-gray-600" dir="ltr">
                                         {subscriber.meter_number}
@@ -101,20 +122,7 @@ export default function Index({ subscribers, canCreate, status, branches, meterB
                 </table>
             </div>
 
-            {(subscribers.prev_page_url || subscribers.next_page_url) && (
-                <div className="mt-4 flex items-center gap-4 text-sm">
-                    {subscribers.prev_page_url && (
-                        <a href={subscribers.prev_page_url} className="font-medium text-brand-600 hover:underline">
-                            السابق
-                        </a>
-                    )}
-                    {subscribers.next_page_url && (
-                        <a href={subscribers.next_page_url} className="font-medium text-brand-600 hover:underline">
-                            التالي
-                        </a>
-                    )}
-                </div>
-            )}
+            <Pagination meta={subscribers} filters={filters} baseUrl="/subscribers" />
 
             <SubscriberModal show={creating} onClose={() => setCreating(false)} subscriber={null} {...modalProps} />
 

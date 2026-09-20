@@ -3,31 +3,39 @@
 namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
+use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class UserController extends Controller
 {
+    use FiltersDataTable;
+
+    private const SORTABLE = ['name', 'username', 'role', 'is_active', 'created_at'];
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): InertiaResponse
+    public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', User::class);
 
         $actor = auth()->user();
 
-        $users = User::query()
-            ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('branch_id', $actor->branch_id))
-            ->with('branch')
-            ->orderBy('name')
-            ->paginate(15)
+        $query = User::query()
+            ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
+            ->with('branch');
+        $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
+
+        $users = $query->paginate($this->dataTablePerPage($request))
+            ->withQueryString()
             ->through(fn (User $user) => [
                 ...$this->editableFields($user),
                 'roleLabel' => __($user->role->label()),
@@ -39,6 +47,7 @@ class UserController extends Controller
             'users' => $users,
             'canCreate' => $actor->can('create', User::class),
             'status' => session('status'),
+            'filters' => $this->dataTableState($request, 'name'),
             'createRoleOptions' => $this->roleOptionsFor(null),
             ...$this->formOptions(),
         ]);

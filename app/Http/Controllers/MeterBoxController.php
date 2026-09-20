@@ -2,31 +2,39 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreMeterBoxRequest;
 use App\Http\Requests\UpdateMeterBoxRequest;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\MeterBox;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class MeterBoxController extends Controller
 {
+    use FiltersDataTable;
+
+    private const SORTABLE = ['box_number', 'location', 'created_at'];
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): InertiaResponse
+    public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', MeterBox::class);
 
         $actor = auth()->user();
 
-        $meterBoxes = MeterBox::query()
-            ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('branch_id', $actor->branch_id))
-            ->with(['branch', 'area'])
-            ->orderBy('box_number')
-            ->paginate(15)
+        $query = MeterBox::query()
+            ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
+            ->with(['branch', 'area']);
+        $this->applyDataTableFilters($query, $request, ['box_number', 'location'], self::SORTABLE, 'box_number');
+
+        $meterBoxes = $query->paginate($this->dataTablePerPage($request))
+            ->withQueryString()
             ->through(fn (MeterBox $meterBox) => [
                 ...$this->editableFields($meterBox),
                 'branchName' => $meterBox->branch->name,
@@ -36,6 +44,7 @@ class MeterBoxController extends Controller
         return Inertia::render('MeterBoxes/Index', [
             'meterBoxes' => $meterBoxes,
             'status' => session('status'),
+            'filters' => $this->dataTableState($request, 'box_number'),
             ...$this->formOptions(),
         ]);
     }

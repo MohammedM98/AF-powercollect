@@ -3,24 +3,33 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TariffCategory;
+use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreTariffRequest;
 use App\Http\Requests\UpdateTariffRequest;
 use App\Models\Tariff;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class TariffController extends Controller
 {
+    use FiltersDataTable;
+
+    private const SORTABLE = ['category', 'rate'];
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): InertiaResponse
+    public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', Tariff::class);
 
-        $tariffs = Tariff::orderBy('category')
-            ->paginate(15)
+        $query = Tariff::query();
+        $this->applyDataTableFilters($query, $request, [], self::SORTABLE, 'category');
+
+        $tariffs = $query->paginate($this->dataTablePerPage($request))
+            ->withQueryString()
             ->through(fn (Tariff $tariff) => [
                 ...$this->editableFields($tariff),
                 'categoryLabel' => __($tariff->category->label()),
@@ -29,6 +38,7 @@ class TariffController extends Controller
         return Inertia::render('Tariffs/Index', [
             'tariffs' => $tariffs,
             'status' => session('status'),
+            'filters' => $this->dataTableState($request, 'category'),
             'categoryOptions' => $this->categoryOptions(),
         ]);
     }

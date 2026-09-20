@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import SortableTh from '@/Components/DataTable/SortableTh';
+import Pagination from '@/Components/DataTable/Pagination';
+import { useDataTable } from '@/hooks/useDataTable';
 import UserModal from './UserModal';
 
-export default function Index({ users, canCreate, status, branches, canChooseBranch, createRoleOptions }) {
+export default function Index({ users, canCreate, status, branches, canChooseBranch, createRoleOptions, filters }) {
     const [modalUser, setModalUser] = useState(null);
     const [creating, setCreating] = useState(false);
+    const { search, setSearch, sort, setPerPage } = useDataTable('/users', filters);
 
     return (
         <AuthenticatedLayout
@@ -35,65 +40,69 @@ export default function Index({ users, canCreate, status, branches, canChooseBra
             {status === 'user-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء المستخدم.</div>}
             {status === 'user-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث المستخدم.</div>}
 
-            <div className="mb-4 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-4 py-2 text-xs font-medium text-brand-700">
-                تجربة React عبر Inertia — بقية النظام لا يزال Blade.
-            </div>
+            <DataTableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="بحث بالاسم أو اسم المستخدم..."
+                perPage={filters.per_page}
+                onPerPageChange={setPerPage}
+                total={users.total}
+            />
 
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
                 <table className="w-full text-sm text-start">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
-                            <th className="px-6 py-3">الاسم</th>
-                            <th className="px-6 py-3">اسم المستخدم</th>
-                            <th className="px-6 py-3">الدور</th>
+                            <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
+                            <SortableTh column="username" label="اسم المستخدم" sortState={filters} onSort={sort} />
+                            <SortableTh column="role" label="الدور" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3">الفرع</th>
-                            <th className="px-6 py-3">الحالة</th>
+                            <SortableTh column="is_active" label="الحالة" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y">
-                        {users.data.map((user) => (
-                            <tr key={user.id}>
-                                <td className="px-6 py-4 font-medium text-gray-900">{user.name}</td>
-                                <td className="px-6 py-4 text-gray-600" dir="ltr">
-                                    {user.username}
-                                </td>
-                                <td className="px-6 py-4 text-gray-600">{user.roleLabel}</td>
-                                <td className="px-6 py-4 text-gray-600">{user.branchName ?? '—'}</td>
-                                <td className="px-6 py-4">
-                                    {user.is_active ? (
-                                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">نشط</span>
-                                    ) : (
-                                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">متوقف</span>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4 text-end">
-                                    {user.canUpdate && (
-                                        <button onClick={() => setModalUser(user)} className="font-medium text-brand-600 hover:underline">
-                                            تعديل
-                                        </button>
-                                    )}
+                        {users.data.length === 0 ? (
+                            <tr>
+                                <td className="px-6 py-4 text-gray-500" colSpan={6}>
+                                    لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
-                        ))}
+                        ) : (
+                            users.data.map((user) => (
+                                <tr key={user.id} className="transition hover:bg-gray-50">
+                                    <td className="px-6 py-4 font-medium text-gray-900">{user.name}</td>
+                                    <td className="px-6 py-4 text-gray-600" dir="ltr">
+                                        {user.username}
+                                    </td>
+                                    <td className="px-6 py-4 text-gray-600">{user.roleLabel}</td>
+                                    <td className="px-6 py-4 text-gray-600">{user.branchName ?? '—'}</td>
+                                    <td className="px-6 py-4">
+                                        {user.is_active ? (
+                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                                نشط
+                                            </span>
+                                        ) : (
+                                            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">
+                                                متوقف
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 text-end">
+                                        {user.canUpdate && (
+                                            <button onClick={() => setModalUser(user)} className="font-medium text-brand-600 hover:underline">
+                                                تعديل
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>
 
-            {(users.prev_page_url || users.next_page_url) && (
-                <div className="mt-4 flex items-center gap-4 text-sm">
-                    {users.prev_page_url && (
-                        <a href={users.prev_page_url} className="font-medium text-brand-600 hover:underline">
-                            السابق
-                        </a>
-                    )}
-                    {users.next_page_url && (
-                        <a href={users.next_page_url} className="font-medium text-brand-600 hover:underline">
-                            التالي
-                        </a>
-                    )}
-                </div>
-            )}
+            <Pagination meta={users} filters={filters} baseUrl="/users" />
 
             <UserModal
                 show={creating}

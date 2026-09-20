@@ -2,27 +2,37 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreBranchRequest;
 use App\Http\Requests\UpdateBranchRequest;
 use App\Models\Branch;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class BranchController extends Controller
 {
+    use FiltersDataTable;
+
+    private const SORTABLE = ['name', 'location', 'phone', 'is_active', 'created_at'];
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): InertiaResponse
+    public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', Branch::class);
 
-        $branches = Branch::orderBy('name')->paginate(15);
+        $query = Branch::query();
+        $this->applyDataTableFilters($query, $request, ['name', 'location', 'phone'], self::SORTABLE, 'name');
+
+        $branches = $query->paginate($this->dataTablePerPage($request))->withQueryString();
 
         return Inertia::render('Branches/Index', [
             'branches' => $branches,
             'status' => session('status'),
+            'filters' => $this->dataTableState($request, 'name'),
         ]);
     }
 

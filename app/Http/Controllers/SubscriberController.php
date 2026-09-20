@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\BillingType;
+use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreSubscriberRequest;
 use App\Http\Requests\UpdateSubscriberRequest;
 use App\Models\Area;
@@ -11,25 +12,32 @@ use App\Models\MeterBox;
 use App\Models\Subscriber;
 use App\Models\Tariff;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class SubscriberController extends Controller
 {
+    use FiltersDataTable;
+
+    private const SORTABLE = ['full_name', 'meter_number', 'status', 'created_at'];
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): InertiaResponse
+    public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', Subscriber::class);
 
         $actor = auth()->user();
 
-        $subscribers = Subscriber::query()
-            ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('branch_id', $actor->branch_id))
-            ->with(['branch', 'meterBox', 'tariff'])
-            ->orderBy('full_name')
-            ->paginate(15)
+        $query = Subscriber::query()
+            ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
+            ->with(['branch', 'meterBox', 'tariff']);
+        $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'meter_number', 'address'], self::SORTABLE, 'full_name');
+
+        $subscribers = $query->paginate($this->dataTablePerPage($request))
+            ->withQueryString()
             ->through(fn (Subscriber $subscriber) => [
                 ...$this->editableFields($subscriber),
                 'meterBoxNumber' => $subscriber->meterBox?->box_number,
@@ -43,6 +51,7 @@ class SubscriberController extends Controller
             'subscribers' => $subscribers,
             'canCreate' => $actor->can('create', Subscriber::class),
             'status' => session('status'),
+            'filters' => $this->dataTableState($request, 'full_name'),
             ...$this->formOptions(),
         ]);
     }

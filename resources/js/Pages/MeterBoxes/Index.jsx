@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import SortableTh from '@/Components/DataTable/SortableTh';
+import Pagination from '@/Components/DataTable/Pagination';
+import { useDataTable } from '@/hooks/useDataTable';
 import MeterBoxModal from './MeterBoxModal';
 
-export default function Index({ meterBoxes, status, branches, canChooseBranch, areas }) {
+export default function Index({ meterBoxes, status, branches, canChooseBranch, areas, filters }) {
     const [modalMeterBox, setModalMeterBox] = useState(null);
     const [creating, setCreating] = useState(false);
+    const { search, setSearch, sort, setPerPage } = useDataTable('/meter-boxes', filters);
 
     return (
         <AuthenticatedLayout
@@ -33,13 +38,22 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, a
             {status === 'meter-box-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء صندوق العداد.</div>}
             {status === 'meter-box-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث صندوق العداد.</div>}
 
+            <DataTableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="بحث برقم الصندوق أو الموقع..."
+                perPage={filters.per_page}
+                onPerPageChange={setPerPage}
+                total={meterBoxes.total}
+            />
+
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
                 <table className="w-full text-sm text-start">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
-                            <th className="px-6 py-3">رقم الصندوق</th>
+                            <SortableTh column="box_number" label="رقم الصندوق" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3">المنطقة</th>
-                            <th className="px-6 py-3">الموقع</th>
+                            <SortableTh column="location" label="الموقع" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3">الفرع</th>
                             <th className="px-6 py-3"></th>
                         </tr>
@@ -48,12 +62,12 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, a
                         {meterBoxes.data.length === 0 ? (
                             <tr>
                                 <td className="px-6 py-4 text-gray-500" colSpan={5}>
-                                    لا توجد صناديق عدادات بعد.
+                                    لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
                         ) : (
                             meterBoxes.data.map((meterBox) => (
-                                <tr key={meterBox.id}>
+                                <tr key={meterBox.id} className="transition hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900" dir="ltr">
                                         {meterBox.box_number}
                                     </td>
@@ -72,20 +86,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, a
                 </table>
             </div>
 
-            {(meterBoxes.prev_page_url || meterBoxes.next_page_url) && (
-                <div className="mt-4 flex items-center gap-4 text-sm">
-                    {meterBoxes.prev_page_url && (
-                        <a href={meterBoxes.prev_page_url} className="font-medium text-brand-600 hover:underline">
-                            السابق
-                        </a>
-                    )}
-                    {meterBoxes.next_page_url && (
-                        <a href={meterBoxes.next_page_url} className="font-medium text-brand-600 hover:underline">
-                            التالي
-                        </a>
-                    )}
-                </div>
-            )}
+            <Pagination meta={meterBoxes} filters={filters} baseUrl="/meter-boxes" />
 
             <MeterBoxModal
                 show={creating}

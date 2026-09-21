@@ -11,7 +11,7 @@ export default function DataTableToolbar({
     filterMenu,
 }) {
     return (
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="data-table-toolbar mb-3 flex flex-wrap items-center justify-between gap-3">
             {showSearch ? (
                 <div className="relative w-full sm:max-w-xs">
                     <svg
@@ -29,18 +29,18 @@ export default function DataTableToolbar({
                     </svg>
                     <input
                         type="text"
+                        aria-label={placeholder}
                         value={search}
                         onChange={(e) => onSearchChange(e.target.value)}
                         placeholder={placeholder}
-                        className="block w-full rounded-lg border-gray-300 py-2 ps-9 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                        className="block w-full rounded-md border-gray-200 py-1.5 ps-9 text-sm focus:border-brand-500 focus:ring-brand-500"
                     />
                 </div>
             ) : (
                 <div />
             )}
 
-            <div className="flex items-center gap-3">
-                {filterMenu}
+            <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-4 text-sm text-gray-500">
                     {typeof total === 'number' && <span>{total.toLocaleString('ar')} نتيجة</span>}
                     <label className="flex items-center gap-2">
@@ -59,6 +59,7 @@ export default function DataTableToolbar({
                     </label>
                 </div>
             </div>
+            {filterMenu}
         </div>
     );
 }

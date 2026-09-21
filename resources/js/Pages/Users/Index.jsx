@@ -55,8 +55,8 @@ export default function Index({ users, canCreate, status, branches, canChooseBra
                 }
             />
 
-            <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-                <table className="w-full text-sm text-start">
+            <div className="data-table-container">
+                <table className="data-table w-full text-sm text-start">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
                             <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />

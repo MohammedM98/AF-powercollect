@@ -2,6 +2,112 @@
 @tailwind components;
 @tailwind utilities;
 
+.data-table-container {
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+}
+
+.data-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.data-table thead {
+    background: #f5f5f6;
+}
+
+.data-table th,
+.data-table td {
+    padding: 9px 16px;
+    white-space: nowrap;
+    vertical-align: middle;
+    border-inline-end: 1px solid #eceef1;
+    border-bottom: 1px solid #eceef1;
+}
+
+.data-table th {
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: start;
+    text-transform: none;
+}
+
+.data-table th.text-center,
+.data-table td.text-center {
+    text-align: center;
+}
+
+.data-table th:last-child,
+.data-table td:last-child {
+    border-inline-end: 0;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.data-table tbody tr {
+    background: white;
+    transition: background-color 120ms ease;
+}
+
+.data-table tbody tr:nth-child(even) {
+    background: #f8f9fb;
+}
+
+.data-table tbody tr:hover,
+.data-table tbody tr:focus-within {
+    background: #f0f2f6;
+}
+
+.data-table tbody tr.bg-brand-50 {
+    background: #f3efff;
+    box-shadow: inset -3px 0 #7c3aed;
+}
+
+.data-table td[colspan] {
+    padding: 32px 16px;
+    text-align: center;
+    white-space: normal;
+}
+
+.data-table td[dir="ltr"] {
+    font-variant-numeric: tabular-nums;
+}
+
+.data-table-toolbar {
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+}
+
+.data-table-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #6b7280;
+}
+
+.data-table-actions > button,
+.data-table-actions > a {
+    width: auto;
+    border-radius: 5px;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.data-table-actions > button:focus-visible,
+.data-table-actions > a:focus-visible {
+    outline: 2px solid #7c3aed;
+    outline-offset: 2px;
+}
+
 [x-cloak] {
     display: none !important;
 }

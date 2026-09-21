@@ -3,11 +3,11 @@ export default function SortableTh({ column, label, sortState, onSort, className
     const active = sort === column;
 
     return (
-        <th className={`px-6 py-3 ${className}`}>
+        <th aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'} className={`px-6 py-3 ${className}`}>
             <button
                 type="button"
                 onClick={() => onSort(column)}
-                className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 transition hover:text-gray-700"
+                className="inline-flex items-center gap-1 rounded text-xs font-medium text-gray-500 transition hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
             >
                 {label}
                 {active ? (

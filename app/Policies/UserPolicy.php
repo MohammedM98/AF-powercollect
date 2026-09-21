@@ -9,11 +9,23 @@ use App\Models\User;
 class UserPolicy
 {
     /**
+     * Whether the user's role or grants let them work with other users at
+     * all, before branch scoping is considered.
+     */
+    private function hasBaseAccess(User $user): bool
+    {
+        return $user->isSuperAdmin()
+            || $user->isBranchAdmin()
+            || $user->hasPermission(PermissionKey::ViewUsers)
+            || $user->hasPermission(PermissionKey::UpdateUsers);
+    }
+
+    /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return $user->isSuperAdmin() || $user->isBranchAdmin() || $user->hasPermission(PermissionKey::ManageUsers);
+        return $this->hasBaseAccess($user);
     }
 
     /**
@@ -25,8 +37,7 @@ class UserPolicy
             return true;
         }
 
-        return ($user->isBranchAdmin() || $user->hasPermission(PermissionKey::ManageUsers))
-            && $model->branch_id === $user->branch_id;
+        return $this->hasBaseAccess($user) && $model->branch_id === $user->branch_id;
     }
 
     /**
@@ -51,9 +62,9 @@ class UserPolicy
             return true;
         }
 
-        return ($user->isBranchAdmin() || $user->hasPermission(PermissionKey::ManageUsers))
-            && in_array($model->role, UserRole::staffRoles(), true)
-            && $model->branch_id === $user->branch_id;
+        $canUpdate = $user->isBranchAdmin() || $user->hasPermission(PermissionKey::UpdateUsers);
+
+        return $canUpdate && in_array($model->role, UserRole::staffRoles(), true) && $model->branch_id === $user->branch_id;
     }
 
     /**

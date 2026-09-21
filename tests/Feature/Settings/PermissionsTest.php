@@ -52,30 +52,64 @@ class PermissionsTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_permissions_page_can_be_searched_by_name_or_username(): void
+    {
+        $this->seedPermissions();
+        $superAdmin = User::factory()->superAdmin()->create();
+        $branch = Branch::factory()->create();
+        User::factory()->collector()->create(['branch_id' => $branch->id, 'name' => 'Findable Person', 'username' => 'findable']);
+        User::factory()->collector()->create(['branch_id' => $branch->id, 'name' => 'Someone Else', 'username' => 'someone-else']);
+
+        $response = $this->actingAs($superAdmin)->get(route('settings.permissions.edit', ['search' => 'Findable']));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page->has('users.data', 1)
+            ->where('users.data.0.name', 'Findable Person'));
+    }
+
     public function test_super_admin_can_grant_a_permission_to_a_collector(): void
     {
         $this->seedPermissions();
         $superAdmin = User::factory()->superAdmin()->create();
         $branch = Branch::factory()->create();
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
-        $manageBranches = Permission::where('key', PermissionKey::ManageBranches->value)->firstOrFail();
+        $viewBranches = Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail();
 
         $this->actingAs($superAdmin)->put(route('settings.permissions.update'), [
             'permissions' => [
-                $collector->id => [$manageBranches->id],
+                $collector->id => [$viewBranches->id],
             ],
         ])->assertRedirect(route('settings.permissions.edit'));
 
-        $this->assertTrue($collector->fresh()->hasPermission(PermissionKey::ManageBranches));
+        $this->assertTrue($collector->fresh()->hasPermission(PermissionKey::ViewBranches));
     }
 
-    public function test_granting_manage_branches_lets_a_collector_manage_branches(): void
+    public function test_view_only_branches_permission_allows_viewing_but_not_creating(): void
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
-        $manageBranches = Permission::where('key', PermissionKey::ManageBranches->value)->firstOrFail();
-        $collector->permissions()->attach($manageBranches);
+        $viewBranches = Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail();
+        $collector->permissions()->attach($viewBranches);
+
+        $this->actingAs($collector)
+            ->get(route('branches.index'))
+            ->assertOk();
+
+        $this->actingAs($collector)->post(route('branches.store'), [
+            'name' => 'Should Not Be Created',
+            'is_active' => '1',
+        ])->assertForbidden();
+    }
+
+    public function test_granting_create_and_update_branches_lets_a_collector_fully_manage_branches(): void
+    {
+        $this->seedPermissions();
+        $branch = Branch::factory()->create();
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $createBranches = Permission::where('key', PermissionKey::CreateBranches->value)->firstOrFail();
+        $updateBranches = Permission::where('key', PermissionKey::UpdateBranches->value)->firstOrFail();
+        $collector->permissions()->attach([$createBranches->id, $updateBranches->id]);
 
         $this->actingAs($collector)
             ->get(route('branches.index'))
@@ -100,7 +134,7 @@ class PermissionsTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_granting_manage_users_lets_a_collector_view_and_update_users_in_their_own_branch_only(): void
+    public function test_granting_update_users_lets_a_collector_view_and_update_users_in_their_own_branch_only(): void
     {
         $this->seedPermissions();
         $ownBranch = Branch::factory()->create();
@@ -108,8 +142,8 @@ class PermissionsTest extends TestCase
         $collector = User::factory()->collector()->create(['branch_id' => $ownBranch->id]);
         $peer = User::factory()->collector()->create(['branch_id' => $ownBranch->id, 'name' => 'My Branch Peer']);
         $foreign = User::factory()->collector()->create(['branch_id' => $otherBranch->id, 'name' => 'Other Branch Peer']);
-        $manageUsers = Permission::where('key', PermissionKey::ManageUsers->value)->firstOrFail();
-        $collector->permissions()->attach($manageUsers);
+        $updateUsers = Permission::where('key', PermissionKey::UpdateUsers->value)->firstOrFail();
+        $collector->permissions()->attach($updateUsers);
 
         $response = $this->actingAs($collector)->get(route('users.index'));
         $response->assertOk();
@@ -129,26 +163,27 @@ class PermissionsTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_granting_manage_users_does_not_grant_create_ability(): void
+    public function test_granting_update_users_does_not_grant_create_ability(): void
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
-        $manageUsers = Permission::where('key', PermissionKey::ManageUsers->value)->firstOrFail();
-        $collector->permissions()->attach($manageUsers);
+        $updateUsers = Permission::where('key', PermissionKey::UpdateUsers->value)->firstOrFail();
+        $collector->permissions()->attach($updateUsers);
 
         $this->actingAs($collector)
             ->get(route('users.create'))
             ->assertForbidden();
     }
 
-    public function test_granting_manage_subscribers_lets_a_collector_manage_subscribers(): void
+    public function test_granting_subscriber_permissions_lets_a_collector_manage_subscribers(): void
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
-        $manageSubscribers = Permission::where('key', PermissionKey::ManageSubscribers->value)->firstOrFail();
-        $collector->permissions()->attach($manageSubscribers);
+        $createSubscribers = Permission::where('key', PermissionKey::CreateSubscribers->value)->firstOrFail();
+        $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
+        $collector->permissions()->attach([$createSubscribers->id, $viewSubscribers->id]);
         $tariff = \App\Models\Tariff::factory()->home()->create();
 
         $this->actingAs($collector)
@@ -190,5 +225,30 @@ class PermissionsTest extends TestCase
         foreach (PermissionKey::cases() as $key) {
             $this->assertTrue($superAdmin->hasPermission($key));
         }
+    }
+
+    public function test_saving_permissions_for_one_page_of_users_does_not_wipe_grants_of_users_on_another_page(): void
+    {
+        $this->seedPermissions();
+        $superAdmin = User::factory()->superAdmin()->create();
+        $branch = Branch::factory()->create();
+
+        $untouched = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $viewBranches = Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail();
+        $untouched->permissions()->attach($viewBranches);
+
+        $editedUser = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
+
+        // Only $editedUser is present in the payload — simulating a save
+        // made while $untouched was on a different search result/page.
+        $this->actingAs($superAdmin)->put(route('settings.permissions.update'), [
+            'permissions' => [
+                $editedUser->id => [$viewSubscribers->id],
+            ],
+        ])->assertRedirect(route('settings.permissions.edit'));
+
+        $this->assertTrue($editedUser->fresh()->hasPermission(PermissionKey::ViewSubscribers));
+        $this->assertTrue($untouched->fresh()->hasPermission(PermissionKey::ViewBranches));
     }
 }

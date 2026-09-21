@@ -13,7 +13,9 @@ class BranchPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageBranches);
+        return $user->hasPermission(PermissionKey::ViewBranches)
+            || $user->hasPermission(PermissionKey::CreateBranches)
+            || $user->hasPermission(PermissionKey::UpdateBranches);
     }
 
     /**
@@ -21,7 +23,7 @@ class BranchPolicy
      */
     public function view(User $user, Branch $branch): bool
     {
-        return $user->hasPermission(PermissionKey::ManageBranches);
+        return $this->viewAny($user);
     }
 
     /**
@@ -29,7 +31,7 @@ class BranchPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageBranches);
+        return $user->hasPermission(PermissionKey::CreateBranches);
     }
 
     /**
@@ -37,7 +39,7 @@ class BranchPolicy
      */
     public function update(User $user, Branch $branch): bool
     {
-        return $user->hasPermission(PermissionKey::ManageBranches);
+        return $user->hasPermission(PermissionKey::UpdateBranches);
     }
 
     /**

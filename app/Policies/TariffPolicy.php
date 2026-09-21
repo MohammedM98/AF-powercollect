@@ -13,7 +13,9 @@ class TariffPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageTariffs);
+        return $user->hasPermission(PermissionKey::ViewTariffs)
+            || $user->hasPermission(PermissionKey::CreateTariffs)
+            || $user->hasPermission(PermissionKey::UpdateTariffs);
     }
 
     /**
@@ -21,7 +23,7 @@ class TariffPolicy
      */
     public function view(User $user, Tariff $tariff): bool
     {
-        return $user->hasPermission(PermissionKey::ManageTariffs);
+        return $this->viewAny($user);
     }
 
     /**
@@ -29,7 +31,7 @@ class TariffPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageTariffs);
+        return $user->hasPermission(PermissionKey::CreateTariffs);
     }
 
     /**
@@ -37,7 +39,7 @@ class TariffPolicy
      */
     public function update(User $user, Tariff $tariff): bool
     {
-        return $user->hasPermission(PermissionKey::ManageTariffs);
+        return $user->hasPermission(PermissionKey::UpdateTariffs);
     }
 
     /**

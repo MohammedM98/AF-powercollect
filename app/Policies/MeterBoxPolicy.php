@@ -13,7 +13,9 @@ class MeterBoxPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageMeterBoxes);
+        return $user->hasPermission(PermissionKey::ViewMeterBoxes)
+            || $user->hasPermission(PermissionKey::CreateMeterBoxes)
+            || $user->hasPermission(PermissionKey::UpdateMeterBoxes);
     }
 
     /**
@@ -21,7 +23,7 @@ class MeterBoxPolicy
      */
     public function view(User $user, MeterBox $meterBox): bool
     {
-        if (! $user->hasPermission(PermissionKey::ManageMeterBoxes)) {
+        if (! $this->viewAny($user)) {
             return false;
         }
 
@@ -33,7 +35,7 @@ class MeterBoxPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageMeterBoxes);
+        return $user->hasPermission(PermissionKey::CreateMeterBoxes);
     }
 
     /**
@@ -41,7 +43,7 @@ class MeterBoxPolicy
      */
     public function update(User $user, MeterBox $meterBox): bool
     {
-        if (! $user->hasPermission(PermissionKey::ManageMeterBoxes)) {
+        if (! $user->hasPermission(PermissionKey::UpdateMeterBoxes)) {
             return false;
         }
 

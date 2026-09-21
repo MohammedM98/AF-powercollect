@@ -1,17 +1,41 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import Pagination from '@/Components/DataTable/Pagination';
+import { useDataTable } from '@/hooks/useDataTable';
 
-export default function Permissions({ users, permissions, status }) {
-    const [selected, setSelected] = useState(() => {
-        const map = {};
-        users.forEach((user) => {
-            map[user.id] = new Set(user.permissionIds);
-        });
-        return map;
+const ACTION_LABELS = {
+    view: 'عرض',
+    create: 'إضافة',
+    update: 'تعديل',
+    record: 'تسجيل',
+    confirm: 'تأكيد',
+};
+
+function buildSelectedMap(users) {
+    const map = {};
+    users.forEach((user) => {
+        map[user.id] = new Set(user.permissionIds);
     });
+    return map;
+}
+
+export default function Permissions({ users, permissionGroups, status, filters }) {
+    const [selected, setSelected] = useState(() => buildSelectedMap(users.data));
     const [confirming, setConfirming] = useState(false);
     const [saving, setSaving] = useState(false);
+    const { search, setSearch, sort, setPerPage } = useDataTable('/settings/permissions', filters);
+
+    // The list is searchable/paginated, so the set of users on screen
+    // changes independently of user edits. Whenever a new page/search
+    // result comes in, rebuild the selection map from the server's data
+    // for exactly those users — any unsaved edits on a page you've since
+    // navigated away from are expected to be lost, same as any other form.
+    useEffect(() => {
+        setSelected(buildSelectedMap(users.data));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [users.data]);
 
     function toggle(userId, permissionId) {
         setSelected((prev) => {
@@ -48,6 +72,8 @@ export default function Permissions({ users, permissions, status }) {
         );
     }
 
+    const totalColumns = 3 + permissionGroups.reduce((sum, group) => sum + group.actions.length, 0);
+
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">الصلاحيات</h2>}>
             <Head title="الصلاحيات" />
@@ -56,62 +82,97 @@ export default function Permissions({ users, permissions, status }) {
                 <div className="mb-4 text-sm font-medium text-green-600">تم تحديث الصلاحيات.</div>
             )}
 
-            <div className="mb-4 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-4 py-2 text-xs font-medium text-brand-700">
-                تجربة React عبر Inertia — بقية النظام لا يزال Blade.
-            </div>
-
             <p className="mb-4 text-sm text-gray-500">
-                يمتلك المدير العام جميع الصلاحيات ضمنيًا دائمًا. امنح صلاحيات فردية لمستخدمين محددين هنا، بغض النظر عن دورهم.
+                يمتلك المدير العام جميع الصلاحيات ضمنيًا دائمًا. امنح كل مستخدم صلاحية العرض فقط أو الإدارة الكاملة (إضافة/تعديل) لكل جدول
+                على حدة، بغض النظر عن دوره.
             </p>
 
-            <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <DataTableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="بحث بالاسم أو اسم المستخدم..."
+                perPage={filters.per_page}
+                onPerPageChange={setPerPage}
+                total={users.total}
+            />
+
+            <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
                 <table className="w-full text-sm text-start">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
-                            <th className="px-6 py-3">المستخدم</th>
-                            <th className="px-6 py-3">الدور</th>
-                            <th className="px-6 py-3">الفرع</th>
-                            {permissions.map((permission) => (
-                                <th key={permission.id} className="px-6 py-3 text-center">
-                                    {permission.label}
+                            <th className="whitespace-nowrap px-6 py-3" rowSpan={2}>
+                                المستخدم
+                            </th>
+                            <th className="whitespace-nowrap px-6 py-3" rowSpan={2}>
+                                الدور
+                            </th>
+                            <th className="whitespace-nowrap px-6 py-3" rowSpan={2}>
+                                الفرع
+                            </th>
+                            {permissionGroups.map((group) => (
+                                <th key={group.key} className="whitespace-nowrap border-s border-gray-100 px-4 py-2 text-center" colSpan={group.actions.length}>
+                                    {group.label}
                                 </th>
                             ))}
                         </tr>
+                        <tr>
+                            {permissionGroups.map((group) =>
+                                group.actions.map((entry) => (
+                                    <th
+                                        key={`${group.key}-${entry.action}`}
+                                        className="whitespace-nowrap border-s border-gray-100 px-4 py-2 text-center font-medium"
+                                    >
+                                        {ACTION_LABELS[entry.action] ?? entry.action}
+                                    </th>
+                                )),
+                            )}
+                        </tr>
                     </thead>
                     <tbody className="divide-y">
-                        {users.length === 0 ? (
+                        {users.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={3 + permissions.length}>
+                                <td className="px-6 py-4 text-gray-500" colSpan={totalColumns}>
                                     لا يوجد مستخدمون لإدارتهم بعد.
                                 </td>
                             </tr>
                         ) : (
-                            users.map((user) => (
+                            users.data.map((user) => (
                                 <tr key={user.id}>
-                                    <td className="px-6 py-4">
+                                    <td className="whitespace-nowrap px-6 py-4">
                                         <div className="font-medium text-gray-900">{user.name}</div>
                                         <div className="text-gray-500" dir="ltr">
                                             @{user.username}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600">{user.roleLabel}</td>
-                                    <td className="px-6 py-4 text-gray-600">{user.branchName ?? '—'}</td>
-                                    {permissions.map((permission) => (
-                                        <td key={permission.id} className="px-6 py-4 text-center">
-                                            <input
-                                                type="checkbox"
-                                                className="rounded border-gray-300 text-brand-600 shadow-sm focus:ring-brand-500"
-                                                checked={selected[user.id]?.has(permission.id) ?? false}
-                                                onChange={() => toggle(user.id, permission.id)}
-                                            />
-                                        </td>
-                                    ))}
+                                    <td className="whitespace-nowrap px-6 py-4 text-gray-600">{user.roleLabel}</td>
+                                    <td className="whitespace-nowrap px-6 py-4 text-gray-600">{user.branchName ?? '—'}</td>
+                                    {permissionGroups.map((group) =>
+                                        group.actions.map((entry) => (
+                                            <td
+                                                key={`${group.key}-${entry.action}`}
+                                                className="border-s border-gray-100 px-4 py-4 text-center"
+                                            >
+                                                {entry.permission ? (
+                                                    <input
+                                                        type="checkbox"
+                                                        className="rounded border-gray-300 text-brand-600 shadow-sm focus:ring-brand-500"
+                                                        checked={selected[user.id]?.has(entry.permission.id) ?? false}
+                                                        onChange={() => toggle(user.id, entry.permission.id)}
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-300">—</span>
+                                                )}
+                                            </td>
+                                        )),
+                                    )}
                                 </tr>
                             ))
                         )}
                     </tbody>
                 </table>
             </div>
+
+            <Pagination meta={users} filters={filters} baseUrl="/settings/permissions" />
 
             <div className="mt-6">
                 <button
@@ -127,7 +188,7 @@ export default function Permissions({ users, permissions, status }) {
                     <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
                         <h3 className="text-lg font-bold text-gray-900">تأكيد تحديث الصلاحيات</h3>
                         <p className="mt-2 text-sm text-gray-600">
-                            سيتم تطبيق هذه التغييرات على صلاحيات المستخدمين فورًا. هل تريد المتابعة؟
+                            سيتم تطبيق هذه التغييرات على صلاحيات المستخدمين المعروضين حاليًا فورًا. هل تريد المتابعة؟
                         </p>
                         <div className="mt-6 flex justify-end gap-3">
                             <button

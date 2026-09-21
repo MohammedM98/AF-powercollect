@@ -13,7 +13,9 @@ class GovernoratePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageGovernorates);
+        return $user->hasPermission(PermissionKey::ViewGovernorates)
+            || $user->hasPermission(PermissionKey::CreateGovernorates)
+            || $user->hasPermission(PermissionKey::UpdateGovernorates);
     }
 
     /**
@@ -21,7 +23,7 @@ class GovernoratePolicy
      */
     public function view(User $user, Governorate $governorate): bool
     {
-        return $user->hasPermission(PermissionKey::ManageGovernorates);
+        return $this->viewAny($user);
     }
 
     /**
@@ -29,7 +31,7 @@ class GovernoratePolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageGovernorates);
+        return $user->hasPermission(PermissionKey::CreateGovernorates);
     }
 
     /**
@@ -37,7 +39,7 @@ class GovernoratePolicy
      */
     public function update(User $user, Governorate $governorate): bool
     {
-        return $user->hasPermission(PermissionKey::ManageGovernorates);
+        return $user->hasPermission(PermissionKey::UpdateGovernorates);
     }
 
     /**

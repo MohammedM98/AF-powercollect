@@ -13,7 +13,9 @@ class AreaPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageAreas);
+        return $user->hasPermission(PermissionKey::ViewAreas)
+            || $user->hasPermission(PermissionKey::CreateAreas)
+            || $user->hasPermission(PermissionKey::UpdateAreas);
     }
 
     /**
@@ -21,7 +23,7 @@ class AreaPolicy
      */
     public function view(User $user, Area $area): bool
     {
-        return $user->hasPermission(PermissionKey::ManageAreas);
+        return $this->viewAny($user);
     }
 
     /**
@@ -29,7 +31,7 @@ class AreaPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageAreas);
+        return $user->hasPermission(PermissionKey::CreateAreas);
     }
 
     /**
@@ -37,7 +39,7 @@ class AreaPolicy
      */
     public function update(User $user, Area $area): bool
     {
-        return $user->hasPermission(PermissionKey::ManageAreas);
+        return $user->hasPermission(PermissionKey::UpdateAreas);
     }
 
     /**

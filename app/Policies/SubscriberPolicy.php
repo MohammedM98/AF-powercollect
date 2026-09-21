@@ -9,14 +9,25 @@ use App\Models\User;
 class SubscriberPolicy
 {
     /**
-     * Determine whether the user can view any models.
+     * Whether the user's role or grants let them work with subscribers at
+     * all, before branch scoping is considered.
      */
-    public function viewAny(User $user): bool
+    private function hasBaseAccess(User $user): bool
     {
         return $user->isSuperAdmin()
             || $user->isBranchAdmin()
             || $user->isDataEntry()
-            || $user->hasPermission(PermissionKey::ManageSubscribers);
+            || $user->hasPermission(PermissionKey::ViewSubscribers)
+            || $user->hasPermission(PermissionKey::CreateSubscribers)
+            || $user->hasPermission(PermissionKey::UpdateSubscribers);
+    }
+
+    /**
+     * Determine whether the user can view any models.
+     */
+    public function viewAny(User $user): bool
+    {
+        return $this->hasBaseAccess($user);
     }
 
     /**
@@ -28,8 +39,7 @@ class SubscriberPolicy
             return true;
         }
 
-        return ($user->isBranchAdmin() || $user->isDataEntry() || $user->hasPermission(PermissionKey::ManageSubscribers))
-            && $subscriber->branch_id === $user->branch_id;
+        return $this->hasBaseAccess($user) && $subscriber->branch_id === $user->branch_id;
     }
 
     /**
@@ -40,7 +50,7 @@ class SubscriberPolicy
         return $user->isSuperAdmin()
             || $user->isBranchAdmin()
             || $user->isDataEntry()
-            || $user->hasPermission(PermissionKey::ManageSubscribers);
+            || $user->hasPermission(PermissionKey::CreateSubscribers);
     }
 
     /**
@@ -52,8 +62,9 @@ class SubscriberPolicy
             return true;
         }
 
-        return ($user->isBranchAdmin() || $user->isDataEntry() || $user->hasPermission(PermissionKey::ManageSubscribers))
-            && $subscriber->branch_id === $user->branch_id;
+        $canUpdate = $user->isBranchAdmin() || $user->isDataEntry() || $user->hasPermission(PermissionKey::UpdateSubscribers);
+
+        return $canUpdate && $subscriber->branch_id === $user->branch_id;
     }
 
     /**

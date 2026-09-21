@@ -1,6 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import InputLabel from '@/Components/InputLabel';
-import TextInput from '@/Components/TextInput';
+import PasswordInput from '@/Components/PasswordInput';
 import InputError from '@/Components/InputError';
 import PrimaryButton from '@/Components/PrimaryButton';
 
@@ -34,9 +34,8 @@ export default function UpdatePasswordForm() {
             <form onSubmit={submit} className="mt-6 space-y-6">
                 <div>
                     <InputLabel htmlFor="current_password" value="كلمة المرور الحالية" />
-                    <TextInput
+                    <PasswordInput
                         id="current_password"
-                        type="password"
                         className="mt-1 block w-full"
                         value={data.current_password}
                         autoComplete="current-password"
@@ -47,9 +46,8 @@ export default function UpdatePasswordForm() {
 
                 <div>
                     <InputLabel htmlFor="password" value="كلمة مرور جديدة" />
-                    <TextInput
+                    <PasswordInput
                         id="password"
-                        type="password"
                         className="mt-1 block w-full"
                         value={data.password}
                         autoComplete="new-password"
@@ -60,9 +58,8 @@ export default function UpdatePasswordForm() {
 
                 <div>
                     <InputLabel htmlFor="password_confirmation" value="تأكيد كلمة المرور" />
-                    <TextInput
+                    <PasswordInput
                         id="password_confirmation"
-                        type="password"
                         className="mt-1 block w-full"
                         value={data.password_confirmation}
                         autoComplete="new-password"

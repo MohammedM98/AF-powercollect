@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Modal from '@/Components/Modal';
 import InputLabel from '@/Components/InputLabel';
-import TextInput from '@/Components/TextInput';
+import PasswordInput from '@/Components/PasswordInput';
 import InputError from '@/Components/InputError';
 import SecondaryButton from '@/Components/SecondaryButton';
 import DangerButton from '@/Components/DangerButton';
@@ -40,7 +40,7 @@ export default function DeleteUserForm({ errors }) {
 
                     <div className="mt-6">
                         <InputLabel htmlFor="password" value="كلمة المرور" className="sr-only" />
-                        <TextInput id="password" name="password" type="password" className="mt-1 block w-3/4" placeholder="كلمة المرور" />
+                        <PasswordInput id="password" name="password" className="mt-1 block w-3/4" placeholder="كلمة المرور" />
                         <InputError message={bag.password} className="mt-2" />
                     </div>
 

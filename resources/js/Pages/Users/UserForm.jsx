@@ -1,5 +1,6 @@
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
+import PasswordInput from '@/Components/PasswordInput';
 import InputError from '@/Components/InputError';
 
 export default function UserForm({ data, setData, errors, isEdit, roleOptions, branches, canChooseBranch }) {
@@ -25,9 +26,8 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
 
             <div className="mt-4">
                 <InputLabel htmlFor="password" value={isEdit ? 'كلمة مرور جديدة (اتركها فارغة للاحتفاظ بالحالية)' : 'كلمة المرور'} />
-                <TextInput
+                <PasswordInput
                     id="password"
-                    type="password"
                     className="mt-1 block w-full"
                     value={data.password}
                     onChange={(e) => setData('password', e.target.value)}
@@ -37,9 +37,8 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
 
             <div className="mt-4">
                 <InputLabel htmlFor="password_confirmation" value="تأكيد كلمة المرور" />
-                <TextInput
+                <PasswordInput
                     id="password_confirmation"
-                    type="password"
                     className="mt-1 block w-full"
                     value={data.password_confirmation}
                     onChange={(e) => setData('password_confirmation', e.target.value)}

@@ -3,6 +3,7 @@ import GuestLayout from '@/Layouts/GuestLayout';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
+import PasswordInput from '@/Components/PasswordInput';
 import PrimaryButton from '@/Components/PrimaryButton';
 
 export default function Login({ status }) {
@@ -42,9 +43,8 @@ export default function Login({ status }) {
 
                 <div className="mt-4">
                     <InputLabel htmlFor="password" value="كلمة المرور" />
-                    <TextInput
+                    <PasswordInput
                         id="password"
-                        type="password"
                         className="mt-1 block w-full"
                         value={data.password}
                         autoComplete="current-password"

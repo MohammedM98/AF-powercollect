@@ -2,7 +2,7 @@ import { Head, useForm } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
-import TextInput from '@/Components/TextInput';
+import PasswordInput from '@/Components/PasswordInput';
 import PrimaryButton from '@/Components/PrimaryButton';
 
 export default function ConfirmPassword() {
@@ -26,9 +26,8 @@ export default function ConfirmPassword() {
             <form onSubmit={submit}>
                 <div>
                     <InputLabel htmlFor="password" value="كلمة المرور" />
-                    <TextInput
+                    <PasswordInput
                         id="password"
-                        type="password"
                         className="mt-1 block w-full"
                         value={data.password}
                         autoFocus

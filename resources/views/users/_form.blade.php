@@ -13,16 +13,16 @@
 <div class="mt-4">
     <x-input-label for="password" :value="isset($user) ? __('New Password (leave blank to keep current)') : __('Password')" />
     @if (isset($user))
-        <x-text-input id="password" name="password" type="password" class="mt-1 block w-full" />
+        <x-password-input id="password" name="password" class="mt-1 block w-full" />
     @else
-        <x-text-input id="password" name="password" type="password" class="mt-1 block w-full" required />
+        <x-password-input id="password" name="password" class="mt-1 block w-full" required />
     @endif
     <x-input-error :messages="$errors->get('password')" class="mt-2" />
 </div>
 
 <div class="mt-4">
     <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
-    <x-text-input id="password_confirmation" name="password_confirmation" type="password" class="mt-1 block w-full" />
+    <x-password-input id="password_confirmation" name="password_confirmation" class="mt-1 block w-full" />
 </div>
 
 @if (! empty($roleOptions))

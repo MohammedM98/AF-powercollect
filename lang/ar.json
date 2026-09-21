@@ -54,6 +54,8 @@
     "Saved.": "تم الحفظ.",
     "See all": "عرض الكل",
     "Settings": "الإعدادات",
+    "Show password": "إظهار كلمة المرور",
+    "Hide password": "إخفاء كلمة المرور",
     "Status": "الحالة",
     "Stopped": "متوقف",
     "Super Admin always has every permission implicitly. Grant each user either view-only or full management (add/edit) per table here, independent of their role.": "يمتلك المدير العام جميع الصلاحيات ضمنيًا دائمًا. امنح كل مستخدم صلاحية العرض فقط أو الإدارة الكاملة (إضافة/تعديل) لكل جدول على حدة، بغض النظر عن دوره.",

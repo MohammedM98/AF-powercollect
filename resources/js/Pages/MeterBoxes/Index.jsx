@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import MeterBoxModal from './MeterBoxModal';
 
-export default function Index({ meterBoxes, status, branches, canChooseBranch, governorates, areas, filters }) {
+export default function Index({ meterBoxes, status, branches, canChooseBranch, governorates, areas, filters, filterOptions }) {
     const [modalMeterBox, setModalMeterBox] = useState(null);
     const [creating, setCreating] = useState(false);
-    const { search, setSearch, sort, setPerPage } = useDataTable('/meter-boxes', filters);
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-boxes', filters);
 
     return (
         <AuthenticatedLayout
@@ -45,6 +47,9 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={meterBoxes.total}
+                filterMenu={
+                    <DataTableFilterMenu groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                }
             />
 
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -77,9 +82,14 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                                         {[meterBox.governorateName, meterBox.areaName].filter(Boolean).join(' / ') || '—'}
                                     </td>
                                     <td className="px-6 py-4 text-end">
-                                        <button onClick={() => setModalMeterBox(meterBox)} className="font-medium text-brand-600 hover:underline">
-                                            تعديل
-                                        </button>
+                                        <RowActionsMenu>
+                                            <button
+                                                onClick={() => setModalMeterBox(meterBox)}
+                                                className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                تعديل
+                                            </button>
+                                        </RowActionsMenu>
                                     </td>
                                 </tr>
                             ))

@@ -2,16 +2,18 @@ import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
 import TariffModal from './TariffModal';
 
-export default function Index({ tariffs, status, categoryOptions, filters }) {
+export default function Index({ tariffs, status, categoryOptions, filters, filterOptions }) {
     const [modalTariff, setModalTariff] = useState(null);
     const [creating, setCreating] = useState(false);
-    const { setPerPage, sort } = useDataTable('/tariffs', filters);
+    const { setPerPage, sort, filterValues, setFilter, clearFilters } = useDataTable('/tariffs', filters);
 
     return (
         <AuthenticatedLayout
@@ -39,7 +41,15 @@ export default function Index({ tariffs, status, categoryOptions, filters }) {
             {status === 'tariff-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء التعرفة.</div>}
             {status === 'tariff-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث التعرفة.</div>}
 
-            <DataTableToolbar showSearch={false} perPage={filters.per_page} onPerPageChange={setPerPage} total={tariffs.total} />
+            <DataTableToolbar
+                showSearch={false}
+                perPage={filters.per_page}
+                onPerPageChange={setPerPage}
+                total={tariffs.total}
+                filterMenu={
+                    <DataTableFilterMenu groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                }
+            />
 
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
                 <table className="w-full text-sm text-start">
@@ -65,9 +75,14 @@ export default function Index({ tariffs, status, categoryOptions, filters }) {
                                         {formatCurrency(tariff.rate)}
                                     </td>
                                     <td className="px-6 py-4 text-end">
-                                        <button onClick={() => setModalTariff(tariff)} className="font-medium text-brand-600 hover:underline">
-                                            تعديل
-                                        </button>
+                                        <RowActionsMenu>
+                                            <button
+                                                onClick={() => setModalTariff(tariff)}
+                                                className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                تعديل
+                                            </button>
+                                        </RowActionsMenu>
                                     </td>
                                 </tr>
                             ))

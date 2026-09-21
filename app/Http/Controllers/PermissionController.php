@@ -28,6 +28,7 @@ class PermissionController extends Controller
 
         $query = User::where('role', '!=', UserRole::SuperAdmin)->with(['branch', 'permissions']);
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
+        $this->applyDataTableFilterSelects($query, $request, ['role']);
 
         $users = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -45,6 +46,17 @@ class PermissionController extends Controller
             'permissionGroups' => $this->permissionGroups(),
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
+            'filterOptions' => [
+                [
+                    'key' => 'role',
+                    'label' => 'الدور',
+                    'options' => collect(UserRole::cases())
+                        ->reject(fn (UserRole $role) => $role === UserRole::SuperAdmin)
+                        ->map(fn (UserRole $role) => ['value' => $role->value, 'label' => __($role->label())])
+                        ->values()
+                        ->all(),
+                ],
+            ],
         ]);
     }
 

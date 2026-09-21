@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\BillingType;
+use App\Enums\SubscriberStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreSubscriberRequest;
 use App\Http\Requests\UpdateSubscriberRequest;
@@ -11,6 +12,7 @@ use App\Models\Branch;
 use App\Models\MeterBox;
 use App\Models\Subscriber;
 use App\Models\Tariff;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -35,6 +37,7 @@ class SubscriberController extends Controller
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
             ->with(['branch', 'meterBox', 'tariff']);
         $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'meter_number', 'address'], self::SORTABLE, 'full_name');
+        $this->applyDataTableFilterSelects($query, $request, ['status', 'billing_type', 'branch_id']);
 
         $subscribers = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -52,6 +55,7 @@ class SubscriberController extends Controller
             'canCreate' => $actor->can('create', Subscriber::class),
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'full_name'),
+            'filterOptions' => $this->filterOptions($actor),
             ...$this->formOptions(),
         ]);
     }
@@ -186,5 +190,47 @@ class SubscriberController extends Controller
             'canChooseBranch' => $canChooseBranch,
             'billingTypeOptions' => $billingTypeOptions,
         ];
+    }
+
+    /**
+     * The Filter menu's dropdown groups for the index page. The branch
+     * filter only makes sense for a Super Admin — everyone else's list is
+     * already scoped to their own single branch.
+     *
+     * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string}>}>
+     */
+    private function filterOptions(User $actor): array
+    {
+        $groups = [
+            [
+                'key' => 'status',
+                'label' => 'الحالة',
+                'options' => collect(SubscriberStatus::cases())->map(fn (SubscriberStatus $status) => [
+                    'value' => $status->value,
+                    'label' => __($status->label()),
+                ])->all(),
+            ],
+            [
+                'key' => 'billing_type',
+                'label' => 'نوع التحاسب',
+                'options' => collect(BillingType::cases())->map(fn (BillingType $type) => [
+                    'value' => $type->value,
+                    'label' => __($type->label()),
+                ])->all(),
+            ],
+        ];
+
+        if ($actor->isSuperAdmin()) {
+            $groups[] = [
+                'key' => 'branch_id',
+                'label' => 'الفرع',
+                'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => [
+                    'value' => (string) $branch->id,
+                    'label' => $branch->name,
+                ])->all(),
+            ];
+        }
+
+        return $groups;
     }
 }

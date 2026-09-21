@@ -2,15 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { router } from '@inertiajs/react';
 
 // Drives a server-backed data table: debounces the search box into a
-// request, and issues immediate requests for sort/page-size changes.
-// `filters` is the page's current filter state as echoed back by the
-// controller (see App\Http\Concerns\FiltersDataTable), so sort/direction
-// always reflect what the last response actually applied. `extraParams`
-// are merged into every request unchanged — e.g. a `selected` id another
-// part of the same page depends on, so it survives search/sort/page-size
-// changes instead of being dropped.
+// request, and issues immediate requests for sort/page-size/filter
+// changes. `filters` is the page's current filter state as echoed back by
+// the controller (see App\Http\Concerns\FiltersDataTable), so sort/
+// direction/filter always reflect what the last response actually applied.
+// `extraParams` are merged into every request unchanged — e.g. a `selected`
+// id another part of the same page depends on, so it survives search/sort/
+// page-size/filter changes instead of being dropped.
 export function useDataTable(url, filters, extraParams = {}) {
     const [search, setSearch] = useState(filters.search ?? '');
+    const [filterValues, setFilterValues] = useState(filters.filter ?? {});
     const isFirstRun = useRef(true);
 
     useEffect(() => {
@@ -20,33 +21,48 @@ export function useDataTable(url, filters, extraParams = {}) {
         }
 
         const timeout = setTimeout(() => {
-            router.get(
-                url,
-                { ...extraParams, search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page },
-                { preserveState: true, preserveScroll: true, replace: true },
-            );
+            visit({ search });
         }, 350);
 
         return () => clearTimeout(timeout);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
 
-    function sort(column) {
-        const direction = filters.sort === column && filters.direction === 'asc' ? 'desc' : 'asc';
+    function visit(overrides = {}) {
         router.get(
             url,
-            { ...extraParams, search, sort: column, direction, per_page: filters.per_page },
+            {
+                ...extraParams,
+                search,
+                sort: filters.sort,
+                direction: filters.direction,
+                per_page: filters.per_page,
+                filter: filterValues,
+                ...overrides,
+            },
             { preserveState: true, preserveScroll: true, replace: true },
         );
+    }
+
+    function sort(column) {
+        const direction = filters.sort === column && filters.direction === 'asc' ? 'desc' : 'asc';
+        visit({ sort: column, direction });
     }
 
     function setPerPage(perPage) {
-        router.get(
-            url,
-            { ...extraParams, search, sort: filters.sort, direction: filters.direction, per_page: perPage },
-            { preserveState: true, preserveScroll: true, replace: true },
-        );
+        visit({ per_page: perPage });
     }
 
-    return { search, setSearch, sort, setPerPage };
+    function setFilter(key, value) {
+        const next = { ...filterValues, [key]: value };
+        setFilterValues(next);
+        visit({ filter: next });
+    }
+
+    function clearFilters() {
+        setFilterValues({});
+        visit({ filter: {} });
+    }
+
+    return { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters };
 }

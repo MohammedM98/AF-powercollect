@@ -2,15 +2,18 @@ import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
+import StatusPill from '@/Components/DataTable/StatusPill';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import UserModal from './UserModal';
 
-export default function Index({ users, canCreate, status, branches, canChooseBranch, createRoleOptions, filters }) {
+export default function Index({ users, canCreate, status, branches, canChooseBranch, createRoleOptions, filters, filterOptions }) {
     const [modalUser, setModalUser] = useState(null);
     const [creating, setCreating] = useState(false);
-    const { search, setSearch, sort, setPerPage } = useDataTable('/users', filters);
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/users', filters);
 
     return (
         <AuthenticatedLayout
@@ -47,6 +50,9 @@ export default function Index({ users, canCreate, status, branches, canChooseBra
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={users.total}
+                filterMenu={
+                    <DataTableFilterMenu groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                }
             />
 
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -78,21 +84,18 @@ export default function Index({ users, canCreate, status, branches, canChooseBra
                                     <td className="px-6 py-4 text-gray-600">{user.roleLabel}</td>
                                     <td className="px-6 py-4 text-gray-600">{user.branchName ?? '—'}</td>
                                     <td className="px-6 py-4">
-                                        {user.is_active ? (
-                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                                                نشط
-                                            </span>
-                                        ) : (
-                                            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">
-                                                متوقف
-                                            </span>
-                                        )}
+                                        <StatusPill tone={user.is_active ? 'green' : 'gray'} label={user.is_active ? 'نشط' : 'متوقف'} />
                                     </td>
                                     <td className="px-6 py-4 text-end">
                                         {user.canUpdate && (
-                                            <button onClick={() => setModalUser(user)} className="font-medium text-brand-600 hover:underline">
-                                                تعديل
-                                            </button>
+                                            <RowActionsMenu>
+                                                <button
+                                                    onClick={() => setModalUser(user)}
+                                                    className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    تعديل
+                                                </button>
+                                            </RowActionsMenu>
                                         )}
                                     </td>
                                 </tr>

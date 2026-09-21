@@ -1,6 +1,15 @@
 const PAGE_SIZES = [15, 25, 50, 100];
 
-export default function DataTableToolbar({ search, onSearchChange, placeholder = 'بحث...', perPage, onPerPageChange, total, showSearch = true }) {
+export default function DataTableToolbar({
+    search,
+    onSearchChange,
+    placeholder = 'بحث...',
+    perPage,
+    onPerPageChange,
+    total,
+    showSearch = true,
+    filterMenu,
+}) {
     return (
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {showSearch ? (
@@ -30,22 +39,25 @@ export default function DataTableToolbar({ search, onSearchChange, placeholder =
                 <div />
             )}
 
-            <div className="flex items-center gap-4 text-sm text-gray-500">
-                {typeof total === 'number' && <span>{total.toLocaleString('ar')} نتيجة</span>}
-                <label className="flex items-center gap-2">
-                    <span>عرض</span>
-                    <select
-                        value={perPage}
-                        onChange={(e) => onPerPageChange(Number(e.target.value))}
-                        className="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                    >
-                        {PAGE_SIZES.map((size) => (
-                            <option key={size} value={size}>
-                                {size}
-                            </option>
-                        ))}
-                    </select>
-                </label>
+            <div className="flex items-center gap-3">
+                {filterMenu}
+                <div className="flex items-center gap-4 text-sm text-gray-500">
+                    {typeof total === 'number' && <span>{total.toLocaleString('ar')} نتيجة</span>}
+                    <label className="flex items-center gap-2">
+                        <span>عرض</span>
+                        <select
+                            value={perPage}
+                            onChange={(e) => onPerPageChange(Number(e.target.value))}
+                            className="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                        >
+                            {PAGE_SIZES.map((size) => (
+                                <option key={size} value={size}>
+                                    {size}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                </div>
             </div>
         </div>
     );

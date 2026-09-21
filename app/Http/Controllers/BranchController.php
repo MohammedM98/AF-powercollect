@@ -28,6 +28,7 @@ class BranchController extends Controller
 
         $query = Branch::query()->with(['governorate', 'area']);
         $this->applyDataTableFilters($query, $request, ['name', 'location', 'phone'], self::SORTABLE, 'name');
+        $this->applyDataTableFilterSelects($query, $request, ['is_active', 'governorate_id']);
 
         $branches = $query->paginate($this->dataTablePerPage($request))->withQueryString();
 
@@ -35,6 +36,7 @@ class BranchController extends Controller
             'branches' => $branches,
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
+            'filterOptions' => $this->filterOptions(),
             ...$this->formOptions(),
         ]);
     }
@@ -94,6 +96,33 @@ class BranchController extends Controller
         return [
             'governorates' => Governorate::orderBy('name')->get(),
             'areas' => Area::with('governorate')->orderBy('name')->get(),
+        ];
+    }
+
+    /**
+     * The Filter menu's dropdown groups for the index page.
+     *
+     * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string}>}>
+     */
+    private function filterOptions(): array
+    {
+        return [
+            [
+                'key' => 'is_active',
+                'label' => 'الحالة',
+                'options' => [
+                    ['value' => '1', 'label' => 'نشط'],
+                    ['value' => '0', 'label' => 'متوقف'],
+                ],
+            ],
+            [
+                'key' => 'governorate_id',
+                'label' => 'المحافظة',
+                'options' => Governorate::orderBy('name')->get()->map(fn (Governorate $governorate) => [
+                    'value' => (string) $governorate->id,
+                    'label' => $governorate->name,
+                ])->all(),
+            ],
         ];
     }
 }

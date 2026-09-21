@@ -27,6 +27,7 @@ class TariffController extends Controller
 
         $query = Tariff::query();
         $this->applyDataTableFilters($query, $request, [], self::SORTABLE, 'category');
+        $this->applyDataTableFilterSelects($query, $request, ['category']);
 
         $tariffs = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -40,6 +41,9 @@ class TariffController extends Controller
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'category'),
             'categoryOptions' => $this->categoryOptions(),
+            'filterOptions' => [
+                ['key' => 'category', 'label' => 'الفئة', 'options' => $this->categoryOptions()->all()],
+            ],
         ]);
     }
 

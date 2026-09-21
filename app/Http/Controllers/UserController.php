@@ -33,6 +33,7 @@ class UserController extends Controller
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
             ->with('branch');
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
+        $this->applyDataTableFilterSelects($query, $request, ['role', 'is_active', 'branch_id']);
 
         $users = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -48,6 +49,7 @@ class UserController extends Controller
             'canCreate' => $actor->can('create', User::class),
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
+            'filterOptions' => $this->filterOptions($actor),
             'createRoleOptions' => $this->roleOptionsFor(null),
             ...$this->formOptions(),
         ]);
@@ -175,5 +177,47 @@ class UserController extends Controller
             'value' => $role->value,
             'label' => __($role->label()),
         ]);
+    }
+
+    /**
+     * The Filter menu's dropdown groups for the index page. The branch
+     * filter only makes sense for a Super Admin — everyone else's list is
+     * already scoped to their own single branch.
+     *
+     * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string}>}>
+     */
+    private function filterOptions(User $actor): array
+    {
+        $groups = [
+            [
+                'key' => 'role',
+                'label' => 'الدور',
+                'options' => collect(UserRole::cases())->map(fn (UserRole $role) => [
+                    'value' => $role->value,
+                    'label' => __($role->label()),
+                ])->all(),
+            ],
+            [
+                'key' => 'is_active',
+                'label' => 'الحالة',
+                'options' => [
+                    ['value' => '1', 'label' => 'نشط'],
+                    ['value' => '0', 'label' => 'متوقف'],
+                ],
+            ],
+        ];
+
+        if ($actor->isSuperAdmin()) {
+            $groups[] = [
+                'key' => 'branch_id',
+                'label' => 'الفرع',
+                'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => [
+                    'value' => (string) $branch->id,
+                    'label' => $branch->name,
+                ])->all(),
+            ];
+        }
+
+        return $groups;
     }
 }

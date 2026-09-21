@@ -2,15 +2,18 @@ import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
+import StatusPill from '@/Components/DataTable/StatusPill';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import SubscriberModal from './SubscriberModal';
 
-const STATUS_STYLES = {
-    active: 'bg-emerald-50 text-emerald-700',
-    suspended: 'bg-amber-50 text-amber-700',
-    disconnected: 'bg-gray-100 text-gray-500',
+const STATUS_TONES = {
+    active: 'green',
+    suspended: 'amber',
+    disconnected: 'gray',
 };
 
 export default function Index({
@@ -24,10 +27,11 @@ export default function Index({
     billingTypeOptions,
     canChooseBranch,
     filters,
+    filterOptions,
 }) {
     const [modalSubscriber, setModalSubscriber] = useState(null);
     const [creating, setCreating] = useState(false);
-    const { search, setSearch, sort, setPerPage } = useDataTable('/subscribers', filters);
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/subscribers', filters);
 
     const modalProps = { branches, meterBoxes, tariffs, areas, billingTypeOptions, canChooseBranch };
 
@@ -66,6 +70,9 @@ export default function Index({
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={subscribers.total}
+                filterMenu={
+                    <DataTableFilterMenu groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                }
             />
 
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -101,18 +108,18 @@ export default function Index({
                                     <td className="px-6 py-4 text-gray-600">{subscriber.tariffCategoryLabel}</td>
                                     <td className="px-6 py-4 text-gray-600">{subscriber.branchName}</td>
                                     <td className="px-6 py-4">
-                                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[subscriber.status]}`}>
-                                            {subscriber.statusLabel}
-                                        </span>
+                                        <StatusPill tone={STATUS_TONES[subscriber.status]} label={subscriber.statusLabel} />
                                     </td>
                                     <td className="px-6 py-4 text-end">
                                         {subscriber.canUpdate && (
-                                            <button
-                                                onClick={() => setModalSubscriber(subscriber)}
-                                                className="font-medium text-brand-600 hover:underline"
-                                            >
-                                                تعديل
-                                            </button>
+                                            <RowActionsMenu>
+                                                <button
+                                                    onClick={() => setModalSubscriber(subscriber)}
+                                                    className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    تعديل
+                                                </button>
+                                            </RowActionsMenu>
                                         )}
                                     </td>
                                 </tr>

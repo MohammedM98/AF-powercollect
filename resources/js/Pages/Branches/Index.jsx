@@ -2,15 +2,18 @@ import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
+import StatusPill from '@/Components/DataTable/StatusPill';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import BranchModal from './BranchModal';
 
-export default function Index({ branches, status, filters, governorates, areas }) {
+export default function Index({ branches, status, filters, filterOptions, governorates, areas }) {
     const [modalBranch, setModalBranch] = useState(null);
     const [creating, setCreating] = useState(false);
-    const { search, setSearch, sort, setPerPage } = useDataTable('/branches', filters);
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/branches', filters);
 
     return (
         <AuthenticatedLayout
@@ -49,6 +52,9 @@ export default function Index({ branches, status, filters, governorates, areas }
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={branches.total}
+                filterMenu={
+                    <DataTableFilterMenu groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                }
             />
 
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -78,20 +84,17 @@ export default function Index({ branches, status, filters, governorates, areas }
                                     <td className="px-6 py-4 text-gray-600">{branch.governorate?.name ?? '—'}</td>
                                     <td className="px-6 py-4 text-gray-600">{branch.area?.name ?? '—'}</td>
                                     <td className="px-6 py-4">
-                                        {branch.is_active ? (
-                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                                                نشط
-                                            </span>
-                                        ) : (
-                                            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">
-                                                متوقف
-                                            </span>
-                                        )}
+                                        <StatusPill tone={branch.is_active ? 'green' : 'gray'} label={branch.is_active ? 'نشط' : 'متوقف'} />
                                     </td>
                                     <td className="px-6 py-4 text-end">
-                                        <button onClick={() => setModalBranch(branch)} className="font-medium text-brand-600 hover:underline">
-                                            تعديل
-                                        </button>
+                                        <RowActionsMenu>
+                                            <button
+                                                onClick={() => setModalBranch(branch)}
+                                                className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                تعديل
+                                            </button>
+                                        </RowActionsMenu>
                                     </td>
                                 </tr>
                             ))

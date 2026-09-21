@@ -65,7 +65,7 @@ trait FiltersDataTable
      * The current filter state, echoed back to the page so the search box,
      * sort indicators, and page-size selector stay in sync with the URL.
      *
-     * @return array{search: string, sort: string, direction: string, per_page: int}
+     * @return array{search: string, sort: string, direction: string, per_page: int, filter: array<string, string>}
      */
     protected function dataTableState(Request $request, string $defaultSort, string $defaultDirection = 'asc', int $defaultPerPage = 15): array
     {
@@ -77,6 +77,30 @@ trait FiltersDataTable
             'sort' => $sort !== '' ? $sort : $defaultSort,
             'direction' => $sort !== '' ? $direction : $defaultDirection,
             'per_page' => $this->dataTablePerPage($request, $defaultPerPage),
+            'filter' => (array) $request->input('filter', []),
         ];
+    }
+
+    /**
+     * Apply simple exact-match filters from `?filter[column]=value` — e.g. a
+     * status or role dropdown in the table's Filter menu. Only columns
+     * named in `$allowedColumns` are honored, so a client can't filter on
+     * an arbitrary column. An empty/missing value for a column is a no-op.
+     *
+     * @param  array<int, string>  $allowedColumns
+     */
+    protected function applyDataTableFilterSelects(Builder $query, Request $request, array $allowedColumns): Builder
+    {
+        $filters = (array) $request->input('filter', []);
+
+        foreach ($allowedColumns as $column) {
+            $value = $filters[$column] ?? null;
+
+            if ($value !== null && $value !== '') {
+                $query->where($column, $value);
+            }
+        }
+
+        return $query;
     }
 }

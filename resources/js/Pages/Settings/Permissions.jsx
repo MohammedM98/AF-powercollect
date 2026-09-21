@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 
@@ -21,11 +22,11 @@ function buildSelectedMap(users) {
     return map;
 }
 
-export default function Permissions({ users, permissionGroups, status, filters }) {
+export default function Permissions({ users, permissionGroups, status, filters, filterOptions }) {
     const [selected, setSelected] = useState(() => buildSelectedMap(users.data));
     const [confirming, setConfirming] = useState(false);
     const [saving, setSaving] = useState(false);
-    const { search, setSearch, sort, setPerPage } = useDataTable('/settings/permissions', filters);
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/settings/permissions', filters);
 
     // The list is searchable/paginated, so the set of users on screen
     // changes independently of user edits. Whenever a new page/search
@@ -94,6 +95,9 @@ export default function Permissions({ users, permissionGroups, status, filters }
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={users.total}
+                filterMenu={
+                    <DataTableFilterMenu groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                }
             />
 
             <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">

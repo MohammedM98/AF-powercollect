@@ -9,6 +9,7 @@ use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Governorate;
 use App\Models\MeterBox;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -33,6 +34,7 @@ class MeterBoxController extends Controller
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
             ->with('branch.governorate', 'branch.area');
         $this->applyDataTableFilters($query, $request, ['name', 'box_number'], self::SORTABLE, 'box_number');
+        $this->applyDataTableFilterSelects($query, $request, ['branch_id']);
 
         $meterBoxes = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -47,6 +49,7 @@ class MeterBoxController extends Controller
             'meterBoxes' => $meterBoxes,
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'box_number'),
+            'filterOptions' => $this->filterOptions($actor),
             ...$this->formOptions(),
         ]);
     }
@@ -141,6 +144,31 @@ class MeterBoxController extends Controller
             'canChooseBranch' => $canChooseBranch,
             'governorates' => $canChooseBranch ? Governorate::orderBy('name')->get() : collect(),
             'areas' => $canChooseBranch ? Area::orderBy('name')->get() : collect(),
+        ];
+    }
+
+    /**
+     * The Filter menu's dropdown groups for the index page. The branch
+     * filter only makes sense for a Super Admin — everyone else's list is
+     * already scoped to their own single branch.
+     *
+     * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string}>}>
+     */
+    private function filterOptions(User $actor): array
+    {
+        if (! $actor->isSuperAdmin()) {
+            return [];
+        }
+
+        return [
+            [
+                'key' => 'branch_id',
+                'label' => 'الفرع',
+                'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => [
+                    'value' => (string) $branch->id,
+                    'label' => $branch->name,
+                ])->all(),
+            ],
         ];
     }
 }

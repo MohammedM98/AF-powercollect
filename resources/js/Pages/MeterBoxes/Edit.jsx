@@ -16,8 +16,8 @@ export default function Edit({ meterBox, branches, canChooseBranch, governorates
     }
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">تعديل صندوق العداد</h2>}>
-            <Head title="تعديل صندوق العداد" />
+        <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">تعديل الطبلون</h2>}>
+            <Head title="تعديل الطبلون" />
 
             <div className="max-w-2xl">
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">

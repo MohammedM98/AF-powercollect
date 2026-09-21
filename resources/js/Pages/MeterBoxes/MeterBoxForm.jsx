@@ -31,7 +31,7 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
     return (
         <>
             <div>
-                <InputLabel htmlFor="name" value="اسم الصندوق" />
+                <InputLabel htmlFor="name" value="اسم الطبلون" />
                 <TextInput
                     id="name"
                     className="mt-1 block w-full"
@@ -43,7 +43,7 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
             </div>
 
             <div className="mt-4">
-                <InputLabel htmlFor="box_number" value="رقم الصندوق" />
+                <InputLabel htmlFor="box_number" value="رقم الطبلون" />
                 <TextInput
                     id="box_number"
                     dir="ltr"
@@ -125,7 +125,7 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
                     </div>
                 </>
             ) : (
-                <p className="mt-4 text-sm text-gray-500">سينتمي صندوق العداد هذا إلى فرعك.</p>
+                <p className="mt-4 text-sm text-gray-500">سينتمي هذا الطبلون إلى فرعك.</p>
             )}
         </>
     );

@@ -56,7 +56,7 @@ export default function MeterBoxModal({ show, onClose, meterBox, branches, canCh
                                 />
                             </svg>
                         </span>
-                        <h3 className="text-lg font-bold text-gray-900">{isEdit ? 'تعديل صندوق العداد' : 'إنشاء صندوق عداد'}</h3>
+                        <h3 className="text-lg font-bold text-gray-900">{isEdit ? 'تعديل الطبلون' : 'إنشاء طبلون'}</h3>
                     </div>
                     <button
                         type="button"

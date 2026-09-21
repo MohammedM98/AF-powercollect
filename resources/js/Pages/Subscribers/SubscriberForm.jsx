@@ -147,9 +147,9 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 />
             </Field>
 
-            <Field id="meter_box_id" label="رقم الطبلون (صندوق العداد)" error={errors.meter_box_id}>
+            <Field id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
                 {meterBoxes.length === 0 ? (
-                    <p className="text-sm text-gray-500">لا توجد صناديق عدادات بعد.</p>
+                    <p className="text-sm text-gray-500">لا توجد طبلونات بعد.</p>
                 ) : (
                     <select
                         className="block w-full rounded-md border-gray-300 shadow-sm"

@@ -27,7 +27,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
                             </svg>
-                            صندوق عداد جديد
+                            طبلون جديد
                         </button>
                     </div>
                 </>
@@ -35,13 +35,13 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
         >
             <Head title="الطبلونات" />
 
-            {status === 'meter-box-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء صندوق العداد.</div>}
-            {status === 'meter-box-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث صندوق العداد.</div>}
+            {status === 'meter-box-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء الطبلون.</div>}
+            {status === 'meter-box-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث الطبلون.</div>}
 
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
-                placeholder="بحث بالاسم أو رقم الصندوق أو الموقع..."
+                placeholder="بحث بالاسم أو رقم الطبلون أو الموقع..."
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={meterBoxes.total}
@@ -52,7 +52,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
                             <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
-                            <SortableTh column="box_number" label="رقم الصندوق" sortState={filters} onSort={sort} />
+                            <SortableTh column="box_number" label="رقم الطبلون" sortState={filters} onSort={sort} />
                             <SortableTh column="location" label="الموقع" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3">الفرع</th>
                             <th className="px-6 py-3">المحافظة / المنطقة</th>

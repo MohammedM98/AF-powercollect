@@ -74,7 +74,7 @@ export default function Index({
                         <tr>
                             <SortableTh column="full_name" label="الاسم الكامل" sortState={filters} onSort={sort} />
                             <SortableTh column="meter_number" label="رقم العداد" sortState={filters} onSort={sort} />
-                            <th className="px-6 py-3">صندوق العداد</th>
+                            <th className="px-6 py-3">الطبلون</th>
                             <th className="px-6 py-3">التعرفة</th>
                             <th className="px-6 py-3">الفرع</th>
                             <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />

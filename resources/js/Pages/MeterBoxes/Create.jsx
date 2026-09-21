@@ -16,8 +16,8 @@ export default function Create({ branches, canChooseBranch, governorates, areas 
     }
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">إنشاء صندوق عداد</h2>}>
-            <Head title="إنشاء صندوق عداد" />
+        <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">إنشاء طبلون</h2>}>
+            <Head title="إنشاء طبلون" />
 
             <div className="max-w-2xl">
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">

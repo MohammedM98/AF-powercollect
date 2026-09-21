@@ -29,6 +29,7 @@ class UpdateBranchRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:30'],
             'is_active' => ['boolean'],
             'governorate_id' => ['nullable', Rule::exists('governorates', 'id')],
+            'area_id' => ['nullable', Rule::exists('areas', 'id')],
         ];
     }
 }

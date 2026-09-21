@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Branches;
 
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Governorate;
 use App\Models\User;
@@ -35,6 +36,26 @@ class BranchAuthorizationTest extends TestCase
         $this->assertDatabaseHas('branches', [
             'name' => 'Downtown Branch',
             'governorate_id' => $governorate->id,
+        ]);
+    }
+
+    public function test_super_admin_can_link_a_branch_to_an_area_within_its_governorate(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $governorate = Governorate::factory()->create();
+        $area = Area::factory()->create(['governorate_id' => $governorate->id]);
+
+        $response = $this->actingAs($superAdmin)->post(route('branches.store'), [
+            'name' => 'Downtown Branch',
+            'governorate_id' => $governorate->id,
+            'area_id' => $area->id,
+        ]);
+
+        $response->assertRedirect(route('branches.index'));
+        $this->assertDatabaseHas('branches', [
+            'name' => 'Downtown Branch',
+            'governorate_id' => $governorate->id,
+            'area_id' => $area->id,
         ]);
     }
 

@@ -2,7 +2,15 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 
-export default function BranchForm({ data, setData, errors, governorates }) {
+export default function BranchForm({ data, setData, errors, governorates, areas }) {
+    const areasInGovernorate = data.governorate_id
+        ? areas.filter((area) => String(area.governorate_id) === String(data.governorate_id))
+        : [];
+
+    function onGovernorateChange(value) {
+        setData((prev) => ({ ...prev, governorate_id: value, area_id: '' }));
+    }
+
     return (
         <>
             <div>
@@ -49,7 +57,7 @@ export default function BranchForm({ data, setData, errors, governorates }) {
                         id="governorate_id"
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                         value={data.governorate_id}
-                        onChange={(e) => setData('governorate_id', e.target.value)}
+                        onChange={(e) => onGovernorateChange(e.target.value)}
                     >
                         <option value="">— بلا محافظة —</option>
                         {governorates.map((governorate) => (
@@ -60,6 +68,30 @@ export default function BranchForm({ data, setData, errors, governorates }) {
                     </select>
                 )}
                 <InputError message={errors.governorate_id} className="mt-2" />
+            </div>
+
+            <div className="mt-4">
+                <InputLabel htmlFor="area_id" value="المنطقة" />
+                {!data.governorate_id ? (
+                    <p className="mt-1 text-sm text-gray-500">اختر محافظة أولاً لعرض مناطقها.</p>
+                ) : areasInGovernorate.length === 0 ? (
+                    <p className="mt-1 text-sm text-gray-500">لا توجد مناطق في هذه المحافظة بعد.</p>
+                ) : (
+                    <select
+                        id="area_id"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                        value={data.area_id}
+                        onChange={(e) => setData('area_id', e.target.value)}
+                    >
+                        <option value="">— بلا منطقة —</option>
+                        {areasInGovernorate.map((area) => (
+                            <option key={area.id} value={area.id}>
+                                {area.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
+                <InputError message={errors.area_id} className="mt-2" />
             </div>
 
             <div className="mt-4 flex items-center">

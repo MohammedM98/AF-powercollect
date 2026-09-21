@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'location', 'phone', 'is_active', 'governorate_id'])]
+#[Fillable(['name', 'location', 'phone', 'is_active', 'governorate_id', 'area_id'])]
 class Branch extends Model
 {
     /** @use HasFactory<BranchFactory> */
@@ -25,6 +25,11 @@ class Branch extends Model
     public function governorate(): BelongsTo
     {
         return $this->belongsTo(Governorate::class);
+    }
+
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
     }
 
     public function users(): HasMany

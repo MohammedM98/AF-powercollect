@@ -45,7 +45,7 @@ export default function Index({ branches, status, filters, governorates, areas }
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
-                placeholder="بحث بالاسم أو الموقع أو الهاتف..."
+                placeholder="بحث بالاسم أو الهاتف..."
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={branches.total}
@@ -56,7 +56,6 @@ export default function Index({ branches, status, filters, governorates, areas }
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
                             <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
-                            <SortableTh column="location" label="الموقع" sortState={filters} onSort={sort} />
                             <SortableTh column="phone" label="الهاتف" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3">المحافظة</th>
                             <th className="px-6 py-3">المنطقة</th>
@@ -67,7 +66,7 @@ export default function Index({ branches, status, filters, governorates, areas }
                     <tbody className="divide-y">
                         {branches.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={7}>
+                                <td className="px-6 py-4 text-gray-500" colSpan={6}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
@@ -75,7 +74,6 @@ export default function Index({ branches, status, filters, governorates, areas }
                             branches.data.map((branch) => (
                                 <tr key={branch.id} className="transition hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">{branch.name}</td>
-                                    <td className="px-6 py-4 text-gray-600">{branch.location}</td>
                                     <td className="px-6 py-4 text-gray-600">{branch.phone}</td>
                                     <td className="px-6 py-4 text-gray-600">{branch.governorate?.name ?? '—'}</td>
                                     <td className="px-6 py-4 text-gray-600">{branch.area?.name ?? '—'}</td>

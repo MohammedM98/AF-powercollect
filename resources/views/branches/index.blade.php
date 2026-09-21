@@ -23,7 +23,6 @@
             <thead class="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
                     <th class="px-6 py-3">{{ __('Name') }}</th>
-                    <th class="px-6 py-3">{{ __('Location') }}</th>
                     <th class="px-6 py-3">{{ __('Phone') }}</th>
                     <th class="px-6 py-3">{{ __('Governorate') }}</th>
                     <th class="px-6 py-3">{{ __('Area') }}</th>
@@ -35,7 +34,6 @@
                 @foreach ($branches as $branch)
                     <tr>
                         <td class="px-6 py-4 font-medium text-gray-900">{{ $branch->name }}</td>
-                        <td class="px-6 py-4 text-gray-600">{{ $branch->location }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $branch->phone }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $branch->governorate?->name ?? '—' }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $branch->area?->name ?? '—' }}</td>

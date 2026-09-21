@@ -10,7 +10,7 @@
             <form method="POST" action="{{ route('governorates.update', $governorate['id']) }}">
                 @csrf
                 @method('PUT')
-                @include('governorates._form', ['governorate' => $governorate, 'areas' => $areas])
+                @include('governorates._form', ['governorate' => $governorate])
 
                 <div class="mt-6 flex items-center gap-4">
                     <x-primary-button>{{ __('Save') }}</x-primary-button>

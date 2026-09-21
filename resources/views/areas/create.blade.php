@@ -13,7 +13,7 @@
 
                 <div class="mt-6 flex items-center gap-4">
                     <x-primary-button>{{ __('Save') }}</x-primary-button>
-                    <a href="{{ route('areas.index') }}" class="text-sm text-gray-600 underline">{{ __('Cancel') }}</a>
+                    <a href="{{ route('governorates.index') }}" class="text-sm text-gray-600 underline">{{ __('Cancel') }}</a>
                 </div>
             </form>
         </div>

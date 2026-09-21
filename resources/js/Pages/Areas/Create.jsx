@@ -25,7 +25,7 @@ export default function Create({ governorates }) {
 
                         <div className="mt-6 flex items-center gap-4">
                             <PrimaryButton disabled={processing}>حفظ</PrimaryButton>
-                            <a href="/areas" className="text-sm text-gray-600 underline">
+                            <a href="/governorates" className="text-sm text-gray-600 underline">
                                 إلغاء
                             </a>
                         </div>

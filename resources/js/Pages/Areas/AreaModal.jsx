@@ -4,11 +4,11 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import AreaForm from './AreaForm';
 
-export default function AreaModal({ show, onClose, area, governorates }) {
+export default function AreaModal({ show, onClose, area, governorates, defaultGovernorateId = '' }) {
     const isEdit = Boolean(area);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(
-        isEdit ? { name: area.name, governorate_id: area.governorate_id ?? '' } : { name: '', governorate_id: '' },
+        isEdit ? { name: area.name, governorate_id: area.governorate_id ?? '' } : { name: '', governorate_id: defaultGovernorateId },
     );
 
     function close() {

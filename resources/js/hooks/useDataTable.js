@@ -5,8 +5,11 @@ import { router } from '@inertiajs/react';
 // request, and issues immediate requests for sort/page-size changes.
 // `filters` is the page's current filter state as echoed back by the
 // controller (see App\Http\Concerns\FiltersDataTable), so sort/direction
-// always reflect what the last response actually applied.
-export function useDataTable(url, filters) {
+// always reflect what the last response actually applied. `extraParams`
+// are merged into every request unchanged — e.g. a `selected` id another
+// part of the same page depends on, so it survives search/sort/page-size
+// changes instead of being dropped.
+export function useDataTable(url, filters, extraParams = {}) {
     const [search, setSearch] = useState(filters.search ?? '');
     const isFirstRun = useRef(true);
 
@@ -19,7 +22,7 @@ export function useDataTable(url, filters) {
         const timeout = setTimeout(() => {
             router.get(
                 url,
-                { search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page },
+                { ...extraParams, search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page },
                 { preserveState: true, preserveScroll: true, replace: true },
             );
         }, 350);
@@ -32,7 +35,7 @@ export function useDataTable(url, filters) {
         const direction = filters.sort === column && filters.direction === 'asc' ? 'desc' : 'asc';
         router.get(
             url,
-            { search, sort: column, direction, per_page: filters.per_page },
+            { ...extraParams, search, sort: column, direction, per_page: filters.per_page },
             { preserveState: true, preserveScroll: true, replace: true },
         );
     }
@@ -40,7 +43,7 @@ export function useDataTable(url, filters) {
     function setPerPage(perPage) {
         router.get(
             url,
-            { search, sort: filters.sort, direction: filters.direction, per_page: perPage },
+            { ...extraParams, search, sort: filters.sort, direction: filters.direction, per_page: perPage },
             { preserveState: true, preserveScroll: true, replace: true },
         );
     }

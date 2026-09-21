@@ -3,10 +3,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import GovernorateForm from './GovernorateForm';
 
-export default function Edit({ governorate, areas }) {
+export default function Edit({ governorate }) {
     const { data, setData, put, processing, errors } = useForm({
         name: governorate.name,
-        area_ids: governorate.area_ids,
     });
 
     function submit(e) {
@@ -21,7 +20,7 @@ export default function Edit({ governorate, areas }) {
             <div className="max-w-2xl">
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                     <form onSubmit={submit}>
-                        <GovernorateForm data={data} setData={setData} errors={errors} areas={areas} currentGovernorateName={governorate.name} />
+                        <GovernorateForm data={data} setData={setData} errors={errors} />
 
                         <div className="mt-6 flex items-center gap-4">
                             <PrimaryButton disabled={processing}>حفظ</PrimaryButton>

@@ -23,7 +23,7 @@ function pageNumbers(current, last) {
     return [...new Set(range)];
 }
 
-export default function Pagination({ meta, filters, baseUrl }) {
+export default function Pagination({ meta, filters, baseUrl, extraParams = {} }) {
     const { current_page: current, last_page: last, from, to, total } = meta;
 
     if (total === 0) {
@@ -31,7 +31,7 @@ export default function Pagination({ meta, filters, baseUrl }) {
     }
 
     function goTo(page) {
-        router.get(baseUrl, { ...filters, page }, { preserveState: true, preserveScroll: true, replace: true });
+        router.get(baseUrl, { ...extraParams, ...filters, page }, { preserveState: true, preserveScroll: true, replace: true });
     }
 
     return (

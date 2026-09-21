@@ -25,8 +25,6 @@ class UpdateGovernorateRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('governorates', 'name')->ignore($this->route('governorate'))],
-            'area_ids' => ['nullable', 'array'],
-            'area_ids.*' => [Rule::exists('areas', 'id')],
         ];
     }
 }

@@ -2,47 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreAreaRequest;
 use App\Http\Requests\UpdateAreaRequest;
 use App\Models\Area;
 use App\Models\Governorate;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class AreaController extends Controller
 {
-    use FiltersDataTable;
-
-    private const SORTABLE = ['name', 'created_at'];
-
-    /**
-     * Display a listing of the resource.
-     */
-    public function index(Request $request): InertiaResponse
-    {
-        $this->authorize('viewAny', Area::class);
-
-        $query = Area::query()->with('governorate');
-        $this->applyDataTableFilters($query, $request, ['name'], self::SORTABLE, 'name');
-
-        $areas = $query->paginate($this->dataTablePerPage($request))
-            ->withQueryString()
-            ->through(fn (Area $area) => [
-                ...$this->editableFields($area),
-                'governorateName' => $area->governorate?->name,
-            ]);
-
-        return Inertia::render('Areas/Index', [
-            'areas' => $areas,
-            'status' => session('status'),
-            'filters' => $this->dataTableState($request, 'name'),
-            'governorates' => Governorate::orderBy('name')->get(),
-        ]);
-    }
-
     /**
      * Show the form for creating a new resource.
      */
@@ -60,9 +29,10 @@ class AreaController extends Controller
      */
     public function store(StoreAreaRequest $request): RedirectResponse
     {
-        Area::create($request->validated());
+        $area = Area::create($request->validated());
 
-        return redirect()->route('areas.index')->with('status', 'area-created');
+        return redirect()->route('governorates.index', array_filter(['selected' => $area->governorate_id]))
+            ->with('status', 'area-created');
     }
 
     /**
@@ -85,12 +55,13 @@ class AreaController extends Controller
     {
         $area->update($request->validated());
 
-        return redirect()->route('areas.index')->with('status', 'area-updated');
+        return redirect()->route('governorates.index', array_filter(['selected' => $area->governorate_id]))
+            ->with('status', 'area-updated');
     }
 
     /**
-     * An area's editable fields — used both for the dedicated edit page
-     * and for the edit modal's initial form data on the index page.
+     * An area's editable fields — used for the dedicated edit page and for
+     * the edit modal's initial form data on the combined governorates page.
      *
      * @return array<string, mixed>
      */

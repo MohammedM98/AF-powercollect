@@ -9,7 +9,6 @@ use App\Models\Area;
 use App\Models\Governorate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -20,7 +19,9 @@ class GovernorateController extends Controller
     private const SORTABLE = ['name', 'created_at'];
 
     /**
-     * Display a listing of the resource.
+     * Display a listing of the resource, plus the selected governorate's
+     * areas (?selected=<id>) so the whole governorate/area hierarchy can
+     * be managed from this one page.
      */
     public function index(Request $request): InertiaResponse
     {
@@ -38,9 +39,10 @@ class GovernorateController extends Controller
 
         return Inertia::render('Governorates/Index', [
             'governorates' => $governorates,
+            'selectedGovernorate' => $this->selectedGovernorate($request),
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
-            'areas' => $this->areaOptions(),
+            'governorateOptions' => Governorate::orderBy('name')->get(),
         ]);
     }
 
@@ -51,9 +53,7 @@ class GovernorateController extends Controller
     {
         $this->authorize('create', Governorate::class);
 
-        return Inertia::render('Governorates/Create', [
-            'areas' => $this->areaOptions(),
-        ]);
+        return Inertia::render('Governorates/Create');
     }
 
     /**
@@ -61,17 +61,9 @@ class GovernorateController extends Controller
      */
     public function store(StoreGovernorateRequest $request): RedirectResponse
     {
-        $data = $request->validated();
-        $areaIds = $data['area_ids'] ?? [];
-        unset($data['area_ids']);
+        $governorate = Governorate::create($request->validated());
 
-        DB::transaction(function () use ($data, $areaIds) {
-            $governorate = Governorate::create($data);
-
-            Area::whereIn('id', $areaIds)->update(['governorate_id' => $governorate->id]);
-        });
-
-        return redirect()->route('governorates.index')->with('status', 'governorate-created');
+        return redirect()->route('governorates.index', ['selected' => $governorate->id])->with('status', 'governorate-created');
     }
 
     /**
@@ -83,7 +75,6 @@ class GovernorateController extends Controller
 
         return Inertia::render('Governorates/Edit', [
             'governorate' => $this->editableFields($governorate),
-            'areas' => $this->areaOptions(),
         ]);
     }
 
@@ -92,20 +83,9 @@ class GovernorateController extends Controller
      */
     public function update(UpdateGovernorateRequest $request, Governorate $governorate): RedirectResponse
     {
-        $data = $request->validated();
-        $areaIds = $data['area_ids'] ?? [];
-        unset($data['area_ids']);
+        $governorate->update($request->validated());
 
-        DB::transaction(function () use ($data, $areaIds, $governorate) {
-            $governorate->update($data);
-
-            // Unassign areas that were this governorate's but are no longer
-            // selected, then (re)assign the ones that are.
-            Area::where('governorate_id', $governorate->id)->whereNotIn('id', $areaIds)->update(['governorate_id' => null]);
-            Area::whereIn('id', $areaIds)->update(['governorate_id' => $governorate->id]);
-        });
-
-        return redirect()->route('governorates.index')->with('status', 'governorate-updated');
+        return redirect()->route('governorates.index', ['selected' => $governorate->id])->with('status', 'governorate-updated');
     }
 
     /**
@@ -119,22 +99,38 @@ class GovernorateController extends Controller
         return [
             'id' => $governorate->id,
             'name' => $governorate->name,
-            'area_ids' => $governorate->areas()->pluck('id'),
         ];
     }
 
     /**
-     * Every area, with the governorate it currently belongs to (if any) —
-     * so the assignment checklist can show where an area would move from.
+     * The governorate named by the `selected` query param, with its areas
+     * — the right-hand panel's data on the combined governorates/areas
+     * page. Null when nothing is selected (or the id no longer exists).
      *
-     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, governorateName: ?string}>
+     * @return array{id: int, name: string, areas: \Illuminate\Support\Collection}|null
      */
-    private function areaOptions(): \Illuminate\Support\Collection
+    private function selectedGovernorate(Request $request): ?array
     {
-        return Area::with('governorate')->orderBy('name')->get()->map(fn (Area $area) => [
-            'id' => $area->id,
-            'name' => $area->name,
-            'governorateName' => $area->governorate?->name,
-        ]);
+        $selectedId = $request->integer('selected');
+
+        if (! $selectedId) {
+            return null;
+        }
+
+        $governorate = Governorate::with(['areas' => fn ($query) => $query->orderBy('name')])->find($selectedId);
+
+        if (! $governorate) {
+            return null;
+        }
+
+        return [
+            'id' => $governorate->id,
+            'name' => $governorate->name,
+            'areas' => $governorate->areas->map(fn (Area $area) => [
+                'id' => $area->id,
+                'name' => $area->name,
+                'governorate_id' => $area->governorate_id,
+            ]),
+        ];
     }
 }

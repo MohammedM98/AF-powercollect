@@ -29,45 +29,24 @@ class GovernorateAuthorizationTest extends TestCase
             'name' => 'Baghdad',
         ]);
 
-        $response->assertRedirect(route('governorates.index'));
-        $this->assertDatabaseHas('governorates', ['name' => 'Baghdad']);
-    }
-
-    public function test_creating_a_governorate_assigns_the_selected_areas(): void
-    {
-        $superAdmin = User::factory()->superAdmin()->create();
-        $areaOne = Area::factory()->create();
-        $areaTwo = Area::factory()->create();
-        $unrelatedArea = Area::factory()->create();
-
-        $this->actingAs($superAdmin)->post(route('governorates.store'), [
-            'name' => 'Baghdad',
-            'area_ids' => [$areaOne->id, $areaTwo->id],
-        ])->assertRedirect(route('governorates.index'));
-
         $governorate = Governorate::where('name', 'Baghdad')->firstOrFail();
-
-        $this->assertDatabaseHas('areas', ['id' => $areaOne->id, 'governorate_id' => $governorate->id]);
-        $this->assertDatabaseHas('areas', ['id' => $areaTwo->id, 'governorate_id' => $governorate->id]);
-        $this->assertDatabaseHas('areas', ['id' => $unrelatedArea->id, 'governorate_id' => null]);
+        $response->assertRedirect(route('governorates.index', ['selected' => $governorate->id]));
     }
 
-    public function test_updating_a_governorate_reassigns_its_areas(): void
+    public function test_selecting_a_governorate_returns_its_areas(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
         $governorate = Governorate::factory()->create();
-        $keptArea = Area::factory()->create(['governorate_id' => $governorate->id]);
-        $droppedArea = Area::factory()->create(['governorate_id' => $governorate->id]);
-        $addedArea = Area::factory()->create();
+        Area::factory()->create(['governorate_id' => $governorate->id, 'name' => 'Karrada']);
+        Area::factory()->create(); // unrelated, different governorate
 
-        $this->actingAs($superAdmin)->put(route('governorates.update', $governorate), [
-            'name' => $governorate->name,
-            'area_ids' => [$keptArea->id, $addedArea->id],
-        ])->assertRedirect(route('governorates.index'));
-
-        $this->assertDatabaseHas('areas', ['id' => $keptArea->id, 'governorate_id' => $governorate->id]);
-        $this->assertDatabaseHas('areas', ['id' => $addedArea->id, 'governorate_id' => $governorate->id]);
-        $this->assertDatabaseHas('areas', ['id' => $droppedArea->id, 'governorate_id' => null]);
+        $this->actingAs($superAdmin)
+            ->get(route('governorates.index', ['selected' => $governorate->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('selectedGovernorate.id', $governorate->id)
+                ->has('selectedGovernorate.areas', 1)
+                ->where('selectedGovernorate.areas.0.name', 'Karrada'));
     }
 
     public function test_cannot_create_two_governorates_with_the_same_name(): void

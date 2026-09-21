@@ -9,7 +9,7 @@
         <div class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <form method="POST" action="{{ route('governorates.store') }}">
                 @csrf
-                @include('governorates._form', ['governorate' => null, 'areas' => $areas])
+                @include('governorates._form', ['governorate' => null])
 
                 <div class="mt-6 flex items-center gap-4">
                     <x-primary-button>{{ __('Save') }}</x-primary-button>

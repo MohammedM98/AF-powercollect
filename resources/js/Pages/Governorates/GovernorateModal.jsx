@@ -4,20 +4,10 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import GovernorateForm from './GovernorateForm';
 
-export default function GovernorateModal({ show, onClose, governorate, areas }) {
+export default function GovernorateModal({ show, onClose, governorate }) {
     const isEdit = Boolean(governorate);
 
-    const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(
-        isEdit
-            ? {
-                  name: governorate.name,
-                  area_ids: governorate.area_ids,
-              }
-            : {
-                  name: '',
-                  area_ids: [],
-              },
-    );
+    const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(isEdit ? { name: governorate.name } : { name: '' });
 
     function close() {
         clearErrors();
@@ -38,7 +28,7 @@ export default function GovernorateModal({ show, onClose, governorate, areas }) 
     }
 
     return (
-        <Modal show={show} onClose={close} maxWidth="lg">
+        <Modal show={show} onClose={close} maxWidth="md">
             <form onSubmit={submit} className="flex max-h-[90vh] flex-col">
                 <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -66,7 +56,7 @@ export default function GovernorateModal({ show, onClose, governorate, areas }) 
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 py-5">
-                    <GovernorateForm data={data} setData={setData} errors={errors} areas={areas} currentGovernorateName={governorate?.name} />
+                    <GovernorateForm data={data} setData={setData} errors={errors} />
                 </div>
 
                 <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">

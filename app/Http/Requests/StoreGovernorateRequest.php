@@ -26,8 +26,6 @@ class StoreGovernorateRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('governorates', 'name')],
-            'area_ids' => ['nullable', 'array'],
-            'area_ids.*' => [Rule::exists('areas', 'id')],
         ];
     }
 }

@@ -26,17 +26,6 @@ export default function BranchForm({ data, setData, errors, governorates, areas 
             </div>
 
             <div className="mt-4">
-                <InputLabel htmlFor="location" value="الموقع" />
-                <TextInput
-                    id="location"
-                    className="mt-1 block w-full"
-                    value={data.location}
-                    onChange={(e) => setData('location', e.target.value)}
-                />
-                <InputError message={errors.location} className="mt-2" />
-            </div>
-
-            <div className="mt-4">
                 <InputLabel htmlFor="phone" value="الهاتف" />
                 <TextInput
                     id="phone"

@@ -26,7 +26,6 @@ class StoreBranchRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'location' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:30'],
             'is_active' => ['boolean'],
             'governorate_id' => ['nullable', Rule::exists('governorates', 'id')],

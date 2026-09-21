@@ -65,7 +65,6 @@ class BranchAuthorizationTest extends TestCase
 
         $response = $this->actingAs($superAdmin)->post(route('branches.store'), [
             'name' => 'Downtown Branch',
-            'location' => '123 Main St',
             'phone' => '555-1000',
             'is_active' => '1',
         ]);
@@ -84,7 +83,6 @@ class BranchAuthorizationTest extends TestCase
 
         $response = $this->actingAs($superAdmin)->put(route('branches.update', $branch), [
             'name' => 'Renamed Branch',
-            'location' => $branch->location,
             'phone' => $branch->phone,
             'is_active' => '0',
         ]);

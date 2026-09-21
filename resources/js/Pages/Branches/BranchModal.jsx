@@ -6,7 +6,6 @@ import BranchForm from './BranchForm';
 
 const BLANK = {
     name: '',
-    location: '',
     phone: '',
     is_active: true,
     governorate_id: '',
@@ -20,7 +19,6 @@ export default function BranchModal({ show, onClose, branch, governorates, areas
         isEdit
             ? {
                   name: branch.name,
-                  location: branch.location ?? '',
                   phone: branch.phone ?? '',
                   is_active: branch.is_active,
                   governorate_id: branch.governorate_id ?? '',

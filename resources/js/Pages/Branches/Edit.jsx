@@ -6,7 +6,6 @@ import BranchForm from './BranchForm';
 export default function Edit({ branch, governorates, areas }) {
     const { data, setData, put, processing, errors } = useForm({
         name: branch.name,
-        location: branch.location ?? '',
         phone: branch.phone ?? '',
         is_active: branch.is_active,
         governorate_id: branch.governorate_id ?? '',

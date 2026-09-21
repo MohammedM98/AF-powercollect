@@ -6,7 +6,6 @@ import BranchForm from './BranchForm';
 export default function Create({ governorates, areas }) {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
-        location: '',
         phone: '',
         is_active: true,
         governorate_id: '',

@@ -5,12 +5,6 @@
 </div>
 
 <div class="mt-4">
-    <x-input-label for="location" :value="__('Location')" />
-    <x-text-input id="location" name="location" type="text" class="mt-1 block w-full" :value="old('location', $branch->location ?? '')" />
-    <x-input-error :messages="$errors->get('location')" class="mt-2" />
-</div>
-
-<div class="mt-4">
     <x-input-label for="phone" :value="__('Phone')" />
     <x-text-input id="phone" name="phone" type="text" class="mt-1 block w-full" dir="ltr" :value="old('phone', $branch->phone ?? '')" />
     <x-input-error :messages="$errors->get('phone')" class="mt-2" />

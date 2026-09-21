@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Area;
 use App\Models\Branch;
 use App\Models\MeterBox;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -20,9 +19,9 @@ class MeterBoxFactory extends Factory
     public function definition(): array
     {
         return [
+            'name' => fake()->words(2, true),
             'box_number' => fake()->unique()->bothify('BOX-####'),
             'branch_id' => Branch::factory(),
-            'area_id' => Area::factory(),
             'location' => fake()->streetAddress(),
         ];
     }

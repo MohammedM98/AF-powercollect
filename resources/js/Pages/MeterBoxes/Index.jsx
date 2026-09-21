@@ -7,7 +7,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import MeterBoxModal from './MeterBoxModal';
 
-export default function Index({ meterBoxes, status, branches, canChooseBranch, areas, filters }) {
+export default function Index({ meterBoxes, status, branches, canChooseBranch, governorates, areas, filters }) {
     const [modalMeterBox, setModalMeterBox] = useState(null);
     const [creating, setCreating] = useState(false);
     const { search, setSearch, sort, setPerPage } = useDataTable('/meter-boxes', filters);
@@ -41,7 +41,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, a
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
-                placeholder="بحث برقم الصندوق أو الموقع..."
+                placeholder="بحث بالاسم أو رقم الصندوق أو الموقع..."
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={meterBoxes.total}
@@ -51,29 +51,33 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, a
                 <table className="w-full text-sm text-start">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
+                            <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
                             <SortableTh column="box_number" label="رقم الصندوق" sortState={filters} onSort={sort} />
-                            <th className="px-6 py-3">المنطقة</th>
                             <SortableTh column="location" label="الموقع" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3">الفرع</th>
+                            <th className="px-6 py-3">المحافظة / المنطقة</th>
                             <th className="px-6 py-3"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y">
                         {meterBoxes.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={5}>
+                                <td className="px-6 py-4 text-gray-500" colSpan={6}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
                         ) : (
                             meterBoxes.data.map((meterBox) => (
                                 <tr key={meterBox.id} className="transition hover:bg-gray-50">
-                                    <td className="px-6 py-4 font-medium text-gray-900" dir="ltr">
+                                    <td className="px-6 py-4 font-medium text-gray-900">{meterBox.name}</td>
+                                    <td className="px-6 py-4 text-gray-600" dir="ltr">
                                         {meterBox.box_number}
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600">{meterBox.areaName}</td>
                                     <td className="px-6 py-4 text-gray-600">{meterBox.location}</td>
                                     <td className="px-6 py-4 text-gray-600">{meterBox.branchName}</td>
+                                    <td className="px-6 py-4 text-gray-600">
+                                        {[meterBox.governorateName, meterBox.areaName].filter(Boolean).join(' / ') || '—'}
+                                    </td>
                                     <td className="px-6 py-4 text-end">
                                         <button onClick={() => setModalMeterBox(meterBox)} className="font-medium text-brand-600 hover:underline">
                                             تعديل
@@ -94,6 +98,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, a
                 meterBox={null}
                 branches={branches}
                 canChooseBranch={canChooseBranch}
+                governorates={governorates}
                 areas={areas}
             />
 
@@ -109,6 +114,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, a
                     meterBox={modalMeterBox}
                     branches={branches}
                     canChooseBranch={canChooseBranch}
+                    governorates={governorates}
                     areas={areas}
                 />
             )}

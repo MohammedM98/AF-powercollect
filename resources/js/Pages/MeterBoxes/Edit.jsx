@@ -3,10 +3,10 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import MeterBoxForm from './MeterBoxForm';
 
-export default function Edit({ meterBox, branches, canChooseBranch, areas }) {
+export default function Edit({ meterBox, branches, canChooseBranch, governorates, areas }) {
     const { data, setData, put, processing, errors } = useForm({
+        name: meterBox.name ?? '',
         box_number: meterBox.box_number,
-        area_id: meterBox.area_id ?? '',
         location: meterBox.location ?? '',
         branch_id: meterBox.branch_id,
     });
@@ -29,6 +29,7 @@ export default function Edit({ meterBox, branches, canChooseBranch, areas }) {
                             errors={errors}
                             branches={branches}
                             canChooseBranch={canChooseBranch}
+                            governorates={governorates}
                             areas={areas}
                         />
 

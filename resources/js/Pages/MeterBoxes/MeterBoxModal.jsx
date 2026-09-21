@@ -5,20 +5,20 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import MeterBoxForm from './MeterBoxForm';
 
 const BLANK = {
+    name: '',
     box_number: '',
-    area_id: '',
     location: '',
     branch_id: '',
 };
 
-export default function MeterBoxModal({ show, onClose, meterBox, branches, canChooseBranch, areas }) {
+export default function MeterBoxModal({ show, onClose, meterBox, branches, canChooseBranch, governorates, areas }) {
     const isEdit = Boolean(meterBox);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(
         isEdit
             ? {
+                  name: meterBox.name ?? '',
                   box_number: meterBox.box_number,
-                  area_id: meterBox.area_id ?? '',
                   location: meterBox.location ?? '',
                   branch_id: meterBox.branch_id,
               }
@@ -78,6 +78,7 @@ export default function MeterBoxModal({ show, onClose, meterBox, branches, canCh
                         errors={errors}
                         branches={branches}
                         canChooseBranch={canChooseBranch}
+                        governorates={governorates}
                         areas={areas}
                     />
                 </div>

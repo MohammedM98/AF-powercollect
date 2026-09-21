@@ -24,8 +24,8 @@ class UpdateMeterBoxRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
+            'name' => ['required', 'string', 'max:255'],
             'box_number' => ['required', 'string', 'max:255', Rule::unique('meter_boxes', 'box_number')->ignore($this->route('meter_box'))],
-            'area_id' => ['nullable', Rule::exists('areas', 'id')],
             'location' => ['nullable', 'string', 'max:255'],
         ];
 

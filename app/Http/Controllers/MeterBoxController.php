@@ -7,6 +7,7 @@ use App\Http\Requests\StoreMeterBoxRequest;
 use App\Http\Requests\UpdateMeterBoxRequest;
 use App\Models\Area;
 use App\Models\Branch;
+use App\Models\Governorate;
 use App\Models\MeterBox;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ class MeterBoxController extends Controller
 {
     use FiltersDataTable;
 
-    private const SORTABLE = ['box_number', 'location', 'created_at'];
+    private const SORTABLE = ['name', 'box_number', 'location', 'created_at'];
 
     /**
      * Display a listing of the resource.
@@ -30,15 +31,16 @@ class MeterBoxController extends Controller
 
         $query = MeterBox::query()
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
-            ->with(['branch', 'area']);
-        $this->applyDataTableFilters($query, $request, ['box_number', 'location'], self::SORTABLE, 'box_number');
+            ->with('branch.governorate', 'branch.area');
+        $this->applyDataTableFilters($query, $request, ['name', 'box_number', 'location'], self::SORTABLE, 'box_number');
 
         $meterBoxes = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
             ->through(fn (MeterBox $meterBox) => [
                 ...$this->editableFields($meterBox),
                 'branchName' => $meterBox->branch->name,
-                'areaName' => $meterBox->area?->name,
+                'governorateName' => $meterBox->branch->governorate?->name,
+                'areaName' => $meterBox->branch->area?->name,
             ]);
 
         return Inertia::render('MeterBoxes/Index', [
@@ -111,18 +113,23 @@ class MeterBoxController extends Controller
     {
         return [
             'id' => $meterBox->id,
+            'name' => $meterBox->name,
             'box_number' => $meterBox->box_number,
             'branch_id' => $meterBox->branch_id,
-            'area_id' => $meterBox->area_id,
             'location' => $meterBox->location,
         ];
     }
 
     /**
      * The branch options for the create/edit forms, and whether the actor
-     * may choose the branch themselves.
+     * may choose the branch themselves. A Super Admin also gets every
+     * governorate and area, purely to narrow down the branch picker with
+     * a cascading select — a meter box's area/governorate always come
+     * from whichever branch it belongs to, never stored on the meter box
+     * itself. Everyone else has their branch forced server-side, so they
+     * don't need any of this.
      *
-     * @return array{branches: \Illuminate\Support\Collection, canChooseBranch: bool, areas: \Illuminate\Support\Collection}
+     * @return array{branches: \Illuminate\Support\Collection, canChooseBranch: bool, governorates: \Illuminate\Support\Collection, areas: \Illuminate\Support\Collection}
      */
     private function formOptions(): array
     {
@@ -130,9 +137,10 @@ class MeterBoxController extends Controller
         $canChooseBranch = $actor->isSuperAdmin();
 
         return [
-            'branches' => $canChooseBranch ? Branch::orderBy('name')->get() : collect(),
+            'branches' => $canChooseBranch ? Branch::with(['governorate', 'area'])->orderBy('name')->get() : collect(),
             'canChooseBranch' => $canChooseBranch,
-            'areas' => Area::orderBy('name')->get(),
+            'governorates' => $canChooseBranch ? Governorate::orderBy('name')->get() : collect(),
+            'areas' => $canChooseBranch ? Area::orderBy('name')->get() : collect(),
         ];
     }
 }

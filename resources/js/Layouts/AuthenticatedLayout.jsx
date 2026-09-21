@@ -115,7 +115,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
                     {can?.viewMeterBoxes && (
                         <NavLink href="/meter-boxes" active={url.startsWith('/meter-boxes')}>
-                            صناديق العدادات
+                            الطبلونات
                             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3.75 3.75v16.5h16.5V3.75H3.75zM3.75 9h16.5M9 3.75v16.5" />
                             </svg>

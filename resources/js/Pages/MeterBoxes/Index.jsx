@@ -17,7 +17,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-xl font-bold text-gray-900">صناديق العدادات</h2>
+                        <h2 className="text-xl font-bold text-gray-900">الطبلونات</h2>
                     </div>
                     <div className="shrink-0">
                         <button
@@ -33,7 +33,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                 </>
             }
         >
-            <Head title="صناديق العدادات" />
+            <Head title="الطبلونات" />
 
             {status === 'meter-box-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء صندوق العداد.</div>}
             {status === 'meter-box-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث صندوق العداد.</div>}

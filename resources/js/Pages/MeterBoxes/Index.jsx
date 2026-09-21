@@ -41,7 +41,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
-                placeholder="بحث بالاسم أو رقم الطبلون أو الموقع..."
+                placeholder="بحث بالاسم أو رقم الطبلون..."
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={meterBoxes.total}
@@ -53,7 +53,6 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                         <tr>
                             <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
                             <SortableTh column="box_number" label="رقم الطبلون" sortState={filters} onSort={sort} />
-                            <SortableTh column="location" label="الموقع" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3">الفرع</th>
                             <th className="px-6 py-3">المحافظة / المنطقة</th>
                             <th className="px-6 py-3"></th>
@@ -62,7 +61,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                     <tbody className="divide-y">
                         {meterBoxes.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={6}>
+                                <td className="px-6 py-4 text-gray-500" colSpan={5}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
@@ -73,7 +72,6 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                                     <td className="px-6 py-4 text-gray-600" dir="ltr">
                                         {meterBox.box_number}
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600">{meterBox.location}</td>
                                     <td className="px-6 py-4 text-gray-600">{meterBox.branchName}</td>
                                     <td className="px-6 py-4 text-gray-600">
                                         {[meterBox.governorateName, meterBox.areaName].filter(Boolean).join(' / ') || '—'}

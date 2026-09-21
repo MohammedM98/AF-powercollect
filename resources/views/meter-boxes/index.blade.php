@@ -24,7 +24,6 @@
                 <tr>
                     <th class="px-6 py-3">{{ __('Name') }}</th>
                     <th class="px-6 py-3">{{ __('Box Number') }}</th>
-                    <th class="px-6 py-3">{{ __('Location') }}</th>
                     <th class="px-6 py-3">{{ __('Branch') }}</th>
                     <th class="px-6 py-3">{{ __('Governorate') }} / {{ __('Area') }}</th>
                     <th class="px-6 py-3"></th>
@@ -35,7 +34,6 @@
                     <tr>
                         <td class="px-6 py-4 font-medium text-gray-900">{{ $meterBox->name }}</td>
                         <td class="px-6 py-4 text-gray-600" dir="ltr">{{ $meterBox->box_number }}</td>
-                        <td class="px-6 py-4 text-gray-600">{{ $meterBox->location }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $meterBox->branch->name }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ collect([$meterBox->branch->governorate?->name, $meterBox->branch->area?->name])->filter()->implode(' / ') ?: '—' }}</td>
                         <td class="px-6 py-4 text-end">
@@ -44,7 +42,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td class="px-6 py-4 text-gray-500" colspan="6">{{ __('No meter boxes exist yet.') }}</td>
+                        <td class="px-6 py-4 text-gray-500" colspan="5">{{ __('No meter boxes exist yet.') }}</td>
                     </tr>
                 @endforelse
             </tbody>

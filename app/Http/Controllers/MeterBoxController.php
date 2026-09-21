@@ -18,7 +18,7 @@ class MeterBoxController extends Controller
 {
     use FiltersDataTable;
 
-    private const SORTABLE = ['name', 'box_number', 'location', 'created_at'];
+    private const SORTABLE = ['name', 'box_number', 'created_at'];
 
     /**
      * Display a listing of the resource.
@@ -32,7 +32,7 @@ class MeterBoxController extends Controller
         $query = MeterBox::query()
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
             ->with('branch.governorate', 'branch.area');
-        $this->applyDataTableFilters($query, $request, ['name', 'box_number', 'location'], self::SORTABLE, 'box_number');
+        $this->applyDataTableFilters($query, $request, ['name', 'box_number'], self::SORTABLE, 'box_number');
 
         $meterBoxes = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()

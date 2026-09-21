@@ -54,12 +54,6 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
                 <InputError message={errors.box_number} className="mt-2" />
             </div>
 
-            <div className="mt-4">
-                <InputLabel htmlFor="location" value="الموقع" />
-                <TextInput id="location" className="mt-1 block w-full" value={data.location} onChange={(e) => setData('location', e.target.value)} />
-                <InputError message={errors.location} className="mt-2" />
-            </div>
-
             {canChooseBranch ? (
                 <>
                     <div className="mt-4">

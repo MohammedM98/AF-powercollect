@@ -7,7 +7,6 @@ export default function Edit({ meterBox, branches, canChooseBranch, governorates
     const { data, setData, put, processing, errors } = useForm({
         name: meterBox.name ?? '',
         box_number: meterBox.box_number,
-        location: meterBox.location ?? '',
         branch_id: meterBox.branch_id,
     });
 

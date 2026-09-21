@@ -7,7 +7,6 @@ export default function Create({ branches, canChooseBranch, governorates, areas 
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         box_number: '',
-        location: '',
         branch_id: '',
     });
 

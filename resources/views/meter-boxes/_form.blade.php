@@ -10,12 +10,6 @@
     <x-input-error :messages="$errors->get('box_number')" class="mt-2" />
 </div>
 
-<div class="mt-4">
-    <x-input-label for="location" :value="__('Location')" />
-    <x-text-input id="location" name="location" type="text" class="mt-1 block w-full" :value="old('location', $meterBox->location ?? '')" />
-    <x-input-error :messages="$errors->get('location')" class="mt-2" />
-</div>
-
 @if ($canChooseBranch)
     <div class="mt-4">
         <x-input-label for="branch_id"><span>{{ __('Branch') }}</span> <span class="text-red-500">*</span></x-input-label>

@@ -7,7 +7,6 @@ import MeterBoxForm from './MeterBoxForm';
 const BLANK = {
     name: '',
     box_number: '',
-    location: '',
     branch_id: '',
 };
 
@@ -19,7 +18,6 @@ export default function MeterBoxModal({ show, onClose, meterBox, branches, canCh
             ? {
                   name: meterBox.name ?? '',
                   box_number: meterBox.box_number,
-                  location: meterBox.location ?? '',
                   branch_id: meterBox.branch_id,
               }
             : BLANK,

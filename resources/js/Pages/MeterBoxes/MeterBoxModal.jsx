@@ -8,9 +8,10 @@ const BLANK = {
     name: '',
     box_number: '',
     branch_id: '',
+    sub_area_id: '',
 };
 
-export default function MeterBoxModal({ show, onClose, meterBox, branches, canChooseBranch, governorates, areas }) {
+export default function MeterBoxModal({ show, onClose, meterBox, branches, canChooseBranch, governorates, areas, subAreas, currentBranchAreaId }) {
     const isEdit = Boolean(meterBox);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(
@@ -19,6 +20,7 @@ export default function MeterBoxModal({ show, onClose, meterBox, branches, canCh
                   name: meterBox.name ?? '',
                   box_number: meterBox.box_number,
                   branch_id: meterBox.branch_id,
+                  sub_area_id: meterBox.sub_area_id ?? '',
               }
             : BLANK,
     );
@@ -78,6 +80,8 @@ export default function MeterBoxModal({ show, onClose, meterBox, branches, canCh
                         canChooseBranch={canChooseBranch}
                         governorates={governorates}
                         areas={areas}
+                        subAreas={subAreas}
+                        currentBranchAreaId={currentBranchAreaId}
                     />
                 </div>
 

@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Branch;
 use App\Models\MeterBox;
+use App\Models\SubArea;
+use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -31,6 +34,7 @@ class StoreMeterBoxRequest extends FormRequest
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'box_number' => ['required', 'string', 'max:255', Rule::unique('meter_boxes', 'box_number')],
+            'sub_area_id' => ['nullable', Rule::exists('sub_areas', 'id'), $this->subAreaBelongsToBranchArea()],
             'location' => ['nullable', 'string', 'max:255'],
         ];
 
@@ -39,5 +43,27 @@ class StoreMeterBoxRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * A chosen sub-area must belong to the meter box's branch's own area —
+     * the branch itself is either the request's own `branch_id` (Super
+     * Admin) or the actor's own branch (everyone else).
+     */
+    private function subAreaBelongsToBranchArea(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (! $value) {
+                return;
+            }
+
+            $branchId = $this->user()->isSuperAdmin() ? $this->input('branch_id') : $this->user()->branch_id;
+            $branch = Branch::find($branchId);
+            $subArea = SubArea::find($value);
+
+            if ($branch?->area_id && $subArea && $subArea->area_id !== $branch->area_id) {
+                $fail('منطقة 2 المختارة لا تتبع منطقة الفرع.');
+            }
+        };
     }
 }

@@ -3,11 +3,12 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import MeterBoxForm from './MeterBoxForm';
 
-export default function Create({ branches, canChooseBranch, governorates, areas }) {
+export default function Create({ branches, canChooseBranch, governorates, areas, subAreas, currentBranchAreaId }) {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         box_number: '',
         branch_id: '',
+        sub_area_id: '',
     });
 
     function submit(e) {
@@ -30,6 +31,8 @@ export default function Create({ branches, canChooseBranch, governorates, areas 
                             canChooseBranch={canChooseBranch}
                             governorates={governorates}
                             areas={areas}
+                            subAreas={subAreas}
+                            currentBranchAreaId={currentBranchAreaId}
                         />
 
                         <div className="mt-6 flex items-center gap-4">

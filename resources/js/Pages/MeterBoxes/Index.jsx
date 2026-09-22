@@ -9,7 +9,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import MeterBoxModal from './MeterBoxModal';
 
-export default function Index({ meterBoxes, status, branches, canChooseBranch, governorates, areas, filters, filterOptions }) {
+export default function Index({ meterBoxes, status, branches, canChooseBranch, governorates, areas, subAreas, currentBranchAreaId, filters, filterOptions }) {
     const [modalMeterBox, setModalMeterBox] = useState(null);
     const [creating, setCreating] = useState(false);
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-boxes', filters);
@@ -79,7 +79,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                                     </td>
                                     <td className="px-6 py-4 text-gray-600">{meterBox.branchName}</td>
                                     <td className="px-6 py-4 text-gray-600">
-                                        {[meterBox.governorateName, meterBox.areaName].filter(Boolean).join(' / ') || '—'}
+                                        {[meterBox.governorateName, meterBox.areaName, meterBox.subAreaName].filter(Boolean).join(' / ') || '—'}
                                     </td>
                                     <td className="px-6 py-4 text-end">
                                         <RowActionsMenu>
@@ -108,6 +108,8 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                 canChooseBranch={canChooseBranch}
                 governorates={governorates}
                 areas={areas}
+                subAreas={subAreas}
+                currentBranchAreaId={currentBranchAreaId}
             />
 
             {/* Keyed by meter box id so switching who's being edited remounts
@@ -124,6 +126,8 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                     canChooseBranch={canChooseBranch}
                     governorates={governorates}
                     areas={areas}
+                    subAreas={subAreas}
+                    currentBranchAreaId={currentBranchAreaId}
                 />
             )}
         </AuthenticatedLayout>

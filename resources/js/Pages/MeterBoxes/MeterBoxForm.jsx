@@ -3,11 +3,16 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 
-export default function MeterBoxForm({ data, setData, errors, branches, canChooseBranch, governorates, areas }) {
+export default function MeterBoxForm({ data, setData, errors, branches, canChooseBranch, governorates, areas, subAreas, currentBranchAreaId }) {
     const selectedBranch = canChooseBranch ? branches.find((branch) => String(branch.id) === String(data.branch_id)) : null;
 
     const [governorateId, setGovernorateId] = useState(selectedBranch?.governorate_id ?? '');
     const [areaId, setAreaId] = useState(selectedBranch?.area_id ?? '');
+
+    // The area whose sub-areas ("منطقة 2") are selectable: the cascading
+    // picker's choice for a Super Admin, or the actor's own (fixed)
+    // branch's area for everyone else.
+    const effectiveAreaId = canChooseBranch ? areaId : currentBranchAreaId;
 
     const areasInGovernorate = governorateId
         ? areas.filter((area) => String(area.governorate_id) === String(governorateId))
@@ -17,15 +22,19 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
         ? branches.filter((branch) => String(branch.area_id) === String(areaId))
         : [];
 
+    const subAreasInArea = effectiveAreaId
+        ? subAreas.filter((subArea) => String(subArea.area_id) === String(effectiveAreaId))
+        : [];
+
     function onGovernorateChange(value) {
         setGovernorateId(value);
         setAreaId('');
-        setData('branch_id', '');
+        setData((current) => ({ ...current, branch_id: '', sub_area_id: '' }));
     }
 
     function onAreaChange(value) {
         setAreaId(value);
-        setData('branch_id', '');
+        setData((current) => ({ ...current, branch_id: '', sub_area_id: '' }));
     }
 
     return (
@@ -127,6 +136,32 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
             ) : (
                 <p className="mt-4 text-sm text-gray-500">سينتمي هذا الطبلون إلى فرعك.</p>
             )}
+
+            <div className="mt-4">
+                <InputLabel htmlFor="sub_area_id" value="منطقة 2" />
+                {!effectiveAreaId ? (
+                    <p className="mt-1 text-sm text-gray-500">
+                        {canChooseBranch ? 'اختر منطقة أولاً لعرض مناطق 2 التابعة لها.' : 'فرعك غير مرتبط بمنطقة بعد.'}
+                    </p>
+                ) : subAreasInArea.length === 0 ? (
+                    <p className="mt-1 text-sm text-gray-500">لا توجد منطقة 2 في هذه المنطقة بعد.</p>
+                ) : (
+                    <select
+                        id="sub_area_id"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                        value={data.sub_area_id}
+                        onChange={(e) => setData('sub_area_id', e.target.value)}
+                    >
+                        <option value="">— بلا منطقة 2 —</option>
+                        {subAreasInArea.map((subArea) => (
+                            <option key={subArea.id} value={subArea.id}>
+                                {subArea.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
+                <InputError message={errors.sub_area_id} className="mt-2" />
+            </div>
         </>
     );
 }

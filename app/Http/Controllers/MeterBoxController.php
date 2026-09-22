@@ -9,6 +9,7 @@ use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Governorate;
 use App\Models\MeterBox;
+use App\Models\SubArea;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,7 +33,7 @@ class MeterBoxController extends Controller
 
         $query = MeterBox::query()
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
-            ->with('branch.governorate', 'branch.area');
+            ->with('branch.governorate', 'branch.area', 'subArea');
         $this->applyDataTableFilters($query, $request, ['name', 'box_number'], self::SORTABLE, 'box_number');
         $this->applyDataTableFilterSelects($query, $request, ['branch_id']);
 
@@ -43,6 +44,7 @@ class MeterBoxController extends Controller
                 'branchName' => $meterBox->branch->name,
                 'governorateName' => $meterBox->branch->governorate?->name,
                 'areaName' => $meterBox->branch->area?->name,
+                'subAreaName' => $meterBox->subArea?->name,
             ]);
 
         return Inertia::render('MeterBoxes/Index', [
@@ -119,6 +121,7 @@ class MeterBoxController extends Controller
             'name' => $meterBox->name,
             'box_number' => $meterBox->box_number,
             'branch_id' => $meterBox->branch_id,
+            'sub_area_id' => $meterBox->sub_area_id,
             'location' => $meterBox->location,
         ];
     }
@@ -130,9 +133,10 @@ class MeterBoxController extends Controller
      * a cascading select — a meter box's area/governorate always come
      * from whichever branch it belongs to, never stored on the meter box
      * itself. Everyone else has their branch forced server-side, so they
-     * don't need any of this.
+     * don't need any of this — except their own branch's area, so the
+     * sub-area picker can still be scoped to it.
      *
-     * @return array{branches: \Illuminate\Support\Collection, canChooseBranch: bool, governorates: \Illuminate\Support\Collection, areas: \Illuminate\Support\Collection}
+     * @return array{branches: \Illuminate\Support\Collection, canChooseBranch: bool, governorates: \Illuminate\Support\Collection, areas: \Illuminate\Support\Collection, subAreas: \Illuminate\Support\Collection, currentBranchAreaId: ?int}
      */
     private function formOptions(): array
     {
@@ -144,6 +148,8 @@ class MeterBoxController extends Controller
             'canChooseBranch' => $canChooseBranch,
             'governorates' => $canChooseBranch ? Governorate::orderBy('name')->get() : collect(),
             'areas' => $canChooseBranch ? Area::orderBy('name')->get() : collect(),
+            'subAreas' => SubArea::orderBy('name')->get(),
+            'currentBranchAreaId' => $canChooseBranch ? null : $actor->branch?->area_id,
         ];
     }
 

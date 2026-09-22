@@ -7,20 +7,38 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import GovernorateModal from './GovernorateModal';
 import AreaModal from '../Areas/AreaModal';
+import SubAreaModal from '../SubAreas/SubAreaModal';
 
-export default function Index({ governorates, selectedGovernorate, status, filters, governorateOptions }) {
+export default function Index({ governorates, selectedGovernorate, selectedArea, status, filters, governorateOptions, areaOptions }) {
     const [modalGovernorate, setModalGovernorate] = useState(null);
     const [creatingGovernorate, setCreatingGovernorate] = useState(false);
     const [modalArea, setModalArea] = useState(null);
     const [creatingArea, setCreatingArea] = useState(false);
+    const [modalSubArea, setModalSubArea] = useState(null);
+    const [creatingSubArea, setCreatingSubArea] = useState(false);
 
-    const extraParams = { selected: selectedGovernorate?.id };
+    const extraParams = { selected: selectedGovernorate?.id, selectedArea: selectedArea?.id };
     const { search, setSearch, sort, setPerPage } = useDataTable('/governorates', filters, extraParams);
 
     function selectGovernorate(id) {
         router.get(
             '/governorates',
             { search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page, selected: id },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    }
+
+    function selectArea(id) {
+        router.get(
+            '/governorates',
+            {
+                search,
+                sort: filters.sort,
+                direction: filters.direction,
+                per_page: filters.per_page,
+                selected: selectedGovernorate?.id,
+                selectedArea: id,
+            },
             { preserveState: true, preserveScroll: true, replace: true },
         );
     }
@@ -52,10 +70,12 @@ export default function Index({ governorates, selectedGovernorate, status, filte
             {status === 'governorate-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث المحافظة.</div>}
             {status === 'area-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء المنطقة.</div>}
             {status === 'area-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث المنطقة.</div>}
+            {status === 'sub-area-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء منطقة 2.</div>}
+            {status === 'sub-area-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث منطقة 2.</div>}
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                 {/* Governorates list */}
-                <div className="lg:col-span-2">
+                <div>
                     <DataTableToolbar
                         search={search}
                         onSearchChange={setSearch}
@@ -117,7 +137,7 @@ export default function Index({ governorates, selectedGovernorate, status, filte
                 </div>
 
                 {/* Selected governorate's areas */}
-                <div className="lg:col-span-3">
+                <div>
                     {!selectedGovernorate ? (
                         <div className="flex h-full min-h-[16rem] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
                             <svg className="h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,11 +170,74 @@ export default function Index({ governorates, selectedGovernorate, status, filte
                                 <p className="px-6 py-8 text-center text-sm text-gray-500">لا توجد مناطق في هذه المحافظة بعد.</p>
                             ) : (
                                 <ul className="divide-y">
-                                    {selectedGovernorate.areas.map((area) => (
-                                        <li key={area.id} className="flex items-center justify-between px-6 py-3">
-                                            <span className="text-sm font-medium text-gray-900">{area.name}</span>
+                                    {selectedGovernorate.areas.map((area) => {
+                                        const isSelected = selectedArea?.id === area.id;
+                                        return (
+                                            <li
+                                                key={area.id}
+                                                onClick={() => selectArea(area.id)}
+                                                className={`flex cursor-pointer items-center justify-between px-6 py-3 transition ${isSelected ? 'bg-brand-50' : 'hover:bg-gray-50'}`}
+                                            >
+                                                <span className={`text-sm font-medium ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
+                                                    {area.name}
+                                                </span>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setModalArea(area);
+                                                    }}
+                                                    className="text-sm font-medium text-brand-600 hover:underline"
+                                                >
+                                                    تعديل
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Selected area's sub-areas (منطقة 2) */}
+                <div>
+                    {!selectedArea ? (
+                        <div className="flex h-full min-h-[16rem] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+                            <svg className="h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="1.5"
+                                    d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"
+                                />
+                            </svg>
+                            <p className="mt-3 text-sm font-medium text-gray-600">اختر منطقة من القائمة لعرض منطقة 2 الخاصة بها</p>
+                            <p className="mt-1 text-sm text-gray-400">أو أنشئ منطقة جديدة لتبدأ بإضافة مناطق 2 لها</p>
+                        </div>
+                    ) : (
+                        <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+                            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                                <h3 className="text-base font-bold text-gray-900">منطقة 2 لـ {selectedArea.name}</h3>
+                                <button
+                                    onClick={() => setCreatingSubArea(true)}
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-100"
+                                >
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
+                                    </svg>
+                                    إضافة منطقة 2
+                                </button>
+                            </div>
+
+                            {selectedArea.subAreas.length === 0 ? (
+                                <p className="px-6 py-8 text-center text-sm text-gray-500">لا توجد منطقة 2 لهذه المنطقة بعد.</p>
+                            ) : (
+                                <ul className="divide-y">
+                                    {selectedArea.subAreas.map((subArea) => (
+                                        <li key={subArea.id} className="flex items-center justify-between px-6 py-3">
+                                            <span className="text-sm font-medium text-gray-900">{subArea.name}</span>
                                             <button
-                                                onClick={() => setModalArea(area)}
+                                                onClick={() => setModalSubArea(subArea)}
                                                 className="text-sm font-medium text-brand-600 hover:underline"
                                             >
                                                 تعديل
@@ -197,6 +280,28 @@ export default function Index({ governorates, selectedGovernorate, status, filte
                     onClose={() => setModalArea(null)}
                     area={modalArea}
                     governorates={governorateOptions}
+                />
+            )}
+
+            {/* Keyed by the selected area so its id is re-captured as the
+                form's default whenever the selection changes — useForm()
+                only reads defaultAreaId once per mount. */}
+            <SubAreaModal
+                key={`create-${selectedArea?.id ?? 'none'}`}
+                show={creatingSubArea}
+                onClose={() => setCreatingSubArea(false)}
+                subArea={null}
+                areas={areaOptions}
+                defaultAreaId={selectedArea?.id ?? ''}
+            />
+
+            {modalSubArea && (
+                <SubAreaModal
+                    key={modalSubArea.id}
+                    show
+                    onClose={() => setModalSubArea(null)}
+                    subArea={modalSubArea}
+                    areas={areaOptions}
                 />
             )}
         </AuthenticatedLayout>

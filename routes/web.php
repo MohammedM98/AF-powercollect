@@ -8,6 +8,7 @@ use App\Http\Controllers\GovernorateController;
 use App\Http\Controllers\MeterBoxController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SubAreaController;
 use App\Http\Controllers\SubscriberController;
 use App\Http\Controllers\TariffController;
 use App\Http\Controllers\UserController;
@@ -31,6 +32,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('meter-boxes', MeterBoxController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('areas', AreaController::class)->only(['create', 'store', 'edit', 'update']);
+    Route::resource('sub-areas', SubAreaController::class)->only(['create', 'store', 'edit', 'update']);
     Route::resource('governorates', GovernorateController::class)->only(['index', 'create', 'store', 'edit', 'update']);
 
     Route::get('/settings/permissions', [PermissionController::class, 'edit'])->name('settings.permissions.edit');

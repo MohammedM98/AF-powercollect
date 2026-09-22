@@ -31,6 +31,10 @@ enum PermissionKey: string
     case CreateAreas = 'areas.create';
     case UpdateAreas = 'areas.update';
 
+    case ViewSubAreas = 'sub_areas.view';
+    case CreateSubAreas = 'sub_areas.create';
+    case UpdateSubAreas = 'sub_areas.update';
+
     case ViewGovernorates = 'governorates.view';
     case CreateGovernorates = 'governorates.create';
     case UpdateGovernorates = 'governorates.update';
@@ -62,6 +66,9 @@ enum PermissionKey: string
             self::ViewAreas => 'View Areas',
             self::CreateAreas => 'Add Areas',
             self::UpdateAreas => 'Edit Areas',
+            self::ViewSubAreas => 'View Sub Areas',
+            self::CreateSubAreas => 'Add Sub Areas',
+            self::UpdateSubAreas => 'Edit Sub Areas',
             self::ViewGovernorates => 'View Governorates',
             self::CreateGovernorates => 'Add Governorates',
             self::UpdateGovernorates => 'Edit Governorates',
@@ -110,6 +117,10 @@ enum PermissionKey: string
             'areas' => [
                 'label' => 'Areas',
                 'actions' => ['view' => self::ViewAreas, 'create' => self::CreateAreas, 'update' => self::UpdateAreas],
+            ],
+            'sub_areas' => [
+                'label' => 'Sub Areas',
+                'actions' => ['view' => self::ViewSubAreas, 'create' => self::CreateSubAreas, 'update' => self::UpdateSubAreas],
             ],
             'governorates' => [
                 'label' => 'Governorates',

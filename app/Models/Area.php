@@ -24,4 +24,9 @@ class Area extends Model
     {
         return $this->hasMany(MeterBox::class);
     }
+
+    public function subAreas(): HasMany
+    {
+        return $this->hasMany(SubArea::class);
+    }
 }

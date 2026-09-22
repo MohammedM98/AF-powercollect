@@ -7,6 +7,7 @@ use App\Http\Requests\StoreGovernorateRequest;
 use App\Http\Requests\UpdateGovernorateRequest;
 use App\Models\Area;
 use App\Models\Governorate;
+use App\Models\SubArea;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -40,9 +41,11 @@ class GovernorateController extends Controller
         return Inertia::render('Governorates/Index', [
             'governorates' => $governorates,
             'selectedGovernorate' => $this->selectedGovernorate($request),
+            'selectedArea' => $this->selectedArea($request),
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
             'governorateOptions' => Governorate::orderBy('name')->get(),
+            'areaOptions' => Area::orderBy('name')->get(),
         ]);
     }
 
@@ -130,6 +133,39 @@ class GovernorateController extends Controller
                 'id' => $area->id,
                 'name' => $area->name,
                 'governorate_id' => $area->governorate_id,
+            ]),
+        ];
+    }
+
+    /**
+     * The area named by the `selectedArea` query param, with its sub-areas
+     * — the third panel's data on the combined governorates/areas/sub-areas
+     * page. Null when nothing is selected (or the id no longer exists).
+     *
+     * @return array{id: int, name: string, governorate_id: ?int, subAreas: \Illuminate\Support\Collection}|null
+     */
+    private function selectedArea(Request $request): ?array
+    {
+        $selectedId = $request->integer('selectedArea');
+
+        if (! $selectedId) {
+            return null;
+        }
+
+        $area = Area::with(['subAreas' => fn ($query) => $query->orderBy('name')])->find($selectedId);
+
+        if (! $area) {
+            return null;
+        }
+
+        return [
+            'id' => $area->id,
+            'name' => $area->name,
+            'governorate_id' => $area->governorate_id,
+            'subAreas' => $area->subAreas->map(fn (SubArea $subArea) => [
+                'id' => $subArea->id,
+                'name' => $subArea->name,
+                'area_id' => $subArea->area_id,
             ]),
         ];
     }

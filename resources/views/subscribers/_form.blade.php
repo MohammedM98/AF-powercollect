@@ -12,17 +12,6 @@
     </div>
 
     <div>
-        <x-input-label for="billing_type"><span>{{ __('Billing Type') }}</span> <span class="text-red-500">*</span></x-input-label>
-        <select id="billing_type" name="billing_type" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-            <option value="">---</option>
-            @foreach (\App\Enums\BillingType::cases() as $type)
-                <option value="{{ $type->value }}" @selected(old('billing_type', $subscriber->billing_type->value ?? '') === $type->value)>{{ __($type->label()) }}</option>
-            @endforeach
-        </select>
-        <x-input-error :messages="$errors->get('billing_type')" class="mt-1" />
-    </div>
-
-    <div>
         <x-input-label for="status"><span>{{ __('Status') }}</span> <span class="text-red-500">*</span></x-input-label>
         <select id="status" name="status" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
             @foreach (\App\Enums\SubscriberStatus::cases() as $status)
@@ -32,58 +21,10 @@
         <x-input-error :messages="$errors->get('status')" class="mt-1" />
     </div>
 
-    <div>
-        <x-input-label for="unit_price"><span>{{ __('Price') }}</span> <span class="text-red-500">*</span></x-input-label>
-        <x-text-input id="unit_price" name="unit_price" type="number" step="0.01" class="mt-1 block w-full" :value="old('unit_price', $subscriber->unit_price ?? '')" required />
-        <x-input-error :messages="$errors->get('unit_price')" class="mt-1" />
-    </div>
-
-    <div>
-        <x-input-label for="minimum_charge"><span>{{ __('Minimum Charge') }}</span> <span class="text-red-500">*</span></x-input-label>
-        <x-text-input id="minimum_charge" name="minimum_charge" type="number" step="0.01" class="mt-1 block w-full" :value="old('minimum_charge', $subscriber->minimum_charge ?? '')" required />
-        <x-input-error :messages="$errors->get('minimum_charge')" class="mt-1" />
-    </div>
-
-    <div class="sm:col-span-2 lg:col-span-3">
-        <x-input-label for="address"><span>{{ __('Address') }}</span> <span class="text-red-500">*</span></x-input-label>
-        <textarea id="address" name="address" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500">{{ old('address', $subscriber->address ?? '') }}</textarea>
-        <x-input-error :messages="$errors->get('address')" class="mt-1" />
-    </div>
-
     <div class="sm:col-span-2 lg:col-span-3">
         <x-input-label for="notes"><span>{{ __('Other Information') }}</span> <span class="text-red-500">*</span></x-input-label>
         <textarea id="notes" name="notes" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500">{{ old('notes', $subscriber->notes ?? '') }}</textarea>
         <x-input-error :messages="$errors->get('notes')" class="mt-1" />
-    </div>
-
-    <div>
-        <x-input-label for="area_1_id" :value="__('Area 1')" />
-        @if ($areas->isEmpty())
-            <p class="mt-1 text-sm text-gray-500">{{ __('No areas configured yet.') }}</p>
-        @else
-            <select id="area_1_id" name="area_1_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                <option value="">{{ __('— No Area —') }}</option>
-                @foreach ($areas as $area)
-                    <option value="{{ $area->id }}" @selected((string) old('area_1_id', $subscriber->area_1_id ?? '') === (string) $area->id)>{{ $area->name }}</option>
-                @endforeach
-            </select>
-        @endif
-        <x-input-error :messages="$errors->get('area_1_id')" class="mt-1" />
-    </div>
-
-    <div>
-        <x-input-label for="area_2_id" :value="__('Area 2')" />
-        @if ($areas->isEmpty())
-            <p class="mt-1 text-sm text-gray-500">{{ __('No areas configured yet.') }}</p>
-        @else
-            <select id="area_2_id" name="area_2_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                <option value="">{{ __('— No Area —') }}</option>
-                @foreach ($areas as $area)
-                    <option value="{{ $area->id }}" @selected((string) old('area_2_id', $subscriber->area_2_id ?? '') === (string) $area->id)>{{ $area->name }}</option>
-                @endforeach
-            </select>
-        @endif
-        <x-input-error :messages="$errors->get('area_2_id')" class="mt-1" />
     </div>
 
     <div>
@@ -105,12 +46,6 @@
             </select>
         @endif
         <x-input-error :messages="$errors->get('meter_box_id')" class="mt-1" />
-    </div>
-
-    <div>
-        <x-input-label for="customer_classification" :value="__('Customer Classification')" />
-        <x-text-input id="customer_classification" name="customer_classification" type="text" class="mt-1 block w-full" :value="old('customer_classification', $subscriber->customer_classification ?? '')" />
-        <x-input-error :messages="$errors->get('customer_classification')" class="mt-1" />
     </div>
 
     <div>
@@ -146,18 +81,6 @@
         <x-input-label for="subscription_date" :value="__('Subscription Date')" />
         <x-text-input id="subscription_date" name="subscription_date" type="date" class="mt-1 block w-full" :value="old('subscription_date', optional($subscriber->subscription_date ?? null)->format('Y-m-d'))" />
         <x-input-error :messages="$errors->get('subscription_date')" class="mt-1" />
-    </div>
-
-    <div class="flex items-center justify-between rounded-md border border-gray-200 px-4 py-3">
-        <input type="hidden" name="charge_subscription_fee" value="0">
-        <x-input-label for="charge_subscription_fee" :value="__('Charge Subscription Fee')" class="!mb-0" />
-        <label class="relative inline-flex cursor-pointer items-center">
-            <input type="checkbox" id="charge_subscription_fee" name="charge_subscription_fee" value="1" class="peer sr-only" @checked(old('charge_subscription_fee', $subscriber->charge_subscription_fee ?? true))>
-            <span class="rounded-full bg-gray-200 px-4 py-1.5 text-xs font-bold text-gray-600 peer-checked:bg-emerald-500 peer-checked:text-white">
-                {{ __('Yes') }}
-            </span>
-        </label>
-        <x-input-error :messages="$errors->get('charge_subscription_fee')" class="mt-1" />
     </div>
 
     @if ($canChooseBranch)

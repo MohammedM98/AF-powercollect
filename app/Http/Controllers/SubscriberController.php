@@ -2,12 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\BillingType;
 use App\Enums\SubscriberStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreSubscriberRequest;
 use App\Http\Requests\UpdateSubscriberRequest;
-use App\Models\Area;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
 use App\Models\MeterBox;
@@ -38,8 +36,8 @@ class SubscriberController extends Controller
         $query = Subscriber::query()
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
             ->with(['branch', 'meterBox', 'tariff']);
-        $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'meter_number', 'address'], self::SORTABLE, 'full_name');
-        $this->applyDataTableFilterSelects($query, $request, ['status', 'billing_type', 'branch_id']);
+        $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'meter_number'], self::SORTABLE, 'full_name');
+        $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id']);
 
         $subscribers = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -130,23 +128,15 @@ class SubscriberController extends Controller
             'full_name' => $subscriber->full_name,
             'national_id' => $subscriber->national_id,
             'phone' => $subscriber->phone,
-            'address' => $subscriber->address,
             'meter_number' => $subscriber->meter_number,
             'meter_box_id' => $subscriber->meter_box_id,
             'tariff_id' => $subscriber->tariff_id,
             'branch_id' => $subscriber->branch_id,
             'status' => $subscriber->status->value,
-            'billing_type' => $subscriber->billing_type?->value,
-            'unit_price' => $subscriber->unit_price,
-            'minimum_charge' => $subscriber->minimum_charge,
             'circuit_breaker_id' => $subscriber->circuit_breaker_id,
-            'area_1_id' => $subscriber->area_1_id,
-            'area_2_id' => $subscriber->area_2_id,
-            'customer_classification' => $subscriber->customer_classification,
             'initial_reading' => $subscriber->initial_reading,
             'subscription_fee' => $subscriber->subscription_fee,
             'subscription_date' => $subscriber->subscription_date?->format('Y-m-d'),
-            'charge_subscription_fee' => $subscriber->charge_subscription_fee,
             'notes' => $subscriber->notes,
         ];
     }
@@ -180,19 +170,12 @@ class SubscriberController extends Controller
             'categoryLabel' => __($tariff->category->label()),
         ]);
 
-        $billingTypeOptions = collect(BillingType::cases())->map(fn (BillingType $type) => [
-            'value' => $type->value,
-            'label' => __($type->label()),
-        ]);
-
         return [
             'branches' => $branches,
             'meterBoxes' => $meterBoxes,
             'tariffs' => $tariffs,
             'circuitBreakers' => CircuitBreaker::orderBy('ampere')->get(),
-            'areas' => Area::orderBy('name')->get(),
             'canChooseBranch' => $canChooseBranch,
-            'billingTypeOptions' => $billingTypeOptions,
         ];
     }
 
@@ -212,14 +195,6 @@ class SubscriberController extends Controller
                 'options' => collect(SubscriberStatus::cases())->map(fn (SubscriberStatus $status) => [
                     'value' => $status->value,
                     'label' => __($status->label()),
-                ])->all(),
-            ],
-            [
-                'key' => 'billing_type',
-                'label' => 'نوع التحاسب',
-                'options' => collect(BillingType::cases())->map(fn (BillingType $type) => [
-                    'value' => $type->value,
-                    'label' => __($type->label()),
                 ])->all(),
             ],
         ];

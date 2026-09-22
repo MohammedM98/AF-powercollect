@@ -8,27 +8,19 @@ const BLANK = {
     full_name: '',
     national_id: '',
     phone: '',
-    address: '',
     meter_number: '',
     meter_box_id: '',
     tariff_id: '',
     status: 'active',
     branch_id: '',
-    billing_type: '',
-    unit_price: '',
-    minimum_charge: '',
     circuit_breaker_id: '',
-    area_1_id: '',
-    area_2_id: '',
-    customer_classification: '',
     initial_reading: '',
     subscription_fee: '',
     subscription_date: '',
-    charge_subscription_fee: true,
     notes: '',
 };
 
-export default function SubscriberModal({ show, onClose, subscriber, branches, meterBoxes, tariffs, circuitBreakers, areas, billingTypeOptions, canChooseBranch }) {
+export default function SubscriberModal({ show, onClose, subscriber, branches, meterBoxes, tariffs, circuitBreakers, canChooseBranch }) {
     const isEdit = Boolean(subscriber);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(
@@ -37,23 +29,15 @@ export default function SubscriberModal({ show, onClose, subscriber, branches, m
                   full_name: subscriber.full_name,
                   national_id: subscriber.national_id,
                   phone: subscriber.phone ?? '',
-                  address: subscriber.address ?? '',
                   meter_number: subscriber.meter_number,
                   meter_box_id: subscriber.meter_box_id ?? '',
                   tariff_id: subscriber.tariff_id,
                   status: subscriber.status,
                   branch_id: subscriber.branch_id,
-                  billing_type: subscriber.billing_type ?? '',
-                  unit_price: subscriber.unit_price ?? '',
-                  minimum_charge: subscriber.minimum_charge ?? '',
                   circuit_breaker_id: subscriber.circuit_breaker_id ?? '',
-                  area_1_id: subscriber.area_1_id ?? '',
-                  area_2_id: subscriber.area_2_id ?? '',
-                  customer_classification: subscriber.customer_classification ?? '',
                   initial_reading: subscriber.initial_reading ?? '',
                   subscription_fee: subscriber.subscription_fee ?? '',
                   subscription_date: subscriber.subscription_date ?? '',
-                  charge_subscription_fee: subscriber.charge_subscription_fee,
                   notes: subscriber.notes ?? '',
               }
             : BLANK,
@@ -113,9 +97,7 @@ export default function SubscriberModal({ show, onClose, subscriber, branches, m
                         branches={branches}
                         meterBoxes={meterBoxes}
                         tariffs={tariffs}
-                            circuitBreakers={circuitBreakers}
-                        areas={areas}
-                        billingTypeOptions={billingTypeOptions}
+                        circuitBreakers={circuitBreakers}
                         canChooseBranch={canChooseBranch}
                     />
                 </div>

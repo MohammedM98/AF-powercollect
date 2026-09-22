@@ -2,9 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Enums\BillingType;
 use App\Enums\SubscriberStatus;
-use App\Models\Area;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
 use App\Models\MeterBox;
@@ -30,7 +28,6 @@ class SubscriberFactory extends Factory
             'national_id' => fake()->unique()->numerify('#########'),
             'initial_reading' => fake()->numberBetween(0, 10000),
             'phone' => fake()->phoneNumber(),
-            'address' => fake()->address(),
             'meter_number' => fake()->unique()->numerify('MTR-#######'),
             'meter_box_id' => MeterBox::factory(),
             // Tariffs are fixed reference data (only Home/Business ever
@@ -40,12 +37,7 @@ class SubscriberFactory extends Factory
             'branch_id' => Branch::factory(),
             'registered_by' => User::factory(),
             'status' => SubscriberStatus::Active,
-            'billing_type' => fake()->randomElement(BillingType::cases()),
-            'unit_price' => fake()->randomFloat(2, 1, 20),
-            'minimum_charge' => fake()->randomFloat(2, 5, 50),
             'circuit_breaker_id' => CircuitBreaker::factory(),
-            'area_1_id' => Area::factory(),
-            'area_2_id' => Area::factory(),
             'notes' => fake()->sentence(),
         ];
     }

@@ -22,7 +22,7 @@ function Field({ id, label, required, error, span = '', children }) {
     );
 }
 
-export default function SubscriberForm({ data, setData, errors, meterBoxes, tariffs, circuitBreakers, branches, areas, billingTypeOptions, canChooseBranch }) {
+export default function SubscriberForm({ data, setData, errors, meterBoxes, tariffs, circuitBreakers, branches, canChooseBranch }) {
     return (
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field id="full_name" label="الاسم" required error={errors.full_name}>
@@ -45,21 +45,6 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 <TextInput dir="ltr" className="block w-full" value={data.phone} onChange={(e) => setData('phone', e.target.value)} />
             </Field>
 
-            <Field id="billing_type" label="نوع التحاسب" required error={errors.billing_type}>
-                <select
-                    className="block w-full rounded-md border-gray-300 shadow-sm"
-                    value={data.billing_type}
-                    onChange={(e) => setData('billing_type', e.target.value)}
-                >
-                    <option value="">---</option>
-                    {billingTypeOptions.map((type) => (
-                        <option key={type.value} value={type.value}>
-                            {type.label}
-                        </option>
-                    ))}
-                </select>
-            </Field>
-
             <Field id="status" label="الحالة" required error={errors.status}>
                 <select
                     className="block w-full rounded-md border-gray-300 shadow-sm"
@@ -74,35 +59,6 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 </select>
             </Field>
 
-            <Field id="unit_price" label="السعر (₪)" required error={errors.unit_price}>
-                <TextInput
-                    type="number"
-                    step="0.01"
-                    className="block w-full"
-                    value={data.unit_price}
-                    onChange={(e) => setData('unit_price', e.target.value)}
-                />
-            </Field>
-
-            <Field id="minimum_charge" label="الحد الادنى (₪)" required error={errors.minimum_charge}>
-                <TextInput
-                    type="number"
-                    step="0.01"
-                    className="block w-full"
-                    value={data.minimum_charge}
-                    onChange={(e) => setData('minimum_charge', e.target.value)}
-                />
-            </Field>
-
-            <Field id="address" label="العنوان" required error={errors.address} span="sm:col-span-2 lg:col-span-3">
-                <textarea
-                    rows={2}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                    value={data.address}
-                    onChange={(e) => setData('address', e.target.value)}
-                />
-            </Field>
-
             <Field id="notes" label="معلومات أخرى" required error={errors.notes} span="sm:col-span-2 lg:col-span-3">
                 <textarea
                     rows={2}
@@ -112,57 +68,11 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 />
             </Field>
 
-            <Field id="area_1_id" label="المنطقة 1" error={errors.area_1_id}>
-                {areas.length === 0 ? (
-                    <p className="text-sm text-gray-500">لا توجد مناطق بعد.</p>
-                ) : (
-                    <select
-                        className="block w-full rounded-md border-gray-300 shadow-sm"
-                        value={data.area_1_id}
-                        onChange={(e) => setData('area_1_id', e.target.value)}
-                    >
-                        <option value="">---</option>
-                        {areas.map((area) => (
-                            <option key={area.id} value={area.id}>
-                                {area.name}
-                            </option>
-                        ))}
-                    </select>
-                )}
-            </Field>
-
-            <Field id="area_2_id" label="المنطقة 2" error={errors.area_2_id}>
-                {areas.length === 0 ? (
-                    <p className="text-sm text-gray-500">لا توجد مناطق بعد.</p>
-                ) : (
-                    <select
-                        className="block w-full rounded-md border-gray-300 shadow-sm"
-                        value={data.area_2_id}
-                        onChange={(e) => setData('area_2_id', e.target.value)}
-                    >
-                        <option value="">---</option>
-                        {areas.map((area) => (
-                            <option key={area.id} value={area.id}>
-                                {area.name}
-                            </option>
-                        ))}
-                    </select>
-                )}
-            </Field>
-
             <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id}>
                 <select
                     className="block w-full rounded-md border-gray-300 shadow-sm"
                     value={data.circuit_breaker_id}
-                    onChange={(event) => {
-                        const value = event.target.value;
-                        const match = circuitBreakers.find((circuitBreaker) => String(circuitBreaker.id) === value);
-                        setData((current) => ({
-                            ...current,
-                            circuit_breaker_id: value,
-                            minimum_charge: match ? match.minimum_payment : current.minimum_charge,
-                        }));
-                    }}
+                    onChange={(e) => setData('circuit_breaker_id', e.target.value)}
                 >
                     <option value="">---</option>
                     {circuitBreakers.map((circuitBreaker) => (
@@ -190,14 +100,6 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                         ))}
                     </select>
                 )}
-            </Field>
-
-            <Field id="customer_classification" label="تصنيف الزبائن" error={errors.customer_classification}>
-                <TextInput
-                    className="block w-full"
-                    value={data.customer_classification}
-                    onChange={(e) => setData('customer_classification', e.target.value)}
-                />
             </Field>
 
             <Field id="initial_reading" label="القراءة الابتدائية" required error={errors.initial_reading}>
@@ -254,19 +156,6 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                     onChange={(e) => setData('subscription_date', e.target.value)}
                 />
             </Field>
-
-            <div className="flex items-center justify-between rounded-md border border-gray-200 px-4 py-3 sm:col-span-1">
-                <InputLabel value="تحميل رسوم الاشتراك" className="!mb-0" />
-                <button
-                    type="button"
-                    onClick={() => setData('charge_subscription_fee', !data.charge_subscription_fee)}
-                    className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
-                        data.charge_subscription_fee ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-600'
-                    }`}
-                >
-                    {data.charge_subscription_fee ? 'نعم' : 'لا'}
-                </button>
-            </div>
 
             {canChooseBranch && (
                 <Field id="branch_id" label="الفرع" required error={errors.branch_id}>

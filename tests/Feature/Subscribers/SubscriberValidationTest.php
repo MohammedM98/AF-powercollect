@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Subscribers;
 
-use App\Enums\BillingType;
 use App\Enums\SubscriberStatus;
 use App\Models\CircuitBreaker;
 use App\Models\Subscriber;
@@ -156,35 +155,27 @@ class SubscriberValidationTest extends TestCase
             'full_name' => 'Registration Customer',
             'national_id' => '012345678',
             'phone' => '0770000000',
-            'address' => 'Some street',
             'meter_number' => 'MTR-VALIDATION',
             'tariff_id' => Tariff::factory()->home()->create()->id,
             'status' => SubscriberStatus::Active->value,
-            'billing_type' => BillingType::Meter->value,
-            'unit_price' => 5,
-            'minimum_charge' => 10,
             'initial_reading' => 0,
             'notes' => 'Registration notes',
         ];
     }
 
-    public function test_registering_a_subscriber_with_a_circuit_breaker_snapshots_its_minimum_payment(): void
+    public function test_registering_a_subscriber_with_a_circuit_breaker_stores_it(): void
     {
         $payload = $this->validPayload();
         $circuitBreaker = CircuitBreaker::factory()->create(['ampere' => 4, 'minimum_payment' => 20]);
         $payload['circuit_breaker_id'] = $circuitBreaker->id;
-        $payload['minimum_charge'] = $circuitBreaker->minimum_payment;
 
         $this->post(route('subscribers.store'), $payload)
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('subscribers.index'));
 
-        $circuitBreaker->update(['minimum_payment' => 40]);
-
         $this->assertDatabaseHas('subscribers', [
             'national_id' => $payload['national_id'],
             'circuit_breaker_id' => $circuitBreaker->id,
-            'minimum_charge' => 20,
         ]);
     }
 

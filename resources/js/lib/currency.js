@@ -3,5 +3,5 @@ export function formatCurrency(amount) {
         return '—';
     }
 
-    return `${Number(amount).toFixed(2)} ₪`;
+    return `${Number(amount).toFixed(2)} شيكل`;
 }

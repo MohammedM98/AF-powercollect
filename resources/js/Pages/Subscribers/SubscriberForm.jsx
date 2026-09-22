@@ -34,7 +34,15 @@ export default function SubscriberForm({
     canChooseBranch,
     currentBranchAreaId,
     currentBranchAreaName,
+    canEditMinimumCharge,
 }) {
+    const [minimumChargeUnlocked, setMinimumChargeUnlocked] = useState(false);
+
+    function unlockMinimumCharge() {
+        if (window.confirm('أنت على وشك تعديل الحد الأدنى لهذا المشترك يدويًا. هل تريد المتابعة؟')) {
+            setMinimumChargeUnlocked(true);
+        }
+    }
     const selectedBranch = canChooseBranch ? branches.find((branch) => String(branch.id) === String(data.branch_id)) : null;
 
     // The area whose sub-areas ("منطقة 2") are selectable, and its name for
@@ -136,15 +144,35 @@ export default function SubscriberForm({
                 </select>
             </Field>
 
-            <Field id="minimum_charge" label="الحد الادنى (شيكل)" required error={errors.minimum_charge}>
-                <TextInput
-                    type="number"
-                    step="0.01"
-                    className="block w-full"
-                    value={data.minimum_charge}
-                    onChange={(e) => setData('minimum_charge', e.target.value)}
-                />
-            </Field>
+            <div>
+                <div className="flex items-center justify-between">
+                    <InputLabel htmlFor="minimum_charge">
+                        الحد الادنى (شيكل)
+                        <span className="text-red-500"> *</span>
+                    </InputLabel>
+                    {canEditMinimumCharge && !minimumChargeUnlocked && (
+                        <button
+                            type="button"
+                            onClick={unlockMinimumCharge}
+                            className="text-xs font-semibold text-brand-600 hover:underline"
+                        >
+                            تعديل
+                        </button>
+                    )}
+                </div>
+                <div className="mt-1">
+                    <TextInput
+                        id="minimum_charge"
+                        type="number"
+                        step="0.01"
+                        disabled={!canEditMinimumCharge || !minimumChargeUnlocked}
+                        className={`block w-full ${!canEditMinimumCharge || !minimumChargeUnlocked ? 'bg-gray-100 text-gray-600' : ''}`}
+                        value={data.minimum_charge}
+                        onChange={(e) => setData('minimum_charge', e.target.value)}
+                    />
+                </div>
+                <InputError message={errors.minimum_charge} className="mt-1" />
+            </div>
 
             <Field id="address" label="العنوان" required error={errors.address} span="sm:col-span-2 lg:col-span-3">
                 <textarea

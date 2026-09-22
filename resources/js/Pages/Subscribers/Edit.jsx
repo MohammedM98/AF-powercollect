@@ -3,7 +3,18 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SubscriberForm from './SubscriberForm';
 
-export default function Edit({ subscriber, branches, meterBoxes, tariffs, circuitBreakers, subAreas, canChooseBranch, currentBranchAreaId, currentBranchAreaName }) {
+export default function Edit({
+    subscriber,
+    branches,
+    meterBoxes,
+    tariffs,
+    circuitBreakers,
+    subAreas,
+    canChooseBranch,
+    currentBranchAreaId,
+    currentBranchAreaName,
+    canEditMinimumCharge,
+}) {
     const { data, setData, put, processing, errors } = useForm({
         full_name: subscriber.full_name,
         national_id: subscriber.national_id,
@@ -46,6 +57,7 @@ export default function Edit({ subscriber, branches, meterBoxes, tariffs, circui
                             canChooseBranch={canChooseBranch}
                             currentBranchAreaId={currentBranchAreaId}
                             currentBranchAreaName={currentBranchAreaName}
+                            canEditMinimumCharge={canEditMinimumCharge}
                         />
 
                         <div className="mt-6 flex items-center gap-4">

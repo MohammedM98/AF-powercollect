@@ -10,6 +10,7 @@ const ACTION_LABELS = {
     view: 'عرض',
     create: 'إضافة',
     update: 'تعديل',
+    minimum_charge: 'تعديل الحد الأدنى',
     record: 'تسجيل',
     confirm: 'تأكيد',
 };

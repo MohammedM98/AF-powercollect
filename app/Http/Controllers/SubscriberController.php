@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PermissionKey;
 use App\Enums\SubscriberStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreSubscriberRequest;
@@ -84,6 +85,7 @@ class SubscriberController extends Controller
         }
 
         $data['registered_by'] = $actor->id;
+        $data = $this->enforceMinimumChargePermission($actor, $data);
 
         Subscriber::create($data);
 
@@ -109,10 +111,39 @@ class SubscriberController extends Controller
     public function update(UpdateSubscriberRequest $request, Subscriber $subscriber): RedirectResponse
     {
         $data = $request->validated();
+        $data = $this->enforceMinimumChargePermission(auth()->user(), $data, $subscriber);
 
         $subscriber->update($data);
 
         return redirect()->route('subscribers.index')->with('status', 'subscriber-updated');
+    }
+
+    /**
+     * Without the dedicated permission, minimum_charge is never taken from
+     * the request as-is — it always tracks the chosen circuit breaker's own
+     * minimum_payment (or, on update with no circuit breaker chosen, stays
+     * whatever the subscriber already had). This mirrors the frontend's
+     * locked field, but enforced server-side so it can't be bypassed by
+     * crafting a raw request.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function enforceMinimumChargePermission(User $actor, array $data, ?Subscriber $existing = null): array
+    {
+        if ($actor->hasPermission(PermissionKey::UpdateSubscriberMinimumCharge)) {
+            return $data;
+        }
+
+        $circuitBreaker = ! empty($data['circuit_breaker_id']) ? CircuitBreaker::find($data['circuit_breaker_id']) : null;
+
+        $data['minimum_charge'] = match (true) {
+            $circuitBreaker !== null => $circuitBreaker->minimum_payment,
+            $existing !== null => $existing->minimum_charge,
+            default => 0,
+        };
+
+        return $data;
     }
 
     /**
@@ -151,7 +182,7 @@ class SubscriberController extends Controller
      * ("منطقة 2") is its own column, so the form narrows meter boxes down
      * via branch → sub-area, same as the Meter Boxes resource itself.
      *
-     * @return array{branches: Collection, meterBoxes: Collection, tariffs: Collection, subAreas: Collection, circuitBreakers: Collection, canChooseBranch: bool, currentBranchAreaId: ?int, currentBranchAreaName: ?string}
+     * @return array{branches: Collection, meterBoxes: Collection, tariffs: Collection, subAreas: Collection, circuitBreakers: Collection, canChooseBranch: bool, currentBranchAreaId: ?int, currentBranchAreaName: ?string, canEditMinimumCharge: bool}
      */
     private function formOptions(): array
     {
@@ -188,6 +219,7 @@ class SubscriberController extends Controller
             'canChooseBranch' => $canChooseBranch,
             'currentBranchAreaId' => $canChooseBranch ? null : $actor->branch?->area_id,
             'currentBranchAreaName' => $canChooseBranch ? null : $actor->branch?->area?->name,
+            'canEditMinimumCharge' => $actor->hasPermission(PermissionKey::UpdateSubscriberMinimumCharge),
         ];
     }
 

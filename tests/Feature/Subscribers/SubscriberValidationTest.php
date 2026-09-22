@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Subscribers;
 
+use App\Enums\PermissionKey;
 use App\Enums\SubscriberStatus;
 use App\Models\CircuitBreaker;
+use App\Models\Permission;
 use App\Models\Subscriber;
 use App\Models\Tariff;
 use App\Models\User;
@@ -212,9 +214,15 @@ class SubscriberValidationTest extends TestCase
         $this->assertDatabaseCount('subscribers', 0);
     }
 
-    public function test_minimum_charge_can_be_overridden_independent_of_the_circuit_breakers_own_minimum_payment(): void
+    public function test_a_user_with_the_permission_can_override_minimum_charge_independent_of_the_circuit_breaker(): void
     {
         $payload = $this->validPayload();
+        auth()->user()->permissions()->attach(
+            Permission::create([
+                'key' => PermissionKey::UpdateSubscriberMinimumCharge->value,
+                'label' => PermissionKey::UpdateSubscriberMinimumCharge->label(),
+            ]),
+        );
         $circuitBreaker = CircuitBreaker::factory()->create(['ampere' => 4, 'minimum_payment' => 20]);
         $payload['circuit_breaker_id'] = $circuitBreaker->id;
         $payload['minimum_charge'] = 35;
@@ -227,6 +235,57 @@ class SubscriberValidationTest extends TestCase
             'national_id' => $payload['national_id'],
             'circuit_breaker_id' => $circuitBreaker->id,
             'minimum_charge' => 35,
+        ]);
+    }
+
+    public function test_a_user_without_the_permission_cannot_override_minimum_charge(): void
+    {
+        $payload = $this->validPayload();
+        $circuitBreaker = CircuitBreaker::factory()->create(['ampere' => 4, 'minimum_payment' => 20]);
+        $payload['circuit_breaker_id'] = $circuitBreaker->id;
+        $payload['minimum_charge'] = 999;
+
+        $this->post(route('subscribers.store'), $payload)
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('subscribers.index'));
+
+        $this->assertDatabaseHas('subscribers', [
+            'national_id' => $payload['national_id'],
+            'circuit_breaker_id' => $circuitBreaker->id,
+            'minimum_charge' => 20,
+        ]);
+    }
+
+    public function test_a_user_without_the_permission_keeps_the_existing_minimum_charge_on_update_with_no_circuit_breaker(): void
+    {
+        $dataEntry = User::factory()->dataEntry()->create();
+        $this->actingAs($dataEntry);
+        $subscriber = Subscriber::factory()->create([
+            'branch_id' => $dataEntry->branch_id,
+            'circuit_breaker_id' => null,
+            'minimum_charge' => 42,
+        ]);
+
+        $payload = [
+            'full_name' => $subscriber->full_name,
+            'national_id' => $subscriber->national_id,
+            'phone' => $subscriber->phone,
+            'address' => $subscriber->address,
+            'meter_number' => $subscriber->meter_number,
+            'tariff_id' => $subscriber->tariff_id,
+            'status' => $subscriber->status->value,
+            'minimum_charge' => 999,
+            'initial_reading' => $subscriber->initial_reading,
+            'notes' => $subscriber->notes,
+        ];
+
+        $this->put(route('subscribers.update', $subscriber), $payload)
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('subscribers.index'));
+
+        $this->assertDatabaseHas('subscribers', [
+            'id' => $subscriber->id,
+            'minimum_charge' => 42,
         ]);
     }
 }

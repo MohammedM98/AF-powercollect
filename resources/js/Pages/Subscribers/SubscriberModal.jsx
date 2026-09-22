@@ -34,6 +34,7 @@ export default function SubscriberModal({
     canChooseBranch,
     currentBranchAreaId,
     currentBranchAreaName,
+    canEditMinimumCharge,
 }) {
     const isEdit = Boolean(subscriber);
 
@@ -118,6 +119,7 @@ export default function SubscriberModal({
                         canChooseBranch={canChooseBranch}
                         currentBranchAreaId={currentBranchAreaId}
                         currentBranchAreaName={currentBranchAreaName}
+                        canEditMinimumCharge={canEditMinimumCharge}
                     />
                 </div>
 

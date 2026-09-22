@@ -14,6 +14,7 @@ enum PermissionKey: string
     case ViewSubscribers = 'subscribers.view';
     case CreateSubscribers = 'subscribers.create';
     case UpdateSubscribers = 'subscribers.update';
+    case UpdateSubscriberMinimumCharge = 'subscribers.update_minimum_charge';
 
     case ViewTariffs = 'tariffs.view';
     case CreateTariffs = 'tariffs.create';
@@ -54,6 +55,7 @@ enum PermissionKey: string
             self::ViewSubscribers => 'View Subscribers',
             self::CreateSubscribers => 'Add Subscribers',
             self::UpdateSubscribers => 'Edit Subscribers',
+            self::UpdateSubscriberMinimumCharge => 'Edit Subscriber Minimum Charge',
             self::ViewTariffs => 'View Tariffs',
             self::CreateTariffs => 'Add Tariffs',
             self::UpdateTariffs => 'Edit Tariffs',
@@ -100,7 +102,12 @@ enum PermissionKey: string
             ],
             'subscribers' => [
                 'label' => 'Subscribers',
-                'actions' => ['view' => self::ViewSubscribers, 'create' => self::CreateSubscribers, 'update' => self::UpdateSubscribers],
+                'actions' => [
+                    'view' => self::ViewSubscribers,
+                    'create' => self::CreateSubscribers,
+                    'update' => self::UpdateSubscribers,
+                    'minimum_charge' => self::UpdateSubscriberMinimumCharge,
+                ],
             ],
             'tariffs' => [
                 'label' => 'Tariffs',

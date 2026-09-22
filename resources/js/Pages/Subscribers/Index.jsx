@@ -28,6 +28,7 @@ export default function Index({
     canChooseBranch,
     currentBranchAreaId,
     currentBranchAreaName,
+    canEditMinimumCharge,
     filters,
     filterOptions,
 }) {
@@ -44,6 +45,7 @@ export default function Index({
         canChooseBranch,
         currentBranchAreaId,
         currentBranchAreaName,
+        canEditMinimumCharge,
     };
 
     return (

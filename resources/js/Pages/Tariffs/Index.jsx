@@ -56,7 +56,7 @@ export default function Index({ tariffs, status, categoryOptions, filters, filte
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
                             <SortableTh column="category" label="الفئة" sortState={filters} onSort={sort} />
-                            <SortableTh column="rate" label="السعر (₪)" sortState={filters} onSort={sort} />
+                            <SortableTh column="rate" label="السعر (شيكل)" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3"></th>
                         </tr>
                     </thead>

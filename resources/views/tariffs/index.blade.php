@@ -31,7 +31,7 @@
                 @forelse ($tariffs as $tariff)
                     <tr>
                         <td class="px-6 py-4 font-medium text-gray-900">{{ __($tariff->category->label()) }}</td>
-                        <td class="px-6 py-4 text-gray-600" dir="ltr">{{ number_format($tariff->rate, 2) }} ₪</td>
+                        <td class="px-6 py-4 text-gray-600" dir="ltr">{{ number_format($tariff->rate, 2) }} شيكل</td>
                         <td class="px-6 py-4 text-end">
                             <a href="{{ route('tariffs.edit', $tariff) }}" class="font-medium text-brand-600 hover:underline">{{ __('Edit') }}</a>
                         </td>

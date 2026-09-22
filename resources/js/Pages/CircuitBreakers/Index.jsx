@@ -52,7 +52,7 @@ export default function Index({ circuitBreakers, status, filters }) {
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
                             <SortableTh column="ampere" label="الأمبير" sortState={filters} onSort={sort} />
-                            <SortableTh column="minimum_payment" label="الحد الأدنى للدفع (₪)" sortState={filters} onSort={sort} />
+                            <SortableTh column="minimum_payment" label="الحد الأدنى للدفع (شيكل)" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3"></th>
                         </tr>
                     </thead>

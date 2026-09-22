@@ -130,13 +130,13 @@ export default function SubscriberForm({
                     <option value="">---</option>
                     {circuitBreakers.map((circuitBreaker) => (
                         <option key={circuitBreaker.id} value={circuitBreaker.id}>
-                            {circuitBreaker.ampere}A — {Number(circuitBreaker.minimum_payment).toFixed(2)} ₪
+                            {circuitBreaker.ampere}A — {Number(circuitBreaker.minimum_payment).toFixed(2)} شيكل
                         </option>
                     ))}
                 </select>
             </Field>
 
-            <Field id="minimum_charge" label="الحد الادنى (₪)" required error={errors.minimum_charge}>
+            <Field id="minimum_charge" label="الحد الادنى (شيكل)" required error={errors.minimum_charge}>
                 <TextInput
                     type="number"
                     step="0.01"
@@ -189,7 +189,7 @@ export default function SubscriberForm({
             </Field>
 
             <div>
-                <InputLabel value="سعر التعرفة (₪)" />
+                <InputLabel value="سعر التعرفة (شيكل)" />
                 <TextInput
                     readOnly
                     disabled
@@ -211,7 +211,7 @@ export default function SubscriberForm({
                 />
             </Field>
 
-            <Field id="subscription_fee" label="رسوم الاشتراك (₪)" error={errors.subscription_fee}>
+            <Field id="subscription_fee" label="رسوم الاشتراك (شيكل)" error={errors.subscription_fee}>
                 <TextInput
                     type="number"
                     step="0.01"

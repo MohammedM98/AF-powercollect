@@ -20,7 +20,7 @@ export default function CircuitBreakerForm({ data, setData, errors }) {
                 <InputError message={errors.ampere} className="mt-2" />
             </div>
             <div className="mt-4">
-                <InputLabel htmlFor="minimum_payment" value="الحد الأدنى للدفع (₪)" />
+                <InputLabel htmlFor="minimum_payment" value="الحد الأدنى للدفع (شيكل)" />
                 <TextInput
                     id="minimum_payment"
                     type="number"

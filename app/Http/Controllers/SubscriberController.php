@@ -176,6 +176,7 @@ class SubscriberController extends Controller
         $tariffs = Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => [
             'id' => $tariff->id,
             'categoryLabel' => __($tariff->category->label()),
+            'rate' => $tariff->rate,
         ]);
 
         return [

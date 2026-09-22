@@ -64,6 +64,8 @@ export default function SubscriberForm({
 
     const showMeterBoxField = Boolean(subAreaId) || Boolean(data.meter_box_id);
 
+    const selectedTariff = tariffs.find((tariff) => String(tariff.id) === String(data.tariff_id));
+
     function onBranchChange(value) {
         setSubAreaId('');
         setData((current) => ({ ...current, branch_id: value, meter_box_id: '' }));
@@ -185,6 +187,17 @@ export default function SubscriberForm({
                     ))}
                 </select>
             </Field>
+
+            <div>
+                <InputLabel value="سعر التعرفة (₪)" />
+                <TextInput
+                    readOnly
+                    disabled
+                    dir="ltr"
+                    className="mt-1 block w-full bg-gray-100 text-gray-600"
+                    value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : ''}
+                />
+            </div>
 
             <Field id="initial_reading" label="القراءة الابتدائية" required error={errors.initial_reading}>
                 <TextInput

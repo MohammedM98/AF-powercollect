@@ -20,7 +20,7 @@ class SubscriberModelTest extends TestCase
     {
         $branch = Branch::factory()->create();
         $box = MeterBox::factory()->create(['branch_id' => $branch->id, 'box_number' => 'BOX-0001']);
-        $tariff = Tariff::factory()->home()->create();
+        $tariff = Tariff::factory()->residential()->create();
         $registrar = User::factory()->dataEntry()->create(['branch_id' => $branch->id]);
 
         $subscriber = Subscriber::factory()->create([
@@ -35,7 +35,7 @@ class SubscriberModelTest extends TestCase
         $this->assertTrue($subscriber->tariff->is($tariff));
         $this->assertTrue($subscriber->branch->is($branch));
         $this->assertTrue($subscriber->registeredBy->is($registrar));
-        $this->assertSame(TariffCategory::Home, $subscriber->tariff->category);
+        $this->assertSame(TariffCategory::Residential, $subscriber->tariff->category);
         $this->assertSame(SubscriberStatus::Active, $subscriber->status);
 
         $this->assertTrue($box->subscribers->contains($subscriber));
@@ -46,7 +46,7 @@ class SubscriberModelTest extends TestCase
     public function test_a_meter_box_can_hold_more_than_one_subscriber(): void
     {
         $box = MeterBox::factory()->create();
-        $tariff = Tariff::factory()->home()->create();
+        $tariff = Tariff::factory()->residential()->create();
 
         Subscriber::factory()->count(2)->create(['meter_box_id' => $box->id, 'tariff_id' => $tariff->id]);
 
@@ -64,7 +64,7 @@ class SubscriberModelTest extends TestCase
     {
         $this->seed(\Database\Seeders\TariffSeeder::class);
 
-        $this->assertDatabaseHas('tariffs', ['category' => TariffCategory::Home->value]);
-        $this->assertDatabaseHas('tariffs', ['category' => TariffCategory::Business->value]);
+        $this->assertDatabaseHas('tariffs', ['category' => TariffCategory::Residential->value]);
+        $this->assertDatabaseHas('tariffs', ['category' => TariffCategory::Commercial->value]);
     }
 }

@@ -20,7 +20,7 @@ class SubscriberAuthorizationTest extends TestCase
         $superAdmin = User::factory()->superAdmin()->create();
         $branchA = Branch::factory()->create();
         $branchB = Branch::factory()->create();
-        $tariff = Tariff::factory()->home()->create();
+        $tariff = Tariff::factory()->residential()->create();
         Subscriber::factory()->create(['branch_id' => $branchA->id, 'tariff_id' => $tariff->id, 'full_name' => 'From Branch A']);
         Subscriber::factory()->create(['branch_id' => $branchB->id, 'tariff_id' => $tariff->id, 'full_name' => 'From Branch B']);
 
@@ -36,7 +36,7 @@ class SubscriberAuthorizationTest extends TestCase
         $branchA = Branch::factory()->create();
         $branchB = Branch::factory()->create();
         $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $branchA->id]);
-        $tariff = Tariff::factory()->home()->create();
+        $tariff = Tariff::factory()->residential()->create();
         Subscriber::factory()->create(['branch_id' => $branchA->id, 'tariff_id' => $tariff->id, 'full_name' => 'In My Branch']);
         Subscriber::factory()->create(['branch_id' => $branchB->id, 'tariff_id' => $tariff->id, 'full_name' => 'In Other Branch']);
 
@@ -53,7 +53,7 @@ class SubscriberAuthorizationTest extends TestCase
         $otherBranch = Branch::factory()->create();
         $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $branch->id]);
         $box = MeterBox::factory()->create(['branch_id' => $branch->id]);
-        $tariff = Tariff::factory()->home()->create();
+        $tariff = Tariff::factory()->residential()->create();
 
         $response = $this->actingAs($dataEntry)->post(route('subscribers.store'), [
             'full_name' => 'New Customer',
@@ -83,7 +83,7 @@ class SubscriberAuthorizationTest extends TestCase
     {
         $branch = Branch::factory()->create();
         $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $branch->id]);
-        $tariff = Tariff::factory()->business()->create();
+        $tariff = Tariff::factory()->commercial()->create();
 
         $response = $this->actingAs($dataEntry)->post(route('subscribers.store'), [
             'full_name' => 'No Box Yet',

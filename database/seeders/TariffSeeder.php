@@ -14,7 +14,7 @@ class TariffSeeder extends Seeder
      */
     public function run(): void
     {
-        Tariff::updateOrCreate(['category' => TariffCategory::Home->value], ['rate' => 50]);
-        Tariff::updateOrCreate(['category' => TariffCategory::Business->value], ['rate' => 120]);
+        Tariff::updateOrCreate(['category' => TariffCategory::Residential->value], ['rate' => 50]);
+        Tariff::updateOrCreate(['category' => TariffCategory::Commercial->value], ['rate' => 120]);
     }
 }

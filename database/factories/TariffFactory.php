@@ -24,17 +24,17 @@ class TariffFactory extends Factory
         ];
     }
 
-    public function home(): static
+    public function residential(): static
     {
         return $this->state(fn (array $attributes) => [
-            'category' => TariffCategory::Home,
+            'category' => TariffCategory::Residential,
         ]);
     }
 
-    public function business(): static
+    public function commercial(): static
     {
         return $this->state(fn (array $attributes) => [
-            'category' => TariffCategory::Business,
+            'category' => TariffCategory::Commercial,
         ]);
     }
 }

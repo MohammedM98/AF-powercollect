@@ -157,7 +157,7 @@ class SubscriberValidationTest extends TestCase
             'phone' => '0770000000',
             'address' => 'Some street',
             'meter_number' => 'MTR-VALIDATION',
-            'tariff_id' => Tariff::factory()->home()->create()->id,
+            'tariff_id' => Tariff::factory()->residential()->create()->id,
             'status' => SubscriberStatus::Active->value,
             'minimum_charge' => 10,
             'initial_reading' => 0,

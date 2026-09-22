@@ -186,7 +186,7 @@ class PermissionsTest extends TestCase
         $createSubscribers = Permission::where('key', PermissionKey::CreateSubscribers->value)->firstOrFail();
         $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
         $collector->permissions()->attach([$createSubscribers->id, $viewSubscribers->id]);
-        $tariff = Tariff::factory()->home()->create();
+        $tariff = Tariff::factory()->residential()->create();
 
         $this->actingAs($collector)
             ->get(route('subscribers.index'))

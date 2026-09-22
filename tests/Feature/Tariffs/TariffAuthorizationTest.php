@@ -26,13 +26,13 @@ class TariffAuthorizationTest extends TestCase
         $superAdmin = User::factory()->superAdmin()->create();
 
         $response = $this->actingAs($superAdmin)->post(route('tariffs.store'), [
-            'category' => TariffCategory::Home->value,
+            'category' => TariffCategory::Residential->value,
             'rate' => 25.50,
         ]);
 
         $response->assertRedirect(route('tariffs.index'));
         $this->assertDatabaseHas('tariffs', [
-            'category' => TariffCategory::Home->value,
+            'category' => TariffCategory::Residential->value,
             'rate' => 25.50,
         ]);
     }
@@ -40,10 +40,10 @@ class TariffAuthorizationTest extends TestCase
     public function test_super_admin_can_update_a_tariff(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
-        $tariff = Tariff::factory()->home()->create(['rate' => 10]);
+        $tariff = Tariff::factory()->residential()->create(['rate' => 10]);
 
         $response = $this->actingAs($superAdmin)->put(route('tariffs.update', $tariff), [
-            'category' => TariffCategory::Home->value,
+            'category' => TariffCategory::Residential->value,
             'rate' => 30,
         ]);
 
@@ -57,10 +57,10 @@ class TariffAuthorizationTest extends TestCase
     public function test_cannot_create_two_tariffs_with_the_same_category(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
-        Tariff::factory()->home()->create();
+        Tariff::factory()->residential()->create();
 
         $this->actingAs($superAdmin)->post(route('tariffs.store'), [
-            'category' => TariffCategory::Home->value,
+            'category' => TariffCategory::Residential->value,
             'rate' => 15,
         ])->assertSessionHasErrors('category');
     }
@@ -83,7 +83,7 @@ class TariffAuthorizationTest extends TestCase
             ->assertForbidden();
 
         $this->actingAs($branchAdmin)
-            ->post(route('tariffs.store'), ['category' => TariffCategory::Home->value, 'rate' => 15])
+            ->post(route('tariffs.store'), ['category' => TariffCategory::Residential->value, 'rate' => 15])
             ->assertForbidden();
     }
 

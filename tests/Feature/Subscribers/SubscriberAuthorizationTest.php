@@ -58,6 +58,8 @@ class SubscriberAuthorizationTest extends TestCase
 
         $response = $this->actingAs($dataEntry)->post(route('subscribers.store'), [
             'full_name' => 'New Customer',
+            'national_id' => '123456789',
+            'initial_reading' => 100,
             'phone' => '0770000000',
             'address' => 'Some street',
             'meter_number' => 'MTR-0001',
@@ -88,6 +90,8 @@ class SubscriberAuthorizationTest extends TestCase
 
         $response = $this->actingAs($dataEntry)->post(route('subscribers.store'), [
             'full_name' => 'No Box Yet',
+            'national_id' => '987654321',
+            'initial_reading' => 100,
             'phone' => '0770000001',
             'address' => 'Some other street',
             'meter_number' => 'MTR-0002',

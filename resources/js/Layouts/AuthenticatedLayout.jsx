@@ -113,6 +113,15 @@ export default function AuthenticatedLayout({ header, children }) {
                         </NavLink>
                     )}
 
+                    {can?.viewCircuitBreakers && (
+                        <NavLink href="/circuit-breakers" active={url.startsWith('/circuit-breakers')}>
+                            القواطع
+                            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13.5 2.25L3 14.25h7.5l-1.5 7.5L21 9.75h-7.5l1.5-7.5z" />
+                            </svg>
+                        </NavLink>
+                    )}
+
                     {can?.viewMeterBoxes && (
                         <NavLink href="/meter-boxes" active={url.startsWith('/meter-boxes')}>
                             الطبلونات

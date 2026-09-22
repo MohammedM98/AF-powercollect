@@ -29,6 +29,7 @@ class UpdateSubscriberRequest extends FormRequest
 
         $rules = [
             'full_name' => ['required', 'string', 'max:255'],
+            'national_id' => ['required', 'string', 'regex:/^\d{9}$/', Rule::unique('subscribers', 'national_id')->ignore($subscriber->id)],
             'phone' => ['required', 'string', 'max:30'],
             'address' => ['required', 'string', 'max:1000'],
             'meter_number' => ['required', 'string', 'max:255', Rule::unique('subscribers', 'meter_number')->ignore($subscriber->id)],
@@ -38,11 +39,11 @@ class UpdateSubscriberRequest extends FormRequest
             'billing_type' => ['required', Rule::in(array_column(BillingType::cases(), 'value'))],
             'unit_price' => ['required', 'numeric', 'min:0'],
             'minimum_charge' => ['required', 'numeric', 'min:0'],
-            'ampere_count' => ['nullable', 'integer', 'min:0'],
+            'circuit_breaker_id' => ['nullable', Rule::exists('circuit_breakers', 'id')],
             'area_1_id' => ['nullable', Rule::exists('areas', 'id')],
             'area_2_id' => ['nullable', Rule::exists('areas', 'id')],
             'customer_classification' => ['nullable', 'string', 'max:255'],
-            'previous_reading' => ['nullable', 'integer', 'min:0'],
+            'initial_reading' => ['required', 'integer', 'min:0'],
             'subscription_fee' => ['nullable', 'numeric', 'min:0'],
             'subscription_date' => ['nullable', 'date'],
             'charge_subscription_fee' => ['boolean'],

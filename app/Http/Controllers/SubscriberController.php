@@ -9,12 +9,14 @@ use App\Http\Requests\StoreSubscriberRequest;
 use App\Http\Requests\UpdateSubscriberRequest;
 use App\Models\Area;
 use App\Models\Branch;
+use App\Models\CircuitBreaker;
 use App\Models\MeterBox;
 use App\Models\Subscriber;
 use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -126,6 +128,7 @@ class SubscriberController extends Controller
         return [
             'id' => $subscriber->id,
             'full_name' => $subscriber->full_name,
+            'national_id' => $subscriber->national_id,
             'phone' => $subscriber->phone,
             'address' => $subscriber->address,
             'meter_number' => $subscriber->meter_number,
@@ -136,11 +139,11 @@ class SubscriberController extends Controller
             'billing_type' => $subscriber->billing_type?->value,
             'unit_price' => $subscriber->unit_price,
             'minimum_charge' => $subscriber->minimum_charge,
-            'ampere_count' => $subscriber->ampere_count,
+            'circuit_breaker_id' => $subscriber->circuit_breaker_id,
             'area_1_id' => $subscriber->area_1_id,
             'area_2_id' => $subscriber->area_2_id,
             'customer_classification' => $subscriber->customer_classification,
-            'previous_reading' => $subscriber->previous_reading,
+            'initial_reading' => $subscriber->initial_reading,
             'subscription_fee' => $subscriber->subscription_fee,
             'subscription_date' => $subscriber->subscription_date?->format('Y-m-d'),
             'charge_subscription_fee' => $subscriber->charge_subscription_fee,
@@ -152,7 +155,7 @@ class SubscriberController extends Controller
      * The branch/meter-box/tariff options for the create/edit forms, and
      * whether the actor may choose the branch themselves.
      *
-     * @return array{branches: \Illuminate\Support\Collection, meterBoxes: \Illuminate\Support\Collection, tariffs: \Illuminate\Support\Collection, areas: \Illuminate\Support\Collection, canChooseBranch: bool}
+     * @return array{branches: Collection, meterBoxes: Collection, tariffs: Collection, areas: Collection, canChooseBranch: bool}
      */
     private function formOptions(): array
     {
@@ -186,6 +189,7 @@ class SubscriberController extends Controller
             'branches' => $branches,
             'meterBoxes' => $meterBoxes,
             'tariffs' => $tariffs,
+            'circuitBreakers' => CircuitBreaker::orderBy('ampere')->get(),
             'areas' => Area::orderBy('name')->get(),
             'canChooseBranch' => $canChooseBranch,
             'billingTypeOptions' => $billingTypeOptions,

@@ -2,9 +2,12 @@
 
 namespace Tests\Feature\Settings;
 
+use App\Enums\BillingType;
 use App\Enums\PermissionKey;
+use App\Enums\SubscriberStatus;
 use App\Models\Branch;
 use App\Models\Permission;
+use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -184,7 +187,7 @@ class PermissionsTest extends TestCase
         $createSubscribers = Permission::where('key', PermissionKey::CreateSubscribers->value)->firstOrFail();
         $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
         $collector->permissions()->attach([$createSubscribers->id, $viewSubscribers->id]);
-        $tariff = \App\Models\Tariff::factory()->home()->create();
+        $tariff = Tariff::factory()->home()->create();
 
         $this->actingAs($collector)
             ->get(route('subscribers.index'))
@@ -192,12 +195,14 @@ class PermissionsTest extends TestCase
 
         $this->actingAs($collector)->post(route('subscribers.store'), [
             'full_name' => 'Granted Subscriber',
+            'national_id' => '123456789',
+            'initial_reading' => 100,
             'phone' => '0770000002',
             'address' => 'Some street',
             'meter_number' => 'MTR-9999',
             'tariff_id' => $tariff->id,
-            'status' => \App\Enums\SubscriberStatus::Active->value,
-            'billing_type' => \App\Enums\BillingType::Meter->value,
+            'status' => SubscriberStatus::Active->value,
+            'billing_type' => BillingType::Meter->value,
             'unit_price' => 5,
             'minimum_charge' => 10,
             'notes' => 'No notes',

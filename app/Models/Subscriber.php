@@ -11,9 +11,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'full_name', 'phone', 'address', 'meter_number', 'meter_box_id', 'tariff_id', 'branch_id',
-    'registered_by', 'status', 'billing_type', 'unit_price', 'minimum_charge', 'ampere_count',
-    'area_1_id', 'area_2_id', 'customer_classification', 'previous_reading', 'subscription_fee',
+    'full_name', 'national_id', 'phone', 'address', 'meter_number', 'meter_box_id', 'tariff_id', 'branch_id',
+    'registered_by', 'status', 'billing_type', 'unit_price', 'minimum_charge', 'circuit_breaker_id',
+    'area_1_id', 'area_2_id', 'customer_classification', 'initial_reading', 'subscription_fee',
     'subscription_date', 'charge_subscription_fee', 'notes',
 ])]
 class Subscriber extends Model
@@ -44,6 +44,11 @@ class Subscriber extends Model
     public function tariff(): BelongsTo
     {
         return $this->belongsTo(Tariff::class);
+    }
+
+    public function circuitBreaker(): BelongsTo
+    {
+        return $this->belongsTo(CircuitBreaker::class);
     }
 
     public function area1(): BelongsTo

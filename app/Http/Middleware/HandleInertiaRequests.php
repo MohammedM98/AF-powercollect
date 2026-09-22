@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Branch;
+use App\Models\CircuitBreaker;
 use App\Models\Governorate;
 use App\Models\MeterBox;
 use App\Models\Permission;
@@ -60,6 +61,7 @@ class HandleInertiaRequests extends Middleware
                 'viewSubscribers' => $user->can('viewAny', Subscriber::class),
                 'viewUsers' => $user->can('viewAny', User::class),
                 'viewTariffs' => $user->can('viewAny', Tariff::class),
+                'viewCircuitBreakers' => $user->can('viewAny', CircuitBreaker::class),
                 'viewMeterBoxes' => $user->can('viewAny', MeterBox::class),
                 'viewGovernorates' => $user->can('viewAny', Governorate::class),
                 'manageSettings' => $user->can('manage', Permission::class),

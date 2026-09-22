@@ -23,6 +23,7 @@ export default function Index({
     branches,
     meterBoxes,
     tariffs,
+    circuitBreakers,
     areas,
     billingTypeOptions,
     canChooseBranch,
@@ -33,7 +34,7 @@ export default function Index({
     const [creating, setCreating] = useState(false);
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/subscribers', filters);
 
-    const modalProps = { branches, meterBoxes, tariffs, areas, billingTypeOptions, canChooseBranch };
+    const modalProps = { branches, meterBoxes, tariffs, circuitBreakers, areas, billingTypeOptions, canChooseBranch };
 
     return (
         <AuthenticatedLayout

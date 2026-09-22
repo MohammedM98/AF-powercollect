@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\CircuitBreakerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GovernorateController;
 use App\Http\Controllers\MeterBoxController;
@@ -27,6 +28,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('tariffs', TariffController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('meter-boxes', MeterBoxController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('areas', AreaController::class)->only(['create', 'store', 'edit', 'update']);
     Route::resource('governorates', GovernorateController::class)->only(['index', 'create', 'store', 'edit', 'update']);

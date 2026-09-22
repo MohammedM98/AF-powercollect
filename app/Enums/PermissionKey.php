@@ -19,6 +19,10 @@ enum PermissionKey: string
     case CreateTariffs = 'tariffs.create';
     case UpdateTariffs = 'tariffs.update';
 
+    case ViewCircuitBreakers = 'circuit_breakers.view';
+    case CreateCircuitBreakers = 'circuit_breakers.create';
+    case UpdateCircuitBreakers = 'circuit_breakers.update';
+
     case ViewMeterBoxes = 'meter_boxes.view';
     case CreateMeterBoxes = 'meter_boxes.create';
     case UpdateMeterBoxes = 'meter_boxes.update';
@@ -49,6 +53,9 @@ enum PermissionKey: string
             self::ViewTariffs => 'View Tariffs',
             self::CreateTariffs => 'Add Tariffs',
             self::UpdateTariffs => 'Edit Tariffs',
+            self::ViewCircuitBreakers => 'View Circuit Breakers',
+            self::CreateCircuitBreakers => 'Add Circuit Breakers',
+            self::UpdateCircuitBreakers => 'Edit Circuit Breakers',
             self::ViewMeterBoxes => 'View Meter Boxes',
             self::CreateMeterBoxes => 'Add Meter Boxes',
             self::UpdateMeterBoxes => 'Edit Meter Boxes',
@@ -95,6 +102,10 @@ enum PermissionKey: string
             'meter_boxes' => [
                 'label' => 'Meter Boxes',
                 'actions' => ['view' => self::ViewMeterBoxes, 'create' => self::CreateMeterBoxes, 'update' => self::UpdateMeterBoxes],
+            ],
+            'circuit_breakers' => [
+                'label' => 'Circuit Breakers',
+                'actions' => ['view' => self::ViewCircuitBreakers, 'create' => self::CreateCircuitBreakers, 'update' => self::UpdateCircuitBreakers],
             ],
             'areas' => [
                 'label' => 'Areas',

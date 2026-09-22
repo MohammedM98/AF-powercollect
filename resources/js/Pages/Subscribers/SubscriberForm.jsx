@@ -22,11 +22,23 @@ function Field({ id, label, required, error, span = '', children }) {
     );
 }
 
-export default function SubscriberForm({ data, setData, errors, meterBoxes, tariffs, branches, areas, billingTypeOptions, canChooseBranch }) {
+export default function SubscriberForm({ data, setData, errors, meterBoxes, tariffs, circuitBreakers, branches, areas, billingTypeOptions, canChooseBranch }) {
     return (
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field id="full_name" label="الاسم" required error={errors.full_name}>
                 <TextInput className="block w-full" value={data.full_name} autoFocus onChange={(e) => setData('full_name', e.target.value)} />
+            </Field>
+
+            <Field id="national_id" label="الرقم الوطني" required error={errors.national_id}>
+                <TextInput
+                    required
+                    dir="ltr"
+                    inputMode="numeric"
+                    maxLength={9}
+                    className="block w-full"
+                    value={data.national_id ?? ''}
+                    onChange={(event) => setData('national_id', event.target.value)}
+                />
             </Field>
 
             <Field id="phone" label="رقم الجوال" required error={errors.phone}>
@@ -138,13 +150,27 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 )}
             </Field>
 
-            <Field id="ampere_count" label="عدد الامبير" error={errors.ampere_count}>
-                <TextInput
-                    type="number"
-                    className="block w-full"
-                    value={data.ampere_count}
-                    onChange={(e) => setData('ampere_count', e.target.value)}
-                />
+            <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id}>
+                <select
+                    className="block w-full rounded-md border-gray-300 shadow-sm"
+                    value={data.circuit_breaker_id}
+                    onChange={(event) => {
+                        const value = event.target.value;
+                        const match = circuitBreakers.find((circuitBreaker) => String(circuitBreaker.id) === value);
+                        setData((current) => ({
+                            ...current,
+                            circuit_breaker_id: value,
+                            minimum_charge: match ? match.minimum_payment : current.minimum_charge,
+                        }));
+                    }}
+                >
+                    <option value="">---</option>
+                    {circuitBreakers.map((circuitBreaker) => (
+                        <option key={circuitBreaker.id} value={circuitBreaker.id}>
+                            {circuitBreaker.ampere}A — {Number(circuitBreaker.minimum_payment).toFixed(2)} ₪
+                        </option>
+                    ))}
+                </select>
             </Field>
 
             <Field id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
@@ -174,12 +200,15 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 />
             </Field>
 
-            <Field id="previous_reading" label="القراءة السابقة" error={errors.previous_reading}>
+            <Field id="initial_reading" label="القراءة الابتدائية" required error={errors.initial_reading}>
                 <TextInput
                     type="number"
+                    required
+                    min={0}
+                    step={1}
                     className="block w-full"
-                    value={data.previous_reading}
-                    onChange={(e) => setData('previous_reading', e.target.value)}
+                    value={data.initial_reading}
+                    onChange={(event) => setData('initial_reading', event.target.value)}
                 />
             </Field>
 

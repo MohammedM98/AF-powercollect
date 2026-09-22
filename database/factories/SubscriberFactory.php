@@ -6,6 +6,7 @@ use App\Enums\BillingType;
 use App\Enums\SubscriberStatus;
 use App\Models\Area;
 use App\Models\Branch;
+use App\Models\CircuitBreaker;
 use App\Models\MeterBox;
 use App\Models\Subscriber;
 use App\Models\Tariff;
@@ -26,6 +27,8 @@ class SubscriberFactory extends Factory
     {
         return [
             'full_name' => fake()->name(),
+            'national_id' => fake()->unique()->numerify('#########'),
+            'initial_reading' => fake()->numberBetween(0, 10000),
             'phone' => fake()->phoneNumber(),
             'address' => fake()->address(),
             'meter_number' => fake()->unique()->numerify('MTR-#######'),
@@ -40,7 +43,7 @@ class SubscriberFactory extends Factory
             'billing_type' => fake()->randomElement(BillingType::cases()),
             'unit_price' => fake()->randomFloat(2, 1, 20),
             'minimum_charge' => fake()->randomFloat(2, 5, 50),
-            'ampere_count' => fake()->randomElement([5, 10, 16, 20]),
+            'circuit_breaker_id' => CircuitBreaker::factory(),
             'area_1_id' => Area::factory(),
             'area_2_id' => Area::factory(),
             'notes' => fake()->sentence(),

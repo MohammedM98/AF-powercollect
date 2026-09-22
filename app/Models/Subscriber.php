@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'full_name', 'national_id', 'phone', 'meter_number', 'meter_box_id', 'tariff_id', 'branch_id',
-    'registered_by', 'status', 'circuit_breaker_id', 'initial_reading', 'subscription_fee',
+    'full_name', 'national_id', 'phone', 'address', 'meter_number', 'meter_box_id', 'tariff_id', 'branch_id',
+    'registered_by', 'status', 'circuit_breaker_id', 'minimum_charge', 'initial_reading', 'subscription_fee',
     'subscription_date', 'notes',
 ])]
 class Subscriber extends Model

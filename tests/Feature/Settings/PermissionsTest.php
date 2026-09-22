@@ -197,9 +197,11 @@ class PermissionsTest extends TestCase
             'national_id' => '123456789',
             'initial_reading' => 100,
             'phone' => '0770000002',
+            'address' => 'Some street',
             'meter_number' => 'MTR-9999',
             'tariff_id' => $tariff->id,
             'status' => SubscriberStatus::Active->value,
+            'minimum_charge' => 10,
             'notes' => 'No notes',
         ])->assertRedirect(route('subscribers.index'));
 

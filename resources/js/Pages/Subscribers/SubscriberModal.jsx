@@ -8,19 +8,33 @@ const BLANK = {
     full_name: '',
     national_id: '',
     phone: '',
+    address: '',
     meter_number: '',
     meter_box_id: '',
     tariff_id: '',
     status: 'active',
     branch_id: '',
     circuit_breaker_id: '',
+    minimum_charge: '',
     initial_reading: '',
     subscription_fee: '',
     subscription_date: '',
     notes: '',
 };
 
-export default function SubscriberModal({ show, onClose, subscriber, branches, meterBoxes, tariffs, circuitBreakers, canChooseBranch }) {
+export default function SubscriberModal({
+    show,
+    onClose,
+    subscriber,
+    branches,
+    meterBoxes,
+    tariffs,
+    circuitBreakers,
+    subAreas,
+    canChooseBranch,
+    currentBranchAreaId,
+    currentBranchAreaName,
+}) {
     const isEdit = Boolean(subscriber);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(
@@ -29,12 +43,14 @@ export default function SubscriberModal({ show, onClose, subscriber, branches, m
                   full_name: subscriber.full_name,
                   national_id: subscriber.national_id,
                   phone: subscriber.phone ?? '',
+                  address: subscriber.address ?? '',
                   meter_number: subscriber.meter_number,
                   meter_box_id: subscriber.meter_box_id ?? '',
                   tariff_id: subscriber.tariff_id,
                   status: subscriber.status,
                   branch_id: subscriber.branch_id,
                   circuit_breaker_id: subscriber.circuit_breaker_id ?? '',
+                  minimum_charge: subscriber.minimum_charge ?? '',
                   initial_reading: subscriber.initial_reading ?? '',
                   subscription_fee: subscriber.subscription_fee ?? '',
                   subscription_date: subscriber.subscription_date ?? '',
@@ -98,7 +114,10 @@ export default function SubscriberModal({ show, onClose, subscriber, branches, m
                         meterBoxes={meterBoxes}
                         tariffs={tariffs}
                         circuitBreakers={circuitBreakers}
+                        subAreas={subAreas}
                         canChooseBranch={canChooseBranch}
+                        currentBranchAreaId={currentBranchAreaId}
+                        currentBranchAreaName={currentBranchAreaName}
                     />
                 </div>
 

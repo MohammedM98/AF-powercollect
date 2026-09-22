@@ -155,9 +155,11 @@ class SubscriberValidationTest extends TestCase
             'full_name' => 'Registration Customer',
             'national_id' => '012345678',
             'phone' => '0770000000',
+            'address' => 'Some street',
             'meter_number' => 'MTR-VALIDATION',
             'tariff_id' => Tariff::factory()->home()->create()->id,
             'status' => SubscriberStatus::Active->value,
+            'minimum_charge' => 10,
             'initial_reading' => 0,
             'notes' => 'Registration notes',
         ];
@@ -186,5 +188,45 @@ class SubscriberValidationTest extends TestCase
 
         $this->post(route('subscribers.store'), $payload)->assertSessionHasErrors('circuit_breaker_id');
         $this->assertDatabaseCount('subscribers', 0);
+    }
+
+    public function test_address_is_required(): void
+    {
+        $payload = $this->validPayload();
+        unset($payload['address']);
+
+        $this->post(route('subscribers.store'), $payload)
+            ->assertSessionHasErrors('address');
+
+        $this->assertDatabaseCount('subscribers', 0);
+    }
+
+    public function test_minimum_charge_is_required(): void
+    {
+        $payload = $this->validPayload();
+        unset($payload['minimum_charge']);
+
+        $this->post(route('subscribers.store'), $payload)
+            ->assertSessionHasErrors('minimum_charge');
+
+        $this->assertDatabaseCount('subscribers', 0);
+    }
+
+    public function test_minimum_charge_can_be_overridden_independent_of_the_circuit_breakers_own_minimum_payment(): void
+    {
+        $payload = $this->validPayload();
+        $circuitBreaker = CircuitBreaker::factory()->create(['ampere' => 4, 'minimum_payment' => 20]);
+        $payload['circuit_breaker_id'] = $circuitBreaker->id;
+        $payload['minimum_charge'] = 35;
+
+        $this->post(route('subscribers.store'), $payload)
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('subscribers.index'));
+
+        $this->assertDatabaseHas('subscribers', [
+            'national_id' => $payload['national_id'],
+            'circuit_breaker_id' => $circuitBreaker->id,
+            'minimum_charge' => 35,
+        ]);
     }
 }

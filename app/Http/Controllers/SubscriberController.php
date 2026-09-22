@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateSubscriberRequest;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
 use App\Models\MeterBox;
+use App\Models\SubArea;
 use App\Models\Subscriber;
 use App\Models\Tariff;
 use App\Models\User;
@@ -128,12 +129,14 @@ class SubscriberController extends Controller
             'full_name' => $subscriber->full_name,
             'national_id' => $subscriber->national_id,
             'phone' => $subscriber->phone,
+            'address' => $subscriber->address,
             'meter_number' => $subscriber->meter_number,
             'meter_box_id' => $subscriber->meter_box_id,
             'tariff_id' => $subscriber->tariff_id,
             'branch_id' => $subscriber->branch_id,
             'status' => $subscriber->status->value,
             'circuit_breaker_id' => $subscriber->circuit_breaker_id,
+            'minimum_charge' => $subscriber->minimum_charge,
             'initial_reading' => $subscriber->initial_reading,
             'subscription_fee' => $subscriber->subscription_fee,
             'subscription_date' => $subscriber->subscription_date?->format('Y-m-d'),
@@ -143,16 +146,19 @@ class SubscriberController extends Controller
 
     /**
      * The branch/meter-box/tariff options for the create/edit forms, and
-     * whether the actor may choose the branch themselves.
+     * whether the actor may choose the branch themselves. A meter box's
+     * area/governorate always come from its branch, but its sub-area
+     * ("منطقة 2") is its own column, so the form narrows meter boxes down
+     * via branch → sub-area, same as the Meter Boxes resource itself.
      *
-     * @return array{branches: Collection, meterBoxes: Collection, tariffs: Collection, areas: Collection, canChooseBranch: bool}
+     * @return array{branches: Collection, meterBoxes: Collection, tariffs: Collection, subAreas: Collection, circuitBreakers: Collection, canChooseBranch: bool, currentBranchAreaId: ?int, currentBranchAreaName: ?string}
      */
     private function formOptions(): array
     {
         $actor = auth()->user();
         $canChooseBranch = $actor->isSuperAdmin();
 
-        $branches = $canChooseBranch ? Branch::orderBy('name')->get() : collect();
+        $branches = $canChooseBranch ? Branch::with('area')->orderBy('name')->get() : collect();
 
         $meterBoxes = MeterBox::query()
             ->when(! $canChooseBranch, fn ($query) => $query->where('branch_id', $actor->branch_id))
@@ -163,6 +169,8 @@ class SubscriberController extends Controller
                 'id' => $box->id,
                 'box_number' => $box->box_number,
                 'branchName' => $box->branch->name,
+                'branch_id' => $box->branch_id,
+                'sub_area_id' => $box->sub_area_id,
             ]);
 
         $tariffs = Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => [
@@ -174,8 +182,11 @@ class SubscriberController extends Controller
             'branches' => $branches,
             'meterBoxes' => $meterBoxes,
             'tariffs' => $tariffs,
+            'subAreas' => SubArea::orderBy('name')->get(),
             'circuitBreakers' => CircuitBreaker::orderBy('ampere')->get(),
             'canChooseBranch' => $canChooseBranch,
+            'currentBranchAreaId' => $canChooseBranch ? null : $actor->branch?->area_id,
+            'currentBranchAreaName' => $canChooseBranch ? null : $actor->branch?->area?->name,
         ];
     }
 

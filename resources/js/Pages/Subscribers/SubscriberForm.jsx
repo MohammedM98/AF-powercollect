@@ -1,4 +1,4 @@
-import { cloneElement } from 'react';
+import { cloneElement, useState } from 'react';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
@@ -22,7 +22,67 @@ function Field({ id, label, required, error, span = '', children }) {
     );
 }
 
-export default function SubscriberForm({ data, setData, errors, meterBoxes, tariffs, circuitBreakers, branches, canChooseBranch }) {
+export default function SubscriberForm({
+    data,
+    setData,
+    errors,
+    meterBoxes,
+    tariffs,
+    circuitBreakers,
+    branches,
+    subAreas,
+    canChooseBranch,
+    currentBranchAreaId,
+    currentBranchAreaName,
+}) {
+    const selectedBranch = canChooseBranch ? branches.find((branch) => String(branch.id) === String(data.branch_id)) : null;
+
+    // The area whose sub-areas ("منطقة 2") are selectable, and its name for
+    // the read-only display below: the Super Admin's chosen branch, or the
+    // actor's own (fixed) branch for everyone else. A branch only ever has
+    // one area, so there's nothing to actually pick here.
+    const resolvedAreaId = canChooseBranch ? (selectedBranch?.area_id ?? '') : (currentBranchAreaId ?? '');
+    const resolvedAreaName = canChooseBranch ? (selectedBranch?.area?.name ?? '') : (currentBranchAreaName ?? '');
+
+    // Seeded from the already-assigned meter box's own sub-area, if any, so
+    // editing a subscriber shows its meter box pre-selected instead of
+    // hiding it behind an unmade sub-area choice.
+    const [subAreaId, setSubAreaId] = useState(() => {
+        const currentBox = meterBoxes.find((box) => String(box.id) === String(data.meter_box_id));
+        return currentBox?.sub_area_id ? String(currentBox.sub_area_id) : '';
+    });
+
+    const subAreasInArea = resolvedAreaId ? subAreas.filter((subArea) => String(subArea.area_id) === String(resolvedAreaId)) : [];
+
+    const meterBoxesInScope = meterBoxes.filter((box) => {
+        if (canChooseBranch && String(box.branch_id) !== String(data.branch_id)) {
+            return false;
+        }
+
+        return subAreaId ? String(box.sub_area_id) === String(subAreaId) : String(box.id) === String(data.meter_box_id);
+    });
+
+    const showMeterBoxField = Boolean(subAreaId) || Boolean(data.meter_box_id);
+
+    function onBranchChange(value) {
+        setSubAreaId('');
+        setData((current) => ({ ...current, branch_id: value, meter_box_id: '' }));
+    }
+
+    function onSubAreaChange(value) {
+        setSubAreaId(value);
+        setData('meter_box_id', '');
+    }
+
+    function onCircuitBreakerChange(value) {
+        const match = circuitBreakers.find((circuitBreaker) => String(circuitBreaker.id) === value);
+        setData((current) => ({
+            ...current,
+            circuit_breaker_id: value,
+            minimum_charge: match ? match.minimum_payment : current.minimum_charge,
+        }));
+    }
+
     return (
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field id="full_name" label="الاسم" required error={errors.full_name}>
@@ -59,20 +119,11 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 </select>
             </Field>
 
-            <Field id="notes" label="معلومات أخرى" required error={errors.notes} span="sm:col-span-2 lg:col-span-3">
-                <textarea
-                    rows={2}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                    value={data.notes}
-                    onChange={(e) => setData('notes', e.target.value)}
-                />
-            </Field>
-
             <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id}>
                 <select
                     className="block w-full rounded-md border-gray-300 shadow-sm"
                     value={data.circuit_breaker_id}
-                    onChange={(e) => setData('circuit_breaker_id', e.target.value)}
+                    onChange={(e) => onCircuitBreakerChange(e.target.value)}
                 >
                     <option value="">---</option>
                     {circuitBreakers.map((circuitBreaker) => (
@@ -83,34 +134,31 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                 </select>
             </Field>
 
-            <Field id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
-                {meterBoxes.length === 0 ? (
-                    <p className="text-sm text-gray-500">لا توجد طبلونات بعد.</p>
-                ) : (
-                    <select
-                        className="block w-full rounded-md border-gray-300 shadow-sm"
-                        value={data.meter_box_id}
-                        onChange={(e) => setData('meter_box_id', e.target.value)}
-                    >
-                        <option value="">---</option>
-                        {meterBoxes.map((box) => (
-                            <option key={box.id} value={box.id}>
-                                {box.box_number} — {box.branchName}
-                            </option>
-                        ))}
-                    </select>
-                )}
-            </Field>
-
-            <Field id="initial_reading" label="القراءة الابتدائية" required error={errors.initial_reading}>
+            <Field id="minimum_charge" label="الحد الادنى (₪)" required error={errors.minimum_charge}>
                 <TextInput
                     type="number"
-                    required
-                    min={0}
-                    step={1}
+                    step="0.01"
                     className="block w-full"
-                    value={data.initial_reading}
-                    onChange={(event) => setData('initial_reading', event.target.value)}
+                    value={data.minimum_charge}
+                    onChange={(e) => setData('minimum_charge', e.target.value)}
+                />
+            </Field>
+
+            <Field id="address" label="العنوان" required error={errors.address} span="sm:col-span-2 lg:col-span-3">
+                <textarea
+                    rows={2}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                    value={data.address}
+                    onChange={(e) => setData('address', e.target.value)}
+                />
+            </Field>
+
+            <Field id="notes" label="معلومات أخرى" required error={errors.notes} span="sm:col-span-2 lg:col-span-3">
+                <textarea
+                    rows={2}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                    value={data.notes}
+                    onChange={(e) => setData('notes', e.target.value)}
                 />
             </Field>
 
@@ -136,6 +184,18 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                         </option>
                     ))}
                 </select>
+            </Field>
+
+            <Field id="initial_reading" label="القراءة الابتدائية" required error={errors.initial_reading}>
+                <TextInput
+                    type="number"
+                    required
+                    min={0}
+                    step={1}
+                    className="block w-full"
+                    value={data.initial_reading}
+                    onChange={(event) => setData('initial_reading', event.target.value)}
+                />
             </Field>
 
             <Field id="subscription_fee" label="رسوم الاشتراك (₪)" error={errors.subscription_fee}>
@@ -165,12 +225,61 @@ export default function SubscriberForm({ data, setData, errors, meterBoxes, tari
                         <select
                             className="block w-full rounded-md border-gray-300 shadow-sm"
                             value={data.branch_id}
-                            onChange={(e) => setData('branch_id', e.target.value)}
+                            onChange={(e) => onBranchChange(e.target.value)}
                         >
                             <option value="">— اختر فرعًا —</option>
                             {branches.map((branch) => (
                                 <option key={branch.id} value={branch.id}>
                                     {branch.name}
+                                </option>
+                            ))}
+                        </select>
+                    )}
+                </Field>
+            )}
+
+            <div>
+                <InputLabel value="المنطقة" />
+                <p className="mt-1 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                    {resolvedAreaName || (canChooseBranch ? 'اختر فرعًا أولاً لعرض منطقته.' : 'فرعك غير مرتبط بمنطقة بعد.')}
+                </p>
+            </div>
+
+            <Field id="sub_area_id" label="منطقة 2" error={errors.sub_area_id}>
+                {!resolvedAreaId ? (
+                    <p className="text-sm text-gray-500">{canChooseBranch ? 'اختر فرعًا أولاً لعرض مناطق 2 التابعة له.' : 'لا توجد منطقة لفرعك بعد.'}</p>
+                ) : subAreasInArea.length === 0 ? (
+                    <p className="text-sm text-gray-500">لا توجد منطقة 2 في هذه المنطقة بعد.</p>
+                ) : (
+                    <select
+                        className="block w-full rounded-md border-gray-300 shadow-sm"
+                        value={subAreaId}
+                        onChange={(e) => onSubAreaChange(e.target.value)}
+                    >
+                        <option value="">— بلا منطقة 2 —</option>
+                        {subAreasInArea.map((subArea) => (
+                            <option key={subArea.id} value={subArea.id}>
+                                {subArea.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
+            </Field>
+
+            {showMeterBoxField && (
+                <Field id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
+                    {meterBoxesInScope.length === 0 ? (
+                        <p className="text-sm text-gray-500">لا توجد طبلونات في منطقة 2 هذه بعد.</p>
+                    ) : (
+                        <select
+                            className="block w-full rounded-md border-gray-300 shadow-sm"
+                            value={data.meter_box_id}
+                            onChange={(e) => setData('meter_box_id', e.target.value)}
+                        >
+                            <option value="">---</option>
+                            {meterBoxesInScope.map((box) => (
+                                <option key={box.id} value={box.id}>
+                                    {box.box_number} — {box.branchName}
                                 </option>
                             ))}
                         </select>

@@ -28,6 +28,7 @@ class SubscriberFactory extends Factory
             'national_id' => fake()->unique()->numerify('#########'),
             'initial_reading' => fake()->numberBetween(0, 10000),
             'phone' => fake()->phoneNumber(),
+            'address' => fake()->address(),
             'meter_number' => fake()->unique()->numerify('MTR-#######'),
             'meter_box_id' => MeterBox::factory(),
             // Tariffs are fixed reference data (only Home/Business ever
@@ -38,6 +39,7 @@ class SubscriberFactory extends Factory
             'registered_by' => User::factory(),
             'status' => SubscriberStatus::Active,
             'circuit_breaker_id' => CircuitBreaker::factory(),
+            'minimum_charge' => fake()->randomFloat(2, 5, 50),
             'notes' => fake()->sentence(),
         ];
     }

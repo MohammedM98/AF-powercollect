@@ -53,9 +53,6 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                     <h3 className="truncate text-lg font-bold text-gray-900">{subscriber.full_name}</h3>
                                     <StatusPill tone={STATUS_TONES[subscriber.status]} label={subscriber.statusLabel} />
                                 </div>
-                                <p className="text-xs text-gray-500" dir="ltr">
-                                    {subscriber.meter_number}
-                                </p>
                             </div>
                         </div>
                         <button
@@ -72,15 +69,15 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                     <div className="flex-1 space-y-8 overflow-y-auto px-6 py-5">
                         <Section title="بيانات المشترك">
                             <Field label="الاسم" value={subscriber.full_name} />
-                            <Field label="الرقم الوطني" value={subscriber.national_id} />
+                            <Field label="رقم الهوية" value={subscriber.national_id} />
                             <Field label="رقم الجوال" value={subscriber.phone} />
                             <Field label="الحالة" value={subscriber.statusLabel} />
                         </Section>
 
-                        <Section title="التعرفة والقاطع">
-                            <Field label="التعرفة" value={subscriber.tariffCategoryLabel} />
-                            <Field label="سعر التعرفة" value={formatCurrency(subscriber.tariffRate)} />
-                            <Field label="القاطع" value={subscriber.circuitBreakerAmpere ? `${subscriber.circuitBreakerAmpere}A` : '—'} />
+                        <Section title="نوع الاشتراك والقاطع">
+                            <Field label="نوع الاشتراك" value={subscriber.tariffCategoryLabel} />
+                            <Field label="سعر الكيلو" value={formatCurrency(subscriber.tariffRate)} />
+                            <Field label="القاطع" value={subscriber.circuitBreakerAmpere ? `${subscriber.circuitBreakerAmpere} أمبير` : '—'} />
                             <Field label="الحد الادنى" value={formatCurrency(subscriber.minimum_charge)} />
                         </Section>
 
@@ -90,7 +87,6 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                             <Field label="المنطقة" value={subscriber.areaName} />
                             <Field label="منطقة 2" value={subscriber.subAreaName} />
                             <Field label="رقم الطبلون" value={subscriber.meterBoxNumber} />
-                            <Field label="رقم العداد" value={subscriber.meter_number} />
                         </Section>
 
                         <Section title="معلومات الاشتراك">

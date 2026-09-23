@@ -251,7 +251,7 @@ class SubscriberController extends Controller
 
         $groups[] = [
             'key' => 'tariff_id',
-            'label' => 'التعرفة',
+            'label' => 'نوع الاشتراك',
             'options' => Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => [
                 'value' => (string) $tariff->id,
                 'label' => __($tariff->category->label()),

@@ -113,7 +113,7 @@ export default function SubscriberForm({
                 <TextInput className="block w-full" value={data.full_name} autoFocus onChange={(e) => setData('full_name', e.target.value)} />
             </Field>
 
-            <Field id="national_id" label="الرقم الوطني" required error={errors.national_id}>
+            <Field id="national_id" label="رقم الهوية" required error={errors.national_id}>
                 <TextInput
                     required
                     dir="ltr"
@@ -143,9 +143,9 @@ export default function SubscriberForm({
                 </select>
             </Field>
 
-            <Section title="التعرفة والقاطع" />
+            <Section title="نوع الاشتراك والقاطع" />
 
-            <Field id="tariff_id" label="التعرفة" required error={errors.tariff_id}>
+            <Field id="tariff_id" label="نوع الاشتراك" required error={errors.tariff_id}>
                 <select
                     className="block w-full rounded-md border-gray-300 shadow-sm"
                     value={data.tariff_id}
@@ -161,7 +161,7 @@ export default function SubscriberForm({
             </Field>
 
             <div>
-                <InputLabel value="سعر التعرفة (شيكل)" />
+                <InputLabel value="سعر الكيلو (شيكل)" />
                 <TextInput
                     readOnly
                     disabled
@@ -180,7 +180,7 @@ export default function SubscriberForm({
                     <option value="">---</option>
                     {circuitBreakers.map((circuitBreaker) => (
                         <option key={circuitBreaker.id} value={circuitBreaker.id}>
-                            {circuitBreaker.ampere}A
+                            {circuitBreaker.ampere} أمبير
                         </option>
                     ))}
                 </select>

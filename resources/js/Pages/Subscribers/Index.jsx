@@ -94,9 +94,8 @@ export default function Index({
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
                             <SortableTh column="full_name" label="الاسم الكامل" sortState={filters} onSort={sort} />
-                            <SortableTh column="meter_number" label="رقم العداد" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3">الطبلون</th>
-                            <th className="px-6 py-3">التعرفة</th>
+                            <th className="px-6 py-3">نوع الاشتراك</th>
                             <th className="px-6 py-3">الفرع</th>
                             <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3"></th>
@@ -105,7 +104,7 @@ export default function Index({
                     <tbody className="divide-y">
                         {subscribers.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={7}>
+                                <td className="px-6 py-4 text-gray-500" colSpan={6}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
@@ -120,9 +119,6 @@ export default function Index({
                                         >
                                             {subscriber.full_name}
                                         </button>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-600" dir="ltr">
-                                        {subscriber.meter_number}
                                     </td>
                                     <td className="px-6 py-4 text-gray-600" dir="ltr">
                                         {subscriber.meterBoxNumber ?? '—'}

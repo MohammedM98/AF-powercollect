@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import StatRing from '@/Components/StatRing';
+
 
 const ICONS = {
     branches: (
@@ -43,7 +43,7 @@ const ICONS = {
     ),
 };
 
-const RING_COLORS = ['text-brand-500', 'text-pink-500', 'text-amber-500', 'text-emerald-500', 'text-sky-500'];
+
 
 const SECTION_LABELS = {
     branches: { title: 'الفروع', statLabel: 'الفروع النشطة', viewAll: '/branches' },
@@ -79,8 +79,8 @@ function buildSubtitle(sections, scopedToBranch) {
 export default function Dashboard({ greeting, sections, scopedToBranch, auth, canCreateBranch, canCreateUser }) {
     const sectionKeys = Object.keys(sections);
     const hasAnyData = sectionKeys.length > 0;
-    const heroKey = ['branches', 'users', 'subscribers'].find((key) => sections[key]);
-    const hero = heroKey ? sections[heroKey] : null;
+
+
     const subtitle = buildSubtitle(sections, scopedToBranch);
 
     return (
@@ -121,55 +121,23 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
         >
             <Head title="لوحة التحكم" />
 
-            <div className="mb-4 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-4 py-2 text-xs font-medium text-brand-700">
-                تجربة React عبر Inertia — بقية النظام لا يزال Blade.
-            </div>
-
             {!hasAnyData ? (
                 <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center">
                     <p className="text-sm text-gray-500">لا توجد بيانات لعرضها حاليًا — لم يتم منحك صلاحية عرض أي جدول بعد.</p>
                 </div>
             ) : (
                 <div className="space-y-6">
-                    {hero && (
-                        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-brand-600 to-pink-500 px-8 py-10 text-white">
-                            <svg className="pointer-events-none absolute inset-y-0 start-0 h-full w-1/2 max-w-md opacity-20" viewBox="0 0 300 200" fill="none">
-                                <circle cx="40" cy="150" r="4" fill="white" />
-                                <circle cx="110" cy="90" r="4" fill="white" />
-                                <circle cx="170" cy="140" r="4" fill="white" />
-                                <circle cx="230" cy="60" r="4" fill="white" />
-                                <circle cx="260" cy="120" r="4" fill="white" />
-                                <path d="M40 150L110 90L170 140L230 60L260 120M110 90L170 140" stroke="white" strokeWidth="1.5" />
-                            </svg>
-                            <div className="relative">
-                                <div className="text-5xl font-black">{hero.activePct}%</div>
-                                <p className="mt-2 max-w-sm text-brand-50">
-                                    {hero.active} من {hero.total} {SECTION_LABELS[heroKey].statLabel} حاليًا
-                                </p>
-                                <p className="text-sm text-white/70">وصول قائم على الأدوار · بيانات مقسّمة حسب الفرع · بلا جداول بيانات</p>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Stat cards */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        {sectionKeys.map((key, index) => {
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        {sectionKeys.map((key) => {
                             const section = sections[key];
                             const hasPct = typeof section.activePct === 'number';
 
                             return (
-                                <div key={key} className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-                                    {hasPct ? (
-                                        <StatRing percent={section.activePct} color={RING_COLORS[index % RING_COLORS.length]} />
-                                    ) : (
-                                        <span
-                                            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gray-50 ${RING_COLORS[index % RING_COLORS.length]}`}
-                                        >
-                                            <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                {ICONS[key]}
-                                            </svg>
-                                        </span>
-                                    )}
+                                <div key={key} className="flex items-center gap-4 rounded-2xl border border-gray-200/70 bg-white p-6 shadow-sm">
+                                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+                                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">{ICONS[key]}</svg>
+                                    </span>
                                     <div>
                                         <div className="text-2xl font-extrabold text-gray-900">{hasPct ? section.active : section.total}</div>
                                         <div className="text-sm text-gray-500">{SECTION_LABELS[key].statLabel}</div>
@@ -180,14 +148,14 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                     </div>
 
                     {/* Recent lists */}
-                    {['branches', 'users', 'subscribers', 'meterBoxes']
+                    {['subscribers', 'meterBoxes', 'branches', 'users']
                         .filter((key) => sections[key]?.recent)
                         .map((key) => {
                             const section = sections[key];
                             const { title, viewAll } = SECTION_LABELS[key];
 
                             return (
-                                <div key={key} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                                <div key={key} className="rounded-2xl border border-gray-200/70 bg-white p-6 shadow-sm">
                                     <div className="mb-4 flex items-center justify-between">
                                         <h3 className="font-bold text-gray-900">{title}</h3>
                                         <a href={viewAll} className="text-sm font-medium text-brand-600 hover:underline">
@@ -197,6 +165,25 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
 
                                     {section.recent.length === 0 ? (
                                         <p className="py-6 text-center text-sm text-gray-500">لا توجد بيانات بعد.</p>
+                                    ) : ['subscribers', 'meterBoxes'].includes(key) ? (
+                                        <div className="overflow-x-auto rounded-xl border border-gray-100">
+                                            <table className="w-full text-start text-sm">
+                                                <thead className="bg-gray-50 text-gray-500">
+                                                    <tr>
+                                                        <th className="px-5 py-3 text-start font-medium">{key === 'subscribers' ? 'اسم المشترك' : 'الطبلون'}</th>
+                                                        <th className="px-5 py-3 text-start font-medium">{key === 'subscribers' ? 'رقم الجوال' : 'الفرع'}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {section.recent.map((item) => (
+                                                        <tr key={item.id} className="hover:bg-gray-50/70">
+                                                            <td className="px-5 py-4 font-medium text-gray-900">{item.name ?? '—'}</td>
+                                                            <td className="px-5 py-4 text-gray-500"><span dir={key === 'subscribers' ? 'ltr' : undefined}>{item.subtitle ?? '—'}</span></td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     ) : key === 'users' ? (
                                         <div className="flex flex-wrap gap-6">
                                             {section.recent.map((item) => (

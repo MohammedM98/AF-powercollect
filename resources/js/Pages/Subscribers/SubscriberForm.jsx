@@ -32,6 +32,21 @@ function Field({ id, label, required, error, span = '', children }) {
     );
 }
 
+// A value the form shows but never lets the user edit directly (it's
+// derived from another selection, like the branch's area or the chosen
+// tariff's rate) — styled apart from real inputs so it doesn't look like
+// a disabled control waiting to be unlocked.
+function ReadOnlyField({ label, value, dir }) {
+    return (
+        <div>
+            <InputLabel value={label} />
+            <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" dir={dir}>
+                {value}
+            </div>
+        </div>
+    );
+}
+
 export default function SubscriberForm({
     data,
     setData,
@@ -160,16 +175,7 @@ export default function SubscriberForm({
                 </select>
             </Field>
 
-            <div>
-                <InputLabel value="سعر الكيلو (شيكل)" />
-                <TextInput
-                    readOnly
-                    disabled
-                    dir="ltr"
-                    className="mt-1 block w-full bg-gray-100 text-gray-600"
-                    value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : ''}
-                />
-            </div>
+            <ReadOnlyField label="سعر الكيلو (شيكل)" value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : '—'} dir="ltr" />
 
             <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id}>
                 <select
@@ -239,12 +245,10 @@ export default function SubscriberForm({
                 </Field>
             )}
 
-            <div>
-                <InputLabel value="المنطقة" />
-                <p className="mt-1 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                    {resolvedAreaName || (canChooseBranch ? 'اختر فرعًا أولاً لعرض منطقته.' : 'فرعك غير مرتبط بمنطقة بعد.')}
-                </p>
-            </div>
+            <ReadOnlyField
+                label="المنطقة"
+                value={resolvedAreaName || (canChooseBranch ? 'اختر فرعًا أولاً لعرض منطقته.' : 'فرعك غير مرتبط بمنطقة بعد.')}
+            />
 
             <Field id="sub_area_id" label="منطقة 2" error={errors.sub_area_id}>
                 {!resolvedAreaId ? (

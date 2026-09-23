@@ -66,12 +66,11 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
         >
             <Head title="المحافظات والمناطق" />
 
-            {status === 'governorate-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء المحافظة.</div>}
-            {status === 'governorate-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث المحافظة.</div>}
-            {status === 'area-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء المنطقة.</div>}
-            {status === 'area-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث المنطقة.</div>}
-            {status === 'sub-area-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء منطقة 2.</div>}
-            {status === 'sub-area-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث منطقة 2.</div>}
+
+
+
+
+
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                 {/* Governorates list */}

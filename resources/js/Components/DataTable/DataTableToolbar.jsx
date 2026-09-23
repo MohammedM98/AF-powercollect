@@ -11,7 +11,7 @@ export default function DataTableToolbar({
     filterMenu,
 }) {
     return (
-        <div className="data-table-toolbar mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
             {showSearch ? (
                 <div className="relative w-full sm:max-w-xs">
                     <svg
@@ -33,7 +33,7 @@ export default function DataTableToolbar({
                         value={search}
                         onChange={(e) => onSearchChange(e.target.value)}
                         placeholder={placeholder}
-                        className="block w-full rounded-md border-gray-200 py-1.5 ps-9 text-sm focus:border-brand-500 focus:ring-brand-500"
+                        className="block w-full rounded-lg border-transparent bg-gray-50 py-2 ps-9 text-sm placeholder:text-gray-500 focus:border-brand-500 focus:bg-white focus:ring-brand-500"
                     />
                 </div>
             ) : (
@@ -58,8 +58,8 @@ export default function DataTableToolbar({
                         </select>
                     </label>
                 </div>
+                {filterMenu}
             </div>
-            {filterMenu}
         </div>
     );
 }

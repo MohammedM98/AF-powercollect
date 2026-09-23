@@ -5,7 +5,7 @@ import InputError from '@/Components/InputError';
 import PrimaryButton from '@/Components/PrimaryButton';
 
 export default function UpdatePasswordForm() {
-    const { data, setData, put, processing, errors, reset, recentlySuccessful } = useForm({
+    const { data, setData, put, processing, errors, reset } = useForm({
         current_password: '',
         password: '',
         password_confirmation: '',
@@ -70,7 +70,7 @@ export default function UpdatePasswordForm() {
 
                 <div className="flex items-center gap-4">
                     <PrimaryButton disabled={processing}>حفظ</PrimaryButton>
-                    {recentlySuccessful && <p className="text-sm text-gray-600">تم الحفظ.</p>}
+
                 </div>
             </form>
         </section>

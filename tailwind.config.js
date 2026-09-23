@@ -13,7 +13,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['IBM Plex Sans Arabic', ...defaultTheme.fontFamily.sans],
+                sans: ['Noto Sans Arabic', ...defaultTheme.fontFamily.sans],
             },
             colors: {
                 brand: {

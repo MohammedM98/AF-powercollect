@@ -38,13 +38,6 @@ export default function Index({ branches, status, filters, filterOptions, govern
         >
             <Head title="الفروع" />
 
-            {status === 'branch-created' && (
-                <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء الفرع.</div>
-            )}
-            {status === 'branch-updated' && (
-                <div className="mb-4 text-sm font-medium text-green-600">تم تحديث الفرع.</div>
-            )}
-
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}

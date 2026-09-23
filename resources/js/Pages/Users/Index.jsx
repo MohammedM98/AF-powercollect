@@ -40,8 +40,7 @@ export default function Index({ users, canCreate, status, branches, canChooseBra
         >
             <Head title="المستخدمون" />
 
-            {status === 'user-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء المستخدم.</div>}
-            {status === 'user-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث المستخدم.</div>}
+
 
             <DataTableToolbar
                 search={search}

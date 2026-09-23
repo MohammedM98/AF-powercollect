@@ -24,7 +24,6 @@ export default function Login({ status }) {
         <GuestLayout>
             <Head title="تسجيل الدخول" />
 
-            {status && <div className="mb-4 text-sm font-medium text-green-600">{status}</div>}
 
             <form onSubmit={submit}>
                 <div>

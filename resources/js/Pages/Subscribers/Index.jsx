@@ -73,8 +73,7 @@ export default function Index({
         >
             <Head title="المشتركون" />
 
-            {status === 'subscriber-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء المشترك.</div>}
-            {status === 'subscriber-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث المشترك.</div>}
+
 
             <DataTableToolbar
                 search={search}

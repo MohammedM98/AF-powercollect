@@ -155,7 +155,7 @@ class SubscriberValidationTest extends TestCase
         return [
             'full_name' => 'Registration Customer',
             'national_id' => '012345678',
-            'phone' => '0770000000',
+            'phone' => '0590000000',
             'address' => 'Some street',
             'tariff_id' => Tariff::factory()->residential()->create()->id,
             'status' => SubscriberStatus::Active->value,
@@ -190,15 +190,87 @@ class SubscriberValidationTest extends TestCase
         $this->assertDatabaseCount('subscribers', 0);
     }
 
-    public function test_address_is_required(): void
+    public function test_address_and_notes_can_be_omitted(): void
     {
         $payload = $this->validPayload();
-        unset($payload['address']);
+        unset($payload['address'], $payload['notes']);
 
         $this->post(route('subscribers.store'), $payload)
-            ->assertSessionHasErrors('address');
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('subscribers.index'));
+
+        $this->assertDatabaseHas('subscribers', [
+            'national_id' => $payload['national_id'],
+            'address' => null,
+            'notes' => null,
+        ]);
+    }
+
+    #[TestWith(['0591234567'])]
+    #[TestWith(['0561234567'])]
+    public function test_registration_accepts_supported_phone_prefixes_and_blank_optional_fields(string $phone): void
+    {
+        $payload = $this->validPayload();
+        $payload['phone'] = $phone;
+        $payload['address'] = '';
+        $payload['notes'] = '';
+
+        $this->post(route('subscribers.store'), $payload)->assertSessionHasNoErrors()
+            ->assertRedirect(route('subscribers.index'));
+
+        $this->assertDatabaseHas('subscribers', [
+            'national_id' => $payload['national_id'],
+            'phone' => $phone,
+            'address' => null,
+            'notes' => null,
+        ]);
+    }
+
+    #[TestWith(['059123456'])]
+    #[TestWith(['05912345678'])]
+    #[TestWith(['0571234567'])]
+    #[TestWith(['059123456A'])]
+    public function test_registration_rejects_invalid_phone_numbers(string $phone): void
+    {
+        $payload = $this->validPayload();
+        $payload['phone'] = $phone;
+
+        $this->post(route('subscribers.store'), $payload)->assertSessionHasErrors('phone');
 
         $this->assertDatabaseCount('subscribers', 0);
+    }
+
+    public function test_update_rejects_invalid_phone_without_changing_the_subscriber(): void
+    {
+        $payload = $this->validPayload();
+        $subscriber = Subscriber::factory()->create([
+            'branch_id' => auth()->user()->branch_id,
+            'phone' => '0591234567',
+        ]);
+        $payload['phone'] = '0571234567';
+
+        $this->put(route('subscribers.update', $subscriber), $payload)->assertSessionHasErrors('phone');
+
+        $this->assertDatabaseHas('subscribers', ['id' => $subscriber->id, 'phone' => '0591234567']);
+    }
+
+    public function test_update_accepts_valid_phone_and_clears_optional_fields(): void
+    {
+        $payload = $this->validPayload();
+        $subscriber = Subscriber::factory()->create(['branch_id' => auth()->user()->branch_id]);
+        $payload['phone'] = '0561234567';
+        $payload['address'] = '';
+        $payload['notes'] = '';
+
+        $this->put(route('subscribers.update', $subscriber), $payload)->assertSessionHasNoErrors()
+            ->assertRedirect(route('subscribers.index'));
+
+        $this->assertDatabaseHas('subscribers', [
+            'id' => $subscriber->id,
+            'phone' => '0561234567',
+            'address' => null,
+            'notes' => null,
+        ]);
     }
 
     public function test_minimum_charge_is_required(): void

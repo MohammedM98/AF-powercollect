@@ -34,14 +34,24 @@ function Field({ id, label, required, error, span = '', children }) {
 
 // A value the form shows but never lets the user edit directly (it's
 // derived from another selection, like the branch's area or the chosen
-// tariff's rate) — styled apart from real inputs so it doesn't look like
-// a disabled control waiting to be unlocked.
-function ReadOnlyField({ label, value, dir }) {
+// tariff's rate).
+function FieldLock() {
+    return (
+        <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-gray-400" aria-hidden="true">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6a4.5 4.5 0 0 0-9 0v4.5m-.75 0h10.5A2.25 2.25 0 0 1 19.5 12.75v6A2.25 2.25 0 0 1 17.25 21H6.75a2.25 2.25 0 0 1-2.25-2.25v-6a2.25 2.25 0 0 1 2.25-2.25Z" />
+            </svg>
+        </span>
+    );
+}
+
+function ReadOnlyField({ id, label, value, dir }) {
     return (
         <div>
-            <InputLabel value={label} />
-            <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" dir={dir}>
-                {value}
+            <InputLabel htmlFor={id} value={label} />
+            <div className="relative mt-1" dir={dir}>
+                <TextInput id={id} readOnly value={value} title="للقراءة فقط" className="w-full bg-gray-50 pe-10 text-gray-600" />
+                <FieldLock />
             </div>
         </div>
     );
@@ -134,6 +144,7 @@ export default function SubscriberForm({
                     dir="ltr"
                     inputMode="numeric"
                     maxLength={9}
+                    pattern="[0-9]{9}"
                     className="block w-full"
                     value={data.national_id ?? ''}
                     onChange={(event) => setData('national_id', event.target.value)}
@@ -141,7 +152,18 @@ export default function SubscriberForm({
             </Field>
 
             <Field id="phone" label="رقم الجوال" required error={errors.phone}>
-                <TextInput dir="ltr" className="block w-full" value={data.phone} onChange={(e) => setData('phone', e.target.value)} />
+                <TextInput
+                    required
+                    type="tel"
+                    dir="ltr"
+                    inputMode="numeric"
+                    maxLength={10}
+                    pattern="05[69][0-9]{7}"
+                    title="رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056"
+                    className="block w-full"
+                    value={data.phone}
+                    onChange={(e) => setData('phone', e.target.value)}
+                />
             </Field>
 
             <Field id="status" label="الحالة" required error={errors.status}>
@@ -175,7 +197,7 @@ export default function SubscriberForm({
                 </select>
             </Field>
 
-            <ReadOnlyField label="سعر الكيلو (شيكل)" value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : '—'} dir="ltr" />
+            <ReadOnlyField id="tariff_rate" label="سعر الكيلو (شيكل)" value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : '—'} dir="ltr" />
 
             <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id}>
                 <select
@@ -208,16 +230,17 @@ export default function SubscriberForm({
                         </button>
                     )}
                 </div>
-                <div className="mt-1">
+                <div className="relative mt-1">
                     <TextInput
                         id="minimum_charge"
                         type="number"
                         step="0.01"
                         disabled={!canEditMinimumCharge || !minimumChargeUnlocked}
-                        className={`block w-full ${!canEditMinimumCharge || !minimumChargeUnlocked ? 'bg-gray-100 text-gray-600' : ''}`}
+                        className={`block w-full disabled:opacity-100 ${!canEditMinimumCharge || !minimumChargeUnlocked ? 'bg-gray-50 pe-10 text-gray-600' : ''}`}
                         value={data.minimum_charge}
                         onChange={(e) => setData('minimum_charge', e.target.value)}
                     />
+                    {(!canEditMinimumCharge || !minimumChargeUnlocked) && <FieldLock />}
                 </div>
                 <InputError message={errors.minimum_charge} className="mt-1" />
             </div>
@@ -246,30 +269,31 @@ export default function SubscriberForm({
             )}
 
             <ReadOnlyField
+                id="branch_area"
                 label="المنطقة"
                 value={resolvedAreaName || (canChooseBranch ? 'اختر فرعًا أولاً لعرض منطقته.' : 'فرعك غير مرتبط بمنطقة بعد.')}
             />
 
-            <Field id="sub_area_id" label="منطقة 2" error={errors.sub_area_id}>
-                {!resolvedAreaId ? (
-                    <p className="text-sm text-gray-500">{canChooseBranch ? 'اختر فرعًا أولاً لعرض مناطق 2 التابعة له.' : 'لا توجد منطقة لفرعك بعد.'}</p>
-                ) : subAreasInArea.length === 0 ? (
-                    <p className="text-sm text-gray-500">لا توجد منطقة 2 في هذه المنطقة بعد.</p>
-                ) : (
-                    <select
-                        className="block w-full rounded-md border-gray-300 shadow-sm"
-                        value={subAreaId}
-                        onChange={(e) => onSubAreaChange(e.target.value)}
-                    >
-                        <option value="">— بلا منطقة 2 —</option>
-                        {subAreasInArea.map((subArea) => (
-                            <option key={subArea.id} value={subArea.id}>
-                                {subArea.name}
-                            </option>
-                        ))}
-                    </select>
-                )}
-            </Field>
+            {Boolean(resolvedAreaId) && (
+                <Field id="sub_area_id" label="منطقة 2" error={errors.sub_area_id}>
+                    {subAreasInArea.length === 0 ? (
+                        <p className="text-sm text-gray-500">لا توجد منطقة 2 في هذه المنطقة بعد.</p>
+                    ) : (
+                        <select
+                            className="block w-full rounded-md border-gray-300 shadow-sm"
+                            value={subAreaId}
+                            onChange={(e) => onSubAreaChange(e.target.value)}
+                        >
+                            <option value="">— بلا منطقة 2 —</option>
+                            {subAreasInArea.map((subArea) => (
+                                <option key={subArea.id} value={subArea.id}>
+                                    {subArea.name}
+                                </option>
+                            ))}
+                        </select>
+                    )}
+                </Field>
+            )}
 
             {showMeterBoxField && (
                 <Field id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
@@ -289,7 +313,7 @@ export default function SubscriberForm({
 
             <Section title="معلومات الاشتراك" />
 
-            <Field id="initial_reading" label="القراءة السابقة (كيلو واط)" required error={errors.initial_reading}>
+            <Field id="initial_reading" label="القراءة السابقة (كيلوواط ساعة)" required error={errors.initial_reading}>
                 <TextInput
                     type="number"
                     required
@@ -322,7 +346,7 @@ export default function SubscriberForm({
 
             <Section title="معلومات إضافية" />
 
-            <Field id="address" label="العنوان" required error={errors.address} span="sm:col-span-2 lg:col-span-3">
+            <Field id="address" label="العنوان" error={errors.address} span="sm:col-span-2 lg:col-span-3">
                 <textarea
                     rows={2}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
@@ -331,7 +355,7 @@ export default function SubscriberForm({
                 />
             </Field>
 
-            <Field id="notes" label="معلومات أخرى" required error={errors.notes} span="sm:col-span-2 lg:col-span-3">
+            <Field id="notes" label="معلومات أخرى" error={errors.notes} span="sm:col-span-2 lg:col-span-3">
                 <textarea
                     rows={2}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"

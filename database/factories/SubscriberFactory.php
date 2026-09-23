@@ -27,7 +27,7 @@ class SubscriberFactory extends Factory
             'full_name' => fake()->name(),
             'national_id' => fake()->unique()->numerify('#########'),
             'initial_reading' => fake()->numberBetween(0, 10000),
-            'phone' => fake()->phoneNumber(),
+            'phone' => fake()->numerify('05'.fake()->randomElement(['6', '9']).'#######'),
             'address' => fake()->address(),
             'meter_box_id' => MeterBox::factory(),
             // Tariffs are fixed reference data (only Home/Business ever

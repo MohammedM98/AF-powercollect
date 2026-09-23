@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'branch_id',
@@ -24,6 +25,7 @@ class Subscriber extends Model
         return [
             'status' => SubscriberStatus::class,
             'subscription_date' => 'date',
+            'subscription_fee' => 'decimal:2',
         ];
     }
 
@@ -50,5 +52,10 @@ class Subscriber extends Model
     public function registeredBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'registered_by');
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(SubscriberTransaction::class);
     }
 }

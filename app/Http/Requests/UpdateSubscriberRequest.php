@@ -29,8 +29,8 @@ class UpdateSubscriberRequest extends FormRequest
         $rules = [
             'full_name' => ['required', 'string', 'max:255'],
             'national_id' => ['required', 'string', 'regex:/^\d{9}$/', Rule::unique('subscribers', 'national_id')->ignore($subscriber->id)],
-            'phone' => ['required', 'string', 'max:30'],
-            'address' => ['required', 'string', 'max:1000'],
+            'phone' => ['required', 'string', 'regex:/\A05[69][0-9]{7}\z/'],
+            'address' => ['nullable', 'string', 'max:1000'],
             'meter_box_id' => ['nullable', Rule::exists('meter_boxes', 'id')],
             'tariff_id' => ['required', Rule::exists('tariffs', 'id')],
             'status' => ['required', Rule::in(array_column(SubscriberStatus::cases(), 'value'))],
@@ -39,7 +39,7 @@ class UpdateSubscriberRequest extends FormRequest
             'initial_reading' => ['required', 'integer', 'min:0'],
             'subscription_fee' => ['nullable', 'numeric', 'min:0'],
             'subscription_date' => ['nullable', 'date'],
-            'notes' => ['required', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:2000'],
         ];
 
         if ($this->user()->isSuperAdmin()) {

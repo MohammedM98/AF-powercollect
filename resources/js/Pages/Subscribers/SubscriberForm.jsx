@@ -2,12 +2,22 @@ import { cloneElement, useState } from 'react';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
+import SearchableSelect from '@/Components/SearchableSelect';
 
 const STATUS_OPTIONS = [
     { value: 'active', label: 'نشط' },
     { value: 'suspended', label: 'مفصول' },
     { value: 'disconnected', label: 'مقطوع' },
 ];
+
+function Section({ title, children }) {
+    return (
+        <div className="col-span-full">
+            <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
+            <div className="mt-2 border-b border-gray-100" />
+        </div>
+    );
+}
 
 function Field({ id, label, required, error, span = '', children }) {
     return (
@@ -70,6 +80,8 @@ export default function SubscriberForm({
         return subAreaId ? String(box.sub_area_id) === String(subAreaId) : String(box.id) === String(data.meter_box_id);
     });
 
+    const meterBoxOptions = meterBoxesInScope.map((box) => ({ value: box.id, label: `${box.box_number} — ${box.branchName}` }));
+
     const showMeterBoxField = Boolean(subAreaId) || Boolean(data.meter_box_id);
 
     const selectedTariff = tariffs.find((tariff) => String(tariff.id) === String(data.tariff_id));
@@ -95,6 +107,8 @@ export default function SubscriberForm({
 
     return (
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Section title="بيانات المشترك" />
+
             <Field id="full_name" label="الاسم" required error={errors.full_name}>
                 <TextInput className="block w-full" value={data.full_name} autoFocus onChange={(e) => setData('full_name', e.target.value)} />
             </Field>
@@ -128,6 +142,34 @@ export default function SubscriberForm({
                     ))}
                 </select>
             </Field>
+
+            <Section title="التعرفة والقاطع" />
+
+            <Field id="tariff_id" label="التعرفة" required error={errors.tariff_id}>
+                <select
+                    className="block w-full rounded-md border-gray-300 shadow-sm"
+                    value={data.tariff_id}
+                    onChange={(e) => setData('tariff_id', e.target.value)}
+                >
+                    <option value="">---</option>
+                    {tariffs.map((tariff) => (
+                        <option key={tariff.id} value={tariff.id}>
+                            {tariff.categoryLabel}
+                        </option>
+                    ))}
+                </select>
+            </Field>
+
+            <div>
+                <InputLabel value="سعر التعرفة (شيكل)" />
+                <TextInput
+                    readOnly
+                    disabled
+                    dir="ltr"
+                    className="mt-1 block w-full bg-gray-100 text-gray-600"
+                    value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : ''}
+                />
+            </div>
 
             <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id}>
                 <select
@@ -174,89 +216,7 @@ export default function SubscriberForm({
                 <InputError message={errors.minimum_charge} className="mt-1" />
             </div>
 
-            <Field id="address" label="العنوان" required error={errors.address} span="sm:col-span-2 lg:col-span-3">
-                <textarea
-                    rows={2}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                    value={data.address}
-                    onChange={(e) => setData('address', e.target.value)}
-                />
-            </Field>
-
-            <Field id="notes" label="معلومات أخرى" required error={errors.notes} span="sm:col-span-2 lg:col-span-3">
-                <textarea
-                    rows={2}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                    value={data.notes}
-                    onChange={(e) => setData('notes', e.target.value)}
-                />
-            </Field>
-
-            <Field id="meter_number" label="رقم العداد" required error={errors.meter_number}>
-                <TextInput
-                    dir="ltr"
-                    className="block w-full"
-                    value={data.meter_number}
-                    onChange={(e) => setData('meter_number', e.target.value)}
-                />
-            </Field>
-
-            <Field id="tariff_id" label="التعرفة" required error={errors.tariff_id}>
-                <select
-                    className="block w-full rounded-md border-gray-300 shadow-sm"
-                    value={data.tariff_id}
-                    onChange={(e) => setData('tariff_id', e.target.value)}
-                >
-                    <option value="">---</option>
-                    {tariffs.map((tariff) => (
-                        <option key={tariff.id} value={tariff.id}>
-                            {tariff.categoryLabel}
-                        </option>
-                    ))}
-                </select>
-            </Field>
-
-            <div>
-                <InputLabel value="سعر التعرفة (شيكل)" />
-                <TextInput
-                    readOnly
-                    disabled
-                    dir="ltr"
-                    className="mt-1 block w-full bg-gray-100 text-gray-600"
-                    value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : ''}
-                />
-            </div>
-
-            <Field id="initial_reading" label="القراءة الابتدائية" required error={errors.initial_reading}>
-                <TextInput
-                    type="number"
-                    required
-                    min={0}
-                    step={1}
-                    className="block w-full"
-                    value={data.initial_reading}
-                    onChange={(event) => setData('initial_reading', event.target.value)}
-                />
-            </Field>
-
-            <Field id="subscription_fee" label="رسوم الاشتراك (شيكل)" error={errors.subscription_fee}>
-                <TextInput
-                    type="number"
-                    step="0.01"
-                    className="block w-full"
-                    value={data.subscription_fee}
-                    onChange={(e) => setData('subscription_fee', e.target.value)}
-                />
-            </Field>
-
-            <Field id="subscription_date" label="تاريخ الاشتراك" error={errors.subscription_date}>
-                <TextInput
-                    type="date"
-                    className="block w-full"
-                    value={data.subscription_date}
-                    onChange={(e) => setData('subscription_date', e.target.value)}
-                />
-            </Field>
+            <Section title="الموقع والعداد" />
 
             {canChooseBranch && (
                 <Field id="branch_id" label="الفرع" required error={errors.branch_id}>
@@ -312,21 +272,78 @@ export default function SubscriberForm({
                     {meterBoxesInScope.length === 0 ? (
                         <p className="text-sm text-gray-500">لا توجد طبلونات في منطقة 2 هذه بعد.</p>
                     ) : (
-                        <select
-                            className="block w-full rounded-md border-gray-300 shadow-sm"
+                        <SearchableSelect
                             value={data.meter_box_id}
-                            onChange={(e) => setData('meter_box_id', e.target.value)}
-                        >
-                            <option value="">---</option>
-                            {meterBoxesInScope.map((box) => (
-                                <option key={box.id} value={box.id}>
-                                    {box.box_number} — {box.branchName}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(value) => setData('meter_box_id', value)}
+                            options={meterBoxOptions}
+                            searchPlaceholder="بحث عن طبلون..."
+                            emptyLabel="لا توجد طبلونات مطابقة"
+                        />
                     )}
                 </Field>
             )}
+
+            <Field id="meter_number" label="رقم العداد" required error={errors.meter_number}>
+                <TextInput
+                    dir="ltr"
+                    className="block w-full"
+                    value={data.meter_number}
+                    onChange={(e) => setData('meter_number', e.target.value)}
+                />
+            </Field>
+
+            <Section title="معلومات الاشتراك" />
+
+            <Field id="initial_reading" label="القراءة الابتدائية" required error={errors.initial_reading}>
+                <TextInput
+                    type="number"
+                    required
+                    min={0}
+                    step={1}
+                    className="block w-full"
+                    value={data.initial_reading}
+                    onChange={(event) => setData('initial_reading', event.target.value)}
+                />
+            </Field>
+
+            <Field id="subscription_fee" label="رسوم الاشتراك (شيكل)" error={errors.subscription_fee}>
+                <TextInput
+                    type="number"
+                    step="0.01"
+                    className="block w-full"
+                    value={data.subscription_fee}
+                    onChange={(e) => setData('subscription_fee', e.target.value)}
+                />
+            </Field>
+
+            <Field id="subscription_date" label="تاريخ الاشتراك" error={errors.subscription_date}>
+                <TextInput
+                    type="date"
+                    className="block w-full"
+                    value={data.subscription_date}
+                    onChange={(e) => setData('subscription_date', e.target.value)}
+                />
+            </Field>
+
+            <Section title="معلومات إضافية" />
+
+            <Field id="address" label="العنوان" required error={errors.address} span="sm:col-span-2 lg:col-span-3">
+                <textarea
+                    rows={2}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                    value={data.address}
+                    onChange={(e) => setData('address', e.target.value)}
+                />
+            </Field>
+
+            <Field id="notes" label="معلومات أخرى" required error={errors.notes} span="sm:col-span-2 lg:col-span-3">
+                <textarea
+                    rows={2}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                    value={data.notes}
+                    onChange={(e) => setData('notes', e.target.value)}
+                />
+            </Field>
         </div>
     );
 }

@@ -37,8 +37,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
         >
             <Head title="الطبلونات" />
 
-            {status === 'meter-box-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء الطبلون.</div>}
-            {status === 'meter-box-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث الطبلون.</div>}
+
 
             <DataTableToolbar
                 search={search}

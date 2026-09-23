@@ -14,7 +14,7 @@ export default function Permissions({ users, permissionGroups, status, filters, 
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">الصلاحيات</h2>}>
             <Head title="الصلاحيات" />
-            {status === 'permissions-updated' && <div role="status" className="mb-4 text-sm font-medium text-green-600">تم تحديث الصلاحيات.</div>}
+
             <p className="mb-4 text-sm text-gray-500">اختر مستخدمًا لإدارة صلاحياته بشكل مستقل. يمتلك المدير العام جميع الصلاحيات دائمًا.</p>
             <DataTableToolbar
                 search={search} onSearchChange={setSearch} placeholder="بحث بالاسم أو اسم المستخدم..."

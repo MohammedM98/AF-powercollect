@@ -37,8 +37,7 @@ export default function Index({ circuitBreakers, status, filters }) {
         >
             <Head title="القواطع" />
 
-            {status === 'circuit-breaker-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء القاطع.</div>}
-            {status === 'circuit-breaker-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث القاطع.</div>}
+
 
             <DataTableToolbar
                 showSearch={false}

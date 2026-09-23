@@ -35,13 +35,13 @@ export default function Pagination({ meta, filters, baseUrl, extraParams = {} })
     }
 
     return (
-        <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
+        <div className="data-table-pagination flex flex-col items-center justify-center gap-3">
             <p className="text-sm text-gray-500">
                 عرض {from}–{to} من {total}
             </p>
 
             {last > 1 && (
-                <nav className="flex items-center gap-1">
+                <nav aria-label="صفحات الجدول" className="flex flex-wrap items-center justify-center gap-1">
                     <button
                         type="button"
                         disabled={current === 1}
@@ -60,9 +60,10 @@ export default function Pagination({ meta, filters, baseUrl, extraParams = {} })
                             <button
                                 type="button"
                                 key={page}
+                                aria-current={page === current ? 'page' : undefined}
                                 onClick={() => goTo(page)}
                                 className={`min-w-[2.25rem] rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
-                                    page === current ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+                                    page === current ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200' : 'text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50'
                                 }`}
                             >
                                 {page}

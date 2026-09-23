@@ -5,7 +5,7 @@ import InputError from '@/Components/InputError';
 import PrimaryButton from '@/Components/PrimaryButton';
 
 export default function UpdateProfileInformationForm({ user, status }) {
-    const { data, setData, patch, processing, errors, recentlySuccessful } = useForm({
+    const { data, setData, patch, processing, errors } = useForm({
         name: user.name,
     });
 
@@ -37,7 +37,7 @@ export default function UpdateProfileInformationForm({ user, status }) {
 
                 <div className="flex items-center gap-4">
                     <PrimaryButton disabled={processing}>حفظ</PrimaryButton>
-                    {(recentlySuccessful || status === 'profile-updated') && <p className="text-sm text-gray-600">تم الحفظ.</p>}
+
                 </div>
             </form>
         </section>

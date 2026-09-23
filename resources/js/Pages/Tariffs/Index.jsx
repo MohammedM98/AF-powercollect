@@ -38,8 +38,7 @@ export default function Index({ tariffs, status, categoryOptions, filters, filte
         >
             <Head title="التعرفات" />
 
-            {status === 'tariff-created' && <div className="mb-4 text-sm font-medium text-green-600">تم إنشاء التعرفة.</div>}
-            {status === 'tariff-updated' && <div className="mb-4 text-sm font-medium text-green-600">تم تحديث التعرفة.</div>}
+
 
             <DataTableToolbar
                 showSearch={false}

@@ -9,6 +9,7 @@ enum PermissionKey: string
     case UpdateBranches = 'branches.update';
 
     case ViewUsers = 'users.view';
+    case CreateUsers = 'users.create';
     case UpdateUsers = 'users.update';
 
     case ViewSubscribers = 'subscribers.view';
@@ -51,6 +52,7 @@ enum PermissionKey: string
             self::CreateBranches => 'Add Branches',
             self::UpdateBranches => 'Edit Branches',
             self::ViewUsers => 'View Users',
+            self::CreateUsers => 'Add Users',
             self::UpdateUsers => 'Edit Users',
             self::ViewSubscribers => 'View Subscribers',
             self::CreateSubscribers => 'Add Subscribers',
@@ -84,8 +86,8 @@ enum PermissionKey: string
      * Every permission key, grouped by the table/resource it governs, for
      * rendering the Settings → Permissions matrix. Each group lists its
      * columns in display order as [action => PermissionKey]; a resource
-     * that has no grantable key for a given action (e.g. creating a Users
-     * row is role-based only, never grantable) simply omits that action.
+     * that has no grantable key for a given action (e.g. Collections has no
+     * "create" — it's recorded/confirmed instead) simply omits that action.
      *
      * @return array<string, array{label: string, actions: array<string, self>}>
      */
@@ -98,7 +100,7 @@ enum PermissionKey: string
             ],
             'users' => [
                 'label' => 'Users',
-                'actions' => ['view' => self::ViewUsers, 'update' => self::UpdateUsers],
+                'actions' => ['view' => self::ViewUsers, 'create' => self::CreateUsers, 'update' => self::UpdateUsers],
             ],
             'subscribers' => [
                 'label' => 'Subscribers',

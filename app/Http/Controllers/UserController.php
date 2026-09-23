@@ -10,6 +10,7 @@ use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -76,10 +77,10 @@ class UserController extends Controller
         $actor = auth()->user();
         $data = $request->validated();
 
-        // A Branch Admin may choose the new user's role (among the staff
-        // roles), but never their branch — force it regardless of what the
-        // request contains.
-        if ($actor->isBranchAdmin()) {
+        // A Branch Admin or a grantee of the "Add Users" permission may
+        // choose the new user's role (among the staff roles), but never
+        // their branch — force it regardless of what the request contains.
+        if (! $actor->isSuperAdmin()) {
             $data['branch_id'] = $actor->branch_id;
         }
 
@@ -145,7 +146,7 @@ class UserController extends Controller
      * The branch options for the create/edit forms, and whether the actor
      * may choose the branch themselves.
      *
-     * @return array{branches: \Illuminate\Support\Collection, canChooseBranch: bool}
+     * @return array{branches: Collection, canChooseBranch: bool}
      */
     private function formOptions(): array
     {
@@ -162,7 +163,7 @@ class UserController extends Controller
      * The roles the current actor may assign, given the user being edited
      * (or null when creating a new user).
      */
-    private function roleOptionsFor(?User $user): \Illuminate\Support\Collection
+    private function roleOptionsFor(?User $user): Collection
     {
         $actor = auth()->user();
 

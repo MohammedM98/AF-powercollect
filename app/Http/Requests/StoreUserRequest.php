@@ -22,11 +22,12 @@ class StoreUserRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * A Super Admin may assign any role and any branch. A Branch Admin may
-     * only assign the branch-level staff roles (Collector, Data Entry,
-     * Financial Auditor) — the controller forces branch_id to their own
-     * branch server-side regardless of what's submitted, so branch_id isn't
-     * validated for them at all.
+     * A Super Admin may assign any role and any branch. Anyone else who can
+     * reach this request — a Branch Admin, or a grantee of the "Add Users"
+     * permission — may only assign the branch-level staff roles (Collector,
+     * Data Entry, Financial Auditor); the controller forces branch_id to
+     * their own branch server-side regardless of what's submitted, so
+     * branch_id isn't validated for them at all.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -44,7 +45,7 @@ class StoreUserRequest extends FormRequest
             $assignable = [UserRole::BranchAdmin, ...UserRole::staffRoles()];
             $rules['role'] = ['required', Rule::in(array_column($assignable, 'value'))];
             $rules['branch_id'] = ['required', Rule::exists('branches', 'id')];
-        } elseif ($actor->isBranchAdmin()) {
+        } else {
             $rules['role'] = ['required', Rule::in(array_column(UserRole::staffRoles(), 'value'))];
         }
 

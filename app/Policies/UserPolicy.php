@@ -17,6 +17,7 @@ class UserPolicy
         return $user->isSuperAdmin()
             || $user->isBranchAdmin()
             || $user->hasPermission(PermissionKey::ViewUsers)
+            || $user->hasPermission(PermissionKey::CreateUsers)
             || $user->hasPermission(PermissionKey::UpdateUsers);
     }
 
@@ -43,14 +44,14 @@ class UserPolicy
     /**
      * Determine whether the user can create models.
      *
-     * Deliberately role-based only (not grantable via a custom permission):
-     * creating a user assigns them a role/branch, and both the form and the
-     * controller's server-side forcing logic are built around the actor
-     * being a Super Admin or Branch Admin specifically.
+     * A Branch Admin or a grantee of the "Add Users" permission may create
+     * a user — always restricted to the branch-level staff roles and to
+     * the actor's own branch, forced server-side in StoreUserRequest and
+     * UserController::store() regardless of what's submitted.
      */
     public function create(User $user): bool
     {
-        return $user->isSuperAdmin() || $user->isBranchAdmin();
+        return $user->isSuperAdmin() || $user->isBranchAdmin() || $user->hasPermission(PermissionKey::CreateUsers);
     }
 
     /**

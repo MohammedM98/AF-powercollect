@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Users;
 
+use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Models\Branch;
+use App\Models\Permission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -105,6 +107,72 @@ class UserAuthorizationTest extends TestCase
 
         $response->assertSessionHasErrors('role');
         $this->assertDatabaseMissing('users', ['username' => 'bob.admin']);
+    }
+
+    public function test_collector_with_create_users_permission_can_create_a_staff_member_in_their_own_branch(): void
+    {
+        $ownBranch = Branch::factory()->create();
+        $otherBranch = Branch::factory()->create();
+        $collector = User::factory()->collector()->create(['branch_id' => $ownBranch->id]);
+        $createUsers = Permission::create(['key' => PermissionKey::CreateUsers->value, 'label' => PermissionKey::CreateUsers->label()]);
+        $collector->permissions()->attach($createUsers);
+
+        // Attempt to tamper: request a different branch — must be ignored.
+        $response = $this->actingAs($collector)->post(route('users.store'), [
+            'name' => 'Dana Entry',
+            'username' => 'dana.entry',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role' => UserRole::DataEntry->value,
+            'branch_id' => $otherBranch->id,
+        ]);
+
+        $response->assertRedirect(route('users.index'));
+        $this->assertDatabaseHas('users', [
+            'username' => 'dana.entry',
+            'role' => UserRole::DataEntry->value,
+            'branch_id' => $ownBranch->id,
+        ]);
+    }
+
+    public function test_collector_with_create_users_permission_cannot_create_a_user_with_a_super_privileged_role(): void
+    {
+        $branch = Branch::factory()->create();
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $createUsers = Permission::create(['key' => PermissionKey::CreateUsers->value, 'label' => PermissionKey::CreateUsers->label()]);
+        $collector->permissions()->attach($createUsers);
+
+        // Attempt to tamper: request a super-privileged role.
+        $response = $this->actingAs($collector)->post(route('users.store'), [
+            'name' => 'Bob Admin',
+            'username' => 'bob.admin',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role' => UserRole::BranchAdmin->value,
+        ]);
+
+        $response->assertSessionHasErrors('role');
+        $this->assertDatabaseMissing('users', ['username' => 'bob.admin']);
+    }
+
+    public function test_collector_without_create_users_permission_cannot_create_a_user(): void
+    {
+        $branch = Branch::factory()->create();
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+
+        $this->actingAs($collector)
+            ->get(route('users.create'))
+            ->assertForbidden();
+
+        $this->actingAs($collector)->post(route('users.store'), [
+            'name' => 'Should Not Be Created',
+            'username' => 'should.not',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role' => UserRole::DataEntry->value,
+        ])->assertForbidden();
+
+        $this->assertDatabaseMissing('users', ['username' => 'should.not']);
     }
 
     public function test_branch_admin_cannot_update_a_user_from_another_branch(): void

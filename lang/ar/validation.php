@@ -176,7 +176,6 @@ return [
         'full_name' => 'الاسم الكامل',
         'national_id' => 'الرقم الوطني',
         'address' => 'العنوان',
-        'meter_number' => 'رقم العداد',
         'meter_box_id' => 'الطبلون',
         'tariff_id' => 'التعرفة',
         'status' => 'الحالة',

@@ -53,7 +53,6 @@ class SubscriberValidationTest extends TestCase
             ->assertSessionHasErrors('national_id');
 
         $this->assertDatabaseCount('subscribers', 1);
-        $this->assertDatabaseMissing('subscribers', ['meter_number' => $payload['meter_number']]);
     }
 
     public function test_national_id_uniqueness_ignores_the_current_subscriber_on_update(): void
@@ -158,7 +157,6 @@ class SubscriberValidationTest extends TestCase
             'national_id' => '012345678',
             'phone' => '0770000000',
             'address' => 'Some street',
-            'meter_number' => 'MTR-VALIDATION',
             'tariff_id' => Tariff::factory()->residential()->create()->id,
             'status' => SubscriberStatus::Active->value,
             'minimum_charge' => 10,
@@ -271,7 +269,6 @@ class SubscriberValidationTest extends TestCase
             'national_id' => $subscriber->national_id,
             'phone' => $subscriber->phone,
             'address' => $subscriber->address,
-            'meter_number' => $subscriber->meter_number,
             'tariff_id' => $subscriber->tariff_id,
             'status' => $subscriber->status->value,
             'minimum_charge' => 999,

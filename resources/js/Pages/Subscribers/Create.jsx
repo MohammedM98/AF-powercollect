@@ -19,7 +19,6 @@ export default function Create({
         national_id: '',
         phone: '',
         address: '',
-        meter_number: '',
         meter_box_id: '',
         tariff_id: '',
         status: 'active',

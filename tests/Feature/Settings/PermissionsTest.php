@@ -268,14 +268,13 @@ class PermissionsTest extends TestCase
             'initial_reading' => 100,
             'phone' => '0770000002',
             'address' => 'Some street',
-            'meter_number' => 'MTR-9999',
             'tariff_id' => $tariff->id,
             'status' => SubscriberStatus::Active->value,
             'minimum_charge' => 10,
             'notes' => 'No notes',
         ])->assertRedirect(route('subscribers.index'));
 
-        $this->assertDatabaseHas('subscribers', ['meter_number' => 'MTR-9999', 'branch_id' => $branch->id]);
+        $this->assertDatabaseHas('subscribers', ['national_id' => '123456789', 'branch_id' => $branch->id]);
     }
 
     public function test_collector_without_the_permission_still_cannot_manage_subscribers(): void

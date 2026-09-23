@@ -29,7 +29,6 @@ class SubscriberFactory extends Factory
             'initial_reading' => fake()->numberBetween(0, 10000),
             'phone' => fake()->phoneNumber(),
             'address' => fake()->address(),
-            'meter_number' => fake()->unique()->numerify('MTR-#######'),
             'meter_box_id' => MeterBox::factory(),
             // Tariffs are fixed reference data (only Home/Business ever
             // exist) — reuse one instead of risking a unique-category

@@ -24,7 +24,7 @@ class SubscriberController extends Controller
 {
     use FiltersDataTable;
 
-    private const SORTABLE = ['full_name', 'meter_number', 'status', 'created_at'];
+    private const SORTABLE = ['full_name', 'status', 'created_at'];
 
     /**
      * Display a listing of the resource.
@@ -38,7 +38,7 @@ class SubscriberController extends Controller
         $query = Subscriber::query()
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
             ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'registeredBy']);
-        $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'meter_number'], self::SORTABLE, 'full_name');
+        $this->applyDataTableFilters($query, $request, ['full_name', 'phone'], self::SORTABLE, 'full_name');
         $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'meter_box_id']);
 
         $subscribers = $query->paginate($this->dataTablePerPage($request))
@@ -167,7 +167,6 @@ class SubscriberController extends Controller
             'national_id' => $subscriber->national_id,
             'phone' => $subscriber->phone,
             'address' => $subscriber->address,
-            'meter_number' => $subscriber->meter_number,
             'meter_box_id' => $subscriber->meter_box_id,
             'tariff_id' => $subscriber->tariff_id,
             'branch_id' => $subscriber->branch_id,

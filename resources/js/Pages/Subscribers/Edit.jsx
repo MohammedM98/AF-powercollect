@@ -20,7 +20,6 @@ export default function Edit({
         national_id: subscriber.national_id,
         phone: subscriber.phone ?? '',
         address: subscriber.address ?? '',
-        meter_number: subscriber.meter_number,
         meter_box_id: subscriber.meter_box_id ?? '',
         tariff_id: subscriber.tariff_id,
         status: subscriber.status,

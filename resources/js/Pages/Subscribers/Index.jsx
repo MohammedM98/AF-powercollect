@@ -80,7 +80,7 @@ export default function Index({
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
-                placeholder="بحث بالاسم أو رقم الهاتف أو العداد أو العنوان..."
+                placeholder="بحث بالاسم أو رقم الهاتف..."
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={subscribers.total}

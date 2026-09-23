@@ -283,15 +283,6 @@ export default function SubscriberForm({
                 </Field>
             )}
 
-            <Field id="meter_number" label="رقم العداد" required error={errors.meter_number}>
-                <TextInput
-                    dir="ltr"
-                    className="block w-full"
-                    value={data.meter_number}
-                    onChange={(e) => setData('meter_number', e.target.value)}
-                />
-            </Field>
-
             <Section title="معلومات الاشتراك" />
 
             <Field id="initial_reading" label="القراءة الابتدائية" required error={errors.initial_reading}>

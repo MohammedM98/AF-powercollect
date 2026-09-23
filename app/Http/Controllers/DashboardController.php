@@ -126,7 +126,7 @@ class DashboardController extends Controller
             'recent' => $subscribers->take(5)->map(fn (Subscriber $subscriber) => [
                 'id' => $subscriber->id,
                 'name' => $subscriber->full_name,
-                'subtitle' => $subscriber->meter_number,
+                'subtitle' => $subscriber->phone,
             ])->values()->all(),
         ];
     }

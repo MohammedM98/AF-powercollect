@@ -34,7 +34,6 @@ class StoreSubscriberRequest extends FormRequest
             'national_id' => ['required', 'string', 'regex:/^\d{9}$/', Rule::unique('subscribers', 'national_id')],
             'phone' => ['required', 'string', 'max:30'],
             'address' => ['required', 'string', 'max:1000'],
-            'meter_number' => ['required', 'string', 'max:255', Rule::unique('subscribers', 'meter_number')],
             'meter_box_id' => ['nullable', Rule::exists('meter_boxes', 'id')],
             'tariff_id' => ['required', Rule::exists('tariffs', 'id')],
             'status' => ['required', Rule::in(array_column(SubscriberStatus::cases(), 'value'))],

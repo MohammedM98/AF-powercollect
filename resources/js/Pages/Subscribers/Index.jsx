@@ -9,6 +9,7 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import SubscriberModal from './SubscriberModal';
+import SubscriberDetailsModal from './SubscriberDetailsModal';
 
 const STATUS_TONES = {
     active: 'green',
@@ -33,6 +34,7 @@ export default function Index({
     filterOptions,
 }) {
     const [modalSubscriber, setModalSubscriber] = useState(null);
+    const [viewingSubscriber, setViewingSubscriber] = useState(null);
     const [creating, setCreating] = useState(false);
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/subscribers', filters);
 
@@ -111,9 +113,13 @@ export default function Index({
                             subscribers.data.map((subscriber) => (
                                 <tr key={subscriber.id} className="transition hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">
-                                        <a href={`/subscribers/${subscriber.id}`} className="text-brand-700 hover:underline">
+                                        <button
+                                            type="button"
+                                            onClick={() => setViewingSubscriber(subscriber)}
+                                            className="text-start text-brand-700 hover:underline"
+                                        >
                                             {subscriber.full_name}
-                                        </a>
+                                        </button>
                                     </td>
                                     <td className="px-6 py-4 text-gray-600" dir="ltr">
                                         {subscriber.meter_number}
@@ -128,12 +134,12 @@ export default function Index({
                                     </td>
                                     <td className="px-6 py-4 text-end">
                                         <RowActionsMenu>
-                                            <a
-                                                href={`/subscribers/${subscriber.id}`}
+                                            <button
+                                                onClick={() => setViewingSubscriber(subscriber)}
                                                 className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
                                             >
                                                 عرض
-                                            </a>
+                                            </button>
                                             {subscriber.canUpdate && (
                                                 <button
                                                     onClick={() => setModalSubscriber(subscriber)}
@@ -168,6 +174,16 @@ export default function Index({
                     {...modalProps}
                 />
             )}
+
+            <SubscriberDetailsModal
+                subscriber={viewingSubscriber}
+                canUpdate={viewingSubscriber?.canUpdate}
+                onClose={() => setViewingSubscriber(null)}
+                onEdit={() => {
+                    setModalSubscriber(viewingSubscriber);
+                    setViewingSubscriber(null);
+                }}
+            />
         </AuthenticatedLayout>
     );
 }

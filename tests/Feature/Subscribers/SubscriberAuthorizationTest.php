@@ -4,6 +4,7 @@ namespace Tests\Feature\Subscribers;
 
 use App\Enums\SubscriberStatus;
 use App\Models\Branch;
+use App\Models\Governorate;
 use App\Models\MeterBox;
 use App\Models\Subscriber;
 use App\Models\Tariff;
@@ -167,29 +168,21 @@ class SubscriberAuthorizationTest extends TestCase
         $response->assertDontSee('Commercial Subscriber');
     }
 
-    public function test_super_admin_can_view_a_subscribers_show_page(): void
+    public function test_subscribers_index_carries_the_detail_fields_the_view_modal_needs(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
         $branch = Branch::factory()->create();
+        $governorate = Governorate::factory()->create();
+        $branch->update(['governorate_id' => $governorate->id]);
         $tariff = Tariff::factory()->residential()->create();
-        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id, 'tariff_id' => $tariff->id, 'full_name' => 'Show Page Subscriber']);
+        Subscriber::factory()->create(['branch_id' => $branch->id, 'tariff_id' => $tariff->id, 'full_name' => 'Detail Fields Subscriber']);
 
-        $response = $this->actingAs($superAdmin)->get(route('subscribers.show', $subscriber));
+        $response = $this->actingAs($superAdmin)->get(route('subscribers.index'));
 
         $response->assertOk();
-        $response->assertSee('Show Page Subscriber');
-    }
-
-    public function test_data_entry_cannot_view_a_subscribers_show_page_from_another_branch(): void
-    {
-        $ownBranch = Branch::factory()->create();
-        $otherBranch = Branch::factory()->create();
-        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $ownBranch->id]);
-        $tariff = Tariff::factory()->residential()->create();
-        $foreignSubscriber = Subscriber::factory()->create(['branch_id' => $otherBranch->id, 'tariff_id' => $tariff->id]);
-
-        $this->actingAs($dataEntry)
-            ->get(route('subscribers.show', $foreignSubscriber))
-            ->assertForbidden();
+        $response->assertInertia(fn ($page) => $page->has('subscribers.data', 1)
+            ->where('subscribers.data.0.full_name', 'Detail Fields Subscriber')
+            ->where('subscribers.data.0.tariffRate', (string) $tariff->rate)
+            ->where('subscribers.data.0.governorateName', $governorate->name));
     }
 }

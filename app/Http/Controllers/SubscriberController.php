@@ -37,7 +37,7 @@ class SubscriberController extends Controller
 
         $query = Subscriber::query()
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
-            ->with(['branch', 'meterBox', 'tariff']);
+            ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'registeredBy']);
         $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'meter_number'], self::SORTABLE, 'full_name');
         $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'meter_box_id']);
 
@@ -45,10 +45,16 @@ class SubscriberController extends Controller
             ->withQueryString()
             ->through(fn (Subscriber $subscriber) => [
                 ...$this->editableFields($subscriber),
-                'meterBoxNumber' => $subscriber->meterBox?->box_number,
-                'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
                 'branchName' => $subscriber->branch->name,
+                'governorateName' => $subscriber->branch->governorate?->name,
+                'areaName' => $subscriber->branch->area?->name,
+                'meterBoxNumber' => $subscriber->meterBox?->box_number,
+                'subAreaName' => $subscriber->meterBox?->subArea?->name,
+                'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
+                'tariffRate' => $subscriber->tariff->rate,
+                'circuitBreakerAmpere' => $subscriber->circuitBreaker?->ampere,
                 'statusLabel' => __($subscriber->status->label()),
+                'registeredByName' => $subscriber->registeredBy?->name,
                 'canUpdate' => $actor->can('update', $subscriber),
             ]);
 
@@ -90,33 +96,6 @@ class SubscriberController extends Controller
         Subscriber::create($data);
 
         return redirect()->route('subscribers.index')->with('status', 'subscriber-created');
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Subscriber $subscriber): InertiaResponse
-    {
-        $this->authorize('view', $subscriber);
-
-        $subscriber->load(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'registeredBy']);
-
-        return Inertia::render('Subscribers/Show', [
-            'subscriber' => [
-                ...$this->editableFields($subscriber),
-                'branchName' => $subscriber->branch->name,
-                'governorateName' => $subscriber->branch->governorate?->name,
-                'areaName' => $subscriber->branch->area?->name,
-                'meterBoxNumber' => $subscriber->meterBox?->box_number,
-                'subAreaName' => $subscriber->meterBox?->subArea?->name,
-                'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
-                'tariffRate' => $subscriber->tariff->rate,
-                'circuitBreakerAmpere' => $subscriber->circuitBreaker?->ampere,
-                'statusLabel' => __($subscriber->status->label()),
-                'registeredByName' => $subscriber->registeredBy?->name,
-            ],
-            'canUpdate' => auth()->user()->can('update', $subscriber),
-        ]);
     }
 
     /**

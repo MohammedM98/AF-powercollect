@@ -80,7 +80,7 @@ export default function SubscriberForm({
         return subAreaId ? String(box.sub_area_id) === String(subAreaId) : String(box.id) === String(data.meter_box_id);
     });
 
-    const meterBoxOptions = meterBoxesInScope.map((box) => ({ value: box.id, label: `${box.box_number} — ${box.branchName}` }));
+    const meterBoxOptions = meterBoxesInScope.map((box) => ({ value: box.id, label: `${box.box_number} — ${box.name}` }));
 
     const showMeterBoxField = Boolean(subAreaId) || Boolean(data.meter_box_id);
 
@@ -285,7 +285,7 @@ export default function SubscriberForm({
 
             <Section title="معلومات الاشتراك" />
 
-            <Field id="initial_reading" label="القراءة الابتدائية" required error={errors.initial_reading}>
+            <Field id="initial_reading" label="القراءة السابقة (كيلو واط)" required error={errors.initial_reading}>
                 <TextInput
                     type="number"
                     required

@@ -90,7 +90,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                         </Section>
 
                         <Section title="معلومات الاشتراك">
-                            <Field label="القراءة الابتدائية" value={subscriber.initial_reading} />
+                            <Field label="القراءة السابقة (كيلو واط)" value={subscriber.initial_reading} />
                             <Field label="رسوم الاشتراك" value={formatCurrency(subscriber.subscription_fee)} />
                             <Field label="تاريخ الاشتراك" value={subscriber.subscription_date} />
                             <Field label="سجّله" value={subscriber.registeredByName} />

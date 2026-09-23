@@ -203,6 +203,7 @@ class SubscriberController extends Controller
             ->get()
             ->map(fn (MeterBox $box) => [
                 'id' => $box->id,
+                'name' => $box->name,
                 'box_number' => $box->box_number,
                 'branchName' => $box->branch->name,
                 'branch_id' => $box->branch_id,

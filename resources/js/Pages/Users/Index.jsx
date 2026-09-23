@@ -50,7 +50,7 @@ export default function Index({ users, canCreate, status, branches, canChooseBra
                 onPerPageChange={setPerPage}
                 total={users.total}
                 filterMenu={
-                    <DataTableFilterMenu groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                    <DataTableFilterMenu tableKey="users" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
                 }
             />
 

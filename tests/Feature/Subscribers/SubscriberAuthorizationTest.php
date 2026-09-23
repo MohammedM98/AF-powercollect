@@ -150,4 +150,20 @@ class SubscriberAuthorizationTest extends TestCase
         $this->get(route('subscribers.index'))
             ->assertRedirect(route('login'));
     }
+
+    public function test_subscribers_page_can_be_filtered_by_tariff(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $branch = Branch::factory()->create();
+        $residential = Tariff::factory()->residential()->create();
+        $commercial = Tariff::factory()->commercial()->create();
+        Subscriber::factory()->create(['branch_id' => $branch->id, 'tariff_id' => $residential->id, 'full_name' => 'Residential Subscriber']);
+        Subscriber::factory()->create(['branch_id' => $branch->id, 'tariff_id' => $commercial->id, 'full_name' => 'Commercial Subscriber']);
+
+        $response = $this->actingAs($superAdmin)->get(route('subscribers.index', ['filter' => ['tariff_id' => $residential->id]]));
+
+        $response->assertOk();
+        $response->assertSee('Residential Subscriber');
+        $response->assertDontSee('Commercial Subscriber');
+    }
 }

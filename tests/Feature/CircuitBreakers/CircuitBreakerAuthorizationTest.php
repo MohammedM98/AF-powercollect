@@ -134,4 +134,17 @@ class CircuitBreakerAuthorizationTest extends TestCase
 
         $this->assertDatabaseCount('circuit_breakers', 0);
     }
+
+    public function test_circuit_breakers_page_can_be_filtered_by_ampere(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        CircuitBreaker::factory()->create(['ampere' => 4, 'minimum_payment' => 10]);
+        CircuitBreaker::factory()->create(['ampere' => 8, 'minimum_payment' => 20]);
+
+        $response = $this->actingAs($superAdmin)->get(route('circuit-breakers.index', ['filter' => ['ampere' => 4]]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page->has('circuitBreakers.data', 1)
+            ->where('circuitBreakers.data.0.ampere', 4));
+    }
 }

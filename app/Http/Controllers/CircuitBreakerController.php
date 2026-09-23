@@ -23,6 +23,7 @@ class CircuitBreakerController extends Controller
 
         $query = CircuitBreaker::query();
         $this->applyDataTableFilters($query, $request, [], self::SORTABLE, 'ampere');
+        $this->applyDataTableFilterSelects($query, $request, ['ampere']);
 
         $circuitBreakers = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -32,6 +33,7 @@ class CircuitBreakerController extends Controller
             'circuitBreakers' => $circuitBreakers,
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'ampere'),
+            'filterOptions' => $this->filterOptions(),
         ]);
     }
 
@@ -71,6 +73,28 @@ class CircuitBreakerController extends Controller
             'id' => $circuitBreaker->id,
             'ampere' => $circuitBreaker->ampere,
             'minimum_payment' => $circuitBreaker->minimum_payment,
+        ];
+    }
+
+    /**
+     * The Filter menu's dropdown groups for the index page — every distinct
+     * ampere value currently in use.
+     *
+     * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string}>}>
+     */
+    private function filterOptions(): array
+    {
+        return [
+            [
+                'key' => 'ampere',
+                'label' => 'الأمبير',
+                'options' => CircuitBreaker::query()
+                    ->distinct()
+                    ->orderBy('ampere')
+                    ->pluck('ampere')
+                    ->map(fn ($ampere) => ['value' => (string) $ampere, 'label' => "{$ampere}A"])
+                    ->all(),
+            ],
         ];
     }
 }

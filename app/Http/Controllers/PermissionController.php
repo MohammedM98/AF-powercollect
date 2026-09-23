@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Http\Concerns\FiltersDataTable;
+use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -36,7 +37,7 @@ class PermissionController extends Controller
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id)->whereIn('role', UserRole::staffRoles()))
             ->with(['branch', 'permissions']);
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
-        $this->applyDataTableFilterSelects($query, $request, ['role']);
+        $this->applyDataTableFilterSelects($query, $request, ['role', 'branch_id']);
 
         $users = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -55,17 +56,7 @@ class PermissionController extends Controller
             'scopedToOwnBranch' => ! $actor->isSuperAdmin(),
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
-            'filterOptions' => [
-                [
-                    'key' => 'role',
-                    'label' => 'الدور',
-                    'options' => collect($actor->isSuperAdmin() ? UserRole::cases() : UserRole::staffRoles())
-                        ->reject(fn (UserRole $role) => $role === UserRole::SuperAdmin)
-                        ->map(fn (UserRole $role) => ['value' => $role->value, 'label' => __($role->label())])
-                        ->values()
-                        ->all(),
-                ],
-            ],
+            'filterOptions' => $this->filterOptions($actor),
         ]);
     }
 
@@ -109,8 +100,8 @@ class PermissionController extends Controller
      * Every permission, grouped by resource, in the shape the Permissions
      * matrix renders: a resource label plus its ordered action columns
      * (view/create/update, or view/record/confirm for Collections). A
-     * missing action (e.g. Users has no grantable "create") comes back as
-     * null so the page can render an empty cell instead of a checkbox.
+     * missing action (e.g. Collections has no "create") comes back as null
+     * so the page can render an empty cell instead of a checkbox.
      *
      * @return array<int, array{key: string, label: string, actions: array<int, array{action: string, permission: array{id: int, label: string}|null}>}>
      */
@@ -138,5 +129,40 @@ class PermissionController extends Controller
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * The Filter menu's dropdown groups for the index page. The branch
+     * filter only makes sense for a Super Admin — a Branch Admin's list is
+     * already scoped to their own single branch.
+     *
+     * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string}>}>
+     */
+    private function filterOptions(User $actor): array
+    {
+        $groups = [
+            [
+                'key' => 'role',
+                'label' => 'الدور',
+                'options' => collect($actor->isSuperAdmin() ? UserRole::cases() : UserRole::staffRoles())
+                    ->reject(fn (UserRole $role) => $role === UserRole::SuperAdmin)
+                    ->map(fn (UserRole $role) => ['value' => $role->value, 'label' => __($role->label())])
+                    ->values()
+                    ->all(),
+            ],
+        ];
+
+        if ($actor->isSuperAdmin()) {
+            $groups[] = [
+                'key' => 'branch_id',
+                'label' => 'الفرع',
+                'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => [
+                    'value' => (string) $branch->id,
+                    'label' => $branch->name,
+                ])->all(),
+            ];
+        }
+
+        return $groups;
     }
 }

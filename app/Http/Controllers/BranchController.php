@@ -10,6 +10,7 @@ use App\Models\Branch;
 use App\Models\Governorate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -28,7 +29,7 @@ class BranchController extends Controller
 
         $query = Branch::query()->with(['governorate', 'area']);
         $this->applyDataTableFilters($query, $request, ['name', 'location', 'phone'], self::SORTABLE, 'name');
-        $this->applyDataTableFilterSelects($query, $request, ['is_active', 'governorate_id']);
+        $this->applyDataTableFilterSelects($query, $request, ['is_active', 'governorate_id', 'area_id']);
 
         $branches = $query->paginate($this->dataTablePerPage($request))->withQueryString();
 
@@ -89,7 +90,7 @@ class BranchController extends Controller
      * unfiltered (each carrying its governorate_id) so the form can narrow
      * the area choices client-side once a governorate is picked.
      *
-     * @return array{governorates: \Illuminate\Support\Collection, areas: \Illuminate\Support\Collection}
+     * @return array{governorates: Collection, areas: Collection}
      */
     private function formOptions(): array
     {
@@ -121,6 +122,14 @@ class BranchController extends Controller
                 'options' => Governorate::orderBy('name')->get()->map(fn (Governorate $governorate) => [
                     'value' => (string) $governorate->id,
                     'label' => $governorate->name,
+                ])->all(),
+            ],
+            [
+                'key' => 'area_id',
+                'label' => 'المنطقة',
+                'options' => Area::orderBy('name')->get()->map(fn (Area $area) => [
+                    'value' => (string) $area->id,
+                    'label' => $area->name,
                 ])->all(),
             ],
         ];

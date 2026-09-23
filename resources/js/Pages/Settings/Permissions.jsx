@@ -22,7 +22,7 @@ export default function Permissions({ users, permissionGroups, status, filters, 
             <DataTableToolbar
                 search={search} onSearchChange={setSearch} placeholder="بحث بالاسم أو اسم المستخدم..."
                 perPage={filters.per_page} onPerPageChange={setPerPage} total={users.total}
-                filterMenu={<DataTableFilterMenu groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />}
+                filterMenu={<DataTableFilterMenu tableKey="permissions" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />}
             />
             <div className="data-table-container">
                 <table className="data-table w-full text-start text-sm">

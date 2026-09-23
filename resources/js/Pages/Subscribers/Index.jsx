@@ -83,7 +83,7 @@ export default function Index({
                 onPerPageChange={setPerPage}
                 total={subscribers.total}
                 filterMenu={
-                    <DataTableFilterMenu groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                    <DataTableFilterMenu tableKey="subscribers" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
                 }
             />
 

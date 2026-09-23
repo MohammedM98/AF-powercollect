@@ -47,7 +47,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                 onPerPageChange={setPerPage}
                 total={meterBoxes.total}
                 filterMenu={
-                    <DataTableFilterMenu groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                    <DataTableFilterMenu tableKey="meter_boxes" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
                 }
             />
 

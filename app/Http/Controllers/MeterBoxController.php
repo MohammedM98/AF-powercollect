@@ -13,6 +13,7 @@ use App\Models\SubArea;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -35,7 +36,7 @@ class MeterBoxController extends Controller
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
             ->with('branch.governorate', 'branch.area', 'subArea');
         $this->applyDataTableFilters($query, $request, ['name', 'box_number'], self::SORTABLE, 'box_number');
-        $this->applyDataTableFilterSelects($query, $request, ['branch_id']);
+        $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'sub_area_id']);
 
         $meterBoxes = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -136,7 +137,7 @@ class MeterBoxController extends Controller
      * don't need any of this — except their own branch's area, so the
      * sub-area picker can still be scoped to it.
      *
-     * @return array{branches: \Illuminate\Support\Collection, canChooseBranch: bool, governorates: \Illuminate\Support\Collection, areas: \Illuminate\Support\Collection, subAreas: \Illuminate\Support\Collection, currentBranchAreaId: ?int}
+     * @return array{branches: Collection, canChooseBranch: bool, governorates: Collection, areas: Collection, subAreas: Collection, currentBranchAreaId: ?int}
      */
     private function formOptions(): array
     {
@@ -162,19 +163,30 @@ class MeterBoxController extends Controller
      */
     private function filterOptions(User $actor): array
     {
-        if (! $actor->isSuperAdmin()) {
-            return [];
-        }
-
-        return [
+        $groups = [
             [
+                'key' => 'sub_area_id',
+                'label' => 'منطقة 2',
+                'options' => SubArea::query()
+                    ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('area_id', $actor->branch?->area_id))
+                    ->orderBy('name')
+                    ->get()
+                    ->map(fn (SubArea $subArea) => ['value' => (string) $subArea->id, 'label' => $subArea->name])
+                    ->all(),
+            ],
+        ];
+
+        if ($actor->isSuperAdmin()) {
+            $groups[] = [
                 'key' => 'branch_id',
                 'label' => 'الفرع',
                 'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => [
                     'value' => (string) $branch->id,
                     'label' => $branch->name,
                 ])->all(),
-            ],
-        ];
+            ];
+        }
+
+        return $groups;
     }
 }

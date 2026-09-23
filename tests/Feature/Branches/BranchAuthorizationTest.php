@@ -134,4 +134,20 @@ class BranchAuthorizationTest extends TestCase
         $this->get(route('branches.index'))
             ->assertRedirect(route('login'));
     }
+
+    public function test_branches_page_can_be_filtered_by_area(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $governorate = Governorate::factory()->create();
+        $ownArea = Area::factory()->create(['governorate_id' => $governorate->id]);
+        $otherArea = Area::factory()->create(['governorate_id' => $governorate->id]);
+        Branch::factory()->create(['name' => 'In Own Area', 'area_id' => $ownArea->id]);
+        Branch::factory()->create(['name' => 'In Other Area', 'area_id' => $otherArea->id]);
+
+        $response = $this->actingAs($superAdmin)->get(route('branches.index', ['filter' => ['area_id' => $ownArea->id]]));
+
+        $response->assertOk();
+        $response->assertSee('In Own Area');
+        $response->assertDontSee('In Other Area');
+    }
 }

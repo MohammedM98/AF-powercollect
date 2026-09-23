@@ -39,7 +39,7 @@ class SubscriberController extends Controller
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
             ->with(['branch', 'meterBox', 'tariff']);
         $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'meter_number'], self::SORTABLE, 'full_name');
-        $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id']);
+        $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'meter_box_id']);
 
         $subscribers = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -241,6 +241,30 @@ class SubscriberController extends Controller
                     'label' => __($status->label()),
                 ])->all(),
             ],
+        ];
+
+        $groups[] = [
+            'key' => 'tariff_id',
+            'label' => 'التعرفة',
+            'options' => Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => [
+                'value' => (string) $tariff->id,
+                'label' => __($tariff->category->label()),
+            ])->all(),
+        ];
+
+        $meterBoxes = MeterBox::query()
+            ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('branch_id', $actor->branch_id))
+            ->with('branch')
+            ->orderBy('box_number')
+            ->get();
+
+        $groups[] = [
+            'key' => 'meter_box_id',
+            'label' => 'الطبلون',
+            'options' => $meterBoxes->map(fn (MeterBox $box) => [
+                'value' => (string) $box->id,
+                'label' => $actor->isSuperAdmin() ? "{$box->box_number} — {$box->branch->name}" : $box->box_number,
+            ])->all(),
         ];
 
         if ($actor->isSuperAdmin()) {

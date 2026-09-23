@@ -46,7 +46,7 @@ export default function Index({ tariffs, status, categoryOptions, filters, filte
                 onPerPageChange={setPerPage}
                 total={tariffs.total}
                 filterMenu={
-                    <DataTableFilterMenu groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                    <DataTableFilterMenu tableKey="tariffs" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
                 }
             />
 

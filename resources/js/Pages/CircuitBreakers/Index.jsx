@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
@@ -9,10 +10,10 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
 import CircuitBreakerModal from './CircuitBreakerModal';
 
-export default function Index({ circuitBreakers, status, filters }) {
+export default function Index({ circuitBreakers, status, filters, filterOptions }) {
     const [modalCircuitBreaker, setModalCircuitBreaker] = useState(null);
     const [creating, setCreating] = useState(false);
-    const { setPerPage, sort } = useDataTable('/circuit-breakers', filters);
+    const { setPerPage, sort, filterValues, setFilter, clearFilters } = useDataTable('/circuit-breakers', filters);
 
     return (
         <AuthenticatedLayout
@@ -44,6 +45,9 @@ export default function Index({ circuitBreakers, status, filters }) {
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={circuitBreakers.total}
+                filterMenu={
+                    <DataTableFilterMenu tableKey="circuit_breakers" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                }
             />
 
             <div className="data-table-container">

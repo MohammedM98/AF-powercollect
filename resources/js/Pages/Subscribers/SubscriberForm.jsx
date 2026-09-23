@@ -138,7 +138,7 @@ export default function SubscriberForm({
                     <option value="">---</option>
                     {circuitBreakers.map((circuitBreaker) => (
                         <option key={circuitBreaker.id} value={circuitBreaker.id}>
-                            {circuitBreaker.ampere}A — {Number(circuitBreaker.minimum_payment).toFixed(2)} شيكل
+                            {circuitBreaker.ampere}A
                         </option>
                     ))}
                 </select>

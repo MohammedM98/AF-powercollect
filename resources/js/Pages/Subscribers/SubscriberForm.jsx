@@ -101,7 +101,7 @@ export default function SubscriberForm({
         setData((current) => ({
             ...current,
             circuit_breaker_id: value,
-            minimum_charge: match ? match.minimum_payment : current.minimum_charge,
+            minimum_charge: match ? Number(match.minimum_payment) : current.minimum_charge,
         }));
     }
 

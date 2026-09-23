@@ -49,7 +49,7 @@ export default function SubscriberModal({
                   status: subscriber.status,
                   branch_id: subscriber.branch_id,
                   circuit_breaker_id: subscriber.circuit_breaker_id ?? '',
-                  minimum_charge: subscriber.minimum_charge ?? '',
+                  minimum_charge: subscriber.minimum_charge != null ? Number(subscriber.minimum_charge) : '',
                   initial_reading: subscriber.initial_reading ?? '',
                   subscription_fee: subscriber.subscription_fee ?? '',
                   subscription_date: subscriber.subscription_date ?? '',

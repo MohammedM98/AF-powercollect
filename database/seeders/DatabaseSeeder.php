@@ -36,5 +36,12 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             TariffSeeder::class,
         ]);
+
+        // Demo subscribers (and the branch/meter-box/circuit-breaker chain
+        // they need) are local-only — SubscriberSeeder itself refuses to
+        // run in production.
+        if (! app()->environment('production')) {
+            $this->call(SubscriberSeeder::class);
+        }
     }
 }

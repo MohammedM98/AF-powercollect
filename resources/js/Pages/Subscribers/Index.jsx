@@ -110,7 +110,11 @@ export default function Index({
                         ) : (
                             subscribers.data.map((subscriber) => (
                                 <tr key={subscriber.id} className="transition hover:bg-gray-50">
-                                    <td className="px-6 py-4 font-medium text-gray-900">{subscriber.full_name}</td>
+                                    <td className="px-6 py-4 font-medium text-gray-900">
+                                        <a href={`/subscribers/${subscriber.id}`} className="text-brand-700 hover:underline">
+                                            {subscriber.full_name}
+                                        </a>
+                                    </td>
                                     <td className="px-6 py-4 text-gray-600" dir="ltr">
                                         {subscriber.meter_number}
                                     </td>
@@ -123,16 +127,22 @@ export default function Index({
                                         <StatusPill tone={STATUS_TONES[subscriber.status]} label={subscriber.statusLabel} />
                                     </td>
                                     <td className="px-6 py-4 text-end">
-                                        {subscriber.canUpdate && (
-                                            <RowActionsMenu>
+                                        <RowActionsMenu>
+                                            <a
+                                                href={`/subscribers/${subscriber.id}`}
+                                                className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                عرض
+                                            </a>
+                                            {subscriber.canUpdate && (
                                                 <button
                                                     onClick={() => setModalSubscriber(subscriber)}
                                                     className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
                                                 >
                                                     تعديل
                                                 </button>
-                                            </RowActionsMenu>
-                                        )}
+                                            )}
+                                        </RowActionsMenu>
                                     </td>
                                 </tr>
                             ))

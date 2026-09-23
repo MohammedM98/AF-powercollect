@@ -166,4 +166,30 @@ class SubscriberAuthorizationTest extends TestCase
         $response->assertSee('Residential Subscriber');
         $response->assertDontSee('Commercial Subscriber');
     }
+
+    public function test_super_admin_can_view_a_subscribers_show_page(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $branch = Branch::factory()->create();
+        $tariff = Tariff::factory()->residential()->create();
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id, 'tariff_id' => $tariff->id, 'full_name' => 'Show Page Subscriber']);
+
+        $response = $this->actingAs($superAdmin)->get(route('subscribers.show', $subscriber));
+
+        $response->assertOk();
+        $response->assertSee('Show Page Subscriber');
+    }
+
+    public function test_data_entry_cannot_view_a_subscribers_show_page_from_another_branch(): void
+    {
+        $ownBranch = Branch::factory()->create();
+        $otherBranch = Branch::factory()->create();
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $ownBranch->id]);
+        $tariff = Tariff::factory()->residential()->create();
+        $foreignSubscriber = Subscriber::factory()->create(['branch_id' => $otherBranch->id, 'tariff_id' => $tariff->id]);
+
+        $this->actingAs($dataEntry)
+            ->get(route('subscribers.show', $foreignSubscriber))
+            ->assertForbidden();
+    }
 }

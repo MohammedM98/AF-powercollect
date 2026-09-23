@@ -93,6 +93,33 @@ class SubscriberController extends Controller
     }
 
     /**
+     * Display the specified resource.
+     */
+    public function show(Subscriber $subscriber): InertiaResponse
+    {
+        $this->authorize('view', $subscriber);
+
+        $subscriber->load(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'registeredBy']);
+
+        return Inertia::render('Subscribers/Show', [
+            'subscriber' => [
+                ...$this->editableFields($subscriber),
+                'branchName' => $subscriber->branch->name,
+                'governorateName' => $subscriber->branch->governorate?->name,
+                'areaName' => $subscriber->branch->area?->name,
+                'meterBoxNumber' => $subscriber->meterBox?->box_number,
+                'subAreaName' => $subscriber->meterBox?->subArea?->name,
+                'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
+                'tariffRate' => $subscriber->tariff->rate,
+                'circuitBreakerAmpere' => $subscriber->circuitBreaker?->ampere,
+                'statusLabel' => __($subscriber->status->label()),
+                'registeredByName' => $subscriber->registeredBy?->name,
+            ],
+            'canUpdate' => auth()->user()->can('update', $subscriber),
+        ]);
+    }
+
+    /**
      * Show the form for editing the specified resource.
      */
     public function edit(Subscriber $subscriber): InertiaResponse

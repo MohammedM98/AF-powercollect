@@ -27,7 +27,7 @@ Route::middleware('auth')->group(function () {
 
     Route::resource('branches', BranchController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update']);
-    Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update']);
     Route::resource('tariffs', TariffController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('meter-boxes', MeterBoxController::class)->only(['index', 'create', 'store', 'edit', 'update']);

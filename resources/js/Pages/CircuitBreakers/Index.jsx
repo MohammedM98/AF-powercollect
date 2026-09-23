@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
@@ -16,7 +16,7 @@ export default function Index({ circuitBreakers, status, filters, filterOptions 
     const { setPerPage, sort, filterValues, setFilter, clearFilters } = useDataTable('/circuit-breakers', filters);
 
     return (
-        <AuthenticatedLayout
+        <SettingsLayout
             header={
                 <>
                     <div className="min-w-0">
@@ -102,6 +102,6 @@ export default function Index({ circuitBreakers, status, filters, filterOptions 
                    
                 />
             )}
-        </AuthenticatedLayout>
+        </SettingsLayout>
     );
 }

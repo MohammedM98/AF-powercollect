@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import Pagination from '@/Components/DataTable/Pagination';
@@ -12,7 +12,7 @@ export default function Permissions({ users, permissionGroups, status, filters, 
     const { search, setSearch, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/settings/permissions', filters);
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">الصلاحيات</h2>}>
+        <SettingsLayout header={<h2 className="text-xl font-bold text-gray-900">الصلاحيات</h2>}>
             <Head title="الصلاحيات" />
 
             <p className="mb-4 text-sm text-gray-500">
@@ -47,6 +47,6 @@ export default function Permissions({ users, permissionGroups, status, filters, 
             </div>
             <Pagination meta={users} filters={filters} baseUrl="/settings/permissions" />
             {editingUser && <PermissionModal key={editingUser.id} user={editingUser} permissionGroups={permissionGroups} onClose={() => setEditingUser(null)} />}
-        </AuthenticatedLayout>
+        </SettingsLayout>
     );
 }

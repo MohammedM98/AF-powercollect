@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import Pagination from '@/Components/DataTable/Pagination';
@@ -44,7 +44,7 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
     }
 
     return (
-        <AuthenticatedLayout
+        <SettingsLayout
             header={
                 <>
                     <div className="min-w-0">
@@ -303,6 +303,6 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                     areas={areaOptions}
                 />
             )}
-        </AuthenticatedLayout>
+        </SettingsLayout>
     );
 }

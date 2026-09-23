@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
@@ -16,7 +16,7 @@ export default function Index({ tariffs, status, categoryOptions, filters, filte
     const { setPerPage, sort, filterValues, setFilter, clearFilters } = useDataTable('/tariffs', filters);
 
     return (
-        <AuthenticatedLayout
+        <SettingsLayout
             header={
                 <>
                     <div className="min-w-0">
@@ -107,6 +107,6 @@ export default function Index({ tariffs, status, categoryOptions, filters, filte
                     categoryOptions={categoryOptions}
                 />
             )}
-        </AuthenticatedLayout>
+        </SettingsLayout>
     );
 }

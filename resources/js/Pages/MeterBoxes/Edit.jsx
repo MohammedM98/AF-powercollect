@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import MeterBoxForm from './MeterBoxForm';
 
@@ -17,7 +17,7 @@ export default function Edit({ meterBox, branches, canChooseBranch, governorates
     }
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">تعديل الطبلون</h2>}>
+        <SettingsLayout header={<h2 className="text-xl font-bold text-gray-900">تعديل الطبلون</h2>}>
             <Head title="تعديل الطبلون" />
 
             <div className="max-w-2xl">
@@ -44,6 +44,6 @@ export default function Edit({ meterBox, branches, canChooseBranch, governorates
                     </form>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </SettingsLayout>
     );
 }

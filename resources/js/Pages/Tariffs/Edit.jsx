@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TariffForm from './TariffForm';
 
@@ -15,7 +15,7 @@ export default function Edit({ tariff, categoryOptions }) {
     }
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">تعديل التعرفة</h2>}>
+        <SettingsLayout header={<h2 className="text-xl font-bold text-gray-900">تعديل التعرفة</h2>}>
             <Head title="تعديل التعرفة" />
 
             <div className="max-w-2xl">
@@ -32,6 +32,6 @@ export default function Edit({ tariff, categoryOptions }) {
                     </form>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </SettingsLayout>
     );
 }

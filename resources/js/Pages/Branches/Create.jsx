@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import BranchForm from './BranchForm';
 
@@ -18,7 +18,7 @@ export default function Create({ governorates, areas }) {
     }
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">إنشاء فرع</h2>}>
+        <SettingsLayout header={<h2 className="text-xl font-bold text-gray-900">إنشاء فرع</h2>}>
             <Head title="إنشاء فرع" />
 
             <div className="max-w-2xl">
@@ -35,6 +35,6 @@ export default function Create({ governorates, areas }) {
                     </form>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </SettingsLayout>
     );
 }

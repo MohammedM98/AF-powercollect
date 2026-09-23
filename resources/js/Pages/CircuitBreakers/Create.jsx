@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import CircuitBreakerForm from './CircuitBreakerForm';
 
@@ -15,7 +15,7 @@ export default function Create() {
     }
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">إنشاء قاطع</h2>}>
+        <SettingsLayout header={<h2 className="text-xl font-bold text-gray-900">إنشاء قاطع</h2>}>
             <Head title="إنشاء قاطع" />
 
             <div className="max-w-2xl">
@@ -32,6 +32,6 @@ export default function Create() {
                     </form>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </SettingsLayout>
     );
 }

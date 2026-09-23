@@ -5,7 +5,7 @@ import InputError from '@/Components/InputError';
 
 const STATUS_OPTIONS = [
     { value: 'active', label: 'نشط' },
-    { value: 'suspended', label: 'موقوف' },
+    { value: 'suspended', label: 'مفصول' },
     { value: 'disconnected', label: 'مقطوع' },
 ];
 

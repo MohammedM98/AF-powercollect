@@ -12,7 +12,7 @@ const BLANK = {
     meter_number: '',
     meter_box_id: '',
     tariff_id: '',
-    status: 'active',
+    status: 'suspended',
     branch_id: '',
     circuit_breaker_id: '',
     minimum_charge: '',

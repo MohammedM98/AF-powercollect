@@ -7,7 +7,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import PermissionModal from './PermissionModal';
 
-export default function Permissions({ users, permissionGroups, status, filters, filterOptions }) {
+export default function Permissions({ users, permissionGroups, status, filters, filterOptions, scopedToOwnBranch }) {
     const [editingUser, setEditingUser] = useState(null);
     const { search, setSearch, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/settings/permissions', filters);
 
@@ -15,7 +15,10 @@ export default function Permissions({ users, permissionGroups, status, filters, 
         <AuthenticatedLayout header={<h2 className="text-xl font-bold text-gray-900">الصلاحيات</h2>}>
             <Head title="الصلاحيات" />
 
-            <p className="mb-4 text-sm text-gray-500">اختر مستخدمًا لإدارة صلاحياته بشكل مستقل. يمتلك المدير العام جميع الصلاحيات دائمًا.</p>
+            <p className="mb-4 text-sm text-gray-500">
+                اختر مستخدمًا لإدارة صلاحياته بشكل مستقل. يمتلك المدير العام جميع الصلاحيات دائمًا
+                {scopedToOwnBranch ? '، وتقتصر إدارتك هنا على موظفي فرعك.' : '.'}
+            </p>
             <DataTableToolbar
                 search={search} onSearchChange={setSearch} placeholder="بحث بالاسم أو اسم المستخدم..."
                 perPage={filters.per_page} onPerPageChange={setPerPage} total={users.total}

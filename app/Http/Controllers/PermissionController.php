@@ -21,12 +21,20 @@ class PermissionController extends Controller
     /**
      * Show the permission grants for every non-Super-Admin user. Super
      * Admins already hold every permission implicitly and are excluded.
+     *
+     * A Branch Admin sees only their own branch's staff (Collector, Data
+     * Entry, Financial Auditor) — never another branch's users, another
+     * Branch Admin, or a Super Admin.
      */
     public function edit(Request $request): InertiaResponse
     {
         $this->authorize('manage', Permission::class);
 
-        $query = User::where('role', '!=', UserRole::SuperAdmin)->with(['branch', 'permissions']);
+        $actor = $request->user();
+
+        $query = User::where('role', '!=', UserRole::SuperAdmin)
+            ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id)->whereIn('role', UserRole::staffRoles()))
+            ->with(['branch', 'permissions']);
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
         $this->applyDataTableFilterSelects($query, $request, ['role']);
 
@@ -44,13 +52,14 @@ class PermissionController extends Controller
         return Inertia::render('Settings/Permissions', [
             'users' => $users,
             'permissionGroups' => $this->permissionGroups(),
+            'scopedToOwnBranch' => ! $actor->isSuperAdmin(),
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => [
                 [
                     'key' => 'role',
                     'label' => 'الدور',
-                    'options' => collect(UserRole::cases())
+                    'options' => collect($actor->isSuperAdmin() ? UserRole::cases() : UserRole::staffRoles())
                         ->reject(fn (UserRole $role) => $role === UserRole::SuperAdmin)
                         ->map(fn (UserRole $role) => ['value' => $role->value, 'label' => __($role->label())])
                         ->values()
@@ -67,15 +76,22 @@ class PermissionController extends Controller
      * paginated/searchable, so a save only ever carries the users visible
      * on screen at the time. Looping over every user in the table instead
      * would silently wipe the grants of anyone on another page.
+     *
+     * The same branch/role scoping as edit() is re-applied here, not just
+     * trusted from the page: without it, a Branch Admin could craft a
+     * payload naming a user outside their branch (or another Branch Admin)
+     * and edit permissions they have no business touching.
      */
     public function update(Request $request): RedirectResponse
     {
         $this->authorize('manage', Permission::class);
 
+        $actor = $request->user();
         $validPermissionIds = Permission::pluck('id')->all();
         $payload = (array) $request->input('permissions', []);
 
         $userIds = User::where('role', '!=', UserRole::SuperAdmin)
+            ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id)->whereIn('role', UserRole::staffRoles()))
             ->whereIn('id', array_keys($payload))
             ->pluck('id');
 

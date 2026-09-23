@@ -32,7 +32,7 @@ class PermissionsTest extends TestCase
             ->assertOk();
     }
 
-    public function test_branch_admin_cannot_view_the_permissions_settings_page(): void
+    public function test_branch_admin_can_view_the_permissions_settings_page(): void
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
@@ -40,7 +40,77 @@ class PermissionsTest extends TestCase
 
         $this->actingAs($branchAdmin)
             ->get(route('settings.permissions.edit'))
-            ->assertForbidden();
+            ->assertOk();
+    }
+
+    public function test_branch_admin_only_sees_their_own_branch_staff_on_the_permissions_page(): void
+    {
+        $this->seedPermissions();
+        $ownBranch = Branch::factory()->create();
+        $otherBranch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id]);
+        User::factory()->collector()->create(['branch_id' => $ownBranch->id, 'name' => 'My Branch Collector']);
+        User::factory()->collector()->create(['branch_id' => $otherBranch->id, 'name' => 'Other Branch Collector']);
+        User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id, 'name' => 'Peer Branch Admin']);
+
+        $response = $this->actingAs($branchAdmin)->get(route('settings.permissions.edit'));
+
+        $response->assertOk();
+        $response->assertSee('My Branch Collector');
+        $response->assertDontSee('Other Branch Collector');
+        $response->assertDontSee('Peer Branch Admin');
+    }
+
+    public function test_branch_admin_can_grant_a_permission_to_their_own_branch_staff(): void
+    {
+        $this->seedPermissions();
+        $branch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $viewBranches = Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail();
+
+        $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
+            'permissions' => [
+                $collector->id => [$viewBranches->id],
+            ],
+        ])->assertRedirect(route('settings.permissions.edit'));
+
+        $this->assertTrue($collector->fresh()->hasPermission(PermissionKey::ViewBranches));
+    }
+
+    public function test_branch_admin_cannot_grant_a_permission_to_another_branchs_staff(): void
+    {
+        $this->seedPermissions();
+        $ownBranch = Branch::factory()->create();
+        $otherBranch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id]);
+        $foreignCollector = User::factory()->collector()->create(['branch_id' => $otherBranch->id]);
+        $viewBranches = Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail();
+
+        $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
+            'permissions' => [
+                $foreignCollector->id => [$viewBranches->id],
+            ],
+        ])->assertRedirect(route('settings.permissions.edit'));
+
+        $this->assertFalse($foreignCollector->fresh()->hasPermission(PermissionKey::ViewBranches));
+    }
+
+    public function test_branch_admin_cannot_grant_a_permission_to_a_peer_branch_admin(): void
+    {
+        $this->seedPermissions();
+        $branch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $peerBranchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $viewBranches = Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail();
+
+        $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
+            'permissions' => [
+                $peerBranchAdmin->id => [$viewBranches->id],
+            ],
+        ])->assertRedirect(route('settings.permissions.edit'));
+
+        $this->assertFalse($peerBranchAdmin->fresh()->hasPermission(PermissionKey::ViewBranches));
     }
 
     public function test_collector_cannot_view_the_permissions_settings_page(): void

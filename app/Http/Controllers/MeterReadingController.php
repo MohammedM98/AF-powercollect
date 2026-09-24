@@ -26,7 +26,11 @@ class MeterReadingController extends Controller
 {
     use FiltersDataTable;
 
-    private const SORTABLE = ['account_number', 'full_name'];
+    /**
+     * Sortable sheet columns — the reading columns are computed per row for
+     * the chosen week by withSheetColumns().
+     */
+    private const SORTABLE = ['full_name', 'account_number', 'meter_box_number', 'last_reading', 'current_reading', 'consumption', 'amount_due'];
 
     /**
      * The weekly reading sheet: one row per active subscriber for the
@@ -50,7 +54,9 @@ class MeterReadingController extends Controller
             ])
             ->withExists(['meterReadings as has_later_week' => fn ($q) => $q->whereDate('week_start', '>', $week)]);
 
-        $this->applyDataTableFilters($query, $request, ['full_name', 'account_number', 'phone'], self::SORTABLE, 'account_number');
+        $this->withSheetColumns($query, $week);
+        $this->applyDataTableFilters($query, $request, ['full_name', 'account_number', 'phone'], self::SORTABLE, 'full_name');
+        $query->orderBy('subscribers.id');
         $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
         $this->applySheetFilters($query, $request, $week);
 
@@ -76,7 +82,7 @@ class MeterReadingController extends Controller
             ],
             'canRecord' => $actor->can('create', MeterReading::class),
             'status' => session('status'),
-            'filters' => $this->dataTableState($request, 'account_number', 'asc', 25),
+            'filters' => $this->dataTableState($request, 'full_name', 'asc', 25),
             'filterOptions' => $this->filterOptions($actor),
         ]);
     }
@@ -144,6 +150,40 @@ class MeterReadingController extends Controller
         return Subscriber::query()
             ->where('status', SubscriberStatus::Active)
             ->when(! $actor->isSuperAdmin(), fn (Builder $q) => $q->where('branch_id', $actor->branch_id));
+    }
+
+    /**
+     * Add each row's reading values for the week as selectable (and so
+     * sortable) columns: the meter box number, the last reading the week
+     * starts from, and — once entered — the new reading, consumption and
+     * amount to pay.
+     */
+    private function withSheetColumns(Builder $query, string $week): void
+    {
+        $thisWeek = fn (string $column) => MeterReading::query()
+            ->select($column)
+            ->whereColumn('meter_readings.subscriber_id', 'subscribers.id')
+            ->whereDate('week_start', $week)
+            ->limit(1);
+
+        $lastBefore = MeterReading::query()
+            ->select('current_reading')
+            ->whereColumn('meter_readings.subscriber_id', 'subscribers.id')
+            ->whereDate('week_start', '<', $week)
+            ->orderByDesc('week_start')
+            ->limit(1);
+
+        $thisWeekPrevious = $thisWeek('previous_reading');
+
+        $query->select('subscribers.*')
+            ->selectSub(MeterBox::query()->select('box_number')->whereColumn('meter_boxes.id', 'subscribers.meter_box_id'), 'meter_box_number')
+            ->selectRaw(
+                "COALESCE(({$thisWeekPrevious->toSql()}), ({$lastBefore->toSql()}), subscribers.initial_reading, 0) as last_reading",
+                [...$thisWeekPrevious->getBindings(), ...$lastBefore->getBindings()],
+            )
+            ->selectSub($thisWeek('current_reading'), 'current_reading')
+            ->selectSub($thisWeek('consumption'), 'consumption')
+            ->selectSub($thisWeek('amount_due'), 'amount_due');
     }
 
     /**

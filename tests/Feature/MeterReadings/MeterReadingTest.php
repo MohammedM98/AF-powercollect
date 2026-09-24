@@ -227,6 +227,35 @@ class MeterReadingTest extends TestCase
                 ->where('summary.entered', 1));
     }
 
+    public function test_the_reading_sheet_sorts_by_the_weeks_computed_reading_columns(): void
+    {
+        $this->recordedReading('2026-09-18', 1200, 1290);
+        $lowUsage = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'initial_reading' => 5000, 'full_name' => 'Aaa']);
+        MeterReading::factory()->create([
+            'subscriber_id' => $lowUsage->id,
+            'week_start' => '2026-09-18',
+            'week_end' => '2026-09-24',
+            'previous_reading' => 5000,
+            'current_reading' => 5010,
+            'consumption' => 10,
+        ]);
+        $notEntered = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'initial_reading' => 300, 'full_name' => 'Zzz']);
+
+        $sortedIds = fn (string $sort, string $direction) => $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index', ['sort' => $sort, 'direction' => $direction]))
+            ->assertOk()
+            ->viewData('page')['props']['rows']['data'];
+
+        $this->assertSame(
+            [$this->subscriber->id, $lowUsage->id],
+            array_slice(array_column($sortedIds('consumption', 'desc'), 'id'), 0, 2),
+        );
+        $this->assertSame(
+            [$notEntered->id, $this->subscriber->id, $lowUsage->id],
+            array_column($sortedIds('last_reading', 'asc'), 'id'),
+        );
+    }
+
     public function test_the_reading_sheet_filters_by_the_meter_boxs_sub_area(): void
     {
         $subArea = SubArea::factory()->create();

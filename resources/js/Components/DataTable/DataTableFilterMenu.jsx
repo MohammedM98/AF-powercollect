@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFilterVisibility } from '@/hooks/useFilterVisibility';
+import SearchableSelect from '@/Components/SearchableSelect';
 
 export default function DataTableFilterMenu({ tableKey, groups, values, onChange, onClear }) {
     const activeCount = Object.values(values ?? {}).filter(Boolean).length;
@@ -39,21 +40,17 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
     return (
         <div className="flex w-full flex-wrap items-end gap-3 border-t border-gray-100 pt-3">
             {visibleGroups.map((group) => (
-                <label key={group.key} className="flex min-w-0 flex-col gap-1.5 w-full sm:w-44">
+                <div key={group.key} className="flex min-w-0 flex-col gap-1.5 w-full sm:w-44">
                     <span className="text-xs font-semibold text-gray-500">{group.label}</span>
-                    <select
+                    <SearchableSelect
                         value={values?.[group.key] ?? ''}
-                        onChange={(event) => onChange(group.key, event.target.value)}
-                        className="block w-full rounded-md border-gray-200 py-1.5 text-sm focus:border-brand-500 focus:ring-brand-500"
-                    >
-                        <option value="">الكل</option>
-                        {group.options.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </select>
-                </label>
+                        onChange={(value) => onChange(group.key, value)}
+                        options={group.options}
+                        placeholder="الكل"
+                        searchPlaceholder={`بحث في ${group.label}...`}
+                        emptyLabel="لا توجد نتائج"
+                    />
+                </div>
             ))}
 
             <div className="relative" ref={menuRef}>

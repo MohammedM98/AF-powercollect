@@ -9,6 +9,16 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
 
+const SORT_OPTIONS = [
+    { value: 'full_name', label: 'الاسم' },
+    { value: 'meter_box_number', label: 'الطبلون' },
+    { value: 'last_reading', label: 'آخر قراءة' },
+    { value: 'current_reading', label: 'القراءة الجديدة' },
+    { value: 'consumption', label: 'الفرق (كيلو)' },
+    { value: 'amount_due', label: 'المطلوب دفعه' },
+    { value: 'account_number', label: 'رقم المشترك' },
+];
+
 const STATUS_TONES = {
     pending: 'amber',
     approved: 'green',
@@ -71,9 +81,6 @@ function SheetRow({ row, week }) {
 
     return (
         <tr className={error ? 'bg-red-50' : row.reading ? '' : 'bg-amber-50/40'}>
-            <td className="px-4 py-3 text-end text-gray-600" dir="ltr">
-                {row.accountNumber}
-            </td>
             <td className="px-4 py-3">
                 <p className="font-medium text-gray-900">{row.fullName}</p>
                 <p className="text-xs text-gray-500">
@@ -136,7 +143,7 @@ function SheetRow({ row, week }) {
 }
 
 export default function Index({ rows, week, weekOptions, summary, canRecord, filters, filterOptions }) {
-    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-readings', filters, { week });
+    const { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-readings', filters, { week });
 
     function changeWeek(nextWeek) {
         router.get(
@@ -188,6 +195,29 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, fil
 
             {!canRecord && <p className="mb-4 text-sm text-gray-500">يمكنك عرض القراءات فقط.</p>}
 
+            <div className="mb-3 flex flex-wrap items-center justify-end gap-2 text-sm text-gray-600">
+                <label htmlFor="sheet-sort">ترتيب حسب</label>
+                <select
+                    id="sheet-sort"
+                    value={filters.sort}
+                    onChange={(e) => sortBy(e.target.value, filters.direction)}
+                    className="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                >
+                    {SORT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+                <button
+                    type="button"
+                    onClick={() => sortBy(filters.sort, filters.direction === 'asc' ? 'desc' : 'asc')}
+                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm hover:bg-gray-50"
+                >
+                    {filters.direction === 'asc' ? 'تصاعدي ↑' : 'تنازلي ↓'}
+                </button>
+            </div>
+
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
@@ -204,22 +234,21 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, fil
                 <table className="data-table w-full text-sm text-start">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
-                            <SortableTh column="account_number" label="رقم المشترك" sortState={filters} onSort={sort} />
-                            <SortableTh column="full_name" label="المشترك" sortState={filters} onSort={sort} />
-                            <th className="px-4 py-3">آخر قراءة</th>
-                            <th className="px-4 py-3">القراءة الجديدة</th>
-                            <th className="px-4 py-3">الفرق (كيلو)</th>
+                            <SortableTh column="full_name" label="المشترك" sortState={filters} onSort={sort} className="!px-4" />
+                            <SortableTh column="last_reading" label="آخر قراءة" sortState={filters} onSort={sort} className="!px-4" />
+                            <SortableTh column="current_reading" label="القراءة الجديدة" sortState={filters} onSort={sort} className="!px-4" />
+                            <SortableTh column="consumption" label="الفرق (كيلو)" sortState={filters} onSort={sort} className="!px-4" />
                             <th className="px-4 py-3">سعر الكيلو</th>
                             <th className="px-4 py-3">قيمة القراءة</th>
                             <th className="px-4 py-3">الحد الأدنى</th>
-                            <th className="px-4 py-3">المطلوب دفعه</th>
+                            <SortableTh column="amount_due" label="المطلوب دفعه" sortState={filters} onSort={sort} className="!px-4" />
                             <th className="px-4 py-3">الحالة</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y">
                         {rows.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={10}>
+                                <td className="px-6 py-4 text-gray-500" colSpan={9}>
                                     لا يوجد مشتركون مطابقون.
                                 </td>
                             </tr>

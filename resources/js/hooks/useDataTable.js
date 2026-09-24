@@ -49,6 +49,10 @@ export function useDataTable(url, filters, extraParams = {}) {
         visit({ sort: column, direction });
     }
 
+    function sortBy(column, direction = 'asc') {
+        visit({ sort: column, direction });
+    }
+
     function setPerPage(perPage) {
         visit({ per_page: perPage });
     }
@@ -64,5 +68,5 @@ export function useDataTable(url, filters, extraParams = {}) {
         visit({ filter: {} });
     }
 
-    return { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters };
+    return { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, clearFilters };
 }

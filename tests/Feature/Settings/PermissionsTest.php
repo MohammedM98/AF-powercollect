@@ -266,7 +266,7 @@ class PermissionsTest extends TestCase
             'full_name' => 'Granted Subscriber',
             'national_id' => '123456789',
             'initial_reading' => 100,
-            'phone' => '0770000002',
+            'phone' => '0561000002',
             'address' => 'Some street',
             'tariff_id' => $tariff->id,
             'status' => SubscriberStatus::Active->value,

@@ -9,6 +9,7 @@ use App\Models\MeterBox;
 use App\Models\Subscriber;
 use App\Models\Tariff;
 use App\Models\User;
+use Database\Seeders\TariffSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -60,9 +61,30 @@ class SubscriberModelTest extends TestCase
         $this->assertNull($subscriber->meterBox);
     }
 
+    public function test_new_subscribers_get_sequential_account_numbers_for_the_current_year(): void
+    {
+        $this->travelTo(now()->setDate(2026, 5, 1));
+
+        $first = Subscriber::factory()->create();
+        $second = Subscriber::factory()->create();
+
+        $this->assertSame('202600001', $first->account_number);
+        $this->assertSame('202600002', $second->account_number);
+    }
+
+    public function test_the_account_number_sequence_restarts_each_year(): void
+    {
+        $this->travelTo(now()->setDate(2026, 12, 31));
+        Subscriber::factory()->count(2)->create();
+
+        $this->travelTo(now()->setDate(2027, 1, 1));
+
+        $this->assertSame('202700001', Subscriber::factory()->create()->account_number);
+    }
+
     public function test_the_two_fixed_tariff_categories_are_seeded(): void
     {
-        $this->seed(\Database\Seeders\TariffSeeder::class);
+        $this->seed(TariffSeeder::class);
 
         $this->assertDatabaseHas('tariffs', ['category' => TariffCategory::Residential->value]);
         $this->assertDatabaseHas('tariffs', ['category' => TariffCategory::Commercial->value]);

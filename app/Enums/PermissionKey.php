@@ -41,6 +41,8 @@ enum PermissionKey: string
     case CreateGovernorates = 'governorates.create';
     case UpdateGovernorates = 'governorates.update';
 
+    case ViewMeterReadings = 'meter_readings.view';
+    case RecordMeterReadings = 'meter_readings.record';
     case RecordCollections = 'collections.record';
     case ConfirmCollections = 'collections.confirm';
     case ViewCollections = 'collections.view';
@@ -76,6 +78,8 @@ enum PermissionKey: string
             self::ViewGovernorates => 'View Governorates',
             self::CreateGovernorates => 'Add Governorates',
             self::UpdateGovernorates => 'Edit Governorates',
+            self::ViewMeterReadings => 'View Meter Readings',
+            self::RecordMeterReadings => 'Record Meter Readings',
             self::RecordCollections => 'Record Collections',
             self::ConfirmCollections => 'Confirm Collections',
             self::ViewCollections => 'View Collections',
@@ -134,6 +138,10 @@ enum PermissionKey: string
             'governorates' => [
                 'label' => 'Governorates',
                 'actions' => ['view' => self::ViewGovernorates, 'create' => self::CreateGovernorates, 'update' => self::UpdateGovernorates],
+            ],
+            'meter_readings' => [
+                'label' => 'Meter Readings',
+                'actions' => ['view' => self::ViewMeterReadings, 'record' => self::RecordMeterReadings],
             ],
             'collections' => [
                 'label' => 'Collections',

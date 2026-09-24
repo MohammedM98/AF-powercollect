@@ -22,6 +22,14 @@ class DatabaseSeederTest extends TestCase
         $this->assertGreaterThan(0, Subscriber::count());
     }
 
+    public function test_every_seeded_subscriber_gets_a_unique_account_number(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertSame(0, Subscriber::whereNull('account_number')->count());
+        $this->assertSame(Subscriber::count(), Subscriber::distinct()->count('account_number'));
+    }
+
     public function test_database_seeder_spreads_demo_data_across_several_branches(): void
     {
         $this->seed(DatabaseSeeder::class);

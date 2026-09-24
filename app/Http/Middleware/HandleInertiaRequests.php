@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\CircuitBreaker;
 use App\Models\Governorate;
 use App\Models\MeterBox;
+use App\Models\MeterReading;
 use App\Models\Permission;
 use App\Models\Subscriber;
 use App\Models\Tariff;
@@ -63,6 +64,7 @@ class HandleInertiaRequests extends Middleware
                 'viewTariffs' => $user->can('viewAny', Tariff::class),
                 'viewCircuitBreakers' => $user->can('viewAny', CircuitBreaker::class),
                 'viewMeterBoxes' => $user->can('viewAny', MeterBox::class),
+                'viewMeterReadings' => $user->can('viewAny', MeterReading::class),
                 'viewGovernorates' => $user->can('viewAny', Governorate::class),
                 'manageSettings' => $user->can('manage', Permission::class),
             ] : null,

@@ -192,6 +192,9 @@ return [
         'sub_area_id' => 'منطقة 2',
         'governorate_id' => 'المحافظة',
         'area_ids' => 'المناطق',
+        'subscriber_id' => 'المشترك',
+        'week_start' => 'الأسبوع',
+        'current_reading' => 'القراءة الحالية',
     ],
 
 ];

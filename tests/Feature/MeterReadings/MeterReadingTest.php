@@ -3,9 +3,11 @@
 namespace Tests\Feature\MeterReadings;
 
 use App\Enums\MeterReadingStatus;
+use App\Enums\PermissionKey;
 use App\Enums\SubscriberStatus;
 use App\Models\Branch;
 use App\Models\MeterReading;
+use App\Models\Permission;
 use App\Models\Subscriber;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,13 +38,14 @@ class MeterReadingTest extends TestCase
     public function test_data_entry_records_a_reading_without_charging_the_subscriber(): void
     {
         $this->actingAs($this->dataEntry)
+            ->from(route('subscribers.index'))
             ->post(route('meter-readings.store'), [
                 'subscriber_id' => $this->subscriber->id,
                 'week_start' => '2026-09-22',
                 'current_reading' => 1250,
             ])
             ->assertSessionHasNoErrors()
-            ->assertRedirect(route('meter-readings.index'));
+            ->assertRedirect(route('subscribers.index'));
 
         $reading = MeterReading::sole();
         $this->assertSame('2026-09-18', $reading->week_start->toDateString());
@@ -146,11 +149,50 @@ class MeterReadingTest extends TestCase
                 ->where('readings.data.0.subscriber_id', $this->subscriber->id));
     }
 
+    public function test_the_subscriber_statement_includes_their_readings(): void
+    {
+        $this->recordedReading('2026-09-11', 1200, 1250, MeterReadingStatus::Approved);
+        $this->recordedReading('2026-09-18', 1250, 1290);
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('subscribers.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('subscribers.data.0.id', $this->subscriber->id)
+                ->where('subscribers.data.0.lastReading', 1290)
+                ->where('subscribers.data.0.lastReadingWeekStart', '2026-09-18')
+                ->where('subscribers.data.0.canRecordReading', true)
+                ->has('subscribers.data.0.meterReadings', 2)
+                ->where('subscribers.data.0.meterReadings.0.weekStart', '2026-09-18')
+                ->where('subscribers.data.0.meterReadings.0.consumption', 40)
+                ->where('subscribers.data.0.meterReadings.0.canUpdate', true)
+                ->where('subscribers.data.0.meterReadings.1.canUpdate', false)
+                ->has('readingWeekOptions', 8)
+                ->where('readingWeekOptions.0.value', '2026-09-18'));
+    }
+
+    public function test_a_collector_is_not_offered_reading_entry_on_the_statement(): void
+    {
+        $collector = User::factory()->collector()->create(['branch_id' => $this->branch->id]);
+        $collector->permissions()->attach(
+            Permission::create([
+                'key' => PermissionKey::ViewSubscribers->value,
+                'label' => PermissionKey::ViewSubscribers->label(),
+            ]),
+        );
+
+        $this->actingAs($collector)
+            ->get(route('subscribers.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('subscribers.data.0.canRecordReading', false));
+    }
+
     public function test_a_pending_reading_can_be_corrected(): void
     {
         $reading = $this->recordedReading('2026-09-18', 1200, 1250);
 
         $this->actingAs($this->dataEntry)
+            ->from(route('meter-readings.index'))
             ->put(route('meter-readings.update', $reading), ['current_reading' => 1235, 'notes' => 'تصحيح'])
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('meter-readings.index'));

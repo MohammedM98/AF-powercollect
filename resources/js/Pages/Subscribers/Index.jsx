@@ -32,9 +32,13 @@ export default function Index({
     canEditMinimumCharge,
     filters,
     filterOptions,
+    readingWeekOptions,
 }) {
     const [modalSubscriber, setModalSubscriber] = useState(null);
-    const [viewingSubscriber, setViewingSubscriber] = useState(null);
+    const [viewingSubscriberId, setViewingSubscriberId] = useState(null);
+    // Looked up from the current page props (not kept as a copy) so the
+    // statement refreshes after a reading is saved from inside it.
+    const viewingSubscriber = subscribers.data.find((subscriber) => subscriber.id === viewingSubscriberId) ?? null;
     const [creating, setCreating] = useState(false);
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/subscribers', filters);
 
@@ -118,7 +122,7 @@ export default function Index({
                                     <td className="px-6 py-4 font-medium text-gray-900">
                                         <button
                                             type="button"
-                                            onClick={() => setViewingSubscriber(subscriber)}
+                                            onClick={() => setViewingSubscriberId(subscriber.id)}
                                             className="text-start text-brand-700 hover:underline"
                                         >
                                             {subscriber.full_name}
@@ -135,7 +139,7 @@ export default function Index({
                                     <td className="px-6 py-4 text-end">
                                         <RowActionsMenu>
                                             <button
-                                                onClick={() => setViewingSubscriber(subscriber)}
+                                                onClick={() => setViewingSubscriberId(subscriber.id)}
                                                 className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
                                             >
                                                 عرض
@@ -179,10 +183,11 @@ export default function Index({
                 key={viewingSubscriber?.id ?? 'closed'}
                 subscriber={viewingSubscriber}
                 canUpdate={viewingSubscriber?.canUpdate}
-                onClose={() => setViewingSubscriber(null)}
+                readingWeekOptions={readingWeekOptions}
+                onClose={() => setViewingSubscriberId(null)}
                 onEdit={() => {
                     setModalSubscriber(viewingSubscriber);
-                    setViewingSubscriber(null);
+                    setViewingSubscriberId(null);
                 }}
             />
         </AuthenticatedLayout>

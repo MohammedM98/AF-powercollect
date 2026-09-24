@@ -10,6 +10,7 @@ use App\Http\Requests\UpdateSubscriberRequest;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
 use App\Models\MeterBox;
+use App\Models\MeterReading;
 use App\Models\SubArea;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
@@ -39,10 +40,12 @@ class SubscriberController extends Controller
 
         $query = Subscriber::query()
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
-            ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'registeredBy', 'transactions.recordedBy'])
+            ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'registeredBy', 'transactions.recordedBy', 'meterReadings.recordedBy'])
             ->withSum('transactions as outstanding_balance', 'amount');
         $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'account_number'], self::SORTABLE, 'full_name');
         $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'meter_box_id']);
+
+        $canRecordReadings = $actor->can('create', MeterReading::class);
 
         $subscribers = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -66,6 +69,23 @@ class SubscriberController extends Controller
                     'recordedByName' => $transaction->recordedBy?->name,
                     'recordedAt' => $transaction->created_at->format('Y-m-d H:i'),
                 ]),
+                'meterReadings' => $subscriber->meterReadings->sortByDesc('week_start')->values()->map(fn (MeterReading $reading) => [
+                    'id' => $reading->id,
+                    'weekStart' => $reading->week_start->format('Y-m-d'),
+                    'weekEnd' => $reading->week_end->format('Y-m-d'),
+                    'previous_reading' => $reading->previous_reading,
+                    'current_reading' => $reading->current_reading,
+                    'consumption' => $reading->consumption,
+                    'status' => $reading->status->value,
+                    'statusLabel' => __($reading->status->label()),
+                    'notes' => $reading->notes,
+                    'recordedByName' => $reading->recordedBy?->name,
+                    'recordedAt' => $reading->created_at->format('Y-m-d H:i'),
+                    'canUpdate' => $actor->can('update', $reading),
+                ]),
+                'lastReading' => (int) ($subscriber->meterReadings->sortByDesc('week_start')->first()?->current_reading ?? $subscriber->initial_reading ?? 0),
+                'lastReadingWeekStart' => $subscriber->meterReadings->max('week_start')?->format('Y-m-d'),
+                'canRecordReading' => $canRecordReadings && $subscriber->status === SubscriberStatus::Active,
                 'canUpdate' => $actor->can('update', $subscriber),
             ]);
 
@@ -75,6 +95,7 @@ class SubscriberController extends Controller
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'full_name'),
             'filterOptions' => $this->filterOptions($actor),
+            'readingWeekOptions' => MeterReading::recentWeekOptions(),
             ...$this->formOptions(),
         ]);
     }

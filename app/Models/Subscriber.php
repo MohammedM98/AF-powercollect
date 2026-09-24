@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
 #[Fillable([
     'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'branch_id',
@@ -90,5 +92,30 @@ class Subscriber extends Model
     public function transactions(): HasMany
     {
         return $this->hasMany(SubscriberTransaction::class);
+    }
+
+    public function meterReadings(): HasMany
+    {
+        return $this->hasMany(MeterReading::class);
+    }
+
+    public function latestMeterReading(): HasOne
+    {
+        return $this->hasOne(MeterReading::class)->latestOfMany('week_start');
+    }
+
+    /**
+     * The meter reading a new week starts from: the current reading of the
+     * last week recorded before it, or the subscriber's initial reading if
+     * this is their first week.
+     */
+    public function previousReadingBefore(Carbon $weekStart): int
+    {
+        $lastReading = $this->meterReadings()
+            ->where('week_start', '<', $weekStart->toDateString())
+            ->orderByDesc('week_start')
+            ->value('current_reading');
+
+        return (int) ($lastReading ?? $this->initial_reading ?? 0);
     }
 }

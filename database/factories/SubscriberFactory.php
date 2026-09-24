@@ -17,6 +17,20 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 class SubscriberFactory extends Factory
 {
     /**
+     * The model's creating hook normally assigns the account number, but
+     * DatabaseSeeder runs with model events disabled — assign it here in
+     * that case, one saved subscriber at a time so numbers never collide.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Subscriber $subscriber): void {
+            if ($subscriber->account_number === null) {
+                $subscriber->forceFill(['account_number' => Subscriber::nextAccountNumber()])->saveQuietly();
+            }
+        });
+    }
+
+    /**
      * Define the model's default state.
      *
      * @return array<string, mixed>

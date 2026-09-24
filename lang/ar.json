@@ -182,5 +182,10 @@
     "No governorates configured yet.": "لا توجد محافظات بعد.",
     "— No Governorate —": "— بلا محافظة —",
     "Check every area that belongs to this governorate.": "حدد كل منطقة تابعة لهذه المحافظة.",
-    "currently in :governorate": "حاليًا في :governorate"
+    "currently in :governorate": "حاليًا في :governorate",
+    "View Meter Readings": "عرض القراءات",
+    "Record Meter Readings": "تسجيل القراءات",
+    "Meter Readings": "القراءات",
+    "Pending Review": "قيد المراجعة",
+    "Approved": "معتمدة"
 }

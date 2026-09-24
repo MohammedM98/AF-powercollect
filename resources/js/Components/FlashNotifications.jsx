@@ -11,6 +11,8 @@ const MESSAGES = {
     'branch-updated': 'تم تحديث الفرع بنجاح.',
     'meter-box-created': 'تم إنشاء الطبلون بنجاح.',
     'meter-box-updated': 'تم تحديث الطبلون بنجاح.',
+    'meter-reading-created': 'تم حفظ القراءة بنجاح.',
+    'meter-reading-updated': 'تم تحديث القراءة بنجاح.',
     'tariff-created': 'تم إنشاء التعرفة بنجاح.',
     'tariff-updated': 'تم تحديث التعرفة بنجاح.',
     'circuit-breaker-created': 'تم إنشاء القاطع بنجاح.',

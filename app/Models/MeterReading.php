@@ -1,0 +1,64 @@
+<?php
+
+namespace App\Models;
+
+use App\Enums\MeterReadingStatus;
+use Carbon\CarbonInterface;
+use Database\Factories\MeterReadingFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+
+#[Fillable([
+    'subscriber_id', 'branch_id', 'week_start', 'week_end', 'previous_reading', 'current_reading',
+    'consumption', 'status', 'recorded_by', 'notes',
+])]
+class MeterReading extends Model
+{
+    /** @use HasFactory<MeterReadingFactory> */
+    use HasFactory;
+
+    /**
+     * Reading weeks run Friday → Thursday.
+     */
+    public const WEEK_STARTS_ON = CarbonInterface::FRIDAY;
+
+    protected function casts(): array
+    {
+        return [
+            'week_start' => 'date',
+            'week_end' => 'date',
+            'status' => MeterReadingStatus::class,
+        ];
+    }
+
+    /**
+     * The Friday that starts the reading week containing the given date.
+     */
+    public static function weekStartFor(CarbonInterface $date): Carbon
+    {
+        return Carbon::instance($date)->startOfWeek(self::WEEK_STARTS_ON)->startOfDay();
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === MeterReadingStatus::Pending;
+    }
+
+    public function subscriber(): BelongsTo
+    {
+        return $this->belongsTo(Subscriber::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function recordedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recorded_by');
+    }
+}

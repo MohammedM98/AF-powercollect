@@ -31,6 +31,7 @@ const SETTINGS_LINKS = [
     { can: 'viewMeterBoxes', href: '/meter-boxes' },
     { can: 'viewGovernorates', href: '/governorates' },
     { can: 'manageSettings', href: '/settings/permissions' },
+    { can: 'manageReadingSchedule', href: '/settings/reading-schedule' },
 ];
 
 export default function AuthenticatedLayout({ header, children }) {

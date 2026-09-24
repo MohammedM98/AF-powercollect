@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\MeterReadingStatus;
+use App\Enums\ReadingEntryMode;
 use App\Enums\SubscriberStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreMeterReadingRequest;
@@ -11,6 +12,7 @@ use App\Models\Area;
 use App\Models\Branch;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
+use App\Models\ReadingEntrySetting;
 use App\Models\SubArea;
 use App\Models\Subscriber;
 use App\Models\Tariff;
@@ -81,6 +83,7 @@ class MeterReadingController extends Controller
                     ->sum('amount_due'), 2, '.', ''),
             ],
             'canRecord' => $actor->can('create', MeterReading::class),
+            'entryWindow' => $this->entryWindow($actor),
             'status' => session('status'),
             'filters' => $this->dataTableState($request, 'full_name', 'asc', 25),
             'filterOptions' => $this->filterOptions($actor),
@@ -138,6 +141,23 @@ class MeterReadingController extends Controller
         ]);
 
         return back()->with('status', 'meter-reading-updated');
+    }
+
+    /**
+     * Whether the company-wide reading entry window is open, and whether it
+     * restricts this actor at all (admins may enter readings any time).
+     *
+     * @return array{isOpen: bool, appliesToActor: bool, openDays: array<int, int>}
+     */
+    private function entryWindow(User $actor): array
+    {
+        $setting = ReadingEntrySetting::current();
+
+        return [
+            'isOpen' => $setting->isOpen(),
+            'appliesToActor' => ! $actor->isSuperAdmin() && ! $actor->isBranchAdmin(),
+            'openDays' => $setting->mode === ReadingEntryMode::Automatic ? array_map('intval', $setting->open_days) : [],
+        ];
     }
 
     /**

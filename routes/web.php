@@ -9,6 +9,7 @@ use App\Http\Controllers\MeterBoxController;
 use App\Http\Controllers\MeterReadingController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReadingScheduleController;
 use App\Http\Controllers\SubAreaController;
 use App\Http\Controllers\SubscriberController;
 use App\Http\Controllers\TariffController;
@@ -39,6 +40,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/settings/permissions', [PermissionController::class, 'edit'])->name('settings.permissions.edit');
     Route::put('/settings/permissions', [PermissionController::class, 'update'])->name('settings.permissions.update');
+    Route::get('/settings/reading-schedule', [ReadingScheduleController::class, 'edit'])->name('settings.reading-schedule.edit');
+    Route::put('/settings/reading-schedule', [ReadingScheduleController::class, 'update'])->name('settings.reading-schedule.update');
 });
 
 require __DIR__.'/auth.php';

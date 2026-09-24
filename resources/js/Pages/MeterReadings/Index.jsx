@@ -8,6 +8,7 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
+import { WEEK_DAYS } from '@/lib/weekDays';
 
 const SORT_OPTIONS = [
     { value: 'full_name', label: 'الاسم' },
@@ -142,7 +143,30 @@ function SheetRow({ row, week }) {
     );
 }
 
-export default function Index({ rows, week, weekOptions, summary, canRecord, filters, filterOptions }) {
+function EntryWindowNotice({ entryWindow, canRecord }) {
+    if (entryWindow.appliesToActor && !entryWindow.isOpen) {
+        const days = WEEK_DAYS.filter((day) => entryWindow.openDays.includes(day.value)).map((day) => day.label);
+
+        return (
+            <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <p className="font-semibold">إدخال القراءات مغلق حاليًا.</p>
+                <p className="mt-1">{days.length ? `يُفتح الإدخال يوم ${days.join(' و')}.` : 'سيُفتح عندما يفتحه المدير.'} يمكنك عرض القراءات فقط.</p>
+            </div>
+        );
+    }
+
+    if (!canRecord) {
+        return <p className="mb-4 text-sm text-gray-500">يمكنك عرض القراءات فقط.</p>;
+    }
+
+    if (entryWindow.appliesToActor) {
+        return <p className="mb-4 text-sm font-medium text-emerald-700">إدخال القراءات مفتوح الآن.</p>;
+    }
+
+    return null;
+}
+
+export default function Index({ rows, week, weekOptions, summary, canRecord, entryWindow, filters, filterOptions }) {
     const { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-readings', filters, { week });
 
     function changeWeek(nextWeek) {
@@ -193,7 +217,7 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, fil
                 </div>
             </div>
 
-            {!canRecord && <p className="mb-4 text-sm text-gray-500">يمكنك عرض القراءات فقط.</p>}
+            <EntryWindowNotice entryWindow={entryWindow} canRecord={canRecord} />
 
             <div className="mb-3 flex flex-wrap items-center justify-end gap-2 text-sm text-gray-600">
                 <label htmlFor="sheet-sort">ترتيب حسب</label>

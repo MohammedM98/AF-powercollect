@@ -47,22 +47,35 @@ class MeterReading extends Model
     }
 
     /**
-     * The current reading week and the ones before it, newest first, as
+     * The start of the latest week that has ended, counting today as its
+     * last day if today is Thursday: readings taken on Thursday — or any
+     * day after it before the next Thursday — belong to that week. "Today"
+     * is the business's local date.
+     */
+    public static function latestEndedWeekStart(?CarbonInterface $at = null): Carbon
+    {
+        $today = Carbon::instance($at ?? now())->setTimezone(config('app.business_timezone'))->toDateString();
+
+        return self::weekStartFor(Carbon::parse($today)->subDays(6));
+    }
+
+    /**
+     * The latest ended week and the ones before it, newest first, as
      * select options.
      *
      * @return array<int, array{value: string, label: string}>
      */
     public static function recentWeekOptions(int $count = 8): array
     {
-        $currentWeekStart = self::weekStartFor(now());
+        $latestWeekStart = self::latestEndedWeekStart();
 
         return collect(range(0, $count - 1))
-            ->map(function (int $weeksAgo) use ($currentWeekStart) {
-                $weekStart = $currentWeekStart->copy()->subWeeks($weeksAgo);
+            ->map(function (int $weeksAgo) use ($latestWeekStart) {
+                $weekStart = $latestWeekStart->copy()->subWeeks($weeksAgo);
 
                 return [
                     'value' => $weekStart->toDateString(),
-                    'label' => $weekStart->format('d-m-Y').' ← '.$weekStart->copy()->addDays(6)->format('d-m-Y'),
+                    'label' => 'الأسبوع المنتهي في الخميس '.$weekStart->copy()->addDays(6)->format('d-m-Y'),
                 ];
             })
             ->all();

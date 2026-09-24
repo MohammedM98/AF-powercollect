@@ -47,9 +47,9 @@ class StoreMeterReadingRequest extends FormRequest
     }
 
     /**
-     * Readings must be entered week after week: one per subscriber per
-     * week, never before a week already recorded, and never lower than
-     * the reading the week starts from.
+     * Readings must be entered week after week, once the week has ended:
+     * one per subscriber per week, never before a week already recorded,
+     * and never lower than the reading the week starts from.
      *
      * @return array<int, callable>
      */
@@ -63,6 +63,13 @@ class StoreMeterReadingRequest extends FormRequest
 
                 $subscriber = Subscriber::findOrFail($this->integer('subscriber_id'));
                 $weekStart = $this->weekStart();
+
+                if ($weekStart->greaterThan(MeterReading::latestEndedWeekStart())) {
+                    $validator->errors()->add('week_start', 'لا يمكن إدخال قراءة لأسبوع لم ينتهِ بعد.');
+
+                    return;
+                }
+
                 $latestWeekStart = $subscriber->meterReadings()->max('week_start');
 
                 if ($latestWeekStart !== null && Carbon::parse($latestWeekStart)->gte($weekStart)) {

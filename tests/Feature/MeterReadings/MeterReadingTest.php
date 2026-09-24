@@ -152,6 +152,44 @@ class MeterReadingTest extends TestCase
             ->assertSessionHasErrors(['week_start' => 'يوجد قراءة لأسبوع لاحق لهذا المشترك، لا يمكن إدخال أسبوع سابق.']);
     }
 
+    public function test_the_sheet_stays_on_the_week_that_ended_on_thursday_when_entering_late(): void
+    {
+        $this->travelTo('2026-09-26 10:00:00'); // Saturday
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('week', '2026-09-18')
+                ->where('weekOptions.0.value', '2026-09-18')
+                ->where('weekOptions.0.label', 'الأسبوع المنتهي في الخميس 24-09-2026'));
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index', ['week' => '2026-09-25']))
+            ->assertInertia(fn ($page) => $page->where('week', '2026-09-18'));
+    }
+
+    public function test_a_week_that_has_not_ended_yet_is_rejected(): void
+    {
+        ReadingEntrySetting::factory()->forcedOpen()->create();
+        $this->travelTo('2026-09-26 10:00:00'); // Saturday — the week 25 Sep → 1 Oct is still running
+
+        $this->actingAs($this->dataEntry)
+            ->post(route('meter-readings.store'), $this->payload(['week_start' => '2026-09-25']))
+            ->assertSessionHasErrors(['week_start' => 'لا يمكن إدخال قراءة لأسبوع لم ينتهِ بعد.']);
+
+        $this->assertDatabaseCount('meter_readings', 0);
+    }
+
+    public function test_the_latest_ended_week_follows_the_business_timezone(): void
+    {
+        config(['app.business_timezone' => 'Asia/Gaza']);
+
+        // Wednesday 20:00 UTC is still Wednesday in Gaza: the 18 → 24 week hasn't ended.
+        $this->assertSame('2026-09-11', MeterReading::latestEndedWeekStart(now()->parse('2026-09-23 20:00:00', 'UTC'))->toDateString());
+        // Wednesday 22:30 UTC is already Thursday in Gaza: the 18 → 24 week ends today.
+        $this->assertSame('2026-09-18', MeterReading::latestEndedWeekStart(now()->parse('2026-09-23 22:30:00', 'UTC'))->toDateString());
+    }
+
     public function test_a_future_week_is_rejected(): void
     {
         $this->actingAs($this->dataEntry)
@@ -211,10 +249,10 @@ class MeterReadingTest extends TestCase
     public function test_the_manual_switch_opens_entry_on_any_day(): void
     {
         ReadingEntrySetting::factory()->forcedOpen()->create(['open_days' => [CarbonInterface::THURSDAY]]);
-        $this->travelTo('2026-09-21 10:00:00'); // Monday
+        $this->travelTo('2026-09-21 10:00:00'); // Monday — the latest ended week is 11 → 17 Sep
 
         $this->actingAs($this->dataEntry)
-            ->post(route('meter-readings.store'), $this->payload())
+            ->post(route('meter-readings.store'), $this->payload(['week_start' => '2026-09-11']))
             ->assertSessionHasNoErrors();
 
         $this->assertDatabaseCount('meter_readings', 1);

@@ -208,18 +208,18 @@ class MeterReadingController extends Controller
 
     /**
      * The requested week (any date is snapped to its Friday), defaulting
-     * to the current week and never later than it.
+     * to the latest week that has ended and never later than it.
      */
     private function selectedWeek(Request $request): Carbon
     {
-        $currentWeek = MeterReading::weekStartFor(now());
+        $latestWeek = MeterReading::latestEndedWeekStart();
         $requested = $request->date('week');
 
         if ($requested === null) {
-            return $currentWeek;
+            return $latestWeek;
         }
 
-        return MeterReading::weekStartFor($requested)->min($currentWeek);
+        return MeterReading::weekStartFor($requested)->min($latestWeek);
     }
 
     /**

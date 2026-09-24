@@ -40,6 +40,19 @@ function calculateCharges(currentReading, row) {
     return { consumption, readingFee, amountDue: Math.max(readingFee, Number(row.minimumPayment)) };
 }
 
+/** Shift a Y-m-d date by whole days without timezone drift. */
+function addDays(isoDate, days) {
+    const date = new Date(`${isoDate}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+
+    return date.toISOString().slice(0, 10);
+}
+
+/** Y-m-d → d-m-Y, the format used across the app's Arabic screens. */
+function formatDay(isoDate) {
+    return isoDate.split('-').reverse().join('-');
+}
+
 function focusNextReadingInput(currentInput) {
     const inputs = [...document.querySelectorAll('[data-reading-input]:not([disabled])')];
     inputs[inputs.indexOf(currentInput) + 1]?.focus();
@@ -186,7 +199,7 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, ent
                         <p className="mt-1 text-sm text-gray-500">أدخل القراءة الجديدة لكل مشترك — تُحفظ تلقائيًا عند الخروج من الحقل.</p>
                     </div>
                     <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600">
-                        الأسبوع
+                        تغيير الأسبوع
                         <select value={week} onChange={(e) => changeWeek(e.target.value)} className="rounded-md border-gray-300 text-sm shadow-sm">
                             {weekOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
@@ -199,6 +212,13 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, ent
             }
         >
             <Head title="القراءات الأسبوعية" />
+
+            <div className="mb-4 rounded-xl border border-gray-200 bg-white px-5 py-4">
+                <p className="text-lg font-bold text-gray-900">قراءة الأسبوع المنتهي في الخميس {formatDay(addDays(week, 6))}</p>
+                <p className="mt-1 text-sm text-gray-500">
+                    من الجمعة {formatDay(week)} إلى الخميس {formatDay(addDays(week, 6))}
+                </p>
+            </div>
 
             <div className="mb-4 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-gray-200 bg-white p-4">

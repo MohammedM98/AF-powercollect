@@ -18,11 +18,57 @@ use RuntimeException;
 class SubscriberSeeder extends Seeder
 {
     /**
-     * Seed a full governorate → area → sub-area → branch → meter box chain,
-     * plus a handful of circuit breakers, and a batch of subscribers spread
-     * realistically across all of it — enough sample data to exercise the
-     * subscriber list, filters, and the area/sub-area/meter-box cascade on
-     * the form. Never run in production.
+     * Each branch's own governorate → area → sub-area → meter box chain,
+     * its branch admin, its data-entry registrar, and a batch of
+     * subscribers. Two branches deliberately share a governorate (Baghdad)
+     * while having distinct areas, so branch-scoped and governorate-level
+     * filters both have something real to narrow down.
+     *
+     * @var array<int, array{governorate: string, area: string, branch: string, subAreas: array<int, string>, adminUsername: string, adminName: string, subscriberCount: int}>
+     */
+    private const BRANCHES = [
+        [
+            'governorate' => 'محافظة بغداد',
+            'area' => 'الكرادة',
+            'branch' => 'فرع الكرادة',
+            'subAreas' => ['حي المنصور', 'حي الجادرية', 'حي العرصات'],
+            'adminUsername' => 'karrada.admin',
+            'adminName' => 'Karrada Branch Admin',
+            'subscriberCount' => 25,
+        ],
+        [
+            'governorate' => 'محافظة بغداد',
+            'area' => 'المنصور',
+            'branch' => 'فرع المنصور',
+            'subAreas' => ['حي الحارثية', 'حي اليرموك'],
+            'adminUsername' => 'mansour.admin',
+            'adminName' => 'Mansour Branch Admin',
+            'subscriberCount' => 18,
+        ],
+        [
+            'governorate' => 'محافظة البصرة',
+            'area' => 'العشار',
+            'branch' => 'فرع العشار',
+            'subAreas' => ['حي الجزائر', 'حي البراضعية'],
+            'adminUsername' => 'ashar.admin',
+            'adminName' => 'Ashar Branch Admin',
+            'subscriberCount' => 20,
+        ],
+    ];
+
+    private const STATUSES = [
+        SubscriberStatus::Active,
+        SubscriberStatus::Active,
+        SubscriberStatus::Active,
+        SubscriberStatus::Suspended,
+        SubscriberStatus::Disconnected,
+    ];
+
+    /**
+     * Seed several branches, each with its own governorate/area/sub-area/
+     * meter-box chain, branch admin, data-entry user, and subscribers —
+     * enough sample data spread across branches to exercise branch-scoped
+     * views, filters, and permissions. Never run in production.
      */
     public function run(): void
     {
@@ -36,55 +82,57 @@ class SubscriberSeeder extends Seeder
             $tariffs = Tariff::all();
         }
 
-        $governorate = Governorate::factory()->create(['name' => 'محافظة بغداد']);
-        $area = Area::factory()->create(['name' => 'الكرادة', 'governorate_id' => $governorate->id]);
-        $subAreas = SubArea::factory()->createMany([
-            ['name' => 'حي المنصور', 'area_id' => $area->id],
-            ['name' => 'حي الجادرية', 'area_id' => $area->id],
-            ['name' => 'حي العرصات', 'area_id' => $area->id],
-        ]);
+        $circuitBreakers = CircuitBreaker::factory()->count(5)->create();
+        $governorates = [];
 
-        $branch = Branch::factory()->create([
-            'name' => 'فرع الكرادة',
-            'governorate_id' => $governorate->id,
-            'area_id' => $area->id,
-        ]);
+        foreach (self::BRANCHES as $config) {
+            $governorates[$config['governorate']] ??= Governorate::factory()->create(['name' => $config['governorate']]);
+            $governorate = $governorates[$config['governorate']];
 
-        $registrar = User::factory()->dataEntry()->create([
-            'name' => 'Karrada Data Entry',
-            'username' => 'karrada.data.entry',
-            'password' => 'password',
-            'branch_id' => $branch->id,
-        ]);
+            $area = Area::factory()->create(['name' => $config['area'], 'governorate_id' => $governorate->id]);
 
-        $circuitBreakers = CircuitBreaker::factory()->count(4)->create();
+            $subAreas = SubArea::factory()->createMany(
+                collect($config['subAreas'])->map(fn (string $name) => ['name' => $name, 'area_id' => $area->id])->all(),
+            );
 
-        $meterBoxes = $subAreas->flatMap(fn (SubArea $subArea) => MeterBox::factory()->count(4)->create([
-            'branch_id' => $branch->id,
-            'sub_area_id' => $subArea->id,
-        ]));
-
-        $statuses = [
-            SubscriberStatus::Active,
-            SubscriberStatus::Active,
-            SubscriberStatus::Active,
-            SubscriberStatus::Suspended,
-            SubscriberStatus::Disconnected,
-        ];
-
-        for ($i = 0; $i < 30; $i++) {
-            $circuitBreaker = fake()->boolean(80) ? $circuitBreakers->random() : null;
-            $meterBox = fake()->boolean(85) ? $meterBoxes->random() : null;
-
-            Subscriber::factory()->create([
-                'branch_id' => $branch->id,
-                'registered_by' => $registrar->id,
-                'tariff_id' => $tariffs->random()->id,
-                'meter_box_id' => $meterBox?->id,
-                'circuit_breaker_id' => $circuitBreaker?->id,
-                'minimum_charge' => $circuitBreaker?->minimum_payment ?? fake()->randomFloat(2, 5, 50),
-                'status' => fake()->randomElement($statuses),
+            $branch = Branch::factory()->create([
+                'name' => $config['branch'],
+                'governorate_id' => $governorate->id,
+                'area_id' => $area->id,
             ]);
+
+            User::factory()->branchAdmin()->create([
+                'name' => $config['adminName'],
+                'username' => $config['adminUsername'],
+                'password' => 'password',
+                'branch_id' => $branch->id,
+            ]);
+
+            $registrar = User::factory()->dataEntry()->create([
+                'username' => str_replace('.admin', '.data.entry', $config['adminUsername']),
+                'password' => 'password',
+                'branch_id' => $branch->id,
+            ]);
+
+            $meterBoxes = $subAreas->flatMap(fn (SubArea $subArea) => MeterBox::factory()->count(4)->create([
+                'branch_id' => $branch->id,
+                'sub_area_id' => $subArea->id,
+            ]));
+
+            for ($i = 0; $i < $config['subscriberCount']; $i++) {
+                $circuitBreaker = fake()->boolean(80) ? $circuitBreakers->random() : null;
+                $meterBox = fake()->boolean(85) ? $meterBoxes->random() : null;
+
+                Subscriber::factory()->create([
+                    'branch_id' => $branch->id,
+                    'registered_by' => $registrar->id,
+                    'tariff_id' => $tariffs->random()->id,
+                    'meter_box_id' => $meterBox?->id,
+                    'circuit_breaker_id' => $circuitBreaker?->id,
+                    'minimum_charge' => $circuitBreaker?->minimum_payment ?? fake()->randomFloat(2, 5, 50),
+                    'status' => fake()->randomElement(self::STATUSES),
+                ]);
+            }
         }
     }
 }

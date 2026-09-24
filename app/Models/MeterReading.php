@@ -13,7 +13,7 @@ use Illuminate\Support\Carbon;
 
 #[Fillable([
     'subscriber_id', 'branch_id', 'week_start', 'week_end', 'previous_reading', 'current_reading',
-    'consumption', 'status', 'recorded_by', 'notes',
+    'consumption', 'unit_price', 'reading_fee', 'minimum_payment', 'amount_due', 'status', 'recorded_by', 'notes',
 ])]
 class MeterReading extends Model
 {
@@ -31,6 +31,10 @@ class MeterReading extends Model
             'week_start' => 'date',
             'week_end' => 'date',
             'status' => MeterReadingStatus::class,
+            'unit_price' => 'decimal:2',
+            'reading_fee' => 'decimal:2',
+            'minimum_payment' => 'decimal:2',
+            'amount_due' => 'decimal:2',
         ];
     }
 
@@ -62,6 +66,22 @@ class MeterReading extends Model
                 ];
             })
             ->all();
+    }
+
+    /**
+     * What a week's consumption costs: consumption × kilowatt price, but
+     * never less than the minimum payment.
+     *
+     * @return array{reading_fee: string, amount_due: string}
+     */
+    public static function chargesFor(int $consumption, float|string $unitPrice, float|string $minimumPayment): array
+    {
+        $readingFee = round($consumption * (float) $unitPrice, 2);
+
+        return [
+            'reading_fee' => number_format($readingFee, 2, '.', ''),
+            'amount_due' => number_format(max($readingFee, (float) $minimumPayment), 2, '.', ''),
+        ];
     }
 
     public function isPending(): bool

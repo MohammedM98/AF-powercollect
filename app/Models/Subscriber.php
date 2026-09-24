@@ -94,6 +94,15 @@ class Subscriber extends Model
         return $this->hasMany(SubscriberTransaction::class);
     }
 
+    /**
+     * The weekly minimum payment: the subscriber's own minimum charge, or
+     * their circuit breaker's minimum payment if none is set.
+     */
+    public function weeklyMinimumPayment(): string
+    {
+        return (string) ($this->minimum_charge ?? $this->circuitBreaker?->minimum_payment ?? '0.00');
+    }
+
     public function meterReadings(): HasMany
     {
         return $this->hasMany(MeterReading::class);

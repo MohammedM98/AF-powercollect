@@ -1,14 +1,29 @@
-import { useState } from 'react';
 import { usePage } from '@inertiajs/react';
 
+// Every destination here (dashboard, subscribers, users, settings…) is
+// still a plain Blade page, not an Inertia page — so these are real <a>
+// tags, not Inertia's <Link>. <Link> only belongs on links between two
+// Inertia-rendered pages; pointed at a Blade route, its XHR-style visit
+// gets back full HTML instead of an Inertia response and just fails
+// silently. Swap to <Link> once a destination is itself converted.
 function NavLink({ href, active, children }) {
     return (
-        <a href={href} aria-current={active ? 'page' : undefined} className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${active ? 'bg-white/15 text-white shadow-sm ring-1 ring-white/10' : 'text-violet-200 hover:bg-white/10 hover:text-white'}`}>
+        <a
+            href={href}
+            className={
+                'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition ' +
+                (active ? 'bg-brand-600 text-white shadow-sm' : 'text-violet-200 hover:bg-white/5 hover:text-white')
+            }
+        >
             {children}
         </a>
     );
 }
 
+// The settings area's own pages (Branches, Tariffs, Circuit Breakers,
+// Meter Boxes, Governorates, Permissions) live under one nav entry here,
+// with SettingsLayout's sub-nav tabs handling navigation between them. The
+// link goes to whichever of them the user can actually reach first.
 const SETTINGS_LINKS = [
     { can: 'viewBranches', href: '/branches' },
     { can: 'viewTariffs', href: '/tariffs' },
@@ -21,27 +36,55 @@ const SETTINGS_LINKS = [
 export default function AuthenticatedLayout({ header, children }) {
     const { props, url } = usePage();
     const { appName, auth, can } = props;
-    const [menuOpen, setMenuOpen] = useState(false);
+
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     const accessibleSettingsLinks = SETTINGS_LINKS.filter((link) => can?.[link.can]);
     const settingsHref = accessibleSettingsLinks[0]?.href;
     const settingsActive = accessibleSettingsLinks.some((link) => url.startsWith(link.href));
-    const sectionTitle = url.startsWith('/subscribers') ? 'المشتركون' : url.startsWith('/users') ? 'المستخدمون' : url.startsWith('/profile') ? 'الملف الشخصي' : settingsActive ? 'الإعدادات' : 'لوحة التحكم';
 
     return (
-        <div className="min-h-screen bg-slate-50 text-gray-900">
-            <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-white focus:p-3">انتقل إلى المحتوى</a>
-            <aside className="bg-violet-950 text-white lg:fixed lg:inset-y-0 lg:right-0 lg:z-30 lg:flex lg:w-64 lg:flex-col lg:overflow-y-auto">
-                <div className="flex items-center justify-between gap-3 px-5 py-5 lg:px-6 lg:py-8">
+        <div className="min-h-screen bg-gray-50 text-gray-900">
+            {/* Top bar */}
+            <header className="bg-violet-950">
+                <div className="mx-auto flex max-w-screen-2xl items-center justify-end gap-4 px-4 py-4 sm:px-6 lg:px-8">
+                    <div className="group relative">
+                        <button className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white transition hover:bg-white/20">
+                            {auth?.user?.name?.substring(0, 1)}
+                        </button>
+                        <div className="invisible absolute start-0 z-50 mt-2 w-56 rounded-md bg-white opacity-0 shadow-lg ring-1 ring-black/5 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+                            <div className="border-b border-gray-100 px-4 py-3">
+                                <div className="truncate text-sm font-semibold text-gray-900">{auth?.user?.name}</div>
+                                <div className="truncate text-xs text-gray-500">{auth?.user?.roleLabel}</div>
+                            </div>
+                            <a href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                الملف الشخصي
+                            </a>
+                            <form method="POST" action="/logout">
+                                <input type="hidden" name="_token" value={csrfToken} />
+                                <button type="submit" className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50">
+                                    تسجيل الخروج
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
                     <a href="/dashboard" className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white p-1.5"><img src="/images/logo.png" alt="" className="h-full w-full object-contain" /></span>
-                        <span className="min-w-0"><span className="block truncate text-base font-bold">{appName}</span><span className="mt-1 block text-xs text-violet-300">نظام التحصيل الكهربائي</span></span>
+                        <span className="min-w-0 text-right">
+                            <span className="block truncate text-lg font-extrabold leading-tight text-white">{appName}</span>
+                            <span className="block truncate text-xs text-violet-300">
+                                {auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}
+                            </span>
+                        </span>
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white p-1.5 shadow-sm">
+                            <img src="/images/logo.png" alt={appName} className="h-full w-full object-contain" />
+                        </span>
                     </a>
-                    <button type="button" aria-label="القائمة الرئيسية" aria-expanded={menuOpen} aria-controls="main-navigation" onClick={() => setMenuOpen(!menuOpen)} className="rounded-lg p-2 hover:bg-white/10 lg:hidden">
-                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path strokeLinecap="round" d={menuOpen ? 'M6 6l12 12M6 18L18 6' : 'M4 6h16M4 12h16M4 18h16'} /></svg>
-                    </button>
                 </div>
-                <nav id="main-navigation" aria-label="التنقل الرئيسي" className={`${menuOpen ? 'block' : 'hidden'} space-y-2 px-4 pb-5 lg:block lg:flex-1`}>
+            </header>
+
+            {/* Section nav */}
+            <nav className="bg-[#170f38]">
+                <div className="mx-auto flex max-w-screen-2xl items-center gap-1.5 overflow-x-auto px-4 py-2.5 sm:px-6 lg:px-8">
                     <NavLink href="/dashboard" active={url === '/dashboard'}>
                         لوحة التحكم
                         <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,31 +119,20 @@ export default function AuthenticatedLayout({ header, children }) {
                             </svg>
                         </NavLink>
                     )}
-                </nav>
-                <div className="hidden border-t border-white/10 px-6 py-5 lg:block"><p className="text-xs text-violet-300">الفرع الحالي</p><p className="mt-1 text-sm font-medium">{auth?.user?.branchName ?? 'جميع الفروع'}</p></div>
-            </aside>
-            <div className="min-w-0 lg:mr-64">
-                <header className="border-b border-gray-200/70 bg-white">
-                    <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-                        <div className="flex items-center gap-2 text-sm"><a href="/dashboard" className="text-gray-500 hover:text-brand-600">الرئيسية</a><span aria-hidden="true" className="text-gray-300">/</span><span className="font-medium text-gray-900">{sectionTitle}</span></div>
-                        <details className="group relative">
-                            <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg p-1 text-start [&::-webkit-details-marker]:hidden">
-                                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 font-bold text-brand-700">{auth?.user?.name?.substring(0, 1)}</span>
-                                <span className="hidden sm:block"><span className="block text-sm font-semibold">{auth?.user?.name}</span><span className="block text-xs text-gray-500">{auth?.user?.roleLabel}</span></span>
-                            </summary>
-                            <div className="absolute end-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
-                                <div className="border-b border-gray-100 px-4 py-3"><p className="truncate text-sm font-semibold">{auth?.user?.name}</p><p className="text-xs text-gray-500">{auth?.user?.roleLabel}</p></div>
-                                <a href="/profile" className="block px-4 py-3 text-sm hover:bg-gray-50">الملف الشخصي</a>
-                                <form method="POST" action="/logout"><input type="hidden" name="_token" value={csrfToken} /><button type="submit" className="block w-full px-4 py-3 text-start text-sm hover:bg-gray-50">تسجيل الخروج</button></form>
-                            </div>
-                        </details>
+                </div>
+            </nav>
+
+            {header && (
+                <div className="border-b border-gray-100 bg-white">
+                    <div className="mx-auto flex max-w-screen-2xl flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+                        {header}
                     </div>
-                </header>
-                <main id="main-content" className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-                    {header && <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">{header}</div>}
-                    {children}
-                </main>
-            </div>
+                </div>
+            )}
+
+            <main className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+                {children}
+            </main>
         </div>
     );
 }

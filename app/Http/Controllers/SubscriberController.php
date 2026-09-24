@@ -12,11 +12,13 @@ use App\Models\CircuitBreaker;
 use App\Models\MeterBox;
 use App\Models\SubArea;
 use App\Models\Subscriber;
+use App\Models\SubscriberTransaction;
 use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -37,7 +39,8 @@ class SubscriberController extends Controller
 
         $query = Subscriber::query()
             ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
-            ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'registeredBy']);
+            ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'registeredBy', 'transactions.recordedBy'])
+            ->withSum('transactions as outstanding_balance', 'amount');
         $this->applyDataTableFilters($query, $request, ['full_name', 'phone'], self::SORTABLE, 'full_name');
         $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'meter_box_id']);
 
@@ -55,6 +58,14 @@ class SubscriberController extends Controller
                 'circuitBreakerAmpere' => $subscriber->circuitBreaker?->ampere,
                 'statusLabel' => __($subscriber->status->label()),
                 'registeredByName' => $subscriber->registeredBy?->name,
+                'outstandingBalance' => $subscriber->outstanding_balance ?? '0.00',
+                'transactions' => $subscriber->transactions->sortByDesc('id')->values()->map(fn (SubscriberTransaction $transaction) => [
+                    'id' => $transaction->id,
+                    'type' => $transaction->type,
+                    'amount' => $transaction->amount,
+                    'recordedByName' => $transaction->recordedBy?->name,
+                    'recordedAt' => $transaction->created_at->format('Y-m-d H:i'),
+                ]),
                 'canUpdate' => $actor->can('update', $subscriber),
             ]);
 
@@ -93,7 +104,18 @@ class SubscriberController extends Controller
         $data['registered_by'] = $actor->id;
         $data = $this->enforceMinimumChargePermission($actor, $data);
 
-        Subscriber::create($data);
+        DB::transaction(function () use ($data, $actor): void {
+            $subscriber = Subscriber::create($data);
+
+            if ($subscriber->subscription_fee !== null && (float) $subscriber->subscription_fee > 0) {
+                $subscriber->transactions()->create([
+                    'recorded_by' => $actor->id,
+                    'type' => 'subscription_fee',
+                    'source_key' => 'subscription-fee:'.$subscriber->id,
+                    'amount' => $subscriber->subscription_fee,
+                ]);
+            }
+        });
 
         return redirect()->route('subscribers.index')->with('status', 'subscriber-created');
     }

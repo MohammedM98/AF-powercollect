@@ -172,6 +172,7 @@ export default function Index({
             )}
 
             <SubscriberDetailsModal
+                key={viewingSubscriber?.id ?? 'closed'}
                 subscriber={viewingSubscriber}
                 canUpdate={viewingSubscriber?.canUpdate}
                 onClose={() => setViewingSubscriber(null)}

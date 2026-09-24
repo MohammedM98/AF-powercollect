@@ -7,13 +7,18 @@ use App\Enums\SubscriberStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreMeterReadingRequest;
 use App\Http\Requests\UpdateMeterReadingRequest;
+use App\Models\Area;
 use App\Models\Branch;
+use App\Models\MeterBox;
 use App\Models\MeterReading;
+use App\Models\SubArea;
 use App\Models\Subscriber;
+use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -21,80 +26,75 @@ class MeterReadingController extends Controller
 {
     use FiltersDataTable;
 
-    private const SORTABLE = ['week_start', 'current_reading', 'consumption', 'created_at'];
+    private const SORTABLE = ['account_number', 'full_name'];
 
     /**
-     * Display a listing of the resource.
+     * The weekly reading sheet: one row per active subscriber for the
+     * chosen week, with their last reading, this week's reading (if
+     * entered), and what that week costs them.
      */
     public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', MeterReading::class);
 
         $actor = auth()->user();
+        $weekStart = $this->selectedWeek($request);
+        $week = $weekStart->toDateString();
 
-        $query = MeterReading::query()
-            ->when(! $actor->isSuperAdmin(), fn (Builder $q) => $q->where('branch_id', $actor->branch_id))
-            ->with(['subscriber', 'branch', 'recordedBy']);
+        $query = $this->subscribersInScope($actor)
+            ->with([
+                'tariff',
+                'circuitBreaker',
+                'meterBox.subArea',
+                'meterReadings' => fn ($q) => $q->whereDate('week_start', '<=', $week)->orderByDesc('week_start'),
+            ])
+            ->withExists(['meterReadings as has_later_week' => fn ($q) => $q->whereDate('week_start', '>', $week)]);
 
-        $search = trim((string) $request->string('search'));
+        $this->applyDataTableFilters($query, $request, ['full_name', 'account_number', 'phone'], self::SORTABLE, 'account_number');
+        $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
+        $this->applySheetFilters($query, $request, $week);
 
-        if ($search !== '') {
-            $query->whereHas('subscriber', fn (Builder $q) => $q
-                ->where('full_name', 'like', '%'.$search.'%')
-                ->orWhere('account_number', 'like', '%'.$search.'%'));
-        }
+        $enteredThisWeek = fn (Builder $q) => $q->whereDate('week_start', $week);
 
-        $this->applyDataTableFilters($query, $request, [], self::SORTABLE, 'week_start', 'desc');
-        $query->orderByDesc('id');
-        $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id']);
-
-        $weekFilter = (string) data_get($request->input('filter', []), 'week_start', '');
-
-        if ($weekFilter !== '') {
-            $query->whereDate('week_start', $weekFilter);
-        }
-
-        $readings = $query->paginate($this->dataTablePerPage($request))
+        $rows = $query->paginate($this->dataTablePerPage($request, 25))
             ->withQueryString()
-            ->through(fn (MeterReading $reading) => [
-                'id' => $reading->id,
-                'subscriber_id' => $reading->subscriber_id,
-                'accountNumber' => $reading->subscriber->account_number,
-                'subscriberName' => $reading->subscriber->full_name,
-                'branchName' => $reading->branch->name,
-                'weekStart' => $reading->week_start->format('Y-m-d'),
-                'weekEnd' => $reading->week_end->format('Y-m-d'),
-                'previous_reading' => $reading->previous_reading,
-                'current_reading' => $reading->current_reading,
-                'consumption' => $reading->consumption,
-                'status' => $reading->status->value,
-                'statusLabel' => __($reading->status->label()),
-                'notes' => $reading->notes,
-                'recordedByName' => $reading->recordedBy?->name,
-                'recordedAt' => $reading->created_at->format('Y-m-d H:i'),
-                'canUpdate' => $actor->can('update', $reading),
-            ]);
+            ->through(fn (Subscriber $subscriber) => $this->sheetRow($subscriber, $weekStart, $actor));
+
+        $scope = $this->subscribersInScope($actor);
 
         return Inertia::render('MeterReadings/Index', [
-            'readings' => $readings,
-            'canCreate' => $actor->can('create', MeterReading::class),
-            'filters' => $this->dataTableState($request, 'week_start', 'desc'),
-            'filterOptions' => $this->filterOptions($actor),
+            'rows' => $rows,
+            'week' => $week,
             'weekOptions' => MeterReading::recentWeekOptions(),
-            'subscriberOptions' => $actor->can('create', MeterReading::class) ? $this->subscriberOptions($actor) : [],
+            'summary' => [
+                'total' => (clone $scope)->count(),
+                'entered' => (clone $scope)->whereHas('meterReadings', $enteredThisWeek)->count(),
+                'amountDue' => number_format((float) MeterReading::query()
+                    ->whereIn('subscriber_id', (clone $scope)->select('id'))
+                    ->whereDate('week_start', $week)
+                    ->sum('amount_due'), 2, '.', ''),
+            ],
+            'canRecord' => $actor->can('create', MeterReading::class),
+            'status' => session('status'),
+            'filters' => $this->dataTableState($request, 'account_number', 'asc', 25),
+            'filterOptions' => $this->filterOptions($actor),
         ]);
     }
 
     /**
-     * Store a newly created resource in storage. The reading only records
-     * the meter — it does not charge the subscriber anything.
+     * Store a newly created resource in storage. The reading records the
+     * meter and what the week costs, but does not charge the subscriber's
+     * balance.
      */
     public function store(StoreMeterReadingRequest $request): RedirectResponse
     {
-        $subscriber = Subscriber::findOrFail($request->integer('subscriber_id'));
+        $subscriber = Subscriber::with(['tariff', 'circuitBreaker'])->findOrFail($request->integer('subscriber_id'));
         $weekStart = $request->weekStart();
         $previousReading = $subscriber->previousReadingBefore($weekStart);
         $currentReading = $request->integer('current_reading');
+        $consumption = $currentReading - $previousReading;
+        $unitPrice = (string) $subscriber->tariff->rate;
+        $minimumPayment = $subscriber->weeklyMinimumPayment();
 
         MeterReading::create([
             'subscriber_id' => $subscriber->id,
@@ -103,7 +103,10 @@ class MeterReadingController extends Controller
             'week_end' => $weekStart->copy()->addDays(6),
             'previous_reading' => $previousReading,
             'current_reading' => $currentReading,
-            'consumption' => $currentReading - $previousReading,
+            'consumption' => $consumption,
+            'unit_price' => $unitPrice,
+            'minimum_payment' => $minimumPayment,
+            ...MeterReading::chargesFor($consumption, $unitPrice, $minimumPayment),
             'status' => MeterReadingStatus::Pending,
             'recorded_by' => $request->user()->id,
             'notes' => $request->input('notes'),
@@ -113,77 +116,169 @@ class MeterReadingController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Update the specified resource in storage, recalculating its charges
+     * from the price and minimum captured when it was first recorded.
      */
     public function update(UpdateMeterReadingRequest $request, MeterReading $meterReading): RedirectResponse
     {
         $currentReading = $request->integer('current_reading');
+        $consumption = $currentReading - $meterReading->previous_reading;
 
         $meterReading->update([
             'current_reading' => $currentReading,
-            'consumption' => $currentReading - $meterReading->previous_reading,
-            'notes' => $request->input('notes'),
+            'consumption' => $consumption,
+            ...MeterReading::chargesFor($consumption, $meterReading->unit_price, $meterReading->minimum_payment),
+            'notes' => $request->has('notes') ? $request->input('notes') : $meterReading->notes,
         ]);
 
         return back()->with('status', 'meter-reading-updated');
     }
 
     /**
-     * Active subscribers the actor may record readings for, with where
-     * their meter last stood so the form can show it before saving.
+     * Active subscribers the actor may see readings for.
      *
-     * @return array<int, array{value: string, label: string, lastReading: int, lastWeekStart: ?string}>
+     * @return Builder<Subscriber>
      */
-    private function subscriberOptions(User $actor): array
+    private function subscribersInScope(User $actor): Builder
     {
         return Subscriber::query()
             ->where('status', SubscriberStatus::Active)
-            ->when(! $actor->isSuperAdmin(), fn (Builder $q) => $q->where('branch_id', $actor->branch_id))
-            ->with('latestMeterReading')
-            ->orderBy('account_number')
-            ->get(['id', 'account_number', 'full_name', 'initial_reading'])
-            ->map(fn (Subscriber $subscriber) => [
-                'value' => (string) $subscriber->id,
-                'label' => "{$subscriber->account_number} — {$subscriber->full_name}",
-                'lastReading' => (int) ($subscriber->latestMeterReading?->current_reading ?? $subscriber->initial_reading ?? 0),
-                'lastWeekStart' => $subscriber->latestMeterReading?->week_start->toDateString(),
-            ])
-            ->all();
+            ->when(! $actor->isSuperAdmin(), fn (Builder $q) => $q->where('branch_id', $actor->branch_id));
     }
 
     /**
-     * The Filter menu's dropdown groups for the index page.
+     * The requested week (any date is snapped to its Friday), defaulting
+     * to the current week and never later than it.
+     */
+    private function selectedWeek(Request $request): Carbon
+    {
+        $currentWeek = MeterReading::weekStartFor(now());
+        $requested = $request->date('week');
+
+        if ($requested === null) {
+            return $currentWeek;
+        }
+
+        return MeterReading::weekStartFor($requested)->min($currentWeek);
+    }
+
+    /**
+     * Filters that need a join rather than a plain column match: the
+     * area/sub-area a subscriber's meter box sits in, and whether this
+     * week's reading has been entered yet.
+     */
+    private function applySheetFilters(Builder $query, Request $request, string $week): void
+    {
+        $filters = (array) $request->input('filter', []);
+
+        if (filled($filters['area_id'] ?? null)) {
+            $query->whereHas('branch', fn (Builder $q) => $q->where('area_id', $filters['area_id']));
+        }
+
+        if (filled($filters['sub_area_id'] ?? null)) {
+            $query->whereHas('meterBox', fn (Builder $q) => $q->where('sub_area_id', $filters['sub_area_id']));
+        }
+
+        match ($filters['entry'] ?? null) {
+            'entered' => $query->whereHas('meterReadings', fn (Builder $q) => $q->whereDate('week_start', $week)),
+            'missing' => $query->whereDoesntHave('meterReadings', fn (Builder $q) => $q->whereDate('week_start', $week)),
+            default => null,
+        };
+    }
+
+    /**
+     * One sheet row. A reading already entered for the week shows the
+     * prices captured with it; otherwise the subscriber's current price
+     * and minimum are shown for the live calculation.
+     *
+     * @return array<string, mixed>
+     */
+    private function sheetRow(Subscriber $subscriber, Carbon $weekStart, User $actor): array
+    {
+        $reading = $subscriber->meterReadings->first(fn (MeterReading $r) => $r->week_start->equalTo($weekStart));
+        $lastBefore = $subscriber->meterReadings->first(fn (MeterReading $r) => $r->week_start->lessThan($weekStart));
+
+        return [
+            'id' => $subscriber->id,
+            'accountNumber' => $subscriber->account_number,
+            'fullName' => $subscriber->full_name,
+            'meterBoxNumber' => $subscriber->meterBox?->box_number,
+            'subAreaName' => $subscriber->meterBox?->subArea?->name,
+            'previousReading' => $reading?->previous_reading ?? (int) ($lastBefore?->current_reading ?? $subscriber->initial_reading ?? 0),
+            'unitPrice' => (string) ($reading?->unit_price ?? $subscriber->tariff->rate),
+            'minimumPayment' => (string) ($reading?->minimum_payment ?? $subscriber->weeklyMinimumPayment()),
+            'reading' => $reading ? [
+                'id' => $reading->id,
+                'currentReading' => $reading->current_reading,
+                'consumption' => $reading->consumption,
+                'readingFee' => $reading->reading_fee,
+                'amountDue' => $reading->amount_due,
+                'status' => $reading->status->value,
+                'statusLabel' => __($reading->status->label()),
+            ] : null,
+            'hasLaterWeek' => (bool) $subscriber->has_later_week,
+            'canEdit' => $reading
+                ? ! $subscriber->has_later_week && $actor->can('update', $reading)
+                : ! $subscriber->has_later_week && $actor->can('create', MeterReading::class),
+        ];
+    }
+
+    /**
+     * The Filter menu's dropdown groups.
      *
      * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string}>}>
      */
     private function filterOptions(User $actor): array
     {
-        $groups = [
-            [
-                'key' => 'week_start',
-                'label' => 'الأسبوع',
-                'options' => MeterReading::recentWeekOptions(),
-            ],
-            [
-                'key' => 'status',
-                'label' => 'الحالة',
-                'options' => collect(MeterReadingStatus::cases())->map(fn (MeterReadingStatus $status) => [
-                    'value' => $status->value,
-                    'label' => __($status->label()),
-                ])->all(),
-            ],
-        ];
+        $option = fn (string|int $value, string $label) => ['value' => (string) $value, 'label' => $label];
+        $groups = [];
 
         if ($actor->isSuperAdmin()) {
             $groups[] = [
                 'key' => 'branch_id',
                 'label' => 'الفرع',
-                'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => [
-                    'value' => (string) $branch->id,
-                    'label' => $branch->name,
-                ])->all(),
+                'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => $option($branch->id, $branch->name))->all(),
+            ];
+            $groups[] = [
+                'key' => 'area_id',
+                'label' => 'المنطقة',
+                'options' => Area::orderBy('name')->get()->map(fn (Area $area) => $option($area->id, $area->name))->all(),
             ];
         }
+
+        $groups[] = [
+            'key' => 'sub_area_id',
+            'label' => 'منطقة 2',
+            'options' => SubArea::query()
+                ->when(! $actor->isSuperAdmin(), fn (Builder $q) => $q->where('area_id', $actor->branch?->area_id))
+                ->orderBy('name')
+                ->get()
+                ->map(fn (SubArea $subArea) => $option($subArea->id, $subArea->name))
+                ->all(),
+        ];
+
+        $groups[] = [
+            'key' => 'meter_box_id',
+            'label' => 'الطبلون',
+            'options' => MeterBox::query()
+                ->when(! $actor->isSuperAdmin(), fn (Builder $q) => $q->where('branch_id', $actor->branch_id))
+                ->orderBy('box_number')
+                ->get()
+                ->map(fn (MeterBox $box) => $option($box->id, $box->name ? "{$box->box_number} — {$box->name}" : $box->box_number))
+                ->all(),
+        ];
+
+        $groups[] = [
+            'key' => 'tariff_id',
+            'label' => 'نوع الاشتراك',
+            'options' => Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => $option($tariff->id, __($tariff->category->label())))->all(),
+        ];
+
+        $groups[] = [
+            'key' => 'entry',
+            'label' => 'حالة الإدخال',
+            'options' => [$option('missing', 'لم تُدخل بعد'), $option('entered', 'تم الإدخال')],
+        ];
 
         return $groups;
     }

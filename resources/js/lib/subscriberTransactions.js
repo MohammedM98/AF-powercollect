@@ -22,6 +22,7 @@ export function buildSubscriberStatement({ transactions = [], meterReadings = []
         previousReading: reading.previous_reading,
         currentReading: reading.current_reading,
         consumption: reading.consumption,
+        amount: reading.amountDue,
         statusLabel: reading.statusLabel,
         statusTone: reading.status === 'approved' ? 'green' : 'amber',
         recordedByName: reading.recordedByName,

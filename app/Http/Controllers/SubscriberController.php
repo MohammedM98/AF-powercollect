@@ -76,6 +76,7 @@ class SubscriberController extends Controller
                     'previous_reading' => $reading->previous_reading,
                     'current_reading' => $reading->current_reading,
                     'consumption' => $reading->consumption,
+                    'amountDue' => $reading->amount_due,
                     'status' => $reading->status->value,
                     'statusLabel' => __($reading->status->label()),
                     'notes' => $reading->notes,

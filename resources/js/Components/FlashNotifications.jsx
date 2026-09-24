@@ -40,7 +40,16 @@ export default function FlashNotifications({ initialStatus }) {
         }
         showStatus(initialStatus);
         const unsubscribeSuccess = router.on('success', (event) => showStatus(event.detail.page.props.status));
-        const unsubscribeError = router.on('error', () => currentQueue.push('تعذّر الحفظ. يرجى مراجعة الحقول المحددة والمحاولة مجددًا.', 'error'));
+        // A single-field failure (e.g. a reading lower than the last one)
+        // is shown with its own message; anything else gets the general one.
+        const unsubscribeError = router.on('error', (event) => {
+            const messages = Object.values(event.detail.errors ?? {});
+
+            currentQueue.push(
+                messages.length === 1 ? `تعذّر الحفظ: ${messages[0]}` : 'تعذّر الحفظ. يرجى مراجعة الحقول المحددة والمحاولة مجددًا.',
+                'error',
+            );
+        });
 
         return () => {
             unsubscribeSuccess();

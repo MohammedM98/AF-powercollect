@@ -6,8 +6,10 @@ use App\Enums\MeterReadingStatus;
 use App\Enums\PermissionKey;
 use App\Enums\SubscriberStatus;
 use App\Models\Branch;
+use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\Permission;
+use App\Models\SubArea;
 use App\Models\Subscriber;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,6 +47,7 @@ class MeterReadingTest extends TestCase
                 'current_reading' => 1250,
             ])
             ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'meter-reading-created')
             ->assertRedirect(route('subscribers.index'));
 
         $reading = MeterReading::sole();
@@ -57,6 +60,52 @@ class MeterReadingTest extends TestCase
         $this->assertSame($this->branch->id, $reading->branch_id);
         $this->assertTrue($reading->recordedBy->is($this->dataEntry));
         $this->assertDatabaseCount('subscriber_transactions', 0);
+    }
+
+    public function test_the_week_is_charged_consumption_times_the_kilowatt_price(): void
+    {
+        $this->subscriber->tariff->update(['rate' => 0.6]);
+        $this->subscriber->update(['minimum_charge' => 20]);
+
+        $this->actingAs($this->dataEntry)
+            ->post(route('meter-readings.store'), $this->payload(['current_reading' => 1250]))
+            ->assertSessionHasNoErrors();
+
+        $reading = MeterReading::sole();
+        $this->assertSame('0.60', $reading->unit_price);
+        $this->assertSame('30.00', $reading->reading_fee);
+        $this->assertSame('20.00', $reading->minimum_payment);
+        $this->assertSame('30.00', $reading->amount_due);
+        $this->assertDatabaseCount('subscriber_transactions', 0);
+    }
+
+    public function test_the_minimum_payment_is_charged_when_the_reading_costs_less(): void
+    {
+        $this->subscriber->tariff->update(['rate' => 0.6]);
+        $this->subscriber->update(['minimum_charge' => 20]);
+
+        $this->actingAs($this->dataEntry)
+            ->post(route('meter-readings.store'), $this->payload(['current_reading' => 1218]))
+            ->assertSessionHasNoErrors();
+
+        $reading = MeterReading::sole();
+        $this->assertSame('10.80', $reading->reading_fee);
+        $this->assertSame('20.00', $reading->amount_due);
+    }
+
+    public function test_correcting_a_reading_recalculates_its_charges_at_the_recorded_price(): void
+    {
+        $reading = $this->recordedReading('2026-09-18', 1200, 1250);
+        $reading->update(['unit_price' => 0.5, 'minimum_payment' => 10]);
+        $this->subscriber->tariff->update(['rate' => 9]);
+
+        $this->actingAs($this->dataEntry)
+            ->put(route('meter-readings.update', $reading), ['current_reading' => 1260])
+            ->assertSessionHasNoErrors();
+
+        $reading->refresh();
+        $this->assertSame('30.00', $reading->reading_fee);
+        $this->assertSame('30.00', $reading->amount_due);
     }
 
     public function test_the_previous_reading_is_the_last_recorded_week(): void
@@ -135,18 +184,63 @@ class MeterReadingTest extends TestCase
         $this->assertDatabaseCount('meter_readings', 0);
     }
 
-    public function test_the_readings_list_only_shows_the_actors_branch(): void
+    public function test_the_reading_sheet_lists_active_subscribers_of_the_actors_branch_with_their_last_reading(): void
     {
-        $this->recordedReading('2026-09-18', 1200, 1250);
-        MeterReading::factory()->create();
+        $this->recordedReading('2026-09-11', 1200, 1250);
+        Subscriber::factory()->create(['branch_id' => $this->branch->id, 'status' => SubscriberStatus::Suspended]);
+        Subscriber::factory()->create();
 
         $this->actingAs($this->dataEntry)
             ->get(route('meter-readings.index'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('MeterReadings/Index')
-                ->has('readings.data', 1)
-                ->where('readings.data.0.subscriber_id', $this->subscriber->id));
+                ->where('week', '2026-09-18')
+                ->has('rows.data', 1)
+                ->where('rows.data.0.id', $this->subscriber->id)
+                ->where('rows.data.0.previousReading', 1250)
+                ->where('rows.data.0.reading', null)
+                ->where('rows.data.0.canEdit', true)
+                ->where('summary.total', 1)
+                ->where('summary.entered', 0));
+    }
+
+    public function test_the_reading_sheet_passes_on_the_saved_status_for_the_success_message(): void
+    {
+        $this->actingAs($this->dataEntry)
+            ->withSession(['status' => 'meter-reading-created'])
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page->where('status', 'meter-reading-created'));
+    }
+
+    public function test_the_reading_sheet_can_show_only_subscribers_still_missing_this_weeks_reading(): void
+    {
+        $this->recordedReading('2026-09-18', 1200, 1250);
+        $missing = Subscriber::factory()->create(['branch_id' => $this->branch->id]);
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index', ['filter' => ['entry' => 'missing']]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('rows.data', 1)
+                ->where('rows.data.0.id', $missing->id)
+                ->where('summary.entered', 1));
+    }
+
+    public function test_the_reading_sheet_filters_by_the_meter_boxs_sub_area(): void
+    {
+        $subArea = SubArea::factory()->create();
+        $inSubArea = Subscriber::factory()->create([
+            'branch_id' => $this->branch->id,
+            'meter_box_id' => MeterBox::factory()->create(['branch_id' => $this->branch->id, 'sub_area_id' => $subArea->id])->id,
+        ]);
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index', ['filter' => ['sub_area_id' => $subArea->id]]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('rows.data', 1)
+                ->where('rows.data.0.id', $inSubArea->id));
     }
 
     public function test_the_subscriber_statement_includes_their_readings(): void

@@ -4,7 +4,8 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatCurrency } from '@/lib/currency';
-import { filterSubscriberTransactions } from '@/lib/subscriberTransactions';
+import { buildSubscriberStatement, filterSubscriberStatement } from '@/lib/subscriberTransactions';
+import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 
 const STATUS_TONES = {
     active: 'green',
@@ -33,16 +34,28 @@ function Section({ title, children }) {
     );
 }
 
-export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, canUpdate }) {
+export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, canUpdate, readingWeekOptions = [] }) {
     const [activeTab, setActiveTab] = useState('transactions');
     const [expanded, setExpanded] = useState(false);
     const [search, setSearch] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+    const [enteringReading, setEnteringReading] = useState(false);
+    const [editingReading, setEditingReading] = useState(null);
     const tabsId = useId();
-    const transactions = subscriber?.transactions ?? [];
+    const statementRows = subscriber ? buildSubscriberStatement(subscriber) : [];
     const invalidDates = Boolean(dateFrom && dateTo && dateFrom > dateTo);
-    const visibleTransactions = filterSubscriberTransactions(transactions, { search, dateFrom, dateTo });
+    const visibleRows = filterSubscriberStatement(statementRows, { search, dateFrom, dateTo });
+    const lastReading = subscriber?.meterReadings?.[0];
+    const currentWeekRecorded = Boolean(lastReading && lastReading.weekStart === readingWeekOptions[0]?.value);
+    const readingSubscriberOption = subscriber
+        ? {
+              value: String(subscriber.id),
+              label: `${subscriber.account_number} — ${subscriber.full_name}`,
+              lastReading: subscriber.lastReading,
+              lastWeekStart: subscriber.lastReadingWeekStart,
+          }
+        : null;
 
     function resetFilters() {
         setSearch('');
@@ -51,6 +64,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
     }
 
     return (
+        <>
         <Modal show={Boolean(subscriber)} onClose={onClose} maxWidth={expanded ? 'full' : '7xl'}>
             {subscriber && (
                 <div role="dialog" aria-modal="true" aria-labelledby={`${tabsId}-title`} className="flex h-[calc(100dvh-8rem)] max-h-[960px] min-h-0 flex-col">
@@ -160,14 +174,27 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                 <p className="mt-2 text-2xl font-bold tabular-nums text-brand-700">{formatCurrency(subscriber.outstandingBalance)}</p>
                             </div>
                             <div className="rounded-xl border border-gray-200 p-5">
-                                <p className="text-sm text-gray-500">عدد المعاملات</p>
-                                <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{transactions.length}</p>
+                                <p className="text-sm text-gray-500">آخر قراءة للعداد</p>
+                                <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{subscriber.lastReading}</p>
                             </div>
                             <div className="rounded-xl border border-gray-200 p-5">
-                                <p className="text-sm text-gray-500">آخر معاملة</p>
-                                <p className="mt-3 text-base font-semibold text-gray-900">{transactions[0]?.recordedAt ?? 'لا توجد معاملات'}</p>
+                                <p className="text-sm text-gray-500">آخر أسبوع مسجل</p>
+                                <p className="mt-3 text-base font-semibold text-gray-900">
+                                    {lastReading ? `${lastReading.weekStart} ← ${lastReading.weekEnd}` : 'لا توجد قراءات بعد'}
+                                </p>
                             </div>
                         </div>
+                        {subscriber.canRecordReading && (
+                            <div className="flex items-center justify-end gap-3">
+                                {currentWeekRecorded ? (
+                                    <p className="text-sm text-gray-500">تم إدخال قراءة هذا الأسبوع.</p>
+                                ) : (
+                                    <PrimaryButton type="button" onClick={() => setEnteringReading(true)}>
+                                        + إدخال قراءة
+                                    </PrimaryButton>
+                                )}
+                            </div>
+                        )}
                         <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
                             <label className="block text-sm text-gray-600 lg:col-span-2">
                                 بحث في المعاملات
@@ -184,28 +211,40 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                         </div>
                         {invalidDates && <p role="alert" className="text-sm text-red-600">تاريخ البداية يجب أن يسبق تاريخ النهاية.</p>}
                         <div className="overflow-x-auto rounded-xl border border-gray-200">
-                            <table className="w-full min-w-[650px] text-start text-sm">
+                            <table className="w-full min-w-[900px] text-start text-sm">
                                 <thead className="bg-gray-50 text-gray-500">
                                     <tr>
-                                        {['التاريخ', 'نوع المعاملة', 'الوصف', 'المبلغ', 'سجّله'].map((label) => <th key={label} className="px-5 py-4 text-start font-medium">{label}</th>)}
+                                        {['التاريخ', 'البيان', 'القراءة السابقة', 'القراءة الحالية', 'الاستهلاك', 'المبلغ', 'الحالة', 'سجّله', ''].map((label, index) => (
+                                            <th key={index} className="px-4 py-4 text-start font-medium">{label}</th>
+                                        ))}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {visibleTransactions.map((transaction) => (
-                                        <tr key={transaction.id} className="hover:bg-gray-50">
-                                            <td className="whitespace-nowrap px-5 py-5 text-end text-gray-600" dir="ltr">{transaction.recordedAt}</td>
-                                            <td className="px-5 py-5"><StatusPill tone="amber" label="مستحق" /></td>
-                                            <td className="px-5 py-5 font-medium text-gray-900">رسوم اشتراك</td>
-                                            <td className="whitespace-nowrap px-5 py-5 font-semibold tabular-nums text-gray-900">{formatCurrency(transaction.amount)}</td>
-                                            <td className="px-5 py-5 text-gray-600">{transaction.recordedByName ?? '—'}</td>
+                                    {visibleRows.map((row) => (
+                                        <tr key={row.key} className="hover:bg-gray-50">
+                                            <td className="whitespace-nowrap px-4 py-4 text-end text-gray-600" dir="ltr">{row.date}</td>
+                                            <td className="px-4 py-4 font-medium text-gray-900">{row.description}</td>
+                                            <td className="px-4 py-4 tabular-nums text-gray-600">{row.previousReading ?? '—'}</td>
+                                            <td className="px-4 py-4 font-semibold tabular-nums text-gray-900">{row.currentReading ?? '—'}</td>
+                                            <td className="px-4 py-4 tabular-nums text-brand-700">{row.consumption ?? '—'}</td>
+                                            <td className="whitespace-nowrap px-4 py-4 font-semibold tabular-nums text-gray-900">{row.amount !== undefined ? formatCurrency(row.amount) : '—'}</td>
+                                            <td className="px-4 py-4"><StatusPill tone={row.statusTone} label={row.statusLabel} /></td>
+                                            <td className="px-4 py-4 text-gray-600">{row.recordedByName ?? '—'}</td>
+                                            <td className="px-4 py-4 text-end">
+                                                {row.reading?.canUpdate && (
+                                                    <button type="button" onClick={() => setEditingReading(row.reading)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50">
+                                                        تعديل
+                                                    </button>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
-                                    {!visibleTransactions.length && <tr><td colSpan={5} className="px-5 py-12 text-center text-gray-500">{transactions.length ? 'لا توجد معاملات تطابق البحث.' : 'لا توجد معاملات مسجلة بعد.'}</td></tr>}
+                                    {!visibleRows.length && <tr><td colSpan={9} className="px-5 py-12 text-center text-gray-500">{statementRows.length ? 'لا توجد معاملات تطابق البحث.' : 'لا توجد معاملات مسجلة بعد.'}</td></tr>}
                                 </tbody>
                             </table>
                         </div>
                         <div className="flex items-center justify-between gap-3 text-sm text-gray-500">
-                            <p aria-live="polite">عرض {visibleTransactions.length} من {transactions.length} معاملات</p>
+                            <p aria-live="polite">عرض {visibleRows.length} من {statementRows.length} معاملات</p>
                             {(search || dateFrom || dateTo) && <button type="button" onClick={resetFilters} className="font-medium text-brand-600 hover:underline">مسح عوامل التصفية</button>}
                         </div>
                     </div>
@@ -218,5 +257,26 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                 </div>
             )}
         </Modal>
+
+            {enteringReading && readingSubscriberOption && (
+                <MeterReadingModal
+                    show
+                    onClose={() => setEnteringReading(false)}
+                    reading={null}
+                    fixedSubscriber={readingSubscriberOption}
+                    weekOptions={readingWeekOptions}
+                />
+            )}
+
+            {editingReading && (
+                <MeterReadingModal
+                    key={editingReading.id}
+                    show
+                    onClose={() => setEditingReading(null)}
+                    reading={{ ...editingReading, subscriberName: subscriber?.full_name, accountNumber: subscriber?.account_number }}
+                    weekOptions={readingWeekOptions}
+                />
+            )}
+        </>
     );
 }

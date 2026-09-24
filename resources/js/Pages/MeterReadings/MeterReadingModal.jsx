@@ -18,16 +18,21 @@ function Summary({ label, value, tone = 'text-gray-900' }) {
     );
 }
 
-export default function MeterReadingModal({ show, onClose, reading, subscriberOptions, weekOptions }) {
+/**
+ * Enter or correct a weekly reading. `fixedSubscriber` (an option shaped
+ * like `subscriberOptions` entries) pins the form to one subscriber, as
+ * when it is opened from that subscriber's statement.
+ */
+export default function MeterReadingModal({ show, onClose, reading, subscriberOptions = [], fixedSubscriber = null, weekOptions }) {
     const isEdit = Boolean(reading);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm(
         isEdit
             ? { current_reading: String(reading.current_reading), notes: reading.notes ?? '' }
-            : { subscriber_id: '', week_start: weekOptions[0]?.value ?? '', current_reading: '', notes: '' },
+            : { subscriber_id: fixedSubscriber?.value ?? '', week_start: weekOptions[0]?.value ?? '', current_reading: '', notes: '' },
     );
 
-    const selectedSubscriber = isEdit ? null : subscriberOptions.find((option) => option.value === String(data.subscriber_id));
+    const selectedSubscriber = isEdit ? null : (fixedSubscriber ?? subscriberOptions.find((option) => option.value === String(data.subscriber_id)));
     const previousReading = isEdit ? reading.previous_reading : selectedSubscriber?.lastReading;
     const hasPrevious = previousReading !== undefined && previousReading !== null;
     const consumption = hasPrevious && data.current_reading !== '' ? Number(data.current_reading) - previousReading : null;
@@ -41,7 +46,7 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
     function submit(e) {
         e.preventDefault();
 
-        const options = { preserveScroll: true, onSuccess: close };
+        const options = { preserveScroll: true, preserveState: true, onSuccess: close };
 
         if (isEdit) {
             put(`/meter-readings/${reading.id}`, options);
@@ -79,6 +84,9 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
                         </div>
                     ) : (
                         <>
+                            {fixedSubscriber ? (
+                                <div className="rounded-lg border border-gray-100 px-4 py-3 text-sm font-semibold text-gray-900">{fixedSubscriber.label}</div>
+                            ) : (
                             <div>
                                 <InputLabel value="المشترك" />
                                 <SearchableSelect
@@ -92,6 +100,7 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
                                 />
                                 <InputError message={errors.subscriber_id} className="mt-2" />
                             </div>
+                            )}
 
                             <div>
                                 <InputLabel htmlFor="week_start" value="الأسبوع (جمعة ← خميس)" />

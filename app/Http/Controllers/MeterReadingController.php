@@ -24,11 +24,6 @@ class MeterReadingController extends Controller
     private const SORTABLE = ['week_start', 'current_reading', 'consumption', 'created_at'];
 
     /**
-     * How many recent weeks the entry form and week filter offer.
-     */
-    private const SELECTABLE_WEEKS = 8;
-
-    /**
      * Display a listing of the resource.
      */
     public function index(Request $request): InertiaResponse
@@ -85,7 +80,7 @@ class MeterReadingController extends Controller
             'canCreate' => $actor->can('create', MeterReading::class),
             'filters' => $this->dataTableState($request, 'week_start', 'desc'),
             'filterOptions' => $this->filterOptions($actor),
-            'weekOptions' => $this->weekOptions(),
+            'weekOptions' => MeterReading::recentWeekOptions(),
             'subscriberOptions' => $actor->can('create', MeterReading::class) ? $this->subscriberOptions($actor) : [],
         ]);
     }
@@ -114,7 +109,7 @@ class MeterReadingController extends Controller
             'notes' => $request->input('notes'),
         ]);
 
-        return redirect()->route('meter-readings.index')->with('status', 'meter-reading-created');
+        return back()->with('status', 'meter-reading-created');
     }
 
     /**
@@ -130,28 +125,7 @@ class MeterReadingController extends Controller
             'notes' => $request->input('notes'),
         ]);
 
-        return redirect()->route('meter-readings.index')->with('status', 'meter-reading-updated');
-    }
-
-    /**
-     * The current reading week and the ones before it, newest first.
-     *
-     * @return array<int, array{value: string, label: string}>
-     */
-    private function weekOptions(): array
-    {
-        $currentWeekStart = MeterReading::weekStartFor(now());
-
-        return collect(range(0, self::SELECTABLE_WEEKS - 1))
-            ->map(function (int $weeksAgo) use ($currentWeekStart) {
-                $weekStart = $currentWeekStart->copy()->subWeeks($weeksAgo);
-
-                return [
-                    'value' => $weekStart->toDateString(),
-                    'label' => $weekStart->format('d-m-Y').' ← '.$weekStart->copy()->addDays(6)->format('d-m-Y'),
-                ];
-            })
-            ->all();
+        return back()->with('status', 'meter-reading-updated');
     }
 
     /**
@@ -188,7 +162,7 @@ class MeterReadingController extends Controller
             [
                 'key' => 'week_start',
                 'label' => 'الأسبوع',
-                'options' => $this->weekOptions(),
+                'options' => MeterReading::recentWeekOptions(),
             ],
             [
                 'key' => 'status',

@@ -42,6 +42,28 @@ class MeterReading extends Model
         return Carbon::instance($date)->startOfWeek(self::WEEK_STARTS_ON)->startOfDay();
     }
 
+    /**
+     * The current reading week and the ones before it, newest first, as
+     * select options.
+     *
+     * @return array<int, array{value: string, label: string}>
+     */
+    public static function recentWeekOptions(int $count = 8): array
+    {
+        $currentWeekStart = self::weekStartFor(now());
+
+        return collect(range(0, $count - 1))
+            ->map(function (int $weeksAgo) use ($currentWeekStart) {
+                $weekStart = $currentWeekStart->copy()->subWeeks($weeksAgo);
+
+                return [
+                    'value' => $weekStart->toDateString(),
+                    'label' => $weekStart->format('d-m-Y').' ← '.$weekStart->copy()->addDays(6)->format('d-m-Y'),
+                ];
+            })
+            ->all();
+    }
+
     public function isPending(): bool
     {
         return $this->status === MeterReadingStatus::Pending;

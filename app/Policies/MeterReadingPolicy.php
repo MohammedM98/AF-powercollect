@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Enums\PermissionKey;
 use App\Models\MeterReading;
+use App\Models\ReadingEntrySetting;
 use App\Models\User;
 
 class MeterReadingPolicy
@@ -29,7 +30,7 @@ class MeterReadingPolicy
      */
     public function create(User $user): bool
     {
-        return $this->canRecord($user);
+        return $this->canRecord($user) && $this->entryIsOpenFor($user);
     }
 
     /**
@@ -38,7 +39,7 @@ class MeterReadingPolicy
      */
     public function update(User $user, MeterReading $meterReading): bool
     {
-        if (! $this->canRecord($user) || ! $meterReading->isPending()) {
+        if (! $this->canRecord($user) || ! $meterReading->isPending() || ! $this->entryIsOpenFor($user)) {
             return false;
         }
 
@@ -67,6 +68,15 @@ class MeterReadingPolicy
     public function forceDelete(User $user, MeterReading $meterReading): bool
     {
         return false;
+    }
+
+    /**
+     * Admins may record readings at any time; everyone else only while
+     * the company-wide reading entry window is open.
+     */
+    private function entryIsOpenFor(User $user): bool
+    {
+        return $user->isSuperAdmin() || $user->isBranchAdmin() || ReadingEntrySetting::current()->isOpen();
     }
 
     /**

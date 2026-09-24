@@ -187,5 +187,8 @@
     "Record Meter Readings": "تسجيل القراءات",
     "Meter Readings": "القراءات",
     "Pending Review": "قيد المراجعة",
-    "Approved": "معتمدة"
+    "Approved": "معتمدة",
+    "Automatic (by schedule)": "تلقائي حسب الأيام المحددة",
+    "Open now": "مفتوح الآن",
+    "Closed now": "مغلق الآن"
 }

@@ -69,6 +69,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Business Timezone
+    |--------------------------------------------------------------------------
+    |
+    | The local timezone the business operates in. Times are still stored in
+    | UTC; this is used for day-of-week rules such as which day weekly
+    | reading entry opens.
+    |
+    */
+
+    'business_timezone' => env('BUSINESS_TIMEZONE', 'Asia/Gaza'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

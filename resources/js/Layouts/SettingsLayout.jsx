@@ -25,6 +25,7 @@ const TABS = [
     { href: '/meter-boxes', label: 'الطبلونات', can: 'viewMeterBoxes' },
     { href: '/governorates', label: 'المحافظات', can: 'viewGovernorates' },
     { href: '/settings/permissions', label: 'الصلاحيات', can: 'manageSettings' },
+    { href: '/settings/reading-schedule', label: 'مواعيد القراءات', can: 'manageReadingSchedule' },
 ];
 
 // Wraps the "instances"/configuration pages (Branches, Tariffs, Circuit

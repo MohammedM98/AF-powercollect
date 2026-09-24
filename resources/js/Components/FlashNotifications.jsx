@@ -13,6 +13,7 @@ const MESSAGES = {
     'meter-box-updated': 'تم تحديث الطبلون بنجاح.',
     'meter-reading-created': 'تم حفظ القراءة بنجاح.',
     'meter-reading-updated': 'تم تحديث القراءة بنجاح.',
+    'reading-schedule-updated': 'تم حفظ مواعيد القراءات بنجاح.',
     'tariff-created': 'تم إنشاء التعرفة بنجاح.',
     'tariff-updated': 'تم تحديث التعرفة بنجاح.',
     'circuit-breaker-created': 'تم إنشاء القاطع بنجاح.',

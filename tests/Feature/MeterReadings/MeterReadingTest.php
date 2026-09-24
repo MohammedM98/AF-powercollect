@@ -9,9 +9,11 @@ use App\Models\Branch;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\Permission;
+use App\Models\ReadingEntrySetting;
 use App\Models\SubArea;
 use App\Models\Subscriber;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -171,6 +173,63 @@ class MeterReadingTest extends TestCase
         }
 
         $this->assertDatabaseCount('meter_readings', 0);
+    }
+
+    public function test_data_entry_cannot_record_readings_outside_the_open_days(): void
+    {
+        ReadingEntrySetting::factory()->create(['open_days' => [CarbonInterface::THURSDAY]]);
+        $this->travelTo('2026-09-22 10:00:00'); // Tuesday
+
+        $this->actingAs($this->dataEntry)
+            ->post(route('meter-readings.store'), $this->payload())
+            ->assertForbidden();
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('canRecord', false)
+                ->where('entryWindow.isOpen', false)
+                ->where('entryWindow.appliesToActor', true)
+                ->where('entryWindow.openDays', [CarbonInterface::THURSDAY])
+                ->where('rows.data.0.canEdit', false));
+
+        $this->assertDatabaseCount('meter_readings', 0);
+    }
+
+    public function test_a_pending_reading_cannot_be_corrected_while_entry_is_closed(): void
+    {
+        $reading = $this->recordedReading('2026-09-18', 1200, 1250);
+        ReadingEntrySetting::factory()->forcedClosed()->create();
+
+        $this->actingAs($this->dataEntry)
+            ->put(route('meter-readings.update', $reading), ['current_reading' => 1260])
+            ->assertForbidden();
+
+        $this->assertSame(1250, $reading->fresh()->current_reading);
+    }
+
+    public function test_the_manual_switch_opens_entry_on_any_day(): void
+    {
+        ReadingEntrySetting::factory()->forcedOpen()->create(['open_days' => [CarbonInterface::THURSDAY]]);
+        $this->travelTo('2026-09-21 10:00:00'); // Monday
+
+        $this->actingAs($this->dataEntry)
+            ->post(route('meter-readings.store'), $this->payload())
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseCount('meter_readings', 1);
+    }
+
+    public function test_a_branch_admin_can_record_readings_while_entry_is_closed(): void
+    {
+        ReadingEntrySetting::factory()->forcedClosed()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id]);
+
+        $this->actingAs($branchAdmin)
+            ->post(route('meter-readings.store'), $this->payload())
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseCount('meter_readings', 1);
     }
 
     public function test_a_collector_cannot_record_readings(): void

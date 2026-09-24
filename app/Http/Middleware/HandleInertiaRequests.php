@@ -8,6 +8,7 @@ use App\Models\Governorate;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\Permission;
+use App\Models\ReadingEntrySetting;
 use App\Models\Subscriber;
 use App\Models\Tariff;
 use App\Models\User;
@@ -67,6 +68,7 @@ class HandleInertiaRequests extends Middleware
                 'viewMeterReadings' => $user->can('viewAny', MeterReading::class),
                 'viewGovernorates' => $user->can('viewAny', Governorate::class),
                 'manageSettings' => $user->can('manage', Permission::class),
+                'manageReadingSchedule' => $user->can('manage', ReadingEntrySetting::class),
             ] : null,
         ];
     }

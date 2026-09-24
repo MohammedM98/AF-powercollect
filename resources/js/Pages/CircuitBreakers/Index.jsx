@@ -70,7 +70,7 @@ export default function Index({ circuitBreakers, status, filters, filterOptions 
                             circuitBreakers.data.map((circuitBreaker) => (
                                 <tr key={circuitBreaker.id} className="transition hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">{circuitBreaker.ampere}</td>
-                                    <td className="px-6 py-4 text-gray-600" dir="ltr">
+                                    <td className="px-6 py-4 text-end text-gray-600" dir="ltr">
                                         {formatCurrency(circuitBreaker.minimum_payment)}
                                     </td>
                                     <td className="px-6 py-4 text-end">

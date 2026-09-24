@@ -36,6 +36,7 @@
 }
 
 .data-table {
+    width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 14px;
@@ -57,7 +58,8 @@
 .data-table th {
     color: #6b7280;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     text-align: start;
     text-transform: none;
 }
@@ -92,13 +94,16 @@
 }
 
 .data-table td[colspan] {
-    padding: 32px 16px;
+    padding: 48px 16px;
     text-align: center;
     white-space: normal;
+    color: #9ca3af;
+    font-size: 13px;
 }
 
 .data-table td[dir="ltr"] {
     font-variant-numeric: tabular-nums;
+    text-align: end;
 }
 
 .data-table-toolbar {

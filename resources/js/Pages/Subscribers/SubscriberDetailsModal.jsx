@@ -190,7 +190,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                 <tbody className="divide-y divide-gray-100">
                                     {visibleTransactions.map((transaction) => (
                                         <tr key={transaction.id} className="hover:bg-gray-50">
-                                            <td className="whitespace-nowrap px-5 py-5 text-gray-600" dir="ltr">{transaction.recordedAt}</td>
+                                            <td className="whitespace-nowrap px-5 py-5 text-end text-gray-600" dir="ltr">{transaction.recordedAt}</td>
                                             <td className="px-5 py-5"><StatusPill tone="amber" label="مستحق" /></td>
                                             <td className="px-5 py-5 font-medium text-gray-900">رسوم اشتراك</td>
                                             <td className="whitespace-nowrap px-5 py-5 font-semibold tabular-nums text-gray-900">{formatCurrency(transaction.amount)}</td>

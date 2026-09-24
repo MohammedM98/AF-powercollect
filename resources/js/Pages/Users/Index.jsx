@@ -77,7 +77,7 @@ export default function Index({ users, canCreate, status, branches, canChooseBra
                             users.data.map((user) => (
                                 <tr key={user.id} className="transition hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">{user.name}</td>
-                                    <td className="px-6 py-4 text-gray-600" dir="ltr">
+                                    <td className="px-6 py-4 text-end text-gray-600" dir="ltr">
                                         {user.username}
                                     </td>
                                     <td className="px-6 py-4 text-gray-600">{user.roleLabel}</td>

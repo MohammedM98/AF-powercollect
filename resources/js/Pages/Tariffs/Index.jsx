@@ -70,7 +70,7 @@ export default function Index({ tariffs, status, categoryOptions, filters, filte
                             tariffs.data.map((tariff) => (
                                 <tr key={tariff.id} className="transition hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">{tariff.categoryLabel}</td>
-                                    <td className="px-6 py-4 text-gray-600" dir="ltr">
+                                    <td className="px-6 py-4 text-end text-gray-600" dir="ltr">
                                         {formatCurrency(tariff.rate)}
                                     </td>
                                     <td className="px-6 py-4 text-end">

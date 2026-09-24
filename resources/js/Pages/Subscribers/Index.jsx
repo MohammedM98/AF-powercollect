@@ -120,7 +120,7 @@ export default function Index({
                                             {subscriber.full_name}
                                         </button>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600" dir="ltr">
+                                    <td className="px-6 py-4 text-end text-gray-600" dir="ltr">
                                         {subscriber.meterBoxNumber ?? '—'}
                                     </td>
                                     <td className="px-6 py-4 text-gray-600">{subscriber.tariffCategoryLabel}</td>

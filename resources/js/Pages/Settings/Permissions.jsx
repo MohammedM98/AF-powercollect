@@ -35,7 +35,7 @@ export default function Permissions({ users, permissionGroups, status, filters, 
                             <tr key={user.id} className="transition hover:bg-gray-50">
                                 <td className="px-6 py-4">
                                     <button type="button" onClick={() => setEditingUser(user)} className="text-start font-semibold text-brand-700 hover:underline">{user.name}</button>
-                                    <div className="text-gray-500" dir="ltr">@{user.username}</div>
+                                    <div className="text-end text-gray-500" dir="ltr">@{user.username}</div>
                                 </td>
                                 <td className="px-6 py-4 text-gray-600">{user.roleLabel}</td>
                                 <td className="px-6 py-4 text-gray-600">{user.branchName ?? '—'}</td>

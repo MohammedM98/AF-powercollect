@@ -73,7 +73,7 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                             meterBoxes.data.map((meterBox) => (
                                 <tr key={meterBox.id} className="transition hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">{meterBox.name}</td>
-                                    <td className="px-6 py-4 text-gray-600" dir="ltr">
+                                    <td className="px-6 py-4 text-end text-gray-600" dir="ltr">
                                         {meterBox.box_number}
                                     </td>
                                     <td className="px-6 py-4 text-gray-600">{meterBox.branchName}</td>

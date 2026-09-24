@@ -20,6 +20,39 @@ class Subscriber extends Model
     /** @use HasFactory<SubscriberFactory> */
     use HasFactory;
 
+    /**
+     * Every new subscriber gets an account number automatically; it is
+     * never taken from user input.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Subscriber $subscriber): void {
+            $subscriber->account_number ??= static::nextAccountNumber();
+        });
+    }
+
+    /**
+     * The next account number for the current year: the four-digit year
+     * followed by a five-digit sequence that restarts each year, e.g.
+     * 202600001. Ordering by length first keeps the sequence correct if a
+     * year ever passes 99,999 subscribers.
+     */
+    public static function nextAccountNumber(): string
+    {
+        $year = now()->format('Y');
+
+        $lastAccountNumber = static::query()
+            ->where('account_number', 'like', $year.'%')
+            ->orderByRaw('LENGTH(account_number) DESC')
+            ->orderByDesc('account_number')
+            ->lockForUpdate()
+            ->value('account_number');
+
+        $nextSequence = $lastAccountNumber ? (int) substr($lastAccountNumber, 4) + 1 : 1;
+
+        return $year.str_pad((string) $nextSequence, 5, '0', STR_PAD_LEFT);
+    }
+
     protected function casts(): array
     {
         return [

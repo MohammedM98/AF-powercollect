@@ -80,7 +80,7 @@ export default function Index({
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
-                placeholder="بحث بالاسم أو رقم الهاتف..."
+                placeholder="بحث بالاسم أو رقم الهاتف أو رقم المشترك..."
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={subscribers.total}
@@ -93,6 +93,7 @@ export default function Index({
                 <table className="data-table w-full text-sm text-start">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
+                            <SortableTh column="account_number" label="رقم المشترك" sortState={filters} onSort={sort} />
                             <SortableTh column="full_name" label="الاسم الكامل" sortState={filters} onSort={sort} />
                             <th className="px-6 py-3">الطبلون</th>
                             <th className="px-6 py-3">نوع الاشتراك</th>
@@ -104,13 +105,16 @@ export default function Index({
                     <tbody className="divide-y">
                         {subscribers.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={6}>
+                                <td className="px-6 py-4 text-gray-500" colSpan={7}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
                         ) : (
                             subscribers.data.map((subscriber) => (
                                 <tr key={subscriber.id} className="transition hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-end text-gray-600" dir="ltr">
+                                        {subscriber.account_number}
+                                    </td>
                                     <td className="px-6 py-4 font-medium text-gray-900">
                                         <button
                                             type="button"

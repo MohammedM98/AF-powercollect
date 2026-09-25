@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import Icon from '@/Components/Icon';
 
 function pageNumbers(current, last) {
     const delta = 1;
@@ -23,6 +24,9 @@ function pageNumbers(current, last) {
     return [...new Set(range)];
 }
 
+/**
+ * "Showing 1–15 of 63" and the page switch. The current page is burgundy.
+ */
 export default function Pagination({ meta, filters, baseUrl, extraParams = {} }) {
     const { current_page: current, last_page: last, from, to, total } = meta;
 
@@ -34,26 +38,29 @@ export default function Pagination({ meta, filters, baseUrl, extraParams = {} })
         router.get(baseUrl, { ...extraParams, ...filters, page }, { preserveState: true, preserveScroll: true, replace: true });
     }
 
+    const stepClass =
+        'flex h-8 items-center gap-1 rounded-[10px] px-2.5 text-sm font-semibold text-gray-500 transition hover:bg-surface hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40';
+
     return (
-        <div className="data-table-pagination flex flex-col items-center justify-center gap-3">
+        <div className="data-table-pagination flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-gray-500">
-                عرض {from}–{to} من {total}
+                عرض{' '}
+                <b className="font-display font-bold text-gray-900">
+                    {from}–{to}
+                </b>{' '}
+                من <b className="font-display font-bold text-gray-900">{total}</b>
             </p>
 
             {last > 1 && (
-                <nav aria-label="صفحات الجدول" className="flex flex-wrap items-center justify-center gap-1">
-                    <button
-                        type="button"
-                        disabled={current === 1}
-                        onClick={() => goTo(current - 1)}
-                        className="rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
+                <nav aria-label="صفحات الجدول" className="flex flex-wrap items-center gap-1 rounded-[14px] border border-gray-100 bg-gray-50 p-[3px]">
+                    <button type="button" disabled={current === 1} onClick={() => goTo(current - 1)} className={stepClass}>
+                        <Icon name="chevron-right" className="h-3.5 w-3.5" strokeWidth={2} />
                         السابق
                     </button>
 
                     {pageNumbers(current, last).map((page, index) =>
                         page === '…' ? (
-                            <span key={`ellipsis-${index}`} className="px-2 text-sm text-gray-400">
+                            <span key={`ellipsis-${index}`} className="px-1.5 text-sm text-gray-400">
                                 …
                             </span>
                         ) : (
@@ -62,10 +69,10 @@ export default function Pagination({ meta, filters, baseUrl, extraParams = {} })
                                 key={page}
                                 aria-current={page === current ? 'page' : undefined}
                                 onClick={() => goTo(page)}
-                                className={`min-w-[2.25rem] rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
+                                className={`h-8 min-w-[2rem] rounded-[10px] px-2 font-display text-[13px] font-semibold transition ${
                                     page === current
-                                        ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200'
-                                        : 'text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50'
+                                        ? 'bg-brand-gradient text-white shadow-glow'
+                                        : 'text-gray-500 hover:bg-surface hover:text-gray-900'
                                 }`}
                             >
                                 {page}
@@ -73,13 +80,9 @@ export default function Pagination({ meta, filters, baseUrl, extraParams = {} })
                         ),
                     )}
 
-                    <button
-                        type="button"
-                        disabled={current === last}
-                        onClick={() => goTo(current + 1)}
-                        className="rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
+                    <button type="button" disabled={current === last} onClick={() => goTo(current + 1)} className={stepClass}>
                         التالي
+                        <Icon name="chevron-left" className="h-3.5 w-3.5" strokeWidth={2} />
                     </button>
                 </nav>
             )}

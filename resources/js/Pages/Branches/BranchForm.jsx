@@ -44,7 +44,7 @@ export default function BranchForm({ data, setData, errors, governorates, areas 
                 ) : (
                     <select
                         id="governorate_id"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                        className="mt-1 block w-full"
                         value={data.governorate_id}
                         onChange={(e) => onGovernorateChange(e.target.value)}
                     >
@@ -66,12 +66,7 @@ export default function BranchForm({ data, setData, errors, governorates, areas 
                 ) : areasInGovernorate.length === 0 ? (
                     <p className="mt-1 text-sm text-gray-500">لا توجد مناطق في هذه المحافظة بعد.</p>
                 ) : (
-                    <select
-                        id="area_id"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                        value={data.area_id}
-                        onChange={(e) => setData('area_id', e.target.value)}
-                    >
+                    <select id="area_id" className="mt-1 block w-full" value={data.area_id} onChange={(e) => setData('area_id', e.target.value)}>
                         <option value="">— بلا منطقة —</option>
                         {areasInGovernorate.map((area) => (
                             <option key={area.id} value={area.id}>
@@ -87,7 +82,7 @@ export default function BranchForm({ data, setData, errors, governorates, areas 
                 <input
                     type="checkbox"
                     id="is_active"
-                    className="rounded border-gray-300 text-brand-600 shadow-sm"
+                    className="rounded text-brand-600"
                     checked={data.is_active}
                     onChange={(e) => setData('is_active', e.target.checked)}
                 />

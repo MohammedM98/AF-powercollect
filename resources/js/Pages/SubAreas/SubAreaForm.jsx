@@ -24,12 +24,7 @@ export default function SubAreaForm({ data, setData, errors, areas }) {
                 {areas.length === 0 ? (
                     <p className="mt-1 text-sm text-gray-500">لا توجد مناطق بعد.</p>
                 ) : (
-                    <select
-                        id="area_id"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                        value={data.area_id}
-                        onChange={(e) => setData('area_id', e.target.value)}
-                    >
+                    <select id="area_id" className="mt-1 block w-full" value={data.area_id} onChange={(e) => setData('area_id', e.target.value)}>
                         <option value="">— بلا منطقة —</option>
                         {areas.map((area) => (
                             <option key={area.id} value={area.id}>

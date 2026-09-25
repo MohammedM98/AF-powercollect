@@ -35,11 +35,12 @@ export default function Modal({ show, onClose, children, maxWidth = 'md' }) {
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-6" onClick={onClose}>
-            <div className="animate-modal-backdrop fixed inset-0 bg-gray-900/60 backdrop-blur-sm" />
+            <div className="animate-modal-backdrop fixed inset-0 bg-graphite-900/60 backdrop-blur-sm" />
             <div
-                className={`animate-modal-panel relative mx-auto mb-6 mt-6 w-full transform overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 transition-all ${maxWidthClass}`}
+                className={`animate-modal-panel relative mx-auto mb-6 mt-6 w-full transform overflow-hidden rounded-panel bg-surface shadow-2xl ring-1 ring-black/5 transition-all ${maxWidthClass}`}
                 onClick={(e) => e.stopPropagation()}
             >
+                <span aria-hidden="true" className="pointer-events-none absolute inset-x-16 top-0 z-10 h-[2px] rounded-full bg-spectrum opacity-80" />
                 {children}
             </div>
         </div>

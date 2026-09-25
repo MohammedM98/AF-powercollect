@@ -77,7 +77,7 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
                         <InputLabel htmlFor="week_start" value="الأسبوع (جمعة ← خميس)" />
                         <select
                             id="week_start"
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                            className="mt-1 block w-full"
                             value={data.week_start}
                             onChange={(e) => setData('week_start', e.target.value)}
                         >
@@ -124,13 +124,7 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
 
             <div>
                 <InputLabel htmlFor="notes" value="ملاحظات" />
-                <textarea
-                    id="notes"
-                    rows={2}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                    value={data.notes}
-                    onChange={(e) => setData('notes', e.target.value)}
-                />
+                <textarea id="notes" rows={2} className="mt-1 block w-full" value={data.notes} onChange={(e) => setData('notes', e.target.value)} />
                 <InputError message={errors.notes} className="mt-2" />
             </div>
         </FormModal>

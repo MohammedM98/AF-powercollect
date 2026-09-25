@@ -94,15 +94,15 @@ function SheetRow({ row, week }) {
     }
 
     return (
-        <tr className={error ? 'bg-red-50' : row.reading ? '' : 'bg-amber-50/40'}>
-            <td className="px-4 py-3">
+        <tr className={error ? 'bg-red-500/10' : row.reading ? '' : 'bg-amber-500/10/40'}>
+            <td className="px-4">
                 <p className="font-medium text-gray-900">{row.fullName}</p>
                 <p className="text-xs text-gray-500">
                     {[row.meterBoxNumber && `طبلون ${row.meterBoxNumber}`, row.subAreaName].filter(Boolean).join(' · ') || '—'}
                 </p>
             </td>
-            <td className="px-4 py-3 tabular-nums text-gray-600">{row.previousReading}</td>
-            <td className="px-4 py-3">
+            <td className="px-4 tabular-nums text-gray-600">{row.previousReading}</td>
+            <td className="px-4">
                 <input
                     type="number"
                     inputMode="numeric"
@@ -122,11 +122,7 @@ function SheetRow({ row, week }) {
                             focusNextReadingInput(e.currentTarget);
                         }
                     }}
-                    className={`block w-32 rounded-md text-sm tabular-nums shadow-sm disabled:bg-gray-50 disabled:text-gray-500 ${
-                        error
-                            ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                            : 'border-gray-300 focus:border-brand-500 focus:ring-brand-500'
-                    }`}
+                    className={`block w-32 text-sm tabular-nums ${error ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                 />
                 {error && <p className="mt-1 max-w-[16rem] text-xs text-red-600">{error}</p>}
                 {row.hasLaterWeek && <p className="mt-1 text-xs text-gray-400">توجد قراءة لأسبوع لاحق</p>}
@@ -134,18 +130,18 @@ function SheetRow({ row, week }) {
             <td className={`px-4 py-3 tabular-nums font-semibold ${charges && charges.consumption < 0 ? 'text-red-600' : 'text-brand-700'}`}>
                 {charges ? charges.consumption : '—'}
             </td>
-            <td className="whitespace-nowrap px-4 py-3 tabular-nums text-gray-600">{formatCurrency(row.unitPrice)}</td>
+            <td className="whitespace-nowrap px-4 tabular-nums text-gray-600">{formatCurrency(row.unitPrice)}</td>
             <td className={`whitespace-nowrap px-4 py-3 tabular-nums ${belowMinimum ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                 {charges ? formatCurrency(charges.readingFee) : '—'}
             </td>
             <td className={`whitespace-nowrap px-4 py-3 tabular-nums ${belowMinimum ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
                 {formatCurrency(row.minimumPayment)}
             </td>
-            <td className="whitespace-nowrap px-4 py-3 font-bold tabular-nums text-gray-900">
+            <td className="whitespace-nowrap px-4 font-bold tabular-nums text-gray-900">
                 {charges && charges.consumption >= 0 ? formatCurrency(charges.amountDue) : '—'}
                 {belowMinimum && charges.consumption >= 0 && <p className="text-xs font-normal text-gray-500">الحد الأدنى</p>}
             </td>
-            <td className="px-4 py-3">
+            <td className="px-4">
                 {saving ? (
                     <span className="text-xs text-gray-500">جارٍ الحفظ...</span>
                 ) : row.reading ? (
@@ -163,7 +159,7 @@ function EntryWindowNotice({ entryWindow, canRecord }) {
         const days = WEEK_DAYS.filter((day) => entryWindow.openDays.includes(day.value)).map((day) => day.label);
 
         return (
-            <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <div role="status" className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-300">
                 <p className="font-semibold">إدخال القراءات مغلق حاليًا.</p>
                 <p className="mt-1">{days.length ? `يُفتح الإدخال يوم ${days.join(' و')}.` : 'سيُفتح عندما يفتحه المدير.'} يمكنك عرض القراءات فقط.</p>
             </div>
@@ -175,7 +171,7 @@ function EntryWindowNotice({ entryWindow, canRecord }) {
     }
 
     if (entryWindow.appliesToActor) {
-        return <p className="mb-4 text-sm font-medium text-emerald-700">إدخال القراءات مفتوح الآن.</p>;
+        return <p className="mb-4 text-sm font-medium text-emerald-700 dark:text-emerald-400">إدخال القراءات مفتوح الآن.</p>;
     }
 
     return null;
@@ -197,7 +193,7 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, ent
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-xl font-bold text-gray-900">القراءات الأسبوعية</h2>
+                        <h2 className="text-3xl font-bold text-gray-900">القراءات الأسبوعية</h2>
                         <p className="mt-1 text-sm text-gray-500">أدخل القراءة الجديدة لكل مشترك — تُحفظ تلقائيًا عند الخروج من الحقل.</p>
                     </div>
                     <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600">
@@ -215,7 +211,7 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, ent
         >
             <Head title="القراءات الأسبوعية" />
 
-            <div className="mb-4 rounded-xl border border-gray-200 bg-white px-5 py-4">
+            <div className="mb-4 rounded-xl border border-gray-200 bg-surface px-5 py-4">
                 <p className="text-lg font-bold text-gray-900">قراءة الأسبوع المنتهي في الخميس {formatDay(addDays(week, 6))}</p>
                 <p className="mt-1 text-sm text-gray-500">
                     من الجمعة {formatDay(week)} إلى الخميس {formatDay(addDays(week, 6))}
@@ -223,13 +219,13 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, ent
             </div>
 
             <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <div className="rounded-xl border border-gray-200 bg-surface p-4">
                     <p className="text-sm text-gray-500">تم الإدخال</p>
                     <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">
                         {summary.entered} <span className="text-base font-medium text-gray-400">/ {summary.total}</span>
                     </p>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <div className="rounded-xl border border-gray-200 bg-surface p-4">
                     <p className="text-sm text-gray-500">المتبقي</p>
                     <p className="mt-1 text-2xl font-bold tabular-nums text-amber-600">{summary.total - summary.entered}</p>
                 </div>
@@ -243,12 +239,7 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, ent
 
             <div className="mb-3 flex flex-wrap items-center justify-end gap-2 text-sm text-gray-600">
                 <label htmlFor="sheet-sort">ترتيب حسب</label>
-                <select
-                    id="sheet-sort"
-                    value={filters.sort}
-                    onChange={(e) => sortBy(e.target.value, filters.direction)}
-                    className="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                >
+                <select id="sheet-sort" value={filters.sort} onChange={(e) => sortBy(e.target.value, filters.direction)} className="py-1.5 text-sm">
                     {SORT_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
                             {option.label}
@@ -258,7 +249,7 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, ent
                 <button
                     type="button"
                     onClick={() => sortBy(filters.sort, filters.direction === 'asc' ? 'desc' : 'asc')}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm hover:bg-gray-50"
+                    className="rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm shadow-sm hover:bg-gray-50"
                 >
                     {filters.direction === 'asc' ? 'تصاعدي ↑' : 'تنازلي ↓'}
                 </button>
@@ -284,23 +275,23 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, ent
 
             <div className="data-table-container">
                 <table className="data-table w-full text-sm text-start">
-                    <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                    <thead>
                         <tr>
                             <SortableTh column="full_name" label="المشترك" sortState={filters} onSort={sort} className="!px-4" />
                             <SortableTh column="last_reading" label="آخر قراءة" sortState={filters} onSort={sort} className="!px-4" />
                             <SortableTh column="current_reading" label="القراءة الجديدة" sortState={filters} onSort={sort} className="!px-4" />
                             <SortableTh column="consumption" label="الفرق (كيلو)" sortState={filters} onSort={sort} className="!px-4" />
-                            <th className="px-4 py-3">سعر الكيلو</th>
-                            <th className="px-4 py-3">قيمة القراءة</th>
-                            <th className="px-4 py-3">الحد الأدنى</th>
+                            <th className="px-4">سعر الكيلو</th>
+                            <th className="px-4">قيمة القراءة</th>
+                            <th className="px-4">الحد الأدنى</th>
                             <SortableTh column="amount_due" label="المطلوب دفعه" sortState={filters} onSort={sort} className="!px-4" />
-                            <th className="px-4 py-3">الحالة</th>
+                            <th className="px-4">الحالة</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody>
                         {rows.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={9}>
+                                <td className="text-gray-500" colSpan={9}>
                                     لا يوجد مشتركون مطابقون.
                                 </td>
                             </tr>

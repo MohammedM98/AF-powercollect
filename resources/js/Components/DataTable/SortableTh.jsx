@@ -1,30 +1,34 @@
+/**
+ * A column header that sorts the table. The sorted column is highlighted.
+ */
 export default function SortableTh({ column, label, sortState, onSort, className = '' }) {
     const { sort, direction } = sortState;
     const active = sort === column;
 
     return (
-        <th aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'} className={`px-6 py-3 ${className}`}>
+        <th aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'} className={className}>
             <button
                 type="button"
                 onClick={() => onSort(column)}
-                className="inline-flex items-center gap-1 rounded text-xs font-medium text-gray-500 transition hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+                className={`-mx-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${
+                    active ? 'bg-brand-500/10 text-gray-900' : 'text-gray-400 hover:text-gray-900'
+                }`}
             >
                 {label}
-                {active ? (
-                    direction === 'asc' ? (
-                        <svg className="h-3.5 w-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-                        </svg>
-                    ) : (
-                        <svg className="h-3.5 w-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                        </svg>
-                    )
-                ) : (
-                    <svg className="h-3.5 w-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
-                    </svg>
-                )}
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" aria-hidden="true">
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8 10l4-4 4 4"
+                        className={active && direction === 'asc' ? 'text-brand-500' : active ? 'opacity-30' : 'opacity-50'}
+                    />
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8 14l4 4 4-4"
+                        className={active && direction === 'desc' ? 'text-brand-500' : active ? 'opacity-30' : 'opacity-50'}
+                    />
+                </svg>
             </button>
         </th>
     );

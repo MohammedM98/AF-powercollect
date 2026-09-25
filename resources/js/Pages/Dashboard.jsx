@@ -2,6 +2,8 @@ import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
 import StatRing from '@/Components/StatRing';
+import CountUp from '@/Components/CountUp';
+import Icon from '@/Components/Icon';
 
 const ICONS = {
     branches: (
@@ -42,7 +44,7 @@ const ICONS = {
     ),
 };
 
-const RING_COLORS = ['text-brand-500', 'text-pink-500', 'text-amber-500', 'text-emerald-500', 'text-sky-500'];
+const RING_COLORS = ['text-brand-500', 'text-gray-400', 'text-amber-500', 'text-emerald-500', 'text-sky-500'];
 
 const SECTION_LABELS = {
     branches: { title: 'الفروع', statLabel: 'الفروع النشطة', viewAll: '/branches' },
@@ -87,7 +89,7 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-xl font-bold text-gray-900">
+                        <h2 className="text-3xl font-bold text-gray-900">
                             {greeting}، <span className="text-brand-600">{auth.user.name}</span>
                         </h2>
                         {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
@@ -104,53 +106,58 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
         >
             <Head title="لوحة التحكم" />
 
-            <div className="mb-4 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-4 py-2 text-xs font-medium text-brand-700">
-                تجربة React عبر Inertia — بقية النظام لا يزال Blade.
-            </div>
-
             {!hasAnyData ? (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center">
+                <div className="rounded-card border border-dashed border-gray-200 bg-surface px-6 py-16 text-center">
                     <p className="text-sm text-gray-500">لا توجد بيانات لعرضها حاليًا — لم يتم منحك صلاحية عرض أي جدول بعد.</p>
                 </div>
             ) : (
                 <div className="space-y-6">
                     {hero && (
-                        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-brand-600 to-pink-500 px-8 py-10 text-white">
-                            <svg
-                                className="pointer-events-none absolute inset-y-0 start-0 h-full w-1/2 max-w-md opacity-20"
-                                viewBox="0 0 300 200"
-                                fill="none"
-                            >
-                                <circle cx="40" cy="150" r="4" fill="white" />
-                                <circle cx="110" cy="90" r="4" fill="white" />
-                                <circle cx="170" cy="140" r="4" fill="white" />
-                                <circle cx="230" cy="60" r="4" fill="white" />
-                                <circle cx="260" cy="120" r="4" fill="white" />
-                                <path d="M40 150L110 90L170 140L230 60L260 120M110 90L170 140" stroke="white" strokeWidth="1.5" />
-                            </svg>
-                            <div className="relative">
-                                <div className="text-5xl font-black">{hero.activePct}%</div>
-                                <p className="mt-2 max-w-sm text-brand-50">
-                                    {hero.active} من {hero.total} {SECTION_LABELS[heroKey].statLabel} حاليًا
-                                </p>
-                                <p className="text-sm text-white/70">وصول قائم على الأدوار · بيانات مقسّمة حسب الفرع · بلا جداول بيانات</p>
+                        <div className="rise-in relative overflow-hidden rounded-hero bg-graphite-gradient px-8 py-9 text-white shadow-lift">
+                            <div
+                                className="pointer-events-none absolute -bottom-24 -start-10 h-72 w-72 rounded-full bg-brand-500/25 blur-3xl"
+                                aria-hidden="true"
+                            />
+                            <div className="relative flex flex-wrap items-center justify-between gap-8">
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-300">{SECTION_LABELS[heroKey].statLabel}</p>
+                                    <div className="mt-2 bg-gradient-to-b from-white to-[#9aa3ae] bg-clip-text font-display text-6xl font-bold leading-none text-transparent sm:text-7xl">
+                                        <CountUp value={hero.active} />
+                                    </div>
+                                    <p className="mt-3 text-sm text-[#9aa3ae]">
+                                        من {hero.total} · {hero.total - hero.active} غير نشط
+                                    </p>
+                                </div>
+                                <StatRing
+                                    percent={hero.activePct}
+                                    size={104}
+                                    color="text-brand-400"
+                                    trackClass="text-white/10"
+                                    labelClass="text-base text-white"
+                                />
                             </div>
+                            <div className="brand-spectrum relative mt-7 w-40" />
+                            <p className="relative mt-3 text-xs text-[#9aa3ae]">وصول قائم على الأدوار · بيانات مقسّمة حسب الفرع · بلا جداول بيانات</p>
                         </div>
                     )}
 
                     {/* Stat cards */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-4">
                         {sectionKeys.map((key, index) => {
                             const section = sections[key];
                             const hasPct = typeof section.activePct === 'number';
 
                             return (
-                                <div key={key} className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                                <div
+                                    key={key}
+                                    className="rise-in flex items-center gap-4 rounded-card border border-gray-100 bg-surface p-5 shadow-card transition hover:shadow-lift"
+                                    style={{ '--rise-delay': `${80 + index * 70}ms` }}
+                                >
                                     {hasPct ? (
                                         <StatRing percent={section.activePct} color={RING_COLORS[index % RING_COLORS.length]} />
                                     ) : (
                                         <span
-                                            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gray-50 ${RING_COLORS[index % RING_COLORS.length]}`}
+                                            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-gray-100 bg-gray-50 ${RING_COLORS[index % RING_COLORS.length]}`}
                                         >
                                             <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 {ICONS[key]}
@@ -158,7 +165,9 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                                         </span>
                                     )}
                                     <div>
-                                        <div className="text-2xl font-extrabold text-gray-900">{hasPct ? section.active : section.total}</div>
+                                        <div className="font-display text-3xl font-bold text-gray-900">
+                                            <CountUp value={hasPct ? section.active : section.total} />
+                                        </div>
                                         <div className="text-sm text-gray-500">{SECTION_LABELS[key].statLabel}</div>
                                     </div>
                                 </div>
@@ -174,11 +183,15 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                             const { title, viewAll } = SECTION_LABELS[key];
 
                             return (
-                                <div key={key} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                                <div key={key} className="rise-in rounded-card border border-gray-100 bg-surface p-6 shadow-card">
                                     <div className="mb-4 flex items-center justify-between">
                                         <h3 className="font-bold text-gray-900">{title}</h3>
-                                        <a href={viewAll} className="text-sm font-medium text-brand-600 hover:underline">
+                                        <a
+                                            href={viewAll}
+                                            className="inline-flex items-center gap-1 text-sm font-semibold text-gray-500 transition hover:text-gray-900"
+                                        >
                                             عرض الكل
+                                            <Icon name="chevron-left" className="h-4 w-4" strokeWidth={2} />
                                         </a>
                                     </div>
 
@@ -188,7 +201,7 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                                         <div className="flex flex-wrap gap-6">
                                             {section.recent.map((item) => (
                                                 <div key={item.id} className="flex w-24 flex-col items-center text-center">
-                                                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-500 text-lg font-bold text-white">
+                                                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-graphite-gradient font-display text-lg font-bold text-white dark:ring-1 dark:ring-white/10">
                                                         {item.name.substring(0, 1)}
                                                     </div>
                                                     <div className="mt-2 w-full truncate text-sm font-medium text-gray-900">{item.name}</div>
@@ -200,23 +213,25 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                                         section.recent.map((item) => (
                                             <div
                                                 key={item.id}
-                                                className="flex items-center justify-between gap-4 border-t border-gray-50 py-3 first:border-t-0"
+                                                className="flex items-center justify-between gap-4 border-t border-gray-100 py-3 first:border-t-0"
                                             >
                                                 <div className="flex min-w-0 items-center gap-3">
-                                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-gray-500">
                                                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             {ICONS[key]}
                                                         </svg>
                                                     </div>
                                                     <div className="min-w-0">
                                                         <div className="truncate font-medium text-gray-900">{item.name}</div>
-                                                        <div className="truncate text-sm text-gray-500">{item.subtitle ?? '—'}</div>
+                                                        <div className="truncate text-sm text-gray-500" dir="auto">
+                                                            {item.subtitle ?? '—'}
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 {key === 'branches' && (
                                                     <div className="flex shrink-0 items-center gap-3">
                                                         {item.active ? (
-                                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                                            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
                                                                 نشط
                                                             </span>
                                                         ) : (

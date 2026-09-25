@@ -19,7 +19,8 @@ export default function ConfirmPassword() {
         <GuestLayout>
             <Head title="تأكيد كلمة المرور" />
 
-            <div className="mb-4 text-sm text-gray-600">هذه منطقة آمنة من التطبيق. الرجاء تأكيد كلمة المرور قبل المتابعة.</div>
+            <h2 className="text-3xl font-bold text-gray-900">تأكيد كلمة المرور</h2>
+            <p className="mb-8 mt-2 text-sm text-gray-500">هذه منطقة آمنة من التطبيق. الرجاء تأكيد كلمة المرور قبل المتابعة.</p>
 
             <form onSubmit={submit}>
                 <div>
@@ -35,9 +36,9 @@ export default function ConfirmPassword() {
                     <InputError message={errors.password} className="mt-2" />
                 </div>
 
-                <div className="mt-4 flex justify-end">
-                    <PrimaryButton disabled={processing}>تأكيد</PrimaryButton>
-                </div>
+                <PrimaryButton disabled={processing} className="mt-7 w-full py-3.5 text-base">
+                    تأكيد
+                </PrimaryButton>
             </form>
         </GuestLayout>
     );

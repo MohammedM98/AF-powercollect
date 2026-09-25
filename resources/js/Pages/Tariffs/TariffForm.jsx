@@ -15,12 +15,7 @@ export default function TariffForm({ data, setData, errors, categoryOptions }) {
         <>
             <div>
                 <InputLabel htmlFor="category" value="الفئة" />
-                <select
-                    id="category"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                    value={data.category}
-                    onChange={(e) => setData('category', e.target.value)}
-                >
+                <select id="category" className="mt-1 block w-full" value={data.category} onChange={(e) => setData('category', e.target.value)}>
                     {categoryOptions.map((option) => (
                         <option key={option.value} value={option.value}>
                             {option.label}

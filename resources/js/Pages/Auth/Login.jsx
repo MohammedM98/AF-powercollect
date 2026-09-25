@@ -24,12 +24,15 @@ export default function Login() {
         <GuestLayout>
             <Head title="تسجيل الدخول" />
 
-            <form onSubmit={submit}>
+            <h2 className="text-3xl font-bold text-gray-900">مرحبًا بعودتك</h2>
+            <p className="mt-2 text-sm text-gray-500">سجّل دخولك للمتابعة إلى لوحة التحكم.</p>
+
+            <form onSubmit={submit} className="mt-10 space-y-5">
                 <div>
                     <InputLabel htmlFor="username" value="اسم المستخدم" />
                     <TextInput
                         id="username"
-                        className="mt-1 block w-full"
+                        className="mt-2 block w-full py-3"
                         dir="ltr"
                         value={data.username}
                         autoFocus
@@ -39,11 +42,11 @@ export default function Login() {
                     <InputError message={errors.username} className="mt-2" />
                 </div>
 
-                <div className="mt-4">
+                <div>
                     <InputLabel htmlFor="password" value="كلمة المرور" />
                     <PasswordInput
                         id="password"
-                        className="mt-1 block w-full"
+                        className="mt-2 block w-full py-3"
                         value={data.password}
                         autoComplete="current-password"
                         onChange={(e) => setData('password', e.target.value)}
@@ -51,21 +54,19 @@ export default function Login() {
                     <InputError message={errors.password} className="mt-2" />
                 </div>
 
-                <div className="mt-4 block">
-                    <label className="inline-flex items-center">
-                        <input
-                            type="checkbox"
-                            className="rounded border-gray-300 text-brand-600 shadow-sm focus:ring-brand-500"
-                            checked={data.remember}
-                            onChange={(e) => setData('remember', e.target.checked)}
-                        />
-                        <span className="ms-2 text-sm text-gray-600">تذكرني</span>
-                    </label>
-                </div>
+                <label className="flex items-center gap-2.5">
+                    <input
+                        type="checkbox"
+                        className="h-[18px] w-[18px]"
+                        checked={data.remember}
+                        onChange={(e) => setData('remember', e.target.checked)}
+                    />
+                    <span className="text-sm text-gray-600">تذكرني على هذا الجهاز</span>
+                </label>
 
-                <div className="mt-4 flex items-center justify-end">
-                    <PrimaryButton disabled={processing}>تسجيل الدخول</PrimaryButton>
-                </div>
+                <PrimaryButton disabled={processing} className="!mt-7 w-full py-3.5 text-base">
+                    تسجيل الدخول
+                </PrimaryButton>
             </form>
         </GuestLayout>
     );

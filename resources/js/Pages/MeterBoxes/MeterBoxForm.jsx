@@ -73,7 +73,7 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
                         ) : (
                             <select
                                 id="governorate_id"
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                className="mt-1 block w-full"
                                 value={governorateId}
                                 onChange={(e) => onGovernorateChange(e.target.value)}
                             >
@@ -94,12 +94,7 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
                         ) : areasInGovernorate.length === 0 ? (
                             <p className="mt-1 text-sm text-gray-500">لا توجد مناطق في هذه المحافظة بعد.</p>
                         ) : (
-                            <select
-                                id="area_id"
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                                value={areaId}
-                                onChange={(e) => onAreaChange(e.target.value)}
-                            >
+                            <select id="area_id" className="mt-1 block w-full" value={areaId} onChange={(e) => onAreaChange(e.target.value)}>
                                 <option value="">— اختر منطقة —</option>
                                 {areasInGovernorate.map((area) => (
                                     <option key={area.id} value={area.id}>
@@ -119,7 +114,7 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
                         ) : (
                             <select
                                 id="branch_id"
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                className="mt-1 block w-full"
                                 value={data.branch_id}
                                 onChange={(e) => setData('branch_id', e.target.value)}
                             >

@@ -2,9 +2,13 @@
 
 namespace Tests\Feature\SubAreas;
 
+use App\Enums\PermissionKey;
 use App\Models\Area;
+use App\Models\Branch;
+use App\Models\Permission;
 use App\Models\SubArea;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -99,7 +103,67 @@ class SubAreaAuthorizationTest extends TestCase
         ])->assertSessionHasErrors('name');
     }
 
-    public function test_branch_admin_cannot_create_a_sub_area(): void
+    public function test_branch_admin_can_create_a_sub_area_in_their_branchs_area(): void
+    {
+        $area = Area::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->for(Branch::factory()->inArea($area))->create();
+
+        $response = $this->actingAs($branchAdmin)->post(route('sub-areas.store'), [
+            'name' => 'Block 12',
+            'area_id' => $area->id,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('sub_areas', ['name' => 'Block 12', 'area_id' => $area->id]);
+    }
+
+    public function test_branch_admin_cannot_create_a_sub_area_in_another_area(): void
+    {
+        $branchArea = Area::factory()->create();
+        $otherArea = Area::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->for(Branch::factory()->inArea($branchArea))->create();
+
+        $response = $this->actingAs($branchAdmin)->post(route('sub-areas.store'), [
+            'name' => 'Block 12',
+            'area_id' => $otherArea->id,
+        ]);
+
+        $response->assertSessionHasErrors(['area_id' => 'يمكنك إضافة منطقة 2 داخل منطقة فرعك فقط.']);
+        $this->assertDatabaseMissing('sub_areas', ['name' => 'Block 12']);
+    }
+
+    public function test_branch_admin_can_rename_a_sub_area_in_their_branchs_area(): void
+    {
+        $area = Area::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->for(Branch::factory()->inArea($area))->create();
+        $subArea = SubArea::factory()->create(['name' => 'Old Name', 'area_id' => $area->id]);
+
+        $response = $this->actingAs($branchAdmin)->put(route('sub-areas.update', $subArea), [
+            'name' => 'New Name',
+            'area_id' => $area->id,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('sub_areas', ['id' => $subArea->id, 'name' => 'New Name']);
+    }
+
+    public function test_branch_admin_cannot_edit_a_sub_area_outside_their_branchs_area(): void
+    {
+        $branchArea = Area::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->for(Branch::factory()->inArea($branchArea))->create();
+        $foreignSubArea = SubArea::factory()->create(['name' => 'Old Name', 'area_id' => Area::factory()]);
+
+        $this->actingAs($branchAdmin)
+            ->get(route('sub-areas.edit', $foreignSubArea))
+            ->assertForbidden();
+
+        $this->actingAs($branchAdmin)
+            ->put(route('sub-areas.update', $foreignSubArea), ['name' => 'New Name', 'area_id' => $branchArea->id])
+            ->assertForbidden();
+        $this->assertDatabaseHas('sub_areas', ['id' => $foreignSubArea->id, 'name' => 'Old Name']);
+    }
+
+    public function test_branch_admin_whose_branch_has_no_area_cannot_create_a_sub_area(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
 
@@ -110,6 +174,25 @@ class SubAreaAuthorizationTest extends TestCase
         $this->actingAs($branchAdmin)
             ->post(route('sub-areas.store'), ['name' => 'Downtown North'])
             ->assertForbidden();
+    }
+
+    public function test_staff_granted_create_sub_areas_can_only_add_them_in_their_branchs_area(): void
+    {
+        $this->seed(PermissionSeeder::class);
+        $branchArea = Area::factory()->create();
+        $otherArea = Area::factory()->create();
+        $collector = User::factory()->collector()->for(Branch::factory()->inArea($branchArea))->create();
+        $collector->permissions()->attach(Permission::where('key', PermissionKey::CreateSubAreas->value)->firstOrFail());
+
+        $this->actingAs($collector)
+            ->post(route('sub-areas.store'), ['name' => 'Inside', 'area_id' => $branchArea->id])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($collector)
+            ->post(route('sub-areas.store'), ['name' => 'Outside', 'area_id' => $otherArea->id])
+            ->assertSessionHasErrors('area_id');
+
+        $this->assertDatabaseHas('sub_areas', ['name' => 'Inside', 'area_id' => $branchArea->id]);
+        $this->assertDatabaseMissing('sub_areas', ['name' => 'Outside']);
     }
 
     public function test_collector_cannot_create_a_sub_area(): void

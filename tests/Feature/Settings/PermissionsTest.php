@@ -135,14 +135,14 @@ class PermissionsTest extends TestCase
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
         $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
-        $viewTariffs = Permission::where('key', PermissionKey::ViewTariffs->value)->firstOrFail();
-        $collector->permissions()->attach([$viewSubscribers->id, $viewTariffs->id]);
+        $viewAreas = Permission::where('key', PermissionKey::ViewAreas->value)->firstOrFail();
+        $collector->permissions()->attach([$viewSubscribers->id, $viewAreas->id]);
 
         $response = $this->actingAs($branchAdmin)->get(route('settings.permissions.edit'));
 
         $response->assertInertia(fn ($page) => $page
             ->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
-                'users', 'subscribers', 'meter_boxes', 'meter_readings', 'collections',
+                'users', 'subscribers', 'tariffs', 'meter_boxes', 'circuit_breakers', 'sub_areas', 'meter_readings', 'collections',
             ])
             ->where('users.data.0.permissionIds', [$viewSubscribers->id]));
     }
@@ -173,9 +173,9 @@ class PermissionsTest extends TestCase
         $branch = Branch::factory()->create();
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
-        $viewTariffs = Permission::where('key', PermissionKey::ViewTariffs->value)->firstOrFail();
+        $viewGovernorates = Permission::where('key', PermissionKey::ViewGovernorates->value)->firstOrFail();
         $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
-        $collector->permissions()->attach($viewTariffs);
+        $collector->permissions()->attach($viewGovernorates);
 
         $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
             'permissions' => [
@@ -185,7 +185,7 @@ class PermissionsTest extends TestCase
 
         $collector = $collector->fresh();
         $this->assertTrue($collector->hasPermission(PermissionKey::ViewSubscribers));
-        $this->assertTrue($collector->hasPermission(PermissionKey::ViewTariffs));
+        $this->assertTrue($collector->hasPermission(PermissionKey::ViewGovernorates));
     }
 
     public function test_collector_cannot_view_the_permissions_settings_page(): void

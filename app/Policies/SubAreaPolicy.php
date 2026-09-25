@@ -3,17 +3,20 @@
 namespace App\Policies;
 
 use App\Enums\PermissionKey;
+use App\Models\Area;
 use App\Models\SubArea;
 use App\Models\User;
 
 class SubAreaPolicy
 {
     /**
-     * Determine whether the user can view any models.
+     * Determine whether the user can view any models. A Branch Admin always
+     * can: their branch's sub-areas are part of running the branch.
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::ViewSubAreas, PermissionKey::CreateSubAreas, PermissionKey::UpdateSubAreas);
+        return $user->isBranchAdmin()
+            || $user->hasAnyPermission(PermissionKey::ViewSubAreas, PermissionKey::CreateSubAreas, PermissionKey::UpdateSubAreas);
     }
 
     /**
@@ -25,19 +28,38 @@ class SubAreaPolicy
     }
 
     /**
-     * Determine whether the user can create models.
+     * Determine whether the user can create models — anywhere, or inside
+     * `$area` when one is given. A Super Admin may add a sub-area anywhere.
+     * A Branch Admin, or staff granted the permission, only inside their
+     * own branch's area.
      */
-    public function create(User $user): bool
+    public function create(User $user, ?Area $area = null): bool
     {
-        return $user->hasPermission(PermissionKey::CreateSubAreas);
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        $branchAreaId = $user->branchAreaId();
+
+        return ($user->isBranchAdmin() || $user->hasPermission(PermissionKey::CreateSubAreas))
+            && $branchAreaId !== null
+            && ($area === null || $area->id === $branchAreaId);
     }
 
     /**
-     * Determine whether the user can update the model.
+     * Determine whether the user can update the model: a Super Admin any
+     * sub-area; a Branch Admin, or staff granted the permission, only those
+     * in their own branch's area.
      */
     public function update(User $user, SubArea $subArea): bool
     {
-        return $user->hasPermission(PermissionKey::UpdateSubAreas);
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return ($user->isBranchAdmin() || $user->hasPermission(PermissionKey::UpdateSubAreas))
+            && $subArea->area_id !== null
+            && (int) $subArea->area_id === $user->branchAreaId();
     }
 
     /**

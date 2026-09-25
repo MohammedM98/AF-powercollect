@@ -10,7 +10,11 @@ export function subAreaFormData(subArea, defaultAreaId = '') {
     return subArea ? { name: subArea.name, area_id: subArea.area_id ?? '' } : { name: '', area_id: defaultAreaId };
 }
 
-export default function SubAreaForm({ data, setData, errors, areas }) {
+/**
+ * `allowNoArea` offers "— no area —"; only a super admin may leave a
+ * sub-area outside any area, everyone else places it in their branch's.
+ */
+export default function SubAreaForm({ data, setData, errors, areas, allowNoArea = true }) {
     return (
         <>
             <div>
@@ -25,7 +29,7 @@ export default function SubAreaForm({ data, setData, errors, areas }) {
                     <p className="mt-1 text-sm text-gray-500">لا توجد مناطق بعد.</p>
                 ) : (
                     <select id="area_id" className="mt-1 block w-full" value={data.area_id} onChange={(e) => setData('area_id', e.target.value)}>
-                        <option value="">— بلا منطقة —</option>
+                        {(allowNoArea || data.area_id === '') && <option value="">{allowNoArea ? '— بلا منطقة —' : '— اختر منطقة —'}</option>}
                         {areas.map((area) => (
                             <option key={area.id} value={area.id}>
                                 {area.name}

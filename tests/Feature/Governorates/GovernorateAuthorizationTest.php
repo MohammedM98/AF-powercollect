@@ -3,7 +3,9 @@
 namespace Tests\Feature\Governorates;
 
 use App\Models\Area;
+use App\Models\Branch;
 use App\Models\Governorate;
+use App\Models\SubArea;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -72,13 +74,29 @@ class GovernorateAuthorizationTest extends TestCase
         ])->assertSessionHasErrors('name');
     }
 
-    public function test_branch_admin_cannot_view_governorate_index(): void
+    public function test_branch_admin_sees_only_their_branch_location_on_the_governorates_page(): void
     {
-        $branchAdmin = User::factory()->branchAdmin()->create();
+        $governorate = Governorate::factory()->create(['name' => 'Baghdad']);
+        $branchArea = Area::factory()->create(['governorate_id' => $governorate->id, 'name' => 'Karrada']);
+        $neighbourArea = Area::factory()->create(['governorate_id' => $governorate->id, 'name' => 'Mansour']);
+        Governorate::factory()->create(['name' => 'Basra']);
+        SubArea::factory()->create(['area_id' => $branchArea->id, 'name' => 'Block 7']);
+        SubArea::factory()->create(['area_id' => $neighbourArea->id, 'name' => 'Block 9']);
+        $branchAdmin = User::factory()->branchAdmin()->for(Branch::factory()->inArea($branchArea))->create();
 
-        $this->actingAs($branchAdmin)
-            ->get(route('governorates.index'))
-            ->assertForbidden();
+        $response = $this->actingAs($branchAdmin)->get(route('governorates.index', ['selectedArea' => $neighbourArea->id]));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('scopedToBranch', true)
+            ->has('governorates.data', 1)
+            ->where('governorates.data.0.name', 'Baghdad')
+            ->has('selectedGovernorate.areas', 1)
+            ->where('selectedGovernorate.areas.0.name', 'Karrada')
+            ->where('selectedArea.name', 'Karrada')
+            ->where('selectedArea.canCreateSubArea', true)
+            ->has('selectedArea.subAreas', 1)
+            ->where('selectedArea.subAreas.0.name', 'Block 7')
+            ->where('selectedArea.subAreas.0.canUpdate', true));
     }
 
     public function test_branch_admin_cannot_create_a_governorate(): void

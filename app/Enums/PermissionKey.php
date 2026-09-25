@@ -87,20 +87,18 @@ enum PermissionKey: string
     }
 
     /**
-     * Whether this permission covers data the whole company shares —
-     * branches, tariffs, circuit breakers and the governorate/area/sub-area
-     * map — rather than one branch's own data. Running these is the general
-     * manager's job, so only a Super Admin may grant them.
+     * Whether this permission shapes the company itself — its branches and
+     * the governorate/area map they sit in — rather than work inside one
+     * branch. That is the general manager's job, so only a Super Admin may
+     * grant these. (Sub-areas stay grantable: staff add them only inside
+     * their own branch's area.)
      */
     public function isCompanyWide(): bool
     {
         return match ($this) {
             self::ViewBranches, self::CreateBranches, self::UpdateBranches,
-            self::ViewTariffs, self::CreateTariffs, self::UpdateTariffs,
-            self::ViewCircuitBreakers, self::CreateCircuitBreakers, self::UpdateCircuitBreakers,
             self::ViewGovernorates, self::CreateGovernorates, self::UpdateGovernorates,
-            self::ViewAreas, self::CreateAreas, self::UpdateAreas,
-            self::ViewSubAreas, self::CreateSubAreas, self::UpdateSubAreas => true,
+            self::ViewAreas, self::CreateAreas, self::UpdateAreas => true,
             default => false,
         };
     }

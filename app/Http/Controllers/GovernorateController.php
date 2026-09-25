@@ -8,6 +8,8 @@ use App\Http\Requests\UpdateGovernorateRequest;
 use App\Models\Area;
 use App\Models\Governorate;
 use App\Models\SubArea;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -24,12 +26,27 @@ class GovernorateController extends Controller
      * Display a listing of the resource, plus the selected governorate's
      * areas (?selected=<id>) so the whole governorate/area hierarchy can
      * be managed from this one page.
+     *
+     * Someone who may not see the whole map but does work with sub-areas
+     * (a Branch Admin, or staff granted a sub-area permission) gets the
+     * page scoped to their branch: its governorate and area only, already
+     * selected, so they can manage the sub-areas inside it.
      */
     public function index(Request $request): InertiaResponse
     {
-        $this->authorize('viewAny', Governorate::class);
+        $user = $request->user();
+        $scopedToBranch = ! $user->can('viewAny', Governorate::class);
 
-        $query = Governorate::query()->withCount('areas');
+        if ($scopedToBranch) {
+            $this->authorize('viewAny', SubArea::class);
+        }
+
+        $selectedGovernorateId = $scopedToBranch ? $user->branch?->governorate_id : $request->integer('selected');
+        $selectedAreaId = $scopedToBranch ? $user->branchAreaId() : $request->integer('selectedArea');
+
+        $query = Governorate::query()
+            ->withCount('areas')
+            ->when($scopedToBranch, fn (Builder $query) => $query->whereKey($selectedGovernorateId));
         $this->applyDataTableFilters($query, $request, ['name'], self::SORTABLE, 'name');
 
         $governorates = $query->paginate($this->dataTablePerPage($request))
@@ -41,11 +58,13 @@ class GovernorateController extends Controller
 
         return Inertia::render('Governorates/Index', [
             'governorates' => $governorates,
-            'selectedGovernorate' => $this->selectedGovernorate($request),
-            'selectedArea' => $this->selectedArea($request),
+            'selectedGovernorate' => $this->selectedGovernorate($selectedGovernorateId, $user, $scopedToBranch),
+            'selectedArea' => $this->selectedArea($selectedAreaId, $user),
+            'scopedToBranch' => $scopedToBranch,
             'filters' => $this->dataTableState($request, 'name'),
             'governorateOptions' => Governorate::orderBy('name')->get(),
-            'areaOptions' => Area::orderBy('name')->get(),
+            'areaOptions' => Area::visibleTo($user)->orderBy('name')->get(),
+            'allowSubAreaWithoutArea' => $user->isSuperAdmin(),
         ]);
     }
 
@@ -106,21 +125,23 @@ class GovernorateController extends Controller
     }
 
     /**
-     * The governorate named by the `selected` query param, with its areas
-     * — the right-hand panel's data on the combined governorates/areas
-     * page. Null when nothing is selected (or the id no longer exists).
+     * The selected governorate with its areas — the right-hand panel's data
+     * on the combined governorates/areas page; only the user's own branch
+     * area when the page is scoped to their branch. Null when nothing is
+     * selected (or the id no longer exists).
      *
      * @return array{id: int, name: string, areas: Collection}|null
      */
-    private function selectedGovernorate(Request $request): ?array
+    private function selectedGovernorate(?int $selectedId, User $user, bool $scopedToBranch): ?array
     {
-        $selectedId = $request->integer('selected');
-
         if (! $selectedId) {
             return null;
         }
 
-        $governorate = Governorate::with(['areas' => fn ($query) => $query->orderBy('name')])->find($selectedId);
+        $governorate = Governorate::with(['areas' => fn ($query) => $query
+            ->when($scopedToBranch, fn (Builder $query) => $query->visibleTo($user))
+            ->orderBy('name')])
+            ->find($selectedId);
 
         if (! $governorate) {
             return null;
@@ -138,16 +159,15 @@ class GovernorateController extends Controller
     }
 
     /**
-     * The area named by the `selectedArea` query param, with its sub-areas
-     * — the third panel's data on the combined governorates/areas/sub-areas
-     * page. Null when nothing is selected (or the id no longer exists).
+     * The selected area with its sub-areas — the third panel's data on the
+     * combined governorates/areas/sub-areas page — and whether the user may
+     * add a sub-area there or edit each one. Null when nothing is selected
+     * (or the id no longer exists).
      *
-     * @return array{id: int, name: string, governorate_id: ?int, subAreas: Collection}|null
+     * @return array{id: int, name: string, governorate_id: ?int, canCreateSubArea: bool, subAreas: Collection}|null
      */
-    private function selectedArea(Request $request): ?array
+    private function selectedArea(?int $selectedId, User $user): ?array
     {
-        $selectedId = $request->integer('selectedArea');
-
         if (! $selectedId) {
             return null;
         }
@@ -162,10 +182,12 @@ class GovernorateController extends Controller
             'id' => $area->id,
             'name' => $area->name,
             'governorate_id' => $area->governorate_id,
+            'canCreateSubArea' => $user->can('create', [SubArea::class, $area]),
             'subAreas' => $area->subAreas->map(fn (SubArea $subArea) => [
                 'id' => $subArea->id,
                 'name' => $subArea->name,
                 'area_id' => $subArea->area_id,
+                'canUpdate' => $user->can('update', $subArea),
             ]),
         ];
     }

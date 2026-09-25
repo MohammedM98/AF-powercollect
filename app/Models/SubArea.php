@@ -30,7 +30,7 @@ class SubArea extends Model
     {
         $query->when(
             ! $user->isSuperAdmin(),
-            fn (Builder $query) => $query->where('area_id', $user->branch?->area_id),
+            fn (Builder $query) => $query->where('area_id', $user->branchAreaId()),
         );
     }
 }

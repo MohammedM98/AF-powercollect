@@ -4,7 +4,7 @@ import UpdateProfileInformationForm from './Partials/UpdateProfileInformationFor
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import DeleteUserForm from './Partials/DeleteUserForm';
 
-export default function Edit({ user, status }) {
+export default function Edit({ user }) {
     const { errors } = usePage().props;
 
     return (
@@ -18,7 +18,7 @@ export default function Edit({ user, status }) {
             <div className="max-w-2xl space-y-6">
                 <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-8">
                     <div className="max-w-xl">
-                        <UpdateProfileInformationForm user={user} status={status} />
+                        <UpdateProfileInformationForm user={user} />
                     </div>
                 </div>
 

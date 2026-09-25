@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import StatRing from '@/Components/StatRing';
+import AddButton from '@/Components/AddButton';
 
 const ICONS = {
     branches: (
@@ -95,25 +96,9 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                     </div>
                     <div className="shrink-0">
                         {canCreateBranch ? (
-                            <a
-                                href="/branches/create"
-                                className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
-                            >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
-                                </svg>
-                                فرع جديد
-                            </a>
+                            <AddButton href="/branches/create">فرع جديد</AddButton>
                         ) : canCreateUser ? (
-                            <a
-                                href="/users/create"
-                                className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
-                            >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
-                                </svg>
-                                مستخدم جديد
-                            </a>
+                            <AddButton href="/users/create">مستخدم جديد</AddButton>
                         ) : null}
                     </div>
                 </>

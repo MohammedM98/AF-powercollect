@@ -2,6 +2,20 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 
+/**
+ * The form's starting values: the branch's own when editing, otherwise
+ * blank (and active).
+ */
+export function branchFormData(branch) {
+    return {
+        name: branch?.name ?? '',
+        phone: branch?.phone ?? '',
+        is_active: branch?.is_active ?? true,
+        governorate_id: branch?.governorate_id ?? '',
+        area_id: branch?.area_id ?? '',
+    };
+}
+
 export default function BranchForm({ data, setData, errors, governorates, areas }) {
     const areasInGovernorate = data.governorate_id
         ? areas.filter((area) => String(area.governorate_id) === String(data.governorate_id))

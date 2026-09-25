@@ -3,6 +3,19 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 
+/**
+ * The form's starting values: the meter box's own when editing,
+ * otherwise blank.
+ */
+export function meterBoxFormData(meterBox) {
+    return {
+        name: meterBox?.name ?? '',
+        box_number: meterBox?.box_number ?? '',
+        branch_id: meterBox?.branch_id ?? '',
+        sub_area_id: meterBox?.sub_area_id ?? '',
+    };
+}
+
 export default function MeterBoxForm({ data, setData, errors, branches, canChooseBranch, governorates, areas, subAreas, currentBranchAreaId }) {
     const selectedBranch = canChooseBranch ? branches.find((branch) => String(branch.id) === String(data.branch_id)) : null;
 

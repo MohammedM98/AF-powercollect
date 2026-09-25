@@ -6,7 +6,7 @@ import TextInput from '@/Components/TextInput';
 import PasswordInput from '@/Components/PasswordInput';
 import PrimaryButton from '@/Components/PrimaryButton';
 
-export default function Login({ status }) {
+export default function Login() {
     const { data, setData, post, processing, errors, reset } = useForm({
         username: '',
         password: '',

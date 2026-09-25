@@ -9,8 +9,9 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
 import CircuitBreakerModal from './CircuitBreakerModal';
+import AddButton from '@/Components/AddButton';
 
-export default function Index({ circuitBreakers, status, filters, filterOptions }) {
+export default function Index({ circuitBreakers, filters, filterOptions }) {
     const [modalCircuitBreaker, setModalCircuitBreaker] = useState(null);
     const [creating, setCreating] = useState(false);
     const { setPerPage, sort, filterValues, setFilter, clearFilters } = useDataTable('/circuit-breakers', filters);
@@ -23,15 +24,7 @@ export default function Index({ circuitBreakers, status, filters, filterOptions 
                         <h2 className="text-xl font-bold text-gray-900">القواطع</h2>
                     </div>
                     <div className="shrink-0">
-                        <button
-                            onClick={() => setCreating(true)}
-                            className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
-                        >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
-                            قاطع جديد
-                        </button>
+                        <AddButton onClick={() => setCreating(true)}>قاطع جديد</AddButton>
                     </div>
                 </>
             }

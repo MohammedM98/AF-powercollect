@@ -10,6 +10,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import SubscriberModal from './SubscriberModal';
 import SubscriberDetailsModal from './SubscriberDetailsModal';
+import AddButton from '@/Components/AddButton';
 
 const STATUS_TONES = {
     active: 'green',
@@ -20,7 +21,6 @@ const STATUS_TONES = {
 export default function Index({
     subscribers,
     canCreate,
-    status,
     branches,
     meterBoxes,
     tariffs,
@@ -63,15 +63,7 @@ export default function Index({
                     </div>
                     {canCreate && (
                         <div className="shrink-0">
-                            <button
-                                onClick={() => setCreating(true)}
-                                className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
-                            >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
-                                </svg>
-                                مشترك جديد
-                            </button>
+                            <AddButton onClick={() => setCreating(true)}>مشترك جديد</AddButton>
                         </div>
                     )}
                 </>

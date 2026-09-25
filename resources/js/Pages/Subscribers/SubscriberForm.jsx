@@ -57,6 +57,29 @@ function ReadOnlyField({ id, label, value, dir }) {
     );
 }
 
+/**
+ * The form's starting values: the subscriber's own when editing,
+ * otherwise blank. New subscribers start out suspended (مفصول).
+ */
+export function subscriberFormData(subscriber) {
+    return {
+        full_name: subscriber?.full_name ?? '',
+        national_id: subscriber?.national_id ?? '',
+        phone: subscriber?.phone ?? '',
+        address: subscriber?.address ?? '',
+        meter_box_id: subscriber?.meter_box_id ?? '',
+        tariff_id: subscriber?.tariff_id ?? '',
+        status: subscriber?.status ?? 'suspended',
+        branch_id: subscriber?.branch_id ?? '',
+        circuit_breaker_id: subscriber?.circuit_breaker_id ?? '',
+        minimum_charge: subscriber?.minimum_charge != null ? Number(subscriber.minimum_charge) : '',
+        initial_reading: subscriber?.initial_reading ?? '',
+        subscription_fee: subscriber?.subscription_fee ?? '',
+        subscription_date: subscriber?.subscription_date ?? '',
+        notes: subscriber?.notes ?? '',
+    };
+}
+
 export default function SubscriberForm({
     data,
     setData,

@@ -2,6 +2,16 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 
+/**
+ * The form's starting values: the circuit breaker's own when editing,
+ * otherwise blank.
+ */
+export function circuitBreakerFormData(circuitBreaker) {
+    return circuitBreaker
+        ? { ampere: circuitBreaker.ampere, minimum_payment: circuitBreaker.minimum_payment }
+        : { ampere: '', minimum_payment: '' };
+}
+
 export default function CircuitBreakerForm({ data, setData, errors }) {
     return (
         <>

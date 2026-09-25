@@ -7,7 +7,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import PermissionModal from './PermissionModal';
 
-export default function Permissions({ users, permissionGroups, status, filters, filterOptions, scopedToOwnBranch }) {
+export default function Permissions({ users, permissionGroups, filters, filterOptions, scopedToOwnBranch }) {
     const [editingUser, setEditingUser] = useState(null);
     const { search, setSearch, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/settings/permissions', filters);
 

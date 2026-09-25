@@ -2,6 +2,16 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 
+/**
+ * The form's starting values: the area's own when editing, otherwise
+ * blank — optionally already placed in `defaultGovernorateId`.
+ */
+export function areaFormData(area, defaultGovernorateId = '') {
+    return area
+        ? { name: area.name, governorate_id: area.governorate_id ?? '' }
+        : { name: '', governorate_id: defaultGovernorateId };
+}
+
 export default function AreaForm({ data, setData, errors, governorates }) {
     return (
         <>

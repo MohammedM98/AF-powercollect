@@ -3,6 +3,23 @@ import TextInput from '@/Components/TextInput';
 import PasswordInput from '@/Components/PasswordInput';
 import InputError from '@/Components/InputError';
 
+/**
+ * The form's starting values: the user's own when editing (with the
+ * password left blank, meaning "unchanged"), otherwise blank with the
+ * first assignable role preselected.
+ */
+export function userFormData(user, roleOptions) {
+    return {
+        name: user?.name ?? '',
+        username: user?.username ?? '',
+        password: '',
+        password_confirmation: '',
+        role: user ? user.role : (roleOptions[0]?.value ?? ''),
+        branch_id: user?.branch_id ?? '',
+        is_active: user?.is_active ?? true,
+    };
+}
+
 export default function UserForm({ data, setData, errors, isEdit, roleOptions, branches, canChooseBranch }) {
     return (
         <>

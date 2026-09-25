@@ -4,7 +4,7 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import PrimaryButton from '@/Components/PrimaryButton';
 
-export default function UpdateProfileInformationForm({ user, status }) {
+export default function UpdateProfileInformationForm({ user }) {
     const { data, setData, patch, processing, errors } = useForm({
         name: user.name,
     });

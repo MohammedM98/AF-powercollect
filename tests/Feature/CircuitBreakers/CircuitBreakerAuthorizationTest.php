@@ -164,4 +164,30 @@ class CircuitBreakerAuthorizationTest extends TestCase
         $response->assertInertia(fn ($page) => $page->has('circuitBreakers.data', 1)
             ->where('circuitBreakers.data.0.ampere', 4));
     }
+
+    public function test_a_view_only_user_is_not_offered_add_or_edit_on_the_circuit_breakers_page(): void
+    {
+        $this->seed(PermissionSeeder::class);
+        CircuitBreaker::factory()->create();
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->attach(Permission::where('key', PermissionKey::ViewCircuitBreakers->value)->firstOrFail());
+
+        $response = $this->actingAs($collector)->get(route('circuit-breakers.index'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('canCreate', false)
+            ->where('circuitBreakers.data.0.canUpdate', false));
+    }
+
+    public function test_branch_admin_is_offered_add_and_edit_on_the_circuit_breakers_page(): void
+    {
+        CircuitBreaker::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create();
+
+        $response = $this->actingAs($branchAdmin)->get(route('circuit-breakers.index'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('canCreate', true)
+            ->where('circuitBreakers.data.0.canUpdate', true));
+    }
 }

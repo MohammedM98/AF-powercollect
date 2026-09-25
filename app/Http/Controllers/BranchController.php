@@ -27,14 +27,21 @@ class BranchController extends Controller
     {
         $this->authorize('viewAny', Branch::class);
 
+        $actor = $request->user();
         $query = Branch::query()->with(['governorate', 'area']);
         $this->applyDataTableFilters($query, $request, ['name', 'location', 'phone'], self::SORTABLE, 'name');
         $this->applyDataTableFilterSelects($query, $request, ['is_active', 'governorate_id', 'area_id']);
 
-        $branches = $query->paginate($this->dataTablePerPage($request))->withQueryString();
+        $branches = $query->paginate($this->dataTablePerPage($request))
+            ->withQueryString()
+            ->through(fn (Branch $branch) => [
+                ...$branch->toArray(),
+                'canUpdate' => $actor->can('update', $branch),
+            ]);
 
         return Inertia::render('Branches/Index', [
             'branches' => $branches,
+            'canCreate' => $actor->can('create', Branch::class),
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => $this->filterOptions(),
             ...$this->formOptions(),

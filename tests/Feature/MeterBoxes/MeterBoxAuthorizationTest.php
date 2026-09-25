@@ -2,9 +2,12 @@
 
 namespace Tests\Feature\MeterBoxes;
 
+use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\MeterBox;
+use App\Models\Permission;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -124,5 +127,31 @@ class MeterBoxAuthorizationTest extends TestCase
     {
         $this->get(route('meter-boxes.index'))
             ->assertRedirect(route('login'));
+    }
+
+    public function test_a_view_only_user_is_not_offered_add_or_edit_on_the_meter_boxes_page(): void
+    {
+        $this->seed(PermissionSeeder::class);
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->attach(Permission::where('key', PermissionKey::ViewMeterBoxes->value)->firstOrFail());
+        MeterBox::factory()->create(['branch_id' => $collector->branch_id]);
+
+        $response = $this->actingAs($collector)->get(route('meter-boxes.index'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('canCreate', false)
+            ->where('meterBoxes.data.0.canUpdate', false));
+    }
+
+    public function test_branch_admin_is_offered_add_and_edit_on_the_meter_boxes_page(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        MeterBox::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+
+        $response = $this->actingAs($branchAdmin)->get(route('meter-boxes.index'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('canCreate', true)
+            ->where('meterBoxes.data.0.canUpdate', true));
     }
 }

@@ -2,11 +2,14 @@
 
 namespace Tests\Feature\Governorates;
 
+use App\Enums\PermissionKey;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Governorate;
+use App\Models\Permission;
 use App\Models\SubArea;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -125,5 +128,37 @@ class GovernorateAuthorizationTest extends TestCase
     {
         $this->get(route('governorates.index'))
             ->assertRedirect(route('login'));
+    }
+
+    public function test_a_view_only_user_is_not_offered_add_or_edit_for_governorates_and_areas(): void
+    {
+        $this->seed(PermissionSeeder::class);
+        $governorate = Governorate::factory()->create();
+        Area::factory()->create(['governorate_id' => $governorate->id]);
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->attach(Permission::where('key', PermissionKey::ViewGovernorates->value)->firstOrFail());
+
+        $response = $this->actingAs($collector)->get(route('governorates.index', ['selected' => $governorate->id]));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('canCreateGovernorate', false)
+            ->where('governorates.data.0.canUpdate', false)
+            ->where('selectedGovernorate.canCreateArea', false)
+            ->where('selectedGovernorate.areas.0.canUpdate', false));
+    }
+
+    public function test_super_admin_is_offered_add_and_edit_for_governorates_and_areas(): void
+    {
+        $governorate = Governorate::factory()->create();
+        Area::factory()->create(['governorate_id' => $governorate->id]);
+        $superAdmin = User::factory()->superAdmin()->create();
+
+        $response = $this->actingAs($superAdmin)->get(route('governorates.index', ['selected' => $governorate->id]));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('canCreateGovernorate', true)
+            ->where('governorates.data.0.canUpdate', true)
+            ->where('selectedGovernorate.canCreateArea', true)
+            ->where('selectedGovernorate.areas.0.canUpdate', true));
     }
 }

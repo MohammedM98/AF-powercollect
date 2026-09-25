@@ -25,6 +25,7 @@ class TariffController extends Controller
     {
         $this->authorize('viewAny', Tariff::class);
 
+        $actor = $request->user();
         $query = Tariff::query();
         $this->applyDataTableFilters($query, $request, [], self::SORTABLE, 'category');
         $this->applyDataTableFilterSelects($query, $request, ['category']);
@@ -34,10 +35,12 @@ class TariffController extends Controller
             ->through(fn (Tariff $tariff) => [
                 ...$this->editableFields($tariff),
                 'categoryLabel' => __($tariff->category->label()),
+                'canUpdate' => $actor->can('update', $tariff),
             ]);
 
         return Inertia::render('Tariffs/Index', [
             'tariffs' => $tariffs,
+            'canCreate' => $actor->can('create', Tariff::class),
             'filters' => $this->dataTableState($request, 'category'),
             'categoryOptions' => TariffCategory::options(),
             'filterOptions' => [

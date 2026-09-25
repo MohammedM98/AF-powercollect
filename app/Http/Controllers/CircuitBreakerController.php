@@ -24,16 +24,21 @@ class CircuitBreakerController extends Controller
     {
         $this->authorize('viewAny', CircuitBreaker::class);
 
+        $actor = $request->user();
         $query = CircuitBreaker::query();
         $this->applyDataTableFilters($query, $request, [], self::SORTABLE, 'ampere');
         $this->applyDataTableFilterSelects($query, $request, ['ampere']);
 
         $circuitBreakers = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
-            ->through(fn (CircuitBreaker $circuitBreaker) => $this->editableFields($circuitBreaker));
+            ->through(fn (CircuitBreaker $circuitBreaker) => [
+                ...$this->editableFields($circuitBreaker),
+                'canUpdate' => $actor->can('update', $circuitBreaker),
+            ]);
 
         return Inertia::render('CircuitBreakers/Index', [
             'circuitBreakers' => $circuitBreakers,
+            'canCreate' => $actor->can('create', CircuitBreaker::class),
             'filters' => $this->dataTableState($request, 'ampere'),
             'filterOptions' => $this->filterOptions(),
         ]);

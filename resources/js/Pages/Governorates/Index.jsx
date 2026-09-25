@@ -22,6 +22,7 @@ export default function Index({
     selectedGovernorate,
     selectedArea,
     scopedToBranch,
+    canCreateGovernorate,
     filters,
     governorateOptions,
     areaOptions,
@@ -67,7 +68,7 @@ export default function Index({
                     <div className="min-w-0">
                         <h2 className="text-3xl font-bold text-gray-900">{scopedToBranch ? 'مناطق الفرع' : 'المحافظات والمناطق'}</h2>
                     </div>
-                    {!scopedToBranch && (
+                    {canCreateGovernorate && (
                         <div className="shrink-0">
                             <AddButton onClick={() => setCreatingGovernorate(true)}>محافظة جديدة</AddButton>
                         </div>
@@ -139,16 +140,18 @@ export default function Index({
                                                     </td>
                                                     <td className="text-gray-600">{governorate.areasCount}</td>
                                                     <td className="text-end">
-                                                        <RowActionsMenu>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setModalGovernorate(governorate);
-                                                                }}
-                                                            >
-                                                                تعديل
-                                                            </button>
-                                                        </RowActionsMenu>
+                                                        {governorate.canUpdate && (
+                                                            <RowActionsMenu>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setModalGovernorate(governorate);
+                                                                    }}
+                                                                >
+                                                                    تعديل
+                                                                </button>
+                                                            </RowActionsMenu>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             );
@@ -181,7 +184,7 @@ export default function Index({
                         <div className="rounded-card border border-gray-100 bg-surface shadow-card">
                             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                                 <h3 className="text-base font-bold text-gray-900">مناطق {selectedGovernorate.name}</h3>
-                                {!scopedToBranch && (
+                                {selectedGovernorate.canCreateArea && (
                                     <AddButton onClick={() => setCreatingArea(true)} variant="soft">
                                         إضافة منطقة
                                     </AddButton>
@@ -205,7 +208,7 @@ export default function Index({
                                                 <span className={`text-sm font-medium ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
                                                     {area.name}
                                                 </span>
-                                                {!scopedToBranch && (
+                                                {area.canUpdate && (
                                                     <RowActionsMenu>
                                                         <button
                                                             onClick={(e) => {

@@ -54,6 +54,7 @@ class GovernorateController extends Controller
             ->through(fn (Governorate $governorate) => [
                 ...$this->editableFields($governorate),
                 'areasCount' => $governorate->areas_count,
+                'canUpdate' => $user->can('update', $governorate),
             ]);
 
         return Inertia::render('Governorates/Index', [
@@ -61,6 +62,7 @@ class GovernorateController extends Controller
             'selectedGovernorate' => $this->selectedGovernorate($selectedGovernorateId, $user, $scopedToBranch),
             'selectedArea' => $this->selectedArea($selectedAreaId, $user),
             'scopedToBranch' => $scopedToBranch,
+            'canCreateGovernorate' => $user->can('create', Governorate::class),
             'filters' => $this->dataTableState($request, 'name'),
             'governorateOptions' => Governorate::orderBy('name')->get(),
             'areaOptions' => Area::visibleTo($user)->orderBy('name')->get(),
@@ -130,7 +132,7 @@ class GovernorateController extends Controller
      * area when the page is scoped to their branch. Null when nothing is
      * selected (or the id no longer exists).
      *
-     * @return array{id: int, name: string, areas: Collection}|null
+     * @return array{id: int, name: string, canCreateArea: bool, areas: Collection}|null
      */
     private function selectedGovernorate(?int $selectedId, User $user, bool $scopedToBranch): ?array
     {
@@ -150,10 +152,12 @@ class GovernorateController extends Controller
         return [
             'id' => $governorate->id,
             'name' => $governorate->name,
+            'canCreateArea' => $user->can('create', Area::class),
             'areas' => $governorate->areas->map(fn (Area $area) => [
                 'id' => $area->id,
                 'name' => $area->name,
                 'governorate_id' => $area->governorate_id,
+                'canUpdate' => $user->can('update', $area),
             ]),
         ];
     }

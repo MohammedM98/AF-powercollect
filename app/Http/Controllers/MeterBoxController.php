@@ -44,10 +44,12 @@ class MeterBoxController extends Controller
                 'governorateName' => $meterBox->branch->governorate?->name,
                 'areaName' => $meterBox->branch->area?->name,
                 'subAreaName' => $meterBox->subArea?->name,
+                'canUpdate' => $actor->can('update', $meterBox),
             ]);
 
         return Inertia::render('MeterBoxes/Index', [
             'meterBoxes' => $meterBoxes,
+            'canCreate' => $actor->can('create', MeterBox::class),
             'filters' => $this->dataTableState($request, 'box_number'),
             'filterOptions' => $this->filterOptions($actor),
             ...$this->formOptions(),

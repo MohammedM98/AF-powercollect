@@ -192,6 +192,16 @@ class SubscriberController extends Controller
     }
 
     /**
+     * Whether the actor may set a subscriber's minimum charge by hand
+     * instead of taking the circuit breaker's: a Branch Admin always may,
+     * anyone else needs the dedicated permission.
+     */
+    private function canEditMinimumCharge(User $actor): bool
+    {
+        return $actor->isBranchAdmin() || $actor->hasPermission(PermissionKey::UpdateSubscriberMinimumCharge);
+    }
+
+    /**
      * Without the dedicated permission, minimum_charge is never taken from
      * the request as-is — it always tracks the chosen circuit breaker's own
      * minimum_payment (or, on update with no circuit breaker chosen, stays
@@ -204,7 +214,7 @@ class SubscriberController extends Controller
      */
     private function enforceMinimumChargePermission(User $actor, array $data, ?Subscriber $existing = null): array
     {
-        if ($actor->hasPermission(PermissionKey::UpdateSubscriberMinimumCharge)) {
+        if ($this->canEditMinimumCharge($actor)) {
             return $data;
         }
 
@@ -293,7 +303,7 @@ class SubscriberController extends Controller
             'canChooseBranch' => $canChooseBranch,
             'currentBranchAreaId' => $canChooseBranch ? null : $actor->branch?->area_id,
             'currentBranchAreaName' => $canChooseBranch ? null : $actor->branch?->area?->name,
-            'canEditMinimumCharge' => $actor->hasPermission(PermissionKey::UpdateSubscriberMinimumCharge),
+            'canEditMinimumCharge' => $this->canEditMinimumCharge($actor),
         ];
     }
 

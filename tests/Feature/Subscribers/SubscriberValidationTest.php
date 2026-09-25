@@ -308,6 +308,25 @@ class SubscriberValidationTest extends TestCase
         ]);
     }
 
+    public function test_a_branch_admin_can_override_minimum_charge_without_a_grant(): void
+    {
+        $payload = $this->validPayload();
+        $this->actingAs(User::factory()->branchAdmin()->create());
+        $circuitBreaker = CircuitBreaker::factory()->create(['ampere' => 4, 'minimum_payment' => 20]);
+        $payload['circuit_breaker_id'] = $circuitBreaker->id;
+        $payload['minimum_charge'] = 35;
+
+        $this->post(route('subscribers.store'), $payload)
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('subscribers.index'));
+
+        $this->assertDatabaseHas('subscribers', [
+            'national_id' => $payload['national_id'],
+            'circuit_breaker_id' => $circuitBreaker->id,
+            'minimum_charge' => 35,
+        ]);
+    }
+
     public function test_a_user_without_the_permission_cannot_override_minimum_charge(): void
     {
         $payload = $this->validPayload();

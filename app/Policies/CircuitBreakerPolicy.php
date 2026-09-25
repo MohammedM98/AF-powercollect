@@ -9,11 +9,14 @@ use App\Models\User;
 class CircuitBreakerPolicy
 {
     /**
-     * Determine whether the user can view any models.
+     * Determine whether the user can view any models. A Branch Admin always
+     * can, and may also add and edit them — even though every branch shares
+     * the same list.
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::ViewCircuitBreakers, PermissionKey::CreateCircuitBreakers, PermissionKey::UpdateCircuitBreakers);
+        return $user->isBranchAdmin()
+            || $user->hasAnyPermission(PermissionKey::ViewCircuitBreakers, PermissionKey::CreateCircuitBreakers, PermissionKey::UpdateCircuitBreakers);
     }
 
     /**
@@ -29,7 +32,7 @@ class CircuitBreakerPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::CreateCircuitBreakers);
+        return $user->isBranchAdmin() || $user->hasPermission(PermissionKey::CreateCircuitBreakers);
     }
 
     /**
@@ -37,7 +40,7 @@ class CircuitBreakerPolicy
      */
     public function update(User $user, CircuitBreaker $circuitBreaker): bool
     {
-        return $user->hasPermission(PermissionKey::UpdateCircuitBreakers);
+        return $user->isBranchAdmin() || $user->hasPermission(PermissionKey::UpdateCircuitBreakers);
     }
 
     /**

@@ -1,14 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import Icon from '@/Components/Icon';
 import Switch from '@/Components/Switch';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
+import ConfirmDialog from '@/Components/ConfirmDialog';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
-
-const UNSAVED_WARNING = 'لديك تغييرات غير محفوظة. هل تريد تجاهلها؟';
 
 const ACTION_LABELS = { view: 'عرض', create: 'إضافة', update: 'تعديل', record: 'تسجيل' };
 
@@ -221,6 +220,7 @@ function PermissionGroupRow({ group, isOn, onToggle, disabled }) {
 function PermissionEditor({ employee, permissionGroups, scopedToOwnBranch, onDirtyChange }) {
     const saved = employee.permissionIds;
     const { data, setData, put, processing, reset } = useForm({ permissions: { [employee.id]: [...saved] } });
+    const [confirmingSave, setConfirmingSave] = useState(false);
     const selected = data.permissions[employee.id];
     const dirty = selected.length !== saved.length || selected.some((id) => !saved.includes(id));
     const groups = permissionGroups.filter((group) => group.actions.some((entry) => entry.permission));
@@ -249,13 +249,18 @@ function PermissionEditor({ employee, permissionGroups, scopedToOwnBranch, onDir
         });
     }
 
-    function save(event) {
+    function submit(event) {
         event.preventDefault();
+        setConfirmingSave(true);
+    }
+
+    function save() {
+        setConfirmingSave(false);
         put('/settings/permissions', { preserveScroll: true });
     }
 
     return (
-        <form onSubmit={save} className="rise-in rounded-card border border-gray-100 bg-surface shadow-card">
+        <form onSubmit={submit} className="rise-in rounded-card border border-gray-100 bg-surface shadow-card">
             <div className="p-5 sm:p-6">
                 {dirty && (
                     <div role="status" className="mb-5 flex items-start gap-3 rounded-control border border-brand-200 bg-brand-50 px-4 py-3">
@@ -336,6 +341,17 @@ function PermissionEditor({ employee, permissionGroups, scopedToOwnBranch, onDir
                 </SecondaryButton>
                 <span className="text-xs text-gray-500">تُحفظ الصلاحيات لهذا الموظف فقط.</span>
             </div>
+
+            <ConfirmDialog
+                show={confirmingSave}
+                onConfirm={save}
+                onCancel={() => setConfirmingSave(false)}
+                title="حفظ الصلاحيات؟"
+                message={`سيتم تحديث صلاحيات ${employee.name} بالتغييرات التي أجريتها. هل تريد المتابعة؟`}
+                confirmLabel="نعم، احفظ الصلاحيات"
+                cancelLabel="مراجعة الصلاحيات"
+                icon="shield"
+            />
         </form>
     );
 }
@@ -343,13 +359,24 @@ function PermissionEditor({ employee, permissionGroups, scopedToOwnBranch, onDir
 export default function Permissions({ users, selectedUser, permissionGroups, filters, filterOptions, scopedToOwnBranch }) {
     const hasUnsavedChanges = useRef(false);
     const editorRef = useRef(null);
+    // The employee picked while the current one has unsaved changes, waiting on "discard them?".
+    const [pendingEmployee, setPendingEmployee] = useState(null);
     const { search, setSearch, filterValues, setFilter } = useDataTable('/settings/permissions', filters, { selected: selectedUser?.id });
 
     function selectEmployee(user) {
-        if (user.id === selectedUser?.id || (hasUnsavedChanges.current && !window.confirm(UNSAVED_WARNING))) {
+        if (user.id === selectedUser?.id) {
             return;
         }
 
+        if (hasUnsavedChanges.current) {
+            setPendingEmployee(user);
+        } else {
+            openEmployee(user);
+        }
+    }
+
+    function openEmployee(user) {
+        setPendingEmployee(null);
         router.get(
             '/settings/permissions',
             {
@@ -418,6 +445,18 @@ export default function Permissions({ users, selectedUser, permissionGroups, fil
                     )}
                 </div>
             </div>
+
+            <ConfirmDialog
+                show={Boolean(pendingEmployee)}
+                onConfirm={() => openEmployee(pendingEmployee)}
+                onCancel={() => setPendingEmployee(null)}
+                title="تجاهل التغييرات؟"
+                message={`لديك تعديلات على صلاحيات ${selectedUser?.name ?? 'هذا الموظف'} لم تُحفظ بعد. إذا انتقلت إلى موظف آخر فستفقدها.`}
+                confirmLabel="تجاهل التغييرات"
+                cancelLabel="البقاء ومتابعة التعديل"
+                icon="alert"
+                tone="danger"
+            />
         </SettingsLayout>
     );
 }

@@ -9,14 +9,12 @@ use App\Models\User;
 class UserPolicy
 {
     /**
-     * Whether the user's role or grants let them work with other users at
-     * all, before branch scoping is considered.
+     * Whether the user's ticked permissions let them work with other users
+     * at all, before branch scoping is considered.
      */
     private function hasBaseAccess(User $user): bool
     {
-        return $user->isSuperAdmin()
-            || $user->isBranchAdmin()
-            || $user->hasAnyPermission(PermissionKey::ViewUsers, PermissionKey::CreateUsers, PermissionKey::UpdateUsers);
+        return $user->hasAnyPermission(PermissionKey::ViewUsers, PermissionKey::CreateUsers, PermissionKey::UpdateUsers);
     }
 
     /**
@@ -42,14 +40,15 @@ class UserPolicy
     /**
      * Determine whether the user can create models.
      *
-     * A Branch Admin or a grantee of the "Add Users" permission may create
-     * a user — always restricted to the branch-level staff roles and to
-     * the actor's own branch, forced server-side in StoreUserRequest and
-     * UserController::store() regardless of what's submitted.
+     * Anyone with the "Add Users" permission may create a user — for
+     * anyone but a Super Admin always restricted to the branch-level staff
+     * roles and to their own branch, forced server-side in
+     * StoreUserRequest and UserController::store() regardless of what's
+     * submitted.
      */
     public function create(User $user): bool
     {
-        return $user->isSuperAdmin() || $user->isBranchAdmin() || $user->hasPermission(PermissionKey::CreateUsers);
+        return $user->hasPermission(PermissionKey::CreateUsers);
     }
 
     /**
@@ -61,9 +60,9 @@ class UserPolicy
             return true;
         }
 
-        $canUpdate = $user->isBranchAdmin() || $user->hasPermission(PermissionKey::UpdateUsers);
-
-        return $canUpdate && in_array($model->role, UserRole::staffRoles(), true) && $model->branch_id === $user->branch_id;
+        return $user->hasPermission(PermissionKey::UpdateUsers)
+            && in_array($model->role, UserRole::staffRoles(), true)
+            && $model->branch_id === $user->branch_id;
     }
 
     /**

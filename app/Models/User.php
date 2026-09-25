@@ -22,6 +22,21 @@ class User extends Authenticatable
     use BelongsToBranch, HasFactory, Notifiable;
 
     /**
+     * A new user starts with their role's usual permissions ticked, and
+     * changing someone's role swaps their ticks for the new role's.
+     */
+    protected static function booted(): void
+    {
+        static::created(fn (User $user) => $user->resetToRoleStarterPermissions());
+
+        static::updated(function (User $user): void {
+            if ($user->wasChanged('role')) {
+                $user->resetToRoleStarterPermissions();
+            }
+        });
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -38,6 +53,16 @@ class User extends Authenticatable
     public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(Permission::class);
+    }
+
+    /**
+     * Replace this user's ticked permissions with their role's starter set
+     * (see UserRole::starterPermissions()).
+     */
+    public function resetToRoleStarterPermissions(): void
+    {
+        $this->permissions()->sync(Permission::idsFor($this->role->starterPermissions()));
+        $this->unsetRelation('permissions');
     }
 
     public function registeredSubscribers(): HasMany

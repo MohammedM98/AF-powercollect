@@ -80,14 +80,11 @@ class MeterReadingPolicy
     }
 
     /**
-     * Data entry staff record readings by default; other roles need the
-     * dedicated permission.
+     * Recording readings needs the permission (ticked by default for
+     * Branch Admins and Data Entry).
      */
     private function canRecord(User $user): bool
     {
-        return $user->isSuperAdmin()
-            || $user->isBranchAdmin()
-            || $user->isDataEntry()
-            || $user->hasPermission(PermissionKey::RecordMeterReadings);
+        return $user->hasPermission(PermissionKey::RecordMeterReadings);
     }
 }

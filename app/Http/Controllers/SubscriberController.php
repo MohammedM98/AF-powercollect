@@ -193,12 +193,11 @@ class SubscriberController extends Controller
 
     /**
      * Whether the actor may set a subscriber's minimum charge by hand
-     * instead of taking the circuit breaker's: a Branch Admin always may,
-     * anyone else needs the dedicated permission.
+     * instead of taking the circuit breaker's.
      */
     private function canEditMinimumCharge(User $actor): bool
     {
-        return $actor->isBranchAdmin() || $actor->hasPermission(PermissionKey::UpdateSubscriberMinimumCharge);
+        return $actor->hasPermission(PermissionKey::UpdateSubscriberMinimumCharge);
     }
 
     /**

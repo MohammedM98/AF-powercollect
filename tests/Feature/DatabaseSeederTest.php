@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\Subscriber;
@@ -46,5 +47,17 @@ class DatabaseSeederTest extends TestCase
                 "Branch [{$branch->name}] has no subscribers.",
             );
         }
+    }
+
+    public function test_seeded_branch_staff_start_with_their_roles_usual_permissions(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $branchAdmin = User::where('role', UserRole::BranchAdmin)->firstOrFail();
+        $dataEntry = User::where('role', UserRole::DataEntry)->firstOrFail();
+        $this->assertTrue($branchAdmin->hasPermission(PermissionKey::CreateSubscribers));
+        $this->assertTrue($branchAdmin->hasPermission(PermissionKey::ViewTariffs));
+        $this->assertFalse($branchAdmin->hasPermission(PermissionKey::CreateTariffs));
+        $this->assertTrue($dataEntry->hasPermission(PermissionKey::RecordMeterReadings));
     }
 }

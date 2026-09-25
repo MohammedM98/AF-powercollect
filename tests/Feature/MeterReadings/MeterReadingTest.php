@@ -395,10 +395,10 @@ class MeterReadingTest extends TestCase
     {
         $collector = User::factory()->collector()->create(['branch_id' => $this->branch->id]);
         $collector->permissions()->attach(
-            Permission::create([
-                'key' => PermissionKey::ViewSubscribers->value,
-                'label' => PermissionKey::ViewSubscribers->label(),
-            ]),
+            Permission::firstOrCreate(
+                ['key' => PermissionKey::ViewSubscribers->value],
+                ['label' => PermissionKey::ViewSubscribers->label()],
+            ),
         );
 
         $this->actingAs($collector)

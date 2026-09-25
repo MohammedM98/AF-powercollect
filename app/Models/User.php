@@ -72,7 +72,8 @@ class User extends Authenticatable
 
     /**
      * Super Admins implicitly hold every permission; everyone else needs an
-     * explicit grant recorded in the permission_user pivot.
+     * explicit grant recorded in the permission_user pivot. The grants are
+     * read once and reused, since one page checks many permissions.
      */
     public function hasPermission(PermissionKey $key): bool
     {
@@ -80,9 +81,7 @@ class User extends Authenticatable
             return true;
         }
 
-        return $this->relationLoaded('permissions')
-            ? $this->permissions->contains('key', $key->value)
-            : $this->permissions()->where('key', $key->value)->exists();
+        return $this->loadMissing('permissions')->permissions->contains('key', $key->value);
     }
 
     /**

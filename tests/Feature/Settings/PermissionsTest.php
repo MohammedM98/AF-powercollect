@@ -8,7 +8,9 @@ use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\Tariff;
 use App\Models\User;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class PermissionsTest extends TestCase
@@ -154,6 +156,26 @@ class PermissionsTest extends TestCase
         ])->assertRedirect(route('settings.permissions.edit'));
 
         $this->assertTrue($collector->fresh()->hasPermission(PermissionKey::ViewBranches));
+    }
+
+    public function test_a_page_load_reads_a_users_permissions_from_the_database_once(): void
+    {
+        $this->seedPermissions();
+        $branch = Branch::factory()->create();
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $collector->permissions()->attach(Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail());
+        $permissionQueries = 0;
+        DB::listen(function (QueryExecuted $query) use (&$permissionQueries): void {
+            if (str_contains($query->sql, 'permission_user')) {
+                $permissionQueries++;
+            }
+        });
+
+        $this->actingAs($collector)
+            ->get(route('branches.index'))
+            ->assertOk();
+
+        $this->assertSame(1, $permissionQueries);
     }
 
     public function test_view_only_branches_permission_allows_viewing_but_not_creating(): void

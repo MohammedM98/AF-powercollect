@@ -7,9 +7,7 @@ import InputError from '@/Components/InputError';
  * blank — optionally already placed in `defaultAreaId`.
  */
 export function subAreaFormData(subArea, defaultAreaId = '') {
-    return subArea
-        ? { name: subArea.name, area_id: subArea.area_id ?? '' }
-        : { name: '', area_id: defaultAreaId };
+    return subArea ? { name: subArea.name, area_id: subArea.area_id ?? '' } : { name: '', area_id: defaultAreaId };
 }
 
 export default function SubAreaForm({ data, setData, errors, areas }) {

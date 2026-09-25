@@ -7,7 +7,12 @@ const ICONS = {
     branches: (
         <>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.5"
+                d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+            />
         </>
     ),
     users: (
@@ -26,14 +31,7 @@ const ICONS = {
             d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"
         />
     ),
-    meterBoxes: (
-        <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.5"
-            d="M3.75 3.75v16.5h16.5V3.75H3.75zM3.75 9h16.5M9 3.75v16.5"
-        />
-    ),
+    meterBoxes: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3.75 3.75v16.5h16.5V3.75H3.75zM3.75 9h16.5M9 3.75v16.5" />,
     tariffs: (
         <path
             strokeLinecap="round"
@@ -118,7 +116,11 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                 <div className="space-y-6">
                     {hero && (
                         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-brand-600 to-pink-500 px-8 py-10 text-white">
-                            <svg className="pointer-events-none absolute inset-y-0 start-0 h-full w-1/2 max-w-md opacity-20" viewBox="0 0 300 200" fill="none">
+                            <svg
+                                className="pointer-events-none absolute inset-y-0 start-0 h-full w-1/2 max-w-md opacity-20"
+                                viewBox="0 0 300 200"
+                                fill="none"
+                            >
                                 <circle cx="40" cy="150" r="4" fill="white" />
                                 <circle cx="110" cy="90" r="4" fill="white" />
                                 <circle cx="170" cy="140" r="4" fill="white" />
@@ -214,9 +216,13 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                                                 {key === 'branches' && (
                                                     <div className="flex shrink-0 items-center gap-3">
                                                         {item.active ? (
-                                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">نشط</span>
+                                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                                                نشط
+                                                            </span>
                                                         ) : (
-                                                            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">متوقف</span>
+                                                            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">
+                                                                متوقف
+                                                            </span>
                                                         )}
                                                     </div>
                                                 )}

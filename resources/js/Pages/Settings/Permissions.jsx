@@ -20,33 +20,78 @@ export default function Permissions({ users, permissionGroups, filters, filterOp
                 {scopedToOwnBranch ? '، وتقتصر إدارتك هنا على موظفي فرعك.' : '.'}
             </p>
             <DataTableToolbar
-                search={search} onSearchChange={setSearch} placeholder="بحث بالاسم أو اسم المستخدم..."
-                perPage={filters.per_page} onPerPageChange={setPerPage} total={users.total}
-                filterMenu={<DataTableFilterMenu tableKey="permissions" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />}
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="بحث بالاسم أو اسم المستخدم..."
+                perPage={filters.per_page}
+                onPerPageChange={setPerPage}
+                total={users.total}
+                filterMenu={
+                    <DataTableFilterMenu
+                        tableKey="permissions"
+                        groups={filterOptions}
+                        values={filterValues}
+                        onChange={setFilter}
+                        onClear={clearFilters}
+                    />
+                }
             />
             <div className="data-table-container">
                 <table className="data-table w-full text-start text-sm">
-                    <thead className="bg-gray-50 text-xs text-gray-500"><tr>
-                        <th className="px-6 py-3">المستخدم</th><th className="px-6 py-3">الدور</th><th className="px-6 py-3">الفرع</th>
-                        <th className="px-6 py-3"><span className="sr-only">إدارة الصلاحيات</span></th>
-                    </tr></thead>
+                    <thead className="bg-gray-50 text-xs text-gray-500">
+                        <tr>
+                            <th className="px-6 py-3">المستخدم</th>
+                            <th className="px-6 py-3">الدور</th>
+                            <th className="px-6 py-3">الفرع</th>
+                            <th className="px-6 py-3">
+                                <span className="sr-only">إدارة الصلاحيات</span>
+                            </th>
+                        </tr>
+                    </thead>
                     <tbody className="divide-y">
-                        {users.data.length === 0 ? <tr><td colSpan={4} className="px-6 py-4 text-gray-500">لا يوجد مستخدمون لإدارتهم.</td></tr> : users.data.map((user) => (
-                            <tr key={user.id} className="transition hover:bg-gray-50">
-                                <td className="px-6 py-4">
-                                    <button type="button" onClick={() => setEditingUser(user)} className="text-start font-semibold text-brand-700 hover:underline">{user.name}</button>
-                                    <div className="text-end text-gray-500" dir="ltr">@{user.username}</div>
+                        {users.data.length === 0 ? (
+                            <tr>
+                                <td colSpan={4} className="px-6 py-4 text-gray-500">
+                                    لا يوجد مستخدمون لإدارتهم.
                                 </td>
-                                <td className="px-6 py-4 text-gray-600">{user.roleLabel}</td>
-                                <td className="px-6 py-4 text-gray-600">{user.branchName ?? '—'}</td>
-                                <td className="px-6 py-4 text-end"><button type="button" onClick={() => setEditingUser(user)} aria-label={`إدارة صلاحيات ${user.name}`} className="whitespace-nowrap rounded-lg bg-brand-50 px-3 py-2 font-semibold text-brand-700 transition hover:bg-brand-100">إدارة الصلاحيات</button></td>
                             </tr>
-                        ))}
+                        ) : (
+                            users.data.map((user) => (
+                                <tr key={user.id} className="transition hover:bg-gray-50">
+                                    <td className="px-6 py-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingUser(user)}
+                                            className="text-start font-semibold text-brand-700 hover:underline"
+                                        >
+                                            {user.name}
+                                        </button>
+                                        <div className="text-end text-gray-500" dir="ltr">
+                                            @{user.username}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-gray-600">{user.roleLabel}</td>
+                                    <td className="px-6 py-4 text-gray-600">{user.branchName ?? '—'}</td>
+                                    <td className="px-6 py-4 text-end">
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingUser(user)}
+                                            aria-label={`إدارة صلاحيات ${user.name}`}
+                                            className="whitespace-nowrap rounded-lg bg-brand-50 px-3 py-2 font-semibold text-brand-700 transition hover:bg-brand-100"
+                                        >
+                                            إدارة الصلاحيات
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>
             <Pagination meta={users} filters={filters} baseUrl="/settings/permissions" />
-            {editingUser && <PermissionModal key={editingUser.id} user={editingUser} permissionGroups={permissionGroups} onClose={() => setEditingUser(null)} />}
+            {editingUser && (
+                <PermissionModal key={editingUser.id} user={editingUser} permissionGroups={permissionGroups} onClose={() => setEditingUser(null)} />
+            )}
         </SettingsLayout>
     );
 }

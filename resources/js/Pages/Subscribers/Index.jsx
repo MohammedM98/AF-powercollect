@@ -71,8 +71,6 @@ export default function Index({
         >
             <Head title="المشتركون" />
 
-
-
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
@@ -81,7 +79,13 @@ export default function Index({
                 onPerPageChange={setPerPage}
                 total={subscribers.total}
                 filterMenu={
-                    <DataTableFilterMenu tableKey="subscribers" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                    <DataTableFilterMenu
+                        tableKey="subscribers"
+                        groups={filterOptions}
+                        values={filterValues}
+                        onChange={setFilter}
+                        onClear={clearFilters}
+                    />
                 }
             />
 

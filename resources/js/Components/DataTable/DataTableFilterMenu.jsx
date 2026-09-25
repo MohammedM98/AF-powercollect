@@ -74,10 +74,7 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
                 {open && (
                     <div className="absolute end-0 z-20 mt-1 w-56 rounded-md border border-gray-200 bg-white p-2 shadow-lg">
                         {groups.map((group) => (
-                            <label
-                                key={group.key}
-                                className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-                            >
+                            <label key={group.key} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
                                 <input
                                     type="checkbox"
                                     checked={isVisible(group.key)}

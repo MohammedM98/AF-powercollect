@@ -31,15 +31,19 @@ export default function Index({ tariffs, categoryOptions, filters, filterOptions
         >
             <Head title="التعرفات" />
 
-
-
             <DataTableToolbar
                 showSearch={false}
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={tariffs.total}
                 filterMenu={
-                    <DataTableFilterMenu tableKey="tariffs" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                    <DataTableFilterMenu
+                        tableKey="tariffs"
+                        groups={filterOptions}
+                        values={filterValues}
+                        onChange={setFilter}
+                        onClear={clearFilters}
+                    />
                 }
             />
 
@@ -92,13 +96,7 @@ export default function Index({ tariffs, categoryOptions, filters, filterOptions
                 its initial data once, it won't pick up a changed `tariff`
                 prop on an already-mounted instance. */}
             {modalTariff && (
-                <TariffModal
-                    key={modalTariff.id}
-                    show
-                    onClose={() => setModalTariff(null)}
-                    tariff={modalTariff}
-                    categoryOptions={categoryOptions}
-                />
+                <TariffModal key={modalTariff.id} show onClose={() => setModalTariff(null)} tariff={modalTariff} categoryOptions={categoryOptions} />
             )}
         </SettingsLayout>
     );

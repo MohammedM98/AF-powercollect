@@ -6,13 +6,7 @@ export default function AreaModal({ show, onClose, area, governorates, defaultGo
     const form = useResourceForm('/areas', area, areaFormData(area, defaultGovernorateId));
 
     return (
-        <FormModal
-            show={show}
-            onClose={onClose}
-            form={form}
-            title={form.isEdit ? 'تعديل المنطقة' : 'إنشاء منطقة'}
-            icon="map"
-        >
+        <FormModal show={show} onClose={onClose} form={form} title={form.isEdit ? 'تعديل المنطقة' : 'إنشاء منطقة'} icon="map">
             <AreaForm data={form.data} setData={form.setData} errors={form.errors} governorates={governorates} />
         </FormModal>
     );

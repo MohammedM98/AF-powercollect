@@ -17,9 +17,7 @@ export default function StatRing({ percent = 0, color = 'text-brand-500' }) {
                     className={color}
                 />
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700">
-                {Math.round(percent)}%
-            </div>
+            <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700">{Math.round(percent)}%</div>
         </div>
     );
 }

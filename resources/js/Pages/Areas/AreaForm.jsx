@@ -7,9 +7,7 @@ import InputError from '@/Components/InputError';
  * blank — optionally already placed in `defaultGovernorateId`.
  */
 export function areaFormData(area, defaultGovernorateId = '') {
-    return area
-        ? { name: area.name, governorate_id: area.governorate_id ?? '' }
-        : { name: '', governorate_id: defaultGovernorateId };
+    return area ? { name: area.name, governorate_id: area.governorate_id ?? '' } : { name: '', governorate_id: defaultGovernorateId };
 }
 
 export default function AreaForm({ data, setData, errors, governorates }) {

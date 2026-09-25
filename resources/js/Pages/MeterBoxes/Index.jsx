@@ -30,8 +30,6 @@ export default function Index({ meterBoxes, branches, canChooseBranch, governora
         >
             <Head title="الطبلونات" />
 
-
-
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
@@ -40,7 +38,13 @@ export default function Index({ meterBoxes, branches, canChooseBranch, governora
                 onPerPageChange={setPerPage}
                 total={meterBoxes.total}
                 filterMenu={
-                    <DataTableFilterMenu tableKey="meter_boxes" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                    <DataTableFilterMenu
+                        tableKey="meter_boxes"
+                        groups={filterOptions}
+                        values={filterValues}
+                        onChange={setFilter}
+                        onClear={clearFilters}
+                    />
                 }
             />
 

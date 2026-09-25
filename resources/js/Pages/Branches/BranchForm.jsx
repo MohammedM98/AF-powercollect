@@ -17,9 +17,7 @@ export function branchFormData(branch) {
 }
 
 export default function BranchForm({ data, setData, errors, governorates, areas }) {
-    const areasInGovernorate = data.governorate_id
-        ? areas.filter((area) => String(area.governorate_id) === String(data.governorate_id))
-        : [];
+    const areasInGovernorate = data.governorate_id ? areas.filter((area) => String(area.governorate_id) === String(data.governorate_id)) : [];
 
     function onGovernorateChange(value) {
         setData((prev) => ({ ...prev, governorate_id: value, area_id: '' }));
@@ -29,25 +27,13 @@ export default function BranchForm({ data, setData, errors, governorates, areas 
         <>
             <div>
                 <InputLabel htmlFor="name" value="الاسم" />
-                <TextInput
-                    id="name"
-                    className="mt-1 block w-full"
-                    value={data.name}
-                    autoFocus
-                    onChange={(e) => setData('name', e.target.value)}
-                />
+                <TextInput id="name" className="mt-1 block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
                 <InputError message={errors.name} className="mt-2" />
             </div>
 
             <div className="mt-4">
                 <InputLabel htmlFor="phone" value="الهاتف" />
-                <TextInput
-                    id="phone"
-                    dir="ltr"
-                    className="mt-1 block w-full"
-                    value={data.phone}
-                    onChange={(e) => setData('phone', e.target.value)}
-                />
+                <TextInput id="phone" dir="ltr" className="mt-1 block w-full" value={data.phone} onChange={(e) => setData('phone', e.target.value)} />
                 <InputError message={errors.phone} className="mt-2" />
             </div>
 

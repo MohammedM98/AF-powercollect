@@ -59,12 +59,6 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
         >
             <Head title="المحافظات والمناطق" />
 
-
-
-
-
-
-
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                 {/* Governorates list */}
                 <div>
@@ -147,7 +141,9 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                         <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
                             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                                 <h3 className="text-base font-bold text-gray-900">مناطق {selectedGovernorate.name}</h3>
-                                <AddButton onClick={() => setCreatingArea(true)} variant="soft">إضافة منطقة</AddButton>
+                                <AddButton onClick={() => setCreatingArea(true)} variant="soft">
+                                    إضافة منطقة
+                                </AddButton>
                             </div>
 
                             {selectedGovernorate.areas.length === 0 ? (
@@ -202,7 +198,9 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                         <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
                             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                                 <h3 className="text-base font-bold text-gray-900">منطقة 2 لـ {selectedArea.name}</h3>
-                                <AddButton onClick={() => setCreatingSubArea(true)} variant="soft">إضافة منطقة 2</AddButton>
+                                <AddButton onClick={() => setCreatingSubArea(true)} variant="soft">
+                                    إضافة منطقة 2
+                                </AddButton>
                             </div>
 
                             {selectedArea.subAreas.length === 0 ? (
@@ -249,15 +247,7 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                 defaultGovernorateId={selectedGovernorate?.id ?? ''}
             />
 
-            {modalArea && (
-                <AreaModal
-                    key={modalArea.id}
-                    show
-                    onClose={() => setModalArea(null)}
-                    area={modalArea}
-                    governorates={governorateOptions}
-                />
-            )}
+            {modalArea && <AreaModal key={modalArea.id} show onClose={() => setModalArea(null)} area={modalArea} governorates={governorateOptions} />}
 
             {/* Keyed by the selected area so its id is re-captured as the
                 form's default whenever the selection changes — useForm()
@@ -272,13 +262,7 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
             />
 
             {modalSubArea && (
-                <SubAreaModal
-                    key={modalSubArea.id}
-                    show
-                    onClose={() => setModalSubArea(null)}
-                    subArea={modalSubArea}
-                    areas={areaOptions}
-                />
+                <SubAreaModal key={modalSubArea.id} show onClose={() => setModalSubArea(null)} subArea={modalSubArea} areas={areaOptions} />
             )}
         </SettingsLayout>
     );

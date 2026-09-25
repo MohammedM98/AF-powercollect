@@ -6,13 +6,7 @@ export default function UserModal({ show, onClose, user, roleOptions, branches, 
     const form = useResourceForm('/users', user, userFormData(user, roleOptions));
 
     return (
-        <FormModal
-            show={show}
-            onClose={onClose}
-            form={form}
-            title={form.isEdit ? 'تعديل المستخدم' : 'إنشاء مستخدم'}
-            icon="user"
-        >
+        <FormModal show={show} onClose={onClose} form={form} title={form.isEdit ? 'تعديل المستخدم' : 'إنشاء مستخدم'} icon="user">
             <UserForm
                 data={form.data}
                 setData={form.setData}

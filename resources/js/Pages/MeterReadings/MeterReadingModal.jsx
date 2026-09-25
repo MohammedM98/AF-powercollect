@@ -58,19 +58,19 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
                     {fixedSubscriber ? (
                         <div className="rounded-lg border border-gray-100 px-4 py-3 text-sm font-semibold text-gray-900">{fixedSubscriber.label}</div>
                     ) : (
-                    <div>
-                        <InputLabel value="المشترك" />
-                        <SearchableSelect
-                            className="mt-1"
-                            value={data.subscriber_id}
-                            onChange={(value) => setData('subscriber_id', value)}
-                            options={subscriberOptions}
-                            placeholder="اختر مشتركًا"
-                            searchPlaceholder="بحث بالاسم أو رقم المشترك..."
-                            emptyLabel="لا يوجد مشتركون مطابقون"
-                        />
-                        <InputError message={errors.subscriber_id} className="mt-2" />
-                    </div>
+                        <div>
+                            <InputLabel value="المشترك" />
+                            <SearchableSelect
+                                className="mt-1"
+                                value={data.subscriber_id}
+                                onChange={(value) => setData('subscriber_id', value)}
+                                options={subscriberOptions}
+                                placeholder="اختر مشتركًا"
+                                searchPlaceholder="بحث بالاسم أو رقم المشترك..."
+                                emptyLabel="لا يوجد مشتركون مطابقون"
+                            />
+                            <InputError message={errors.subscriber_id} className="mt-2" />
+                        </div>
                     )}
 
                     <div>

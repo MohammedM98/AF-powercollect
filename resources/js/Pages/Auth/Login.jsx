@@ -24,7 +24,6 @@ export default function Login() {
         <GuestLayout>
             <Head title="تسجيل الدخول" />
 
-
             <form onSubmit={submit}>
                 <div>
                     <InputLabel htmlFor="username" value="اسم المستخدم" />

@@ -33,8 +33,6 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
         >
             <Head title="المستخدمون" />
 
-
-
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}

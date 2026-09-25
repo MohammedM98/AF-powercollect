@@ -70,7 +70,6 @@ export default function UpdatePasswordForm() {
 
                 <div className="flex items-center gap-4">
                     <PrimaryButton disabled={processing}>حفظ</PrimaryButton>
-
                 </div>
             </form>
         </section>

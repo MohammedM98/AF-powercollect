@@ -31,15 +31,19 @@ export default function Index({ circuitBreakers, filters, filterOptions }) {
         >
             <Head title="القواطع" />
 
-
-
             <DataTableToolbar
                 showSearch={false}
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={circuitBreakers.total}
                 filterMenu={
-                    <DataTableFilterMenu tableKey="circuit_breakers" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                    <DataTableFilterMenu
+                        tableKey="circuit_breakers"
+                        groups={filterOptions}
+                        values={filterValues}
+                        onChange={setFilter}
+                        onClear={clearFilters}
+                    />
                 }
             />
 
@@ -92,7 +96,6 @@ export default function Index({ circuitBreakers, filters, filterOptions }) {
                     show
                     onClose={() => setModalCircuitBreaker(null)}
                     circuitBreaker={modalCircuitBreaker}
-                   
                 />
             )}
         </SettingsLayout>

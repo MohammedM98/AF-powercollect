@@ -19,9 +19,7 @@ export default function ConfirmPassword() {
         <GuestLayout>
             <Head title="تأكيد كلمة المرور" />
 
-            <div className="mb-4 text-sm text-gray-600">
-                هذه منطقة آمنة من التطبيق. الرجاء تأكيد كلمة المرور قبل المتابعة.
-            </div>
+            <div className="mb-4 text-sm text-gray-600">هذه منطقة آمنة من التطبيق. الرجاء تأكيد كلمة المرور قبل المتابعة.</div>
 
             <form onSubmit={submit}>
                 <div>

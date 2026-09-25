@@ -6,13 +6,7 @@ export default function CircuitBreakerModal({ show, onClose, circuitBreaker }) {
     const form = useResourceForm('/circuit-breakers', circuitBreaker, circuitBreakerFormData(circuitBreaker));
 
     return (
-        <FormModal
-            show={show}
-            onClose={onClose}
-            form={form}
-            title={form.isEdit ? 'تعديل القاطع' : 'إنشاء قاطع'}
-            icon="currency"
-        >
+        <FormModal show={show} onClose={onClose} form={form} title={form.isEdit ? 'تعديل القاطع' : 'إنشاء قاطع'} icon="currency">
             <CircuitBreakerForm data={form.data} setData={form.setData} errors={form.errors} />
         </FormModal>
     );

@@ -6,13 +6,7 @@ export default function BranchModal({ show, onClose, branch, governorates, areas
     const form = useResourceForm('/branches', branch, branchFormData(branch));
 
     return (
-        <FormModal
-            show={show}
-            onClose={onClose}
-            form={form}
-            title={form.isEdit ? 'تعديل الفرع' : 'إنشاء فرع'}
-            icon="building"
-        >
+        <FormModal show={show} onClose={onClose} form={form} title={form.isEdit ? 'تعديل الفرع' : 'إنشاء فرع'} icon="building">
             <BranchForm data={form.data} setData={form.setData} errors={form.errors} governorates={governorates} areas={areas} />
         </FormModal>
     );

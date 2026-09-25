@@ -6,13 +6,7 @@ export default function SubAreaModal({ show, onClose, subArea, areas, defaultAre
     const form = useResourceForm('/sub-areas', subArea, subAreaFormData(subArea, defaultAreaId));
 
     return (
-        <FormModal
-            show={show}
-            onClose={onClose}
-            form={form}
-            title={form.isEdit ? 'تعديل منطقة 2' : 'إنشاء منطقة 2'}
-            icon="map"
-        >
+        <FormModal show={show} onClose={onClose} form={form} title={form.isEdit ? 'تعديل منطقة 2' : 'إنشاء منطقة 2'} icon="map">
             <SubAreaForm data={form.data} setData={form.setData} errors={form.errors} areas={areas} />
         </FormModal>
     );

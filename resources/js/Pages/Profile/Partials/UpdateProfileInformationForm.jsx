@@ -37,7 +37,6 @@ export default function UpdateProfileInformationForm({ user }) {
 
                 <div className="flex items-center gap-4">
                     <PrimaryButton disabled={processing}>حفظ</PrimaryButton>
-
                 </div>
             </form>
         </section>

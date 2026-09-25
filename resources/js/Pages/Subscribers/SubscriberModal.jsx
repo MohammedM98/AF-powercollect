@@ -19,14 +19,7 @@ export default function SubscriberModal({
     const form = useResourceForm('/subscribers', subscriber, subscriberFormData(subscriber));
 
     return (
-        <FormModal
-            show={show}
-            onClose={onClose}
-            form={form}
-            title={form.isEdit ? 'تعديل المشترك' : 'إنشاء مشترك'}
-            icon="user"
-            maxWidth="5xl"
-        >
+        <FormModal show={show} onClose={onClose} form={form} title={form.isEdit ? 'تعديل المشترك' : 'إنشاء مشترك'} icon="user" maxWidth="5xl">
             <SubscriberForm
                 data={form.data}
                 setData={form.setData}

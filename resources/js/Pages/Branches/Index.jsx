@@ -39,7 +39,13 @@ export default function Index({ branches, filters, filterOptions, governorates, 
                 onPerPageChange={setPerPage}
                 total={branches.total}
                 filterMenu={
-                    <DataTableFilterMenu tableKey="branches" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                    <DataTableFilterMenu
+                        tableKey="branches"
+                        groups={filterOptions}
+                        values={filterValues}
+                        onChange={setFilter}
+                        onClear={clearFilters}
+                    />
                 }
             />
 

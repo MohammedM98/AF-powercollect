@@ -27,17 +27,11 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
     // branch's area for everyone else.
     const effectiveAreaId = canChooseBranch ? areaId : currentBranchAreaId;
 
-    const areasInGovernorate = governorateId
-        ? areas.filter((area) => String(area.governorate_id) === String(governorateId))
-        : [];
+    const areasInGovernorate = governorateId ? areas.filter((area) => String(area.governorate_id) === String(governorateId)) : [];
 
-    const branchesInArea = areaId
-        ? branches.filter((branch) => String(branch.area_id) === String(areaId))
-        : [];
+    const branchesInArea = areaId ? branches.filter((branch) => String(branch.area_id) === String(areaId)) : [];
 
-    const subAreasInArea = effectiveAreaId
-        ? subAreas.filter((subArea) => String(subArea.area_id) === String(effectiveAreaId))
-        : [];
+    const subAreasInArea = effectiveAreaId ? subAreas.filter((subArea) => String(subArea.area_id) === String(effectiveAreaId)) : [];
 
     function onGovernorateChange(value) {
         setGovernorateId(value);
@@ -54,13 +48,7 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
         <>
             <div>
                 <InputLabel htmlFor="name" value="اسم الطبلون" />
-                <TextInput
-                    id="name"
-                    className="mt-1 block w-full"
-                    value={data.name}
-                    autoFocus
-                    onChange={(e) => setData('name', e.target.value)}
-                />
+                <TextInput id="name" className="mt-1 block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
                 <InputError message={errors.name} className="mt-2" />
             </div>
 

@@ -7,9 +7,7 @@ import InputError from '@/Components/InputError';
  * otherwise blank.
  */
 export function circuitBreakerFormData(circuitBreaker) {
-    return circuitBreaker
-        ? { ampere: circuitBreaker.ampere, minimum_payment: circuitBreaker.minimum_payment }
-        : { ampere: '', minimum_payment: '' };
+    return circuitBreaker ? { ampere: circuitBreaker.ampere, minimum_payment: circuitBreaker.minimum_payment } : { ampere: '', minimum_payment: '' };
 }
 
 export default function CircuitBreakerForm({ data, setData, errors }) {

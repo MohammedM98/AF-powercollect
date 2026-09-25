@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Icon from '@/Components/Icon';
 
 export default function SearchableSelect({
     id,
@@ -9,6 +10,7 @@ export default function SearchableSelect({
     searchPlaceholder = 'بحث...',
     emptyLabel = 'لا توجد نتائج',
     disabled = false,
+    active = false,
     className = '',
 }) {
     const [open, setOpen] = useState(false);
@@ -68,17 +70,18 @@ export default function SearchableSelect({
                 type="button"
                 id={id}
                 disabled={disabled}
+                aria-expanded={open}
                 onClick={() => setOpen((current) => !current)}
-                className="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-start text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100 disabled:text-gray-500"
+                className={`flex w-full items-center justify-between gap-2 rounded-control border bg-surface px-3.5 py-2.5 text-start text-sm transition focus:outline-none focus-visible:border-gray-900 focus-visible:ring-4 focus-visible:ring-gray-900/10 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-gray-50 disabled:text-gray-500 ${
+                    open || active ? 'border-gray-400' : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
                 <span className={`truncate ${selected ? 'text-gray-900' : 'text-gray-400'}`}>{selected ? selected.label : placeholder}</span>
-                <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                </svg>
+                <Icon name="chevron-down" className={`h-4 w-4 shrink-0 text-gray-400 transition ${open ? 'rotate-180' : ''}`} />
             </button>
 
             {open && (
-                <div className="absolute z-20 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg">
+                <div className="animate-modal-panel absolute z-20 mt-2 w-full min-w-[12rem] overflow-hidden rounded-2xl border border-gray-100 bg-surface shadow-lift">
                     <div className="border-b border-gray-100 p-2">
                         <input
                             ref={searchRef}
@@ -86,15 +89,15 @@ export default function SearchableSelect({
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
                             placeholder={searchPlaceholder}
-                            className="block w-full rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                            className="block w-full py-2 text-sm"
                         />
                     </div>
-                    <ul className="max-h-56 overflow-y-auto py-1 text-sm">
+                    <ul className="max-h-56 overflow-y-auto p-1.5 text-sm">
                         <li>
                             <button
                                 type="button"
                                 onClick={() => select(null)}
-                                className="block w-full px-3 py-2 text-start text-gray-500 hover:bg-gray-50"
+                                className="block w-full rounded-lg px-3 py-2 text-start text-gray-500 hover:bg-gray-50"
                             >
                                 {placeholder}
                             </button>
@@ -102,19 +105,24 @@ export default function SearchableSelect({
                         {filtered.length === 0 ? (
                             <li className="px-3 py-2 text-gray-400">{emptyLabel}</li>
                         ) : (
-                            filtered.map((option) => (
-                                <li key={option.value}>
-                                    <button
-                                        type="button"
-                                        onClick={() => select(option)}
-                                        className={`block w-full px-3 py-2 text-start hover:bg-brand-50 ${
-                                            String(option.value) === String(value) ? 'bg-brand-50 font-medium text-brand-700' : 'text-gray-700'
-                                        }`}
-                                    >
-                                        {option.label}
-                                    </button>
-                                </li>
-                            ))
+                            filtered.map((option) => {
+                                const isSelected = String(option.value) === String(value);
+
+                                return (
+                                    <li key={option.value}>
+                                        <button
+                                            type="button"
+                                            onClick={() => select(option)}
+                                            className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-start hover:bg-gray-50 ${
+                                                isSelected ? 'font-semibold text-gray-900' : 'text-gray-700'
+                                            }`}
+                                        >
+                                            {option.label}
+                                            {isSelected && <Icon name="check" className="h-4 w-4 shrink-0 text-brand-500" strokeWidth={2} />}
+                                        </button>
+                                    </li>
+                                );
+                            })
                         )}
                     </ul>
                 </div>

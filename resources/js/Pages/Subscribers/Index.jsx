@@ -7,6 +7,7 @@ import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
+import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import SubscriberModal from './SubscriberModal';
@@ -59,7 +60,7 @@ export default function Index({
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-xl font-bold text-gray-900">المشتركون</h2>
+                        <h2 className="text-3xl font-bold text-gray-900">المشتركون</h2>
                     </div>
                     {canCreate && (
                         <div className="shrink-0">
@@ -91,63 +92,52 @@ export default function Index({
 
             <div className="data-table-container">
                 <table className="data-table w-full text-sm text-start">
-                    <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                    <thead>
                         <tr>
                             <SortableTh column="account_number" label="رقم المشترك" sortState={filters} onSort={sort} />
                             <SortableTh column="full_name" label="الاسم الكامل" sortState={filters} onSort={sort} />
-                            <th className="px-6 py-3">الطبلون</th>
-                            <th className="px-6 py-3">نوع الاشتراك</th>
-                            <th className="px-6 py-3">الفرع</th>
+                            <th>الطبلون</th>
+                            <th>نوع الاشتراك</th>
+                            <th>الفرع</th>
                             <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
-                            <th className="px-6 py-3"></th>
+                            <th></th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody>
                         {subscribers.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={7}>
+                                <td className="text-gray-500" colSpan={7}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
                         ) : (
                             subscribers.data.map((subscriber) => (
-                                <tr key={subscriber.id} className="transition hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-end text-gray-600" dir="ltr">
+                                <tr key={subscriber.id}>
+                                    <td className="text-end text-gray-600" dir="ltr">
                                         {subscriber.account_number}
                                     </td>
-                                    <td className="px-6 py-4 font-medium text-gray-900">
-                                        <button
-                                            type="button"
-                                            onClick={() => setViewingSubscriberId(subscriber.id)}
-                                            className="text-start text-brand-700 hover:underline"
-                                        >
-                                            {subscriber.full_name}
+                                    <td>
+                                        <button type="button" onClick={() => setViewingSubscriberId(subscriber.id)} className="text-start">
+                                            <RowIdentity
+                                                name={subscriber.full_name}
+                                                subtitle={subscriber.phone}
+                                                subtitleDir="ltr"
+                                                status={STATUS_TONES[subscriber.status]}
+                                            />
                                         </button>
                                     </td>
-                                    <td className="px-6 py-4 text-end text-gray-600" dir="ltr">
-                                        {subscriber.meterBoxNumber ?? '—'}
+                                    <td className="text-gray-600">
+                                        {subscriber.meterBoxNumber ? <span className="data-chip">{subscriber.meterBoxNumber}</span> : '—'}
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600">{subscriber.tariffCategoryLabel}</td>
-                                    <td className="px-6 py-4 text-gray-600">{subscriber.branchName}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="text-gray-600">{subscriber.tariffCategoryLabel}</td>
+                                    <td className="text-gray-600">{subscriber.branchName}</td>
+                                    <td>
                                         <StatusPill tone={STATUS_TONES[subscriber.status]} label={subscriber.statusLabel} />
                                     </td>
-                                    <td className="px-6 py-4 text-end">
+                                    <td className="text-end">
                                         <RowActionsMenu>
-                                            <button
-                                                onClick={() => setViewingSubscriberId(subscriber.id)}
-                                                className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
-                                            >
-                                                عرض
-                                            </button>
-                                            {subscriber.canUpdate && (
-                                                <button
-                                                    onClick={() => setModalSubscriber(subscriber)}
-                                                    className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
-                                                >
-                                                    تعديل
-                                                </button>
-                                            )}
+                                            <button onClick={() => setViewingSubscriberId(subscriber.id)}>عرض</button>
+                                            {subscriber.canUpdate && <button onClick={() => setModalSubscriber(subscriber)}>تعديل</button>}
                                         </RowActionsMenu>
                                     </td>
                                 </tr>

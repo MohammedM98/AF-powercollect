@@ -26,12 +26,12 @@ export default function ReadingSchedule({ setting, modes }) {
     }
 
     return (
-        <SettingsLayout header={<h2 className="text-xl font-bold text-gray-900">مواعيد القراءات</h2>}>
+        <SettingsLayout header={<h2 className="text-3xl font-bold text-gray-900">مواعيد القراءات</h2>}>
             <Head title="مواعيد القراءات" />
 
             <form onSubmit={submit} className="max-w-2xl space-y-6">
                 <div
-                    className={`flex items-center gap-3 rounded-xl border p-4 ${setting.isOpenNow ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}
+                    className={`flex items-center gap-3 rounded-xl border p-4 ${setting.isOpenNow ? 'border-emerald-500/25 bg-emerald-500/10' : 'border-gray-200 bg-gray-50'}`}
                 >
                     <span className={`h-3 w-3 shrink-0 rounded-full ${setting.isOpenNow ? 'bg-emerald-500' : 'bg-gray-400'}`} aria-hidden="true" />
                     <div>
@@ -40,7 +40,7 @@ export default function ReadingSchedule({ setting, modes }) {
                     </div>
                 </div>
 
-                <fieldset className="rounded-xl border border-gray-200 bg-white p-5">
+                <fieldset className="rounded-xl border border-gray-200 bg-surface p-5">
                     <legend className="px-1 text-sm font-semibold text-gray-900">طريقة الفتح</legend>
                     <div className="mt-2 space-y-2">
                         {modes.map((mode) => (
@@ -51,7 +51,7 @@ export default function ReadingSchedule({ setting, modes }) {
                                     value={mode.value}
                                     checked={data.mode === mode.value}
                                     onChange={() => setData('mode', mode.value)}
-                                    className="mt-1 text-brand-600 focus:ring-gray-900"
+                                    className="mt-1 text-brand-600"
                                 />
                                 <span>
                                     <span className="block text-sm font-medium text-gray-900">{mode.label}</span>
@@ -63,7 +63,7 @@ export default function ReadingSchedule({ setting, modes }) {
                     <InputError message={errors.mode} className="mt-2" />
                 </fieldset>
 
-                <fieldset className="rounded-xl border border-gray-200 bg-white p-5">
+                <fieldset className="rounded-xl border border-gray-200 bg-surface p-5">
                     <legend className="px-1 text-sm font-semibold text-gray-900">أيام فتح الإدخال</legend>
                     <p className="text-xs text-gray-500">تُستخدم في الوضع التلقائي — يكون الإدخال مفتوحًا طوال اليوم المحدد.</p>
                     <div className="mt-3 flex flex-wrap gap-2">

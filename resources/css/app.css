@@ -5,10 +5,13 @@
 /*
  * Design tokens (AF PowerCollect design system). Colors are RGB triples so
  * Tailwind's opacity modifiers work: `bg-brand-500` or `bg-brand-500/10`.
+ * The same class works in both themes: `.dark` on <html> swaps the values.
  * Change a color here and every class that uses it follows.
  */
 @layer base {
     :root {
+        color-scheme: light;
+
         /* Burgundy, from the logo's arrow. 500 is the primary color. */
         --brand-50: 251 241 241;
         --brand-100: 244 214 216;
@@ -34,7 +37,10 @@
         --gray-900: 17 24 32;
         --gray-950: 11 13 16;
 
-        /* Dark graphite for the app chrome and the dashboard's main card. */
+        /* Cards, tables, dialogs and fields. */
+        --surface: 255 255 255;
+
+        /* Dark graphite that stays dark in both themes: the active nav item, avatars, the dashboard's main card. */
         --graphite-700: 38 44 51;
         --graphite-800: 27 32 38;
         --graphite-900: 17 21 25;
@@ -43,10 +49,99 @@
         --spectrum: linear-gradient(90deg, #5c0d14, #a51d26 40%, #9aa3ae 75%, #dfe3e8);
     }
 
+    .dark {
+        color-scheme: dark;
+
+        --brand-50: 42 16 19;
+        --brand-100: 58 20 24;
+        --brand-200: 92 28 34;
+        --brand-300: 140 40 48;
+        --brand-400: 196 70 78;
+        --brand-500: 184 35 44;
+        --brand-600: 222 92 100;
+        --brand-700: 236 128 135;
+        --brand-800: 243 164 169;
+        --brand-900: 249 204 207;
+
+        --gray-50: 11 13 16;
+        --gray-100: 27 31 37;
+        --gray-200: 37 42 50;
+        --gray-300: 52 58 67;
+        --gray-400: 128 137 149;
+        --gray-500: 158 166 177;
+        --gray-600: 184 190 199;
+        --gray-700: 204 209 216;
+        --gray-800: 226 229 233;
+        --gray-900: 244 245 247;
+        --gray-950: 250 250 251;
+
+        --surface: 20 23 28;
+
+        --spectrum: linear-gradient(90deg, #5c0d14, #b8232c 40%, #6b7480 75%, #252a32);
+    }
+
     h1,
     h2,
     h3 {
         @apply font-luxe;
+    }
+
+    /*
+     * Fields: 12px corners, a quiet border, an ink focus ring (never red, so
+     * focus never looks like an error). Selectors are kept as weak as the
+     * forms plugin's, so a utility class on a field still wins.
+     */
+    input:where(:not([type])),
+    [type='text'],
+    [type='email'],
+    [type='password'],
+    [type='number'],
+    [type='search'],
+    [type='tel'],
+    [type='date'],
+    select,
+    textarea {
+        @apply rounded-control border-gray-200 bg-surface text-gray-900 placeholder:text-gray-400;
+    }
+
+    input:where(:not([type])):focus,
+    [type='text']:focus,
+    [type='email']:focus,
+    [type='password']:focus,
+    [type='number']:focus,
+    [type='search']:focus,
+    [type='tel']:focus,
+    [type='date']:focus,
+    select:focus,
+    textarea:focus {
+        @apply border-gray-900 ring-4 ring-gray-900/10;
+    }
+
+    /* A read-only or disabled field gets a dashed border. */
+    :read-only:where(input:not([type='checkbox'], [type='radio'])),
+    :disabled:where(input, select, textarea) {
+        @apply border-dashed bg-gray-50 text-gray-500;
+    }
+
+    [type='checkbox'] {
+        @apply rounded border-gray-300 bg-surface text-brand-500 focus:ring-gray-900/20;
+    }
+
+    [type='date'] {
+        color-scheme: inherit;
+    }
+
+    /* Theme switch: colors glide instead of jumping. Added only while switching. */
+    .theme-transition,
+    .theme-transition *,
+    .theme-transition *::before,
+    .theme-transition *::after {
+        transition:
+            background-color 380ms ease,
+            border-color 380ms ease,
+            color 380ms ease,
+            fill 380ms ease,
+            box-shadow 380ms ease !important;
     }
 }
 
@@ -55,16 +150,319 @@
     .brand-spectrum {
         @apply h-[3px] rounded-full bg-spectrum;
     }
+
+    /* Small monospace chip for codes like a meter box number. */
+    .data-chip {
+        @apply inline-block whitespace-nowrap rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 font-mono text-xs text-gray-700;
+    }
+
+    /* The sidebar's current page: a burgundy edge on the graphite pill. */
+    .nav-link-active {
+        box-shadow:
+            inset -3px 0 0 rgb(var(--brand-500)),
+            0 14px 26px -14px rgb(16 24 40 / 0.55);
+    }
+
+    /* Login: the brand half — soft metal texture with a burgundy glow; follows the theme. */
+    .login-brand-panel {
+        background:
+            radial-gradient(55% 45% at 15% 100%, rgb(var(--brand-500) / 0.2), transparent 70%),
+            repeating-linear-gradient(135deg, rgb(var(--gray-900) / 0.025) 0 1px, transparent 1px 7px),
+            linear-gradient(160deg, rgb(var(--gray-100)), rgb(var(--gray-200) / 0.75) 55%, rgb(var(--gray-100)));
+    }
+
+    .login-form-panel {
+        background:
+            radial-gradient(40% 35% at 0% 0%, rgb(var(--brand-500) / 0.07), transparent 70%),
+            rgb(var(--gray-50));
+    }
+
+    .kbd {
+        @apply inline-flex items-center rounded-md border border-gray-200 bg-surface px-1.5 py-0.5 font-display text-[11px] font-semibold text-gray-500;
+    }
 }
 
+/*
+ * Tables: every row is a floating card on a soft tray. The toolbar, the
+ * table and the pagination stack into one rounded card.
+ */
+.data-table-toolbar {
+    position: relative;
+    padding: 20px 24px;
+    border: 1px solid rgb(var(--gray-100));
+    border-bottom: 0;
+    border-radius: 28px 28px 0 0;
+    background: rgb(var(--surface));
+}
+
+.data-table-toolbar::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    inset-inline: 28px;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, rgb(var(--brand-500) / 0.55));
+}
+
+.data-table-container {
+    container-type: inline-size;
+    overflow-x: auto;
+    padding: 4px 16px 12px;
+    border: 1px solid rgb(var(--gray-100));
+    border-radius: 28px;
+    background: rgb(var(--gray-50));
+}
+
+.data-table-toolbar + .data-table-container {
+    border-top: 1px solid rgb(var(--gray-100));
+    border-start-start-radius: 0;
+    border-start-end-radius: 0;
+}
+
+.data-table-container:has(+ .data-table-pagination) {
+    border-bottom: 0;
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+}
+
+.data-table-pagination {
+    padding: 16px 24px 20px;
+    border: 1px solid rgb(var(--gray-100));
+    border-top: 0;
+    border-radius: 0 0 28px 28px;
+    background: rgb(var(--surface));
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 10px;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.data-table thead,
+.data-table thead tr {
+    background: transparent;
+}
+
+.data-table th {
+    padding: 10px 16px 0;
+    color: rgb(var(--gray-400));
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-align: start;
+    text-transform: none;
+}
+
+.data-table td {
+    padding: 14px 16px;
+    white-space: nowrap;
+    vertical-align: middle;
+    background: rgb(var(--surface));
+    border-block: 1px solid rgb(var(--gray-100));
+    transition:
+        border-color 160ms ease,
+        box-shadow 160ms ease;
+}
+
+/* The app is right-to-left, so a row starts on the right. Physical sides
+   keep the corners right even when a cell's own text runs left-to-right. */
+.data-table td:first-child {
+    border-right: 1px solid rgb(var(--gray-100));
+    border-top-right-radius: 18px;
+    border-bottom-right-radius: 18px;
+}
+
+.data-table td:last-child {
+    border-left: 1px solid rgb(var(--gray-100));
+    border-top-left-radius: 18px;
+    border-bottom-left-radius: 18px;
+}
+
+.data-table tbody tr:hover td,
+.data-table tbody tr:focus-within td {
+    border-color: rgb(var(--gray-200));
+    box-shadow: 0 12px 20px -16px rgb(16 24 40 / 0.45);
+}
+
+.data-table tbody tr:hover td:first-child,
+.data-table tbody tr:focus-within td:first-child,
+.data-table tbody tr.bg-brand-50 td:first-child {
+    box-shadow:
+        inset -3px 0 0 rgb(var(--brand-500)),
+        0 12px 20px -16px rgb(16 24 40 / 0.45);
+}
+
+.data-table tbody tr.bg-brand-50 td {
+    background: rgb(var(--brand-50));
+}
+
+.data-table th.text-center,
+.data-table td.text-center {
+    text-align: center;
+}
+
+.data-table td[colspan] {
+    padding: 48px 16px;
+    text-align: center;
+    white-space: normal;
+    color: rgb(var(--gray-400));
+    font-size: 13px;
+}
+
+.data-table td[dir='ltr'] {
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+}
+
+/* Narrow tables (many columns, or a small screen) get tighter cells. */
+@container (max-width: 1180px) {
+    .data-table th,
+    .data-table td {
+        padding-inline: 10px;
+    }
+
+    .data-table td {
+        white-space: normal;
+    }
+}
+
+/* Phones: each row becomes a card, with the column title above each value. */
+@container (max-width: 640px) {
+    .data-table,
+    .data-table tbody {
+        display: block;
+    }
+
+    .data-table thead {
+        display: none;
+    }
+
+    .data-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 10px;
+        padding: 14px;
+        border: 1px solid rgb(var(--gray-100));
+        border-radius: 18px;
+        background: rgb(var(--surface));
+    }
+
+    .data-table td,
+    .data-table td:first-child,
+    .data-table td:last-child,
+    .data-table tbody tr:hover td,
+    .data-table tbody tr:hover td:first-child {
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+        white-space: normal;
+    }
+
+    .data-table td:first-child,
+    .data-table td[colspan] {
+        grid-column: 1 / -1;
+    }
+
+    .data-table td:not(:first-child)[data-label]:not([data-label=''])::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 2px;
+        color: rgb(var(--gray-400));
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .data-table td[dir='ltr'] {
+        text-align: start;
+    }
+}
+
+/* Rows float in one after another. */
+.data-table tbody tr {
+    animation: rise-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.data-table tbody tr:nth-child(2) {
+    animation-delay: 30ms;
+}
+.data-table tbody tr:nth-child(3) {
+    animation-delay: 60ms;
+}
+.data-table tbody tr:nth-child(4) {
+    animation-delay: 90ms;
+}
+.data-table tbody tr:nth-child(5) {
+    animation-delay: 120ms;
+}
+.data-table tbody tr:nth-child(6) {
+    animation-delay: 150ms;
+}
+.data-table tbody tr:nth-child(n + 7) {
+    animation-delay: 180ms;
+}
+
+/* Row actions: a word with its icon, grouped in one outlined control. */
+.data-table-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid rgb(var(--gray-200));
+    border-radius: 12px;
+    background: rgb(var(--surface));
+}
+
+.data-table-actions .row-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 9px;
+    color: rgb(var(--gray-700));
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition:
+        background-color 120ms ease,
+        color 120ms ease;
+}
+
+.data-table-actions .row-action:hover {
+    background: rgb(var(--gray-50));
+    color: rgb(var(--gray-900));
+}
+
+.data-table-actions .row-action:focus-visible {
+    outline: 2px solid rgb(var(--gray-900));
+    outline-offset: 1px;
+}
+
+/* Notifications */
 @keyframes flash-notification-in {
-    from { opacity: 0; transform: translateX(-12px); }
-    to { opacity: 1; transform: translateX(0); }
+    from {
+        opacity: 0;
+        transform: translateX(-12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 @keyframes flash-notification-countdown {
-    from { transform: scaleX(1); }
-    to { transform: scaleX(0); }
+    from {
+        transform: scaleX(1);
+    }
+    to {
+        transform: scaleX(0);
+    }
 }
 
 .flash-notification {
@@ -76,157 +474,96 @@
     animation: flash-notification-countdown 3s linear forwards;
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .flash-notification,
-    .flash-notification-countdown {
-        animation: none;
+/* Dialogs */
+@keyframes modal-backdrop-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
     }
 }
 
-.data-table-container {
-    overflow-x: auto;
-    border: 1px solid rgb(var(--gray-200));
-    border-radius: 14px;
-    background: white;
+@keyframes modal-panel-in {
+    from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
-.data-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: 14px;
-    line-height: 1.7;
+.animate-modal-backdrop {
+    animation: modal-backdrop-in 200ms ease-out;
 }
 
-.data-table thead {
-    background: white;
+.animate-modal-panel {
+    animation: modal-panel-in 320ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-.data-table th,
-.data-table td {
-    padding: 14px 20px;
-    white-space: nowrap;
-    vertical-align: middle;
-    border-bottom: 1px solid rgb(var(--gray-100));
+/* Cards rise in one after another; give each a --rise-delay. */
+@keyframes rise-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.data-table th {
-    color: rgb(var(--gray-400));
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-align: start;
-    text-transform: none;
+.rise-in {
+    animation: rise-in 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: var(--rise-delay, 0ms);
 }
 
-.data-table th.text-center,
-.data-table td.text-center {
-    text-align: center;
+/* The login page's floating logo and breathing glow. */
+@keyframes logo-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
 }
 
-.data-table th:last-child,
-.data-table td:last-child {
-    border-inline-end: 0;
+@keyframes glow-breathe {
+    0%,
+    100% {
+        opacity: 0.55;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.9;
+        transform: scale(1.08);
+    }
 }
 
-.data-table tbody tr:last-child td {
-    border-bottom: 0;
+.animate-logo-float {
+    animation: logo-float 7s ease-in-out infinite;
 }
 
-.data-table tbody tr {
-    background: white;
-    transition: background-color 120ms ease;
+.animate-glow-breathe {
+    animation: glow-breathe 8s ease-in-out infinite;
 }
 
-.data-table tbody tr:hover,
-.data-table tbody tr:focus-within {
-    background: rgb(var(--gray-50));
-}
-
-.data-table tbody tr.bg-brand-50 {
-    background: rgb(var(--brand-50));
-    box-shadow: inset -3px 0 rgb(var(--brand-500));
-}
-
-.data-table td[colspan] {
-    padding: 48px 16px;
-    text-align: center;
-    white-space: normal;
-    color: rgb(var(--gray-400));
-    font-size: 13px;
-}
-
-.data-table td[dir="ltr"] {
-    font-variant-numeric: tabular-nums;
-    text-align: end;
-}
-
-.data-table-toolbar {
-    padding: 16px 20px;
-    border: 1px solid rgb(var(--gray-200));
-    border-bottom: 0;
-    border-radius: 14px 14px 0 0;
-    background: white;
-}
-
-.data-table-toolbar + .data-table-container {
-    border-top: 0;
-    border-start-start-radius: 0;
-    border-start-end-radius: 0;
-}
-
-.data-table-container:has(+ .data-table-pagination) {
-    border-end-start-radius: 0;
-    border-end-end-radius: 0;
-}
-
-.data-table-pagination {
-    padding: 16px 20px;
-    border: 1px solid rgb(var(--gray-200));
-    border-top: 0;
-    border-radius: 0 0 14px 14px;
-    background: white;
-}
-
-.data-table-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: rgb(var(--gray-400));
-}
-
-.data-table-actions > button,
-.data-table-actions > a {
-    width: auto;
-    border-radius: 5px;
-    padding: 4px 8px;
-    font-size: 12px;
-}
-
-.data-table-actions > button:focus-visible,
-.data-table-actions > a:focus-visible {
-    outline: 2px solid rgb(var(--gray-900));
-    outline-offset: 2px;
+/* Everything above stops for people who ask their device for less motion. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        animation-delay: 0ms !important;
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 [x-cloak] {
     display: none !important;
-}
-
-@keyframes modal-backdrop-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes modal-panel-in {
-    from { opacity: 0; transform: translateY(8px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.animate-modal-backdrop {
-    animation: modal-backdrop-in 150ms ease-out;
-}
-
-.animate-modal-panel {
-    animation: modal-panel-in 180ms ease-out;
 }

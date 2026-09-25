@@ -194,11 +194,7 @@ export default function SubscriberForm({
             </Field>
 
             <Field id="status" label="الحالة" required error={errors.status}>
-                <select
-                    className="block w-full rounded-md border-gray-300 shadow-sm"
-                    value={data.status}
-                    onChange={(e) => setData('status', e.target.value)}
-                >
+                <select className="block w-full" value={data.status} onChange={(e) => setData('status', e.target.value)}>
                     {STATUS_OPTIONS.map((status) => (
                         <option key={status.value} value={status.value}>
                             {status.label}
@@ -375,12 +371,7 @@ export default function SubscriberForm({
             <Section title="معلومات إضافية" />
 
             <Field id="address" label="العنوان" error={errors.address} span="sm:col-span-2 lg:col-span-3">
-                <textarea
-                    rows={2}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
-                    value={data.address}
-                    onChange={(e) => setData('address', e.target.value)}
-                />
+                <textarea rows={2} className="block w-full" value={data.address} onChange={(e) => setData('address', e.target.value)} />
             </Field>
 
             <Field id="notes" label="معلومات أخرى" error={errors.notes} span="sm:col-span-2 lg:col-span-3">

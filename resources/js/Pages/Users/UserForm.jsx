@@ -66,12 +66,7 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                 <>
                     <div className="mt-4">
                         <InputLabel htmlFor="role" value="الدور" />
-                        <select
-                            id="role"
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                            value={data.role}
-                            onChange={(e) => setData('role', e.target.value)}
-                        >
+                        <select id="role" className="mt-1 block w-full" value={data.role} onChange={(e) => setData('role', e.target.value)}>
                             {roleOptions.map((role) => (
                                 <option key={role.value} value={role.value}>
                                     {role.label}
@@ -89,7 +84,7 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                             ) : (
                                 <select
                                     id="branch_id"
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                    className="mt-1 block w-full"
                                     value={data.branch_id}
                                     onChange={(e) => setData('branch_id', e.target.value)}
                                 >
@@ -113,7 +108,7 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                 <input
                     type="checkbox"
                     id="is_active"
-                    className="rounded border-gray-300 text-brand-600 shadow-sm"
+                    className="rounded text-brand-600"
                     checked={data.is_active}
                     onChange={(e) => setData('is_active', e.target.checked)}
                 />

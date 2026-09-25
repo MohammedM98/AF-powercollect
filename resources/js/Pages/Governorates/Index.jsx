@@ -4,6 +4,7 @@ import SettingsLayout from '@/Layouts/SettingsLayout';
 import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import SortableTh from '@/Components/DataTable/SortableTh';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import GovernorateModal from './GovernorateModal';
@@ -49,7 +50,7 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-xl font-bold text-gray-900">المحافظات والمناطق</h2>
+                        <h2 className="text-3xl font-bold text-gray-900">المحافظات والمناطق</h2>
                     </div>
                     <div className="shrink-0">
                         <AddButton onClick={() => setCreatingGovernorate(true)}>محافظة جديدة</AddButton>
@@ -73,17 +74,17 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
 
                     <div className="data-table-container">
                         <table className="data-table w-full text-sm text-start">
-                            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                            <thead>
                                 <tr>
                                     <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
-                                    <th className="px-6 py-3">عدد المناطق</th>
-                                    <th className="px-6 py-3"></th>
+                                    <th>عدد المناطق</th>
+                                    <th></th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y">
+                            <tbody>
                                 {governorates.data.length === 0 ? (
                                     <tr>
-                                        <td className="px-6 py-4 text-gray-500" colSpan={3}>
+                                        <td className="text-gray-500" colSpan={3}>
                                             لا توجد نتائج مطابقة.
                                         </td>
                                     </tr>
@@ -96,20 +97,21 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                                                 onClick={() => selectGovernorate(governorate.id)}
                                                 className={`cursor-pointer transition ${isSelected ? 'bg-brand-50' : 'hover:bg-gray-50'}`}
                                             >
-                                                <td className={`px-6 py-4 font-medium ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
+                                                <td className={`font-medium ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
                                                     {governorate.name}
                                                 </td>
-                                                <td className="px-6 py-4 text-gray-600">{governorate.areasCount}</td>
-                                                <td className="px-6 py-4 text-end">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setModalGovernorate(governorate);
-                                                        }}
-                                                        className="font-medium text-brand-600 hover:underline"
-                                                    >
-                                                        تعديل
-                                                    </button>
+                                                <td className="text-gray-600">{governorate.areasCount}</td>
+                                                <td className="text-end">
+                                                    <RowActionsMenu>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setModalGovernorate(governorate);
+                                                            }}
+                                                        >
+                                                            تعديل
+                                                        </button>
+                                                    </RowActionsMenu>
                                                 </td>
                                             </tr>
                                         );
@@ -125,7 +127,7 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                 {/* Selected governorate's areas */}
                 <div>
                     {!selectedGovernorate ? (
-                        <div className="flex h-full min-h-[16rem] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+                        <div className="flex h-full min-h-[16rem] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-surface p-8 text-center">
                             <svg className="h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                     strokeLinecap="round"
@@ -138,7 +140,7 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                             <p className="mt-1 text-sm text-gray-400">أو أنشئ محافظة جديدة لتبدأ بإضافة مناطقها</p>
                         </div>
                     ) : (
-                        <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+                        <div className="rounded-card border border-gray-100 bg-surface shadow-card">
                             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                                 <h3 className="text-base font-bold text-gray-900">مناطق {selectedGovernorate.name}</h3>
                                 <AddButton onClick={() => setCreatingArea(true)} variant="soft">
@@ -161,15 +163,16 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                                                 <span className={`text-sm font-medium ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
                                                     {area.name}
                                                 </span>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setModalArea(area);
-                                                    }}
-                                                    className="text-sm font-medium text-brand-600 hover:underline"
-                                                >
-                                                    تعديل
-                                                </button>
+                                                <RowActionsMenu>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setModalArea(area);
+                                                        }}
+                                                    >
+                                                        تعديل
+                                                    </button>
+                                                </RowActionsMenu>
                                             </li>
                                         );
                                     })}
@@ -182,7 +185,7 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                 {/* Selected area's sub-areas (منطقة 2) */}
                 <div>
                     {!selectedArea ? (
-                        <div className="flex h-full min-h-[16rem] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+                        <div className="flex h-full min-h-[16rem] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-surface p-8 text-center">
                             <svg className="h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                     strokeLinecap="round"
@@ -195,7 +198,7 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                             <p className="mt-1 text-sm text-gray-400">أو أنشئ منطقة جديدة لتبدأ بإضافة مناطق 2 لها</p>
                         </div>
                     ) : (
-                        <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+                        <div className="rounded-card border border-gray-100 bg-surface shadow-card">
                             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                                 <h3 className="text-base font-bold text-gray-900">منطقة 2 لـ {selectedArea.name}</h3>
                                 <AddButton onClick={() => setCreatingSubArea(true)} variant="soft">
@@ -210,12 +213,9 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                                     {selectedArea.subAreas.map((subArea) => (
                                         <li key={subArea.id} className="flex items-center justify-between px-6 py-3">
                                             <span className="text-sm font-medium text-gray-900">{subArea.name}</span>
-                                            <button
-                                                onClick={() => setModalSubArea(subArea)}
-                                                className="text-sm font-medium text-brand-600 hover:underline"
-                                            >
-                                                تعديل
-                                            </button>
+                                            <RowActionsMenu>
+                                                <button onClick={() => setModalSubArea(subArea)}>تعديل</button>
+                                            </RowActionsMenu>
                                         </li>
                                     ))}
                                 </ul>

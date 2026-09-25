@@ -69,11 +69,11 @@ export default function FlashNotifications({ initialStatus }) {
                 <div
                     key={notification.id}
                     role={notification.type === 'error' ? 'alert' : 'status'}
-                    className="flash-notification pointer-events-auto relative shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg"
+                    className="flash-notification pointer-events-auto relative shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-surface shadow-lg"
                 >
                     <div className="flex items-start gap-3 p-4">
                         <span
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${notification.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${notification.type === 'error' ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}`}
                         >
                             <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path

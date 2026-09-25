@@ -16,17 +16,17 @@ export default function FormPage({ title, form, cancelHref, layout: Layout = Aut
     }
 
     return (
-        <Layout header={<h2 className="text-xl font-bold text-gray-900">{title}</h2>}>
+        <Layout header={<h2 className="text-3xl font-bold text-gray-900">{title}</h2>}>
             <Head title={title} />
 
             <div className={widthClass}>
-                <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+                <div className="rise-in rounded-card border border-gray-100 bg-surface p-6 shadow-card">
                     <form onSubmit={submit}>
                         {children}
 
                         <div className="mt-6 flex items-center gap-4">
                             <PrimaryButton disabled={form.processing}>حفظ</PrimaryButton>
-                            <a href={cancelHref} className="text-sm text-gray-600 underline">
+                            <a href={cancelHref} className="text-sm font-semibold text-gray-500 transition hover:text-gray-900">
                                 إلغاء
                             </a>
                         </div>

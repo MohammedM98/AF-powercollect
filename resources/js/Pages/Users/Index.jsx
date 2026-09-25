@@ -7,6 +7,7 @@ import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
+import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import UserModal from './UserModal';
@@ -21,7 +22,7 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-xl font-bold text-gray-900">المستخدمون</h2>
+                        <h2 className="text-3xl font-bold text-gray-900">المستخدمون</h2>
                     </div>
                     {canCreate && (
                         <div className="shrink-0">
@@ -47,44 +48,41 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
 
             <div className="data-table-container">
                 <table className="data-table w-full text-sm text-start">
-                    <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                    <thead>
                         <tr>
                             <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
                             <SortableTh column="username" label="اسم المستخدم" sortState={filters} onSort={sort} />
                             <SortableTh column="role" label="الدور" sortState={filters} onSort={sort} />
-                            <th className="px-6 py-3">الفرع</th>
+                            <th>الفرع</th>
                             <SortableTh column="is_active" label="الحالة" sortState={filters} onSort={sort} />
-                            <th className="px-6 py-3"></th>
+                            <th></th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody>
                         {users.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={6}>
+                                <td className="text-gray-500" colSpan={6}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
                         ) : (
                             users.data.map((user) => (
-                                <tr key={user.id} className="transition hover:bg-gray-50">
-                                    <td className="px-6 py-4 font-medium text-gray-900">{user.name}</td>
-                                    <td className="px-6 py-4 text-end text-gray-600" dir="ltr">
+                                <tr key={user.id}>
+                                    <td>
+                                        <RowIdentity name={user.name} subtitle={user.roleLabel} status={user.is_active ? 'green' : 'gray'} />
+                                    </td>
+                                    <td className="text-end text-gray-600" dir="ltr">
                                         {user.username}
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600">{user.roleLabel}</td>
-                                    <td className="px-6 py-4 text-gray-600">{user.branchName ?? '—'}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="text-gray-600">{user.roleLabel}</td>
+                                    <td className="text-gray-600">{user.branchName ?? '—'}</td>
+                                    <td>
                                         <StatusPill tone={user.is_active ? 'green' : 'gray'} label={user.is_active ? 'نشط' : 'متوقف'} />
                                     </td>
-                                    <td className="px-6 py-4 text-end">
+                                    <td className="text-end">
                                         {user.canUpdate && (
                                             <RowActionsMenu>
-                                                <button
-                                                    onClick={() => setModalUser(user)}
-                                                    className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
-                                                >
-                                                    تعديل
-                                                </button>
+                                                <button onClick={() => setModalUser(user)}>تعديل</button>
                                             </RowActionsMenu>
                                         )}
                                     </td>

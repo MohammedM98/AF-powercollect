@@ -1,167 +1,186 @@
+import { useEffect, useState } from 'react';
 import { usePage } from '@inertiajs/react';
+import Icon from '@/Components/Icon';
+import ThemeToggle from '@/Components/ThemeToggle';
+import CommandPalette from '@/Components/CommandPalette';
+import { MAIN_LINKS, SETTINGS_LINKS, allowedLinks, isActiveLink } from '@/lib/navigation';
+import { useResponsiveTables } from '@/hooks/useResponsiveTables';
 
-// Every destination here (dashboard, subscribers, users, settings…) is
-// still a plain Blade page, not an Inertia page — so these are real <a>
-// tags, not Inertia's <Link>. <Link> only belongs on links between two
-// Inertia-rendered pages; pointed at a Blade route, its XHR-style visit
-// gets back full HTML instead of an Inertia response and just fails
-// silently. Swap to <Link> once a destination is itself converted.
-function NavLink({ href, active, children }) {
+/**
+ * One sidebar link. The current page is a graphite pill with a burgundy edge.
+ * Links are plain <a> tags, so every page opens with a full page load.
+ */
+function NavLink({ link, active }) {
     return (
         <a
-            href={href}
-            className={
-                'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition ' +
-                (active ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-300 hover:bg-white/5 hover:text-white')
-            }
+            href={link.href}
+            aria-current={active ? 'page' : undefined}
+            className={`group flex items-center gap-3 rounded-2xl px-2.5 py-2 text-sm font-semibold transition ${
+                active
+                    ? 'nav-link-active bg-graphite-gradient text-white dark:ring-1 dark:ring-white/10'
+                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+            }`}
         >
-            {children}
+            <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition ${
+                    active ? 'border-white/10 bg-white/10 text-white' : 'border-gray-100 bg-gray-50 text-gray-500 group-hover:text-gray-900'
+                }`}
+            >
+                <Icon name={link.icon} className="h-[18px] w-[18px]" />
+            </span>
+            {link.label}
         </a>
     );
 }
 
-// The settings area's own pages (Branches, Tariffs, Circuit Breakers,
-// Meter Boxes, Governorates, Permissions) live under one nav entry here,
-// with SettingsLayout's sub-nav tabs handling navigation between them. The
-// link goes to whichever of them the user can actually reach first.
-const SETTINGS_LINKS = [
-    { can: 'viewBranches', href: '/branches' },
-    { can: 'viewTariffs', href: '/tariffs' },
-    { can: 'viewCircuitBreakers', href: '/circuit-breakers' },
-    { can: 'viewMeterBoxes', href: '/meter-boxes' },
-    { can: 'viewGovernorates', href: '/governorates' },
-    { can: 'manageSettings', href: '/settings/permissions' },
-    { can: 'manageReadingSchedule', href: '/settings/reading-schedule' },
-];
+/** The app name without the "AF" the logo already shows. */
+function shortAppName(appName) {
+    return (appName ?? '').replace(/^AF\s+/i, '');
+}
 
-export default function AuthenticatedLayout({ header, children }) {
+function SidebarContent({ onNavigate }) {
     const { props, url } = usePage();
     const { appName, auth, can } = props;
-
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-    const accessibleSettingsLinks = SETTINGS_LINKS.filter((link) => can?.[link.can]);
-    const settingsHref = accessibleSettingsLinks[0]?.href;
-    const settingsActive = accessibleSettingsLinks.some((link) => url.startsWith(link.href));
+    const mainLinks = allowedLinks(MAIN_LINKS, can);
+    const settingsLinks = allowedLinks(SETTINGS_LINKS, can);
+
+    return (
+        <div className="flex h-full flex-col" onClick={(event) => event.target.closest('a') && onNavigate?.()}>
+            <a href="/dashboard" className="flex items-center gap-3 px-6 pt-6">
+                <img src="/images/logo-af.webp" alt={appName} className="h-11 w-auto shrink-0" />
+                <span className="h-9 w-px bg-gray-200" aria-hidden="true" />
+                <span className="min-w-0">
+                    <span className="block truncate text-lg font-bold leading-tight text-gray-900">{shortAppName(appName)}</span>
+                    <span className="block truncate text-xs text-gray-500">{auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}</span>
+                </span>
+            </a>
+            <div className="brand-spectrum mx-6 mt-5" />
+
+            <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-5" aria-label="القائمة الرئيسية">
+                {mainLinks.map((link) => (
+                    <NavLink key={link.href} link={link} active={isActiveLink(link, url)} />
+                ))}
+
+                {settingsLinks.length > 0 && (
+                    <>
+                        <p className="px-3 pb-2 pt-6 text-xs font-semibold text-gray-400">الإعدادات</p>
+                        {settingsLinks.map((link) => (
+                            <NavLink key={link.href} link={link} active={isActiveLink(link, url)} />
+                        ))}
+                    </>
+                )}
+            </nav>
+
+            <div className="m-4 flex items-center gap-3 rounded-2xl border border-gray-100 bg-surface p-3 shadow-card">
+                <a href="/profile" title="الملف الشخصي" className="flex min-w-0 flex-1 items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-graphite-gradient font-display text-sm font-bold text-white">
+                        {auth?.user?.name?.substring(0, 1)}
+                    </span>
+                    <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-gray-900">{auth?.user?.name}</span>
+                        <span className="block truncate text-xs text-gray-500">{auth?.user?.roleLabel}</span>
+                    </span>
+                </a>
+                <form method="POST" action="/logout">
+                    <input type="hidden" name="_token" value={csrfToken} />
+                    <button
+                        type="submit"
+                        aria-label="تسجيل الخروج"
+                        title="تسجيل الخروج"
+                        className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 transition hover:bg-brand-500/10 hover:text-brand-600"
+                    >
+                        <Icon name="logout" className="h-5 w-5" />
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+export default function AuthenticatedLayout({ header, children }) {
+    const { props } = usePage();
+    const { appName, can } = props;
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [paletteOpen, setPaletteOpen] = useState(false);
+    useResponsiveTables();
+
+    const paletteLinks = [
+        ...allowedLinks(MAIN_LINKS, can).map((link) => ({ ...link, group: 'الصفحات' })),
+        ...allowedLinks(SETTINGS_LINKS, can).map((link) => ({ ...link, group: 'الإعدادات' })),
+    ];
+
+    useEffect(() => {
+        if (!drawerOpen) {
+            return;
+        }
+
+        function onKeyDown(event) {
+            if (event.key === 'Escape') {
+                setDrawerOpen(false);
+            }
+        }
+
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [drawerOpen]);
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900">
-            {/* Top bar */}
-            <header className="bg-graphite-800">
-                <div className="mx-auto flex max-w-screen-2xl items-center justify-end gap-4 px-4 py-4 sm:px-6 lg:px-8">
-                    <div className="group relative">
-                        <button className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white transition hover:bg-white/20">
-                            {auth?.user?.name?.substring(0, 1)}
-                        </button>
-                        <div className="invisible absolute start-0 z-50 mt-2 w-56 rounded-md bg-white opacity-0 shadow-lg ring-1 ring-black/5 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
-                            <div className="border-b border-gray-100 px-4 py-3">
-                                <div className="truncate text-sm font-semibold text-gray-900">{auth?.user?.name}</div>
-                                <div className="truncate text-xs text-gray-500">{auth?.user?.roleLabel}</div>
-                            </div>
-                            <a href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                الملف الشخصي
-                            </a>
-                            <form method="POST" action="/logout">
-                                <input type="hidden" name="_token" value={csrfToken} />
-                                <button type="submit" className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50">
-                                    تسجيل الخروج
-                                </button>
-                            </form>
-                        </div>
-                    </div>
+            {/* Sidebar: fixed on large screens, a drawer on small ones. */}
+            <aside className="fixed inset-y-0 start-0 z-40 hidden w-72 border-e border-gray-100 bg-surface lg:block">
+                <SidebarContent />
+            </aside>
 
-                    <a href="/dashboard" className="flex min-w-0 items-center gap-3">
-                        <span className="min-w-0 text-right">
-                            <span className="block truncate text-lg font-extrabold leading-tight text-white">{appName}</span>
-                            <span className="block truncate text-xs text-gray-300">{auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}</span>
-                        </span>
-                        <img src="/images/logo-af.webp" alt={appName} className="h-11 w-auto shrink-0" />
-                    </a>
-                </div>
-            </header>
-
-            {/* Section nav */}
-            <nav className="bg-graphite-900">
-                <div className="mx-auto flex max-w-screen-2xl items-center gap-1.5 overflow-x-auto px-4 py-2.5 sm:px-6 lg:px-8">
-                    <NavLink href="/dashboard" active={url === '/dashboard'}>
-                        لوحة التحكم
-                        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="1.5"
-                                d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75"
-                            />
-                        </svg>
-                    </NavLink>
-
-                    {can?.viewSubscribers && (
-                        <NavLink href="/subscribers" active={url.startsWith('/subscribers')}>
-                            المشتركون
-                            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="1.5"
-                                    d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3.75m8.5-3.75l1 3.75m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5"
-                                />
-                            </svg>
-                        </NavLink>
-                    )}
-
-                    {can?.viewMeterReadings && (
-                        <NavLink href="/meter-readings" active={url.startsWith('/meter-readings')}>
-                            القراءات
-                            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="1.5"
-                                    d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
-                                />
-                            </svg>
-                        </NavLink>
-                    )}
-
-                    {can?.viewUsers && (
-                        <NavLink href="/users" active={url.startsWith('/users')}>
-                            المستخدمون
-                            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="1.5"
-                                    d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.294M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
-                                />
-                            </svg>
-                        </NavLink>
-                    )}
-
-                    {settingsHref && (
-                        <NavLink href={settingsHref} active={settingsActive}>
-                            الإعدادات
-                            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="1.5"
-                                    d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
-                                />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                        </NavLink>
-                    )}
-                </div>
-            </nav>
-
-            {header && (
-                <div className="border-b border-gray-100 bg-white">
-                    <div className="mx-auto flex max-w-screen-2xl flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-                        {header}
-                    </div>
+            {drawerOpen && (
+                <div className="fixed inset-0 z-50 lg:hidden">
+                    <div
+                        className="animate-modal-backdrop absolute inset-0 bg-graphite-900/60 backdrop-blur-sm"
+                        onClick={() => setDrawerOpen(false)}
+                    />
+                    <aside className="animate-modal-panel absolute inset-y-0 start-0 w-72 max-w-[85vw] bg-surface shadow-2xl">
+                        <SidebarContent onNavigate={() => setDrawerOpen(false)} />
+                    </aside>
                 </div>
             )}
 
-            <main className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">{children}</main>
+            <div className="lg:ps-72">
+                {/* Top bar */}
+                <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-gray-100 bg-surface/75 px-4 backdrop-blur-xl sm:px-6 lg:px-10">
+                    <button
+                        type="button"
+                        onClick={() => setDrawerOpen(true)}
+                        aria-label="فتح القائمة"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control border border-gray-200 bg-surface text-gray-700 lg:hidden"
+                    >
+                        <Icon name="menu" className="h-5 w-5" />
+                    </button>
+                    <a href="/dashboard" className="shrink-0 lg:hidden">
+                        <img src="/images/logo-af.webp" alt={appName} className="h-9 w-auto" />
+                    </a>
+
+                    <button
+                        type="button"
+                        onClick={() => setPaletteOpen(true)}
+                        className="flex min-w-0 max-w-sm flex-1 items-center gap-2.5 rounded-control border border-gray-200 bg-surface px-3.5 py-2.5 text-start text-sm text-gray-400 shadow-sm transition hover:border-gray-300"
+                    >
+                        <Icon name="search" className="h-[18px] w-[18px] shrink-0" />
+                        <span className="flex-1 truncate">ابحث أو انتقل إلى صفحة...</span>
+                        <span className="kbd hidden shrink-0 sm:inline-flex" dir="ltr">
+                            Ctrl K
+                        </span>
+                    </button>
+
+                    <ThemeToggle className="ms-auto" />
+                </header>
+
+                <main className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-10">
+                    {header && <div className="rise-in mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">{header}</div>}
+                    {children}
+                </main>
+            </div>
+
+            <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} links={paletteLinks} />
         </div>
     );
 }

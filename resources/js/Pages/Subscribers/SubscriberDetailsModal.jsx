@@ -262,7 +262,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                             value={search}
                                             onChange={(event) => setSearch(event.target.value)}
                                             placeholder="الوصف، المبلغ أو اسم الموظف..."
-                                            className="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                                            className="mt-1 block w-full rounded-lg text-sm"
                                         />
                                     </label>
                                     <label className="block text-sm text-gray-600">
@@ -272,7 +272,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                             value={dateFrom}
                                             max={dateTo || undefined}
                                             onChange={(event) => setDateFrom(event.target.value)}
-                                            className="mt-1 block w-full min-w-0 rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                                            className="mt-1 block w-full min-w-0 rounded-lg text-sm"
                                         />
                                     </label>
                                     <label className="block text-sm text-gray-600">
@@ -282,7 +282,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                             value={dateTo}
                                             min={dateFrom || undefined}
                                             onChange={(event) => setDateTo(event.target.value)}
-                                            className="mt-1 block w-full min-w-0 rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                                            className="mt-1 block w-full min-w-0 rounded-lg text-sm"
                                         />
                                     </label>
                                 </div>

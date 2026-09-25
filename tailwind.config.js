@@ -12,6 +12,8 @@ const scale = (name, steps) => Object.fromEntries(steps.map((step) => [step, var
 
 /** @type {import('tailwindcss').Config} */
 export default {
+    darkMode: 'class',
+
     content: [
         './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
         './storage/framework/views/*.php',
@@ -30,6 +32,7 @@ export default {
                 brand: scale('brand', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]),
                 gray: scale('gray', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]),
                 graphite: scale('graphite', [700, 800, 900]),
+                surface: variable('surface'),
             },
             borderRadius: {
                 control: '12px',

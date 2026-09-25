@@ -6,6 +6,7 @@ import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
+import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
@@ -21,7 +22,7 @@ export default function Index({ tariffs, categoryOptions, filters, filterOptions
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-xl font-bold text-gray-900">التعرفات</h2>
+                        <h2 className="text-3xl font-bold text-gray-900">التعرفات</h2>
                     </div>
                     <div className="shrink-0">
                         <AddButton onClick={() => setCreating(true)}>تعرفة جديدة</AddButton>
@@ -49,35 +50,32 @@ export default function Index({ tariffs, categoryOptions, filters, filterOptions
 
             <div className="data-table-container">
                 <table className="data-table w-full text-sm text-start">
-                    <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                    <thead>
                         <tr>
                             <SortableTh column="category" label="الفئة" sortState={filters} onSort={sort} />
                             <SortableTh column="rate" label="السعر (شيكل)" sortState={filters} onSort={sort} />
-                            <th className="px-6 py-3"></th>
+                            <th></th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody>
                         {tariffs.data.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-4 text-gray-500" colSpan={3}>
+                                <td className="text-gray-500" colSpan={3}>
                                     لا توجد تعرفات بعد.
                                 </td>
                             </tr>
                         ) : (
                             tariffs.data.map((tariff) => (
-                                <tr key={tariff.id} className="transition hover:bg-gray-50">
-                                    <td className="px-6 py-4 font-medium text-gray-900">{tariff.categoryLabel}</td>
-                                    <td className="px-6 py-4 text-end text-gray-600" dir="ltr">
+                                <tr key={tariff.id}>
+                                    <td>
+                                        <RowIdentity icon="dollar" name={tariff.categoryLabel} />
+                                    </td>
+                                    <td className="text-end text-gray-600" dir="ltr">
                                         {formatCurrency(tariff.rate)}
                                     </td>
-                                    <td className="px-6 py-4 text-end">
+                                    <td className="text-end">
                                         <RowActionsMenu>
-                                            <button
-                                                onClick={() => setModalTariff(tariff)}
-                                                className="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-50"
-                                            >
-                                                تعديل
-                                            </button>
+                                            <button onClick={() => setModalTariff(tariff)}>تعديل</button>
                                         </RowActionsMenu>
                                     </td>
                                 </tr>

@@ -9,15 +9,12 @@ use App\Models\User;
 class SubscriberPolicy
 {
     /**
-     * Whether the user's role or grants let them work with subscribers at
-     * all, before branch scoping is considered.
+     * Whether the user's ticked permissions let them work with subscribers
+     * at all, before branch scoping is considered.
      */
     private function hasBaseAccess(User $user): bool
     {
-        return $user->isSuperAdmin()
-            || $user->isBranchAdmin()
-            || $user->isDataEntry()
-            || $user->hasAnyPermission(PermissionKey::ViewSubscribers, PermissionKey::CreateSubscribers, PermissionKey::UpdateSubscribers);
+        return $user->hasAnyPermission(PermissionKey::ViewSubscribers, PermissionKey::CreateSubscribers, PermissionKey::UpdateSubscribers);
     }
 
     /**
@@ -45,10 +42,7 @@ class SubscriberPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isSuperAdmin()
-            || $user->isBranchAdmin()
-            || $user->isDataEntry()
-            || $user->hasPermission(PermissionKey::CreateSubscribers);
+        return $user->hasPermission(PermissionKey::CreateSubscribers);
     }
 
     /**
@@ -60,9 +54,7 @@ class SubscriberPolicy
             return true;
         }
 
-        $canUpdate = $user->isBranchAdmin() || $user->isDataEntry() || $user->hasPermission(PermissionKey::UpdateSubscribers);
-
-        return $canUpdate && $subscriber->branch_id === $user->branch_id;
+        return $user->hasPermission(PermissionKey::UpdateSubscribers) && $subscriber->branch_id === $user->branch_id;
     }
 
     /**

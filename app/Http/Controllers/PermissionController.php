@@ -113,12 +113,12 @@ class PermissionController extends Controller
 
     /**
      * Whether the actor may hand out this permission: a Super Admin may
-     * grant anything; a Branch Admin only permissions for their own
-     * branch's data, never company-wide ones.
+     * grant anything; a Branch Admin only permissions they hold themselves,
+     * and never company-wide ones.
      */
     private function canGrant(User $actor, PermissionKey $permissionKey): bool
     {
-        return $actor->isSuperAdmin() || ! $permissionKey->isCompanyWide();
+        return $actor->isSuperAdmin() || (! $permissionKey->isCompanyWide() && $actor->hasPermission($permissionKey));
     }
 
     /**

@@ -98,21 +98,20 @@ class PermissionsTest extends TestCase
         $this->assertFalse($foreignCollector->fresh()->hasPermission(PermissionKey::ViewSubscribers));
     }
 
-    public function test_branch_admin_cannot_grant_a_permission_to_a_peer_branch_admin(): void
+    public function test_branch_admin_cannot_change_a_peer_branch_admins_permissions(): void
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
         $peerBranchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
-        $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
 
         $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
             'permissions' => [
-                $peerBranchAdmin->id => [$viewSubscribers->id],
+                $peerBranchAdmin->id => [],
             ],
         ])->assertRedirect(route('settings.permissions.edit'));
 
-        $this->assertFalse($peerBranchAdmin->fresh()->hasPermission(PermissionKey::ViewSubscribers));
+        $this->assertTrue($peerBranchAdmin->fresh()->hasPermission(PermissionKey::ViewSubscribers));
     }
 
     public function test_super_admin_sees_every_permission_on_the_permissions_page(): void
@@ -186,6 +185,44 @@ class PermissionsTest extends TestCase
         $collector = $collector->fresh();
         $this->assertTrue($collector->hasPermission(PermissionKey::ViewSubscribers));
         $this->assertTrue($collector->hasPermission(PermissionKey::ViewGovernorates));
+    }
+
+    public function test_super_admin_can_take_a_default_permission_away_from_a_branch_admin(): void
+    {
+        $this->seedPermissions();
+        $superAdmin = User::factory()->superAdmin()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
+
+        $this->actingAs($superAdmin)->put(route('settings.permissions.update'), [
+            'permissions' => [
+                $branchAdmin->id => [$viewSubscribers->id],
+            ],
+        ])->assertRedirect(route('settings.permissions.edit'));
+
+        $this->actingAs($branchAdmin->fresh())
+            ->get(route('subscribers.create'))
+            ->assertForbidden();
+    }
+
+    public function test_branch_admin_cannot_grant_a_permission_they_do_not_hold(): void
+    {
+        $this->seedPermissions();
+        $branch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $viewTariffs = Permission::where('key', PermissionKey::ViewTariffs->value)->firstOrFail();
+        $createTariffs = Permission::where('key', PermissionKey::CreateTariffs->value)->firstOrFail();
+
+        $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
+            'permissions' => [
+                $collector->id => [$viewTariffs->id, $createTariffs->id],
+            ],
+        ])->assertRedirect(route('settings.permissions.edit'));
+
+        $collector = $collector->fresh();
+        $this->assertTrue($collector->hasPermission(PermissionKey::ViewTariffs));
+        $this->assertFalse($collector->hasPermission(PermissionKey::CreateTariffs));
     }
 
     public function test_collector_cannot_view_the_permissions_settings_page(): void

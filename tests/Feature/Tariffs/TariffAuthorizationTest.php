@@ -68,31 +68,6 @@ class TariffAuthorizationTest extends TestCase
         ])->assertSessionHasErrors('category');
     }
 
-    public function test_branch_admin_can_view_the_tariff_index_without_a_grant(): void
-    {
-        $branchAdmin = User::factory()->branchAdmin()->create();
-
-        $this->actingAs($branchAdmin)
-            ->get(route('tariffs.index'))
-            ->assertOk();
-    }
-
-    public function test_branch_admin_can_create_and_update_tariffs_without_a_grant(): void
-    {
-        $branchAdmin = User::factory()->branchAdmin()->create();
-        $tariff = Tariff::factory()->residential()->create(['rate' => 10]);
-
-        $this->actingAs($branchAdmin)
-            ->post(route('tariffs.store'), ['category' => TariffCategory::Commercial->value, 'rate' => 15])
-            ->assertRedirect(route('tariffs.index'));
-        $this->actingAs($branchAdmin)
-            ->put(route('tariffs.update', $tariff), ['category' => TariffCategory::Residential->value, 'rate' => 30])
-            ->assertRedirect(route('tariffs.index'));
-
-        $this->assertDatabaseHas('tariffs', ['category' => TariffCategory::Commercial->value, 'rate' => 15]);
-        $this->assertDatabaseHas('tariffs', ['id' => $tariff->id, 'rate' => 30]);
-    }
-
     public function test_collector_cannot_view_tariffs(): void
     {
         $collector = User::factory()->collector()->create();
@@ -122,15 +97,37 @@ class TariffAuthorizationTest extends TestCase
             ->where('tariffs.data.0.canUpdate', false));
     }
 
-    public function test_branch_admin_is_offered_add_and_edit_on_the_tariffs_page(): void
+    public function test_a_branch_admin_can_only_view_tariffs_by_default(): void
     {
-        Tariff::factory()->residential()->create();
+        $tariff = Tariff::factory()->residential()->create(['rate' => 10]);
         $branchAdmin = User::factory()->branchAdmin()->create();
 
-        $response = $this->actingAs($branchAdmin)->get(route('tariffs.index'));
+        $this->actingAs($branchAdmin)->get(route('tariffs.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('canCreate', false)
+                ->where('tariffs.data.0.canUpdate', false));
+        $this->post(route('tariffs.store'), ['category' => TariffCategory::Commercial->value, 'rate' => 15])->assertForbidden();
+        $this->put(route('tariffs.update', $tariff), ['category' => TariffCategory::Residential->value, 'rate' => 30])->assertForbidden();
 
-        $response->assertInertia(fn ($page) => $page
-            ->where('canCreate', true)
-            ->where('tariffs.data.0.canUpdate', true));
+        $this->assertDatabaseMissing('tariffs', ['category' => TariffCategory::Commercial->value]);
+        $this->assertDatabaseHas('tariffs', ['id' => $tariff->id, 'rate' => 10]);
+    }
+
+    public function test_a_branch_admin_given_add_and_edit_can_change_tariffs(): void
+    {
+        $tariff = Tariff::factory()->residential()->create(['rate' => 10]);
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $branchAdmin->permissions()->attach(Permission::idsFor([PermissionKey::CreateTariffs, PermissionKey::UpdateTariffs]));
+
+        $this->actingAs($branchAdmin)->get(route('tariffs.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('canCreate', true)
+                ->where('tariffs.data.0.canUpdate', true));
+        $this->post(route('tariffs.store'), ['category' => TariffCategory::Commercial->value, 'rate' => 15])->assertRedirect(route('tariffs.index'));
+        $this->put(route('tariffs.update', $tariff), ['category' => TariffCategory::Residential->value, 'rate' => 30])->assertRedirect(route('tariffs.index'));
+
+        $this->assertDatabaseHas('tariffs', ['category' => TariffCategory::Commercial->value, 'rate' => 15]);
+        $this->assertDatabaseHas('tariffs', ['id' => $tariff->id, 'rate' => 30]);
     }
 }

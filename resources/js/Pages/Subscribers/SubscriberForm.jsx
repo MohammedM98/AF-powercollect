@@ -3,6 +3,7 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import SearchableSelect from '@/Components/SearchableSelect';
+import ConfirmDialog from '@/Components/ConfirmDialog';
 
 const STATUS_OPTIONS = [
     { value: 'active', label: 'نشط' },
@@ -99,11 +100,11 @@ export default function SubscriberForm({
     canEditMinimumCharge,
 }) {
     const [minimumChargeUnlocked, setMinimumChargeUnlocked] = useState(false);
+    const [confirmingMinimumChargeUnlock, setConfirmingMinimumChargeUnlock] = useState(false);
 
     function unlockMinimumCharge() {
-        if (window.confirm('أنت على وشك تعديل الحد الأدنى لهذا المشترك يدويًا. هل تريد المتابعة؟')) {
-            setMinimumChargeUnlocked(true);
-        }
+        setConfirmingMinimumChargeUnlock(false);
+        setMinimumChargeUnlocked(true);
     }
     const selectedBranch = canChooseBranch ? branches.find((branch) => String(branch.id) === String(data.branch_id)) : null;
 
@@ -249,7 +250,11 @@ export default function SubscriberForm({
                         <span className="text-red-500"> *</span>
                     </InputLabel>
                     {canEditMinimumCharge && !minimumChargeUnlocked && (
-                        <button type="button" onClick={unlockMinimumCharge} className="text-xs font-semibold text-brand-600 hover:underline">
+                        <button
+                            type="button"
+                            onClick={() => setConfirmingMinimumChargeUnlock(true)}
+                            className="text-xs font-semibold text-brand-600 hover:underline"
+                        >
                             تعديل
                         </button>
                     )}
@@ -267,6 +272,15 @@ export default function SubscriberForm({
                     {(!canEditMinimumCharge || !minimumChargeUnlocked) && <FieldLock />}
                 </div>
                 <InputError message={errors.minimum_charge} className="mt-1" />
+                <ConfirmDialog
+                    show={confirmingMinimumChargeUnlock}
+                    onConfirm={unlockMinimumCharge}
+                    onCancel={() => setConfirmingMinimumChargeUnlock(false)}
+                    title="تعديل الحد الأدنى يدويًا؟"
+                    message="أنت على وشك تعديل الحد الأدنى لهذا المشترك يدويًا بدل القيمة المأخوذة من القاطع. هل تريد المتابعة؟"
+                    confirmLabel="نعم، عدّل"
+                    icon="alert"
+                />
             </div>
 
             <Section title="الموقع والعداد" />

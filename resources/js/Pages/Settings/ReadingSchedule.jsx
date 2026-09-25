@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import InputError from '@/Components/InputError';
+import ConfirmDialog from '@/Components/ConfirmDialog';
 import { WEEK_DAYS } from '@/lib/weekDays';
 
 const MODE_HINTS = {
@@ -15,6 +17,7 @@ export default function ReadingSchedule({ setting, modes }) {
         open_days: setting.open_days,
         mode: setting.mode,
     });
+    const [confirmingSave, setConfirmingSave] = useState(false);
 
     function toggleDay(day) {
         setData('open_days', data.open_days.includes(day) ? data.open_days.filter((d) => d !== day) : [...data.open_days, day]);
@@ -22,6 +25,11 @@ export default function ReadingSchedule({ setting, modes }) {
 
     function submit(e) {
         e.preventDefault();
+        setConfirmingSave(true);
+    }
+
+    function save() {
+        setConfirmingSave(false);
         put('/settings/reading-schedule', { preserveScroll: true });
     }
 
@@ -93,6 +101,17 @@ export default function ReadingSchedule({ setting, modes }) {
                     <PrimaryButton disabled={processing || !isDirty}>{processing ? 'جارٍ الحفظ...' : 'حفظ'}</PrimaryButton>
                 </div>
             </form>
+
+            <ConfirmDialog
+                show={confirmingSave}
+                onConfirm={save}
+                onCancel={() => setConfirmingSave(false)}
+                title="حفظ مواعيد القراءات؟"
+                message="سيتغير موعد فتح إدخال القراءات لمدخلي البيانات حسب ما اخترته. هل تريد المتابعة؟"
+                confirmLabel="نعم، احفظ"
+                cancelLabel="مراجعة الإعدادات"
+                icon="calendar"
+            />
         </SettingsLayout>
     );
 }

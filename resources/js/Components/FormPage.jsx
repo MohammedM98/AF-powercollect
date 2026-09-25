@@ -1,17 +1,27 @@
+import { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { SaveConfirmDialog } from '@/Components/ConfirmDialog';
 import PrimaryButton from '@/Components/PrimaryButton';
 
 /**
  * The standalone Create/Edit page every resource uses: a titled card
- * holding the form fields (children), with Save and Cancel.
+ * holding the form fields (children), with Save and Cancel. Saving asks
+ * for confirmation first.
  *
  * `form` comes from useResourceForm(); `cancelHref` is where Cancel goes.
  * Pass `layout={SettingsLayout}` for pages under the Settings tabs.
  */
 export default function FormPage({ title, form, cancelHref, layout: Layout = AuthenticatedLayout, widthClass = 'max-w-2xl', children }) {
+    const [confirmingSave, setConfirmingSave] = useState(false);
+
     function submit(e) {
         e.preventDefault();
+        setConfirmingSave(true);
+    }
+
+    function save() {
+        setConfirmingSave(false);
         form.save();
     }
 
@@ -33,6 +43,8 @@ export default function FormPage({ title, form, cancelHref, layout: Layout = Aut
                     </form>
                 </div>
             </div>
+
+            <SaveConfirmDialog show={confirmingSave} isEdit={form.isEdit} onConfirm={save} onCancel={() => setConfirmingSave(false)} />
         </Layout>
     );
 }

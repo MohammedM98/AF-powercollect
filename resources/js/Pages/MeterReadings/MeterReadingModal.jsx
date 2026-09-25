@@ -45,6 +45,8 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
             icon="bolt"
             visitOptions={{ preserveState: true }}
             bodyClassName="space-y-4"
+            // Readings are entered one after another, so they save without a confirmation step.
+            confirmBeforeSave={false}
         >
             {isEdit ? (
                 <div className="rounded-lg border border-gray-100 px-4 py-3 text-sm">

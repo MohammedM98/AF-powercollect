@@ -1,3 +1,4 @@
+import { Link } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 
 const STYLES = {
@@ -20,9 +21,9 @@ export default function AddButton({ href, onClick, variant = 'primary', children
     );
 
     return href ? (
-        <a href={href} className={className}>
+        <Link href={href} prefetch className={className}>
             {content}
-        </a>
+        </Link>
     ) : (
         <button type="button" onClick={onClick} className={className}>
             {content}

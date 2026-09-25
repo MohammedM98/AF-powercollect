@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, router } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 
 /**
@@ -43,7 +44,8 @@ export default function CommandPalette({ open, onOpenChange, links }) {
 
     function go(link) {
         if (link) {
-            window.location.href = link.href;
+            onOpenChange(false);
+            router.visit(link.href);
         }
     }
 
@@ -96,9 +98,10 @@ export default function CommandPalette({ open, onOpenChange, links }) {
                     ) : (
                         results.map((link, index) => (
                             <li key={link.href} role="option" aria-selected={index === activeIndex}>
-                                <a
+                                <Link
                                     href={link.href}
-                                    onMouseEnter={() => setActiveIndex(index)}
+                                    onClick={() => onOpenChange(false)}
+                                    onPointerEnter={() => setActiveIndex(index)}
                                     className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${
                                         index === activeIndex ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
                                     }`}
@@ -109,7 +112,7 @@ export default function CommandPalette({ open, onOpenChange, links }) {
                                     <span className="flex-1 font-semibold">{link.label}</span>
                                     <span className="text-xs text-gray-400">{link.group}</span>
                                     {index === activeIndex && <Icon name="enter" className="h-4 w-4 text-gray-400" />}
-                                </a>
+                                </Link>
                             </li>
                         ))
                     )}

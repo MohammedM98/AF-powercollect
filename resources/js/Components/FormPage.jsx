@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 
@@ -26,9 +26,9 @@ export default function FormPage({ title, form, cancelHref, layout: Layout = Aut
 
                         <div className="mt-6 flex items-center gap-4">
                             <PrimaryButton disabled={form.processing}>حفظ</PrimaryButton>
-                            <a href={cancelHref} className="text-sm font-semibold text-gray-500 transition hover:text-gray-900">
+                            <Link href={cancelHref} prefetch className="text-sm font-semibold text-gray-500 transition hover:text-gray-900">
                                 إلغاء
-                            </a>
+                            </Link>
                         </div>
                     </form>
                 </div>

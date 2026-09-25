@@ -14,6 +14,7 @@ use App\Models\Subscriber;
 use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\DatabaseNotification;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -72,6 +73,31 @@ class HandleInertiaRequests extends Middleware
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manage', ReadingEntrySetting::class),
             ] : null,
+            'activity' => fn () => $user ? $this->recentActivity($user) : null,
+        ];
+    }
+
+    /**
+     * The user's own latest saved actions for the bell in the top bar,
+     * newest first, and how many of them they haven't seen yet.
+     *
+     * @return array{unreadCount: int, recent: array<int, array{id: string, action: string, subject: string|null, read: bool, createdAt: string}>}
+     */
+    private function recentActivity(User $user): array
+    {
+        return [
+            'unreadCount' => $user->unreadNotifications()->count(),
+            'recent' => $user->notifications()
+                ->limit(10)
+                ->get()
+                ->map(fn (DatabaseNotification $notification) => [
+                    'id' => $notification->id,
+                    'action' => $notification->data['action'],
+                    'subject' => $notification->data['subject'] ?? null,
+                    'read' => $notification->read_at !== null,
+                    'createdAt' => $notification->created_at->toIso8601String(),
+                ])
+                ->all(),
         ];
     }
 }

@@ -9,6 +9,7 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\Branch;
 use App\Models\User;
+use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -83,7 +84,8 @@ class UserController extends Controller
 
         $data['password'] = Hash::make($data['password']);
 
-        User::create($data);
+        $user = User::create($data);
+        $request->user()->notify(new ActionCompleted('user-created', $user->name));
 
         return redirect()->route('users.index')->with('status', 'user-created');
     }
@@ -116,6 +118,7 @@ class UserController extends Controller
         }
 
         $user->update($data);
+        $request->user()->notify(new ActionCompleted('user-updated', $user->name));
 
         return redirect()->route('users.index')->with('status', 'user-updated');
     }

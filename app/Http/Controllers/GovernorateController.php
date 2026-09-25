@@ -9,6 +9,7 @@ use App\Models\Area;
 use App\Models\Governorate;
 use App\Models\SubArea;
 use App\Models\User;
+use App\Notifications\ActionCompleted;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -86,6 +87,7 @@ class GovernorateController extends Controller
     public function store(StoreGovernorateRequest $request): RedirectResponse
     {
         $governorate = Governorate::create($request->validated());
+        $request->user()->notify(new ActionCompleted('governorate-created', $governorate->name));
 
         return redirect()->route('governorates.index', ['selected' => $governorate->id])->with('status', 'governorate-created');
     }
@@ -108,6 +110,7 @@ class GovernorateController extends Controller
     public function update(UpdateGovernorateRequest $request, Governorate $governorate): RedirectResponse
     {
         $governorate->update($request->validated());
+        $request->user()->notify(new ActionCompleted('governorate-updated', $governorate->name));
 
         return redirect()->route('governorates.index', ['selected' => $governorate->id])->with('status', 'governorate-updated');
     }

@@ -7,6 +7,7 @@ use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreTariffRequest;
 use App\Http\Requests\UpdateTariffRequest;
 use App\Models\Tariff;
+use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -66,7 +67,8 @@ class TariffController extends Controller
      */
     public function store(StoreTariffRequest $request): RedirectResponse
     {
-        Tariff::create($request->validated());
+        $tariff = Tariff::create($request->validated());
+        $request->user()->notify(new ActionCompleted('tariff-created', __($tariff->category->label())));
 
         return redirect()->route('tariffs.index')->with('status', 'tariff-created');
     }
@@ -90,6 +92,7 @@ class TariffController extends Controller
     public function update(UpdateTariffRequest $request, Tariff $tariff): RedirectResponse
     {
         $tariff->update($request->validated());
+        $request->user()->notify(new ActionCompleted('tariff-updated', __($tariff->category->label())));
 
         return redirect()->route('tariffs.index')->with('status', 'tariff-updated');
     }

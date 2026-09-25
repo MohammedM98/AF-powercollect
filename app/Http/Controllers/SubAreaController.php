@@ -6,6 +6,7 @@ use App\Http\Requests\StoreSubAreaRequest;
 use App\Http\Requests\UpdateSubAreaRequest;
 use App\Models\Area;
 use App\Models\SubArea;
+use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -33,6 +34,7 @@ class SubAreaController extends Controller
     public function store(StoreSubAreaRequest $request): RedirectResponse
     {
         $subArea = SubArea::create($request->validated());
+        $request->user()->notify(new ActionCompleted('sub-area-created', $subArea->name));
 
         return redirect()->route('governorates.index', array_filter([
             'selected' => $subArea->area?->governorate_id,
@@ -61,6 +63,7 @@ class SubAreaController extends Controller
     {
         $subArea->update($request->validated());
         $subArea->refresh();
+        $request->user()->notify(new ActionCompleted('sub-area-updated', $subArea->name));
 
         return redirect()->route('governorates.index', array_filter([
             'selected' => $subArea->area?->governorate_id,

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,6 +32,7 @@ class ProfileController extends Controller
     {
         $request->user()->fill($request->validated());
         $request->user()->save();
+        $request->user()->notify(new ActionCompleted('profile-updated'));
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }

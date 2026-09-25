@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateBranchRequest;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Governorate;
+use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -63,7 +64,8 @@ class BranchController extends Controller
      */
     public function store(StoreBranchRequest $request): RedirectResponse
     {
-        Branch::create($request->validated());
+        $branch = Branch::create($request->validated());
+        $request->user()->notify(new ActionCompleted('branch-created', $branch->name));
 
         return redirect()->route('branches.index')->with('status', 'branch-created');
     }
@@ -87,6 +89,7 @@ class BranchController extends Controller
     public function update(UpdateBranchRequest $request, Branch $branch): RedirectResponse
     {
         $branch->update($request->validated());
+        $request->user()->notify(new ActionCompleted('branch-updated', $branch->name));
 
         return redirect()->route('branches.index')->with('status', 'branch-updated');
     }

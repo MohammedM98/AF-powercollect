@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\ReadingEntryMode;
 use App\Http\Requests\UpdateReadingScheduleRequest;
 use App\Models\ReadingEntrySetting;
+use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -42,6 +43,8 @@ class ReadingScheduleController extends Controller
             'mode' => $request->validated('mode'),
             'updated_by' => $request->user()->id,
         ]);
+
+        $request->user()->notify(new ActionCompleted('reading-schedule-updated'));
 
         return redirect()->route('settings.reading-schedule.edit')->with('status', 'reading-schedule-updated');
     }

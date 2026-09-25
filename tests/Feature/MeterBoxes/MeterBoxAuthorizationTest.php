@@ -73,26 +73,42 @@ class MeterBoxAuthorizationTest extends TestCase
         $this->assertDatabaseHas('meter_boxes', ['id' => $meterBox->id, 'name' => 'Renamed box']);
     }
 
-    public function test_branch_admin_cannot_view_meter_box_index(): void
+    public function test_branch_admin_can_view_the_meter_box_index_without_a_grant(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
 
         $this->actingAs($branchAdmin)
             ->get(route('meter-boxes.index'))
-            ->assertForbidden();
+            ->assertOk();
     }
 
-    public function test_branch_admin_cannot_create_a_meter_box(): void
+    public function test_branch_admin_creates_meter_boxes_in_their_own_branch_without_a_grant(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
+        $otherBranch = Branch::factory()->create();
 
         $this->actingAs($branchAdmin)
-            ->get(route('meter-boxes.create'))
-            ->assertForbidden();
+            ->post(route('meter-boxes.store'), ['name' => 'Street box', 'box_number' => 'BOX-1', 'branch_id' => $otherBranch->id])
+            ->assertRedirect(route('meter-boxes.index'));
+
+        $this->assertDatabaseHas('meter_boxes', ['box_number' => 'BOX-1', 'branch_id' => $branchAdmin->branch_id]);
+    }
+
+    public function test_branch_admin_can_update_their_own_branchs_meter_box_but_not_another_branchs(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $ownBox = MeterBox::factory()->create(['branch_id' => $branchAdmin->branch_id, 'box_number' => 'BOX-1']);
+        $foreignBox = MeterBox::factory()->create(['box_number' => 'BOX-2', 'name' => 'Old name']);
 
         $this->actingAs($branchAdmin)
-            ->post(route('meter-boxes.store'), ['box_number' => 'BOX-1'])
+            ->put(route('meter-boxes.update', $ownBox), ['name' => 'Renamed box', 'box_number' => 'BOX-1'])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($branchAdmin)
+            ->put(route('meter-boxes.update', $foreignBox), ['name' => 'Hijacked', 'box_number' => 'BOX-2'])
             ->assertForbidden();
+
+        $this->assertDatabaseHas('meter_boxes', ['id' => $ownBox->id, 'name' => 'Renamed box']);
+        $this->assertDatabaseHas('meter_boxes', ['id' => $foreignBox->id, 'name' => 'Old name']);
     }
 
     public function test_collector_cannot_view_meter_boxes(): void

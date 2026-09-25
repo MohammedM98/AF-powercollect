@@ -9,11 +9,14 @@ use App\Models\User;
 class TariffPolicy
 {
     /**
-     * Determine whether the user can view any models.
+     * Determine whether the user can view any models. A Branch Admin always
+     * can, and may also add and edit them — even though every branch shares
+     * the same list.
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::ViewTariffs, PermissionKey::CreateTariffs, PermissionKey::UpdateTariffs);
+        return $user->isBranchAdmin()
+            || $user->hasAnyPermission(PermissionKey::ViewTariffs, PermissionKey::CreateTariffs, PermissionKey::UpdateTariffs);
     }
 
     /**
@@ -29,7 +32,7 @@ class TariffPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::CreateTariffs);
+        return $user->isBranchAdmin() || $user->hasPermission(PermissionKey::CreateTariffs);
     }
 
     /**
@@ -37,7 +40,7 @@ class TariffPolicy
      */
     public function update(User $user, Tariff $tariff): bool
     {
-        return $user->hasPermission(PermissionKey::UpdateTariffs);
+        return $user->isBranchAdmin() || $user->hasPermission(PermissionKey::UpdateTariffs);
     }
 
     /**

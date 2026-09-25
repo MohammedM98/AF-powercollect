@@ -81,26 +81,29 @@ class CircuitBreakerAuthorizationTest extends TestCase
         ])->assertSessionHasErrors('ampere');
     }
 
-    public function test_branch_admin_cannot_view_circuit_breaker_index(): void
+    public function test_branch_admin_can_view_the_circuit_breaker_index_without_a_grant(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
 
         $this->actingAs($branchAdmin)
             ->get(route('circuit-breakers.index'))
-            ->assertForbidden();
+            ->assertOk();
     }
 
-    public function test_branch_admin_cannot_create_a_circuit_breaker(): void
+    public function test_branch_admin_can_create_and_update_circuit_breakers_without_a_grant(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
-
-        $this->actingAs($branchAdmin)
-            ->get(route('circuit-breakers.create'))
-            ->assertForbidden();
+        $circuitBreaker = CircuitBreaker::factory()->create(['ampere' => 16, 'minimum_payment' => 10]);
 
         $this->actingAs($branchAdmin)
             ->post(route('circuit-breakers.store'), ['ampere' => 4, 'minimum_payment' => 15])
-            ->assertForbidden();
+            ->assertRedirect(route('circuit-breakers.index'));
+        $this->actingAs($branchAdmin)
+            ->put(route('circuit-breakers.update', $circuitBreaker), ['ampere' => 16, 'minimum_payment' => 30])
+            ->assertRedirect(route('circuit-breakers.index'));
+
+        $this->assertDatabaseHas('circuit_breakers', ['ampere' => 4, 'minimum_payment' => 15]);
+        $this->assertDatabaseHas('circuit_breakers', ['id' => $circuitBreaker->id, 'minimum_payment' => 30]);
     }
 
     public function test_collector_cannot_view_circuit_breakers(): void

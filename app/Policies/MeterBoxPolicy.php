@@ -9,11 +9,13 @@ use App\Models\User;
 class MeterBoxPolicy
 {
     /**
-     * Determine whether the user can view any models.
+     * Determine whether the user can view any models. A Branch Admin always
+     * can: their branch's meter boxes are part of running the branch.
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::ViewMeterBoxes, PermissionKey::CreateMeterBoxes, PermissionKey::UpdateMeterBoxes);
+        return $user->isBranchAdmin()
+            || $user->hasAnyPermission(PermissionKey::ViewMeterBoxes, PermissionKey::CreateMeterBoxes, PermissionKey::UpdateMeterBoxes);
     }
 
     /**
@@ -33,7 +35,7 @@ class MeterBoxPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::CreateMeterBoxes);
+        return $user->isBranchAdmin() || $user->hasPermission(PermissionKey::CreateMeterBoxes);
     }
 
     /**
@@ -41,7 +43,7 @@ class MeterBoxPolicy
      */
     public function update(User $user, MeterBox $meterBox): bool
     {
-        if (! $user->hasPermission(PermissionKey::UpdateMeterBoxes)) {
+        if (! $user->isBranchAdmin() && ! $user->hasPermission(PermissionKey::UpdateMeterBoxes)) {
             return false;
         }
 

@@ -24,13 +24,29 @@ class StoreSubAreaRequest extends FormRequest
      * record being edited keep its own unique value (on create there is no
      * route model, so nothing is ignored).
      *
+     * A Super Admin may place a sub-area in any area (or none); anyone else
+     * only in their own branch's area.
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('sub_areas', 'name')->ignore($this->route('sub_area'))],
-            'area_id' => ['nullable', Rule::exists('areas', 'id')],
+            'area_id' => $this->user()->isSuperAdmin()
+                ? ['nullable', Rule::exists('areas', 'id')]
+                : ['required', Rule::in([$this->user()->branchAreaId()])],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'area_id.required' => 'يمكنك إضافة منطقة 2 داخل منطقة فرعك فقط.',
+            'area_id.in' => 'يمكنك إضافة منطقة 2 داخل منطقة فرعك فقط.',
         ];
     }
 }

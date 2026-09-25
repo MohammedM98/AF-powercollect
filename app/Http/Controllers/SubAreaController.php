@@ -7,20 +7,23 @@ use App\Http\Requests\UpdateSubAreaRequest;
 use App\Models\Area;
 use App\Models\SubArea;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class SubAreaController extends Controller
 {
     /**
-     * Show the form for creating a new resource.
+     * Show the form for creating a new resource. Anyone but a Super Admin
+     * can only pick their own branch's area.
      */
-    public function create(): InertiaResponse
+    public function create(Request $request): InertiaResponse
     {
         $this->authorize('create', SubArea::class);
 
         return Inertia::render('SubAreas/Create', [
-            'areas' => Area::orderBy('name')->get(),
+            'areas' => Area::visibleTo($request->user())->orderBy('name')->get(),
+            'allowNoArea' => $request->user()->isSuperAdmin(),
         ]);
     }
 
@@ -40,13 +43,14 @@ class SubAreaController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(SubArea $subArea): InertiaResponse
+    public function edit(Request $request, SubArea $subArea): InertiaResponse
     {
         $this->authorize('update', $subArea);
 
         return Inertia::render('SubAreas/Edit', [
             'subArea' => $this->editableFields($subArea),
-            'areas' => Area::orderBy('name')->get(),
+            'areas' => Area::visibleTo($request->user())->orderBy('name')->get(),
+            'allowNoArea' => $request->user()->isSuperAdmin(),
         ]);
     }
 

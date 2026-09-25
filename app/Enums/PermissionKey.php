@@ -87,6 +87,23 @@ enum PermissionKey: string
     }
 
     /**
+     * Whether this permission shapes the company itself — its branches and
+     * the governorate/area map they sit in — rather than work inside one
+     * branch. That is the general manager's job, so only a Super Admin may
+     * grant these. (Sub-areas stay grantable: staff add them only inside
+     * their own branch's area.)
+     */
+    public function isCompanyWide(): bool
+    {
+        return match ($this) {
+            self::ViewBranches, self::CreateBranches, self::UpdateBranches,
+            self::ViewGovernorates, self::CreateGovernorates, self::UpdateGovernorates,
+            self::ViewAreas, self::CreateAreas, self::UpdateAreas => true,
+            default => false,
+        };
+    }
+
+    /**
      * Every permission key, grouped by the table/resource it governs, for
      * rendering the Settings → Permissions matrix. Each group lists its
      * columns in display order as [action => PermissionKey]; a resource

@@ -11,7 +11,22 @@ import GovernorateModal from './GovernorateModal';
 import AreaModal from '../Areas/AreaModal';
 import SubAreaModal from '../SubAreas/SubAreaModal';
 
-export default function Index({ governorates, selectedGovernorate, selectedArea, filters, governorateOptions, areaOptions }) {
+/**
+ * Governorates → areas → sub-areas (منطقة 2) on one page. With
+ * `scopedToBranch` (a branch admin or branch staff) the page shows only the
+ * user's own branch location, already selected: they can't change
+ * governorates or areas, only the sub-areas inside their branch's area.
+ */
+export default function Index({
+    governorates,
+    selectedGovernorate,
+    selectedArea,
+    scopedToBranch,
+    filters,
+    governorateOptions,
+    areaOptions,
+    allowSubAreaWithoutArea,
+}) {
     const [modalGovernorate, setModalGovernorate] = useState(null);
     const [creatingGovernorate, setCreatingGovernorate] = useState(false);
     const [modalArea, setModalArea] = useState(null);
@@ -50,79 +65,102 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">المحافظات والمناطق</h2>
+                        <h2 className="text-3xl font-bold text-gray-900">{scopedToBranch ? 'مناطق الفرع' : 'المحافظات والمناطق'}</h2>
                     </div>
-                    <div className="shrink-0">
-                        <AddButton onClick={() => setCreatingGovernorate(true)}>محافظة جديدة</AddButton>
-                    </div>
+                    {!scopedToBranch && (
+                        <div className="shrink-0">
+                            <AddButton onClick={() => setCreatingGovernorate(true)}>محافظة جديدة</AddButton>
+                        </div>
+                    )}
                 </>
             }
         >
-            <Head title="المحافظات والمناطق" />
+            <Head title={scopedToBranch ? 'مناطق الفرع' : 'المحافظات والمناطق'} />
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                {/* Governorates list */}
-                <div>
-                    <DataTableToolbar
-                        search={search}
-                        onSearchChange={setSearch}
-                        placeholder="بحث بالاسم..."
-                        perPage={filters.per_page}
-                        onPerPageChange={setPerPage}
-                        total={governorates.total}
-                    />
-
-                    <div className="data-table-container">
-                        <table className="data-table w-full text-sm text-start">
-                            <thead>
-                                <tr>
-                                    <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
-                                    <th>عدد المناطق</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {governorates.data.length === 0 ? (
-                                    <tr>
-                                        <td className="text-gray-500" colSpan={3}>
-                                            لا توجد نتائج مطابقة.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    governorates.data.map((governorate) => {
-                                        const isSelected = selectedGovernorate?.id === governorate.id;
-                                        return (
-                                            <tr
-                                                key={governorate.id}
-                                                onClick={() => selectGovernorate(governorate.id)}
-                                                className={`cursor-pointer transition ${isSelected ? 'bg-brand-50' : 'hover:bg-gray-50'}`}
-                                            >
-                                                <td className={`font-medium ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
-                                                    {governorate.name}
-                                                </td>
-                                                <td className="text-gray-600">{governorate.areasCount}</td>
-                                                <td className="text-end">
-                                                    <RowActionsMenu>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setModalGovernorate(governorate);
-                                                            }}
-                                                        >
-                                                            تعديل
-                                                        </button>
-                                                    </RowActionsMenu>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
+                {/* Governorates list — just the branch's own when scoped to a branch */}
+                {scopedToBranch ? (
+                    <div>
+                        <div className="rounded-card border border-gray-100 bg-surface shadow-card">
+                            <div className="border-b border-gray-100 px-6 py-4">
+                                <h3 className="text-base font-bold text-gray-900">محافظة الفرع</h3>
+                            </div>
+                            {governorates.data.length === 0 ? (
+                                <p className="px-6 py-8 text-center text-sm text-gray-500">لم تُحدَّد محافظة لفرعك بعد.</p>
+                            ) : (
+                                <ul className="divide-y">
+                                    {governorates.data.map((governorate) => (
+                                        <li key={governorate.id} className="bg-brand-50 px-6 py-3 text-sm font-medium text-brand-700">
+                                            {governorate.name}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
                     </div>
+                ) : (
+                    <div>
+                        <DataTableToolbar
+                            search={search}
+                            onSearchChange={setSearch}
+                            placeholder="بحث بالاسم..."
+                            perPage={filters.per_page}
+                            onPerPageChange={setPerPage}
+                            total={governorates.total}
+                        />
 
-                    <Pagination meta={governorates} filters={filters} baseUrl="/governorates" extraParams={extraParams} />
-                </div>
+                        <div className="data-table-container">
+                            <table className="data-table w-full text-sm text-start">
+                                <thead>
+                                    <tr>
+                                        <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
+                                        <th>عدد المناطق</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {governorates.data.length === 0 ? (
+                                        <tr>
+                                            <td className="text-gray-500" colSpan={3}>
+                                                لا توجد نتائج مطابقة.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        governorates.data.map((governorate) => {
+                                            const isSelected = selectedGovernorate?.id === governorate.id;
+                                            return (
+                                                <tr
+                                                    key={governorate.id}
+                                                    onClick={() => selectGovernorate(governorate.id)}
+                                                    className={`cursor-pointer transition ${isSelected ? 'bg-brand-50' : 'hover:bg-gray-50'}`}
+                                                >
+                                                    <td className={`font-medium ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
+                                                        {governorate.name}
+                                                    </td>
+                                                    <td className="text-gray-600">{governorate.areasCount}</td>
+                                                    <td className="text-end">
+                                                        <RowActionsMenu>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setModalGovernorate(governorate);
+                                                                }}
+                                                            >
+                                                                تعديل
+                                                            </button>
+                                                        </RowActionsMenu>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <Pagination meta={governorates} filters={filters} baseUrl="/governorates" extraParams={extraParams} />
+                    </div>
+                )}
 
                 {/* Selected governorate's areas */}
                 <div>
@@ -143,13 +181,17 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                         <div className="rounded-card border border-gray-100 bg-surface shadow-card">
                             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                                 <h3 className="text-base font-bold text-gray-900">مناطق {selectedGovernorate.name}</h3>
-                                <AddButton onClick={() => setCreatingArea(true)} variant="soft">
-                                    إضافة منطقة
-                                </AddButton>
+                                {!scopedToBranch && (
+                                    <AddButton onClick={() => setCreatingArea(true)} variant="soft">
+                                        إضافة منطقة
+                                    </AddButton>
+                                )}
                             </div>
 
                             {selectedGovernorate.areas.length === 0 ? (
-                                <p className="px-6 py-8 text-center text-sm text-gray-500">لا توجد مناطق في هذه المحافظة بعد.</p>
+                                <p className="px-6 py-8 text-center text-sm text-gray-500">
+                                    {scopedToBranch ? 'لم تُحدَّد منطقة لفرعك بعد.' : 'لا توجد مناطق في هذه المحافظة بعد.'}
+                                </p>
                             ) : (
                                 <ul className="divide-y">
                                     {selectedGovernorate.areas.map((area) => {
@@ -157,22 +199,24 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                                         return (
                                             <li
                                                 key={area.id}
-                                                onClick={() => selectArea(area.id)}
-                                                className={`flex cursor-pointer items-center justify-between px-6 py-3 transition ${isSelected ? 'bg-brand-50' : 'hover:bg-gray-50'}`}
+                                                onClick={scopedToBranch ? undefined : () => selectArea(area.id)}
+                                                className={`flex items-center justify-between px-6 py-3 transition ${isSelected ? 'bg-brand-50' : 'cursor-pointer hover:bg-gray-50'}`}
                                             >
                                                 <span className={`text-sm font-medium ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
                                                     {area.name}
                                                 </span>
-                                                <RowActionsMenu>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setModalArea(area);
-                                                        }}
-                                                    >
-                                                        تعديل
-                                                    </button>
-                                                </RowActionsMenu>
+                                                {!scopedToBranch && (
+                                                    <RowActionsMenu>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setModalArea(area);
+                                                            }}
+                                                        >
+                                                            تعديل
+                                                        </button>
+                                                    </RowActionsMenu>
+                                                )}
                                             </li>
                                         );
                                     })}
@@ -194,16 +238,27 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                                     d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"
                                 />
                             </svg>
-                            <p className="mt-3 text-sm font-medium text-gray-600">اختر منطقة من القائمة لعرض منطقة 2 الخاصة بها</p>
-                            <p className="mt-1 text-sm text-gray-400">أو أنشئ منطقة جديدة لتبدأ بإضافة مناطق 2 لها</p>
+                            {scopedToBranch ? (
+                                <>
+                                    <p className="mt-3 text-sm font-medium text-gray-600">لم تُحدَّد منطقة لفرعك بعد</p>
+                                    <p className="mt-1 text-sm text-gray-400">اطلب من المدير العام تحديد منطقة الفرع لتتمكن من إضافة منطقة 2</p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="mt-3 text-sm font-medium text-gray-600">اختر منطقة من القائمة لعرض منطقة 2 الخاصة بها</p>
+                                    <p className="mt-1 text-sm text-gray-400">أو أنشئ منطقة جديدة لتبدأ بإضافة مناطق 2 لها</p>
+                                </>
+                            )}
                         </div>
                     ) : (
                         <div className="rounded-card border border-gray-100 bg-surface shadow-card">
                             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                                 <h3 className="text-base font-bold text-gray-900">منطقة 2 لـ {selectedArea.name}</h3>
-                                <AddButton onClick={() => setCreatingSubArea(true)} variant="soft">
-                                    إضافة منطقة 2
-                                </AddButton>
+                                {selectedArea.canCreateSubArea && (
+                                    <AddButton onClick={() => setCreatingSubArea(true)} variant="soft">
+                                        إضافة منطقة 2
+                                    </AddButton>
+                                )}
                             </div>
 
                             {selectedArea.subAreas.length === 0 ? (
@@ -213,9 +268,11 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                                     {selectedArea.subAreas.map((subArea) => (
                                         <li key={subArea.id} className="flex items-center justify-between px-6 py-3">
                                             <span className="text-sm font-medium text-gray-900">{subArea.name}</span>
-                                            <RowActionsMenu>
-                                                <button onClick={() => setModalSubArea(subArea)}>تعديل</button>
-                                            </RowActionsMenu>
+                                            {subArea.canUpdate && (
+                                                <RowActionsMenu>
+                                                    <button onClick={() => setModalSubArea(subArea)}>تعديل</button>
+                                                </RowActionsMenu>
+                                            )}
                                         </li>
                                     ))}
                                 </ul>
@@ -258,11 +315,19 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                 onClose={() => setCreatingSubArea(false)}
                 subArea={null}
                 areas={areaOptions}
+                allowNoArea={allowSubAreaWithoutArea}
                 defaultAreaId={selectedArea?.id ?? ''}
             />
 
             {modalSubArea && (
-                <SubAreaModal key={modalSubArea.id} show onClose={() => setModalSubArea(null)} subArea={modalSubArea} areas={areaOptions} />
+                <SubAreaModal
+                    key={modalSubArea.id}
+                    show
+                    onClose={() => setModalSubArea(null)}
+                    subArea={modalSubArea}
+                    areas={areaOptions}
+                    allowNoArea={allowSubAreaWithoutArea}
+                />
             )}
         </SettingsLayout>
     );

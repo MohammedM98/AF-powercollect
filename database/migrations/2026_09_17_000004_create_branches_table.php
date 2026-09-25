@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('branches', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->foreignId('governorate_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('area_id')->nullable()->constrained()->nullOnDelete();
             $table->string('location')->nullable();
             $table->string('phone')->nullable();
             $table->boolean('is_active')->default(true);

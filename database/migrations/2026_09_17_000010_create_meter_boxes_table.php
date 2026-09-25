@@ -13,9 +13,10 @@ return new class extends Migration
     {
         Schema::create('meter_boxes', function (Blueprint $table) {
             $table->id();
+            $table->string('name')->nullable();
             $table->string('box_number')->unique();
             $table->foreignId('branch_id')->constrained();
-            $table->string('area')->nullable();
+            $table->foreignId('sub_area_id')->nullable()->constrained()->nullOnDelete();
             $table->string('location')->nullable();
             $table->timestamps();
         });

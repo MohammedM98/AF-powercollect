@@ -11,11 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('permission_user', function (Blueprint $table) {
-            $table->foreignId('permission_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+        Schema::create('circuit_breakers', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedSmallInteger('ampere')->unique();
+            $table->decimal('minimum_payment', 10, 2);
             $table->timestamps();
-            $table->primary(['permission_id', 'user_id']);
         });
     }
 
@@ -24,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('permission_user');
+        Schema::dropIfExists('circuit_breakers');
     }
 };

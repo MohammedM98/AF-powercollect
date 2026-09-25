@@ -15,11 +15,21 @@ return new class extends Migration
             $table->id();
             $table->foreignId('subscriber_id')->constrained()->restrictOnDelete();
             $table->foreignId('branch_id')->constrained();
+
             $table->date('week_start');
             $table->date('week_end');
+
             $table->unsignedInteger('previous_reading');
             $table->unsignedInteger('current_reading');
             $table->unsignedInteger('consumption');
+
+            // Prices are copied onto the reading when it is recorded, so a
+            // later tariff change never alters an old week's charges.
+            $table->decimal('unit_price', 10, 2)->default(0);
+            $table->decimal('reading_fee', 10, 2)->default(0);
+            $table->decimal('minimum_payment', 10, 2)->default(0);
+            $table->decimal('amount_due', 10, 2)->default(0);
+
             $table->string('status')->default('pending');
             $table->foreignId('recorded_by')->constrained('users')->restrictOnDelete();
             $table->text('notes')->nullable();

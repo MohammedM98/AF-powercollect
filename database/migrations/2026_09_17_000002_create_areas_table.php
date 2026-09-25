@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('subscribers', function (Blueprint $table) {
-            $table->dropUnique(['meter_number']);
-            $table->dropColumn('meter_number');
+        Schema::create('areas', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->unique();
+            $table->foreignId('governorate_id')->nullable()->constrained()->nullOnDelete();
+            $table->timestamps();
         });
     }
 
@@ -22,8 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('subscribers', function (Blueprint $table) {
-            $table->string('meter_number')->nullable()->unique();
-        });
+        Schema::dropIfExists('areas');
     }
 };

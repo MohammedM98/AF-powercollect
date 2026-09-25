@@ -8,9 +8,6 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
-     *
-     * A single company-wide row controlling when data entry staff may
-     * record weekly meter readings.
      */
     public function up(): void
     {

@@ -6,6 +6,7 @@ use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreCircuitBreakerRequest;
 use App\Http\Requests\UpdateCircuitBreakerRequest;
 use App\Models\CircuitBreaker;
+use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -59,7 +60,8 @@ class CircuitBreakerController extends Controller
      */
     public function store(StoreCircuitBreakerRequest $request): RedirectResponse
     {
-        CircuitBreaker::create($request->validated());
+        $circuitBreaker = CircuitBreaker::create($request->validated());
+        $request->user()->notify(new ActionCompleted('circuit-breaker-created', __(':ampere A', ['ampere' => $circuitBreaker->ampere])));
 
         return redirect()->route('circuit-breakers.index')->with('status', 'circuit-breaker-created');
     }
@@ -82,6 +84,7 @@ class CircuitBreakerController extends Controller
     public function update(UpdateCircuitBreakerRequest $request, CircuitBreaker $circuitBreaker): RedirectResponse
     {
         $circuitBreaker->update($request->validated());
+        $request->user()->notify(new ActionCompleted('circuit-breaker-updated', __(':ampere A', ['ampere' => $circuitBreaker->ampere])));
 
         return redirect()->route('circuit-breakers.index')->with('status', 'circuit-breaker-updated');
     }

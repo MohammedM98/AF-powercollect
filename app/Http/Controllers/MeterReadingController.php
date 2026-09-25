@@ -16,6 +16,7 @@ use App\Models\SubArea;
 use App\Models\Subscriber;
 use App\Models\Tariff;
 use App\Models\User;
+use App\Notifications\ActionCompleted;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -119,6 +120,8 @@ class MeterReadingController extends Controller
             'notes' => $request->input('notes'),
         ]);
 
+        $request->user()->notify(new ActionCompleted('meter-reading-created', $subscriber->full_name));
+
         return back()->with('status', 'meter-reading-created');
     }
 
@@ -137,6 +140,8 @@ class MeterReadingController extends Controller
             ...MeterReading::chargesFor($consumption, $meterReading->unit_price, $meterReading->minimum_payment),
             'notes' => $request->has('notes') ? $request->input('notes') : $meterReading->notes,
         ]);
+
+        $request->user()->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscriber->full_name));
 
         return back()->with('status', 'meter-reading-updated');
     }

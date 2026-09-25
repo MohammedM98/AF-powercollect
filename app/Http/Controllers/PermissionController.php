@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Http\Concerns\FiltersDataTable;
 use App\Models\Permission;
 use App\Models\User;
+use App\Notifications\ActionCompleted;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -94,6 +95,8 @@ class PermissionController extends Controller
             $keptAsTheyWere = array_diff($user->permissions->modelKeys(), $grantablePermissionIds);
             $user->permissions()->sync([...$selected, ...$keptAsTheyWere]);
         }
+
+        $actor->notify(new ActionCompleted('permissions-updated', $users->pluck('name')->join('، ')));
 
         return redirect()
             ->back(fallback: route('settings.permissions.edit'))

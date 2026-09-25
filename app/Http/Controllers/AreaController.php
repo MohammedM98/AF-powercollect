@@ -6,6 +6,7 @@ use App\Http\Requests\StoreAreaRequest;
 use App\Http\Requests\UpdateAreaRequest;
 use App\Models\Area;
 use App\Models\Governorate;
+use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -30,6 +31,7 @@ class AreaController extends Controller
     public function store(StoreAreaRequest $request): RedirectResponse
     {
         $area = Area::create($request->validated());
+        $request->user()->notify(new ActionCompleted('area-created', $area->name));
 
         return redirect()->route('governorates.index', array_filter(['selected' => $area->governorate_id]))
             ->with('status', 'area-created');
@@ -54,6 +56,7 @@ class AreaController extends Controller
     public function update(UpdateAreaRequest $request, Area $area): RedirectResponse
     {
         $area->update($request->validated());
+        $request->user()->notify(new ActionCompleted('area-updated', $area->name));
 
         return redirect()->route('governorates.index', array_filter(['selected' => $area->governorate_id]))
             ->with('status', 'area-updated');

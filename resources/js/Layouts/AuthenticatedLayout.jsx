@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import ThemeToggle from '@/Components/ThemeToggle';
+import ActivityBell from '@/Components/ActivityBell';
 import CommandPalette from '@/Components/CommandPalette';
 import { MAIN_LINKS, SETTINGS_LINKS, allowedLinks, isActiveLink } from '@/lib/navigation';
 import { useResponsiveTables } from '@/hooks/useResponsiveTables';
@@ -280,6 +281,7 @@ export default function AuthenticatedLayout({ header, children }) {
                     </button>
 
                     <ThemeToggle className="ms-auto" />
+                    <ActivityBell />
                 </header>
 
                 <main className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-10">

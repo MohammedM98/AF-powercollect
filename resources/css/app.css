@@ -448,11 +448,38 @@
 @keyframes flash-notification-in {
     from {
         opacity: 0;
-        transform: translateX(-12px);
+        transform: translateY(16px) scale(0.96);
     }
     to {
         opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes flash-notification-out {
+    to {
+        opacity: 0;
+        transform: translateX(24px) scale(0.96);
+    }
+}
+
+/* A short nudge so a failed save catches the eye. */
+@keyframes flash-notification-shake {
+    0%,
+    100% {
         transform: translateX(0);
+    }
+    20% {
+        transform: translateX(-6px);
+    }
+    40% {
+        transform: translateX(5px);
+    }
+    60% {
+        transform: translateX(-3px);
+    }
+    80% {
+        transform: translateX(2px);
     }
 }
 
@@ -466,12 +493,27 @@
 }
 
 .flash-notification {
-    animation: flash-notification-in 180ms ease-out;
+    animation: flash-notification-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
+.flash-notification-error {
+    animation:
+        flash-notification-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1),
+        flash-notification-shake 420ms ease-in-out 260ms;
+}
+
+.flash-notification-leaving {
+    animation: flash-notification-out 200ms ease-in forwards;
+}
+
+/* Drains from left to right (toward the start in RTL); pauses while the card is hovered, as its timer does. */
 .flash-notification-countdown {
-    transform-origin: left;
-    animation: flash-notification-countdown 3s linear forwards;
+    transform-origin: right;
+    animation: flash-notification-countdown var(--flash-duration, 4s) linear forwards;
+}
+
+.flash-notification:hover .flash-notification-countdown {
+    animation-play-state: paused;
 }
 
 /* Dialogs */
@@ -501,6 +543,23 @@
 
 .animate-modal-panel {
     animation: modal-panel-in 320ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Menus that drop down from a top-bar button. */
+@keyframes dropdown-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.animate-dropdown {
+    animation: dropdown-in 160ms ease-out;
+    transform-origin: top left;
 }
 
 /* Cards rise in one after another; give each a --rise-delay. */

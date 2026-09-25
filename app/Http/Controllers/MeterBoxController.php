@@ -11,6 +11,7 @@ use App\Models\Governorate;
 use App\Models\MeterBox;
 use App\Models\SubArea;
 use App\Models\User;
+use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -78,7 +79,8 @@ class MeterBoxController extends Controller
             $data['branch_id'] = $actor->branch_id;
         }
 
-        MeterBox::create($data);
+        $meterBox = MeterBox::create($data);
+        $request->user()->notify(new ActionCompleted('meter-box-created', $meterBox->name));
 
         return redirect()->route('meter-boxes.index')->with('status', 'meter-box-created');
     }
@@ -102,6 +104,7 @@ class MeterBoxController extends Controller
     public function update(UpdateMeterBoxRequest $request, MeterBox $meterBox): RedirectResponse
     {
         $meterBox->update($request->validated());
+        $request->user()->notify(new ActionCompleted('meter-box-updated', $meterBox->name));
 
         return redirect()->route('meter-boxes.index')->with('status', 'meter-box-updated');
     }

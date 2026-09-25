@@ -16,6 +16,7 @@ use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\Tariff;
 use App\Models\User;
+use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -99,6 +100,8 @@ class SubscriberController extends Controller
             }
         });
 
+        $actor->notify(new ActionCompleted('subscriber-created', $data['full_name']));
+
         return redirect()->route('subscribers.index')->with('status', 'subscriber-created');
     }
 
@@ -124,6 +127,7 @@ class SubscriberController extends Controller
         $data = $this->enforceMinimumChargePermission(auth()->user(), $data, $subscriber);
 
         $subscriber->update($data);
+        $request->user()->notify(new ActionCompleted('subscriber-updated', $subscriber->full_name));
 
         return redirect()->route('subscribers.index')->with('status', 'subscriber-updated');
     }

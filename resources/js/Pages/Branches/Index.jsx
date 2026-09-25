@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
+import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
@@ -9,7 +10,6 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import BranchModal from './BranchModal';
-import AddButton from '@/Components/AddButton';
 
 export default function Index({ branches, filters, filterOptions, governorates, areas }) {
     const [modalBranch, setModalBranch] = useState(null);

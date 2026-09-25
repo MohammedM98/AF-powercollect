@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
+import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import Pagination from '@/Components/DataTable/Pagination';
@@ -8,7 +9,6 @@ import { useDataTable } from '@/hooks/useDataTable';
 import GovernorateModal from './GovernorateModal';
 import AreaModal from '../Areas/AreaModal';
 import SubAreaModal from '../SubAreas/SubAreaModal';
-import AddButton from '@/Components/AddButton';
 
 export default function Index({ governorates, selectedGovernorate, selectedArea, filters, governorateOptions, areaOptions }) {
     const [modalGovernorate, setModalGovernorate] = useState(null);

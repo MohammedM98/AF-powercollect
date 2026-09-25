@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
+import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
@@ -8,7 +9,6 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import MeterBoxModal from './MeterBoxModal';
-import AddButton from '@/Components/AddButton';
 
 export default function Index({ meterBoxes, branches, canChooseBranch, governorates, areas, subAreas, currentBranchAreaId, filters, filterOptions }) {
     const [modalMeterBox, setModalMeterBox] = useState(null);

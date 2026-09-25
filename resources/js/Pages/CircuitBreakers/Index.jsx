@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
+import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
@@ -9,7 +10,6 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
 import CircuitBreakerModal from './CircuitBreakerModal';
-import AddButton from '@/Components/AddButton';
 
 export default function Index({ circuitBreakers, filters, filterOptions }) {
     const [modalCircuitBreaker, setModalCircuitBreaker] = useState(null);

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
@@ -10,7 +11,6 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import SubscriberModal from './SubscriberModal';
 import SubscriberDetailsModal from './SubscriberDetailsModal';
-import AddButton from '@/Components/AddButton';
 
 const STATUS_TONES = {
     active: 'green',

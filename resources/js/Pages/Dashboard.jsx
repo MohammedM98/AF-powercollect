@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import StatRing from '@/Components/StatRing';
 import AddButton from '@/Components/AddButton';
+import StatRing from '@/Components/StatRing';
 
 const ICONS = {
     branches: (

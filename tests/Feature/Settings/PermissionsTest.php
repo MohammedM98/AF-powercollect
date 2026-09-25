@@ -69,15 +69,15 @@ class PermissionsTest extends TestCase
         $branch = Branch::factory()->create();
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
-        $viewBranches = Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail();
+        $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
 
         $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
             'permissions' => [
-                $collector->id => [$viewBranches->id],
+                $collector->id => [$viewSubscribers->id],
             ],
         ])->assertRedirect(route('settings.permissions.edit'));
 
-        $this->assertTrue($collector->fresh()->hasPermission(PermissionKey::ViewBranches));
+        $this->assertTrue($collector->fresh()->hasPermission(PermissionKey::ViewSubscribers));
     }
 
     public function test_branch_admin_cannot_grant_a_permission_to_another_branchs_staff(): void
@@ -87,15 +87,15 @@ class PermissionsTest extends TestCase
         $otherBranch = Branch::factory()->create();
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id]);
         $foreignCollector = User::factory()->collector()->create(['branch_id' => $otherBranch->id]);
-        $viewBranches = Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail();
+        $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
 
         $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
             'permissions' => [
-                $foreignCollector->id => [$viewBranches->id],
+                $foreignCollector->id => [$viewSubscribers->id],
             ],
         ])->assertRedirect(route('settings.permissions.edit'));
 
-        $this->assertFalse($foreignCollector->fresh()->hasPermission(PermissionKey::ViewBranches));
+        $this->assertFalse($foreignCollector->fresh()->hasPermission(PermissionKey::ViewSubscribers));
     }
 
     public function test_branch_admin_cannot_grant_a_permission_to_a_peer_branch_admin(): void
@@ -104,15 +104,88 @@ class PermissionsTest extends TestCase
         $branch = Branch::factory()->create();
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
         $peerBranchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
-        $viewBranches = Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail();
+        $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
 
         $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
             'permissions' => [
-                $peerBranchAdmin->id => [$viewBranches->id],
+                $peerBranchAdmin->id => [$viewSubscribers->id],
             ],
         ])->assertRedirect(route('settings.permissions.edit'));
 
-        $this->assertFalse($peerBranchAdmin->fresh()->hasPermission(PermissionKey::ViewBranches));
+        $this->assertFalse($peerBranchAdmin->fresh()->hasPermission(PermissionKey::ViewSubscribers));
+    }
+
+    public function test_super_admin_sees_every_permission_on_the_permissions_page(): void
+    {
+        $this->seedPermissions();
+        $superAdmin = User::factory()->superAdmin()->create();
+
+        $response = $this->actingAs($superAdmin)->get(route('settings.permissions.edit'));
+
+        $response->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
+            'branches', 'users', 'subscribers', 'tariffs', 'meter_boxes', 'circuit_breakers',
+            'areas', 'sub_areas', 'governorates', 'meter_readings', 'collections',
+        ]));
+    }
+
+    public function test_branch_admin_does_not_see_company_wide_permissions_on_the_permissions_page(): void
+    {
+        $this->seedPermissions();
+        $branch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
+        $viewTariffs = Permission::where('key', PermissionKey::ViewTariffs->value)->firstOrFail();
+        $collector->permissions()->attach([$viewSubscribers->id, $viewTariffs->id]);
+
+        $response = $this->actingAs($branchAdmin)->get(route('settings.permissions.edit'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
+                'users', 'subscribers', 'meter_boxes', 'meter_readings', 'collections',
+            ])
+            ->where('users.data.0.permissionIds', [$viewSubscribers->id]));
+    }
+
+    public function test_branch_admin_cannot_grant_a_company_wide_permission(): void
+    {
+        $this->seedPermissions();
+        $branch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
+        $createBranches = Permission::where('key', PermissionKey::CreateBranches->value)->firstOrFail();
+
+        $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
+            'permissions' => [
+                $collector->id => [$viewSubscribers->id, $createBranches->id],
+            ],
+        ])->assertRedirect(route('settings.permissions.edit'));
+
+        $collector = $collector->fresh();
+        $this->assertTrue($collector->hasPermission(PermissionKey::ViewSubscribers));
+        $this->assertFalse($collector->hasPermission(PermissionKey::CreateBranches));
+    }
+
+    public function test_branch_admin_saving_permissions_keeps_company_wide_grants_from_the_super_admin(): void
+    {
+        $this->seedPermissions();
+        $branch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $viewTariffs = Permission::where('key', PermissionKey::ViewTariffs->value)->firstOrFail();
+        $viewSubscribers = Permission::where('key', PermissionKey::ViewSubscribers->value)->firstOrFail();
+        $collector->permissions()->attach($viewTariffs);
+
+        $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
+            'permissions' => [
+                $collector->id => [$viewSubscribers->id],
+            ],
+        ])->assertRedirect(route('settings.permissions.edit'));
+
+        $collector = $collector->fresh();
+        $this->assertTrue($collector->hasPermission(PermissionKey::ViewSubscribers));
+        $this->assertTrue($collector->hasPermission(PermissionKey::ViewTariffs));
     }
 
     public function test_collector_cannot_view_the_permissions_settings_page(): void

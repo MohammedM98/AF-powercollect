@@ -87,6 +87,25 @@ enum PermissionKey: string
     }
 
     /**
+     * Whether this permission covers data the whole company shares —
+     * branches, tariffs, circuit breakers and the governorate/area/sub-area
+     * map — rather than one branch's own data. Running these is the general
+     * manager's job, so only a Super Admin may grant them.
+     */
+    public function isCompanyWide(): bool
+    {
+        return match ($this) {
+            self::ViewBranches, self::CreateBranches, self::UpdateBranches,
+            self::ViewTariffs, self::CreateTariffs, self::UpdateTariffs,
+            self::ViewCircuitBreakers, self::CreateCircuitBreakers, self::UpdateCircuitBreakers,
+            self::ViewGovernorates, self::CreateGovernorates, self::UpdateGovernorates,
+            self::ViewAreas, self::CreateAreas, self::UpdateAreas,
+            self::ViewSubAreas, self::CreateSubAreas, self::UpdateSubAreas => true,
+            default => false,
+        };
+    }
+
+    /**
      * Every permission key, grouped by the table/resource it governs, for
      * rendering the Settings → Permissions matrix. Each group lists its
      * columns in display order as [action => PermissionKey]; a resource

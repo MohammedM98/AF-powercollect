@@ -143,7 +143,7 @@ class PermissionsTest extends TestCase
             ->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
                 'users', 'subscribers', 'tariffs', 'meter_boxes', 'circuit_breakers', 'sub_areas', 'meter_readings', 'collections',
             ])
-            ->where('users.data.0.permissionIds', [$viewSubscribers->id]));
+            ->where('selectedUser.permissionIds', [$viewSubscribers->id]));
     }
 
     public function test_branch_admin_cannot_grant_a_company_wide_permission(): void
@@ -223,6 +223,50 @@ class PermissionsTest extends TestCase
         $collector = $collector->fresh();
         $this->assertTrue($collector->hasPermission(PermissionKey::ViewTariffs));
         $this->assertFalse($collector->hasPermission(PermissionKey::CreateTariffs));
+    }
+
+    public function test_the_editor_shows_the_selected_employees_permissions(): void
+    {
+        $this->seedPermissions();
+        $superAdmin = User::factory()->superAdmin()->create();
+        User::factory()->collector()->create(['name' => 'Aaron Collector']);
+        $selected = User::factory()->collector()->create(['name' => 'Zed Collector']);
+        $viewBranches = Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail();
+        $selected->permissions()->attach($viewBranches);
+
+        $response = $this->actingAs($superAdmin)->get(route('settings.permissions.edit', ['selected' => $selected->id]));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('selectedUser.id', $selected->id)
+            ->where('selectedUser.name', 'Zed Collector')
+            ->where('selectedUser.permissionIds', [$viewBranches->id]));
+    }
+
+    public function test_branch_admin_cannot_open_another_branchs_employee_in_the_editor(): void
+    {
+        $this->seedPermissions();
+        $ownBranch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id]);
+        $ownCollector = User::factory()->collector()->create(['branch_id' => $ownBranch->id]);
+        $foreignCollector = User::factory()->collector()->create();
+
+        $response = $this->actingAs($branchAdmin)->get(route('settings.permissions.edit', ['selected' => $foreignCollector->id]));
+
+        $response->assertInertia(fn ($page) => $page->where('selectedUser.id', $ownCollector->id));
+    }
+
+    public function test_saving_returns_to_the_same_employee_and_filters(): void
+    {
+        $this->seedPermissions();
+        $superAdmin = User::factory()->superAdmin()->create();
+        $collector = User::factory()->collector()->create();
+        $pageUrl = route('settings.permissions.edit', ['search' => 'col', 'selected' => $collector->id]);
+
+        $response = $this->actingAs($superAdmin)->from($pageUrl)->put(route('settings.permissions.update'), [
+            'permissions' => [$collector->id => []],
+        ]);
+
+        $response->assertRedirect($pageUrl);
     }
 
     public function test_collector_cannot_view_the_permissions_settings_page(): void

@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
 import StatRing from '@/Components/StatRing';
@@ -186,13 +186,14 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                                 <div key={key} className="rise-in rounded-card border border-gray-100 bg-surface p-6 shadow-card">
                                     <div className="mb-4 flex items-center justify-between">
                                         <h3 className="font-bold text-gray-900">{title}</h3>
-                                        <a
+                                        <Link
                                             href={viewAll}
+                                            prefetch
                                             className="inline-flex items-center gap-1 text-sm font-semibold text-gray-500 transition hover:text-gray-900"
                                         >
                                             عرض الكل
                                             <Icon name="chevron-left" className="h-4 w-4" strokeWidth={2} />
-                                        </a>
+                                        </Link>
                                     </div>
 
                                     {section.recent.length === 0 ? (

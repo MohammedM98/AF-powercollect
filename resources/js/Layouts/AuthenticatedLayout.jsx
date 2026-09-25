@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import ThemeToggle from '@/Components/ThemeToggle';
 import CommandPalette from '@/Components/CommandPalette';
@@ -41,20 +41,21 @@ function shortAppName(appName) {
 /**
  * One sidebar link: an icon with its label, or the icon alone when the
  * sidebar is collapsed (then `onHover` shows the label beside it). The
- * current page is a graphite pill with a burgundy edge. Links are plain <a>
- * tags, so every page opens with a full page load.
+ * current page is a graphite pill with a burgundy edge. The page starts
+ * loading when the pointer rests on the link, so it opens almost at once.
  */
 function NavLink({ link, active, collapsed, onHover }) {
     const showLabel = collapsed ? (event) => onHover(link.label, event.currentTarget) : undefined;
     const hideLabel = collapsed ? () => onHover(null) : undefined;
 
     return (
-        <a
+        <Link
             href={link.href}
+            prefetch
             aria-current={active ? 'page' : undefined}
-            onMouseEnter={showLabel}
+            onPointerEnter={showLabel}
             onFocus={showLabel}
-            onMouseLeave={hideLabel}
+            onPointerLeave={hideLabel}
             onBlur={hideLabel}
             className={`group flex items-center gap-3 rounded-2xl px-2.5 py-2 text-sm font-semibold transition ${
                 active
@@ -70,7 +71,7 @@ function NavLink({ link, active, collapsed, onHover }) {
                 <Icon name={link.icon} className="h-[18px] w-[18px]" />
             </span>
             <span className={collapsed ? 'sr-only' : 'truncate'}>{link.label}</span>
-        </a>
+        </Link>
     );
 }
 
@@ -89,8 +90,9 @@ function SidebarContent({ collapsed = false, onNavigate }) {
 
     return (
         <div className="flex h-full flex-col" onClick={(event) => event.target.closest('a') && onNavigate?.()}>
-            <a
+            <Link
                 href="/dashboard"
+                prefetch
                 title={collapsed ? appName : undefined}
                 className={`flex items-center pt-6 ${collapsed ? 'justify-center px-3' : 'gap-3 px-6'}`}
             >
@@ -104,7 +106,7 @@ function SidebarContent({ collapsed = false, onNavigate }) {
                         </span>
                     </>
                 )}
-            </a>
+            </Link>
             <div className="brand-spectrum mx-6 mt-5" />
 
             <nav
@@ -145,7 +147,7 @@ function SidebarContent({ collapsed = false, onNavigate }) {
                     collapsed ? 'm-3 flex-col gap-2 p-2' : 'm-4 gap-3 p-3'
                 }`}
             >
-                <a href="/profile" title="الملف الشخصي" className="flex min-w-0 flex-1 items-center gap-3">
+                <Link href="/profile" prefetch title="الملف الشخصي" className="flex min-w-0 flex-1 items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-graphite-gradient font-display text-sm font-bold text-white">
                         {auth?.user?.name?.substring(0, 1)}
                     </span>
@@ -155,7 +157,7 @@ function SidebarContent({ collapsed = false, onNavigate }) {
                             <span className="block truncate text-xs text-gray-500">{auth?.user?.roleLabel}</span>
                         </span>
                     )}
-                </a>
+                </Link>
                 <form method="POST" action="/logout">
                     <input type="hidden" name="_token" value={csrfToken} />
                     <button
@@ -261,9 +263,9 @@ export default function AuthenticatedLayout({ header, children }) {
                     >
                         <Icon name={isDesktop ? 'sidebar' : 'menu'} className="h-5 w-5" />
                     </button>
-                    <a href="/dashboard" className="shrink-0 lg:hidden">
+                    <Link href="/dashboard" prefetch className="shrink-0 lg:hidden">
                         <img src="/images/logo-af.webp" alt={appName} className="h-9 w-auto" />
-                    </a>
+                    </Link>
 
                     <button
                         type="button"

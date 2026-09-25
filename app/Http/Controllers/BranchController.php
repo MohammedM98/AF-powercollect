@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Concerns\FiltersDataTable;
+use App\Http\Concerns\ProvidesFormOptions;
 use App\Http\Requests\StoreBranchRequest;
 use App\Http\Requests\UpdateBranchRequest;
 use App\Models\Area;
@@ -10,13 +11,12 @@ use App\Models\Branch;
 use App\Models\Governorate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class BranchController extends Controller
 {
-    use FiltersDataTable;
+    use FiltersDataTable, ProvidesFormOptions;
 
     private const SORTABLE = ['name', 'location', 'phone', 'is_active', 'created_at'];
 
@@ -44,7 +44,7 @@ class BranchController extends Controller
             'canCreate' => $actor->can('create', Branch::class),
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => $this->filterOptions(),
-            ...$this->formOptions(),
+            ...$this->branchFormOptions(),
         ]);
     }
 
@@ -55,7 +55,7 @@ class BranchController extends Controller
     {
         $this->authorize('create', Branch::class);
 
-        return Inertia::render('Branches/Create', $this->formOptions());
+        return Inertia::render('Branches/Create', $this->branchFormOptions());
     }
 
     /**
@@ -77,7 +77,7 @@ class BranchController extends Controller
 
         return Inertia::render('Branches/Edit', [
             'branch' => $branch,
-            ...$this->formOptions(),
+            ...$this->branchFormOptions(),
         ]);
     }
 
@@ -89,21 +89,6 @@ class BranchController extends Controller
         $branch->update($request->validated());
 
         return redirect()->route('branches.index')->with('status', 'branch-updated');
-    }
-
-    /**
-     * The governorates and areas for the create/edit form. Areas are sent
-     * unfiltered (each carrying its governorate_id) so the form can narrow
-     * the area choices client-side once a governorate is picked.
-     *
-     * @return array{governorates: Collection, areas: Collection}
-     */
-    private function formOptions(): array
-    {
-        return [
-            'governorates' => Governorate::orderBy('name')->get(),
-            'areas' => Area::with('governorate')->orderBy('name')->get(),
-        ];
     }
 
     /**

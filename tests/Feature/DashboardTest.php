@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\Governorate;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -51,5 +52,40 @@ class DashboardTest extends TestCase
     {
         $this->get(route('dashboard'))
             ->assertRedirect(route('login'));
+    }
+
+    public function test_the_new_branch_pop_up_loads_its_options_only_when_opened(): void
+    {
+        Governorate::factory()->create(['name' => 'Baghdad']);
+        $superAdmin = User::factory()->superAdmin()->create();
+
+        $response = $this->actingAs($superAdmin)->get(route('dashboard'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('canCreateBranch', true)
+            ->missing('branchForm')
+            ->reloadOnly('branchForm', fn ($reload) => $reload->where('branchForm.governorates.0.name', 'Baghdad')));
+    }
+
+    public function test_the_new_user_pop_up_offers_a_branch_admin_only_staff_roles_in_their_branch(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+
+        $response = $this->actingAs($branchAdmin)->get(route('dashboard'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->missing('userForm')
+            ->reloadOnly('userForm', fn ($reload) => $reload
+                ->where('userForm.canChooseBranch', false)
+                ->has('userForm.roleOptions', 3)));
+    }
+
+    public function test_someone_who_cannot_create_branches_gets_no_branch_pop_up_options(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+
+        $response = $this->actingAs($branchAdmin)->get(route('dashboard'));
+
+        $response->assertInertia(fn ($page) => $page->reloadOnly('branchForm', fn ($reload) => $reload->where('branchForm', null)));
     }
 }

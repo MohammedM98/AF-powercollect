@@ -2,6 +2,14 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 
+/**
+ * The form's starting values: the tariff's own when editing, otherwise
+ * blank with the first category preselected.
+ */
+export function tariffFormData(tariff, categoryOptions) {
+    return tariff ? { category: tariff.category, rate: tariff.rate } : { category: categoryOptions[0]?.value ?? '', rate: '' };
+}
+
 export default function TariffForm({ data, setData, errors, categoryOptions }) {
     return (
         <>

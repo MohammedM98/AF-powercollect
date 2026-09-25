@@ -123,7 +123,9 @@ function SheetRow({ row, week }) {
                         }
                     }}
                     className={`block w-32 rounded-md text-sm tabular-nums shadow-sm disabled:bg-gray-50 disabled:text-gray-500 ${
-                        error ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-brand-500 focus:ring-brand-500'
+                        error
+                            ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                            : 'border-gray-300 focus:border-brand-500 focus:ring-brand-500'
                     }`}
                 />
                 {error && <p className="mt-1 max-w-[16rem] text-xs text-red-600">{error}</p>}
@@ -270,7 +272,13 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, ent
                 onPerPageChange={setPerPage}
                 total={rows.total}
                 filterMenu={
-                    <DataTableFilterMenu tableKey="meter-readings" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                    <DataTableFilterMenu
+                        tableKey="meter-readings"
+                        groups={filterOptions}
+                        values={filterValues}
+                        onChange={setFilter}
+                        onClear={clearFilters}
+                    />
                 }
             />
 

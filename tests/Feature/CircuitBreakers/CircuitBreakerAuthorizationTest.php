@@ -56,6 +56,20 @@ class CircuitBreakerAuthorizationTest extends TestCase
         ]);
     }
 
+    public function test_a_circuit_breaker_can_be_saved_without_changing_its_ampere(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $circuitBreaker = CircuitBreaker::factory()->create(['ampere' => 16, 'minimum_payment' => 10]);
+
+        $response = $this->actingAs($superAdmin)->put(route('circuit-breakers.update', $circuitBreaker), [
+            'ampere' => 16,
+            'minimum_payment' => 25,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('circuit_breakers', ['id' => $circuitBreaker->id, 'minimum_payment' => 25]);
+    }
+
     public function test_cannot_create_two_circuit_breakers_with_the_same_ampere(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();

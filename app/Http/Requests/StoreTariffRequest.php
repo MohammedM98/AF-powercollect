@@ -21,12 +21,16 @@ class StoreTariffRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
+     * UpdateTariffRequest reuses these rules; there, `->ignore()` lets the
+     * record being edited keep its own unique value (on create there is no
+     * route model, so nothing is ignored).
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'category' => ['required', Rule::in(array_column(TariffCategory::cases(), 'value')), Rule::unique('tariffs', 'category')],
+            'category' => ['required', Rule::enum(TariffCategory::class), Rule::unique('tariffs', 'category')->ignore($this->route('tariff'))],
             'rate' => ['required', 'numeric', 'min:0'],
         ];
     }

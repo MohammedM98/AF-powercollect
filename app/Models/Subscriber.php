@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\SubscriberStatus;
+use App\Models\Concerns\BelongsToBranch;
 use Database\Factories\SubscriberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,7 +21,7 @@ use Illuminate\Support\Carbon;
 class Subscriber extends Model
 {
     /** @use HasFactory<SubscriberFactory> */
-    use HasFactory;
+    use BelongsToBranch, HasFactory;
 
     /**
      * Every new subscriber gets an account number automatically; it is
@@ -62,11 +63,6 @@ class Subscriber extends Model
             'subscription_date' => 'date',
             'subscription_fee' => 'decimal:2',
         ];
-    }
-
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class);
     }
 
     public function meterBox(): BelongsTo

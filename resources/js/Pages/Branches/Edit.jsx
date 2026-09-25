@@ -1,40 +1,14 @@
-import { Head, useForm } from '@inertiajs/react';
+import FormPage from '@/Components/FormPage';
 import SettingsLayout from '@/Layouts/SettingsLayout';
-import PrimaryButton from '@/Components/PrimaryButton';
-import BranchForm from './BranchForm';
+import { useResourceForm } from '@/hooks/useResourceForm';
+import BranchForm, { branchFormData } from './BranchForm';
 
 export default function Edit({ branch, governorates, areas }) {
-    const { data, setData, put, processing, errors } = useForm({
-        name: branch.name,
-        phone: branch.phone ?? '',
-        is_active: branch.is_active,
-        governorate_id: branch.governorate_id ?? '',
-        area_id: branch.area_id ?? '',
-    });
-
-    function submit(e) {
-        e.preventDefault();
-        put(`/branches/${branch.id}`);
-    }
+    const form = useResourceForm('/branches', branch, branchFormData(branch));
 
     return (
-        <SettingsLayout header={<h2 className="text-xl font-bold text-gray-900">تعديل الفرع</h2>}>
-            <Head title="تعديل الفرع" />
-
-            <div className="max-w-2xl">
-                <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                    <form onSubmit={submit}>
-                        <BranchForm data={data} setData={setData} errors={errors} governorates={governorates} areas={areas} />
-
-                        <div className="mt-6 flex items-center gap-4">
-                            <PrimaryButton disabled={processing}>حفظ</PrimaryButton>
-                            <a href="/branches" className="text-sm text-gray-600 underline">
-                                إلغاء
-                            </a>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </SettingsLayout>
+        <FormPage layout={SettingsLayout} title="تعديل الفرع" form={form} cancelHref="/branches">
+            <BranchForm data={form.data} setData={form.setData} errors={form.errors} governorates={governorates} areas={areas} />
+        </FormPage>
     );
 }

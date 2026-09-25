@@ -32,9 +32,7 @@ class MeterBoxController extends Controller
 
         $actor = auth()->user();
 
-        $query = MeterBox::query()
-            ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
-            ->with('branch.governorate', 'branch.area', 'subArea');
+        $query = MeterBox::query()->visibleTo($actor)->with('branch.governorate', 'branch.area', 'subArea');
         $this->applyDataTableFilters($query, $request, ['name', 'box_number'], self::SORTABLE, 'box_number');
         $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'sub_area_id']);
 
@@ -50,7 +48,6 @@ class MeterBoxController extends Controller
 
         return Inertia::render('MeterBoxes/Index', [
             'meterBoxes' => $meterBoxes,
-            'status' => session('status'),
             'filters' => $this->dataTableState($request, 'box_number'),
             'filterOptions' => $this->filterOptions($actor),
             ...$this->formOptions(),
@@ -102,9 +99,7 @@ class MeterBoxController extends Controller
      */
     public function update(UpdateMeterBoxRequest $request, MeterBox $meterBox): RedirectResponse
     {
-        $data = $request->validated();
-
-        $meterBox->update($data);
+        $meterBox->update($request->validated());
 
         return redirect()->route('meter-boxes.index')->with('status', 'meter-box-updated');
     }
@@ -164,27 +159,11 @@ class MeterBoxController extends Controller
     private function filterOptions(User $actor): array
     {
         $groups = [
-            [
-                'key' => 'sub_area_id',
-                'label' => 'منطقة 2',
-                'options' => SubArea::query()
-                    ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('area_id', $actor->branch?->area_id))
-                    ->orderBy('name')
-                    ->get()
-                    ->map(fn (SubArea $subArea) => ['value' => (string) $subArea->id, 'label' => $subArea->name])
-                    ->all(),
-            ],
+            $this->filterGroup('sub_area_id', 'منطقة 2', $this->modelOptions(SubArea::visibleTo($actor)->orderBy('name')->get())),
         ];
 
         if ($actor->isSuperAdmin()) {
-            $groups[] = [
-                'key' => 'branch_id',
-                'label' => 'الفرع',
-                'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => [
-                    'value' => (string) $branch->id,
-                    'label' => $branch->name,
-                ])->all(),
-            ];
+            $groups[] = $this->branchFilterGroup();
         }
 
         return $groups;

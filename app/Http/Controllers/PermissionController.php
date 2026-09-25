@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Http\Concerns\FiltersDataTable;
-use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -33,9 +33,7 @@ class PermissionController extends Controller
 
         $actor = $request->user();
 
-        $query = User::where('role', '!=', UserRole::SuperAdmin)
-            ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id)->whereIn('role', UserRole::staffRoles()))
-            ->with(['branch', 'permissions']);
+        $query = $this->manageableUsers($actor)->with(['branch', 'permissions']);
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
         $this->applyDataTableFilterSelects($query, $request, ['role', 'branch_id']);
 
@@ -54,7 +52,6 @@ class PermissionController extends Controller
             'users' => $users,
             'permissionGroups' => $this->permissionGroups(),
             'scopedToOwnBranch' => ! $actor->isSuperAdmin(),
-            'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => $this->filterOptions($actor),
         ]);
@@ -81,19 +78,30 @@ class PermissionController extends Controller
         $validPermissionIds = Permission::pluck('id')->all();
         $payload = (array) $request->input('permissions', []);
 
-        $userIds = User::where('role', '!=', UserRole::SuperAdmin)
-            ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id)->whereIn('role', UserRole::staffRoles()))
-            ->whereIn('id', array_keys($payload))
-            ->pluck('id');
+        $users = $this->manageableUsers($actor)->whereIn('id', array_keys($payload))->get();
 
-        $users = User::whereIn('id', $userIds)->get()->keyBy('id');
-
-        foreach ($userIds as $userId) {
-            $selected = (array) ($payload[$userId] ?? []);
-            $users[$userId]->permissions()->sync(array_intersect($selected, $validPermissionIds));
+        foreach ($users as $user) {
+            $selected = (array) ($payload[$user->id] ?? []);
+            $user->permissions()->sync(array_intersect($selected, $validPermissionIds));
         }
 
         return redirect()->route('settings.permissions.edit')->with('status', 'permissions-updated');
+    }
+
+    /**
+     * The users whose permissions the actor may manage: every non-Super-
+     * Admin for a Super Admin; for anyone else, only the staff roles in
+     * their own branch.
+     *
+     * @return Builder<User>
+     */
+    private function manageableUsers(User $actor): Builder
+    {
+        return User::query()
+            ->where('role', '!=', UserRole::SuperAdmin)
+            ->when(! $actor->isSuperAdmin(), fn (Builder $query) => $query
+                ->where('branch_id', $actor->branch_id)
+                ->whereIn('role', UserRole::staffRoles()));
     }
 
     /**
@@ -140,27 +148,14 @@ class PermissionController extends Controller
      */
     private function filterOptions(User $actor): array
     {
+        $roles = $actor->isSuperAdmin() ? UserRole::assignableBySuperAdmin() : UserRole::staffRoles();
+
         $groups = [
-            [
-                'key' => 'role',
-                'label' => 'الدور',
-                'options' => collect($actor->isSuperAdmin() ? UserRole::cases() : UserRole::staffRoles())
-                    ->reject(fn (UserRole $role) => $role === UserRole::SuperAdmin)
-                    ->map(fn (UserRole $role) => ['value' => $role->value, 'label' => __($role->label())])
-                    ->values()
-                    ->all(),
-            ],
+            $this->filterGroup('role', 'الدور', UserRole::options($roles)),
         ];
 
         if ($actor->isSuperAdmin()) {
-            $groups[] = [
-                'key' => 'branch_id',
-                'label' => 'الفرع',
-                'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => [
-                    'value' => (string) $branch->id,
-                    'label' => $branch->name,
-                ])->all(),
-            ];
+            $groups[] = $this->branchFilterGroup();
         }
 
         return $groups;

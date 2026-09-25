@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
+import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import Pagination from '@/Components/DataTable/Pagination';
@@ -9,7 +10,7 @@ import GovernorateModal from './GovernorateModal';
 import AreaModal from '../Areas/AreaModal';
 import SubAreaModal from '../SubAreas/SubAreaModal';
 
-export default function Index({ governorates, selectedGovernorate, selectedArea, status, filters, governorateOptions, areaOptions }) {
+export default function Index({ governorates, selectedGovernorate, selectedArea, filters, governorateOptions, areaOptions }) {
     const [modalGovernorate, setModalGovernorate] = useState(null);
     const [creatingGovernorate, setCreatingGovernorate] = useState(false);
     const [modalArea, setModalArea] = useState(null);
@@ -51,26 +52,12 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                         <h2 className="text-xl font-bold text-gray-900">المحافظات والمناطق</h2>
                     </div>
                     <div className="shrink-0">
-                        <button
-                            onClick={() => setCreatingGovernorate(true)}
-                            className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
-                        >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
-                            محافظة جديدة
-                        </button>
+                        <AddButton onClick={() => setCreatingGovernorate(true)}>محافظة جديدة</AddButton>
                     </div>
                 </>
             }
         >
             <Head title="المحافظات والمناطق" />
-
-
-
-
-
-
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                 {/* Governorates list */}
@@ -154,15 +141,9 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                         <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
                             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                                 <h3 className="text-base font-bold text-gray-900">مناطق {selectedGovernorate.name}</h3>
-                                <button
-                                    onClick={() => setCreatingArea(true)}
-                                    className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-100"
-                                >
-                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
-                                    </svg>
+                                <AddButton onClick={() => setCreatingArea(true)} variant="soft">
                                     إضافة منطقة
-                                </button>
+                                </AddButton>
                             </div>
 
                             {selectedGovernorate.areas.length === 0 ? (
@@ -217,15 +198,9 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                         <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
                             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                                 <h3 className="text-base font-bold text-gray-900">منطقة 2 لـ {selectedArea.name}</h3>
-                                <button
-                                    onClick={() => setCreatingSubArea(true)}
-                                    className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-100"
-                                >
-                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
-                                    </svg>
+                                <AddButton onClick={() => setCreatingSubArea(true)} variant="soft">
                                     إضافة منطقة 2
-                                </button>
+                                </AddButton>
                             </div>
 
                             {selectedArea.subAreas.length === 0 ? (
@@ -272,15 +247,7 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
                 defaultGovernorateId={selectedGovernorate?.id ?? ''}
             />
 
-            {modalArea && (
-                <AreaModal
-                    key={modalArea.id}
-                    show
-                    onClose={() => setModalArea(null)}
-                    area={modalArea}
-                    governorates={governorateOptions}
-                />
-            )}
+            {modalArea && <AreaModal key={modalArea.id} show onClose={() => setModalArea(null)} area={modalArea} governorates={governorateOptions} />}
 
             {/* Keyed by the selected area so its id is re-captured as the
                 form's default whenever the selection changes — useForm()
@@ -295,13 +262,7 @@ export default function Index({ governorates, selectedGovernorate, selectedArea,
             />
 
             {modalSubArea && (
-                <SubAreaModal
-                    key={modalSubArea.id}
-                    show
-                    onClose={() => setModalSubArea(null)}
-                    subArea={modalSubArea}
-                    areas={areaOptions}
-                />
+                <SubAreaModal key={modalSubArea.id} show onClose={() => setModalSubArea(null)} subArea={modalSubArea} areas={areaOptions} />
             )}
         </SettingsLayout>
     );

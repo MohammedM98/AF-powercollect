@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
@@ -10,7 +11,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import UserModal from './UserModal';
 
-export default function Index({ users, canCreate, status, branches, canChooseBranch, createRoleOptions, filters, filterOptions }) {
+export default function Index({ users, canCreate, branches, canChooseBranch, createRoleOptions, filters, filterOptions }) {
     const [modalUser, setModalUser] = useState(null);
     const [creating, setCreating] = useState(false);
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/users', filters);
@@ -24,23 +25,13 @@ export default function Index({ users, canCreate, status, branches, canChooseBra
                     </div>
                     {canCreate && (
                         <div className="shrink-0">
-                            <button
-                                onClick={() => setCreating(true)}
-                                className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
-                            >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
-                                </svg>
-                                مستخدم جديد
-                            </button>
+                            <AddButton onClick={() => setCreating(true)}>مستخدم جديد</AddButton>
                         </div>
                     )}
                 </>
             }
         >
             <Head title="المستخدمون" />
-
-
 
             <DataTableToolbar
                 search={search}

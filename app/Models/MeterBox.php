@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToBranch;
 use Database\Factories\MeterBoxFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,12 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class MeterBox extends Model
 {
     /** @use HasFactory<MeterBoxFactory> */
-    use HasFactory;
-
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class);
-    }
+    use BelongsToBranch, HasFactory;
 
     public function subArea(): BelongsTo
     {

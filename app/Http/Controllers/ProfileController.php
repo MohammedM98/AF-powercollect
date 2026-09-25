@@ -21,7 +21,6 @@ class ProfileController extends Controller
             'user' => [
                 'name' => $request->user()->name,
             ],
-            'status' => session('status'),
         ]);
     }
 

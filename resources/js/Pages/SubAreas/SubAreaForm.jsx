@@ -2,6 +2,14 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 
+/**
+ * The form's starting values: the sub-area's own when editing, otherwise
+ * blank — optionally already placed in `defaultAreaId`.
+ */
+export function subAreaFormData(subArea, defaultAreaId = '') {
+    return subArea ? { name: subArea.name, area_id: subArea.area_id ?? '' } : { name: '', area_id: defaultAreaId };
+}
+
 export default function SubAreaForm({ data, setData, errors, areas }) {
     return (
         <>

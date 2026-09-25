@@ -39,7 +39,7 @@ class SubscriberController extends Controller
         $actor = auth()->user();
 
         $query = Subscriber::query()
-            ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
+            ->visibleTo($actor)
             ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'registeredBy', 'transactions.recordedBy', 'meterReadings.recordedBy'])
             ->withSum('transactions as outstanding_balance', 'amount');
         $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'account_number'], self::SORTABLE, 'full_name');
@@ -49,51 +49,11 @@ class SubscriberController extends Controller
 
         $subscribers = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
-            ->through(fn (Subscriber $subscriber) => [
-                ...$this->editableFields($subscriber),
-                'branchName' => $subscriber->branch->name,
-                'governorateName' => $subscriber->branch->governorate?->name,
-                'areaName' => $subscriber->branch->area?->name,
-                'meterBoxNumber' => $subscriber->meterBox?->box_number,
-                'subAreaName' => $subscriber->meterBox?->subArea?->name,
-                'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
-                'tariffRate' => $subscriber->tariff->rate,
-                'circuitBreakerAmpere' => $subscriber->circuitBreaker?->ampere,
-                'statusLabel' => __($subscriber->status->label()),
-                'registeredByName' => $subscriber->registeredBy?->name,
-                'outstandingBalance' => $subscriber->outstanding_balance ?? '0.00',
-                'transactions' => $subscriber->transactions->sortByDesc('id')->values()->map(fn (SubscriberTransaction $transaction) => [
-                    'id' => $transaction->id,
-                    'type' => $transaction->type,
-                    'amount' => $transaction->amount,
-                    'recordedByName' => $transaction->recordedBy?->name,
-                    'recordedAt' => $transaction->created_at->format('Y-m-d H:i'),
-                ]),
-                'meterReadings' => $subscriber->meterReadings->sortByDesc('week_start')->values()->map(fn (MeterReading $reading) => [
-                    'id' => $reading->id,
-                    'weekStart' => $reading->week_start->format('Y-m-d'),
-                    'weekEnd' => $reading->week_end->format('Y-m-d'),
-                    'previous_reading' => $reading->previous_reading,
-                    'current_reading' => $reading->current_reading,
-                    'consumption' => $reading->consumption,
-                    'amountDue' => $reading->amount_due,
-                    'status' => $reading->status->value,
-                    'statusLabel' => __($reading->status->label()),
-                    'notes' => $reading->notes,
-                    'recordedByName' => $reading->recordedBy?->name,
-                    'recordedAt' => $reading->created_at->format('Y-m-d H:i'),
-                    'canUpdate' => $actor->can('update', $reading),
-                ]),
-                'lastReading' => (int) ($subscriber->meterReadings->sortByDesc('week_start')->first()?->current_reading ?? $subscriber->initial_reading ?? 0),
-                'lastReadingWeekStart' => $subscriber->meterReadings->max('week_start')?->format('Y-m-d'),
-                'canRecordReading' => $canRecordReadings && $subscriber->status === SubscriberStatus::Active,
-                'canUpdate' => $actor->can('update', $subscriber),
-            ]);
+            ->through(fn (Subscriber $subscriber) => $this->indexRow($subscriber, $actor, $canRecordReadings));
 
         return Inertia::render('Subscribers/Index', [
             'subscribers' => $subscribers,
             'canCreate' => $actor->can('create', Subscriber::class),
-            'status' => session('status'),
             'filters' => $this->dataTableState($request, 'full_name'),
             'filterOptions' => $this->filterOptions($actor),
             'readingWeekOptions' => MeterReading::recentWeekOptions(),
@@ -166,6 +126,69 @@ class SubscriberController extends Controller
         $subscriber->update($data);
 
         return redirect()->route('subscribers.index')->with('status', 'subscriber-updated');
+    }
+
+    /**
+     * One row of the subscribers list: the editable fields, plus what the
+     * table, the statement and the reading form display.
+     *
+     * @return array<string, mixed>
+     */
+    private function indexRow(Subscriber $subscriber, User $actor, bool $canRecordReadings): array
+    {
+        $readings = $subscriber->meterReadings->sortByDesc('week_start')->values();
+        $latestReading = $readings->first();
+
+        return [
+            ...$this->editableFields($subscriber),
+            'branchName' => $subscriber->branch->name,
+            'governorateName' => $subscriber->branch->governorate?->name,
+            'areaName' => $subscriber->branch->area?->name,
+            'meterBoxNumber' => $subscriber->meterBox?->box_number,
+            'subAreaName' => $subscriber->meterBox?->subArea?->name,
+            'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
+            'tariffRate' => $subscriber->tariff->rate,
+            'circuitBreakerAmpere' => $subscriber->circuitBreaker?->ampere,
+            'statusLabel' => __($subscriber->status->label()),
+            'registeredByName' => $subscriber->registeredBy?->name,
+            'outstandingBalance' => $subscriber->outstanding_balance ?? '0.00',
+            'transactions' => $subscriber->transactions->sortByDesc('id')->values()->map(fn (SubscriberTransaction $transaction) => [
+                'id' => $transaction->id,
+                'type' => $transaction->type,
+                'amount' => $transaction->amount,
+                'recordedByName' => $transaction->recordedBy?->name,
+                'recordedAt' => $transaction->created_at->format('Y-m-d H:i'),
+            ]),
+            'meterReadings' => $readings->map(fn (MeterReading $reading) => $this->statementReading($reading, $actor)),
+            'lastReading' => (int) ($latestReading?->current_reading ?? $subscriber->initial_reading ?? 0),
+            'lastReadingWeekStart' => $latestReading?->week_start->format('Y-m-d'),
+            'canRecordReading' => $canRecordReadings && $subscriber->status === SubscriberStatus::Active,
+            'canUpdate' => $actor->can('update', $subscriber),
+        ];
+    }
+
+    /**
+     * One weekly reading as listed in a subscriber's statement.
+     *
+     * @return array<string, mixed>
+     */
+    private function statementReading(MeterReading $reading, User $actor): array
+    {
+        return [
+            'id' => $reading->id,
+            'weekStart' => $reading->week_start->format('Y-m-d'),
+            'weekEnd' => $reading->week_end->format('Y-m-d'),
+            'previous_reading' => $reading->previous_reading,
+            'current_reading' => $reading->current_reading,
+            'consumption' => $reading->consumption,
+            'amountDue' => $reading->amount_due,
+            'status' => $reading->status->value,
+            'statusLabel' => __($reading->status->label()),
+            'notes' => $reading->notes,
+            'recordedByName' => $reading->recordedBy?->name,
+            'recordedAt' => $reading->created_at->format('Y-m-d H:i'),
+            'canUpdate' => $actor->can('update', $reading),
+        ];
     }
 
     /**
@@ -242,7 +265,7 @@ class SubscriberController extends Controller
         $branches = $canChooseBranch ? Branch::with('area')->orderBy('name')->get() : collect();
 
         $meterBoxes = MeterBox::query()
-            ->when(! $canChooseBranch, fn ($query) => $query->where('branch_id', $actor->branch_id))
+            ->visibleTo($actor)
             ->with('branch')
             ->orderBy('box_number')
             ->get()
@@ -283,50 +306,22 @@ class SubscriberController extends Controller
      */
     private function filterOptions(User $actor): array
     {
+        $meterBoxes = MeterBox::query()->visibleTo($actor)->with('branch')->orderBy('box_number')->get();
+
         $groups = [
-            [
-                'key' => 'status',
-                'label' => 'الحالة',
-                'options' => collect(SubscriberStatus::cases())->map(fn (SubscriberStatus $status) => [
-                    'value' => $status->value,
-                    'label' => __($status->label()),
-                ])->all(),
-            ],
-        ];
-
-        $groups[] = [
-            'key' => 'tariff_id',
-            'label' => 'نوع الاشتراك',
-            'options' => Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => [
-                'value' => (string) $tariff->id,
-                'label' => __($tariff->category->label()),
-            ])->all(),
-        ];
-
-        $meterBoxes = MeterBox::query()
-            ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('branch_id', $actor->branch_id))
-            ->with('branch')
-            ->orderBy('box_number')
-            ->get();
-
-        $groups[] = [
-            'key' => 'meter_box_id',
-            'label' => 'الطبلون',
-            'options' => $meterBoxes->map(fn (MeterBox $box) => [
-                'value' => (string) $box->id,
-                'label' => $actor->isSuperAdmin() ? "{$box->box_number} — {$box->branch->name}" : $box->box_number,
-            ])->all(),
+            $this->filterGroup('status', 'الحالة', SubscriberStatus::options()),
+            $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(
+                Tariff::orderBy('category')->get(),
+                fn (Tariff $tariff) => __($tariff->category->label()),
+            )),
+            $this->filterGroup('meter_box_id', 'الطبلون', $this->modelOptions(
+                $meterBoxes,
+                fn (MeterBox $box) => $actor->isSuperAdmin() ? "{$box->box_number} — {$box->branch->name}" : $box->box_number,
+            )),
         ];
 
         if ($actor->isSuperAdmin()) {
-            $groups[] = [
-                'key' => 'branch_id',
-                'label' => 'الفرع',
-                'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => [
-                    'value' => (string) $branch->id,
-                    'label' => $branch->name,
-                ])->all(),
-            ];
+            $groups[] = $this->branchFilterGroup();
         }
 
         return $groups;

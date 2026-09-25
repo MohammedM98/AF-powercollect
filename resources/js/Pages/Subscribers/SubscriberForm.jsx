@@ -39,7 +39,11 @@ function FieldLock() {
     return (
         <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-gray-400" aria-hidden="true">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6a4.5 4.5 0 0 0-9 0v4.5m-.75 0h10.5A2.25 2.25 0 0 1 19.5 12.75v6A2.25 2.25 0 0 1 17.25 21H6.75a2.25 2.25 0 0 1-2.25-2.25v-6a2.25 2.25 0 0 1 2.25-2.25Z" />
+                <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M16.5 10.5V6a4.5 4.5 0 0 0-9 0v4.5m-.75 0h10.5A2.25 2.25 0 0 1 19.5 12.75v6A2.25 2.25 0 0 1 17.25 21H6.75a2.25 2.25 0 0 1-2.25-2.25v-6a2.25 2.25 0 0 1 2.25-2.25Z"
+                />
             </svg>
         </span>
     );
@@ -55,6 +59,29 @@ function ReadOnlyField({ id, label, value, dir }) {
             </div>
         </div>
     );
+}
+
+/**
+ * The form's starting values: the subscriber's own when editing,
+ * otherwise blank. New subscribers start out suspended (مفصول).
+ */
+export function subscriberFormData(subscriber) {
+    return {
+        full_name: subscriber?.full_name ?? '',
+        national_id: subscriber?.national_id ?? '',
+        phone: subscriber?.phone ?? '',
+        address: subscriber?.address ?? '',
+        meter_box_id: subscriber?.meter_box_id ?? '',
+        tariff_id: subscriber?.tariff_id ?? '',
+        status: subscriber?.status ?? 'suspended',
+        branch_id: subscriber?.branch_id ?? '',
+        circuit_breaker_id: subscriber?.circuit_breaker_id ?? '',
+        minimum_charge: subscriber?.minimum_charge != null ? Number(subscriber.minimum_charge) : '',
+        initial_reading: subscriber?.initial_reading ?? '',
+        subscription_fee: subscriber?.subscription_fee ?? '',
+        subscription_date: subscriber?.subscription_date ?? '',
+        notes: subscriber?.notes ?? '',
+    };
 }
 
 export default function SubscriberForm({
@@ -197,7 +224,12 @@ export default function SubscriberForm({
                 </select>
             </Field>
 
-            <ReadOnlyField id="tariff_rate" label="سعر الكيلو (شيكل)" value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : '—'} dir="ltr" />
+            <ReadOnlyField
+                id="tariff_rate"
+                label="سعر الكيلو (شيكل)"
+                value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : '—'}
+                dir="ltr"
+            />
 
             <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id}>
                 <select
@@ -221,11 +253,7 @@ export default function SubscriberForm({
                         <span className="text-red-500"> *</span>
                     </InputLabel>
                     {canEditMinimumCharge && !minimumChargeUnlocked && (
-                        <button
-                            type="button"
-                            onClick={unlockMinimumCharge}
-                            className="text-xs font-semibold text-brand-600 hover:underline"
-                        >
+                        <button type="button" onClick={unlockMinimumCharge} className="text-xs font-semibold text-brand-600 hover:underline">
                             تعديل
                         </button>
                     )}

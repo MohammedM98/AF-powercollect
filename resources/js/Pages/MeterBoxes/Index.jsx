@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
+import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
@@ -9,7 +10,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import MeterBoxModal from './MeterBoxModal';
 
-export default function Index({ meterBoxes, status, branches, canChooseBranch, governorates, areas, subAreas, currentBranchAreaId, filters, filterOptions }) {
+export default function Index({ meterBoxes, branches, canChooseBranch, governorates, areas, subAreas, currentBranchAreaId, filters, filterOptions }) {
     const [modalMeterBox, setModalMeterBox] = useState(null);
     const [creating, setCreating] = useState(false);
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-boxes', filters);
@@ -22,22 +23,12 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                         <h2 className="text-xl font-bold text-gray-900">الطبلونات</h2>
                     </div>
                     <div className="shrink-0">
-                        <button
-                            onClick={() => setCreating(true)}
-                            className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
-                        >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
-                            طبلون جديد
-                        </button>
+                        <AddButton onClick={() => setCreating(true)}>طبلون جديد</AddButton>
                     </div>
                 </>
             }
         >
             <Head title="الطبلونات" />
-
-
 
             <DataTableToolbar
                 search={search}
@@ -47,7 +38,13 @@ export default function Index({ meterBoxes, status, branches, canChooseBranch, g
                 onPerPageChange={setPerPage}
                 total={meterBoxes.total}
                 filterMenu={
-                    <DataTableFilterMenu tableKey="meter_boxes" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                    <DataTableFilterMenu
+                        tableKey="meter_boxes"
+                        groups={filterOptions}
+                        values={filterValues}
+                        onChange={setFilter}
+                        onClear={clearFilters}
+                    />
                 }
             />
 

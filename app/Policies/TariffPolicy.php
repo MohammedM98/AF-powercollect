@@ -13,9 +13,7 @@ class TariffPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ViewTariffs)
-            || $user->hasPermission(PermissionKey::CreateTariffs)
-            || $user->hasPermission(PermissionKey::UpdateTariffs);
+        return $user->hasAnyPermission(PermissionKey::ViewTariffs, PermissionKey::CreateTariffs, PermissionKey::UpdateTariffs);
     }
 
     /**

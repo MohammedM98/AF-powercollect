@@ -12,10 +12,15 @@ export function createNotificationQueue(onChange) {
 
     return {
         push(message, type = 'success') {
-            if (typeof message !== 'string' || !message.trim()) { return; }
+            if (typeof message !== 'string' || !message.trim()) {
+                return;
+            }
             const id = ++sequence;
             notifications = [...notifications, { id, message, type }];
-            timers.set(id, setTimeout(() => dismiss(id), 3000));
+            timers.set(
+                id,
+                setTimeout(() => dismiss(id), 3000),
+            );
             onChange([...notifications]);
         },
         dismiss,

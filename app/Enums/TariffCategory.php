@@ -2,8 +2,12 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasOptions;
+
 enum TariffCategory: string
 {
+    use HasOptions;
+
     case Residential = 'residential';
     case Commercial = 'commercial';
 

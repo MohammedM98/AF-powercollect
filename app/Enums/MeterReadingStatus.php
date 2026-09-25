@@ -2,8 +2,12 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasOptions;
+
 enum MeterReadingStatus: string
 {
+    use HasOptions;
+
     case Pending = 'pending';
     case Approved = 'approved';
 

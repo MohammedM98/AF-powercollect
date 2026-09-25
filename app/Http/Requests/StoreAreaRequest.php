@@ -20,12 +20,16 @@ class StoreAreaRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
+     * UpdateAreaRequest reuses these rules; there, `->ignore()` lets the
+     * record being edited keep its own unique value (on create there is no
+     * route model, so nothing is ignored).
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255', Rule::unique('areas', 'name')],
+            'name' => ['required', 'string', 'max:255', Rule::unique('areas', 'name')->ignore($this->route('area'))],
             'governorate_id' => ['nullable', Rule::exists('governorates', 'id')],
         ];
     }

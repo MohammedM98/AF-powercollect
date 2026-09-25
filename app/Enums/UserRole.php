@@ -2,8 +2,12 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasOptions;
+
 enum UserRole: string
 {
+    use HasOptions;
+
     case SuperAdmin = 'super_admin';
     case BranchAdmin = 'branch_admin';
     case Collector = 'collector';
@@ -30,5 +34,16 @@ enum UserRole: string
     public static function staffRoles(): array
     {
         return [self::Collector, self::DataEntry, self::FinancialAuditor];
+    }
+
+    /**
+     * The roles a Super Admin may assign: every role except Super Admin
+     * itself, which is never handed out from the app.
+     *
+     * @return array<int, self>
+     */
+    public static function assignableBySuperAdmin(): array
+    {
+        return [self::BranchAdmin, ...self::staffRoles()];
     }
 }

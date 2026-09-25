@@ -13,9 +13,7 @@ class MeterBoxPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ViewMeterBoxes)
-            || $user->hasPermission(PermissionKey::CreateMeterBoxes)
-            || $user->hasPermission(PermissionKey::UpdateMeterBoxes);
+        return $user->hasAnyPermission(PermissionKey::ViewMeterBoxes, PermissionKey::CreateMeterBoxes, PermissionKey::UpdateMeterBoxes);
     }
 
     /**

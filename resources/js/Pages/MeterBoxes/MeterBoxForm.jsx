@@ -3,6 +3,19 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 
+/**
+ * The form's starting values: the meter box's own when editing,
+ * otherwise blank.
+ */
+export function meterBoxFormData(meterBox) {
+    return {
+        name: meterBox?.name ?? '',
+        box_number: meterBox?.box_number ?? '',
+        branch_id: meterBox?.branch_id ?? '',
+        sub_area_id: meterBox?.sub_area_id ?? '',
+    };
+}
+
 export default function MeterBoxForm({ data, setData, errors, branches, canChooseBranch, governorates, areas, subAreas, currentBranchAreaId }) {
     const selectedBranch = canChooseBranch ? branches.find((branch) => String(branch.id) === String(data.branch_id)) : null;
 
@@ -14,17 +27,11 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
     // branch's area for everyone else.
     const effectiveAreaId = canChooseBranch ? areaId : currentBranchAreaId;
 
-    const areasInGovernorate = governorateId
-        ? areas.filter((area) => String(area.governorate_id) === String(governorateId))
-        : [];
+    const areasInGovernorate = governorateId ? areas.filter((area) => String(area.governorate_id) === String(governorateId)) : [];
 
-    const branchesInArea = areaId
-        ? branches.filter((branch) => String(branch.area_id) === String(areaId))
-        : [];
+    const branchesInArea = areaId ? branches.filter((branch) => String(branch.area_id) === String(areaId)) : [];
 
-    const subAreasInArea = effectiveAreaId
-        ? subAreas.filter((subArea) => String(subArea.area_id) === String(effectiveAreaId))
-        : [];
+    const subAreasInArea = effectiveAreaId ? subAreas.filter((subArea) => String(subArea.area_id) === String(effectiveAreaId)) : [];
 
     function onGovernorateChange(value) {
         setGovernorateId(value);
@@ -41,13 +48,7 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
         <>
             <div>
                 <InputLabel htmlFor="name" value="اسم الطبلون" />
-                <TextInput
-                    id="name"
-                    className="mt-1 block w-full"
-                    value={data.name}
-                    autoFocus
-                    onChange={(e) => setData('name', e.target.value)}
-                />
+                <TextInput id="name" className="mt-1 block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
                 <InputError message={errors.name} className="mt-2" />
             </div>
 

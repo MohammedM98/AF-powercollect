@@ -13,9 +13,7 @@ class CircuitBreakerPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ViewCircuitBreakers)
-            || $user->hasPermission(PermissionKey::CreateCircuitBreakers)
-            || $user->hasPermission(PermissionKey::UpdateCircuitBreakers);
+        return $user->hasAnyPermission(PermissionKey::ViewCircuitBreakers, PermissionKey::CreateCircuitBreakers, PermissionKey::UpdateCircuitBreakers);
     }
 
     /**

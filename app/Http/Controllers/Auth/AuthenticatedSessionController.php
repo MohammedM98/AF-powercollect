@@ -17,9 +17,7 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): InertiaResponse
     {
-        return Inertia::render('Auth/Login', [
-            'status' => session('status'),
-        ]);
+        return Inertia::render('Auth/Login');
     }
 
     /**

@@ -63,7 +63,9 @@ export default function Pagination({ meta, filters, baseUrl, extraParams = {} })
                                 aria-current={page === current ? 'page' : undefined}
                                 onClick={() => goTo(page)}
                                 className={`min-w-[2.25rem] rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
-                                    page === current ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200' : 'text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50'
+                                    page === current
+                                        ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200'
+                                        : 'text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50'
                                 }`}
                             >
                                 {page}

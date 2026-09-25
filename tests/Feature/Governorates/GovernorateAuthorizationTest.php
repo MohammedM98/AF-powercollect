@@ -33,6 +33,19 @@ class GovernorateAuthorizationTest extends TestCase
         $response->assertRedirect(route('governorates.index', ['selected' => $governorate->id]));
     }
 
+    public function test_a_governorate_can_be_saved_without_changing_its_name(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $governorate = Governorate::factory()->create(['name' => 'Baghdad']);
+
+        $response = $this->actingAs($superAdmin)->put(route('governorates.update', $governorate), [
+            'name' => 'Baghdad',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect(route('governorates.index', ['selected' => $governorate->id]));
+    }
+
     public function test_selecting_a_governorate_returns_its_areas(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();

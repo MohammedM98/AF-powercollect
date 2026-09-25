@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\MeterReadingStatus;
+use App\Models\Concerns\BelongsToBranch;
 use Carbon\CarbonInterface;
 use Database\Factories\MeterReadingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -18,7 +19,7 @@ use Illuminate\Support\Carbon;
 class MeterReading extends Model
 {
     /** @use HasFactory<MeterReadingFactory> */
-    use HasFactory;
+    use BelongsToBranch, HasFactory;
 
     /**
      * Reading weeks run Friday → Thursday.
@@ -105,11 +106,6 @@ class MeterReading extends Model
     public function subscriber(): BelongsTo
     {
         return $this->belongsTo(Subscriber::class);
-    }
-
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class);
     }
 
     public function recordedBy(): BelongsTo

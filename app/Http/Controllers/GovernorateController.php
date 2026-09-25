@@ -10,6 +10,7 @@ use App\Models\Governorate;
 use App\Models\SubArea;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -42,7 +43,6 @@ class GovernorateController extends Controller
             'governorates' => $governorates,
             'selectedGovernorate' => $this->selectedGovernorate($request),
             'selectedArea' => $this->selectedArea($request),
-            'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
             'governorateOptions' => Governorate::orderBy('name')->get(),
             'areaOptions' => Area::orderBy('name')->get(),
@@ -110,7 +110,7 @@ class GovernorateController extends Controller
      * — the right-hand panel's data on the combined governorates/areas
      * page. Null when nothing is selected (or the id no longer exists).
      *
-     * @return array{id: int, name: string, areas: \Illuminate\Support\Collection}|null
+     * @return array{id: int, name: string, areas: Collection}|null
      */
     private function selectedGovernorate(Request $request): ?array
     {
@@ -142,7 +142,7 @@ class GovernorateController extends Controller
      * — the third panel's data on the combined governorates/areas/sub-areas
      * page. Null when nothing is selected (or the id no longer exists).
      *
-     * @return array{id: int, name: string, governorate_id: ?int, subAreas: \Illuminate\Support\Collection}|null
+     * @return array{id: int, name: string, governorate_id: ?int, subAreas: Collection}|null
      */
     private function selectedArea(Request $request): ?array
     {

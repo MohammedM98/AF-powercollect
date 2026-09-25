@@ -9,7 +9,6 @@ use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreMeterReadingRequest;
 use App\Http\Requests\UpdateMeterReadingRequest;
 use App\Models\Area;
-use App\Models\Branch;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\ReadingEntrySetting;
@@ -84,7 +83,6 @@ class MeterReadingController extends Controller
             ],
             'canRecord' => $actor->can('create', MeterReading::class),
             'entryWindow' => $this->entryWindow($actor),
-            'status' => session('status'),
             'filters' => $this->dataTableState($request, 'full_name', 'asc', 25),
             'filterOptions' => $this->filterOptions($actor),
         ]);
@@ -168,8 +166,8 @@ class MeterReadingController extends Controller
     private function subscribersInScope(User $actor): Builder
     {
         return Subscriber::query()
-            ->where('status', SubscriberStatus::Active)
-            ->when(! $actor->isSuperAdmin(), fn (Builder $q) => $q->where('branch_id', $actor->branch_id));
+            ->visibleTo($actor)
+            ->where('status', SubscriberStatus::Active);
     }
 
     /**
@@ -290,55 +288,29 @@ class MeterReadingController extends Controller
      */
     private function filterOptions(User $actor): array
     {
-        $option = fn (string|int $value, string $label) => ['value' => (string) $value, 'label' => $label];
         $groups = [];
 
         if ($actor->isSuperAdmin()) {
-            $groups[] = [
-                'key' => 'branch_id',
-                'label' => 'الفرع',
-                'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => $option($branch->id, $branch->name))->all(),
-            ];
-            $groups[] = [
-                'key' => 'area_id',
-                'label' => 'المنطقة',
-                'options' => Area::orderBy('name')->get()->map(fn (Area $area) => $option($area->id, $area->name))->all(),
-            ];
+            $groups[] = $this->branchFilterGroup();
+            $groups[] = $this->filterGroup('area_id', 'المنطقة', $this->modelOptions(Area::orderBy('name')->get()));
         }
 
-        $groups[] = [
-            'key' => 'sub_area_id',
-            'label' => 'منطقة 2',
-            'options' => SubArea::query()
-                ->when(! $actor->isSuperAdmin(), fn (Builder $q) => $q->where('area_id', $actor->branch?->area_id))
-                ->orderBy('name')
-                ->get()
-                ->map(fn (SubArea $subArea) => $option($subArea->id, $subArea->name))
-                ->all(),
-        ];
+        $groups[] = $this->filterGroup('sub_area_id', 'منطقة 2', $this->modelOptions(SubArea::visibleTo($actor)->orderBy('name')->get()));
 
-        $groups[] = [
-            'key' => 'meter_box_id',
-            'label' => 'الطبلون',
-            'options' => MeterBox::query()
-                ->when(! $actor->isSuperAdmin(), fn (Builder $q) => $q->where('branch_id', $actor->branch_id))
-                ->orderBy('box_number')
-                ->get()
-                ->map(fn (MeterBox $box) => $option($box->id, $box->name ? "{$box->box_number} — {$box->name}" : $box->box_number))
-                ->all(),
-        ];
+        $groups[] = $this->filterGroup('meter_box_id', 'الطبلون', $this->modelOptions(
+            MeterBox::query()->visibleTo($actor)->orderBy('box_number')->get(),
+            fn (MeterBox $box) => $box->name ? "{$box->box_number} — {$box->name}" : $box->box_number,
+        ));
 
-        $groups[] = [
-            'key' => 'tariff_id',
-            'label' => 'نوع الاشتراك',
-            'options' => Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => $option($tariff->id, __($tariff->category->label())))->all(),
-        ];
+        $groups[] = $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(
+            Tariff::orderBy('category')->get(),
+            fn (Tariff $tariff) => __($tariff->category->label()),
+        ));
 
-        $groups[] = [
-            'key' => 'entry',
-            'label' => 'حالة الإدخال',
-            'options' => [$option('missing', 'لم تُدخل بعد'), $option('entered', 'تم الإدخال')],
-        ];
+        $groups[] = $this->filterGroup('entry', 'حالة الإدخال', [
+            ['value' => 'missing', 'label' => 'لم تُدخل بعد'],
+            ['value' => 'entered', 'label' => 'تم الإدخال'],
+        ]);
 
         return $groups;
     }

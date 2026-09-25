@@ -2,11 +2,10 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
-
-class UpdateBranchRequest extends FormRequest
+/**
+ * Same rules as StoreBranchRequest; only the authorization differs.
+ */
+class UpdateBranchRequest extends StoreBranchRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -14,21 +13,5 @@ class UpdateBranchRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user()->can('update', $this->route('branch'));
-    }
-
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
-    public function rules(): array
-    {
-        return [
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'is_active' => ['boolean'],
-            'governorate_id' => ['nullable', Rule::exists('governorates', 'id')],
-            'area_id' => ['nullable', Rule::exists('areas', 'id')],
-        ];
     }
 }

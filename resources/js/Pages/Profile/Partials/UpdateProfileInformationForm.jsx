@@ -4,7 +4,7 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import PrimaryButton from '@/Components/PrimaryButton';
 
-export default function UpdateProfileInformationForm({ user, status }) {
+export default function UpdateProfileInformationForm({ user }) {
     const { data, setData, patch, processing, errors } = useForm({
         name: user.name,
     });
@@ -37,7 +37,6 @@ export default function UpdateProfileInformationForm({ user, status }) {
 
                 <div className="flex items-center gap-4">
                     <PrimaryButton disabled={processing}>حفظ</PrimaryButton>
-
                 </div>
             </form>
         </section>

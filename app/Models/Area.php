@@ -20,11 +20,6 @@ class Area extends Model
         return $this->belongsTo(Governorate::class);
     }
 
-    public function meterBoxes(): HasMany
-    {
-        return $this->hasMany(MeterBox::class);
-    }
-
     public function subAreas(): HasMany
     {
         return $this->hasMany(SubArea::class);

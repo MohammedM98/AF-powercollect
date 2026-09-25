@@ -11,7 +11,18 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import MeterBoxModal from './MeterBoxModal';
 
-export default function Index({ meterBoxes, branches, canChooseBranch, governorates, areas, subAreas, currentBranchAreaId, filters, filterOptions }) {
+export default function Index({
+    meterBoxes,
+    canCreate,
+    branches,
+    canChooseBranch,
+    governorates,
+    areas,
+    subAreas,
+    currentBranchAreaId,
+    filters,
+    filterOptions,
+}) {
     const [modalMeterBox, setModalMeterBox] = useState(null);
     const [creating, setCreating] = useState(false);
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-boxes', filters);
@@ -23,9 +34,11 @@ export default function Index({ meterBoxes, branches, canChooseBranch, governora
                     <div className="min-w-0">
                         <h2 className="text-3xl font-bold text-gray-900">الطبلونات</h2>
                     </div>
-                    <div className="shrink-0">
-                        <AddButton onClick={() => setCreating(true)}>طبلون جديد</AddButton>
-                    </div>
+                    {canCreate && (
+                        <div className="shrink-0">
+                            <AddButton onClick={() => setCreating(true)}>طبلون جديد</AddButton>
+                        </div>
+                    )}
                 </>
             }
         >
@@ -81,9 +94,11 @@ export default function Index({ meterBoxes, branches, canChooseBranch, governora
                                         {[meterBox.governorateName, meterBox.areaName, meterBox.subAreaName].filter(Boolean).join(' / ') || '—'}
                                     </td>
                                     <td className="text-end">
-                                        <RowActionsMenu>
-                                            <button onClick={() => setModalMeterBox(meterBox)}>تعديل</button>
-                                        </RowActionsMenu>
+                                        {meterBox.canUpdate && (
+                                            <RowActionsMenu>
+                                                <button onClick={() => setModalMeterBox(meterBox)}>تعديل</button>
+                                            </RowActionsMenu>
+                                        )}
                                     </td>
                                 </tr>
                             ))

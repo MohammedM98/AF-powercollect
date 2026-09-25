@@ -12,7 +12,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import BranchModal from './BranchModal';
 
-export default function Index({ branches, filters, filterOptions, governorates, areas }) {
+export default function Index({ branches, canCreate, filters, filterOptions, governorates, areas }) {
     const [modalBranch, setModalBranch] = useState(null);
     const [creating, setCreating] = useState(false);
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/branches', filters);
@@ -24,9 +24,11 @@ export default function Index({ branches, filters, filterOptions, governorates, 
                     <div className="min-w-0">
                         <h2 className="text-3xl font-bold text-gray-900">الفروع</h2>
                     </div>
-                    <div className="shrink-0">
-                        <AddButton onClick={() => setCreating(true)}>فرع جديد</AddButton>
-                    </div>
+                    {canCreate && (
+                        <div className="shrink-0">
+                            <AddButton onClick={() => setCreating(true)}>فرع جديد</AddButton>
+                        </div>
+                    )}
                 </>
             }
         >
@@ -89,9 +91,11 @@ export default function Index({ branches, filters, filterOptions, governorates, 
                                         <StatusPill tone={branch.is_active ? 'green' : 'gray'} label={branch.is_active ? 'نشط' : 'متوقف'} />
                                     </td>
                                     <td className="text-end">
-                                        <RowActionsMenu>
-                                            <button onClick={() => setModalBranch(branch)}>تعديل</button>
-                                        </RowActionsMenu>
+                                        {branch.canUpdate && (
+                                            <RowActionsMenu>
+                                                <button onClick={() => setModalBranch(branch)}>تعديل</button>
+                                            </RowActionsMenu>
+                                        )}
                                     </td>
                                 </tr>
                             ))

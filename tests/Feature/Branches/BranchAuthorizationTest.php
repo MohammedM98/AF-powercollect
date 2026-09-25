@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Branches;
 
+use App\Enums\PermissionKey;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Governorate;
+use App\Models\Permission;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -149,5 +152,30 @@ class BranchAuthorizationTest extends TestCase
         $response->assertOk();
         $response->assertSee('In Own Area');
         $response->assertDontSee('In Other Area');
+    }
+
+    public function test_a_view_only_user_is_not_offered_add_or_edit_on_the_branches_page(): void
+    {
+        $this->seed(PermissionSeeder::class);
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->attach(Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail());
+
+        $response = $this->actingAs($collector)->get(route('branches.index'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('canCreate', false)
+            ->where('branches.data.0.canUpdate', false));
+    }
+
+    public function test_super_admin_is_offered_add_and_edit_on_the_branches_page(): void
+    {
+        Branch::factory()->create();
+        $superAdmin = User::factory()->superAdmin()->create();
+
+        $response = $this->actingAs($superAdmin)->get(route('branches.index'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('canCreate', true)
+            ->where('branches.data.0.canUpdate', true));
     }
 }

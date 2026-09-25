@@ -12,7 +12,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
 import TariffModal from './TariffModal';
 
-export default function Index({ tariffs, categoryOptions, filters, filterOptions }) {
+export default function Index({ tariffs, canCreate, categoryOptions, filters, filterOptions }) {
     const [modalTariff, setModalTariff] = useState(null);
     const [creating, setCreating] = useState(false);
     const { setPerPage, sort, filterValues, setFilter, clearFilters } = useDataTable('/tariffs', filters);
@@ -24,9 +24,11 @@ export default function Index({ tariffs, categoryOptions, filters, filterOptions
                     <div className="min-w-0">
                         <h2 className="text-3xl font-bold text-gray-900">التعرفات</h2>
                     </div>
-                    <div className="shrink-0">
-                        <AddButton onClick={() => setCreating(true)}>تعرفة جديدة</AddButton>
-                    </div>
+                    {canCreate && (
+                        <div className="shrink-0">
+                            <AddButton onClick={() => setCreating(true)}>تعرفة جديدة</AddButton>
+                        </div>
+                    )}
                 </>
             }
         >
@@ -74,9 +76,11 @@ export default function Index({ tariffs, categoryOptions, filters, filterOptions
                                         {formatCurrency(tariff.rate)}
                                     </td>
                                     <td className="text-end">
-                                        <RowActionsMenu>
-                                            <button onClick={() => setModalTariff(tariff)}>تعديل</button>
-                                        </RowActionsMenu>
+                                        {tariff.canUpdate && (
+                                            <RowActionsMenu>
+                                                <button onClick={() => setModalTariff(tariff)}>تعديل</button>
+                                            </RowActionsMenu>
+                                        )}
                                     </td>
                                 </tr>
                             ))

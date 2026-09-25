@@ -2,9 +2,12 @@
 
 namespace Tests\Feature\Tariffs;
 
+use App\Enums\PermissionKey;
 use App\Enums\TariffCategory;
+use App\Models\Permission;
 use App\Models\Tariff;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -103,5 +106,31 @@ class TariffAuthorizationTest extends TestCase
     {
         $this->get(route('tariffs.index'))
             ->assertRedirect(route('login'));
+    }
+
+    public function test_a_view_only_user_is_not_offered_add_or_edit_on_the_tariffs_page(): void
+    {
+        $this->seed(PermissionSeeder::class);
+        Tariff::factory()->residential()->create();
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->attach(Permission::where('key', PermissionKey::ViewTariffs->value)->firstOrFail());
+
+        $response = $this->actingAs($collector)->get(route('tariffs.index'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('canCreate', false)
+            ->where('tariffs.data.0.canUpdate', false));
+    }
+
+    public function test_branch_admin_is_offered_add_and_edit_on_the_tariffs_page(): void
+    {
+        Tariff::factory()->residential()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create();
+
+        $response = $this->actingAs($branchAdmin)->get(route('tariffs.index'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('canCreate', true)
+            ->where('tariffs.data.0.canUpdate', true));
     }
 }

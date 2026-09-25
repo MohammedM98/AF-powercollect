@@ -20,13 +20,15 @@ class PermissionController extends Controller
     private const SORTABLE = ['name', 'username'];
 
     /**
-     * Show the permission grants for every non-Super-Admin user. Super
-     * Admins already hold every permission implicitly and are excluded.
+     * The employees whose permissions the actor may manage, beside the
+     * permissions of the selected one (?selected=<id>, or the first one
+     * listed). Super Admins already hold every permission implicitly and
+     * are never listed.
      *
      * A Branch Admin sees only their own branch's staff (Collector, Data
      * Entry, Financial Auditor) — never another branch's users, another
-     * Branch Admin, or a Super Admin — and only the permissions for their
-     * branch's own data: the company-wide ones are left out entirely.
+     * Branch Admin, or a Super Admin — and only the permissions they may
+     * grant: never the company-wide ones.
      */
     public function edit(Request $request): InertiaResponse
     {
@@ -35,23 +37,23 @@ class PermissionController extends Controller
         $actor = $request->user();
         $grantablePermissionIds = $this->grantablePermissionIds($actor);
 
-        $query = $this->manageableUsers($actor)->with(['branch', 'permissions']);
+        $query = $this->manageableUsers($actor)->with('branch');
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
         $this->applyDataTableFilterSelects($query, $request, ['role', 'branch_id']);
 
         $users = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
-            ->through(fn (User $user) => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'username' => $user->username,
-                'roleLabel' => __($user->role->label()),
-                'branchName' => $user->branch?->name,
-                'permissionIds' => array_values(array_intersect($user->permissions->modelKeys(), $grantablePermissionIds)),
-            ]);
+            ->through(fn (User $user) => $this->employeeSummary($user));
+
+        $findManageable = fn (int $id) => $this->manageableUsers($actor)->with(['branch', 'permissions'])->find($id);
+        $selectedUser = $findManageable($request->integer('selected')) ?? $findManageable($users->first()['id'] ?? 0);
 
         return Inertia::render('Settings/Permissions', [
             'users' => $users,
+            'selectedUser' => $selectedUser ? [
+                ...$this->employeeSummary($selectedUser),
+                'permissionIds' => array_values(array_intersect($selectedUser->permissions->modelKeys(), $grantablePermissionIds)),
+            ] : null,
             'permissionGroups' => $this->permissionGroups($actor),
             'scopedToOwnBranch' => ! $actor->isSuperAdmin(),
             'filters' => $this->dataTableState($request, 'name'),
@@ -60,7 +62,8 @@ class PermissionController extends Controller
     }
 
     /**
-     * Sync each submitted user's custom permission grants from the matrix.
+     * Sync each submitted user's custom permission grants, then go back to
+     * the page the save came from — same employee, search and filters.
      *
      * Only users actually present in the payload are touched — the list is
      * paginated/searchable, so a save only ever carries the users visible
@@ -92,7 +95,25 @@ class PermissionController extends Controller
             $user->permissions()->sync([...$selected, ...$keptAsTheyWere]);
         }
 
-        return redirect()->route('settings.permissions.edit')->with('status', 'permissions-updated');
+        return redirect()
+            ->back(fallback: route('settings.permissions.edit'))
+            ->with('status', 'permissions-updated');
+    }
+
+    /**
+     * How an employee appears in the list and above the editor.
+     *
+     * @return array{id: int, name: string, username: string, roleLabel: string, branchName: ?string}
+     */
+    private function employeeSummary(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'username' => $user->username,
+            'roleLabel' => __($user->role->label()),
+            'branchName' => $user->branch?->name,
+        ];
     }
 
     /**

@@ -51,7 +51,7 @@ export default function ReadingSchedule({ setting, modes }) {
                                     value={mode.value}
                                     checked={data.mode === mode.value}
                                     onChange={() => setData('mode', mode.value)}
-                                    className="mt-1 text-brand-600 focus:ring-brand-500"
+                                    className="mt-1 text-brand-600 focus:ring-gray-900"
                                 />
                                 <span>
                                     <span className="block text-sm font-medium text-gray-900">{mode.label}</span>

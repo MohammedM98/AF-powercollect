@@ -81,7 +81,7 @@ export default function PermissionModal({ user, permissionGroups, onClose }) {
                 checked={selected.includes(entry.permission.id)}
                 disabled={processing}
                 onChange={() => toggle(entry.permission.id)}
-                className="h-4 w-4 rounded border-gray-300 text-brand-600 shadow-sm focus:ring-brand-500 disabled:opacity-50"
+                className="h-4 w-4 rounded border-gray-300 text-brand-600 shadow-sm focus:ring-gray-900 disabled:opacity-50"
             />
         ) : (
             <span className="text-gray-300" aria-label="غير متاح">

@@ -42,7 +42,7 @@ const ICONS = {
     ),
 };
 
-const RING_COLORS = ['text-brand-500', 'text-pink-500', 'text-amber-500', 'text-emerald-500', 'text-sky-500'];
+const RING_COLORS = ['text-brand-500', 'text-gray-400', 'text-amber-500', 'text-emerald-500', 'text-sky-500'];
 
 const SECTION_LABELS = {
     branches: { title: 'الفروع', statLabel: 'الفروع النشطة', viewAll: '/branches' },
@@ -115,7 +115,7 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
             ) : (
                 <div className="space-y-6">
                     {hero && (
-                        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-brand-600 to-pink-500 px-8 py-10 text-white">
+                        <div className="relative overflow-hidden rounded-2xl bg-graphite-gradient px-8 py-10 text-white">
                             <svg
                                 className="pointer-events-none absolute inset-y-0 start-0 h-full w-1/2 max-w-md opacity-20"
                                 viewBox="0 0 300 200"
@@ -130,7 +130,7 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                             </svg>
                             <div className="relative">
                                 <div className="text-5xl font-black">{hero.activePct}%</div>
-                                <p className="mt-2 max-w-sm text-brand-50">
+                                <p className="mt-2 max-w-sm text-gray-300">
                                     {hero.active} من {hero.total} {SECTION_LABELS[heroKey].statLabel} حاليًا
                                 </p>
                                 <p className="text-sm text-white/70">وصول قائم على الأدوار · بيانات مقسّمة حسب الفرع · بلا جداول بيانات</p>

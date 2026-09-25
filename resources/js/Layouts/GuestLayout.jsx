@@ -7,7 +7,7 @@ export default function GuestLayout({ children }) {
         <div className="flex min-h-screen flex-col items-center bg-gray-100 pt-6 sm:justify-center sm:pt-0">
             <div>
                 <a href="/">
-                    <img src="/images/logo.png" alt={appName} className="h-32 w-32 object-contain" />
+                    <img src="/images/logo-af.webp" alt={appName} className="h-24 w-auto" />
                 </a>
             </div>
 

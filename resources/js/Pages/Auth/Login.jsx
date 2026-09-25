@@ -55,7 +55,7 @@ export default function Login() {
                     <label className="inline-flex items-center">
                         <input
                             type="checkbox"
-                            className="rounded border-gray-300 text-brand-600 shadow-sm focus:ring-brand-500"
+                            className="rounded border-gray-300 text-brand-600 shadow-sm focus:ring-gray-900"
                             checked={data.remember}
                             onChange={(e) => setData('remember', e.target.checked)}
                         />

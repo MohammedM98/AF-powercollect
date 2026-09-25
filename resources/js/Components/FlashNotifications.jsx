@@ -89,7 +89,7 @@ export default function FlashNotifications({ initialStatus }) {
                             type="button"
                             onClick={() => queue.current.dismiss(notification.id)}
                             aria-label="إغلاق الإشعار"
-                            className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+                            className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
                         >
                             ✕
                         </button>

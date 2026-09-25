@@ -12,7 +12,7 @@ function NavLink({ href, active, children }) {
             href={href}
             className={
                 'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition ' +
-                (active ? 'bg-brand-600 text-white shadow-sm' : 'text-violet-200 hover:bg-white/5 hover:text-white')
+                (active ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-300 hover:bg-white/5 hover:text-white')
             }
         >
             {children}
@@ -46,7 +46,7 @@ export default function AuthenticatedLayout({ header, children }) {
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900">
             {/* Top bar */}
-            <header className="bg-violet-950">
+            <header className="bg-graphite-800">
                 <div className="mx-auto flex max-w-screen-2xl items-center justify-end gap-4 px-4 py-4 sm:px-6 lg:px-8">
                     <div className="group relative">
                         <button className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white transition hover:bg-white/20">
@@ -72,17 +72,15 @@ export default function AuthenticatedLayout({ header, children }) {
                     <a href="/dashboard" className="flex min-w-0 items-center gap-3">
                         <span className="min-w-0 text-right">
                             <span className="block truncate text-lg font-extrabold leading-tight text-white">{appName}</span>
-                            <span className="block truncate text-xs text-violet-300">{auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}</span>
+                            <span className="block truncate text-xs text-gray-300">{auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}</span>
                         </span>
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white p-1.5 shadow-sm">
-                            <img src="/images/logo.png" alt={appName} className="h-full w-full object-contain" />
-                        </span>
+                        <img src="/images/logo-af.webp" alt={appName} className="h-11 w-auto shrink-0" />
                     </a>
                 </div>
             </header>
 
             {/* Section nav */}
-            <nav className="bg-[#170f38]">
+            <nav className="bg-graphite-900">
                 <div className="mx-auto flex max-w-screen-2xl items-center gap-1.5 overflow-x-auto px-4 py-2.5 sm:px-6 lg:px-8">
                     <NavLink href="/dashboard" active={url === '/dashboard'}>
                         لوحة التحكم

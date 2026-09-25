@@ -69,7 +69,7 @@ export default function SearchableSelect({
                 id={id}
                 disabled={disabled}
                 onClick={() => setOpen((current) => !current)}
-                className="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-start text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:bg-gray-100 disabled:text-gray-500"
+                className="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-start text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100 disabled:text-gray-500"
             >
                 <span className={`truncate ${selected ? 'text-gray-900' : 'text-gray-400'}`}>{selected ? selected.label : placeholder}</span>
                 <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,7 +86,7 @@ export default function SearchableSelect({
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
                             placeholder={searchPlaceholder}
-                            className="block w-full rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                            className="block w-full rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900"
                         />
                     </div>
                     <ul className="max-h-56 overflow-y-auto py-1 text-sm">

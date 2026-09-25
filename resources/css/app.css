@@ -2,6 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens (AF PowerCollect design system). Colors are RGB triples so
+ * Tailwind's opacity modifiers work: `bg-brand-500` or `bg-brand-500/10`.
+ * Change a color here and every class that uses it follows.
+ */
+@layer base {
+    :root {
+        /* Burgundy, from the logo's arrow. 500 is the primary color. */
+        --brand-50: 251 241 241;
+        --brand-100: 244 214 216;
+        --brand-200: 236 188 191;
+        --brand-300: 216 134 140;
+        --brand-400: 196 81 90;
+        --brand-500: 165 29 38;
+        --brand-600: 143 24 32;
+        --brand-700: 118 18 26;
+        --brand-800: 92 13 20;
+        --brand-900: 63 0 8;
+
+        /* Graphite and silver neutrals, from the logo's AF letters. */
+        --gray-50: 245 246 248;
+        --gray-100: 236 238 241;
+        --gray-200: 226 229 233;
+        --gray-300: 205 211 218;
+        --gray-400: 107 116 128;
+        --gray-500: 88 96 108;
+        --gray-600: 70 78 89;
+        --gray-700: 53 60 70;
+        --gray-800: 35 42 51;
+        --gray-900: 17 24 32;
+        --gray-950: 11 13 16;
+
+        /* Dark graphite for the app chrome and the dashboard's main card. */
+        --graphite-700: 38 44 51;
+        --graphite-800: 27 32 38;
+        --graphite-900: 17 21 25;
+
+        /* The signature line: burgundy fading into silver, like the logo's arrow. */
+        --spectrum: linear-gradient(90deg, #5c0d14, #a51d26 40%, #9aa3ae 75%, #dfe3e8);
+    }
+
+    h1,
+    h2,
+    h3 {
+        @apply font-luxe;
+    }
+}
+
+@layer components {
+    /* A thin signature line. Use sparingly: under the logo, above tables and dialogs. */
+    .brand-spectrum {
+        @apply h-[3px] rounded-full bg-spectrum;
+    }
+}
+
 @keyframes flash-notification-in {
     from { opacity: 0; transform: translateX(-12px); }
     to { opacity: 1; transform: translateX(0); }
@@ -30,7 +85,7 @@
 
 .data-table-container {
     overflow-x: auto;
-    border: 1px solid #e5e7eb;
+    border: 1px solid rgb(var(--gray-200));
     border-radius: 14px;
     background: white;
 }
@@ -52,11 +107,11 @@
     padding: 14px 20px;
     white-space: nowrap;
     vertical-align: middle;
-    border-bottom: 1px solid #eceef1;
+    border-bottom: 1px solid rgb(var(--gray-100));
 }
 
 .data-table th {
-    color: #6b7280;
+    color: rgb(var(--gray-400));
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -85,19 +140,19 @@
 
 .data-table tbody tr:hover,
 .data-table tbody tr:focus-within {
-    background: #faf9ff;
+    background: rgb(var(--gray-50));
 }
 
 .data-table tbody tr.bg-brand-50 {
-    background: #f3efff;
-    box-shadow: inset -3px 0 #7c3aed;
+    background: rgb(var(--brand-50));
+    box-shadow: inset -3px 0 rgb(var(--brand-500));
 }
 
 .data-table td[colspan] {
     padding: 48px 16px;
     text-align: center;
     white-space: normal;
-    color: #9ca3af;
+    color: rgb(var(--gray-400));
     font-size: 13px;
 }
 
@@ -108,7 +163,7 @@
 
 .data-table-toolbar {
     padding: 16px 20px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid rgb(var(--gray-200));
     border-bottom: 0;
     border-radius: 14px 14px 0 0;
     background: white;
@@ -127,7 +182,7 @@
 
 .data-table-pagination {
     padding: 16px 20px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid rgb(var(--gray-200));
     border-top: 0;
     border-radius: 0 0 14px 14px;
     background: white;
@@ -137,7 +192,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    color: #6b7280;
+    color: rgb(var(--gray-400));
 }
 
 .data-table-actions > button,
@@ -150,7 +205,7 @@
 
 .data-table-actions > button:focus-visible,
 .data-table-actions > a:focus-visible {
-    outline: 2px solid #7c3aed;
+    outline: 2px solid rgb(var(--gray-900));
     outline-offset: 2px;
 }
 

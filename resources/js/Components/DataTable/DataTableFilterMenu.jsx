@@ -79,7 +79,7 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
                                     type="checkbox"
                                     checked={isVisible(group.key)}
                                     onChange={() => toggleAndClear(group.key)}
-                                    className="h-4 w-4 rounded border-gray-300 text-brand-600 shadow-sm focus:ring-brand-500"
+                                    className="h-4 w-4 rounded border-gray-300 text-brand-600 shadow-sm focus:ring-gray-900"
                                 />
                                 {group.label}
                             </label>
@@ -92,7 +92,7 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
                 <button
                     type="button"
                     onClick={onClear}
-                    className="rounded-md px-3 py-2 text-xs font-medium text-brand-600 hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+                    className="rounded-md px-3 py-2 text-xs font-medium text-brand-600 hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
                 >
                     مسح الفلاتر ({activeCount})
                 </button>

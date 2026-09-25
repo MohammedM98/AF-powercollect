@@ -33,7 +33,7 @@ export default function DataTableToolbar({
                         value={search}
                         onChange={(e) => onSearchChange(e.target.value)}
                         placeholder={placeholder}
-                        className="block w-full rounded-lg border-transparent bg-gray-50 py-2 ps-9 text-sm placeholder:text-gray-500 focus:border-brand-500 focus:bg-white focus:ring-brand-500"
+                        className="block w-full rounded-lg border-transparent bg-gray-50 py-2 ps-9 text-sm placeholder:text-gray-500 focus:border-gray-900 focus:bg-white focus:ring-gray-900"
                     />
                 </div>
             ) : (
@@ -48,7 +48,7 @@ export default function DataTableToolbar({
                         <select
                             value={perPage}
                             onChange={(e) => onPerPageChange(Number(e.target.value))}
-                            className="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                            className="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900"
                         >
                             {PAGE_SIZES.map((size) => (
                                 <option key={size} value={size}>

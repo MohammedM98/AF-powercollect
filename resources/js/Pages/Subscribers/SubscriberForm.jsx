@@ -377,7 +377,7 @@ export default function SubscriberForm({
             <Field id="address" label="العنوان" error={errors.address} span="sm:col-span-2 lg:col-span-3">
                 <textarea
                     rows={2}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
                     value={data.address}
                     onChange={(e) => setData('address', e.target.value)}
                 />
@@ -386,7 +386,7 @@ export default function SubscriberForm({
             <Field id="notes" label="معلومات أخرى" error={errors.notes} span="sm:col-span-2 lg:col-span-3">
                 <textarea
                     rows={2}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
                     value={data.notes}
                     onChange={(e) => setData('notes', e.target.value)}
                 />

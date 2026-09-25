@@ -123,9 +123,7 @@ function SheetRow({ row, week }) {
                         }
                     }}
                     className={`block w-32 rounded-md text-sm tabular-nums shadow-sm disabled:bg-gray-50 disabled:text-gray-500 ${
-                        error
-                            ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                            : 'border-gray-300 focus:border-brand-500 focus:ring-brand-500'
+                        error ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-gray-900 focus:ring-gray-900'
                     }`}
                 />
                 {error && <p className="mt-1 max-w-[16rem] text-xs text-red-600">{error}</p>}
@@ -247,7 +245,7 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, ent
                     id="sheet-sort"
                     value={filters.sort}
                     onChange={(e) => sortBy(e.target.value, filters.direction)}
-                    className="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                    className="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900"
                 >
                     {SORT_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>

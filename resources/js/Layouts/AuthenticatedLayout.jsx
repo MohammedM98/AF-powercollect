@@ -6,39 +6,12 @@ import CommandPalette from '@/Components/CommandPalette';
 import { MAIN_LINKS, SETTINGS_LINKS, allowedLinks, isActiveLink } from '@/lib/navigation';
 import { useResponsiveTables } from '@/hooks/useResponsiveTables';
 
-/**
- * One sidebar link. The current page is a graphite pill with a burgundy edge.
- * Links are plain <a> tags, so every page opens with a full page load.
- */
-function NavLink({ link, active }) {
-    return (
-        <a
-            href={link.href}
-            aria-current={active ? 'page' : undefined}
-            className={`group flex items-center gap-3 rounded-2xl px-2.5 py-2 text-sm font-semibold transition ${
-                active
-                    ? 'nav-link-active bg-graphite-gradient text-white dark:ring-1 dark:ring-white/10'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-        >
-            <span
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition ${
-                    active ? 'border-white/10 bg-white/10 text-white' : 'border-gray-100 bg-gray-50 text-gray-500 group-hover:text-gray-900'
-                }`}
-            >
-                <Icon name={link.icon} className="h-[18px] w-[18px]" />
-            </span>
-            {link.label}
-        </a>
-    );
-}
-
 const SIDEBAR_STORAGE_KEY = 'sidebar';
 
-/** Whether the user hid the sidebar last time (remembered in this browser). */
-function readSidebarHidden() {
+/** Whether the user collapsed the sidebar to icons last time (remembered in this browser). */
+function readSidebarCollapsed() {
     try {
-        return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'hidden';
+        return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'collapsed';
     } catch {
         return false;
     }
@@ -65,49 +38,123 @@ function shortAppName(appName) {
     return (appName ?? '').replace(/^AF\s+/i, '');
 }
 
-function SidebarContent({ onNavigate }) {
+/**
+ * One sidebar link: an icon with its label, or the icon alone when the
+ * sidebar is collapsed (then `onHover` shows the label beside it). The
+ * current page is a graphite pill with a burgundy edge. Links are plain <a>
+ * tags, so every page opens with a full page load.
+ */
+function NavLink({ link, active, collapsed, onHover }) {
+    const showLabel = collapsed ? (event) => onHover(link.label, event.currentTarget) : undefined;
+    const hideLabel = collapsed ? () => onHover(null) : undefined;
+
+    return (
+        <a
+            href={link.href}
+            aria-current={active ? 'page' : undefined}
+            onMouseEnter={showLabel}
+            onFocus={showLabel}
+            onMouseLeave={hideLabel}
+            onBlur={hideLabel}
+            className={`group flex items-center gap-3 rounded-2xl px-2.5 py-2 text-sm font-semibold transition ${
+                active
+                    ? 'nav-link-active bg-graphite-gradient text-white dark:ring-1 dark:ring-white/10'
+                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+        >
+            <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition ${
+                    active ? 'border-white/10 bg-white/10 text-white' : 'border-gray-100 bg-gray-50 text-gray-500 group-hover:text-gray-900'
+                }`}
+            >
+                <Icon name={link.icon} className="h-[18px] w-[18px]" />
+            </span>
+            <span className={collapsed ? 'sr-only' : 'truncate'}>{link.label}</span>
+        </a>
+    );
+}
+
+function SidebarContent({ collapsed = false, onNavigate }) {
     const { props, url } = usePage();
     const { appName, auth, can } = props;
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     const mainLinks = allowedLinks(MAIN_LINKS, can);
     const settingsLinks = allowedLinks(SETTINGS_LINKS, can);
+    const [hoveredLink, setHoveredLink] = useState(null);
+
+    /** Shows a collapsed link's label beside it (or hides it when `label` is null). */
+    function onLinkHover(label, element) {
+        setHoveredLink(label ? { label, top: element.getBoundingClientRect().top + element.offsetHeight / 2 } : null);
+    }
 
     return (
         <div className="flex h-full flex-col" onClick={(event) => event.target.closest('a') && onNavigate?.()}>
-            <a href="/dashboard" className="flex items-center gap-3 px-6 pt-6">
-                <img src="/images/logo-af.webp" alt={appName} className="h-11 w-auto shrink-0" />
-                <span className="h-9 w-px bg-gray-200" aria-hidden="true" />
-                <span className="min-w-0">
-                    <span className="block truncate text-lg font-bold leading-tight text-gray-900">{shortAppName(appName)}</span>
-                    <span className="block truncate text-xs text-gray-500">{auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}</span>
-                </span>
+            <a
+                href="/dashboard"
+                title={collapsed ? appName : undefined}
+                className={`flex items-center pt-6 ${collapsed ? 'justify-center px-3' : 'gap-3 px-6'}`}
+            >
+                <img src="/images/logo-af.webp" alt={appName} className={`w-auto shrink-0 ${collapsed ? 'h-9' : 'h-11'}`} />
+                {!collapsed && (
+                    <>
+                        <span className="h-9 w-px bg-gray-200" aria-hidden="true" />
+                        <span className="min-w-0">
+                            <span className="block truncate text-lg font-bold leading-tight text-gray-900">{shortAppName(appName)}</span>
+                            <span className="block truncate text-xs text-gray-500">{auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}</span>
+                        </span>
+                    </>
+                )}
             </a>
             <div className="brand-spectrum mx-6 mt-5" />
 
-            <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-5" aria-label="القائمة الرئيسية">
+            <nav
+                className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-4 py-5"
+                aria-label="القائمة الرئيسية"
+                onScroll={() => setHoveredLink(null)}
+            >
                 {mainLinks.map((link) => (
-                    <NavLink key={link.href} link={link} active={isActiveLink(link, url)} />
+                    <NavLink key={link.href} link={link} active={isActiveLink(link, url)} collapsed={collapsed} onHover={onLinkHover} />
                 ))}
 
                 {settingsLinks.length > 0 && (
                     <>
-                        <p className="px-3 pb-2 pt-6 text-xs font-semibold text-gray-400">الإعدادات</p>
+                        {collapsed ? (
+                            <div className="mx-3 !my-4 h-px bg-gray-100" role="separator" aria-label="الإعدادات" />
+                        ) : (
+                            <p className="px-3 pb-2 pt-6 text-xs font-semibold text-gray-400">الإعدادات</p>
+                        )}
                         {settingsLinks.map((link) => (
-                            <NavLink key={link.href} link={link} active={isActiveLink(link, url)} />
+                            <NavLink key={link.href} link={link} active={isActiveLink(link, url)} collapsed={collapsed} onHover={onLinkHover} />
                         ))}
                     </>
                 )}
             </nav>
 
-            <div className="m-4 flex items-center gap-3 rounded-2xl border border-gray-100 bg-surface p-3 shadow-card">
+            {collapsed && hoveredLink && (
+                <span
+                    aria-hidden="true"
+                    style={{ top: hoveredLink.top }}
+                    className="animate-modal-backdrop pointer-events-none fixed start-[100px] z-50 -translate-y-1/2 whitespace-nowrap rounded-control bg-graphite-900 px-3 py-1.5 text-xs font-semibold text-white shadow-lift dark:ring-1 dark:ring-white/10"
+                >
+                    {hoveredLink.label}
+                </span>
+            )}
+
+            <div
+                className={`flex items-center rounded-2xl border border-gray-100 bg-surface shadow-card ${
+                    collapsed ? 'm-3 flex-col gap-2 p-2' : 'm-4 gap-3 p-3'
+                }`}
+            >
                 <a href="/profile" title="الملف الشخصي" className="flex min-w-0 flex-1 items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-graphite-gradient font-display text-sm font-bold text-white">
                         {auth?.user?.name?.substring(0, 1)}
                     </span>
-                    <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold text-gray-900">{auth?.user?.name}</span>
-                        <span className="block truncate text-xs text-gray-500">{auth?.user?.roleLabel}</span>
-                    </span>
+                    {!collapsed && (
+                        <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold text-gray-900">{auth?.user?.name}</span>
+                            <span className="block truncate text-xs text-gray-500">{auth?.user?.roleLabel}</span>
+                        </span>
+                    )}
                 </a>
                 <form method="POST" action="/logout">
                     <input type="hidden" name="_token" value={csrfToken} />
@@ -130,13 +177,13 @@ export default function AuthenticatedLayout({ header, children }) {
     const { appName, can } = props;
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [paletteOpen, setPaletteOpen] = useState(false);
-    const [sidebarHidden, setSidebarHidden] = useState(readSidebarHidden);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
     const isDesktop = useIsDesktop();
     useResponsiveTables();
 
     /**
-     * On large screens the button hides or shows the sidebar (and the page
-     * takes the full width); on small screens it opens the drawer.
+     * On large screens the button switches the sidebar between icons with
+     * text and icons only; on small screens it opens the drawer.
      */
     function onMenuButton() {
         if (!isDesktop) {
@@ -144,17 +191,17 @@ export default function AuthenticatedLayout({ header, children }) {
             return;
         }
 
-        const next = !sidebarHidden;
-        setSidebarHidden(next);
+        const next = !sidebarCollapsed;
+        setSidebarCollapsed(next);
 
         try {
-            localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? 'hidden' : 'shown');
+            localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? 'collapsed' : 'expanded');
         } catch {
             // Storage may be blocked (private mode); the toggle still works for this visit.
         }
     }
 
-    const menuButtonLabel = !isDesktop ? 'فتح القائمة' : sidebarHidden ? 'إظهار القائمة الجانبية' : 'إخفاء القائمة الجانبية';
+    const menuButtonLabel = !isDesktop ? 'فتح القائمة' : sidebarCollapsed ? 'توسيع القائمة الجانبية' : 'تصغير القائمة الجانبية';
 
     const paletteLinks = [
         ...allowedLinks(MAIN_LINKS, can).map((link) => ({ ...link, group: 'الصفحات' })),
@@ -178,15 +225,14 @@ export default function AuthenticatedLayout({ header, children }) {
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900">
-            {/* Sidebar: fixed on large screens (the top bar's button hides it), a drawer on small ones. */}
+            {/* Sidebar: fixed on large screens (full or icons only), a drawer on small ones. */}
             <aside
                 id="app-sidebar"
-                inert={sidebarHidden}
-                className={`fixed inset-y-0 start-0 z-40 hidden w-72 border-e border-gray-100 bg-surface transition-transform duration-300 ease-out lg:block ${
-                    sidebarHidden ? 'translate-x-full' : ''
+                className={`fixed inset-y-0 start-0 z-40 hidden overflow-hidden border-e border-gray-100 bg-surface transition-[width] duration-300 ease-out lg:block ${
+                    sidebarCollapsed ? 'w-[88px]' : 'w-72'
                 }`}
             >
-                <SidebarContent />
+                <SidebarContent collapsed={sidebarCollapsed} />
             </aside>
 
             {drawerOpen && (
@@ -201,7 +247,7 @@ export default function AuthenticatedLayout({ header, children }) {
                 </div>
             )}
 
-            <div className={`transition-[padding] duration-300 ease-out ${sidebarHidden ? 'lg:ps-0' : 'lg:ps-72'}`}>
+            <div className={`transition-[padding] duration-300 ease-out ${sidebarCollapsed ? 'lg:ps-[88px]' : 'lg:ps-72'}`}>
                 {/* Top bar */}
                 <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-gray-100 bg-surface/75 px-4 backdrop-blur-xl sm:px-6 lg:px-10">
                     <button
@@ -210,12 +256,12 @@ export default function AuthenticatedLayout({ header, children }) {
                         aria-label={menuButtonLabel}
                         title={menuButtonLabel}
                         aria-controls="app-sidebar"
-                        aria-expanded={isDesktop ? !sidebarHidden : drawerOpen}
+                        aria-expanded={isDesktop ? !sidebarCollapsed : drawerOpen}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control border border-gray-200 bg-surface text-gray-700 shadow-sm transition hover:border-gray-300 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
                     >
                         <Icon name={isDesktop ? 'sidebar' : 'menu'} className="h-5 w-5" />
                     </button>
-                    <a href="/dashboard" className={`shrink-0 ${sidebarHidden ? '' : 'lg:hidden'}`}>
+                    <a href="/dashboard" className="shrink-0 lg:hidden">
                         <img src="/images/logo-af.webp" alt={appName} className="h-9 w-auto" />
                     </a>
 

@@ -13,9 +13,7 @@ class SubAreaPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ViewSubAreas)
-            || $user->hasPermission(PermissionKey::CreateSubAreas)
-            || $user->hasPermission(PermissionKey::UpdateSubAreas);
+        return $user->hasAnyPermission(PermissionKey::ViewSubAreas, PermissionKey::CreateSubAreas, PermissionKey::UpdateSubAreas);
     }
 
     /**

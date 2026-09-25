@@ -58,6 +58,21 @@ class MeterBoxAuthorizationTest extends TestCase
         ]);
     }
 
+    public function test_a_meter_box_can_be_saved_without_changing_its_box_number(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $meterBox = MeterBox::factory()->create(['box_number' => 'BOX-1']);
+
+        $response = $this->actingAs($superAdmin)->put(route('meter-boxes.update', $meterBox), [
+            'name' => 'Renamed box',
+            'box_number' => 'BOX-1',
+            'branch_id' => $meterBox->branch_id,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('meter_boxes', ['id' => $meterBox->id, 'name' => 'Renamed box']);
+    }
+
     public function test_branch_admin_cannot_view_meter_box_index(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();

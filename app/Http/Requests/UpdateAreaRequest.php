@@ -2,11 +2,10 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
-
-class UpdateAreaRequest extends FormRequest
+/**
+ * Same rules as StoreAreaRequest; only the authorization differs.
+ */
+class UpdateAreaRequest extends StoreAreaRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -14,18 +13,5 @@ class UpdateAreaRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user()->can('update', $this->route('area'));
-    }
-
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
-    public function rules(): array
-    {
-        return [
-            'name' => ['required', 'string', 'max:255', Rule::unique('areas', 'name')->ignore($this->route('area'))],
-            'governorate_id' => ['nullable', Rule::exists('governorates', 'id')],
-        ];
     }
 }

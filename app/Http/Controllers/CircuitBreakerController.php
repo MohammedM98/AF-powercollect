@@ -17,6 +17,9 @@ class CircuitBreakerController extends Controller
 
     private const SORTABLE = ['ampere', 'minimum_payment'];
 
+    /**
+     * Display a listing of the resource.
+     */
     public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', CircuitBreaker::class);
@@ -31,12 +34,14 @@ class CircuitBreakerController extends Controller
 
         return Inertia::render('CircuitBreakers/Index', [
             'circuitBreakers' => $circuitBreakers,
-            'status' => session('status'),
             'filters' => $this->dataTableState($request, 'ampere'),
             'filterOptions' => $this->filterOptions(),
         ]);
     }
 
+    /**
+     * Show the form for creating a new resource.
+     */
     public function create(): InertiaResponse
     {
         $this->authorize('create', CircuitBreaker::class);
@@ -44,6 +49,9 @@ class CircuitBreakerController extends Controller
         return Inertia::render('CircuitBreakers/Create');
     }
 
+    /**
+     * Store a newly created resource in storage.
+     */
     public function store(StoreCircuitBreakerRequest $request): RedirectResponse
     {
         CircuitBreaker::create($request->validated());
@@ -51,6 +59,9 @@ class CircuitBreakerController extends Controller
         return redirect()->route('circuit-breakers.index')->with('status', 'circuit-breaker-created');
     }
 
+    /**
+     * Show the form for editing the specified resource.
+     */
     public function edit(CircuitBreaker $circuitBreaker): InertiaResponse
     {
         $this->authorize('update', $circuitBreaker);
@@ -60,6 +71,9 @@ class CircuitBreakerController extends Controller
         ]);
     }
 
+    /**
+     * Update the specified resource in storage.
+     */
     public function update(UpdateCircuitBreakerRequest $request, CircuitBreaker $circuitBreaker): RedirectResponse
     {
         $circuitBreaker->update($request->validated());
@@ -67,6 +81,13 @@ class CircuitBreakerController extends Controller
         return redirect()->route('circuit-breakers.index')->with('status', 'circuit-breaker-updated');
     }
 
+    /**
+     * A circuit breaker's editable fields — used both for the dedicated
+     * edit page and for the edit modal's initial form data on the index
+     * page.
+     *
+     * @return array<string, mixed>
+     */
     private function editableFields(CircuitBreaker $circuitBreaker): array
     {
         return [
@@ -84,17 +105,10 @@ class CircuitBreakerController extends Controller
      */
     private function filterOptions(): array
     {
+        $amperes = CircuitBreaker::query()->distinct()->orderBy('ampere')->pluck('ampere');
+
         return [
-            [
-                'key' => 'ampere',
-                'label' => 'الأمبير',
-                'options' => CircuitBreaker::query()
-                    ->distinct()
-                    ->orderBy('ampere')
-                    ->pluck('ampere')
-                    ->map(fn ($ampere) => ['value' => (string) $ampere, 'label' => "{$ampere}A"])
-                    ->all(),
-            ],
+            $this->filterGroup('ampere', 'الأمبير', $amperes->map(fn (int|string $ampere) => ['value' => (string) $ampere, 'label' => "{$ampere}A"])),
         ];
     }
 }

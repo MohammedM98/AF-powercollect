@@ -2,8 +2,12 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasOptions;
+
 enum ReadingEntryMode: string
 {
+    use HasOptions;
+
     case Automatic = 'automatic';
     case Open = 'open';
     case Closed = 'closed';

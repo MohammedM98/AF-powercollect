@@ -17,9 +17,7 @@ class SubscriberPolicy
         return $user->isSuperAdmin()
             || $user->isBranchAdmin()
             || $user->isDataEntry()
-            || $user->hasPermission(PermissionKey::ViewSubscribers)
-            || $user->hasPermission(PermissionKey::CreateSubscribers)
-            || $user->hasPermission(PermissionKey::UpdateSubscribers);
+            || $user->hasAnyPermission(PermissionKey::ViewSubscribers, PermissionKey::CreateSubscribers, PermissionKey::UpdateSubscribers);
     }
 
     /**

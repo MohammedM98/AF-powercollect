@@ -38,11 +38,10 @@ class TariffController extends Controller
 
         return Inertia::render('Tariffs/Index', [
             'tariffs' => $tariffs,
-            'status' => session('status'),
             'filters' => $this->dataTableState($request, 'category'),
-            'categoryOptions' => $this->categoryOptions(),
+            'categoryOptions' => TariffCategory::options(),
             'filterOptions' => [
-                ['key' => 'category', 'label' => 'الفئة', 'options' => $this->categoryOptions()->all()],
+                $this->filterGroup('category', 'الفئة', TariffCategory::options()),
             ],
         ]);
     }
@@ -55,7 +54,7 @@ class TariffController extends Controller
         $this->authorize('create', Tariff::class);
 
         return Inertia::render('Tariffs/Create', [
-            'categoryOptions' => $this->categoryOptions(),
+            'categoryOptions' => TariffCategory::options(),
         ]);
     }
 
@@ -78,7 +77,7 @@ class TariffController extends Controller
 
         return Inertia::render('Tariffs/Edit', [
             'tariff' => $this->editableFields($tariff),
-            'categoryOptions' => $this->categoryOptions(),
+            'categoryOptions' => TariffCategory::options(),
         ]);
     }
 
@@ -105,16 +104,5 @@ class TariffController extends Controller
             'category' => $tariff->category->value,
             'rate' => $tariff->rate,
         ];
-    }
-
-    /**
-     * @return \Illuminate\Support\Collection<int, array{value: string, label: string}>
-     */
-    private function categoryOptions(): \Illuminate\Support\Collection
-    {
-        return collect(TariffCategory::cases())->map(fn (TariffCategory $category) => [
-            'value' => $category->value,
-            'label' => __($category->label()),
-        ]);
     }
 }

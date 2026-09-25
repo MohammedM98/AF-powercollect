@@ -13,9 +13,7 @@ class BranchPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ViewBranches)
-            || $user->hasPermission(PermissionKey::CreateBranches)
-            || $user->hasPermission(PermissionKey::UpdateBranches);
+        return $user->hasAnyPermission(PermissionKey::ViewBranches, PermissionKey::CreateBranches, PermissionKey::UpdateBranches);
     }
 
     /**

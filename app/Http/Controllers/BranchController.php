@@ -35,7 +35,6 @@ class BranchController extends Controller
 
         return Inertia::render('Branches/Index', [
             'branches' => $branches,
-            'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => $this->filterOptions(),
             ...$this->formOptions(),
@@ -108,30 +107,9 @@ class BranchController extends Controller
     private function filterOptions(): array
     {
         return [
-            [
-                'key' => 'is_active',
-                'label' => 'الحالة',
-                'options' => [
-                    ['value' => '1', 'label' => 'نشط'],
-                    ['value' => '0', 'label' => 'متوقف'],
-                ],
-            ],
-            [
-                'key' => 'governorate_id',
-                'label' => 'المحافظة',
-                'options' => Governorate::orderBy('name')->get()->map(fn (Governorate $governorate) => [
-                    'value' => (string) $governorate->id,
-                    'label' => $governorate->name,
-                ])->all(),
-            ],
-            [
-                'key' => 'area_id',
-                'label' => 'المنطقة',
-                'options' => Area::orderBy('name')->get()->map(fn (Area $area) => [
-                    'value' => (string) $area->id,
-                    'label' => $area->name,
-                ])->all(),
-            ],
+            $this->activeStatusFilterGroup(),
+            $this->filterGroup('governorate_id', 'المحافظة', $this->modelOptions(Governorate::orderBy('name')->get())),
+            $this->filterGroup('area_id', 'المنطقة', $this->modelOptions(Area::orderBy('name')->get())),
         ];
     }
 }

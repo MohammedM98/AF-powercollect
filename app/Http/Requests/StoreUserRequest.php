@@ -42,11 +42,10 @@ class StoreUserRequest extends FormRequest
         ];
 
         if ($actor->isSuperAdmin()) {
-            $assignable = [UserRole::BranchAdmin, ...UserRole::staffRoles()];
-            $rules['role'] = ['required', Rule::in(array_column($assignable, 'value'))];
+            $rules['role'] = ['required', Rule::enum(UserRole::class)->only(UserRole::assignableBySuperAdmin())];
             $rules['branch_id'] = ['required', Rule::exists('branches', 'id')];
         } else {
-            $rules['role'] = ['required', Rule::in(array_column(UserRole::staffRoles(), 'value'))];
+            $rules['role'] = ['required', Rule::enum(UserRole::class)->only(UserRole::staffRoles())];
         }
 
         return $rules;

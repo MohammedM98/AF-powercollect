@@ -4,11 +4,11 @@ namespace App\Models;
 
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
+use App\Models\Concerns\BelongsToBranch;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -19,7 +19,7 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use BelongsToBranch, HasFactory, Notifiable;
 
     /**
      * Get the attributes that should be cast.
@@ -33,11 +33,6 @@ class User extends Authenticatable
             'role' => UserRole::class,
             'is_active' => 'boolean',
         ];
-    }
-
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class);
     }
 
     public function permissions(): BelongsToMany
@@ -88,5 +83,19 @@ class User extends Authenticatable
         return $this->relationLoaded('permissions')
             ? $this->permissions->contains('key', $key->value)
             : $this->permissions()->where('key', $key->value)->exists();
+    }
+
+    /**
+     * Whether the user holds at least one of the given permissions.
+     */
+    public function hasAnyPermission(PermissionKey ...$keys): bool
+    {
+        foreach ($keys as $key) {
+            if ($this->hasPermission($key)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -23,6 +23,10 @@ class StoreMeterBoxRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
+     * UpdateMeterBoxRequest reuses these rules; there, `->ignore()` lets the
+     * record being edited keep its own unique value (on create there is no
+     * route model, so nothing is ignored).
+     *
      * Only a Super Admin may choose the branch — the controller forces it
      * to the actor's own branch for everyone else, so branch_id isn't
      * validated for them at all.
@@ -33,7 +37,7 @@ class StoreMeterBoxRequest extends FormRequest
     {
         $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'box_number' => ['required', 'string', 'max:255', Rule::unique('meter_boxes', 'box_number')],
+            'box_number' => ['required', 'string', 'max:255', Rule::unique('meter_boxes', 'box_number')->ignore($this->route('meter_box'))],
             'sub_area_id' => ['nullable', Rule::exists('sub_areas', 'id'), $this->subAreaBelongsToBranchArea()],
             'location' => ['nullable', 'string', 'max:255'],
         ];
@@ -48,7 +52,9 @@ class StoreMeterBoxRequest extends FormRequest
     /**
      * A chosen sub-area must belong to the meter box's branch's own area —
      * the branch itself is either the request's own `branch_id` (Super
-     * Admin) or the actor's own branch (everyone else).
+     * Admin) or the actor's own branch (everyone else). On update that is
+     * also the meter box's own branch, since the policy only lets them
+     * edit meter boxes in it.
      */
     private function subAreaBelongsToBranchArea(): Closure
     {

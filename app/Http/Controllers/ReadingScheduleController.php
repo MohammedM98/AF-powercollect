@@ -28,11 +28,7 @@ class ReadingScheduleController extends Controller
                 'updatedByName' => $setting->updatedBy?->name,
                 'updatedAt' => $setting->updated_at?->timezone(config('app.business_timezone'))->format('Y-m-d H:i'),
             ],
-            'modes' => collect(ReadingEntryMode::cases())->map(fn (ReadingEntryMode $mode) => [
-                'value' => $mode->value,
-                'label' => __($mode->label()),
-            ]),
-            'status' => session('status'),
+            'modes' => ReadingEntryMode::options(),
         ]);
     }
 

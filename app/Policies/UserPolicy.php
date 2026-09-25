@@ -16,9 +16,7 @@ class UserPolicy
     {
         return $user->isSuperAdmin()
             || $user->isBranchAdmin()
-            || $user->hasPermission(PermissionKey::ViewUsers)
-            || $user->hasPermission(PermissionKey::CreateUsers)
-            || $user->hasPermission(PermissionKey::UpdateUsers);
+            || $user->hasAnyPermission(PermissionKey::ViewUsers, PermissionKey::CreateUsers, PermissionKey::UpdateUsers);
     }
 
     /**

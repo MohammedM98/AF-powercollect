@@ -60,6 +60,19 @@ class AreaAuthorizationTest extends TestCase
         $this->assertDatabaseHas('areas', ['id' => $area->id, 'name' => 'New Name']);
     }
 
+    public function test_an_area_can_be_saved_without_changing_its_name(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $area = Area::factory()->create(['name' => 'Karrada']);
+
+        $response = $this->actingAs($superAdmin)->put(route('areas.update', $area), [
+            'name' => 'Karrada',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect(route('governorates.index'));
+    }
+
     public function test_super_admin_can_reassign_an_area_to_a_different_governorate(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();

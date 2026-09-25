@@ -13,9 +13,7 @@ class AreaPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ViewAreas)
-            || $user->hasPermission(PermissionKey::CreateAreas)
-            || $user->hasPermission(PermissionKey::UpdateAreas);
+        return $user->hasAnyPermission(PermissionKey::ViewAreas, PermissionKey::CreateAreas, PermissionKey::UpdateAreas);
     }
 
     /**

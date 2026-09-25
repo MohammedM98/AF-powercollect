@@ -32,15 +32,15 @@ class DashboardController extends Controller
         }
 
         if ($actor->can('viewAny', User::class)) {
-            $sections['users'] = $this->usersSection($actor, $scopedToBranch);
+            $sections['users'] = $this->usersSection($actor);
         }
 
         if ($actor->can('viewAny', Subscriber::class)) {
-            $sections['subscribers'] = $this->subscribersSection($actor, $scopedToBranch);
+            $sections['subscribers'] = $this->subscribersSection($actor);
         }
 
         if ($actor->can('viewAny', MeterBox::class)) {
-            $sections['meterBoxes'] = $this->meterBoxesSection($actor, $scopedToBranch);
+            $sections['meterBoxes'] = $this->meterBoxesSection($actor);
         }
 
         if ($actor->can('viewAny', Tariff::class)) {
@@ -68,86 +68,89 @@ class DashboardController extends Controller
      */
     private function branchesSection(): array
     {
-        $branches = Branch::orderByDesc('created_at')->get();
-        $active = $branches->where('is_active', true)->count();
+        $total = Branch::count();
+        $active = Branch::where('is_active', true)->count();
 
         return [
-            'total' => $branches->count(),
+            'total' => $total,
             'active' => $active,
-            'activePct' => $branches->count() > 0 ? (int) round($active / $branches->count() * 100) : 0,
-            'recent' => $branches->take(5)->map(fn (Branch $branch) => [
+            'activePct' => $this->percentage($active, $total),
+            'recent' => Branch::latest()->latest('id')->take(5)->get()->map(fn (Branch $branch) => [
                 'id' => $branch->id,
                 'name' => $branch->name,
                 'subtitle' => $branch->phone,
                 'active' => $branch->is_active,
-            ])->values()->all(),
+            ])->all(),
         ];
     }
 
     /**
      * @return array{total: int, active: int, activePct: int, branchAdmins: int, collectors: int, recent: array<int, array{id: int, name: string, subtitle: string}>}
      */
-    private function usersSection(User $actor, bool $scopedToBranch): array
+    private function usersSection(User $actor): array
     {
-        $users = User::with('branch')
-            ->when($scopedToBranch, fn ($query) => $query->where('branch_id', $actor->branch_id))
-            ->orderByDesc('created_at')
-            ->get();
-        $active = $users->where('is_active', true)->count();
+        $users = fn () => User::query()->visibleTo($actor);
+        $total = $users()->count();
+        $active = $users()->where('is_active', true)->count();
 
         return [
-            'total' => $users->count(),
+            'total' => $total,
             'active' => $active,
-            'activePct' => $users->count() > 0 ? (int) round($active / $users->count() * 100) : 0,
-            'branchAdmins' => $users->where('role', UserRole::BranchAdmin)->count(),
-            'collectors' => $users->where('role', UserRole::Collector)->count(),
-            'recent' => $users->take(5)->map(fn (User $user) => [
+            'activePct' => $this->percentage($active, $total),
+            'branchAdmins' => $users()->where('role', UserRole::BranchAdmin)->count(),
+            'collectors' => $users()->where('role', UserRole::Collector)->count(),
+            'recent' => $users()->latest()->latest('id')->take(5)->get()->map(fn (User $user) => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'subtitle' => __($user->role->label()),
-            ])->values()->all(),
+            ])->all(),
         ];
     }
 
     /**
      * @return array{total: int, active: int, activePct: int, recent: array<int, array{id: int, name: string, subtitle: ?string}>}
      */
-    private function subscribersSection(User $actor, bool $scopedToBranch): array
+    private function subscribersSection(User $actor): array
     {
-        $subscribers = Subscriber::when($scopedToBranch, fn ($query) => $query->where('branch_id', $actor->branch_id))
-            ->orderByDesc('created_at')
-            ->get();
-        $active = $subscribers->where('status', SubscriberStatus::Active)->count();
+        $subscribers = fn () => Subscriber::query()->visibleTo($actor);
+        $total = $subscribers()->count();
+        $active = $subscribers()->where('status', SubscriberStatus::Active)->count();
 
         return [
-            'total' => $subscribers->count(),
+            'total' => $total,
             'active' => $active,
-            'activePct' => $subscribers->count() > 0 ? (int) round($active / $subscribers->count() * 100) : 0,
-            'recent' => $subscribers->take(5)->map(fn (Subscriber $subscriber) => [
+            'activePct' => $this->percentage($active, $total),
+            'recent' => $subscribers()->latest()->latest('id')->take(5)->get()->map(fn (Subscriber $subscriber) => [
                 'id' => $subscriber->id,
                 'name' => $subscriber->full_name,
                 'subtitle' => $subscriber->phone,
-            ])->values()->all(),
+            ])->all(),
         ];
     }
 
     /**
      * @return array{total: int, recent: array<int, array{id: int, name: ?string, subtitle: ?string}>}
      */
-    private function meterBoxesSection(User $actor, bool $scopedToBranch): array
+    private function meterBoxesSection(User $actor): array
     {
-        $meterBoxes = MeterBox::with('branch')
-            ->when($scopedToBranch, fn ($query) => $query->where('branch_id', $actor->branch_id))
-            ->orderByDesc('created_at')
-            ->get();
+        $meterBoxes = fn () => MeterBox::query()->visibleTo($actor);
 
         return [
-            'total' => $meterBoxes->count(),
-            'recent' => $meterBoxes->take(5)->map(fn (MeterBox $meterBox) => [
+            'total' => $meterBoxes()->count(),
+            'recent' => $meterBoxes()->with('branch')->latest()->latest('id')->take(5)->get()->map(fn (MeterBox $meterBox) => [
                 'id' => $meterBox->id,
                 'name' => $meterBox->name,
                 'subtitle' => $meterBox->branch->name,
-            ])->values()->all(),
+            ])->all(),
         ];
+    }
+
+    /**
+     * `$part` as a whole-number percentage of `$total` (0 when there is
+     * nothing to count).
+     */
+    private function percentage(int $part, int $total): int
+    {
+        return $total > 0 ? (int) round($part / $total * 100) : 0;
     }
 }

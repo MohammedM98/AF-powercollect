@@ -30,9 +30,7 @@ class UserController extends Controller
 
         $actor = auth()->user();
 
-        $query = User::query()
-            ->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('branch_id', $actor->branch_id))
-            ->with('branch');
+        $query = User::query()->visibleTo($actor)->with('branch');
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
         $this->applyDataTableFilterSelects($query, $request, ['role', 'is_active', 'branch_id']);
 
@@ -48,7 +46,6 @@ class UserController extends Controller
         return Inertia::render('Users/Index', [
             'users' => $users,
             'canCreate' => $actor->can('create', User::class),
-            'status' => session('status'),
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => $this->filterOptions($actor),
             'createRoleOptions' => $this->roleOptionsFor(null),
@@ -161,23 +158,22 @@ class UserController extends Controller
 
     /**
      * The roles the current actor may assign, given the user being edited
-     * (or null when creating a new user).
+     * (or null when creating a new user). A Super Admin's own role can't
+     * be changed, so editing one offers no roles at all.
+     *
+     * @return array<int, array{value: string, label: string}>
      */
-    private function roleOptionsFor(?User $user): Collection
+    private function roleOptionsFor(?User $user): array
     {
         $actor = auth()->user();
 
-        $roleOptions = match (true) {
-            $user === null => $actor->isSuperAdmin() ? [UserRole::BranchAdmin, ...UserRole::staffRoles()] : UserRole::staffRoles(),
-            $actor->isSuperAdmin() && ! $user->isSuperAdmin() => [UserRole::BranchAdmin, ...UserRole::staffRoles()],
-            $actor->isSuperAdmin() => [],
-            default => UserRole::staffRoles(),
+        $roles = match (true) {
+            ! $actor->isSuperAdmin() => UserRole::staffRoles(),
+            $user?->isSuperAdmin() => [],
+            default => UserRole::assignableBySuperAdmin(),
         };
 
-        return collect($roleOptions)->map(fn (UserRole $role) => [
-            'value' => $role->value,
-            'label' => __($role->label()),
-        ]);
+        return UserRole::options($roles);
     }
 
     /**
@@ -190,33 +186,12 @@ class UserController extends Controller
     private function filterOptions(User $actor): array
     {
         $groups = [
-            [
-                'key' => 'role',
-                'label' => 'الدور',
-                'options' => collect(UserRole::cases())->map(fn (UserRole $role) => [
-                    'value' => $role->value,
-                    'label' => __($role->label()),
-                ])->all(),
-            ],
-            [
-                'key' => 'is_active',
-                'label' => 'الحالة',
-                'options' => [
-                    ['value' => '1', 'label' => 'نشط'],
-                    ['value' => '0', 'label' => 'متوقف'],
-                ],
-            ],
+            $this->filterGroup('role', 'الدور', UserRole::options()),
+            $this->activeStatusFilterGroup(),
         ];
 
         if ($actor->isSuperAdmin()) {
-            $groups[] = [
-                'key' => 'branch_id',
-                'label' => 'الفرع',
-                'options' => Branch::orderBy('name')->get()->map(fn (Branch $branch) => [
-                    'value' => (string) $branch->id,
-                    'label' => $branch->name,
-                ])->all(),
-            ];
+            $groups[] = $this->branchFilterGroup();
         }
 
         return $groups;

@@ -2,8 +2,12 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasOptions;
+
 enum SubscriberStatus: string
 {
+    use HasOptions;
+
     case Active = 'active';
     case Suspended = 'suspended';
     case Disconnected = 'disconnected';

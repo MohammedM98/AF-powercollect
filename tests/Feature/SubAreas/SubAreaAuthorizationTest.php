@@ -60,6 +60,19 @@ class SubAreaAuthorizationTest extends TestCase
         $this->assertDatabaseHas('sub_areas', ['id' => $subArea->id, 'name' => 'New Name']);
     }
 
+    public function test_a_sub_area_can_be_saved_without_changing_its_name(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $subArea = SubArea::factory()->create(['name' => 'Block 7']);
+
+        $response = $this->actingAs($superAdmin)->put(route('sub-areas.update', $subArea), [
+            'name' => 'Block 7',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect(route('governorates.index'));
+    }
+
     public function test_super_admin_can_reassign_a_sub_area_to_a_different_area(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();

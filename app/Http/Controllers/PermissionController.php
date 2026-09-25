@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Http\Concerns\FiltersDataTable;
-use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;

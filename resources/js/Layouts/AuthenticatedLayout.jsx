@@ -33,6 +33,33 @@ function NavLink({ link, active }) {
     );
 }
 
+const SIDEBAR_STORAGE_KEY = 'sidebar';
+
+/** Whether the user hid the sidebar last time (remembered in this browser). */
+function readSidebarHidden() {
+    try {
+        return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'hidden';
+    } catch {
+        return false;
+    }
+}
+
+/** Whether the screen is wide enough for the fixed sidebar (Tailwind's `lg`). */
+function useIsDesktop() {
+    const query = '(min-width: 1024px)';
+    const [isDesktop, setIsDesktop] = useState(() => window.matchMedia(query).matches);
+
+    useEffect(() => {
+        const media = window.matchMedia(query);
+        const onChange = () => setIsDesktop(media.matches);
+
+        media.addEventListener('change', onChange);
+        return () => media.removeEventListener('change', onChange);
+    }, []);
+
+    return isDesktop;
+}
+
 /** The app name without the "AF" the logo already shows. */
 function shortAppName(appName) {
     return (appName ?? '').replace(/^AF\s+/i, '');
@@ -103,7 +130,31 @@ export default function AuthenticatedLayout({ header, children }) {
     const { appName, can } = props;
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [paletteOpen, setPaletteOpen] = useState(false);
+    const [sidebarHidden, setSidebarHidden] = useState(readSidebarHidden);
+    const isDesktop = useIsDesktop();
     useResponsiveTables();
+
+    /**
+     * On large screens the button hides or shows the sidebar (and the page
+     * takes the full width); on small screens it opens the drawer.
+     */
+    function onMenuButton() {
+        if (!isDesktop) {
+            setDrawerOpen(true);
+            return;
+        }
+
+        const next = !sidebarHidden;
+        setSidebarHidden(next);
+
+        try {
+            localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? 'hidden' : 'shown');
+        } catch {
+            // Storage may be blocked (private mode); the toggle still works for this visit.
+        }
+    }
+
+    const menuButtonLabel = !isDesktop ? 'فتح القائمة' : sidebarHidden ? 'إظهار القائمة الجانبية' : 'إخفاء القائمة الجانبية';
 
     const paletteLinks = [
         ...allowedLinks(MAIN_LINKS, can).map((link) => ({ ...link, group: 'الصفحات' })),
@@ -127,8 +178,14 @@ export default function AuthenticatedLayout({ header, children }) {
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900">
-            {/* Sidebar: fixed on large screens, a drawer on small ones. */}
-            <aside className="fixed inset-y-0 start-0 z-40 hidden w-72 border-e border-gray-100 bg-surface lg:block">
+            {/* Sidebar: fixed on large screens (the top bar's button hides it), a drawer on small ones. */}
+            <aside
+                id="app-sidebar"
+                inert={sidebarHidden}
+                className={`fixed inset-y-0 start-0 z-40 hidden w-72 border-e border-gray-100 bg-surface transition-transform duration-300 ease-out lg:block ${
+                    sidebarHidden ? 'translate-x-full' : ''
+                }`}
+            >
                 <SidebarContent />
             </aside>
 
@@ -144,18 +201,21 @@ export default function AuthenticatedLayout({ header, children }) {
                 </div>
             )}
 
-            <div className="lg:ps-72">
+            <div className={`transition-[padding] duration-300 ease-out ${sidebarHidden ? 'lg:ps-0' : 'lg:ps-72'}`}>
                 {/* Top bar */}
                 <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-gray-100 bg-surface/75 px-4 backdrop-blur-xl sm:px-6 lg:px-10">
                     <button
                         type="button"
-                        onClick={() => setDrawerOpen(true)}
-                        aria-label="فتح القائمة"
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control border border-gray-200 bg-surface text-gray-700 lg:hidden"
+                        onClick={onMenuButton}
+                        aria-label={menuButtonLabel}
+                        title={menuButtonLabel}
+                        aria-controls="app-sidebar"
+                        aria-expanded={isDesktop ? !sidebarHidden : drawerOpen}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control border border-gray-200 bg-surface text-gray-700 shadow-sm transition hover:border-gray-300 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
                     >
-                        <Icon name="menu" className="h-5 w-5" />
+                        <Icon name={isDesktop ? 'sidebar' : 'menu'} className="h-5 w-5" />
                     </button>
-                    <a href="/dashboard" className="shrink-0 lg:hidden">
+                    <a href="/dashboard" className={`shrink-0 ${sidebarHidden ? '' : 'lg:hidden'}`}>
                         <img src="/images/logo-af.webp" alt={appName} className="h-9 w-auto" />
                     </a>
 

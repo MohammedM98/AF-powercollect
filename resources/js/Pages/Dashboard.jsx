@@ -1,6 +1,9 @@
-import { Head, Link } from '@inertiajs/react';
+import { useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
+import BranchModal from '@/Pages/Branches/BranchModal';
+import UserModal from '@/Pages/Users/UserModal';
 import StatRing from '@/Components/StatRing';
 import CountUp from '@/Components/CountUp';
 import Icon from '@/Components/Icon';
@@ -77,12 +80,28 @@ function buildSubtitle(sections, scopedToBranch) {
     return null;
 }
 
-export default function Dashboard({ greeting, sections, scopedToBranch, auth, canCreateBranch, canCreateUser }) {
+export default function Dashboard({ greeting, sections, scopedToBranch, auth, canCreateBranch, canCreateUser, branchForm, userForm }) {
+    const [creating, setCreating] = useState(null);
     const sectionKeys = Object.keys(sections);
     const hasAnyData = sectionKeys.length > 0;
     const heroKey = ['branches', 'users', 'subscribers'].find((key) => sections[key]);
     const hero = heroKey ? sections[heroKey] : null;
     const subtitle = buildSubtitle(sections, scopedToBranch);
+
+    /**
+     * Opens the "new branch" or "new user" pop-up — the same one as on its
+     * own page — fetching its dropdown options the first time.
+     */
+    function openCreateForm(kind) {
+        const optionsProp = kind === 'branch' ? 'branchForm' : 'userForm';
+
+        if ({ branchForm, userForm }[optionsProp]) {
+            setCreating(kind);
+            return;
+        }
+
+        router.reload({ only: [optionsProp], onSuccess: () => setCreating(kind) });
+    }
 
     return (
         <AuthenticatedLayout
@@ -96,9 +115,9 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                     </div>
                     <div className="shrink-0">
                         {canCreateBranch ? (
-                            <AddButton href="/branches/create">فرع جديد</AddButton>
+                            <AddButton onClick={() => openCreateForm('branch')}>فرع جديد</AddButton>
                         ) : canCreateUser ? (
-                            <AddButton href="/users/create">مستخدم جديد</AddButton>
+                            <AddButton onClick={() => openCreateForm('user')}>مستخدم جديد</AddButton>
                         ) : null}
                     </div>
                 </>
@@ -249,6 +268,26 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                             );
                         })}
                 </div>
+            )}
+
+            {branchForm && (
+                <BranchModal
+                    show={creating === 'branch'}
+                    onClose={() => setCreating(null)}
+                    branch={null}
+                    governorates={branchForm.governorates}
+                    areas={branchForm.areas}
+                />
+            )}
+            {userForm && (
+                <UserModal
+                    show={creating === 'user'}
+                    onClose={() => setCreating(null)}
+                    user={null}
+                    branches={userForm.branches}
+                    canChooseBranch={userForm.canChooseBranch}
+                    roleOptions={userForm.roleOptions}
+                />
             )}
         </AuthenticatedLayout>
     );

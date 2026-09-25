@@ -4,20 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
 use App\Http\Concerns\FiltersDataTable;
+use App\Http\Concerns\ProvidesFormOptions;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class UserController extends Controller
 {
-    use FiltersDataTable;
+    use FiltersDataTable, ProvidesFormOptions;
 
     private const SORTABLE = ['name', 'username', 'role', 'is_active', 'created_at'];
 
@@ -48,8 +48,8 @@ class UserController extends Controller
             'canCreate' => $actor->can('create', User::class),
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => $this->filterOptions($actor),
-            'createRoleOptions' => $this->roleOptionsFor(null),
-            ...$this->formOptions(),
+            'createRoleOptions' => $this->userRoleOptions(null),
+            ...$this->userBranchOptions(),
         ]);
     }
 
@@ -61,8 +61,8 @@ class UserController extends Controller
         $this->authorize('create', User::class);
 
         return Inertia::render('Users/Create', [
-            ...$this->formOptions(),
-            'roleOptions' => $this->roleOptionsFor(null),
+            ...$this->userBranchOptions(),
+            'roleOptions' => $this->userRoleOptions(null),
         ]);
     }
 
@@ -97,8 +97,8 @@ class UserController extends Controller
 
         return Inertia::render('Users/Edit', [
             'user' => $this->editableFields($user),
-            ...$this->formOptions(),
-            'roleOptions' => $this->roleOptionsFor($user),
+            ...$this->userBranchOptions(),
+            'roleOptions' => $this->userRoleOptions($user),
         ]);
     }
 
@@ -135,45 +135,8 @@ class UserController extends Controller
             'role' => $user->role->value,
             'branch_id' => $user->branch_id,
             'is_active' => $user->is_active,
-            'roleOptions' => $this->roleOptionsFor($user),
+            'roleOptions' => $this->userRoleOptions($user),
         ];
-    }
-
-    /**
-     * The branch options for the create/edit forms, and whether the actor
-     * may choose the branch themselves.
-     *
-     * @return array{branches: Collection, canChooseBranch: bool}
-     */
-    private function formOptions(): array
-    {
-        $actor = auth()->user();
-        $canChooseBranch = $actor->isSuperAdmin();
-
-        return [
-            'branches' => $canChooseBranch ? Branch::orderBy('name')->get() : collect(),
-            'canChooseBranch' => $canChooseBranch,
-        ];
-    }
-
-    /**
-     * The roles the current actor may assign, given the user being edited
-     * (or null when creating a new user). A Super Admin's own role can't
-     * be changed, so editing one offers no roles at all.
-     *
-     * @return array<int, array{value: string, label: string}>
-     */
-    private function roleOptionsFor(?User $user): array
-    {
-        $actor = auth()->user();
-
-        $roles = match (true) {
-            ! $actor->isSuperAdmin() => UserRole::staffRoles(),
-            $user?->isSuperAdmin() => [],
-            default => UserRole::assignableBySuperAdmin(),
-        };
-
-        return UserRole::options($roles);
     }
 
     /**

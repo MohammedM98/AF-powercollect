@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\SubscriberStatus;
 use App\Enums\UserRole;
+use App\Http\Concerns\ProvidesFormOptions;
 use App\Models\Branch;
 use App\Models\MeterBox;
 use App\Models\Subscriber;
@@ -14,6 +15,8 @@ use Inertia\Response as InertiaResponse;
 
 class DashboardController extends Controller
 {
+    use ProvidesFormOptions;
+
     /**
      * Every section is built only when the actor is allowed to view that
      * table at all — the same policy checks the resource's own index page
@@ -60,6 +63,11 @@ class DashboardController extends Controller
             'sections' => $sections,
             'canCreateBranch' => $actor->can('create', Branch::class),
             'canCreateUser' => $actor->can('create', User::class),
+            // The "new branch/user" pop-up's dropdowns, loaded only when its button is clicked.
+            'branchForm' => Inertia::optional(fn () => $actor->can('create', Branch::class) ? $this->branchFormOptions() : null),
+            'userForm' => Inertia::optional(fn () => $actor->can('create', User::class)
+                ? [...$this->userBranchOptions(), 'roleOptions' => $this->userRoleOptions(null)]
+                : null),
         ]);
     }
 

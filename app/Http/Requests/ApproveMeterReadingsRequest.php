@@ -17,8 +17,8 @@ class ApproveMeterReadingsRequest extends FormRequest
     }
 
     /**
-     * Either the ticked readings (`reading_ids`), or `all` of the pending
-     * readings matching the page's current search and filters.
+     * Either the ticked readings (`reading_ids`), or `all` pending readings
+     * of the sheet's `week` matching its current search and filters.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -26,6 +26,7 @@ class ApproveMeterReadingsRequest extends FormRequest
     {
         return [
             'all' => ['boolean'],
+            'week' => ['exclude_unless:all,true', 'required', 'date'],
             'reading_ids' => ['exclude_if:all,true', 'required', 'array', 'max:500'],
             'reading_ids.*' => ['integer', 'distinct'],
         ];

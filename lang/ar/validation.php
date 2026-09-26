@@ -178,7 +178,7 @@ return [
         'address' => 'العنوان',
         'meter_box_id' => 'الطبلون',
         'tariff_id' => 'نوع الاشتراك',
-        'tariff_segment_id' => 'التصنيف',
+        'tariff_segment_id' => 'تصنيف الزبائن',
         'status' => 'الحالة',
         'circuit_breaker_id' => 'القاطع',
         'minimum_charge' => 'الحد الادنى',

@@ -99,12 +99,12 @@ export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegm
 
             <section className="mt-8 rounded-card border border-gray-100 bg-surface shadow-card">
                 <div className="border-b border-gray-100 px-6 py-4">
-                    <h3 className="text-base font-bold text-gray-900">تصنيفات المشتركين</h3>
+                    <h3 className="text-base font-bold text-gray-900">تصنيف الزبائن</h3>
                     <p className="mt-0.5 text-sm text-gray-500">مثل المساجد والمدارس والمستشفيات — للتجميع والتقارير، ويبقى السعر سعر التعرفة.</p>
                 </div>
 
                 {segmentGroups.length === 0 ? (
-                    <p className="px-6 py-8 text-center text-sm text-gray-500">أضف تعرفة أولًا، ثم أضف تصنيفاتها هنا.</p>
+                    <p className="px-6 py-8 text-center text-sm text-gray-500">أضف تعرفة أولًا، ثم أضف تصنيف الزبائن لها هنا.</p>
                 ) : (
                     <ul className="divide-y divide-gray-100">
                         {segmentGroups.map((group) => (
@@ -113,7 +113,7 @@ export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegm
                                 <div className="flex flex-1 flex-wrap items-center gap-2">
                                     {group.segments.length === 0 && (
                                         <span className="py-1.5 text-sm text-gray-400">
-                                            لا توجد تصنيفات — يُسجَّل المشتركون «{group.categoryLabel}» فقط.
+                                            لا يوجد تصنيف للزبائن — يُسجَّل المشتركون «{group.categoryLabel}» فقط.
                                         </span>
                                     )}
                                     {group.segments.map((segment) => {
@@ -134,7 +134,7 @@ export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegm
                                                 key={segment.id}
                                                 type="button"
                                                 onClick={() => setModalSegment(segment)}
-                                                title="تعديل التصنيف"
+                                                title="تعديل تصنيف الزبائن"
                                                 className={`${chipClass} transition hover:border-gray-300 hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900`}
                                             >
                                                 {content}
@@ -149,7 +149,7 @@ export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegm
                                 {canCreateSegment && (
                                     <div className="shrink-0">
                                         <AddButton variant="soft" onClick={() => setCreatingSegmentFor(group.id)}>
-                                            إضافة تصنيف
+                                            إضافة تصنيف للزبائن
                                         </AddButton>
                                     </div>
                                 )}

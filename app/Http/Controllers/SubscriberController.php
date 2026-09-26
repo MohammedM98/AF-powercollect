@@ -331,7 +331,7 @@ class SubscriberController extends Controller
                 Tariff::orderBy('category')->get(),
                 fn (Tariff $tariff) => __($tariff->category->label()),
             )),
-            $this->filterGroup('tariff_segment_id', 'التصنيف', $this->modelOptions(
+            $this->filterGroup('tariff_segment_id', 'تصنيف الزبائن', $this->modelOptions(
                 TariffSegment::with('tariff')->orderBy('tariff_id')->orderBy('name')->get(),
                 fn (TariffSegment $segment) => $segment->label(),
             )),

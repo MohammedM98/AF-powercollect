@@ -31,7 +31,7 @@ class TariffSegment extends Model
 
     /**
      * The segment as shown to people, with its tariff's category first,
-     * e.g. "سكني — مساجد".
+     * e.g. "منزلي — مساجد".
      */
     public function label(): string
     {

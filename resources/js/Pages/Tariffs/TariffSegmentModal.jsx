@@ -17,7 +17,14 @@ export default function TariffSegmentModal({ show, onClose, segment, tariffId, t
     const { data, setData, errors, isEdit } = form;
 
     return (
-        <FormModal show={show} onClose={onClose} form={form} title={isEdit ? 'تعديل التصنيف' : 'إضافة تصنيف'} icon="users" bodyClassName="space-y-4">
+        <FormModal
+            show={show}
+            onClose={onClose}
+            form={form}
+            title={isEdit ? 'تعديل تصنيف الزبائن' : 'إضافة تصنيف للزبائن'}
+            icon="users"
+            bodyClassName="space-y-4"
+        >
             <div>
                 <InputLabel htmlFor="tariff_id" value="نوع الاشتراك" />
                 <select
@@ -37,7 +44,7 @@ export default function TariffSegmentModal({ show, onClose, segment, tariffId, t
             </div>
 
             <div>
-                <InputLabel htmlFor="name" value="اسم التصنيف" />
+                <InputLabel htmlFor="name" value="اسم تصنيف الزبائن" />
                 <TextInput
                     id="name"
                     className="mt-1 block w-full"
@@ -50,7 +57,7 @@ export default function TariffSegmentModal({ show, onClose, segment, tariffId, t
             </div>
 
             <p className="rounded-control bg-gray-50 px-4 py-3 text-xs leading-5 text-gray-500">
-                التصنيف للتجميع والتقارير فقط؛ يدفع المشترك سعر التعرفة نفسه.
+                تصنيف الزبائن للتجميع والتقارير فقط؛ يدفع المشترك سعر التعرفة نفسه.
             </p>
         </FormModal>
     );

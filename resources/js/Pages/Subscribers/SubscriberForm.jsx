@@ -227,7 +227,7 @@ export default function SubscriberForm({
                 </select>
             </Field>
 
-            <Field id="tariff_segment_id" label="التصنيف" error={errors.tariff_segment_id}>
+            <Field id="tariff_segment_id" label="تصنيف الزبائن" error={errors.tariff_segment_id}>
                 <select
                     className="block w-full rounded-md border-gray-300 shadow-sm disabled:bg-gray-50 disabled:text-gray-500"
                     value={data.tariff_segment_id}

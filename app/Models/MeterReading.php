@@ -132,9 +132,11 @@ class MeterReading extends Model
 
             $reading->subscriber->transactions()->create([
                 'recorded_by' => $approver->id,
+                'meter_reading_id' => $reading->id,
                 'type' => SubscriberTransaction::TYPE_METER_READING,
                 'source_key' => $reading->chargeSourceKey(),
                 'amount' => $reading->amount_due,
+                'currency_amount' => $reading->amount_due,
             ]);
 
             $this->setRawAttributes($reading->getAttributes(), true);

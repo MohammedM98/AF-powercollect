@@ -24,6 +24,7 @@ class SubscriberTransactionFactory extends Factory
             'type' => 'subscription_fee',
             'source_key' => fn (array $attributes): string => 'subscription-fee:'.$attributes['subscriber_id'],
             'amount' => '50.00',
+            'currency_amount' => fn (array $attributes): string => ltrim((string) $attributes['amount'], '-'),
         ];
     }
 }

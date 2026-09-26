@@ -58,6 +58,16 @@ class SubscriberPolicy
     }
 
     /**
+     * Recording a payment takes the "Record Collections" permission, for a
+     * subscriber of the user's own branch (any branch for the Super Admin).
+     */
+    public function recordPayment(User $user, Subscriber $subscriber): bool
+    {
+        return $user->hasPermission(PermissionKey::RecordCollections)
+            && ($user->isSuperAdmin() || $subscriber->branch_id === $user->branch_id);
+    }
+
+    /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Subscriber $subscriber): bool

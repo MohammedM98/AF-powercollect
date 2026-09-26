@@ -7,6 +7,7 @@ const ICONS = {
     تعديل: 'pencil',
     حذف: 'trash',
     'إدارة الصلاحيات': 'shield',
+    'كشف الحساب': 'table',
 };
 
 /**

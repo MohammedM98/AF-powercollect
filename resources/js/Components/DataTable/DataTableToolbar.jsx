@@ -1,11 +1,18 @@
 import { useEffect, useRef } from 'react';
 import Icon from '@/Components/Icon';
+import { useTableDensity } from '@/hooks/useTableDensity';
 
 const PAGE_SIZES = [15, 25, 50, 100];
 
+const DENSITIES = [
+    { value: 'comfortable', icon: 'rows', label: 'صفوف مريحة' },
+    { value: 'compact', icon: 'list', label: 'صفوف مضغوطة' },
+];
+
 /**
  * The top of a table card: search (press / to jump to it, Esc to clear),
- * the result count and the page-size switch, with the filter row below.
+ * the result count, the row-density switch and the page-size switch, with
+ * the filter row below.
  */
 export default function DataTableToolbar({
     search,
@@ -18,6 +25,7 @@ export default function DataTableToolbar({
     filterMenu,
 }) {
     const searchRef = useRef(null);
+    const [density, setDensity] = useTableDensity();
 
     useEffect(() => {
         if (!showSearch) {
@@ -69,6 +77,23 @@ export default function DataTableToolbar({
                         نتيجة
                     </span>
                 )}
+                <div role="group" aria-label="كثافة الصفوف" className="inline-flex gap-0.5 rounded-control border border-gray-100 bg-gray-50 p-[3px]">
+                    {DENSITIES.map((option) => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            aria-pressed={density === option.value}
+                            aria-label={option.label}
+                            title={option.label}
+                            onClick={() => setDensity(option.value)}
+                            className={`flex h-[26px] w-8 items-center justify-center rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${
+                                density === option.value ? 'bg-surface text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-900'
+                            }`}
+                        >
+                            <Icon name={option.icon} className="h-4 w-4" />
+                        </button>
+                    ))}
+                </div>
                 <div
                     role="group"
                     aria-label="عدد الصفوف في الصفحة"

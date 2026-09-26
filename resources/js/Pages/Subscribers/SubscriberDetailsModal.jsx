@@ -75,7 +75,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                     >
                         <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-5 sm:px-8">
                             <div className="flex min-w-0 items-center gap-3">
-                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
                                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path
                                             strokeLinecap="round"
@@ -227,34 +227,41 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                 className="space-y-6"
                             >
                                 <div className="grid gap-4 sm:grid-cols-3">
-                                    <div className="rounded-xl border border-brand-100 bg-brand-50 p-5">
-                                        <p className="text-sm font-medium text-brand-700">المبلغ المستحق</p>
-                                        <p className="mt-2 text-2xl font-bold tabular-nums text-brand-700">
+                                    <div className="rounded-card border border-brand-500/20 bg-brand-500/10 p-5">
+                                        <p className="text-sm font-semibold text-brand-600">المبلغ المستحق</p>
+                                        <p className="mt-2 font-display text-2xl font-bold tabular-nums text-brand-600">
                                             {formatCurrency(subscriber.outstandingBalance)}
                                         </p>
                                     </div>
-                                    <div className="rounded-xl border border-gray-200 p-5">
-                                        <p className="text-sm text-gray-500">آخر قراءة للعداد</p>
-                                        <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{subscriber.lastReading}</p>
+                                    <div className="rounded-card border border-gray-100 bg-surface p-5">
+                                        <p className="text-sm text-gray-500">عدد المعاملات</p>
+                                        <p className="mt-2 font-display text-2xl font-bold tabular-nums text-gray-900">{statementRows.length}</p>
                                     </div>
-                                    <div className="rounded-xl border border-gray-200 p-5">
-                                        <p className="text-sm text-gray-500">آخر أسبوع مسجل</p>
-                                        <p className="mt-3 text-base font-semibold text-gray-900">
-                                            {lastReading ? `${lastReading.weekStart} ← ${lastReading.weekEnd}` : 'لا توجد قراءات بعد'}
+                                    <div className="rounded-card border border-gray-100 bg-surface p-5">
+                                        <p className="text-sm text-gray-500">آخر معاملة</p>
+                                        <p className="mt-3 font-display text-base font-bold text-gray-900" dir="ltr">
+                                            {statementRows[0]?.date ?? '—'}
                                         </p>
                                     </div>
                                 </div>
-                                {subscriber.canRecordReading && (
-                                    <div className="flex items-center justify-end gap-3">
-                                        {currentWeekRecorded ? (
+                                <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-gray-100 bg-gray-50 px-5 py-3.5">
+                                    <p className="text-sm text-gray-500">
+                                        آخر قراءة للعداد: <b className="font-display tabular-nums text-gray-900">{subscriber.lastReading}</b>
+                                        <span className="mx-2 text-gray-300">·</span>
+                                        آخر أسبوع مسجل:{' '}
+                                        <b className="font-semibold text-gray-900">
+                                            {lastReading ? `${lastReading.weekStart} ← ${lastReading.weekEnd}` : 'لا توجد قراءات بعد'}
+                                        </b>
+                                    </p>
+                                    {subscriber.canRecordReading &&
+                                        (currentWeekRecorded ? (
                                             <p className="text-sm text-gray-500">تم إدخال قراءة هذا الأسبوع.</p>
                                         ) : (
                                             <PrimaryButton type="button" onClick={() => setEnteringReading(true)}>
                                                 + إدخال قراءة
                                             </PrimaryButton>
-                                        )}
-                                    </div>
-                                )}
+                                        ))}
+                                </div>
                                 <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                     <label className="block text-sm text-gray-600 lg:col-span-2">
                                         بحث في المعاملات
@@ -292,9 +299,9 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                         تاريخ البداية يجب أن يسبق تاريخ النهاية.
                                     </p>
                                 )}
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                <div className="overflow-x-auto rounded-card border border-gray-100 bg-surface">
                                     <table className="w-full min-w-[900px] text-start text-sm">
-                                        <thead className="bg-gray-50 text-gray-500">
+                                        <thead className="bg-gray-50 text-xs text-gray-500">
                                             <tr>
                                                 {[
                                                     'التاريخ',

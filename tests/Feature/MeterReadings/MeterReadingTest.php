@@ -12,6 +12,7 @@ use App\Models\Permission;
 use App\Models\ReadingEntrySetting;
 use App\Models\SubArea;
 use App\Models\Subscriber;
+use App\Models\Tariff;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -95,19 +96,69 @@ class MeterReadingTest extends TestCase
         $this->assertSame('20.00', $reading->amount_due);
     }
 
-    public function test_correcting_a_reading_recalculates_its_charges_at_the_recorded_price(): void
+    public function test_correcting_a_reading_recalculates_its_charges_at_the_subscribers_current_price(): void
     {
         $reading = $this->recordedReading('2026-09-18', 1200, 1250);
         $reading->update(['unit_price' => 0.5, 'minimum_payment' => 10]);
-        $this->subscriber->tariff->update(['rate' => 9]);
+        $this->subscriber->update(['minimum_charge' => 10]);
+        Tariff::whereKey($this->subscriber->tariff_id)->update(['rate' => 2]);
 
         $this->actingAs($this->dataEntry)
             ->put(route('meter-readings.update', $reading), ['current_reading' => 1260])
             ->assertSessionHasNoErrors();
 
         $reading->refresh();
-        $this->assertSame('30.00', $reading->reading_fee);
-        $this->assertSame('30.00', $reading->amount_due);
+        $this->assertSame('2.00', $reading->unit_price);
+        $this->assertSame('120.00', $reading->reading_fee);
+        $this->assertSame('120.00', $reading->amount_due);
+    }
+
+    public function test_a_reading_follows_the_subscribers_new_tariff_and_minimum_until_it_is_approved(): void
+    {
+        $approved = $this->recordedReading('2026-09-11', 1150, 1200, MeterReadingStatus::Approved);
+        $approved->update(['unit_price' => '0.50', 'reading_fee' => '25.00', 'amount_due' => '25.00']);
+        $pending = $this->recordedReading('2026-09-18', 1200, 1250);
+        $commercial = Tariff::factory()->commercial()->create(['rate' => '1.20']);
+
+        $this->subscriber->update(['tariff_id' => $commercial->id, 'minimum_charge' => '70.00']);
+
+        $pending->refresh();
+        $this->assertSame(['1.20', '70.00', '60.00', '70.00'], [$pending->unit_price, $pending->minimum_payment, $pending->reading_fee, $pending->amount_due]);
+        $this->assertSame(['0.50', '25.00'], [$approved->fresh()->unit_price, $approved->fresh()->amount_due]);
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('rows.data.0.unitPrice', '1.20')
+                ->where('rows.data.0.reading.amountDue', '70.00'));
+    }
+
+    public function test_a_new_kilo_price_reprices_the_readings_waiting_for_approval(): void
+    {
+        $pending = $this->recordedReading('2026-09-18', 1200, 1250);
+        $this->subscriber->update(['minimum_charge' => '0.00']);
+        $tariff = $this->subscriber->tariff;
+
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->put(route('tariffs.update', $tariff), ['category' => $tariff->category->value, 'rate' => '0.80'])
+            ->assertSessionHasNoErrors();
+
+        $pending->refresh();
+        $this->assertSame('0.80', $pending->unit_price);
+        $this->assertSame('40.00', $pending->amount_due);
+    }
+
+    public function test_readings_entered_before_prices_followed_the_tariff_are_brought_up_to_date(): void
+    {
+        $pending = $this->recordedReading('2026-09-18', 1200, 1250);
+        $approved = $this->recordedReading('2026-09-11', 1150, 1200, MeterReadingStatus::Approved);
+        MeterReading::query()->update(['unit_price' => '0.10', 'minimum_payment' => '0.00', 'reading_fee' => '5.00', 'amount_due' => '5.00']);
+        Tariff::whereKey($this->subscriber->tariff_id)->update(['rate' => '2.00']);
+
+        (require database_path('migrations/2026_09_26_103551_reprice_pending_meter_readings.php'))->up();
+
+        $this->assertSame(['2.00', '100.00'], [$pending->fresh()->unit_price, $pending->fresh()->reading_fee]);
+        $this->assertSame(['0.10', '5.00'], [$approved->fresh()->unit_price, $approved->fresh()->amount_due]);
     }
 
     public function test_the_previous_reading_is_the_last_recorded_week(): void

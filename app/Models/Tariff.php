@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MeterReadingStatus;
 use App\Enums\TariffCategory;
 use Database\Factories\TariffFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -14,6 +15,18 @@ class Tariff extends Model
 {
     /** @use HasFactory<TariffFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        // Readings not yet approved follow the new kilo price.
+        static::updated(function (Tariff $tariff): void {
+            if ($tariff->wasChanged('rate')) {
+                $tariff->subscribers()
+                    ->whereHas('meterReadings', fn ($reading) => $reading->where('status', MeterReadingStatus::Pending))
+                    ->each(fn (Subscriber $subscriber) => MeterReading::repricePendingFor($subscriber));
+            }
+        });
+    }
 
     protected function casts(): array
     {

@@ -31,7 +31,7 @@ export default function BarChart({ data, label, formatValue = (value) => value.t
         <figure className="relative" dir="ltr">
             <div className="flex gap-2">
                 <div
-                    className="flex shrink-0 flex-col justify-between text-end font-display text-[10px] text-gray-400"
+                    className="flex shrink-0 flex-col justify-between text-end font-display text-[12px] text-gray-400"
                     style={{ height }}
                     aria-hidden="true"
                 >
@@ -81,7 +81,7 @@ export default function BarChart({ data, label, formatValue = (value) => value.t
                         </div>
                     )}
 
-                    <div className="mt-2 flex text-[10px] text-gray-400" aria-hidden="true">
+                    <div className="mt-2 flex text-[12px] text-gray-400" aria-hidden="true">
                         {data.map((point, index) => (
                             <span key={point.date} className="flex-1 whitespace-nowrap text-center" dir="rtl">
                                 {index % labelEvery === 0 || index === data.length - 1 ? formatShortDay(point.date) : ''}

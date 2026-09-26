@@ -7,16 +7,17 @@
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@600;700&family=El+Messiri:wght@600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
-
-        <!-- Theme: apply the saved choice before the page paints, so there is no flash. -->
+        <!-- Theme: apply the saved choice (light, dim or dark) before the page paints, so there is no flash. -->
         <script>
             try {
-                if (localStorage.getItem('theme') === 'dark') {
+                var theme = localStorage.getItem('theme');
+
+                if (theme === 'dark' || theme === 'dim') {
                     document.documentElement.classList.add('dark');
+                }
+
+                if (theme === 'dim') {
+                    document.documentElement.classList.add('dim');
                 }
             } catch (e) {}
         </script>

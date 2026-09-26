@@ -52,3 +52,25 @@ export function timeAgo(timestamp, now = new Date()) {
 
     return RELATIVE_FORMAT.format(Math.round(minutes / (60 * 24)), 'day');
 }
+
+/**
+ * When something happened, as short as a list needs it: "اليوم 10:24 ص",
+ * "أمس", or "20/09", for the server's "Y-m-d H:i" wall-clock time.
+ */
+export function formatActivityTime(dateTime, now = new Date()) {
+    const [day, time = '00:00'] = dateTime.split(' ');
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+
+    if (day === localDay(now)) {
+        return `اليوم ${formatClock(time)}`;
+    }
+
+    if (day === localDay(yesterday)) {
+        return 'أمس';
+    }
+
+    const [, month, date] = day.split('-');
+
+    return `${date}/${month}`;
+}

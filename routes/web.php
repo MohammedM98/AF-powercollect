@@ -41,6 +41,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::get('/subscribers/{subscriber}/statement', [SubscriberStatementController::class, 'show'])->name('subscribers.statement');
+    Route::get('/subscribers/{subscriber}/statement/export', [SubscriberStatementController::class, 'export'])->name('subscribers.statement.export');
     Route::post('/subscribers/{subscriber}/payments', [SubscriberPaymentController::class, 'store'])->name('subscribers.payments.store');
     Route::resource('tariffs', TariffController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('tariff-segments', TariffSegmentController::class)->only(['store', 'update']);

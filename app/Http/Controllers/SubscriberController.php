@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Currency;
+use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
 use App\Enums\SubscriberStatus;
 use App\Http\Concerns\FiltersDataTable;
@@ -20,6 +22,7 @@ use App\Models\User;
 use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -43,7 +46,10 @@ class SubscriberController extends Controller
         $query = Subscriber::query()
             ->visibleTo($actor)
             ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'tariffSegment', 'circuitBreaker', 'registeredBy', 'meterReadings.recordedBy'])
-            ->withSum('transactions as outstanding_balance', 'amount');
+            // The latest few account movements, for the quick preview's activity list.
+            ->with(['transactions' => fn ($transactions) => $transactions->with('meterReading')->latest()->latest('id')->limit(5)])
+            ->withSum('transactions as outstanding_balance', 'amount')
+            ->withMax(['transactions as last_payment_at' => fn ($transactions) => $transactions->where('type', SubscriberTransaction::TYPE_PAYMENT)], 'created_at');
         $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'account_number'], self::SORTABLE, 'full_name');
         $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'tariff_segment_id', 'meter_box_id']);
 
@@ -56,6 +62,9 @@ class SubscriberController extends Controller
         return Inertia::render('Subscribers/Index', [
             'subscribers' => $subscribers,
             'canCreate' => $actor->can('create', Subscriber::class),
+            'canRecordReadings' => $canRecordReadings,
+            'currencies' => Currency::options(),
+            'paymentMethods' => PaymentMethod::options(),
             'filters' => $this->dataTableState($request, 'full_name'),
             'filterOptions' => $this->filterOptions($actor),
             // Only the Super Admin may enter a reading for an earlier week.
@@ -164,7 +173,16 @@ class SubscriberController extends Controller
             'lastReading' => (int) ($latestReading?->current_reading ?? $subscriber->initial_reading ?? 0),
             'lastReadingWeekStart' => $latestReading?->week_start->format('Y-m-d'),
             'canRecordReading' => $canRecordReadings && $subscriber->status === SubscriberStatus::Active,
+            'canRecordPayment' => $actor->can('recordPayment', $subscriber),
             'canUpdate' => $actor->can('update', $subscriber),
+            'lastPaymentAt' => $subscriber->last_payment_at ? Carbon::parse($subscriber->last_payment_at)->format('Y-m-d') : null,
+            'recentActivity' => $subscriber->transactions->map(fn (SubscriberTransaction $transaction) => [
+                'id' => $transaction->id,
+                'date' => $transaction->created_at->format('Y-m-d H:i'),
+                'description' => $transaction->description(),
+                'isPayment' => $transaction->isPayment(),
+                'amount' => ltrim($transaction->amount, '-'),
+            ]),
         ];
     }
 

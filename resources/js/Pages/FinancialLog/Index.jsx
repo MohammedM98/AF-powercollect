@@ -11,6 +11,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatAmount } from '@/lib/currency';
 import { formatClock, formatDayLabel, localDay } from '@/lib/dates';
+import { SUBSCRIBER_STATUS_TONES } from '@/lib/subscriberStatus';
 
 const PERIODS = [
     { value: 'today', label: 'اليوم' },
@@ -21,8 +22,6 @@ const PERIODS = [
 ];
 
 const PERIOD_CAPTIONS = { today: 'اليوم', 7: 'آخر 7 أيام', 30: 'آخر 30 يوم', 90: 'آخر 90 يوم', all: 'منذ البداية' };
-
-const STATUS_DOTS = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
 function Shekels({ amount, digits = 2, className = '' }) {
     return (
@@ -128,7 +127,7 @@ function BranchBreakdown({ branches, caption }) {
                             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
                                 <div className="h-full rounded-full bg-brand-gradient" style={{ width: `${(branch.total / max) * 100}%` }} />
                             </div>
-                            <p className="mt-1 text-[11px] text-gray-400">{branch.count.toLocaleString('en-US')} قيد</p>
+                            <p className="mt-1 text-[12px] text-gray-400">{branch.count.toLocaleString('en-US')} قيد</p>
                         </li>
                     ))}
                 </ul>
@@ -236,7 +235,7 @@ export default function Index({ entries, period, summary, dayTotals, dailyTotals
                                                             <span className="flex items-center gap-2 font-bold text-gray-900">
                                                                 {formatDayLabel(entry.day)}
                                                                 {entry.day === today && (
-                                                                    <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                                                                    <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[12px] font-bold text-white">
                                                                         اليوم
                                                                     </span>
                                                                 )}
@@ -264,7 +263,7 @@ export default function Index({ entries, period, summary, dayTotals, dailyTotals
                                                         name={entry.subscriberName}
                                                         subtitle={entry.subscriberPhone}
                                                         subtitleDir="ltr"
-                                                        status={STATUS_DOTS[entry.subscriberStatus]}
+                                                        status={SUBSCRIBER_STATUS_TONES[entry.subscriberStatus]}
                                                     />
                                                 </td>
                                                 <td className="text-gray-600">{entry.branchName}</td>

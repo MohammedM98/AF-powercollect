@@ -11,6 +11,7 @@ import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import UserModal from './UserModal';
+import { rowClickProps } from '@/lib/rowClick';
 
 export default function Index({ users, canCreate, branches, canChooseBranch, createRoleOptions, filters, filterOptions }) {
     const [modalUser, setModalUser] = useState(null);
@@ -67,7 +68,7 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
                             </tr>
                         ) : (
                             users.data.map((user) => (
-                                <tr key={user.id}>
+                                <tr key={user.id} {...rowClickProps(user.canUpdate && (() => setModalUser(user)))}>
                                     <td>
                                         <RowIdentity name={user.name} subtitle={user.roleLabel} status={user.is_active ? 'green' : 'gray'} />
                                     </td>

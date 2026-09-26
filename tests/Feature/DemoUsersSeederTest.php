@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\User;
 use Database\Seeders\DemoUsersSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -20,7 +21,7 @@ class DemoUsersSeederTest extends TestCase
         $this->assertDatabaseHas('users', ['username' => 'data.entry', 'role' => UserRole::DataEntry->value]);
         $this->assertDatabaseHas('users', ['username' => 'auditor', 'role' => UserRole::FinancialAuditor->value]);
 
-        $branchIds = \App\Models\User::whereIn('username', ['branch.admin', 'collector', 'data.entry', 'auditor'])
+        $branchIds = User::whereIn('username', ['branch.admin', 'collector', 'data.entry', 'auditor'])
             ->pluck('branch_id')
             ->unique();
 

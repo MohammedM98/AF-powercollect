@@ -3,5 +3,5 @@ export default function InputError({ message, className = '' }) {
         return null;
     }
 
-    return <p className={`text-[12.5px] text-brand-600 ${className}`}>{message}</p>;
+    return <p className={`text-xs text-danger-ink ${className}`}>{message}</p>;
 }

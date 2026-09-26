@@ -33,7 +33,11 @@ export default function ConfirmDialog({
         <Modal show={show} onClose={onCancel} maxWidth="md" centered>
             <div role="alertdialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-message`}>
                 <div className="flex items-start gap-4 px-7 pb-6 pt-7">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
+                    <span
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                            isDanger ? 'bg-danger/10 text-danger-ink' : 'bg-brand-500/10 text-brand-600'
+                        }`}
+                    >
                         <Icon name={icon} strokeWidth={2} />
                     </span>
                     <div className="min-w-0 pt-0.5">

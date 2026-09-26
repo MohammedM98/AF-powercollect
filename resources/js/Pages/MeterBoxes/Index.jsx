@@ -10,6 +10,7 @@ import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import MeterBoxModal from './MeterBoxModal';
+import { rowClickProps } from '@/lib/rowClick';
 
 export default function Index({
     meterBoxes,
@@ -82,7 +83,7 @@ export default function Index({
                             </tr>
                         ) : (
                             meterBoxes.data.map((meterBox) => (
-                                <tr key={meterBox.id}>
+                                <tr key={meterBox.id} {...rowClickProps(meterBox.canUpdate && (() => setModalMeterBox(meterBox)))}>
                                     <td>
                                         <RowIdentity icon="table" name={meterBox.name} subtitle={meterBox.subAreaName} />
                                     </td>

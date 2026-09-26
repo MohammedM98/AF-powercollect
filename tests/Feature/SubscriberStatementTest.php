@@ -173,6 +173,92 @@ class SubscriberStatementTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_the_subscribers_list_carries_the_latest_movements_and_last_payment_for_the_quick_preview(): void
+    {
+        SubscriberTransaction::factory()->for($this->subscriber)->create(['amount' => '50.00']);
+
+        foreach (['2026-08-22' => '10', '2026-08-24' => '5', '2026-08-26' => '6', '2026-08-28' => '7', '2026-08-30' => '8'] as $day => $amount) {
+            $this->travelTo("{$day} 10:00:00");
+            $this->recordPayment(['amount' => $amount])->assertSessionHasNoErrors();
+        }
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('subscribers.data.0.lastPaymentAt', '2026-08-30')
+                ->where('subscribers.data.0.canRecordPayment', true)
+                ->where('subscribers.data.0.recentActivity', function ($activity): bool {
+                    $this->assertSame(['8.00', '7.00', '6.00', '5.00', '10.00'], collect($activity)->pluck('amount')->all());
+                    $this->assertSame(['2026-08-30 10:00', 'دفعة نقدية', true], [$activity[0]['date'], $activity[0]['description'], $activity[0]['isPayment']]);
+
+                    return true;
+                }));
+
+        $this->actingAs(User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]))
+            ->get(route('subscribers.index'))
+            ->assertInertia(fn ($page) => $page->where('subscribers.data.0.canRecordPayment', false));
+    }
+
+    public function test_the_statement_downloads_as_a_spreadsheet_with_the_balance_after_each_line(): void
+    {
+        SubscriberTransaction::factory()->for($this->subscriber)->create(['amount' => '50.00', 'recorded_by' => $this->branchAdmin->id]);
+
+        $this->travelTo('2026-08-30 12:40:00');
+        $this->recordPayment(['amount' => '80', 'cash_box' => '3', 'manual_voucher_number' => '4471'])->assertSessionHasNoErrors();
+
+        $response = $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement.export', $this->subscriber))
+            ->assertOk()
+            ->assertDownload("statement-{$this->subscriber->account_number}.csv")
+            ->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+
+        $content = $response->streamedContent();
+        $this->assertStringStartsWith("\u{FEFF}", $content, 'Excel needs the byte order mark to read the Arabic.');
+
+        $rows = $this->csvRows($content);
+        $this->assertCount(3, $rows);
+        $this->assertSame(['تاريخ الحركة', 'رقم السند', 'السند اليدوي', 'البيان', 'نوع الحركة'], array_slice($rows[0], 0, 5));
+        $this->assertSame(
+            ['2026-08-20 09:15', '', '', 'رسوم اشتراك جديد', 'عليه', 'تحميل · رسوم اشتراك', '50.00', 'شيكل', '1', '50.00', 'عليه', '', '', '', '', 'Mohammed', ''],
+            $rows[1],
+        );
+        $this->assertSame(
+            ['2026-08-30 12:40', '000001', '4471', 'دفعة نقدية', 'له', 'تسديد · دفعة', '80.00', 'شيكل', '1', '30.00', 'له', 'نقد', '', '', '3', 'Mohammed', ''],
+            $rows[2],
+        );
+    }
+
+    public function test_the_spreadsheet_shows_typed_text_that_looks_like_a_formula_instead_of_running_it(): void
+    {
+        $this->recordPayment(['notes' => '=HYPERLINK("http://evil.test","اضغط")'])->assertSessionHasNoErrors();
+
+        $content = $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement.export', $this->subscriber))
+            ->streamedContent();
+
+        $this->assertSame('\'=HYPERLINK("http://evil.test","اضغط")', $this->csvRows($content)[1][16]);
+    }
+
+    public function test_the_spreadsheet_is_only_given_within_the_actors_branch(): void
+    {
+        $this->actingAs(User::factory()->branchAdmin()->create())
+            ->get(route('subscribers.statement.export', $this->subscriber))
+            ->assertForbidden();
+    }
+
+    /**
+     * The rows of a downloaded CSV, without its byte order mark.
+     *
+     * @return list<list<string>>
+     */
+    private function csvRows(string $content): array
+    {
+        $lines = preg_split('/\R/u', trim(substr($content, strlen("\u{FEFF}"))));
+
+        return array_map(fn (string $line): array => str_getcsv($line, escape: ''), $lines);
+    }
+
     /**
      * @param  array<string, string>  $overrides
      */

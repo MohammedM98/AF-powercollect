@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { formatAmount } from '../../resources/js/lib/currency.js';
-import { formatClock, formatDayLabel, formatShortDay, timeAgo } from '../../resources/js/lib/dates.js';
+import { formatActivityTime, formatClock, formatDayLabel, formatShortDay, timeAgo } from '../../resources/js/lib/dates.js';
 
 test('amounts get thousands separators and fixed decimals', () => {
     assert.equal(formatAmount(12170), '12,170');
@@ -28,4 +28,12 @@ test('wall-clock times read as 12-hour Arabic times', () => {
     assert.equal(formatClock('17:05'), '5:05 م');
     assert.equal(formatClock('00:30'), '12:30 ص');
     assert.equal(formatClock('12:00'), '12:00 م');
+});
+
+test('activity times read as today with the time, yesterday, or day/month', () => {
+    const now = new Date(2026, 8, 26, 12, 0);
+
+    assert.equal(formatActivityTime('2026-09-26 10:24', now), 'اليوم 10:24 ص');
+    assert.equal(formatActivityTime('2026-09-25 18:02', now), 'أمس');
+    assert.equal(formatActivityTime('2026-09-01 08:00', now), '01/09');
 });

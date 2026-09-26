@@ -28,11 +28,30 @@ export default {
                 luxe: ['"El Messiri"', '"IBM Plex Sans Arabic"', ...defaultTheme.fontFamily.serif],
                 display: ['Alexandria', '"IBM Plex Sans Arabic"', ...defaultTheme.fontFamily.sans],
             },
+            /*
+             * Arabic needs more room than Latin to read comfortably, so every
+             * step is two pixels up on Tailwind's default (xs 12 → 14, sm 14
+             * → 16, …) with a looser line height.
+             */
+            fontSize: {
+                xs: ['0.875rem', { lineHeight: '1.6' }],
+                sm: ['1rem', { lineHeight: '1.7' }],
+                base: ['1.0625rem', { lineHeight: '1.75' }],
+                lg: ['1.25rem', { lineHeight: '1.6' }],
+                xl: ['1.375rem', { lineHeight: '1.5' }],
+                '2xl': ['1.625rem', { lineHeight: '1.4' }],
+                '3xl': ['2rem', { lineHeight: '1.3' }],
+            },
             colors: {
                 brand: scale('brand', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]),
                 gray: scale('gray', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]),
                 graphite: scale('graphite', [700, 800, 900]),
                 surface: variable('surface'),
+                sidebar: variable('sidebar'),
+                success: { DEFAULT: variable('success'), ink: variable('success-ink') },
+                info: { DEFAULT: variable('info'), ink: variable('info-ink') },
+                warning: { DEFAULT: variable('warning'), ink: variable('warning-ink') },
+                danger: { DEFAULT: variable('danger'), ink: variable('danger-ink') },
             },
             borderRadius: {
                 control: '12px',
@@ -49,7 +68,7 @@ export default {
             backgroundImage: {
                 spectrum: 'var(--spectrum)',
                 'brand-gradient': 'linear-gradient(180deg, #b8232c, #7d121b)',
-                'graphite-gradient': 'linear-gradient(135deg, #262c33, #1b2026 60%, #111519)',
+                'graphite-gradient': 'linear-gradient(135deg, rgb(var(--graphite-700)), rgb(var(--graphite-800)) 60%, rgb(var(--graphite-900)))',
             },
         },
     },

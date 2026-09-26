@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import AddButton from '@/Components/AddButton';
 import Icon from '@/Components/Icon';
+import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { describeBalance, filterStatementEntries } from '@/lib/accountStatement';
 import PaymentModal from './PaymentModal';
@@ -135,12 +135,30 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
         setFilters((current) => ({ ...current, [key]: value }));
     }
 
+    // Opened as "طباعة / PDF" from a subscriber's menu: print once the page is on screen.
+    useEffect(() => {
+        const url = new URL(window.location.href);
+
+        if (url.searchParams.get('print') !== '1') {
+            return;
+        }
+
+        url.searchParams.delete('print');
+        window.history.replaceState(window.history.state, '', url);
+        const timer = window.setTimeout(() => window.print(), 400);
+
+        return () => window.clearTimeout(timer);
+    }, []);
+
     return (
         <AuthenticatedLayout
             header={
                 <>
                     <div className="min-w-0">
-                        <Link href="/subscribers" className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-900">
+                        <Link
+                            href="/subscribers"
+                            className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-900 print:hidden"
+                        >
                             → المشتركون
                         </Link>
                         <h2 className="mt-1 text-3xl font-bold text-gray-900">كشف حساب المشترك</h2>
@@ -150,11 +168,25 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
                             {subscriber.meterBoxNumber && ` · طبلون ${subscriber.meterBoxNumber}`} · {subscriber.branchName}
                         </p>
                     </div>
-                    {canRecordPayment && (
-                        <div className="shrink-0">
-                            <AddButton onClick={() => setRecordingPayment(true)}>تسجيل دفعة</AddButton>
-                        </div>
-                    )}
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 print:hidden">
+                        <SecondaryButton onClick={() => window.print()}>
+                            <Icon name="printer" className="h-4 w-4" />
+                            طباعة / PDF
+                        </SecondaryButton>
+                        <a
+                            href={`/subscribers/${subscriber.id}/statement/export`}
+                            className="inline-flex items-center justify-center gap-2 rounded-control border border-gray-200 bg-surface px-4 py-2.5 text-sm font-semibold text-gray-900 transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+                        >
+                            <Icon name="download" className="h-4 w-4" />
+                            ملف Excel
+                        </a>
+                        {canRecordPayment && (
+                            <button type="button" onClick={() => setRecordingPayment(true)} className="btn-success">
+                                <Icon name="cash" className="h-5 w-5" />
+                                تسجيل دفعة
+                            </button>
+                        )}
+                    </div>
                 </>
             }
         >
@@ -178,7 +210,7 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
                 />
             </div>
 
-            <div className="data-table-toolbar">
+            <div className="data-table-toolbar print:hidden">
                 <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-6">
                     <label className="block text-sm text-gray-600 sm:col-span-2">
                         بحث

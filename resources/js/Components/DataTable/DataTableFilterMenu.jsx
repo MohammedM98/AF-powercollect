@@ -67,7 +67,7 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
                 >
                     <Icon name="filter" className="h-4 w-4" />
                     الفلاتر الظاهرة
-                    <span className="rounded-md bg-gray-100 px-1.5 py-0.5 font-display text-[11px] text-gray-500">
+                    <span className="rounded-md bg-gray-100 px-1.5 py-0.5 font-display text-[12px] text-gray-500">
                         {visibleKeys.length}/{groups.length}
                     </span>
                 </button>

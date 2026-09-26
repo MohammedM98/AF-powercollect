@@ -14,6 +14,7 @@ use App\Http\Controllers\ReadNotificationController;
 use App\Http\Controllers\SubAreaController;
 use App\Http\Controllers\SubscriberController;
 use App\Http\Controllers\TariffController;
+use App\Http\Controllers\TariffSegmentController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,6 +33,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('tariffs', TariffController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::resource('tariff-segments', TariffSegmentController::class)->only(['store', 'update']);
     Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('meter-boxes', MeterBoxController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('meter-readings', MeterReadingController::class)->only(['index', 'store', 'update']);

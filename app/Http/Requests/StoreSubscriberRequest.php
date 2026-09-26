@@ -40,6 +40,8 @@ class StoreSubscriberRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:1000'],
             'meter_box_id' => ['nullable', Rule::exists('meter_boxes', 'id')],
             'tariff_id' => ['required', Rule::exists('tariffs', 'id')],
+            // Optional, and only one of the chosen tariff's own segments.
+            'tariff_segment_id' => ['nullable', Rule::exists('tariff_segments', 'id')->where('tariff_id', $this->input('tariff_id'))],
             'status' => ['required', Rule::enum(SubscriberStatus::class)],
             'circuit_breaker_id' => ['nullable', Rule::exists('circuit_breakers', 'id')],
             'minimum_charge' => ['required', 'numeric', 'min:0'],

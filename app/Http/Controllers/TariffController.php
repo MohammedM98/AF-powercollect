@@ -7,6 +7,8 @@ use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreTariffRequest;
 use App\Http\Requests\UpdateTariffRequest;
 use App\Models\Tariff;
+use App\Models\TariffSegment;
+use App\Models\User;
 use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,7 +43,9 @@ class TariffController extends Controller
 
         return Inertia::render('Tariffs/Index', [
             'tariffs' => $tariffs,
+            'segmentGroups' => $this->segmentGroups($actor),
             'canCreate' => $actor->can('create', Tariff::class),
+            'canCreateSegment' => $actor->can('create', TariffSegment::class),
             'filters' => $this->dataTableState($request, 'category'),
             'categoryOptions' => TariffCategory::options(),
             'filterOptions' => [
@@ -95,6 +99,32 @@ class TariffController extends Controller
         $request->user()->notify(new ActionCompleted('tariff-updated', __($tariff->category->label())));
 
         return redirect()->route('tariffs.index')->with('status', 'tariff-updated');
+    }
+
+    /**
+     * Every tariff with its customer segments and how many subscribers
+     * each has, for the segments panel on the index page.
+     *
+     * @return array<int, array{id: int, categoryLabel: string, segments: array<int, array{id: int, tariff_id: int, name: string, subscribersCount: int, canUpdate: bool}>}>
+     */
+    private function segmentGroups(User $actor): array
+    {
+        return Tariff::query()
+            ->with(['segments' => fn ($query) => $query->withCount('subscribers')])
+            ->orderBy('category')
+            ->get()
+            ->map(fn (Tariff $tariff) => [
+                'id' => $tariff->id,
+                'categoryLabel' => __($tariff->category->label()),
+                'segments' => $tariff->segments->map(fn (TariffSegment $segment) => [
+                    'id' => $segment->id,
+                    'tariff_id' => $segment->tariff_id,
+                    'name' => $segment->name,
+                    'subscribersCount' => $segment->subscribers_count,
+                    'canUpdate' => $actor->can('update', $segment),
+                ])->all(),
+            ])
+            ->all();
     }
 
     /**

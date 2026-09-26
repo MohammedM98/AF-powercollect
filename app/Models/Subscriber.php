@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 #[Fillable([
-    'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'branch_id',
+    'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'tariff_segment_id', 'branch_id',
     'registered_by', 'status', 'circuit_breaker_id', 'minimum_charge', 'initial_reading', 'subscription_fee',
     'subscription_date', 'notes',
 ])]
@@ -73,6 +73,11 @@ class Subscriber extends Model
     public function tariff(): BelongsTo
     {
         return $this->belongsTo(Tariff::class);
+    }
+
+    public function tariffSegment(): BelongsTo
+    {
+        return $this->belongsTo(TariffSegment::class);
     }
 
     public function circuitBreaker(): BelongsTo

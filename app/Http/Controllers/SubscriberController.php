@@ -15,6 +15,7 @@ use App\Models\SubArea;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\Tariff;
+use App\Models\TariffSegment;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
@@ -41,10 +42,10 @@ class SubscriberController extends Controller
 
         $query = Subscriber::query()
             ->visibleTo($actor)
-            ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'registeredBy', 'transactions.recordedBy', 'meterReadings.recordedBy'])
+            ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'tariffSegment', 'circuitBreaker', 'registeredBy', 'transactions.recordedBy', 'meterReadings.recordedBy'])
             ->withSum('transactions as outstanding_balance', 'amount');
         $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'account_number'], self::SORTABLE, 'full_name');
-        $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'meter_box_id']);
+        $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'tariff_segment_id', 'meter_box_id']);
 
         $canRecordReadings = $actor->can('create', MeterReading::class);
 
@@ -151,6 +152,7 @@ class SubscriberController extends Controller
             'meterBoxNumber' => $subscriber->meterBox?->box_number,
             'subAreaName' => $subscriber->meterBox?->subArea?->name,
             'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
+            'tariffSegmentName' => $subscriber->tariffSegment?->name,
             'tariffRate' => $subscriber->tariff->rate,
             'circuitBreakerAmpere' => $subscriber->circuitBreaker?->ampere,
             'statusLabel' => __($subscriber->status->label()),
@@ -250,6 +252,7 @@ class SubscriberController extends Controller
             'address' => $subscriber->address,
             'meter_box_id' => $subscriber->meter_box_id,
             'tariff_id' => $subscriber->tariff_id,
+            'tariff_segment_id' => $subscriber->tariff_segment_id,
             'branch_id' => $subscriber->branch_id,
             'status' => $subscriber->status->value,
             'circuit_breaker_id' => $subscriber->circuit_breaker_id,
@@ -291,10 +294,11 @@ class SubscriberController extends Controller
                 'sub_area_id' => $box->sub_area_id,
             ]);
 
-        $tariffs = Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => [
+        $tariffs = Tariff::with('segments')->orderBy('category')->get()->map(fn (Tariff $tariff) => [
             'id' => $tariff->id,
             'categoryLabel' => __($tariff->category->label()),
             'rate' => $tariff->rate,
+            'segments' => $tariff->segments->map(fn (TariffSegment $segment) => ['id' => $segment->id, 'name' => $segment->name]),
         ]);
 
         return [
@@ -326,6 +330,10 @@ class SubscriberController extends Controller
             $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(
                 Tariff::orderBy('category')->get(),
                 fn (Tariff $tariff) => __($tariff->category->label()),
+            )),
+            $this->filterGroup('tariff_segment_id', 'التصنيف', $this->modelOptions(
+                TariffSegment::with('tariff')->orderBy('tariff_id')->orderBy('name')->get(),
+                fn (TariffSegment $segment) => $segment->label(),
             )),
             $this->filterGroup('meter_box_id', 'الطبلون', $this->modelOptions(
                 $meterBoxes,

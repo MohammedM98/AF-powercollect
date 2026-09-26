@@ -8,6 +8,7 @@ use App\Models\CircuitBreaker;
 use App\Models\Permission;
 use App\Models\Subscriber;
 use App\Models\Tariff;
+use App\Models\TariffSegment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\TestWith;
@@ -179,6 +180,31 @@ class SubscriberValidationTest extends TestCase
             'national_id' => $payload['national_id'],
             'circuit_breaker_id' => $circuitBreaker->id,
         ]);
+    }
+
+    public function test_registering_a_subscriber_with_a_segment_of_its_tariff_stores_it(): void
+    {
+        $payload = $this->validPayload();
+        $segment = TariffSegment::factory()->create(['tariff_id' => $payload['tariff_id'], 'name' => 'مساجد']);
+        $payload['tariff_segment_id'] = $segment->id;
+
+        $this->post(route('subscribers.store'), $payload)
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('subscribers.index'));
+
+        $this->assertDatabaseHas('subscribers', [
+            'national_id' => $payload['national_id'],
+            'tariff_segment_id' => $segment->id,
+        ]);
+    }
+
+    public function test_subscriber_segment_must_belong_to_the_chosen_tariff(): void
+    {
+        $payload = $this->validPayload();
+        $payload['tariff_segment_id'] = TariffSegment::factory()->create(['tariff_id' => Tariff::factory()->commercial()])->id;
+
+        $this->post(route('subscribers.store'), $payload)->assertSessionHasErrors('tariff_segment_id');
+        $this->assertDatabaseCount('subscribers', 0);
     }
 
     public function test_subscriber_circuit_breaker_must_exist(): void

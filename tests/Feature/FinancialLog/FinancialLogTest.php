@@ -104,6 +104,28 @@ class FinancialLogTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('dayTotals.'.today()->toDateString(), ['total' => 75, 'count' => 2]));
     }
 
+    public function test_payments_are_listed_but_kept_out_of_the_charge_totals(): void
+    {
+        $branch = Branch::factory()->create();
+        $charge = $this->entry($branch, '80.00');
+        SubscriberTransaction::factory()->for($charge->subscriber)->create([
+            'type' => SubscriberTransaction::TYPE_PAYMENT,
+            'source_key' => 'payment:test',
+            'amount' => '-30.00',
+        ]);
+
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('financial-log.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('entries.data', 2)
+                ->where('entries.data', fn ($rows) => collect($rows)->contains(fn ($row) => $row['isPayment'] && $row['typeLabel'] === 'تسديد · دفعة'))
+                ->where('summary.total', 80)
+                ->where('summary.count', 1)
+                ->where('summary.paid', 30)
+                ->where('branchTotals.0.total', 80)
+                ->where('dayTotals.'.today()->toDateString(), ['total' => 80, 'count' => 1]));
+    }
+
     public function test_viewing_the_log_needs_the_view_collections_permission(): void
     {
         $collector = User::factory()->collector()->create();

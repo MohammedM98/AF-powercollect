@@ -3,10 +3,14 @@
 namespace App\Models;
 
 use App\Enums\MeterReadingStatus;
+use App\Enums\PermissionKey;
+use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToBranch;
 use Carbon\CarbonInterface;
 use Database\Factories\MeterReadingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -128,13 +132,69 @@ class MeterReading extends Model
 
             $reading->subscriber->transactions()->create([
                 'recorded_by' => $approver->id,
+                'meter_reading_id' => $reading->id,
                 'type' => SubscriberTransaction::TYPE_METER_READING,
-                'source_key' => 'meter-reading:'.$reading->id,
+                'source_key' => $reading->chargeSourceKey(),
                 'amount' => $reading->amount_due,
+                'currency_amount' => $reading->amount_due,
             ]);
 
             $this->setRawAttributes($reading->getAttributes(), true);
         });
+    }
+
+    /**
+     * Correct the reading and recalculate its charges at the prices captured
+     * when it was recorded. An approved reading goes back to review: its
+     * charge is taken off the subscriber's transactions until it is approved
+     * again. Returns whether that happened.
+     */
+    public function correct(int $currentReading, ?string $notes): bool
+    {
+        return DB::transaction(function () use ($currentReading, $notes): bool {
+            $wasApproved = ! $this->isPending();
+            $consumption = $currentReading - $this->previous_reading;
+
+            if ($wasApproved) {
+                SubscriberTransaction::where('source_key', $this->chargeSourceKey())->delete();
+            }
+
+            $this->update([
+                'current_reading' => $currentReading,
+                'consumption' => $consumption,
+                ...self::chargesFor($consumption, $this->unit_price, $this->minimum_payment),
+                'notes' => $notes,
+                ...($wasApproved ? ['status' => MeterReadingStatus::Pending, 'approved_by' => null, 'approved_at' => null] : []),
+            ]);
+
+            return $wasApproved;
+        });
+    }
+
+    /**
+     * The active users who may approve this reading: those holding the
+     * permission in its branch, and every Super Admin.
+     *
+     * @return Collection<int, User>
+     */
+    public function approvers(): Collection
+    {
+        return User::query()
+            ->where('is_active', true)
+            ->where(fn (Builder $query) => $query
+                ->where('role', UserRole::SuperAdmin)
+                ->orWhere(fn (Builder $inBranch) => $inBranch
+                    ->where('branch_id', $this->branch_id)
+                    ->whereHas('permissions', fn (Builder $permission) => $permission->where('key', PermissionKey::ApproveMeterReadings->value))))
+            ->get();
+    }
+
+    /**
+     * The key of the transaction that charges this reading once approved.
+     */
+    public function chargeSourceKey(): string
+    {
+        return 'meter-reading:'.$this->id;
     }
 
     public function subscriber(): BelongsTo

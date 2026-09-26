@@ -38,12 +38,14 @@ class MeterReadingPolicy
     }
 
     /**
-     * A reading stays editable only until it has been approved, while its
-     * week is still the latest one, and only within the actor's own branch.
+     * A reading stays correctable while its week is still the latest one,
+     * and only within the actor's own branch — even while the entry window
+     * is closed, which only stops new readings. Correcting an approved one
+     * sends it back for approval (MeterReading::correct()).
      */
     public function update(User $user, MeterReading $meterReading): bool
     {
-        if (! $this->canRecord($user) || ! $meterReading->isPending() || ! $this->entryIsOpenFor($user)) {
+        if (! $this->canRecord($user)) {
             return false;
         }
 
@@ -55,7 +57,8 @@ class MeterReadingPolicy
     }
 
     /**
-     * Whether the user may approve readings at all (the approvals page).
+     * Whether the user may approve readings at all (ticked by default for
+     * Branch Admins and Accountants).
      */
     public function approveAny(User $user): bool
     {
@@ -99,8 +102,8 @@ class MeterReadingPolicy
     }
 
     /**
-     * The Super Admin may record readings at any time; everyone else only
-     * while the company-wide reading entry window is open.
+     * The Super Admin may record new readings at any time; everyone else
+     * only while the company-wide reading entry window is open.
      */
     private function entryIsOpenFor(User $user): bool
     {

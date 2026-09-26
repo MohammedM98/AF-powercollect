@@ -19,7 +19,7 @@ class MalformedQueryParametersTest extends TestCase
     #[TestWith(['/subscribers?search[]=x'])]
     #[TestWith(['/subscribers?sort[]=full_name&direction[]=desc'])]
     #[TestWith(['/users?search[]=x'])]
-    #[TestWith(['/meter-reading-approvals?search[]=x&sort[]=week_start'])]
+    #[TestWith(['/meter-readings?search[]=x&sort[]=full_name'])]
     #[TestWith(['/financial-log?search[]=x&period[]=7'])]
     #[TestWith(['/financial-log?filter[branch_id][]=1'])]
     #[TestWith(['/branch-performance?sort[]=revenue'])]

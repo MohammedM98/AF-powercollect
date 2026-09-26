@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
@@ -140,6 +140,7 @@ export default function Index({
                                     <td className="text-end">
                                         <RowActionsMenu>
                                             <button onClick={() => setViewingSubscriberId(subscriber.id)}>عرض</button>
+                                            <Link href={`/subscribers/${subscriber.id}/statement`}>كشف الحساب</Link>
                                             {subscriber.canUpdate && <button onClick={() => setModalSubscriber(subscriber)}>تعديل</button>}
                                         </RowActionsMenu>
                                     </td>

@@ -61,9 +61,10 @@ export default function ConfirmDialog({
 
 /**
  * The "are you sure?" shown before a create/edit form is sent. `isEdit`
- * picks the wording for changing an existing record over adding a new one.
+ * picks the wording for changing an existing record over adding a new one;
+ * `message` replaces the explanation when a save needs a specific warning.
  */
-export function SaveConfirmDialog({ show, isEdit, onConfirm, onCancel }) {
+export function SaveConfirmDialog({ show, isEdit, onConfirm, onCancel, message = null }) {
     return (
         <ConfirmDialog
             show={show}
@@ -71,9 +72,10 @@ export function SaveConfirmDialog({ show, isEdit, onConfirm, onCancel }) {
             onCancel={onCancel}
             title={isEdit ? 'حفظ التعديلات؟' : 'إضافة السجل؟'}
             message={
-                isEdit
+                message ??
+                (isEdit
                     ? 'سيتم حفظ التعديلات التي أجريتها على هذا السجل. هل تريد المتابعة؟'
-                    : 'سيتم إضافة سجل جديد بالبيانات التي أدخلتها. هل تريد المتابعة؟'
+                    : 'سيتم إضافة سجل جديد بالبيانات التي أدخلتها. هل تريد المتابعة؟')
             }
             confirmLabel={isEdit ? 'نعم، احفظ التعديلات' : 'نعم، أضف'}
             cancelLabel="مراجعة البيانات"

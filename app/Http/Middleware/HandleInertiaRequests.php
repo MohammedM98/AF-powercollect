@@ -71,7 +71,6 @@ class HandleInertiaRequests extends Middleware
                 'viewCircuitBreakers' => $user->can('viewAny', CircuitBreaker::class),
                 'viewMeterBoxes' => $user->can('viewAny', MeterBox::class),
                 'viewMeterReadings' => $user->can('viewAny', MeterReading::class),
-                'approveMeterReadings' => $user->can('approveAny', MeterReading::class),
                 'viewGovernorates' => $user->can('viewAny', Governorate::class) || $user->can('viewAny', SubArea::class),
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manage', ReadingEntrySetting::class),

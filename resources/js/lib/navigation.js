@@ -9,7 +9,6 @@ export const MAIN_LINKS = [
     { href: '/branch-performance', label: 'أداء الفروع', icon: 'arrow-trend', can: 'viewFinancialLog' },
     { href: '/subscribers', label: 'المشتركون', icon: 'users', can: 'viewSubscribers' },
     { href: '/meter-readings', label: 'القراءات', icon: 'chart', can: 'viewMeterReadings' },
-    { href: '/meter-reading-approvals', label: 'اعتماد القراءات', icon: 'check', can: 'approveMeterReadings' },
     { href: '/users', label: 'المستخدمون', icon: 'user', can: 'viewUsers' },
 ];
 

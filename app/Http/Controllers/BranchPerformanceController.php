@@ -84,7 +84,7 @@ class BranchPerformanceController extends Controller
         $this->authorize('viewForBranch', [SubscriberTransaction::class, $branch]);
 
         $branch = $this->withFigures(Branch::query())->with(['governorate', 'area'])->findOrFail($branch->id);
-        $ledger = SubscriberTransaction::query()->whereHas('subscriber', fn (Builder $query) => $query->where('branch_id', $branch->id));
+        $ledger = SubscriberTransaction::query()->charges()->whereHas('subscriber', fn (Builder $query) => $query->where('branch_id', $branch->id));
         $subscribers = Subscriber::query()->where('branch_id', $branch->id);
 
         return Inertia::render('BranchPerformance/Show', [
@@ -137,7 +137,7 @@ class BranchPerformanceController extends Controller
                 'subscribers as week_entries_count' => fn (Builder $query) => $query->where('created_at', '>=', today()->subDays(6)),
                 'users as staff_count',
             ])
-            ->withSum('transactions as ledger_total', 'amount')
+            ->withSum(['transactions as ledger_total' => fn (Builder $query) => $query->charges()], 'amount')
             ->withMax('subscribers as last_entry_at', 'created_at');
     }
 
@@ -208,6 +208,7 @@ class BranchPerformanceController extends Controller
             ->get();
 
         $recorded = SubscriberTransaction::query()
+            ->charges()
             ->whereIn('recorded_by', $members->modelKeys())
             ->whereHas('subscriber', fn (Builder $query) => $query->where('branch_id', $branch->id))
             ->selectRaw('recorded_by, sum(amount) as total, max(created_at) as last_recorded_at')

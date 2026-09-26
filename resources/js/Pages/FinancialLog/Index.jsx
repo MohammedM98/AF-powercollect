@@ -81,6 +81,7 @@ function TotalCard({ summary, caption }) {
                 {summary.count.toLocaleString('en-US')} قيد
                 {summary.previousTotal > 0 && <> · مقارنة بالفترة السابقة ({formatAmount(summary.previousTotal)} شيكل)</>}
                 {summary.previousTotal === 0 && <> · لا توجد قيود في الفترة السابقة</>}
+                {summary.paid > 0 && <> · المسدَّد {formatAmount(summary.paid)} شيكل</>}
             </p>
             <div className="brand-spectrum absolute inset-x-6 bottom-0" aria-hidden="true" />
         </div>
@@ -142,7 +143,8 @@ export default function Index({ entries, period, summary, dayTotals, dailyTotals
     const today = localDay();
     // Grouping by day only reads right while the list is in date order.
     const groupByDay = filters.sort === 'created_at';
-    const pageTotal = entries.data.reduce((total, entry) => total + Number(entry.amount), 0);
+    // Payments are stored as negative amounts; the totals count charges only.
+    const pageTotal = entries.data.filter((entry) => !entry.isPayment).reduce((total, entry) => total + Number(entry.amount), 0);
 
     function changePeriod(next) {
         router.get(
@@ -273,7 +275,16 @@ export default function Index({ entries, period, summary, dayTotals, dailyTotals
                                                 </td>
                                                 <td className="text-gray-600">{entry.recordedByName ?? '—'}</td>
                                                 <td>
-                                                    <Shekels amount={entry.amount} />
+                                                    {entry.isPayment ? (
+                                                        <span className="whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+                                                            <b className="font-display font-bold" dir="ltr">
+                                                                −{formatAmount(Math.abs(entry.amount), 2)}
+                                                            </b>{' '}
+                                                            <span className="text-xs">شيكل</span>
+                                                        </span>
+                                                    ) : (
+                                                        <Shekels amount={entry.amount} />
+                                                    )}
                                                 </td>
                                             </tr>
                                         </Fragment>
@@ -287,7 +298,7 @@ export default function Index({ entries, period, summary, dayTotals, dailyTotals
                 {entries.data.length > 0 && (
                     <div className="data-table-footer flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
                         <span>
-                            مجموع هذه الصفحة: <Shekels amount={pageTotal} />
+                            مجموع قيود هذه الصفحة: <Shekels amount={pageTotal} />
                         </span>
                         <span>
                             مجموع {caption}: <Shekels amount={summary.total} className="[&>b]:text-brand-600" />

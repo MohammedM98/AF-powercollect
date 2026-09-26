@@ -101,6 +101,24 @@ class BranchPerformanceTest extends TestCase
                 ->has('workLog', 14));
     }
 
+    public function test_payments_do_not_count_toward_a_branchs_ledger_total(): void
+    {
+        $branch = Branch::factory()->create();
+        $subscriber = $this->subscriberWithEntry($branch, '100.00');
+        SubscriberTransaction::factory()->for($subscriber)->create([
+            'type' => SubscriberTransaction::TYPE_PAYMENT,
+            'source_key' => 'payment:test',
+            'amount' => '-40.00',
+        ]);
+
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('branch-performance.show', $branch))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('branch.ledgerTotal', 100)
+                ->where('branch.monthLedgerTotal', 100)
+                ->where('workLog.0.ledgerCount', 1));
+    }
+
     public function test_the_pages_need_the_view_collections_permission(): void
     {
         $branch = Branch::factory()->create();

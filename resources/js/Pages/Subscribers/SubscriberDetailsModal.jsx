@@ -1,10 +1,12 @@
 import { useId, useState } from 'react';
+import { Link } from '@inertiajs/react';
 import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatCurrency } from '@/lib/currency';
-import { buildSubscriberStatement, filterSubscriberStatement } from '@/lib/subscriberTransactions';
+import Icon from '@/Components/Icon';
+import { describeBalance } from '@/lib/accountStatement';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 
 const STATUS_TONES = {
@@ -37,15 +39,9 @@ function Section({ title, children }) {
 export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, canUpdate, readingWeekOptions = [] }) {
     const [activeTab, setActiveTab] = useState('transactions');
     const [expanded, setExpanded] = useState(false);
-    const [search, setSearch] = useState('');
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
     const [enteringReading, setEnteringReading] = useState(false);
-    const [editingReading, setEditingReading] = useState(null);
     const tabsId = useId();
-    const statementRows = subscriber ? buildSubscriberStatement(subscriber) : [];
-    const invalidDates = Boolean(dateFrom && dateTo && dateFrom > dateTo);
-    const visibleRows = filterSubscriberStatement(statementRows, { search, dateFrom, dateTo });
+    const balance = describeBalance(subscriber?.outstandingBalance ?? 0);
     const lastReading = subscriber?.meterReadings?.[0];
     const currentWeekRecorded = Boolean(lastReading && lastReading.weekStart === readingWeekOptions[0]?.value);
     const readingSubscriberOption = subscriber
@@ -56,12 +52,6 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
               lastWeekStart: subscriber.lastReadingWeekStart,
           }
         : null;
-
-    function resetFilters() {
-        setSearch('');
-        setDateFrom('');
-        setDateTo('');
-    }
 
     return (
         <>
@@ -136,7 +126,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                         <div role="tablist" aria-label="أقسام ملف المشترك" className="mx-4 flex shrink-0 gap-6 border-b border-gray-200 sm:mx-8">
                             {[
                                 ['details', 'بيانات المشترك'],
-                                ['transactions', 'سجل المعاملات'],
+                                ['transactions', 'الحساب'],
                             ].map(([tab, label]) => (
                                 <button
                                     key={tab}
@@ -227,151 +217,58 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                 className="space-y-6"
                             >
                                 <div className="grid gap-4 sm:grid-cols-3">
-                                    <div className="rounded-card border border-brand-500/20 bg-brand-500/10 p-5">
-                                        <p className="text-sm font-semibold text-brand-600">المبلغ المستحق</p>
-                                        <p className="mt-2 font-display text-2xl font-bold tabular-nums text-brand-600">
-                                            {formatCurrency(subscriber.outstandingBalance)}
+                                    <div
+                                        className={`rounded-card border p-5 ${
+                                            balance.tone === 'credit'
+                                                ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                                : 'border-brand-500/20 bg-brand-500/10 text-brand-600'
+                                        }`}
+                                    >
+                                        <p className="text-sm font-semibold">الرصيد الحالي</p>
+                                        <p className="mt-2 font-display text-2xl font-bold tabular-nums">{formatCurrency(balance.amount)}</p>
+                                        <p className="mt-1 text-xs font-semibold">
+                                            {balance.tone === 'owes' ? 'عليه' : balance.tone === 'credit' ? 'له' : 'مسدّد'}
                                         </p>
                                     </div>
                                     <div className="rounded-card border border-gray-100 bg-surface p-5">
-                                        <p className="text-sm text-gray-500">عدد المعاملات</p>
-                                        <p className="mt-2 font-display text-2xl font-bold tabular-nums text-gray-900">{statementRows.length}</p>
+                                        <p className="text-sm text-gray-500">آخر قراءة للعداد</p>
+                                        <p className="mt-2 font-display text-2xl font-bold tabular-nums text-gray-900">{subscriber.lastReading}</p>
                                     </div>
                                     <div className="rounded-card border border-gray-100 bg-surface p-5">
-                                        <p className="text-sm text-gray-500">آخر معاملة</p>
-                                        <p className="mt-3 font-display text-base font-bold text-gray-900" dir="ltr">
-                                            {statementRows[0]?.date ?? '—'}
+                                        <p className="text-sm text-gray-500">آخر أسبوع مسجل</p>
+                                        <p className="mt-3 text-base font-semibold text-gray-900">
+                                            {lastReading ? `${lastReading.weekStart} ← ${lastReading.weekEnd}` : 'لا توجد قراءات بعد'}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-gray-100 bg-gray-50 px-5 py-3.5">
-                                    <p className="text-sm text-gray-500">
-                                        آخر قراءة للعداد: <b className="font-display tabular-nums text-gray-900">{subscriber.lastReading}</b>
-                                        <span className="mx-2 text-gray-300">·</span>
-                                        آخر أسبوع مسجل:{' '}
-                                        <b className="font-semibold text-gray-900">
-                                            {lastReading ? `${lastReading.weekStart} ← ${lastReading.weekEnd}` : 'لا توجد قراءات بعد'}
-                                        </b>
-                                    </p>
-                                    {subscriber.canRecordReading &&
-                                        (currentWeekRecorded ? (
+                                {subscriber.canRecordReading && (
+                                    <div className="flex items-center justify-end gap-3">
+                                        {currentWeekRecorded ? (
                                             <p className="text-sm text-gray-500">تم إدخال قراءة هذا الأسبوع.</p>
                                         ) : (
                                             <PrimaryButton type="button" onClick={() => setEnteringReading(true)}>
                                                 + إدخال قراءة
                                             </PrimaryButton>
-                                        ))}
-                                </div>
-                                <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                    <label className="block text-sm text-gray-600 lg:col-span-2">
-                                        بحث في المعاملات
-                                        <input
-                                            type="search"
-                                            value={search}
-                                            onChange={(event) => setSearch(event.target.value)}
-                                            placeholder="الوصف، المبلغ أو اسم الموظف..."
-                                            className="mt-1 block w-full rounded-lg text-sm"
-                                        />
-                                    </label>
-                                    <label className="block text-sm text-gray-600">
-                                        من تاريخ
-                                        <input
-                                            type="date"
-                                            value={dateFrom}
-                                            max={dateTo || undefined}
-                                            onChange={(event) => setDateFrom(event.target.value)}
-                                            className="mt-1 block w-full min-w-0 rounded-lg text-sm"
-                                        />
-                                    </label>
-                                    <label className="block text-sm text-gray-600">
-                                        إلى تاريخ
-                                        <input
-                                            type="date"
-                                            value={dateTo}
-                                            min={dateFrom || undefined}
-                                            onChange={(event) => setDateTo(event.target.value)}
-                                            className="mt-1 block w-full min-w-0 rounded-lg text-sm"
-                                        />
-                                    </label>
-                                </div>
-                                {invalidDates && (
-                                    <p role="alert" className="text-sm text-red-600">
-                                        تاريخ البداية يجب أن يسبق تاريخ النهاية.
-                                    </p>
+                                        )}
+                                    </div>
                                 )}
-                                <div className="overflow-x-auto rounded-card border border-gray-100 bg-surface">
-                                    <table className="w-full min-w-[900px] text-start text-sm">
-                                        <thead className="bg-gray-50 text-xs text-gray-500">
-                                            <tr>
-                                                {[
-                                                    'التاريخ',
-                                                    'البيان',
-                                                    'القراءة السابقة',
-                                                    'القراءة الحالية',
-                                                    'الاستهلاك',
-                                                    'المبلغ',
-                                                    'الحالة',
-                                                    'سجّله',
-                                                    '',
-                                                ].map((label, index) => (
-                                                    <th key={index} className="px-4 py-4 text-start font-medium">
-                                                        {label}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            {visibleRows.map((row) => (
-                                                <tr key={row.key} className="hover:bg-gray-50">
-                                                    <td className="whitespace-nowrap px-4 py-4 text-end text-gray-600" dir="ltr">
-                                                        {row.date}
-                                                    </td>
-                                                    <td className="px-4 py-4 font-medium text-gray-900">{row.description}</td>
-                                                    <td className="px-4 py-4 tabular-nums text-gray-600">{row.previousReading ?? '—'}</td>
-                                                    <td className="px-4 py-4 font-semibold tabular-nums text-gray-900">
-                                                        {row.currentReading ?? '—'}
-                                                    </td>
-                                                    <td className="px-4 py-4 tabular-nums text-brand-700">{row.consumption ?? '—'}</td>
-                                                    <td className="whitespace-nowrap px-4 py-4 font-semibold tabular-nums text-gray-900">
-                                                        {row.amount !== undefined ? formatCurrency(row.amount) : '—'}
-                                                    </td>
-                                                    <td className="px-4 py-4">
-                                                        <StatusPill tone={row.statusTone} label={row.statusLabel} />
-                                                    </td>
-                                                    <td className="px-4 py-4 text-gray-600">{row.recordedByName ?? '—'}</td>
-                                                    <td className="px-4 py-4 text-end">
-                                                        {row.reading?.canUpdate && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setEditingReading(row.reading)}
-                                                                className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
-                                                            >
-                                                                تعديل
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            {!visibleRows.length && (
-                                                <tr>
-                                                    <td colSpan={9} className="px-5 py-12 text-center text-gray-500">
-                                                        {statementRows.length ? 'لا توجد معاملات تطابق البحث.' : 'لا توجد معاملات مسجلة بعد.'}
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div className="flex items-center justify-between gap-3 text-sm text-gray-500">
-                                    <p aria-live="polite">
-                                        عرض {visibleRows.length} من {statementRows.length} معاملات
-                                    </p>
-                                    {(search || dateFrom || dateTo) && (
-                                        <button type="button" onClick={resetFilters} className="font-medium text-brand-600 hover:underline">
-                                            مسح عوامل التصفية
-                                        </button>
-                                    )}
-                                </div>
+                                <Link
+                                    href={`/subscribers/${subscriber.id}/statement`}
+                                    className="flex items-center justify-between gap-4 rounded-card border border-gray-100 bg-surface p-5 transition hover:border-gray-200 hover:shadow-card"
+                                >
+                                    <span className="flex items-center gap-3">
+                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
+                                            <Icon name="table" />
+                                        </span>
+                                        <span>
+                                            <span className="block font-semibold text-gray-900">كشف الحساب</span>
+                                            <span className="mt-0.5 block text-sm text-gray-500">
+                                                كل الحركات: رسوم الاشتراك، القراءات المعتمدة والدفعات، مع الرصيد بعد كل حركة وتسجيل الدفعات.
+                                            </span>
+                                        </span>
+                                    </span>
+                                    <span className="shrink-0 text-sm font-semibold text-brand-600">فتح ←</span>
+                                </Link>
                             </div>
                         </div>
 
@@ -389,16 +286,6 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                     onClose={() => setEnteringReading(false)}
                     reading={null}
                     fixedSubscriber={readingSubscriberOption}
-                    weekOptions={readingWeekOptions}
-                />
-            )}
-
-            {editingReading && (
-                <MeterReadingModal
-                    key={editingReading.id}
-                    show
-                    onClose={() => setEditingReading(null)}
-                    reading={{ ...editingReading, subscriberName: subscriber?.full_name, accountNumber: subscriber?.account_number }}
                     weekOptions={readingWeekOptions}
                 />
             )}

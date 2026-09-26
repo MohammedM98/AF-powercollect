@@ -40,11 +40,6 @@ class FinancialLogController extends Controller
 
     private const UNBOUNDED_CHART_DAYS = 30;
 
-    private const TYPE_LABELS = [
-        SubscriberTransaction::TYPE_SUBSCRIPTION_FEE => 'رسوم اشتراك',
-        SubscriberTransaction::TYPE_METER_READING => 'قراءة عداد',
-    ];
-
     public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', SubscriberTransaction::class);
@@ -70,9 +65,9 @@ class FinancialLogController extends Controller
             'entries' => $entries,
             'period' => $period,
             'summary' => $this->summary($inPeriod(), $from ? $this->filteredLedger($request, $actor) : null, $from, $days),
-            'dayTotals' => $this->dayTotals($inPeriod(), collect($entries->items())->pluck('day')->unique()->values()->all()),
-            'dailyTotals' => $this->dailySeries($this->filteredLedger($request, $actor), 'subscriber_transactions.created_at', 'sum(subscriber_transactions.amount)', $chartDays),
-            'branchTotals' => $this->branchTotals($inPeriod()),
+            'dayTotals' => $this->dayTotals($inPeriod()->charges(), collect($entries->items())->pluck('day')->unique()->values()->all()),
+            'dailyTotals' => $this->dailySeries($this->filteredLedger($request, $actor)->charges(), 'subscriber_transactions.created_at', 'sum(subscriber_transactions.amount)', $chartDays),
+            'branchTotals' => $this->branchTotals($inPeriod()->charges()),
             'scopeLabel' => $this->scopeLabel($request, $actor),
             'filters' => $this->dataTableState($request, 'created_at', 'desc', 25),
             'filterOptions' => $this->filterOptions($actor),
@@ -103,21 +98,25 @@ class FinancialLogController extends Controller
     }
 
     /**
-     * The period's total, entry count, average and largest entry, and the
-     * change against the same number of days just before it.
+     * The period's charges — total, count, average and largest — against
+     * the same number of days just before it, and what was paid in the
+     * period. Payments are stored as negative amounts, so they are totalled
+     * apart instead of cancelling the charges out.
      *
      * @param  Builder<SubscriberTransaction>  $inPeriod
      * @param  Builder<SubscriberTransaction>|null  $ledger
-     * @return array{total: float, count: int, average: float, largest: float, previousTotal: float|null, changePct: int|null}
+     * @return array{total: float, count: int, average: float, largest: float, previousTotal: float|null, changePct: int|null, paid: float}
      */
     private function summary(Builder $inPeriod, ?Builder $ledger, ?Carbon $from, ?int $days): array
     {
-        $totals = $inPeriod->selectRaw('count(*) as entries, coalesce(sum(amount), 0) as total, coalesce(max(amount), 0) as largest')->first();
+        $paid = -(float) (clone $inPeriod)->where('type', SubscriberTransaction::TYPE_PAYMENT)->sum('amount');
+        $totals = $inPeriod->charges()->selectRaw('count(*) as entries, coalesce(sum(amount), 0) as total, coalesce(max(amount), 0) as largest')->first();
         $total = (float) $totals->total;
         $count = (int) $totals->entries;
 
         $previousTotal = $ledger && $from && $days
             ? (float) $ledger
+                ->charges()
                 ->where('subscriber_transactions.created_at', '>=', $from->copy()->subDays($days))
                 ->where('subscriber_transactions.created_at', '<', $from)
                 ->sum('amount')
@@ -130,6 +129,7 @@ class FinancialLogController extends Controller
             'largest' => round((float) $totals->largest, 2),
             'previousTotal' => $previousTotal,
             'changePct' => $previousTotal ? (int) round(($total - $previousTotal) / $previousTotal * 100) : null,
+            'paid' => round($paid, 2),
         ];
     }
 
@@ -198,7 +198,8 @@ class FinancialLogController extends Controller
             'subscriberStatus' => $transaction->subscriber->status->value,
             'branchName' => $transaction->subscriber->branch->name,
             'type' => $transaction->type,
-            'typeLabel' => self::TYPE_LABELS[$transaction->type] ?? 'معاملة',
+            'typeLabel' => $transaction->kindLabel(),
+            'isPayment' => $transaction->isPayment(),
             'recordedByName' => $transaction->recordedBy?->name,
             'amount' => $transaction->amount,
         ];
@@ -232,9 +233,11 @@ class FinancialLogController extends Controller
             $groups[] = $this->branchFilterGroup();
         }
 
-        $groups[] = $this->filterGroup('type', 'نوع القيد', collect(self::TYPE_LABELS)
-            ->map(fn (string $label, string $type) => ['value' => $type, 'label' => $label])
-            ->values());
+        $groups[] = $this->filterGroup('type', 'نوع القيد', collect([
+            SubscriberTransaction::TYPE_SUBSCRIPTION_FEE,
+            SubscriberTransaction::TYPE_METER_READING,
+            SubscriberTransaction::TYPE_PAYMENT,
+        ])->map(fn (string $type) => ['value' => $type, 'label' => (new SubscriberTransaction(['type' => $type]))->kindLabel()]));
 
         $groups[] = $this->filterGroup('recorded_by', 'سجّله', $this->modelOptions(
             User::query()->visibleTo($actor)->whereIn('id', SubscriberTransaction::query()->select('recorded_by'))->orderBy('name')->get(),

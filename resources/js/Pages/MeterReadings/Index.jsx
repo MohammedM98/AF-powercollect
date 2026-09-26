@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ConfirmDialog from '@/Components/ConfirmDialog';
+import Icon from '@/Components/Icon';
+import PrimaryButton from '@/Components/PrimaryButton';
+import SecondaryButton from '@/Components/SecondaryButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
@@ -58,11 +62,17 @@ function focusNextReadingInput(currentInput) {
     inputs[inputs.indexOf(currentInput) + 1]?.focus();
 }
 
-function SheetRow({ row, week }) {
+/**
+ * One subscriber's line for the week. `approvable` (the actor may approve
+ * readings) adds a tick box, enabled when this row's reading can be approved.
+ */
+function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     const savedValue = row.reading ? String(row.reading.currentReading) : '';
     const [value, setValue] = useState(savedValue);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
+    // Changing an approved reading sends it back for approval, so it waits on "are you sure?".
+    const [confirmingApprovedEdit, setConfirmingApprovedEdit] = useState(false);
 
     // Pick up the saved value whenever the server sends a fresh row.
     useEffect(() => {
@@ -72,8 +82,13 @@ function SheetRow({ row, week }) {
     const charges = calculateCharges(value, row);
     const belowMinimum = charges && charges.readingFee < Number(row.minimumPayment);
 
-    function save() {
+    function save({ confirmed = false } = {}) {
         if (value === '' || value === savedValue || saving) {
+            return;
+        }
+
+        if (row.reading?.status === 'approved' && !confirmed) {
+            setConfirmingApprovedEdit(true);
             return;
         }
 
@@ -96,10 +111,24 @@ function SheetRow({ row, week }) {
     return (
         <tr className={error ? 'bg-red-500/10' : row.reading ? '' : 'bg-amber-500/10/40'}>
             <td className="px-4">
-                <p className="font-medium text-gray-900">{row.fullName}</p>
-                <p className="text-xs text-gray-500">
-                    {[row.meterBoxNumber && `طبلون ${row.meterBoxNumber}`, row.subAreaName].filter(Boolean).join(' · ') || '—'}
-                </p>
+                <div className="flex items-center gap-3">
+                    {approvable && (
+                        <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={onToggleSelected}
+                            disabled={!row.canApprove}
+                            aria-label={`تحديد قراءة ${row.fullName} للاعتماد`}
+                            className={row.canApprove ? '' : 'invisible'}
+                        />
+                    )}
+                    <div>
+                        <p className="font-medium text-gray-900">{row.fullName}</p>
+                        <p className="text-xs text-gray-500">
+                            {[row.meterBoxNumber && `طبلون ${row.meterBoxNumber}`, row.subAreaName].filter(Boolean).join(' · ') || '—'}
+                        </p>
+                    </div>
+                </div>
             </td>
             <td className="px-4 tabular-nums text-gray-600">{row.previousReading}</td>
             <td className="px-4">
@@ -115,7 +144,7 @@ function SheetRow({ row, week }) {
                     value={value}
                     placeholder={row.canEdit ? 'أدخل القراءة' : '—'}
                     onChange={(e) => setValue(e.target.value)}
-                    onBlur={save}
+                    onBlur={() => save()}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
@@ -142,6 +171,22 @@ function SheetRow({ row, week }) {
                 {belowMinimum && charges.consumption >= 0 && <p className="text-xs font-normal text-gray-500">الحد الأدنى</p>}
             </td>
             <td className="px-4">
+                <ConfirmDialog
+                    show={confirmingApprovedEdit}
+                    onConfirm={() => {
+                        setConfirmingApprovedEdit(false);
+                        save({ confirmed: true });
+                    }}
+                    onCancel={() => {
+                        setConfirmingApprovedEdit(false);
+                        setValue(savedValue);
+                    }}
+                    title="تعديل قراءة معتمدة؟"
+                    message={`قراءة ${row.fullName} معتمدة. تعديلها يعيدها إلى قيد المراجعة ويزيل مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`}
+                    confirmLabel="نعم، عدّل"
+                    cancelLabel="تراجع عن التعديل"
+                    icon="alert"
+                />
                 {saving ? (
                     <span className="text-xs text-gray-500">جارٍ الحفظ...</span>
                 ) : row.reading ? (
@@ -154,20 +199,24 @@ function SheetRow({ row, week }) {
     );
 }
 
-function EntryWindowNotice({ entryWindow, canRecord, weekIsViewOnly, onShowLatestWeek }) {
+function EntryWindowNotice({ entryWindow, canRecord, canApprove, weekIsViewOnly, onShowLatestWeek }) {
     if (entryWindow.appliesToActor && !entryWindow.isOpen) {
         const days = WEEK_DAYS.filter((day) => entryWindow.openDays.includes(day.value)).map((day) => day.label);
 
         return (
             <div role="status" className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-300">
-                <p className="font-semibold">إدخال القراءات مغلق حاليًا.</p>
-                <p className="mt-1">{days.length ? `يُفتح الإدخال يوم ${days.join(' و')}.` : 'سيُفتح عندما يفتحه المدير.'} يمكنك عرض القراءات فقط.</p>
+                <p className="font-semibold">إدخال القراءات الجديدة مغلق حاليًا.</p>
+                <p className="mt-1">
+                    {days.length ? `يُفتح الإدخال يوم ${days.join(' و')}.` : 'سيُفتح عندما يفتحه المدير.'} حتى ذلك الحين يمكنك تعديل القراءات المُدخلة
+                    للأسبوع الأخير فقط.
+                </p>
             </div>
         );
     }
 
     if (!canRecord) {
-        return <p className="mb-4 text-sm text-gray-500">يمكنك عرض القراءات فقط.</p>;
+        // Approvers have their own bar below; for everyone else the sheet is read-only.
+        return canApprove ? null : <p className="mb-4 text-sm text-gray-500">يمكنك عرض القراءات فقط.</p>;
     }
 
     if (weekIsViewOnly) {
@@ -194,8 +243,61 @@ function EntryWindowNotice({ entryWindow, canRecord, weekIsViewOnly, onShowLates
     return null;
 }
 
-export default function Index({ rows, week, weekOptions, summary, canRecord, weekIsViewOnly, entryWindow, filters, filterOptions }) {
+export default function Index({
+    rows,
+    week,
+    weekOptions,
+    summary,
+    canRecord,
+    canApprove,
+    pendingApproval,
+    weekIsViewOnly,
+    entryWindow,
+    filters,
+    filterOptions,
+}) {
     const { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-readings', filters, { week });
+    // The readings ticked for approval, and which approval is waiting on "are you sure?" ('selected' or 'all').
+    const [selectedIds, setSelectedIds] = useState(() => new Set());
+    const [confirming, setConfirming] = useState(null);
+    const [approving, setApproving] = useState(false);
+
+    // Ticks only apply to rows on screen; drop any that left (approved, another page or week).
+    useEffect(() => {
+        const approvableIds = new Set(rows.data.filter((row) => row.canApprove).map((row) => row.reading.id));
+        setSelectedIds((current) => new Set([...current].filter((id) => approvableIds.has(id))));
+    }, [rows.data]);
+
+    const approvableRows = rows.data.filter((row) => row.canApprove);
+    const selectedRows = approvableRows.filter((row) => selectedIds.has(row.reading.id));
+    const selectedTotal = selectedRows.reduce((total, row) => total + Number(row.reading.amountDue), 0);
+    const allOnPageSelected = approvableRows.length > 0 && selectedRows.length === approvableRows.length;
+    const isFiltered = Boolean(search) || Object.values(filterValues).some(Boolean);
+
+    function toggleSelected(readingId) {
+        setSelectedIds((current) => {
+            const next = new Set(current);
+            next.has(readingId) ? next.delete(readingId) : next.add(readingId);
+            return next;
+        });
+    }
+
+    function toggleAllOnPage() {
+        setSelectedIds(allOnPageSelected ? new Set() : new Set(approvableRows.map((row) => row.reading.id)));
+    }
+
+    function approve() {
+        const payload = confirming === 'all' ? { all: true, week, search, filter: filterValues } : { reading_ids: [...selectedIds] };
+
+        setConfirming(null);
+        setApproving(true);
+        router.post('/meter-readings/approve', payload, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => setSelectedIds(new Set()),
+            onFinish: () => setApproving(false),
+        });
+    }
 
     function changeWeek(nextWeek) {
         router.get(
@@ -255,9 +357,54 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, wee
             <EntryWindowNotice
                 entryWindow={entryWindow}
                 canRecord={canRecord}
+                canApprove={canApprove}
                 weekIsViewOnly={weekIsViewOnly}
                 onShowLatestWeek={() => changeWeek(weekOptions[0].value)}
             />
+
+            {canApprove && pendingApproval.count === 0 && (
+                <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm">
+                    <Icon name="check" className="h-5 w-5 shrink-0 text-emerald-600" strokeWidth={2} />
+                    <p className="font-medium text-emerald-800 dark:text-emerald-300">
+                        {isFiltered ? 'لا توجد قراءات بانتظار الاعتماد ضمن البحث والتصفية.' : 'لا توجد قراءات بانتظار الاعتماد لهذا الأسبوع.'}
+                    </p>
+                </div>
+            )}
+
+            {canApprove && pendingApproval.count > 0 && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 bg-surface p-4">
+                    <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
+                            <Icon name="check" strokeWidth={2} />
+                        </span>
+                        <div>
+                            <p className="font-semibold text-gray-900">
+                                بانتظار الاعتماد: <span className="tabular-nums">{pendingApproval.count.toLocaleString('en')}</span> قراءة
+                                {isFiltered && <span className="font-normal text-gray-500"> (حسب البحث والتصفية)</span>}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                                مجموعها <span className="tabular-nums">{formatCurrency(pendingApproval.amountDue)}</span> — تظهر في المعاملات المالية
+                                للمشترك بعد اعتمادها.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <label className="flex items-center gap-2 text-sm text-gray-600">
+                            <input
+                                type="checkbox"
+                                checked={allOnPageSelected}
+                                onChange={toggleAllOnPage}
+                                disabled={approvableRows.length === 0 || approving}
+                            />
+                            تحديد قراءات هذه الصفحة
+                        </label>
+                        <PrimaryButton type="button" onClick={() => setConfirming('all')} disabled={approving}>
+                            <Icon name="check" className="h-4 w-4" strokeWidth={2} />
+                            {isFiltered ? 'اعتماد كل النتائج' : 'اعتماد كل قراءات الأسبوع'} ({pendingApproval.count.toLocaleString('en')})
+                        </PrimaryButton>
+                    </div>
+                </div>
+            )}
 
             <div className="mb-3 flex flex-wrap items-center justify-end gap-2 text-sm text-gray-600">
                 <label htmlFor="sheet-sort">ترتيب حسب</label>
@@ -318,13 +465,54 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, wee
                                 </td>
                             </tr>
                         ) : (
-                            rows.data.map((row) => <SheetRow key={`${week}-${row.id}`} row={row} week={week} />)
+                            rows.data.map((row) => (
+                                <SheetRow
+                                    key={`${week}-${row.id}`}
+                                    row={row}
+                                    week={week}
+                                    approvable={canApprove}
+                                    selected={row.canApprove && selectedIds.has(row.reading.id)}
+                                    onToggleSelected={() => toggleSelected(row.reading.id)}
+                                />
+                            ))
                         )}
                     </tbody>
                 </table>
             </div>
 
             <Pagination meta={rows} filters={filters} baseUrl="/meter-readings" extraParams={{ week }} />
+
+            {selectedRows.length > 0 && (
+                <div className="sticky bottom-4 z-20 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-card border border-gray-100 bg-surface/95 px-5 py-4 shadow-lift backdrop-blur">
+                    <p className="text-sm text-gray-600">
+                        <b className="text-gray-900">{selectedRows.length.toLocaleString('en')}</b> قراءة محددة · المجموع{' '}
+                        <b className="tabular-nums text-gray-900">{formatCurrency(selectedTotal)}</b>
+                    </p>
+                    <div className="flex items-center gap-3">
+                        <SecondaryButton onClick={() => setSelectedIds(new Set())} disabled={approving}>
+                            إلغاء التحديد
+                        </SecondaryButton>
+                        <PrimaryButton type="button" onClick={() => setConfirming('selected')} disabled={approving}>
+                            <Icon name="check" className="h-4 w-4" strokeWidth={2} />
+                            اعتماد المحدد
+                        </PrimaryButton>
+                    </div>
+                </div>
+            )}
+
+            <ConfirmDialog
+                show={confirming !== null}
+                onConfirm={approve}
+                onCancel={() => setConfirming(null)}
+                title={confirming === 'all' ? 'اعتماد كل القراءات؟' : 'اعتماد القراءات المحددة؟'}
+                message={
+                    confirming === 'all'
+                        ? `سيتم اعتماد ${(pendingApproval?.count ?? 0).toLocaleString('en')} قراءة لهذا الأسبوع${isFiltered ? ' مطابقة للبحث والتصفية الحالية' : ''} بمجموع ${formatCurrency(pendingApproval?.amountDue)}، وتُضاف إلى المعاملات المالية للمشتركين. لا يمكن تعديل القراءة بعد اعتمادها.`
+                        : `سيتم اعتماد ${selectedRows.length.toLocaleString('en')} قراءة بمجموع ${formatCurrency(selectedTotal)}، وتُضاف إلى المعاملات المالية للمشتركين. لا يمكن تعديل القراءة بعد اعتمادها.`
+                }
+                confirmLabel="نعم، اعتمد"
+                cancelLabel="مراجعة القراءات"
+            />
         </AuthenticatedLayout>
     );
 }

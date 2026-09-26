@@ -213,9 +213,7 @@
     }
 
     .login-form-panel {
-        background:
-            radial-gradient(40% 35% at 0% 0%, rgb(var(--brand-500) / 0.07), transparent 70%),
-            rgb(var(--gray-50));
+        background: radial-gradient(40% 35% at 0% 0%, rgb(var(--brand-500) / 0.07), transparent 70%), rgb(var(--gray-50));
     }
 
     .kbd {
@@ -436,6 +434,24 @@
 
     .data-table td[dir='ltr'] {
         text-align: start;
+    }
+}
+
+/* The account statement has many columns: wider than a phone it keeps each
+   cell on one line and scrolls sideways instead of squeezing them. */
+@container (min-width: 641px) {
+    .data-table-ledger {
+        min-width: 1480px;
+    }
+
+    .data-table-ledger td {
+        white-space: nowrap;
+    }
+
+    .data-table-ledger .ledger-description {
+        min-width: 220px;
+        max-width: 320px;
+        white-space: normal;
     }
 }
 

@@ -88,8 +88,8 @@ class FinancialLogController extends Controller
      */
     private function filteredLedger(Request $request, User $actor): Builder
     {
-        $search = trim((string) $request->string('search'));
-        $branchId = $actor->isSuperAdmin() ? ($request->input('filter.branch_id') ?: null) : null;
+        $search = $this->searchTerm($request);
+        $branchId = $this->branchFilter($request, $actor);
 
         $query = SubscriberTransaction::query()->whereHas('subscriber', fn (Builder $subscribers) => $subscribers
             ->visibleTo($actor)
@@ -213,7 +213,7 @@ class FinancialLogController extends Controller
             return $actor->branch?->name ?? '—';
         }
 
-        $branchId = $request->input('filter.branch_id');
+        $branchId = $this->branchFilter($request, $actor);
 
         return $branchId ? (Branch::find($branchId)?->name ?? 'كل الفروع') : 'كل الفروع';
     }
@@ -243,9 +243,18 @@ class FinancialLogController extends Controller
         return $groups;
     }
 
+    /**
+     * The branch picked in the Filter menu — only the Super Admin has one to
+     * pick; everyone else's log is always their own branch.
+     */
+    private function branchFilter(Request $request, User $actor): ?string
+    {
+        return $actor->isSuperAdmin() ? ($this->queryText($request, 'filter.branch_id') ?: null) : null;
+    }
+
     private function period(Request $request): string
     {
-        $period = (string) $request->string('period');
+        $period = $this->queryText($request, 'period');
 
         return array_key_exists($period, self::PERIODS) ? $period : self::DEFAULT_PERIOD;
     }

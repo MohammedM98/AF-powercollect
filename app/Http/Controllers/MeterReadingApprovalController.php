@@ -115,7 +115,7 @@ class MeterReadingApprovalController extends Controller
             return $query;
         }
 
-        $search = trim((string) $request->string('search'));
+        $search = $this->queryText($request, 'search');
         $filters = (array) $request->input('filter', []);
 
         return $query

@@ -45,7 +45,7 @@ trait FiltersDataTable
             });
         }
 
-        $sort = (string) $request->string('sort');
+        $sort = $this->queryText($request, 'sort');
 
         if (in_array($sort, $sortableColumns, true)) {
             $query->orderBy($sort, $this->sortDirection($request));
@@ -97,7 +97,7 @@ trait FiltersDataTable
      */
     protected function dataTableState(Request $request, string $defaultSort, string $defaultDirection = 'asc', int $defaultPerPage = 15): array
     {
-        $sort = (string) $request->string('sort');
+        $sort = $this->queryText($request, 'sort');
 
         return [
             'search' => $this->searchTerm($request),
@@ -166,13 +166,25 @@ trait FiltersDataTable
         ]);
     }
 
+    /**
+     * A text query parameter, trimmed — or '' when it is missing or not a
+     * plain value (e.g. a hand-typed `?search[]=x`), so a malformed URL
+     * shows the unfiltered list instead of an error.
+     */
+    protected function queryText(Request $request, string $key): string
+    {
+        $value = $request->input($key);
+
+        return is_scalar($value) ? trim((string) $value) : '';
+    }
+
     private function searchTerm(Request $request): string
     {
-        return trim((string) $request->string('search'));
+        return $this->queryText($request, 'search');
     }
 
     private function sortDirection(Request $request): string
     {
-        return $request->string('direction')->lower()->value() === 'desc' ? 'desc' : 'asc';
+        return strtolower($this->queryText($request, 'direction')) === 'desc' ? 'desc' : 'asc';
     }
 }

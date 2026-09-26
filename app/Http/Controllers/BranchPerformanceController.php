@@ -46,7 +46,8 @@ class BranchPerformanceController extends Controller
         $this->authorize('viewAny', SubscriberTransaction::class);
 
         $actor = $request->user();
-        $sort = array_key_exists((string) $request->string('sort'), self::SORTS) ? (string) $request->string('sort') : 'revenue';
+        $sort = $request->input('sort');
+        $sort = is_string($sort) && array_key_exists($sort, self::SORTS) ? $sort : 'revenue';
 
         $branches = $this->withFigures(Branch::query())
             ->when(! $actor->isSuperAdmin(), fn (Builder $query) => $query->whereKey($actor->branch_id))

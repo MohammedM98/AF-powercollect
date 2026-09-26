@@ -116,7 +116,7 @@ class CircuitBreakerController extends Controller
         $amperes = CircuitBreaker::query()->distinct()->orderBy('ampere')->pluck('ampere');
 
         return [
-            $this->filterGroup('ampere', 'الأمبير', $amperes->map(fn (int|string $ampere) => ['value' => (string) $ampere, 'label' => "{$ampere}A"])),
+            $this->filterGroup('ampere', 'الأمبير', $amperes->map(fn (int|string $ampere) => ['value' => (string) $ampere, 'label' => __(':ampere A', ['ampere' => $ampere])])),
         ];
     }
 }

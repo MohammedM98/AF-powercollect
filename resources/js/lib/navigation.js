@@ -5,8 +5,6 @@
  */
 export const MAIN_LINKS = [
     { href: '/dashboard', label: 'لوحة التحكم', icon: 'grid' },
-    { href: '/financial-log', label: 'السجل المالي', icon: 'ledger', can: 'viewFinancialLog' },
-    { href: '/branch-performance', label: 'أداء الفروع', icon: 'arrow-trend', can: 'viewFinancialLog' },
     { href: '/subscribers', label: 'المشتركون', icon: 'users', can: 'viewSubscribers' },
     { href: '/meter-readings', label: 'القراءات', icon: 'chart', can: 'viewMeterReadings' },
     { href: '/users', label: 'المستخدمون', icon: 'user', can: 'viewUsers' },

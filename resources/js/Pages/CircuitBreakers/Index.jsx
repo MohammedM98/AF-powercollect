@@ -70,7 +70,7 @@ export default function Index({ circuitBreakers, canCreate, filters, filterOptio
                             circuitBreakers.data.map((circuitBreaker) => (
                                 <tr key={circuitBreaker.id}>
                                     <td>
-                                        <RowIdentity icon="bolt" name={`${circuitBreaker.ampere} أمبير`} />
+                                        <RowIdentity icon="bolt" name={`${circuitBreaker.ampere}A`} />
                                     </td>
                                     <td className="text-end text-gray-600" dir="ltr">
                                         {formatCurrency(circuitBreaker.minimum_payment)}

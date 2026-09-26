@@ -44,7 +44,9 @@ export default function ReadingSchedule({ setting, modes }) {
                     <span className={`h-3 w-3 shrink-0 rounded-full ${setting.isOpenNow ? 'bg-emerald-500' : 'bg-gray-400'}`} aria-hidden="true" />
                     <div>
                         <p className="font-semibold text-gray-900">{setting.isOpenNow ? 'إدخال القراءات مفتوح الآن' : 'إدخال القراءات مغلق الآن'}</p>
-                        <p className="text-sm text-gray-500">ينطبق على مدخلي البيانات. يستطيع مدير الفرع والمدير العام إدخال القراءات في أي وقت.</p>
+                        <p className="text-sm text-gray-500">
+                            ينطبق على جميع المستخدمين ما عدا المدير العام، الذي يستطيع إدخال القراءات وتصحيحها في أي وقت.
+                        </p>
                     </div>
                 </div>
 

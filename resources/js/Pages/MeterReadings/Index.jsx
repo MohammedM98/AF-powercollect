@@ -154,7 +154,7 @@ function SheetRow({ row, week }) {
     );
 }
 
-function EntryWindowNotice({ entryWindow, canRecord }) {
+function EntryWindowNotice({ entryWindow, canRecord, weekIsViewOnly, onShowLatestWeek }) {
     if (entryWindow.appliesToActor && !entryWindow.isOpen) {
         const days = WEEK_DAYS.filter((day) => entryWindow.openDays.includes(day.value)).map((day) => day.label);
 
@@ -170,6 +170,23 @@ function EntryWindowNotice({ entryWindow, canRecord }) {
         return <p className="mb-4 text-sm text-gray-500">يمكنك عرض القراءات فقط.</p>;
     }
 
+    if (weekIsViewOnly) {
+        return (
+            <div
+                role="status"
+                className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm"
+            >
+                <div>
+                    <p className="font-semibold text-gray-900">هذا أسبوع سابق — قراءاته للعرض فقط.</p>
+                    <p className="mt-1 text-gray-500">يمكن إدخال القراءات وتعديلها للأسبوع الأخير فقط.</p>
+                </div>
+                <button type="button" onClick={onShowLatestWeek} className="text-sm font-semibold text-brand-600 hover:underline">
+                    الانتقال إلى الأسبوع الأخير
+                </button>
+            </div>
+        );
+    }
+
     if (entryWindow.appliesToActor) {
         return <p className="mb-4 text-sm font-medium text-emerald-700 dark:text-emerald-400">إدخال القراءات مفتوح الآن.</p>;
     }
@@ -177,7 +194,7 @@ function EntryWindowNotice({ entryWindow, canRecord }) {
     return null;
 }
 
-export default function Index({ rows, week, weekOptions, summary, canRecord, entryWindow, filters, filterOptions }) {
+export default function Index({ rows, week, weekOptions, summary, canRecord, weekIsViewOnly, entryWindow, filters, filterOptions }) {
     const { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-readings', filters, { week });
 
     function changeWeek(nextWeek) {
@@ -235,7 +252,12 @@ export default function Index({ rows, week, weekOptions, summary, canRecord, ent
                 </div>
             </div>
 
-            <EntryWindowNotice entryWindow={entryWindow} canRecord={canRecord} />
+            <EntryWindowNotice
+                entryWindow={entryWindow}
+                canRecord={canRecord}
+                weekIsViewOnly={weekIsViewOnly}
+                onShowLatestWeek={() => changeWeek(weekOptions[0].value)}
+            />
 
             <div className="mb-3 flex flex-wrap items-center justify-end gap-2 text-sm text-gray-600">
                 <label htmlFor="sheet-sort">ترتيب حسب</label>

@@ -10,7 +10,8 @@ import SecondaryButton from '@/Components/SecondaryButton';
  * title, the form fields as children, and Cancel/Save buttons.
  *
  * `form` comes from useResourceForm(). Saving asks for confirmation first
- * (unless `confirmBeforeSave` is false), and closing with unsaved input
+ * (unless `confirmBeforeSave` is false; `saveConfirmMessage` replaces the
+ * question's explanation), and closing with unsaved input
  * asks whether to discard it. Closing clears the form, and a successful
  * save closes the modal. `visitOptions` are passed on to the save request.
  */
@@ -24,6 +25,7 @@ export default function FormModal({
     visitOptions = {},
     bodyClassName = '',
     confirmBeforeSave = true,
+    saveConfirmMessage = null,
     children,
 }) {
     // The question shown over the form: 'save' before sending it, 'discard' before throwing away unsaved input.
@@ -91,6 +93,7 @@ export default function FormModal({
             <SaveConfirmDialog
                 show={show && pendingConfirmation === 'save'}
                 isEdit={form.isEdit}
+                message={saveConfirmMessage}
                 onConfirm={save}
                 onCancel={() => setPendingConfirmation(null)}
             />

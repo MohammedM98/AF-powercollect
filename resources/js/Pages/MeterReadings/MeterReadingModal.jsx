@@ -5,6 +5,8 @@ import InputError from '@/Components/InputError';
 import SearchableSelect from '@/Components/SearchableSelect';
 import { useResourceForm } from '@/hooks/useResourceForm';
 
+const APPROVED_READING_WARNING = 'هذه القراءة معتمدة. تعديلها يعيدها إلى قيد المراجعة ويزيل مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.';
+
 function Summary({ label, value, tone = 'text-gray-900' }) {
     return (
         <div className="rounded-lg bg-gray-50 px-3 py-2">
@@ -45,8 +47,10 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
             icon="bolt"
             visitOptions={{ preserveState: true }}
             bodyClassName="space-y-4"
-            // Readings are entered one after another, so they save without a confirmation step.
-            confirmBeforeSave={false}
+            // Readings are entered one after another, so they save without a confirmation step —
+            // except correcting an approved one, which sends it back for approval.
+            confirmBeforeSave={isEdit && reading.status === 'approved'}
+            saveConfirmMessage={`${APPROVED_READING_WARNING} هل تريد المتابعة؟`}
         >
             {isEdit ? (
                 <div className="rounded-lg border border-gray-100 px-4 py-3 text-sm">

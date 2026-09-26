@@ -19,11 +19,13 @@ use App\Models\Subscriber;
 use App\Models\Tariff;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
+use App\Notifications\ReadingNeedsReapproval;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Notification;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -134,24 +136,30 @@ class MeterReadingController extends Controller
     }
 
     /**
-     * Update the specified resource in storage, recalculating its charges
-     * from the price and minimum captured when it was first recorded.
+     * Correct a reading, recalculating its charges from the price and
+     * minimum captured when it was first recorded. Correcting an approved
+     * reading sends it back for approval and tells the people who approve.
      */
     public function update(UpdateMeterReadingRequest $request, MeterReading $meterReading): RedirectResponse
     {
-        $currentReading = $request->integer('current_reading');
-        $consumption = $currentReading - $meterReading->previous_reading;
+        $actor = $request->user();
+        $wentBackToReview = $meterReading->correct(
+            $request->integer('current_reading'),
+            $request->has('notes') ? $request->input('notes') : $meterReading->notes,
+        );
 
-        $meterReading->update([
-            'current_reading' => $currentReading,
-            'consumption' => $consumption,
-            ...MeterReading::chargesFor($consumption, $meterReading->unit_price, $meterReading->minimum_payment),
-            'notes' => $request->has('notes') ? $request->input('notes') : $meterReading->notes,
-        ]);
+        $actor->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscriber->full_name));
 
-        $request->user()->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscriber->full_name));
+        if (! $wentBackToReview) {
+            return back()->with('status', 'meter-reading-updated');
+        }
 
-        return back()->with('status', 'meter-reading-updated');
+        Notification::send(
+            $meterReading->approvers()->reject(fn (User $approver) => $approver->is($actor)),
+            new ReadingNeedsReapproval($meterReading->subscriber->full_name, $actor->name),
+        );
+
+        return back()->with('status', 'meter-reading-reopened');
     }
 
     /**
@@ -313,8 +321,8 @@ class MeterReadingController extends Controller
 
     /**
      * Filters that need a join rather than a plain column match: the
-     * area/sub-area a subscriber's meter box sits in, and whether this
-     * week's reading has been entered yet.
+     * area/sub-area a subscriber's meter box sits in, whether this week's
+     * reading has been entered yet, and whether it has been approved.
      */
     private function applySheetFilters(Builder $query, Request $request, string $week): void
     {
@@ -333,6 +341,12 @@ class MeterReadingController extends Controller
             'missing' => $query->whereDoesntHave('meterReadings', fn (Builder $q) => $q->whereDate('week_start', $week)),
             default => null,
         };
+
+        $approval = MeterReadingStatus::tryFrom((string) ($filters['approval'] ?? ''));
+
+        if ($approval !== null) {
+            $query->whereHas('meterReadings', fn (Builder $q) => $q->whereDate('week_start', $week)->where('status', $approval));
+        }
     }
 
     /**
@@ -402,6 +416,11 @@ class MeterReadingController extends Controller
         $groups[] = $this->filterGroup('entry', 'حالة الإدخال', [
             ['value' => 'missing', 'label' => 'لم تُدخل بعد'],
             ['value' => 'entered', 'label' => 'تم الإدخال'],
+        ]);
+
+        $groups[] = $this->filterGroup('approval', 'حالة الاعتماد', [
+            ['value' => MeterReadingStatus::Pending->value, 'label' => 'بانتظار الاعتماد'],
+            ['value' => MeterReadingStatus::Approved->value, 'label' => 'معتمدة'],
         ]);
 
         return $groups;

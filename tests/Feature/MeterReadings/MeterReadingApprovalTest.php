@@ -170,6 +170,74 @@ class MeterReadingApprovalTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('canApprove', true));
     }
 
+    public function test_correcting_an_approved_reading_sends_it_back_for_approval_and_takes_its_charge_off(): void
+    {
+        $reading = $this->pendingReading('2026-09-18', '42.50');
+        $reading->update(['previous_reading' => 1000, 'current_reading' => 1100, 'consumption' => 100, 'unit_price' => '0.50', 'minimum_payment' => '10.00']);
+        $reading->approve($this->accountant);
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id, 'name' => 'Elenora']);
+
+        $this->actingAs($dataEntry)
+            ->from(route('meter-readings.index'))
+            ->put(route('meter-readings.update', $reading), ['current_reading' => 1080])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'meter-reading-reopened');
+
+        $reading->refresh();
+        $this->assertSame(MeterReadingStatus::Pending, $reading->status);
+        $this->assertNull($reading->approved_by);
+        $this->assertNull($reading->approved_at);
+        $this->assertSame('40.00', $reading->amount_due);
+        $this->assertDatabaseCount('subscriber_transactions', 0);
+
+        // Approving it again charges the corrected amount.
+        $reading->approve($this->accountant);
+        $this->assertSame('40.00', SubscriberTransaction::sole()->amount);
+    }
+
+    public function test_the_people_who_approve_are_told_when_an_approved_reading_is_corrected(): void
+    {
+        $reading = $this->pendingReading('2026-09-18', '42.50', 'Ahmad');
+        $reading->approve($this->accountant);
+        $superAdmin = User::factory()->superAdmin()->create();
+        $otherBranchAccountant = User::factory()->accountant()->create();
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id, 'name' => 'Elenora']);
+
+        $this->actingAs($dataEntry)
+            ->put(route('meter-readings.update', $reading), ['current_reading' => $reading->current_reading + 5])
+            ->assertSessionHasNoErrors();
+
+        $expected = ['action' => 'meter-reading-needs-reapproval', 'subject' => 'Ahmad — عدّلها Elenora'];
+        $this->assertSame($expected, $this->accountant->notifications()->sole()->data);
+        $this->assertSame($expected, $superAdmin->notifications()->sole()->data);
+        $this->assertSame(0, $otherBranchAccountant->notifications()->count());
+        $this->assertSame(0, $dataEntry->notifications()->where('data->action', 'meter-reading-needs-reapproval')->count());
+    }
+
+    public function test_correcting_a_pending_reading_does_not_notify_the_people_who_approve(): void
+    {
+        $reading = $this->pendingReading('2026-09-18', '42.50');
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
+
+        $this->actingAs($dataEntry)
+            ->put(route('meter-readings.update', $reading), ['current_reading' => $reading->current_reading + 5])
+            ->assertSessionHas('status', 'meter-reading-updated');
+
+        $this->assertSame(0, $this->accountant->notifications()->count());
+    }
+
+    public function test_the_readings_sheet_can_be_filtered_by_approval(): void
+    {
+        $this->pendingReading('2026-09-18', '5.00', 'Ahmad Pending');
+        $this->pendingReading('2026-09-18', '6.00', 'Basem Approved')->approve($this->accountant);
+        $this->actingAs($this->accountant);
+
+        foreach (['pending' => 'Ahmad Pending', 'approved' => 'Basem Approved'] as $approval => $name) {
+            $this->get(route('meter-readings.index', ['week' => '2026-09-18', 'filter' => ['approval' => $approval]]))
+                ->assertInertia(fn ($page) => $page->has('rows.data', 1)->where('rows.data.0.fullName', $name));
+        }
+    }
+
     private function pendingReading(string $weekStart, string $amountDue, ?string $subscriberName = null): MeterReading
     {
         return MeterReading::factory()->create([

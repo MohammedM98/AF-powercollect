@@ -58,7 +58,8 @@ class SubscriberController extends Controller
             'canCreate' => $actor->can('create', Subscriber::class),
             'filters' => $this->dataTableState($request, 'full_name'),
             'filterOptions' => $this->filterOptions($actor),
-            'readingWeekOptions' => MeterReading::recentWeekOptions(),
+            // Only the Super Admin may enter a reading for an earlier week.
+            'readingWeekOptions' => MeterReading::recentWeekOptions($actor->isSuperAdmin() ? 8 : 1),
             ...$this->formOptions(),
         ]);
     }

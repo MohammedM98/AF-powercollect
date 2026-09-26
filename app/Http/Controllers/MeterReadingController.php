@@ -83,6 +83,8 @@ class MeterReadingController extends Controller
                     ->sum('amount_due'), 2, '.', ''),
             ],
             'canRecord' => $actor->can('create', MeterReading::class),
+            // The actor could record now, just not in this earlier week.
+            'weekIsViewOnly' => $actor->can('create', MeterReading::class) && ! $actor->can('create', [MeterReading::class, $weekStart]),
             'entryWindow' => $this->entryWindow($actor),
             'filters' => $this->dataTableState($request, 'full_name', 'asc', 25),
             'filterOptions' => $this->filterOptions($actor),
@@ -148,7 +150,7 @@ class MeterReadingController extends Controller
 
     /**
      * Whether the company-wide reading entry window is open, and whether it
-     * restricts this actor at all (admins may enter readings any time).
+     * restricts this actor at all (the Super Admin may enter readings any time).
      *
      * @return array{isOpen: bool, appliesToActor: bool, openDays: array<int, int>}
      */
@@ -158,7 +160,7 @@ class MeterReadingController extends Controller
 
         return [
             'isOpen' => $setting->isOpen(),
-            'appliesToActor' => ! $actor->isSuperAdmin() && ! $actor->isBranchAdmin(),
+            'appliesToActor' => ! $actor->isSuperAdmin(),
             'openDays' => $setting->mode === ReadingEntryMode::Automatic ? array_map('intval', $setting->open_days) : [],
         ];
     }
@@ -282,7 +284,7 @@ class MeterReadingController extends Controller
             'hasLaterWeek' => (bool) $subscriber->has_later_week,
             'canEdit' => $reading
                 ? ! $subscriber->has_later_week && $actor->can('update', $reading)
-                : ! $subscriber->has_later_week && $actor->can('create', MeterReading::class),
+                : ! $subscriber->has_later_week && $actor->can('create', [MeterReading::class, $weekStart]),
         ];
     }
 

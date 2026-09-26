@@ -147,9 +147,41 @@ class MeterReadingTest extends TestCase
     {
         $this->recordedReading('2026-09-18', 1200, 1250);
 
-        $this->actingAs($this->dataEntry)
+        // Only the Super Admin may enter an earlier week at all.
+        $this->actingAs(User::factory()->superAdmin()->create())
             ->post(route('meter-readings.store'), $this->payload(['week_start' => '2026-09-11']))
             ->assertSessionHasErrors(['week_start' => 'يوجد قراءة لأسبوع لاحق لهذا المشترك، لا يمكن إدخال أسبوع سابق.']);
+    }
+
+    public function test_only_the_latest_week_can_be_entered_and_earlier_weeks_are_view_only(): void
+    {
+        $this->actingAs($this->dataEntry)
+            ->post(route('meter-readings.store'), $this->payload(['week_start' => '2026-09-11']))
+            ->assertSessionHasErrors(['week_start' => 'يمكن إدخال قراءات الأسبوع الأخير فقط؛ الأسابيع السابقة للعرض فقط.']);
+
+        $this->assertDatabaseCount('meter_readings', 0);
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index', ['week' => '2026-09-11']))
+            ->assertInertia(fn ($page) => $page
+                ->where('canRecord', true)
+                ->where('weekIsViewOnly', true)
+                ->where('rows.data.0.canEdit', false));
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('weekIsViewOnly', false)
+                ->where('rows.data.0.canEdit', true));
+    }
+
+    public function test_the_super_admin_can_enter_a_reading_for_an_earlier_week(): void
+    {
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->post(route('meter-readings.store'), $this->payload(['week_start' => '2026-09-11']))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('2026-09-11', MeterReading::sole()->week_start->toDateString());
     }
 
     public function test_the_sheet_stays_on_the_week_that_ended_on_thursday_when_entering_late(): void
@@ -258,12 +290,29 @@ class MeterReadingTest extends TestCase
         $this->assertDatabaseCount('meter_readings', 1);
     }
 
-    public function test_a_branch_admin_can_record_readings_while_entry_is_closed(): void
+    public function test_a_branch_admin_cannot_record_readings_while_entry_is_closed(): void
     {
         ReadingEntrySetting::factory()->forcedClosed()->create();
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id]);
 
         $this->actingAs($branchAdmin)
+            ->post(route('meter-readings.store'), $this->payload())
+            ->assertForbidden();
+
+        $this->actingAs($branchAdmin)
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('entryWindow.appliesToActor', true)
+                ->where('rows.data.0.canEdit', false));
+
+        $this->assertDatabaseCount('meter_readings', 0);
+    }
+
+    public function test_the_super_admin_can_record_readings_while_entry_is_closed(): void
+    {
+        ReadingEntrySetting::factory()->forcedClosed()->create();
+
+        $this->actingAs(User::factory()->superAdmin()->create())
             ->post(route('meter-readings.store'), $this->payload())
             ->assertSessionHasNoErrors();
 
@@ -387,7 +436,7 @@ class MeterReadingTest extends TestCase
                 ->where('subscribers.data.0.meterReadings.0.consumption', 40)
                 ->where('subscribers.data.0.meterReadings.0.canUpdate', true)
                 ->where('subscribers.data.0.meterReadings.1.canUpdate', false)
-                ->has('readingWeekOptions', 8)
+                ->has('readingWeekOptions', 1)
                 ->where('readingWeekOptions.0.value', '2026-09-18'));
     }
 
@@ -439,11 +488,35 @@ class MeterReadingTest extends TestCase
         $earlier = $this->recordedReading('2026-09-11', 1200, 1250);
         $this->recordedReading('2026-09-18', 1250, 1300);
 
-        $this->actingAs($this->dataEntry)
+        // Only the Super Admin may correct an earlier week at all.
+        $this->actingAs(User::factory()->superAdmin()->create())
             ->put(route('meter-readings.update', $earlier), ['current_reading' => 1260])
             ->assertSessionHasErrors(['current_reading' => 'لا يمكن تعديل هذه القراءة لوجود قراءة لأسبوع لاحق.']);
 
         $this->assertSame(1250, $earlier->fresh()->current_reading);
+    }
+
+    public function test_a_reading_from_an_earlier_week_cannot_be_corrected_even_by_a_branch_admin(): void
+    {
+        $reading = $this->recordedReading('2026-09-11', 1200, 1250);
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id]);
+
+        $this->actingAs($branchAdmin)
+            ->put(route('meter-readings.update', $reading), ['current_reading' => 1260])
+            ->assertForbidden();
+
+        $this->assertSame(1250, $reading->fresh()->current_reading);
+    }
+
+    public function test_the_super_admin_can_correct_a_reading_from_an_earlier_week(): void
+    {
+        $reading = $this->recordedReading('2026-09-11', 1200, 1250);
+
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->put(route('meter-readings.update', $reading), ['current_reading' => 1260])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(1260, $reading->fresh()->current_reading);
     }
 
     public function test_another_branchs_reading_cannot_be_corrected(): void

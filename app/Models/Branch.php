@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 #[Fillable(['name', 'location', 'phone', 'is_active', 'governorate_id', 'area_id'])]
 class Branch extends Model
@@ -45,5 +46,13 @@ class Branch extends Model
     public function subscribers(): HasMany
     {
         return $this->hasMany(Subscriber::class);
+    }
+
+    /**
+     * Every ledger entry of the branch's subscribers.
+     */
+    public function transactions(): HasManyThrough
+    {
+        return $this->hasManyThrough(SubscriberTransaction::class, Subscriber::class);
     }
 }

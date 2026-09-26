@@ -4,18 +4,91 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import SearchableSelect from '@/Components/SearchableSelect';
 import ConfirmDialog from '@/Components/ConfirmDialog';
+import ChoiceChips from '@/Components/ChoiceChips';
+import Icon from '@/Components/Icon';
 
 const STATUS_OPTIONS = [
-    { value: 'active', label: 'نشط' },
-    { value: 'suspended', label: 'مفصول' },
-    { value: 'disconnected', label: 'مقطوع' },
+    { value: 'active', label: 'نشط', dot: 'green' },
+    { value: 'suspended', label: 'مفصول', dot: 'amber' },
+    { value: 'disconnected', label: 'مقطوع', dot: 'gray' },
 ];
 
-function Section({ title, children }) {
+const STATUS_DOT_CLASSES = {
+    active: 'bg-emerald-500',
+    suspended: 'bg-amber-500',
+    disconnected: 'bg-gray-400',
+};
+
+/** One group of fields in its own card, with an icon, a title and a hint. */
+function Section({ icon, title, description, children }) {
     return (
-        <div className="col-span-full">
-            <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
-            <div className="mt-2 border-b border-gray-100" />
+        <section className="rounded-card border border-gray-100 bg-surface p-5 shadow-sm sm:p-6">
+            <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-gray-600">
+                    <Icon name={icon} className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                    <h4 className="font-bold text-gray-900">{title}</h4>
+                    {description && <p className="mt-0.5 text-xs text-gray-500">{description}</p>}
+                </div>
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+        </section>
+    );
+}
+
+/** The small "شيكل" tag at the end of a money field. */
+function CurrencySuffix() {
+    return (
+        <span className="pointer-events-none absolute inset-y-1.5 end-1.5 flex items-center rounded-lg bg-gray-100 px-2.5 text-xs font-semibold text-gray-500">
+            شيكل
+        </span>
+    );
+}
+
+/**
+ * The card above the form: who is being registered (name, phone and a
+ * status dot, filled in as they are typed) and how many required fields
+ * are done.
+ */
+function SummaryCard({ data, requiredFields, isEdit }) {
+    const filled = requiredFields.filter((field) => String(data[field] ?? '').trim() !== '').length;
+    const percent = Math.round((filled / requiredFields.length) * 100);
+
+    return (
+        <div className="relative flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-card border border-gray-100 bg-surface p-5 shadow-sm">
+            <div className="pointer-events-none absolute -start-10 -top-16 h-44 w-72 rounded-full bg-brand-500/15 blur-3xl" aria-hidden="true" />
+            <div className="relative flex min-w-0 items-center gap-4">
+                <span className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-gray-100 bg-gray-100 text-gray-600">
+                    <Icon name="user" className="h-6 w-6" />
+                    <span
+                        className={`absolute -bottom-1 -start-1 h-4 w-4 rounded-full border-[3px] border-surface ${STATUS_DOT_CLASSES[data.status] ?? 'bg-gray-400'}`}
+                        aria-hidden="true"
+                    />
+                </span>
+                <div className="min-w-0">
+                    <p className="truncate text-lg font-bold text-gray-900">{data.full_name.trim() || (isEdit ? '—' : 'مشترك جديد')}</p>
+                    <p className="mt-0.5 font-display text-sm tracking-wider text-gray-500" dir="ltr">
+                        {data.phone || '05— ——— ———'}
+                    </p>
+                </div>
+            </div>
+            <div className="relative w-36">
+                <p className="text-xs text-gray-500">الحقول المطلوبة</p>
+                <p className="mt-1 font-display text-lg font-bold text-gray-900" dir="ltr">
+                    {filled}/{requiredFields.length}
+                </p>
+                <div
+                    className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100"
+                    role="progressbar"
+                    aria-label="الحقول المطلوبة المكتملة"
+                    aria-valuenow={filled}
+                    aria-valuemin={0}
+                    aria-valuemax={requiredFields.length}
+                >
+                    <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-300" style={{ width: `${percent}%` }} />
+                </div>
+            </div>
         </div>
     );
 }
@@ -99,6 +172,7 @@ export default function SubscriberForm({
     currentBranchAreaId,
     currentBranchAreaName,
     canEditMinimumCharge,
+    isEdit = false,
 }) {
     const [minimumChargeUnlocked, setMinimumChargeUnlocked] = useState(false);
     const [confirmingMinimumChargeUnlock, setConfirmingMinimumChargeUnlock] = useState(false);
@@ -155,6 +229,17 @@ export default function SubscriberForm({
         setData((current) => ({ ...current, tariff_id: value, tariff_segment_id: '' }));
     }
 
+    const requiredFields = [
+        'full_name',
+        'national_id',
+        'phone',
+        'status',
+        'tariff_id',
+        'minimum_charge',
+        'initial_reading',
+        ...(canChooseBranch ? ['branch_id'] : []),
+    ];
+
     function onCircuitBreakerChange(value) {
         const match = circuitBreakers.find((circuitBreaker) => String(circuitBreaker.id) === value);
         setData((current) => ({
@@ -164,260 +249,256 @@ export default function SubscriberForm({
         }));
     }
 
+    const tariffOptions = tariffs.map((tariff) => ({
+        value: tariff.id,
+        label: tariff.categoryLabel,
+        hint: `${Number(tariff.rate).toFixed(2)} ش/ك.و`,
+    }));
+
+    const circuitBreakerOptions = [
+        { value: '', label: 'بدون' },
+        ...circuitBreakers.map((circuitBreaker) => ({ value: circuitBreaker.id, label: `${circuitBreaker.ampere} أمبير` })),
+    ];
+
+    const minimumChargeLocked = !canEditMinimumCharge || !minimumChargeUnlocked;
+
     return (
-        <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Section title="بيانات المشترك" />
+        <div className="space-y-5">
+            <SummaryCard data={data} requiredFields={requiredFields} isEdit={isEdit} />
 
-            <Field id="full_name" label="الاسم" required error={errors.full_name}>
-                <TextInput className="block w-full" value={data.full_name} autoFocus onChange={(e) => setData('full_name', e.target.value)} />
-            </Field>
-
-            <Field id="national_id" label="رقم الهوية" required error={errors.national_id}>
-                <TextInput
-                    required
-                    dir="ltr"
-                    inputMode="numeric"
-                    maxLength={9}
-                    pattern="[0-9]{9}"
-                    className="block w-full"
-                    value={data.national_id ?? ''}
-                    onChange={(event) => setData('national_id', event.target.value)}
-                />
-            </Field>
-
-            <Field id="phone" label="رقم الجوال" required error={errors.phone}>
-                <TextInput
-                    required
-                    type="tel"
-                    dir="ltr"
-                    inputMode="numeric"
-                    maxLength={10}
-                    pattern="05[69][0-9]{7}"
-                    title="رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056"
-                    className="block w-full"
-                    value={data.phone}
-                    onChange={(e) => setData('phone', e.target.value)}
-                />
-            </Field>
-
-            <Field id="status" label="الحالة" required error={errors.status}>
-                <select className="block w-full" value={data.status} onChange={(e) => setData('status', e.target.value)}>
-                    {STATUS_OPTIONS.map((status) => (
-                        <option key={status.value} value={status.value}>
-                            {status.label}
-                        </option>
-                    ))}
-                </select>
-            </Field>
-
-            <Section title="نوع الاشتراك والقاطع" />
-
-            <Field id="tariff_id" label="نوع الاشتراك" required error={errors.tariff_id}>
-                <select
-                    className="block w-full rounded-md border-gray-300 shadow-sm"
-                    value={data.tariff_id}
-                    onChange={(e) => onTariffChange(e.target.value)}
-                >
-                    <option value="">---</option>
-                    {tariffs.map((tariff) => (
-                        <option key={tariff.id} value={tariff.id}>
-                            {tariff.categoryLabel}
-                        </option>
-                    ))}
-                </select>
-            </Field>
-
-            <Field id="tariff_segment_id" label="تصنيف الزبائن" error={errors.tariff_segment_id}>
-                <select
-                    className="block w-full rounded-md border-gray-300 shadow-sm disabled:bg-gray-50 disabled:text-gray-500"
-                    value={data.tariff_segment_id}
-                    disabled={!selectedTariff}
-                    onChange={(e) => setData('tariff_segment_id', e.target.value)}
-                >
-                    <option value="">{selectedTariff ? `${selectedTariff.categoryLabel} — بدون تصنيف` : 'اختر نوع الاشتراك أولاً'}</option>
-                    {(selectedTariff?.segments ?? []).map((segment) => (
-                        <option key={segment.id} value={segment.id}>
-                            {segment.name}
-                        </option>
-                    ))}
-                </select>
-            </Field>
-
-            <ReadOnlyField
-                id="tariff_rate"
-                label="سعر الكيلو (شيكل)"
-                value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : '—'}
-                dir="ltr"
-            />
-
-            <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id}>
-                <select
-                    className="block w-full rounded-md border-gray-300 shadow-sm"
-                    value={data.circuit_breaker_id}
-                    onChange={(e) => onCircuitBreakerChange(e.target.value)}
-                >
-                    <option value="">---</option>
-                    {circuitBreakers.map((circuitBreaker) => (
-                        <option key={circuitBreaker.id} value={circuitBreaker.id}>
-                            {circuitBreaker.ampere} أمبير
-                        </option>
-                    ))}
-                </select>
-            </Field>
-
-            <div>
-                <div className="flex items-center justify-between">
-                    <InputLabel htmlFor="minimum_charge">
-                        الحد الادنى (شيكل)
-                        <span className="text-red-500"> *</span>
-                    </InputLabel>
-                    {canEditMinimumCharge && !minimumChargeUnlocked && (
-                        <button
-                            type="button"
-                            onClick={() => setConfirmingMinimumChargeUnlock(true)}
-                            className="text-xs font-semibold text-brand-600 hover:underline"
-                        >
-                            تعديل
-                        </button>
-                    )}
-                </div>
-                <div className="relative mt-1">
+            <Section icon="user" title="بيانات المشترك" description="الاسم والهوية ورقم الجوال">
+                <Field id="full_name" label="الاسم" required error={errors.full_name}>
                     <TextInput
-                        id="minimum_charge"
+                        className="block w-full"
+                        placeholder="الاسم الرباعي"
+                        value={data.full_name}
+                        autoFocus
+                        onChange={(e) => setData('full_name', e.target.value)}
+                    />
+                </Field>
+
+                <Field id="national_id" label="رقم الهوية" required error={errors.national_id}>
+                    <TextInput
+                        required
+                        dir="ltr"
+                        inputMode="numeric"
+                        maxLength={9}
+                        pattern="[0-9]{9}"
+                        placeholder="9 أرقام"
+                        className="block w-full text-end"
+                        value={data.national_id ?? ''}
+                        onChange={(event) => setData('national_id', event.target.value)}
+                    />
+                </Field>
+
+                <Field id="phone" label="رقم الجوال" required error={errors.phone}>
+                    <TextInput
+                        required
+                        type="tel"
+                        dir="ltr"
+                        inputMode="numeric"
+                        maxLength={10}
+                        pattern="05[69][0-9]{7}"
+                        title="رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056"
+                        placeholder="059XXXXXXX"
+                        className="block w-full text-end"
+                        value={data.phone}
+                        onChange={(e) => setData('phone', e.target.value)}
+                    />
+                </Field>
+
+                <Field id="status" label="الحالة" required error={errors.status} span="col-span-full">
+                    <ChoiceChips label="الحالة" value={data.status} onChange={(value) => setData('status', value)} options={STATUS_OPTIONS} />
+                </Field>
+            </Section>
+
+            <Section icon="bolt" title="نوع الاشتراك والقاطع" description="السعر والحد الأدنى يُحسبان تلقائيًا من اختيارك">
+                <Field id="tariff_id" label="نوع الاشتراك" required error={errors.tariff_id} span="sm:col-span-2">
+                    {tariffOptions.length === 0 ? (
+                        <p className="text-sm text-gray-500">لا توجد تعرفات بعد — أضف تعرفة أولاً.</p>
+                    ) : (
+                        <ChoiceChips label="نوع الاشتراك" value={data.tariff_id} onChange={onTariffChange} options={tariffOptions} />
+                    )}
+                </Field>
+
+                <div>
+                    <InputLabel htmlFor="tariff_rate" value="سعر الكيلو" />
+                    <div className="relative mt-1">
+                        <TextInput
+                            id="tariff_rate"
+                            readOnly
+                            dir="ltr"
+                            title="للقراءة فقط"
+                            value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : '—'}
+                            className="w-full ps-16 text-end text-gray-600"
+                        />
+                        <CurrencySuffix />
+                    </div>
+                </div>
+
+                {(selectedTariff?.segments ?? []).length > 0 && (
+                    <Field id="tariff_segment_id" label="تصنيف الزبائن" error={errors.tariff_segment_id} span="sm:col-span-2 lg:col-span-3">
+                        <select
+                            className="block w-full"
+                            value={data.tariff_segment_id}
+                            onChange={(e) => setData('tariff_segment_id', e.target.value)}
+                        >
+                            <option value="">{`${selectedTariff.categoryLabel} — بدون تصنيف`}</option>
+                            {selectedTariff.segments.map((segment) => (
+                                <option key={segment.id} value={segment.id}>
+                                    {segment.name}
+                                </option>
+                            ))}
+                        </select>
+                    </Field>
+                )}
+
+                <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id} span="sm:col-span-2">
+                    <ChoiceChips label="القاطع" value={data.circuit_breaker_id} onChange={onCircuitBreakerChange} options={circuitBreakerOptions} />
+                </Field>
+
+                <div>
+                    <div className="flex items-center justify-between">
+                        <InputLabel htmlFor="minimum_charge">
+                            الحد الأدنى
+                            <span className="text-red-500"> *</span>
+                        </InputLabel>
+                        {canEditMinimumCharge && !minimumChargeUnlocked && (
+                            <button
+                                type="button"
+                                onClick={() => setConfirmingMinimumChargeUnlock(true)}
+                                className="text-xs font-semibold text-gray-500 transition hover:text-brand-600"
+                            >
+                                تعديل يدوي
+                            </button>
+                        )}
+                    </div>
+                    <div className="relative mt-1">
+                        <TextInput
+                            id="minimum_charge"
+                            type="number"
+                            step="0.01"
+                            dir="ltr"
+                            disabled={minimumChargeLocked}
+                            className={`block w-full ps-16 text-end disabled:opacity-100 ${minimumChargeLocked ? 'text-gray-600' : ''}`}
+                            value={data.minimum_charge}
+                            onChange={(e) => setData('minimum_charge', e.target.value)}
+                        />
+                        <CurrencySuffix />
+                    </div>
+                    <InputError message={errors.minimum_charge} className="mt-1" />
+                    <ConfirmDialog
+                        show={confirmingMinimumChargeUnlock}
+                        onConfirm={unlockMinimumCharge}
+                        onCancel={() => setConfirmingMinimumChargeUnlock(false)}
+                        title="تعديل الحد الأدنى يدويًا؟"
+                        message="أنت على وشك تعديل الحد الأدنى لهذا المشترك يدويًا بدل القيمة المأخوذة من القاطع. هل تريد المتابعة؟"
+                        confirmLabel="نعم، عدّل"
+                        icon="alert"
+                    />
+                </div>
+            </Section>
+
+            <Section icon="pin" title="الموقع والعداد" description="الفرع ومنطقته والطبلون الذي يتبع له المشترك">
+                {canChooseBranch && (
+                    <Field id="branch_id" label="الفرع" required error={errors.branch_id}>
+                        {branches.length === 0 ? (
+                            <p className="text-sm text-gray-500">لا توجد فروع بعد — أنشئ فرعًا أولاً.</p>
+                        ) : (
+                            <select className="block w-full" value={data.branch_id} onChange={(e) => onBranchChange(e.target.value)}>
+                                <option value="">— اختر فرعًا —</option>
+                                {branches.map((branch) => (
+                                    <option key={branch.id} value={branch.id}>
+                                        {branch.name}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </Field>
+                )}
+
+                <ReadOnlyField
+                    id="branch_area"
+                    label="المنطقة"
+                    value={resolvedAreaName || (canChooseBranch ? 'اختر فرعًا أولاً لعرض منطقته.' : 'فرعك غير مرتبط بمنطقة بعد.')}
+                />
+
+                {Boolean(resolvedAreaId) && (
+                    <Field id="sub_area_id" label="منطقة 2" error={errors.sub_area_id}>
+                        {subAreasInArea.length === 0 ? (
+                            <p className="text-sm text-gray-500">لا توجد منطقة 2 في هذه المنطقة بعد.</p>
+                        ) : (
+                            <select className="block w-full" value={subAreaId} onChange={(e) => onSubAreaChange(e.target.value)}>
+                                <option value="">— بلا منطقة 2 —</option>
+                                {subAreasInArea.map((subArea) => (
+                                    <option key={subArea.id} value={subArea.id}>
+                                        {subArea.name}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </Field>
+                )}
+
+                {showMeterBoxField && (
+                    <Field id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
+                        {meterBoxesInScope.length === 0 ? (
+                            <p className="text-sm text-gray-500">لا توجد طبلونات في منطقة 2 هذه بعد.</p>
+                        ) : (
+                            <SearchableSelect
+                                value={data.meter_box_id}
+                                onChange={(value) => setData('meter_box_id', value)}
+                                options={meterBoxOptions}
+                                searchPlaceholder="بحث عن طبلون..."
+                                emptyLabel="لا توجد طبلونات مطابقة"
+                            />
+                        )}
+                    </Field>
+                )}
+            </Section>
+
+            <Section icon="calendar" title="معلومات الاشتراك" description="القراءة الأولى للعداد والرسوم وتاريخ الاشتراك">
+                <Field id="initial_reading" label="القراءة السابقة (كيلوواط ساعة)" required error={errors.initial_reading}>
+                    <TextInput
+                        type="number"
+                        required
+                        min={0}
+                        step={1}
+                        className="block w-full"
+                        value={data.initial_reading}
+                        onChange={(event) => setData('initial_reading', event.target.value)}
+                    />
+                </Field>
+
+                <Field id="subscription_fee" label="رسوم الاشتراك (شيكل)" error={errors.subscription_fee}>
+                    <TextInput
                         type="number"
                         step="0.01"
-                        disabled={!canEditMinimumCharge || !minimumChargeUnlocked}
-                        className={`block w-full disabled:opacity-100 ${!canEditMinimumCharge || !minimumChargeUnlocked ? 'bg-gray-50 pe-10 text-gray-600' : ''}`}
-                        value={data.minimum_charge}
-                        onChange={(e) => setData('minimum_charge', e.target.value)}
+                        className="block w-full"
+                        value={data.subscription_fee}
+                        onChange={(e) => setData('subscription_fee', e.target.value)}
                     />
-                    {(!canEditMinimumCharge || !minimumChargeUnlocked) && <FieldLock />}
-                </div>
-                <InputError message={errors.minimum_charge} className="mt-1" />
-                <ConfirmDialog
-                    show={confirmingMinimumChargeUnlock}
-                    onConfirm={unlockMinimumCharge}
-                    onCancel={() => setConfirmingMinimumChargeUnlock(false)}
-                    title="تعديل الحد الأدنى يدويًا؟"
-                    message="أنت على وشك تعديل الحد الأدنى لهذا المشترك يدويًا بدل القيمة المأخوذة من القاطع. هل تريد المتابعة؟"
-                    confirmLabel="نعم، عدّل"
-                    icon="alert"
-                />
-            </div>
-
-            <Section title="الموقع والعداد" />
-
-            {canChooseBranch && (
-                <Field id="branch_id" label="الفرع" required error={errors.branch_id}>
-                    {branches.length === 0 ? (
-                        <p className="text-sm text-gray-500">لا توجد فروع بعد — أنشئ فرعًا أولاً.</p>
-                    ) : (
-                        <select
-                            className="block w-full rounded-md border-gray-300 shadow-sm"
-                            value={data.branch_id}
-                            onChange={(e) => onBranchChange(e.target.value)}
-                        >
-                            <option value="">— اختر فرعًا —</option>
-                            {branches.map((branch) => (
-                                <option key={branch.id} value={branch.id}>
-                                    {branch.name}
-                                </option>
-                            ))}
-                        </select>
-                    )}
                 </Field>
-            )}
 
-            <ReadOnlyField
-                id="branch_area"
-                label="المنطقة"
-                value={resolvedAreaName || (canChooseBranch ? 'اختر فرعًا أولاً لعرض منطقته.' : 'فرعك غير مرتبط بمنطقة بعد.')}
-            />
-
-            {Boolean(resolvedAreaId) && (
-                <Field id="sub_area_id" label="منطقة 2" error={errors.sub_area_id}>
-                    {subAreasInArea.length === 0 ? (
-                        <p className="text-sm text-gray-500">لا توجد منطقة 2 في هذه المنطقة بعد.</p>
-                    ) : (
-                        <select
-                            className="block w-full rounded-md border-gray-300 shadow-sm"
-                            value={subAreaId}
-                            onChange={(e) => onSubAreaChange(e.target.value)}
-                        >
-                            <option value="">— بلا منطقة 2 —</option>
-                            {subAreasInArea.map((subArea) => (
-                                <option key={subArea.id} value={subArea.id}>
-                                    {subArea.name}
-                                </option>
-                            ))}
-                        </select>
-                    )}
+                <Field id="subscription_date" label="تاريخ الاشتراك" error={errors.subscription_date}>
+                    <TextInput
+                        type="date"
+                        className="block w-full"
+                        value={data.subscription_date}
+                        onChange={(e) => setData('subscription_date', e.target.value)}
+                    />
                 </Field>
-            )}
+            </Section>
 
-            {showMeterBoxField && (
-                <Field id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
-                    {meterBoxesInScope.length === 0 ? (
-                        <p className="text-sm text-gray-500">لا توجد طبلونات في منطقة 2 هذه بعد.</p>
-                    ) : (
-                        <SearchableSelect
-                            value={data.meter_box_id}
-                            onChange={(value) => setData('meter_box_id', value)}
-                            options={meterBoxOptions}
-                            searchPlaceholder="بحث عن طبلون..."
-                            emptyLabel="لا توجد طبلونات مطابقة"
-                        />
-                    )}
+            <Section icon="info" title="معلومات إضافية" description="العنوان وأي ملاحظات أخرى">
+                <Field id="address" label="العنوان" error={errors.address} span="sm:col-span-2 lg:col-span-3">
+                    <textarea rows={2} className="block w-full" value={data.address} onChange={(e) => setData('address', e.target.value)} />
                 </Field>
-            )}
 
-            <Section title="معلومات الاشتراك" />
-
-            <Field id="initial_reading" label="القراءة السابقة (كيلوواط ساعة)" required error={errors.initial_reading}>
-                <TextInput
-                    type="number"
-                    required
-                    min={0}
-                    step={1}
-                    className="block w-full"
-                    value={data.initial_reading}
-                    onChange={(event) => setData('initial_reading', event.target.value)}
-                />
-            </Field>
-
-            <Field id="subscription_fee" label="رسوم الاشتراك (شيكل)" error={errors.subscription_fee}>
-                <TextInput
-                    type="number"
-                    step="0.01"
-                    className="block w-full"
-                    value={data.subscription_fee}
-                    onChange={(e) => setData('subscription_fee', e.target.value)}
-                />
-            </Field>
-
-            <Field id="subscription_date" label="تاريخ الاشتراك" error={errors.subscription_date}>
-                <TextInput
-                    type="date"
-                    className="block w-full"
-                    value={data.subscription_date}
-                    onChange={(e) => setData('subscription_date', e.target.value)}
-                />
-            </Field>
-
-            <Section title="معلومات إضافية" />
-
-            <Field id="address" label="العنوان" error={errors.address} span="sm:col-span-2 lg:col-span-3">
-                <textarea rows={2} className="block w-full" value={data.address} onChange={(e) => setData('address', e.target.value)} />
-            </Field>
-
-            <Field id="notes" label="معلومات أخرى" error={errors.notes} span="sm:col-span-2 lg:col-span-3">
-                <textarea
-                    rows={2}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
-                    value={data.notes}
-                    onChange={(e) => setData('notes', e.target.value)}
-                />
-            </Field>
+                <Field id="notes" label="معلومات أخرى" error={errors.notes} span="sm:col-span-2 lg:col-span-3">
+                    <textarea rows={2} className="block w-full" value={data.notes} onChange={(e) => setData('notes', e.target.value)} />
+                </Field>
+            </Section>
         </div>
     );
 }

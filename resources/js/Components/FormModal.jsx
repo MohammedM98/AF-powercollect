@@ -50,6 +50,14 @@ export default function FormModal({
         form.save({ preserveScroll: true, onSuccess: close, ...visitOptions });
     }
 
+    // Ctrl/⌘ + Enter saves from any field, like pressing the Save button.
+    function onKeyDown(event) {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            event.currentTarget.requestSubmit();
+        }
+    }
+
     function submit(e) {
         e.preventDefault();
 
@@ -63,7 +71,7 @@ export default function FormModal({
     return (
         <>
             <Modal show={show} onClose={requestClose} maxWidth={maxWidth}>
-                <form onSubmit={submit} className="flex max-h-[90vh] flex-col">
+                <form onSubmit={submit} onKeyDown={onKeyDown} className="flex max-h-[90vh] flex-col">
                     <div className="flex items-center justify-between border-b border-gray-100 px-7 py-5">
                         <div className="flex items-center gap-3">
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
@@ -84,6 +92,9 @@ export default function FormModal({
                     <div className={`flex-1 overflow-y-auto px-7 py-6 ${bodyClassName}`}>{children}</div>
 
                     <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-7 py-4">
+                        <p className="me-auto hidden text-xs text-gray-400 sm:block">
+                            <span dir="ltr">Ctrl + Enter</span> للحفظ
+                        </p>
                         <SecondaryButton onClick={requestClose}>إلغاء</SecondaryButton>
                         <PrimaryButton disabled={form.processing}>{form.processing ? 'جارٍ الحفظ...' : 'حفظ'}</PrimaryButton>
                     </div>

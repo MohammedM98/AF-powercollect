@@ -31,6 +31,7 @@ export default function Edit({
                 currentBranchAreaId={currentBranchAreaId}
                 currentBranchAreaName={currentBranchAreaName}
                 canEditMinimumCharge={canEditMinimumCharge}
+                isEdit
             />
         </FormPage>
     );

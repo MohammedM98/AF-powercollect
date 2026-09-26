@@ -191,9 +191,7 @@ class MeterReadingApprovalTest extends TestCase
     public function test_correcting_an_approved_reading_sends_it_back_for_approval_and_takes_its_charge_off(): void
     {
         $reading = $this->pendingReading('2026-09-18', '42.50');
-        $reading->update(['previous_reading' => 1000, 'current_reading' => 1100, 'consumption' => 100]);
-        $reading->subscriber->tariff->update(['rate' => '0.50']);
-        $reading->subscriber->update(['minimum_charge' => '10.00']);
+        $reading->update(['previous_reading' => 1000, 'current_reading' => 1100, 'consumption' => 100, 'unit_price' => '0.50', 'minimum_payment' => '10.00']);
         $reading->approve($this->accountant);
         $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id, 'name' => 'Elenora']);
 

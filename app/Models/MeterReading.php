@@ -105,36 +105,6 @@ class MeterReading extends Model
         ];
     }
 
-    /**
-     * The subscriber's current kilo price and weekly minimum. A reading
-     * follows them until it is approved; from then on its prices are fixed.
-     *
-     * @return array{unit_price: string, minimum_payment: string}
-     */
-    public static function currentPricesFor(Subscriber $subscriber): array
-    {
-        return [
-            'unit_price' => (string) $subscriber->tariff->rate,
-            'minimum_payment' => $subscriber->weeklyMinimumPayment(),
-        ];
-    }
-
-    /**
-     * Re-price the subscriber's readings still waiting for approval at
-     * their current kilo price and minimum, after either changed.
-     */
-    public static function repricePendingFor(Subscriber $subscriber): void
-    {
-        $prices = self::currentPricesFor($subscriber->load(['tariff', 'circuitBreaker']));
-
-        $subscriber->meterReadings()
-            ->where('status', MeterReadingStatus::Pending)
-            ->each(fn (self $reading) => $reading->update([
-                ...$prices,
-                ...self::chargesFor($reading->consumption, $prices['unit_price'], $prices['minimum_payment']),
-            ]));
-    }
-
     public function isPending(): bool
     {
         return $this->status === MeterReadingStatus::Pending;
@@ -174,17 +144,16 @@ class MeterReading extends Model
     }
 
     /**
-     * Correct the reading and recalculate its charges at the subscriber's
-     * current prices. An approved reading goes back to review: its charge is
-     * taken off the subscriber's transactions until it is approved again.
-     * Returns whether that happened.
+     * Correct the reading and recalculate its charges at the prices captured
+     * when it was recorded. An approved reading goes back to review: its
+     * charge is taken off the subscriber's transactions until it is approved
+     * again. Returns whether that happened.
      */
     public function correct(int $currentReading, ?string $notes): bool
     {
         return DB::transaction(function () use ($currentReading, $notes): bool {
             $wasApproved = ! $this->isPending();
             $consumption = $currentReading - $this->previous_reading;
-            $prices = self::currentPricesFor($this->subscriber->load(['tariff', 'circuitBreaker']));
 
             if ($wasApproved) {
                 SubscriberTransaction::where('source_key', $this->chargeSourceKey())->delete();
@@ -193,8 +162,7 @@ class MeterReading extends Model
             $this->update([
                 'current_reading' => $currentReading,
                 'consumption' => $consumption,
-                ...$prices,
-                ...self::chargesFor($consumption, $prices['unit_price'], $prices['minimum_payment']),
+                ...self::chargesFor($consumption, $this->unit_price, $this->minimum_payment),
                 'notes' => $notes,
                 ...($wasApproved ? ['status' => MeterReadingStatus::Pending, 'approved_by' => null, 'approved_at' => null] : []),
             ]);

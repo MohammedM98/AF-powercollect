@@ -11,7 +11,6 @@ use App\Models\Permission;
 use App\Models\ReadingEntrySetting;
 use App\Models\SubArea;
 use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
 use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -65,7 +64,6 @@ class HandleInertiaRequests extends Middleware
             'can' => $user ? [
                 'viewBranches' => $user->can('viewAny', Branch::class),
                 'viewSubscribers' => $user->can('viewAny', Subscriber::class),
-                'viewFinancialLog' => $user->can('viewAny', SubscriberTransaction::class),
                 'viewUsers' => $user->can('viewAny', User::class),
                 'viewTariffs' => $user->can('viewAny', Tariff::class),
                 'viewCircuitBreakers' => $user->can('viewAny', CircuitBreaker::class),

@@ -111,7 +111,8 @@ class MeterReadingController extends Controller
         $previousReading = $subscriber->previousReadingBefore($weekStart);
         $currentReading = $request->integer('current_reading');
         $consumption = $currentReading - $previousReading;
-        ['unit_price' => $unitPrice, 'minimum_payment' => $minimumPayment] = MeterReading::currentPricesFor($subscriber);
+        $unitPrice = (string) $subscriber->tariff->rate;
+        $minimumPayment = $subscriber->weeklyMinimumPayment();
 
         MeterReading::create([
             'subscriber_id' => $subscriber->id,
@@ -349,10 +350,9 @@ class MeterReadingController extends Controller
     }
 
     /**
-     * One sheet row. A reading already entered for the week shows its own
-     * prices (the subscriber's current ones until it is approved); otherwise
-     * the subscriber's current price and minimum are shown for the live
-     * calculation.
+     * One sheet row. A reading already entered for the week shows the
+     * prices captured with it; otherwise the subscriber's current price
+     * and minimum are shown for the live calculation.
      *
      * @return array<string, mixed>
      */

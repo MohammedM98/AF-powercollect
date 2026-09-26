@@ -65,7 +65,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                     >
                         <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-5 sm:px-8">
                             <div className="flex min-w-0 items-center gap-3">
-                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
                                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path
                                             strokeLinecap="round"
@@ -218,19 +218,23 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                             >
                                 <div className="grid gap-4 sm:grid-cols-3">
                                     <div
-                                        className={`rounded-xl border p-5 ${balance.tone === 'credit' ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'border-brand-100 bg-brand-50 text-brand-700'}`}
+                                        className={`rounded-card border p-5 ${
+                                            balance.tone === 'credit'
+                                                ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                                : 'border-brand-500/20 bg-brand-500/10 text-brand-600'
+                                        }`}
                                     >
-                                        <p className="text-sm font-medium">الرصيد الحالي</p>
-                                        <p className="mt-2 text-2xl font-bold tabular-nums">{formatCurrency(balance.amount)}</p>
+                                        <p className="text-sm font-semibold">الرصيد الحالي</p>
+                                        <p className="mt-2 font-display text-2xl font-bold tabular-nums">{formatCurrency(balance.amount)}</p>
                                         <p className="mt-1 text-xs font-semibold">
                                             {balance.tone === 'owes' ? 'عليه' : balance.tone === 'credit' ? 'له' : 'مسدّد'}
                                         </p>
                                     </div>
-                                    <div className="rounded-xl border border-gray-200 p-5">
+                                    <div className="rounded-card border border-gray-100 bg-surface p-5">
                                         <p className="text-sm text-gray-500">آخر قراءة للعداد</p>
-                                        <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{subscriber.lastReading}</p>
+                                        <p className="mt-2 font-display text-2xl font-bold tabular-nums text-gray-900">{subscriber.lastReading}</p>
                                     </div>
-                                    <div className="rounded-xl border border-gray-200 p-5">
+                                    <div className="rounded-card border border-gray-100 bg-surface p-5">
                                         <p className="text-sm text-gray-500">آخر أسبوع مسجل</p>
                                         <p className="mt-3 text-base font-semibold text-gray-900">
                                             {lastReading ? `${lastReading.weekStart} ← ${lastReading.weekEnd}` : 'لا توجد قراءات بعد'}
@@ -250,7 +254,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                 )}
                                 <Link
                                     href={`/subscribers/${subscriber.id}/statement`}
-                                    className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-5 transition hover:border-gray-300 hover:shadow-card"
+                                    className="flex items-center justify-between gap-4 rounded-card border border-gray-100 bg-surface p-5 transition hover:border-gray-200 hover:shadow-card"
                                 >
                                     <span className="flex items-center gap-3">
                                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">

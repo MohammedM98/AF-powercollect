@@ -103,10 +103,16 @@ export default function CommandPalette({ open, onOpenChange, links }) {
                                     onClick={() => onOpenChange(false)}
                                     onPointerEnter={() => setActiveIndex(index)}
                                     className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${
-                                        index === activeIndex ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                                        index === activeIndex ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                                     }`}
                                 >
-                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-surface text-gray-500">
+                                    <span
+                                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition ${
+                                            index === activeIndex
+                                                ? 'border-transparent bg-brand-gradient text-white shadow-glow'
+                                                : 'border-gray-100 bg-surface text-gray-500'
+                                        }`}
+                                    >
                                         <Icon name={link.icon} className="h-[18px] w-[18px]" />
                                     </span>
                                     <span className="flex-1 font-semibold">{link.label}</span>

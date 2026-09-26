@@ -265,6 +265,20 @@
     border-end-end-radius: 0;
 }
 
+.data-table-container:has(+ .data-table-footer) {
+    border-bottom: 0;
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+}
+
+/* A totals line between a table and its pagination. */
+.data-table-footer {
+    padding: 14px 24px;
+    border: 1px solid rgb(var(--gray-100));
+    border-bottom: 0;
+    background: rgb(var(--surface));
+}
+
 .data-table-pagination {
     padding: 16px 24px 20px;
     border: 1px solid rgb(var(--gray-100));
@@ -439,6 +453,37 @@
         max-width: 320px;
         white-space: normal;
     }
+}
+
+/* A heading row that groups the rows under it (e.g. by day in the financial log). */
+.data-table tbody tr.data-table-group td,
+.data-table tbody tr.data-table-group:hover td {
+    padding: 14px 4px 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    font-size: inherit;
+    text-align: start;
+    white-space: normal;
+}
+
+@container (max-width: 640px) {
+    .data-table tbody tr.data-table-group {
+        display: block;
+        padding: 12px 2px 0;
+        border: 0;
+        background: transparent;
+    }
+}
+
+/* Compact rows (the toolbar's density switch): tighter cells and gaps. */
+[data-table-density='compact'] .data-table {
+    border-spacing: 0 6px;
+}
+
+[data-table-density='compact'] .data-table td {
+    padding-block: 8px;
 }
 
 /* Rows float in one after another. */

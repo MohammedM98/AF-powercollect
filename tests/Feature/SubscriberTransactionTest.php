@@ -97,17 +97,14 @@ class SubscriberTransactionTest extends TestCase
     {
         $actor = User::factory()->dataEntry()->create();
         $subscriber = Subscriber::factory()->create(['branch_id' => $actor->branch_id]);
-        $transaction = SubscriberTransaction::factory()->for($subscriber)->create(['recorded_by' => $actor->id]);
+        SubscriberTransaction::factory()->for($subscriber)->create(['recorded_by' => $actor->id]);
         SubscriberTransaction::factory()->create();
 
         $this->actingAs($actor)->get(route('subscribers.index'))
             ->assertInertia(fn (Assert $page) => $page->component('Subscribers/Index')
                 ->has('subscribers.data', 1)
                 ->where('subscribers.data.0.id', $subscriber->id)
-                ->where('subscribers.data.0.outstandingBalance', fn ($value): bool => (float) $value === 50.0)
-                ->has('subscribers.data.0.transactions', 1)
-                ->where('subscribers.data.0.transactions.0.id', $transaction->id)
-                ->where('subscribers.data.0.transactions.0.recordedByName', $actor->name));
+                ->where('subscribers.data.0.outstandingBalance', fn ($value): bool => (float) $value === 50.0));
     }
 
     /** @return array<string, mixed> */

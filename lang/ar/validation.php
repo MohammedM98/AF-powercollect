@@ -196,6 +196,14 @@ return [
         'subscriber_id' => 'المشترك',
         'week_start' => 'الأسبوع',
         'current_reading' => 'القراءة الحالية',
+        'amount' => 'المبلغ',
+        'currency' => 'العملة',
+        'exchange_rate' => 'سعر الصرف',
+        'payment_method' => 'طريقة الدفع',
+        'bank_name' => 'البنك',
+        'reference_number' => 'الرقم المرجعي',
+        'cash_box' => 'رقم الصندوق',
+        'manual_voucher_number' => 'السند اليدوي',
     ],
 
 ];

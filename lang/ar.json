@@ -197,5 +197,12 @@
     "Automatic (by schedule)": "تلقائي حسب الأيام المحددة",
     "Open now": "مفتوح الآن",
     "Closed now": "مغلق الآن",
-    ":ampere A": ":ampere أمبير"
+    ":ampere A": ":ampere أمبير",
+    "Shekel": "شيكل",
+    "Dinar": "دينار",
+    "Dollar": "دولار",
+    "Cash": "نقد",
+    "Bank Transfer": "تحويل بنكي",
+    "Cheque": "شيك",
+    "E-Wallet": "محفظة إلكترونية"
 }

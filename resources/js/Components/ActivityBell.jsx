@@ -127,7 +127,7 @@ export default function ActivityBell() {
                     ) : (
                         <ul className="max-h-[min(28rem,calc(100dvh-8rem))] divide-y divide-gray-100 overflow-y-auto">
                             {activity.recent.map((item) => {
-                                const isCreation = item.action.endsWith('-created');
+                                const isCreation = item.action.endsWith('-created') || item.action === 'payment-recorded';
                                 const isAlert = item.action === 'meter-reading-needs-reapproval';
 
                                 return (

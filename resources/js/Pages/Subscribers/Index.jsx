@@ -129,7 +129,10 @@ export default function Index({
                                     <td className="text-gray-600">
                                         {subscriber.meterBoxNumber ? <span className="data-chip">{subscriber.meterBoxNumber}</span> : '—'}
                                     </td>
-                                    <td className="text-gray-600">{subscriber.tariffCategoryLabel}</td>
+                                    <td className="text-gray-600">
+                                        {subscriber.tariffCategoryLabel}
+                                        {subscriber.tariffSegmentName && <div className="text-xs text-gray-400">{subscriber.tariffSegmentName}</div>}
+                                    </td>
                                     <td className="text-gray-600">{subscriber.branchName}</td>
                                     <td>
                                         <StatusPill tone={STATUS_TONES[subscriber.status]} label={subscriber.statusLabel} />

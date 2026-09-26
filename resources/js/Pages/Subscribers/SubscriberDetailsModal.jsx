@@ -186,6 +186,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
 
                                 <Section title="نوع الاشتراك والقاطع">
                                     <Field label="نوع الاشتراك" value={subscriber.tariffCategoryLabel} />
+                                    <Field label="تصنيف الزبائن" value={subscriber.tariffSegmentName ?? 'بدون تصنيف'} />
                                     <Field label="سعر الكيلو" value={formatCurrency(subscriber.tariffRate)} />
                                     <Field
                                         label="القاطع"

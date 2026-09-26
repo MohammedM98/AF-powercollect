@@ -27,4 +27,12 @@ class Tariff extends Model
     {
         return $this->hasMany(Subscriber::class);
     }
+
+    /**
+     * Its customer segments (e.g. mosques, schools), which share its rate.
+     */
+    public function segments(): HasMany
+    {
+        return $this->hasMany(TariffSegment::class)->orderBy('name');
+    }
 }

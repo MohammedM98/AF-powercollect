@@ -74,6 +74,7 @@ export function subscriberFormData(subscriber) {
         address: subscriber?.address ?? '',
         meter_box_id: subscriber?.meter_box_id ?? '',
         tariff_id: subscriber?.tariff_id ?? '',
+        tariff_segment_id: subscriber?.tariff_segment_id ?? '',
         status: subscriber?.status ?? 'suspended',
         branch_id: subscriber?.branch_id ?? '',
         circuit_breaker_id: subscriber?.circuit_breaker_id ?? '',
@@ -149,6 +150,11 @@ export default function SubscriberForm({
         setData('meter_box_id', '');
     }
 
+    // A segment belongs to one tariff, so picking another tariff clears it.
+    function onTariffChange(value) {
+        setData((current) => ({ ...current, tariff_id: value, tariff_segment_id: '' }));
+    }
+
     function onCircuitBreakerChange(value) {
         const match = circuitBreakers.find((circuitBreaker) => String(circuitBreaker.id) === value);
         setData((current) => ({
@@ -210,12 +216,28 @@ export default function SubscriberForm({
                 <select
                     className="block w-full rounded-md border-gray-300 shadow-sm"
                     value={data.tariff_id}
-                    onChange={(e) => setData('tariff_id', e.target.value)}
+                    onChange={(e) => onTariffChange(e.target.value)}
                 >
                     <option value="">---</option>
                     {tariffs.map((tariff) => (
                         <option key={tariff.id} value={tariff.id}>
                             {tariff.categoryLabel}
+                        </option>
+                    ))}
+                </select>
+            </Field>
+
+            <Field id="tariff_segment_id" label="تصنيف الزبائن" error={errors.tariff_segment_id}>
+                <select
+                    className="block w-full rounded-md border-gray-300 shadow-sm disabled:bg-gray-50 disabled:text-gray-500"
+                    value={data.tariff_segment_id}
+                    disabled={!selectedTariff}
+                    onChange={(e) => setData('tariff_segment_id', e.target.value)}
+                >
+                    <option value="">{selectedTariff ? `${selectedTariff.categoryLabel} — بدون تصنيف` : 'اختر نوع الاشتراك أولاً'}</option>
+                    {(selectedTariff?.segments ?? []).map((segment) => (
+                        <option key={segment.id} value={segment.id}>
+                            {segment.name}
                         </option>
                     ))}
                 </select>

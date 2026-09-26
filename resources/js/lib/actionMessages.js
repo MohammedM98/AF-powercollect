@@ -16,6 +16,8 @@ export const ACTION_MESSAGES = {
     'reading-schedule-updated': 'تم حفظ مواعيد القراءات بنجاح.',
     'tariff-created': 'تم إنشاء التعرفة بنجاح.',
     'tariff-updated': 'تم تحديث التعرفة بنجاح.',
+    'tariff-segment-created': 'تم إنشاء تصنيف الزبائن بنجاح.',
+    'tariff-segment-updated': 'تم تحديث تصنيف الزبائن بنجاح.',
     'circuit-breaker-created': 'تم إنشاء القاطع بنجاح.',
     'circuit-breaker-updated': 'تم تحديث القاطع بنجاح.',
     'governorate-created': 'تم إنشاء المحافظة بنجاح.',

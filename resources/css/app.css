@@ -131,6 +131,47 @@
         color-scheme: inherit;
     }
 
+    /*
+     * Drop-down lists drawn by the page instead of the operating system
+     * (Chrome/Edge's customizable select). They follow the theme, and they
+     * avoid the native list's glitch under zoom or display scaling, where it
+     * shrinks its options and fills the rest with white. Other browsers keep
+     * their own list.
+     */
+    @supports (appearance: base-select) {
+        select:not([multiple]),
+        ::picker(select) {
+            appearance: base-select;
+        }
+
+        /* The forms plugin already draws the chevron. */
+        select::picker-icon {
+            display: none;
+        }
+
+        ::picker(select) {
+            @apply my-1.5 rounded-2xl border border-gray-100 bg-surface p-1.5 text-gray-900 shadow-lift;
+            max-block-size: min(18rem, 60vh);
+        }
+
+        select option {
+            @apply gap-2 rounded-lg px-3 py-2 text-sm text-gray-700;
+        }
+
+        select option:hover,
+        select option:focus-visible {
+            @apply bg-gray-100 text-gray-900 outline-none;
+        }
+
+        select option:checked {
+            @apply font-semibold text-gray-900;
+        }
+
+        select option::checkmark {
+            @apply text-brand-500;
+        }
+    }
+
     /* Theme switch: colors glide instead of jumping. Added only while switching. */
     .theme-transition,
     .theme-transition *,

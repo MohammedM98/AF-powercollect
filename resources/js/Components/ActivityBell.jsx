@@ -114,7 +114,7 @@ export default function ActivityBell() {
                         </span>
                         <div>
                             <h3 className="font-bold text-gray-900">آخر الإجراءات</h3>
-                            <p className="text-xs text-gray-500">ما حفظته مؤخرًا في النظام</p>
+                            <p className="text-xs text-gray-500">ما حفظته مؤخرًا والتنبيهات الموجّهة إليك</p>
                         </div>
                     </div>
 
@@ -128,15 +128,20 @@ export default function ActivityBell() {
                         <ul className="max-h-[min(28rem,calc(100dvh-8rem))] divide-y divide-gray-100 overflow-y-auto">
                             {activity.recent.map((item) => {
                                 const isCreation = item.action.endsWith('-created');
+                                const isAlert = item.action === 'meter-reading-needs-reapproval';
 
                                 return (
                                     <li key={item.id} className={`flex items-start gap-3 px-5 py-3.5 ${item.read ? '' : 'bg-brand-50/60'}`}>
                                         <span
                                             className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                                                isCreation ? 'bg-emerald-500/10 text-emerald-600' : 'bg-gray-500/10 text-gray-600'
+                                                isAlert
+                                                    ? 'bg-amber-500/10 text-amber-600'
+                                                    : isCreation
+                                                      ? 'bg-emerald-500/10 text-emerald-600'
+                                                      : 'bg-gray-500/10 text-gray-600'
                                             }`}
                                         >
-                                            <Icon name={isCreation ? 'plus' : 'pencil'} className="h-4 w-4" strokeWidth={2} />
+                                            <Icon name={isAlert ? 'alert' : isCreation ? 'plus' : 'pencil'} className="h-4 w-4" strokeWidth={2} />
                                         </span>
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-semibold text-gray-900">{ACTION_MESSAGES[item.action] ?? item.action}</p>

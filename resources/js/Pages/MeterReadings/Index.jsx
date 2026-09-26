@@ -71,6 +71,8 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     const [value, setValue] = useState(savedValue);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
+    // Changing an approved reading sends it back for approval, so it waits on "are you sure?".
+    const [confirmingApprovedEdit, setConfirmingApprovedEdit] = useState(false);
 
     // Pick up the saved value whenever the server sends a fresh row.
     useEffect(() => {
@@ -80,8 +82,13 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     const charges = calculateCharges(value, row);
     const belowMinimum = charges && charges.readingFee < Number(row.minimumPayment);
 
-    function save() {
+    function save({ confirmed = false } = {}) {
         if (value === '' || value === savedValue || saving) {
+            return;
+        }
+
+        if (row.reading?.status === 'approved' && !confirmed) {
+            setConfirmingApprovedEdit(true);
             return;
         }
 
@@ -137,7 +144,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     value={value}
                     placeholder={row.canEdit ? 'أدخل القراءة' : '—'}
                     onChange={(e) => setValue(e.target.value)}
-                    onBlur={save}
+                    onBlur={() => save()}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
@@ -164,6 +171,22 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                 {belowMinimum && charges.consumption >= 0 && <p className="text-xs font-normal text-gray-500">الحد الأدنى</p>}
             </td>
             <td className="px-4">
+                <ConfirmDialog
+                    show={confirmingApprovedEdit}
+                    onConfirm={() => {
+                        setConfirmingApprovedEdit(false);
+                        save({ confirmed: true });
+                    }}
+                    onCancel={() => {
+                        setConfirmingApprovedEdit(false);
+                        setValue(savedValue);
+                    }}
+                    title="تعديل قراءة معتمدة؟"
+                    message={`قراءة ${row.fullName} معتمدة. تعديلها يعيدها إلى قيد المراجعة ويزيل مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`}
+                    confirmLabel="نعم، عدّل"
+                    cancelLabel="تراجع عن التعديل"
+                    icon="alert"
+                />
                 {saving ? (
                     <span className="text-xs text-gray-500">جارٍ الحفظ...</span>
                 ) : row.reading ? (

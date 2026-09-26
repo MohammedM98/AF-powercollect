@@ -472,9 +472,9 @@ class MeterReadingTest extends TestCase
         $this->assertSame('تصحيح', $reading->notes);
     }
 
-    public function test_an_approved_reading_cannot_be_corrected(): void
+    public function test_an_approved_reading_of_an_earlier_week_cannot_be_corrected(): void
     {
-        $reading = $this->recordedReading('2026-09-18', 1200, 1250, MeterReadingStatus::Approved);
+        $reading = $this->recordedReading('2026-09-11', 1200, 1250, MeterReadingStatus::Approved);
 
         $this->actingAs($this->dataEntry)
             ->put(route('meter-readings.update', $reading), ['current_reading' => 1235])

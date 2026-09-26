@@ -6,6 +6,7 @@ use App\Http\Controllers\CircuitBreakerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GovernorateController;
 use App\Http\Controllers\MeterBoxController;
+use App\Http\Controllers\MeterReadingApprovalController;
 use App\Http\Controllers\MeterReadingController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
@@ -37,6 +38,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('meter-boxes', MeterBoxController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('meter-readings', MeterReadingController::class)->only(['index', 'store', 'update']);
+    Route::get('/meter-reading-approvals', [MeterReadingApprovalController::class, 'index'])->name('meter-reading-approvals.index');
+    Route::post('/meter-reading-approvals', [MeterReadingApprovalController::class, 'store'])->name('meter-reading-approvals.store');
     Route::resource('areas', AreaController::class)->only(['create', 'store', 'edit', 'update']);
     Route::resource('sub-areas', SubAreaController::class)->only(['create', 'store', 'edit', 'update']);
     Route::resource('governorates', GovernorateController::class)->only(['index', 'create', 'store', 'edit', 'update']);

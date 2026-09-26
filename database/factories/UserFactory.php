@@ -79,6 +79,16 @@ class UserFactory extends Factory
     }
 
     /**
+     * Indicate that the user approves weekly meter readings.
+     */
+    public function accountant(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::Accountant,
+        ]);
+    }
+
+    /**
      * Indicate that the user confirms or rejects recorded collections.
      */
     public function financialAuditor(): static

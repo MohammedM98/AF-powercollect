@@ -7,6 +7,7 @@ export const MAIN_LINKS = [
     { href: '/dashboard', label: 'لوحة التحكم', icon: 'grid' },
     { href: '/subscribers', label: 'المشتركون', icon: 'users', can: 'viewSubscribers' },
     { href: '/meter-readings', label: 'القراءات', icon: 'chart', can: 'viewMeterReadings' },
+    { href: '/meter-reading-approvals', label: 'اعتماد القراءات', icon: 'check', can: 'approveMeterReadings' },
     { href: '/users', label: 'المستخدمون', icon: 'user', can: 'viewUsers' },
 ];
 

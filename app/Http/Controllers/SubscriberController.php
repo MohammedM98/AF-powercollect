@@ -95,7 +95,7 @@ class SubscriberController extends Controller
             if ($subscriber->subscription_fee !== null && (float) $subscriber->subscription_fee > 0) {
                 $subscriber->transactions()->create([
                     'recorded_by' => $actor->id,
-                    'type' => 'subscription_fee',
+                    'type' => SubscriberTransaction::TYPE_SUBSCRIPTION_FEE,
                     'source_key' => 'subscription-fee:'.$subscriber->id,
                     'amount' => $subscriber->subscription_fee,
                 ]);

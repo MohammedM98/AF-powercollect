@@ -77,7 +77,7 @@ class DashboardTest extends TestCase
             ->missing('userForm')
             ->reloadOnly('userForm', fn ($reload) => $reload
                 ->where('userForm.canChooseBranch', false)
-                ->has('userForm.roleOptions', 3)));
+                ->where('userForm.roleOptions', fn ($options): bool => collect($options)->pluck('value')->all() === ['collector', 'data_entry', 'accountant', 'financial_auditor'])));
     }
 
     public function test_someone_who_cannot_create_branches_gets_no_branch_pop_up_options(): void

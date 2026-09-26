@@ -19,7 +19,7 @@ class SubscriberSeeder extends Seeder
 {
     /**
      * Each branch's own governorate → area → sub-area → meter box chain,
-     * its branch admin, its data-entry registrar, and a batch of
+     * its branch admin, its data-entry registrar, its accountant, and a batch of
      * subscribers. Two branches deliberately share a governorate (Baghdad)
      * while having distinct areas, so branch-scoped and governorate-level
      * filters both have something real to narrow down.
@@ -110,6 +110,12 @@ class SubscriberSeeder extends Seeder
 
             $registrar = User::factory()->dataEntry()->create([
                 'username' => str_replace('.admin', '.data.entry', $config['adminUsername']),
+                'password' => 'password',
+                'branch_id' => $branch->id,
+            ]);
+
+            User::factory()->accountant()->create([
+                'username' => str_replace('.admin', '.accountant', $config['adminUsername']),
                 'password' => 'password',
                 'branch_id' => $branch->id,
             ]);

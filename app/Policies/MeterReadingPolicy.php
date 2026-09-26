@@ -15,7 +15,7 @@ class MeterReadingPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $this->canRecord($user) || $user->hasPermission(PermissionKey::ViewMeterReadings);
+        return $this->canRecord($user) || $user->hasAnyPermission(PermissionKey::ViewMeterReadings, PermissionKey::ApproveMeterReadings);
     }
 
     /**
@@ -52,6 +52,26 @@ class MeterReadingPolicy
         }
 
         return $user->isSuperAdmin() || $meterReading->branch_id === $user->branch_id;
+    }
+
+    /**
+     * Whether the user may approve readings at all (the approvals page).
+     */
+    public function approveAny(User $user): bool
+    {
+        return $user->hasPermission(PermissionKey::ApproveMeterReadings);
+    }
+
+    /**
+     * Approving charges the reading to the subscriber, so it takes its own
+     * permission; only pending readings in the actor's own branch (any
+     * branch for the Super Admin) can be approved.
+     */
+    public function approve(User $user, MeterReading $meterReading): bool
+    {
+        return $this->approveAny($user)
+            && $meterReading->isPending()
+            && ($user->isSuperAdmin() || $meterReading->branch_id === $user->branch_id);
     }
 
     /**

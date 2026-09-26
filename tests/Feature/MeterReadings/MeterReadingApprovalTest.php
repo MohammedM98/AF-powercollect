@@ -145,14 +145,32 @@ class MeterReadingApprovalTest extends TestCase
                 ->where('rows.data.0.canApprove', false));
     }
 
-    public function test_approving_takes_its_own_permission_which_branch_admins_lack_by_default(): void
+    public function test_branch_admins_approve_by_default_but_data_entry_cannot_approve(): void
     {
         $reading = $this->pendingReading('2026-09-18', '42.50');
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id]);
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
 
-        $this->actingAs($branchAdmin)->post(route('meter-readings.approve'), ['reading_ids' => [$reading->id]])->assertForbidden();
-
+        $this->actingAs($dataEntry)->post(route('meter-readings.approve'), ['reading_ids' => [$reading->id]])->assertForbidden();
         $this->assertSame(MeterReadingStatus::Pending, $reading->fresh()->status);
+
+        $this->actingAs($branchAdmin)
+            ->post(route('meter-readings.approve'), ['reading_ids' => [$reading->id]])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(MeterReadingStatus::Approved, $reading->fresh()->status);
+    }
+
+    public function test_existing_branch_admins_are_ticked_to_approve_readings(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id]);
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
+        $branchAdmin->permissions()->detach(Permission::idsFor([PermissionKey::ApproveMeterReadings]));
+
+        (require database_path('migrations/2026_09_26_083544_tick_approve_meter_readings_for_branch_admins.php'))->up();
+
+        $this->assertTrue($branchAdmin->fresh()->hasPermission(PermissionKey::ApproveMeterReadings));
+        $this->assertTrue($branchAdmin->fresh()->hasPermission(PermissionKey::RecordMeterReadings));
+        $this->assertFalse($dataEntry->fresh()->hasPermission(PermissionKey::ApproveMeterReadings));
     }
 
     public function test_the_super_admin_can_grant_approving_to_any_employee_from_the_permissions_page(): void

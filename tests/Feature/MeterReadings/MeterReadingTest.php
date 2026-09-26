@@ -266,16 +266,32 @@ class MeterReadingTest extends TestCase
         $this->assertDatabaseCount('meter_readings', 0);
     }
 
-    public function test_a_pending_reading_cannot_be_corrected_while_entry_is_closed(): void
+    public function test_the_latest_weeks_readings_can_still_be_corrected_while_entry_is_closed_but_not_added(): void
     {
         $reading = $this->recordedReading('2026-09-18', 1200, 1250);
+        $missing = Subscriber::factory()->create(['branch_id' => $this->branch->id]);
         ReadingEntrySetting::factory()->forcedClosed()->create();
 
         $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('canRecord', false)
+                ->where('rows.data', fn ($rows): bool => collect($rows)->pluck('canEdit', 'id')->all() == [
+                    $this->subscriber->id => true,
+                    $missing->id => false,
+                ]));
+
+        $this->actingAs($this->dataEntry)
+            ->from(route('meter-readings.index'))
             ->put(route('meter-readings.update', $reading), ['current_reading' => 1260])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($this->dataEntry)
+            ->post(route('meter-readings.store'), $this->payload(['subscriber_id' => $missing->id]))
             ->assertForbidden();
 
-        $this->assertSame(1250, $reading->fresh()->current_reading);
+        $this->assertSame(1260, $reading->fresh()->current_reading);
+        $this->assertDatabaseCount('meter_readings', 1);
     }
 
     public function test_the_manual_switch_opens_entry_on_any_day(): void

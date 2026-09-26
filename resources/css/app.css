@@ -1,5 +1,3 @@
-@import './fonts.css';
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -26,19 +24,15 @@
         --brand-800: 92 13 20;
         --brand-900: 63 0 8;
 
-        /*
-         * Graphite and silver neutrals, from the logo's AF letters. 50 is the
-         * page, a soft gray rather than near-white, so white cards stand out.
-         * 400 and 500 are secondary text: 400 reads at 5.1:1 on the page.
-         */
-        --gray-50: 239 241 244;
-        --gray-100: 232 235 239;
-        --gray-200: 222 226 231;
-        --gray-300: 203 209 216;
-        --gray-400: 94 102 114;
-        --gray-500: 78 86 98;
-        --gray-600: 64 72 83;
-        --gray-700: 50 57 67;
+        /* Graphite and silver neutrals, from the logo's AF letters. */
+        --gray-50: 245 246 248;
+        --gray-100: 236 238 241;
+        --gray-200: 226 229 233;
+        --gray-300: 205 211 218;
+        --gray-400: 107 116 128;
+        --gray-500: 88 96 108;
+        --gray-600: 70 78 89;
+        --gray-700: 53 60 70;
         --gray-800: 35 42 51;
         --gray-900: 17 24 32;
         --gray-950: 11 13 16;
@@ -46,30 +40,10 @@
         /* Cards, tables, dialogs and fields. */
         --surface: 255 255 255;
 
-        /* The sidebar: the card color, except in the dim theme where it is deep navy. */
-        --sidebar: 255 255 255;
-
-        /* Dark graphite that stays dark in every theme: the active nav item, avatars, the dashboard's main card. */
+        /* Dark graphite that stays dark in both themes: the active nav item, avatars, the dashboard's main card. */
         --graphite-700: 38 44 51;
         --graphite-800: 27 32 38;
         --graphite-900: 17 21 25;
-
-        /*
-         * One meaning per color. Burgundy (brand) is the main action on a
-         * screen; green is money (a payment, "active"); blue is contacting
-         * and editing; amber is a warning (a sensitive permission,
-         * "suspended"); red is deleting and "disconnected" — never burgundy,
-         * so deleting never looks like saving. The plain value is a fill that
-         * takes white text; `-ink` is for text and icons on a tint.
-         */
-        --success: 5 122 85;
-        --success-ink: 4 108 76;
-        --info: 29 95 209;
-        --info-ink: 29 78 180;
-        --warning: 180 83 9;
-        --warning-ink: 161 72 8;
-        --danger: 200 30 30;
-        --danger-ink: 185 28 28;
 
         /* The signature line: burgundy fading into silver, like the logo's arrow. */
         --spectrum: linear-gradient(90deg, #5c0d14, #a51d26 40%, #9aa3ae 75%, #dfe3e8);
@@ -102,51 +76,8 @@
         --gray-950: 250 250 251;
 
         --surface: 20 23 28;
-        --sidebar: 20 23 28;
-
-        --success-ink: 52 211 153;
-        --info-ink: 147 197 253;
-        --warning-ink: 251 191 36;
-        --danger-ink: 252 165 165;
 
         --spectrum: linear-gradient(90deg, #5c0d14, #b8232c 40%, #6b7480 75%, #252a32);
-    }
-
-    /*
-     * Dim: a third theme between light and dark — light navy instead of
-     * glaring white or near-black, easier on the eyes over a long day. It
-     * sits on top of `.dark` (so every dark: variant applies) and only
-     * swaps the neutrals: page #24324C, cards #2D3C5A, sidebar #162034,
-     * text #F6F8FC (10.4:1 on a card), secondary text #B8C6DE (6.4:1).
-     * The graphite family (sidebar, the dashboard's main card, the form
-     * header) turns deep navy with it.
-     */
-    .dark.dim {
-        --gray-50: 36 50 76;
-        --gray-100: 52 68 100;
-        --gray-200: 64 82 116;
-        --gray-300: 84 104 140;
-        --gray-400: 158 174 202;
-        --gray-500: 184 198 222;
-        --gray-600: 204 214 232;
-        --gray-700: 222 229 240;
-        --gray-800: 236 240 247;
-        --gray-900: 246 248 252;
-        --gray-950: 250 251 253;
-
-        --surface: 45 60 90;
-        --sidebar: 22 32 52;
-
-        --graphite-700: 40 56 88;
-        --graphite-800: 30 44 72;
-        --graphite-900: 22 32 52;
-
-        --spectrum: linear-gradient(90deg, #5c0d14, #b8232c 40%, #6f84a8 75%, #34446a);
-    }
-
-    /* Arabic reads better with more room between lines. */
-    body {
-        line-height: 1.7;
     }
 
     h1,
@@ -285,49 +216,8 @@
         background: radial-gradient(40% 35% at 0% 0%, rgb(var(--brand-500) / 0.07), transparent 70%), rgb(var(--gray-50));
     }
 
-    /*
-     * Buttons colored by what they do (the burgundy main action is
-     * PrimaryButton, deleting is DangerButton): green for money (collect a
-     * payment), blue for contacting and editing, amber for a warning, and
-     * graphite for viewing — silver in the dark themes. Always with an icon
-     * and a word, never color alone.
-     */
-    .btn-success,
-    .btn-info,
-    .btn-warning,
-    .btn-view {
-        @apply inline-flex items-center justify-center gap-2 rounded-control px-4 py-2.5 text-sm font-semibold transition;
-        @apply active:translate-y-px focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900;
-        @apply disabled:cursor-not-allowed disabled:opacity-40;
-    }
-
-    .btn-success {
-        background: linear-gradient(180deg, rgb(var(--success) / 0.88), rgb(var(--success)));
-        box-shadow: 0 10px 24px -12px rgb(var(--success) / 0.9);
-        @apply text-white hover:brightness-110;
-    }
-
-    .btn-info {
-        background: linear-gradient(180deg, rgb(var(--info) / 0.88), rgb(var(--info)));
-        box-shadow: 0 10px 24px -12px rgb(var(--info) / 0.9);
-        @apply text-white hover:brightness-110;
-    }
-
-    .btn-warning {
-        @apply border border-warning/40 bg-warning/10 text-warning-ink hover:bg-warning/15;
-    }
-
-    .btn-view {
-        @apply bg-graphite-gradient text-white hover:brightness-125;
-    }
-
-    .dark .btn-view {
-        background: linear-gradient(180deg, #f4f5f7, #c9ced6);
-        @apply text-graphite-900 hover:brightness-105;
-    }
-
     .kbd {
-        @apply inline-flex items-center rounded-md border border-gray-200 bg-surface px-1.5 py-0.5 font-display text-[12px] font-semibold text-gray-500;
+        @apply inline-flex items-center rounded-md border border-gray-200 bg-surface px-1.5 py-0.5 font-display text-[11px] font-semibold text-gray-500;
     }
 }
 
@@ -401,7 +291,7 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 0 10px;
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1.7;
 }
 
@@ -412,8 +302,8 @@
 
 .data-table th {
     padding: 10px 16px 0;
-    color: rgb(var(--gray-700));
-    font-size: 14.5px;
+    color: rgb(var(--gray-400));
+    font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
     text-align: start;
@@ -472,8 +362,8 @@
     padding: 48px 16px;
     text-align: center;
     white-space: normal;
-    color: rgb(var(--gray-500));
-    font-size: 14.5px;
+    color: rgb(var(--gray-400));
+    font-size: 13px;
 }
 
 .data-table td[dir='ltr'] {
@@ -537,49 +427,13 @@
         content: attr(data-label);
         display: block;
         margin-bottom: 2px;
-        color: rgb(var(--gray-500));
-        font-size: 12px;
+        color: rgb(var(--gray-400));
+        font-size: 11px;
         font-weight: 600;
     }
 
     .data-table td[dir='ltr'] {
         text-align: start;
-    }
-
-    /* Picking rows is for bigger screens; the card starts with the row's own first cell. */
-    .data-table td.data-table-select {
-        display: none;
-    }
-
-    .data-table td.data-table-select + td {
-        grid-column: 1 / -1;
-    }
-
-    /* The actions take the card's full width, each button an easy 44px to tap. */
-    .data-table td:has(> .row-actions) {
-        grid-column: 1 / -1;
-    }
-
-    .data-table .row-actions,
-    .data-table .row-actions-buttons {
-        display: flex;
-        width: 100%;
-    }
-
-    .data-table .row-action,
-    .data-table .row-view-split {
-        flex: 1;
-        height: 44px;
-    }
-
-    .data-table .row-view-split > .row-view {
-        flex: 1;
-        justify-content: center;
-    }
-
-    /* "⋯" is right beside it; the card has no room for a second way into the same menu. */
-    .data-table .row-view-caret {
-        display: none;
     }
 }
 
@@ -634,332 +488,62 @@
 
 /* Rows float in one after another. */
 .data-table tbody tr {
-    animation: rise-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation: rise-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 .data-table tbody tr:nth-child(2) {
-    animation-delay: 20ms;
+    animation-delay: 30ms;
 }
 .data-table tbody tr:nth-child(3) {
-    animation-delay: 40ms;
-}
-.data-table tbody tr:nth-child(4) {
     animation-delay: 60ms;
 }
+.data-table tbody tr:nth-child(4) {
+    animation-delay: 90ms;
+}
 .data-table tbody tr:nth-child(5) {
-    animation-delay: 80ms;
-}
-.data-table tbody tr:nth-child(6) {
-    animation-delay: 100ms;
-}
-.data-table tbody tr:nth-child(n + 7) {
     animation-delay: 120ms;
 }
-
-/*
- * Row actions (RowActionsMenu): icon buttons of one size (38×38, 12px
- * corners, 18px icons, 6px apart), each colored by what it does through
- * its data-action. "عرض" comes last and strongest.
- */
-.row-actions {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    vertical-align: middle;
+.data-table tbody tr:nth-child(6) {
+    animation-delay: 150ms;
+}
+.data-table tbody tr:nth-child(n + 7) {
+    animation-delay: 180ms;
 }
 
-.row-actions-buttons {
+/* Row actions: a word with its icon, grouped in one outlined control. */
+.data-table-actions {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    transition: opacity 120ms ease;
-}
-
-.row-actions-idle {
-    display: none;
-}
-
-.row-action {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    height: 38px;
-    min-width: 38px;
-    padding: 0 9px;
+    gap: 2px;
+    padding: 3px;
     border: 1px solid rgb(var(--gray-200));
     border-radius: 12px;
     background: rgb(var(--surface));
+}
+
+.data-table-actions .row-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 9px;
     color: rgb(var(--gray-700));
-    font-size: 14.5px;
+    font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
     transition:
         background-color 120ms ease,
-        border-color 120ms ease,
         color 120ms ease;
 }
 
-.row-action svg,
-.row-view-split svg {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-}
-
-.row-action:hover {
-    border-color: rgb(var(--gray-300));
+.data-table-actions .row-action:hover {
     background: rgb(var(--gray-50));
     color: rgb(var(--gray-900));
 }
 
-.row-action:focus-visible,
-.row-view-split:has(:focus-visible) {
+.data-table-actions .row-action:focus-visible {
     outline: 2px solid rgb(var(--gray-900));
-    outline-offset: 2px;
-}
-
-.row-view-split :focus-visible {
-    outline: none;
-}
-
-/* Editing is blue, deleting red, permissions amber (one meaning per color). */
-.row-action[data-action='edit'] {
-    color: rgb(var(--info-ink));
-}
-
-.row-action[data-action='edit']:hover {
-    border-color: rgb(var(--info) / 0.4);
-    background: rgb(var(--info) / 0.08);
-    color: rgb(var(--info-ink));
-}
-
-.row-action[data-action='delete'] {
-    border-color: rgb(var(--danger) / 0.3);
-    background: rgb(var(--danger) / 0.06);
-    color: rgb(var(--danger-ink));
-}
-
-.row-action[data-action='permissions'] {
-    border-color: rgb(var(--warning) / 0.3);
-    background: rgb(var(--warning) / 0.06);
-    color: rgb(var(--warning-ink));
-}
-
-/* "More" while its menu is open: dark ink. */
-.row-action[data-action='more'][aria-expanded='true'] {
-    border-color: transparent;
-    background: rgb(var(--graphite-900));
-    color: #fff;
-}
-
-.dark .row-action[data-action='more'][aria-expanded='true'] {
-    background: #f4f5f7;
-    color: rgb(var(--graphite-900));
-}
-
-/* The button's name, shown above it on hover or keyboard focus. */
-.row-action[data-tip]::after {
-    content: attr(data-tip);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    z-index: 5;
-    padding: 3px 9px;
-    border-radius: 8px;
-    background: rgb(var(--graphite-900));
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.6;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transform: translate(-50%, 4px);
-    transition:
-        opacity 120ms ease,
-        transform 120ms ease;
-}
-
-.dark .row-action[data-tip]::after {
-    background: #f4f5f7;
-    color: rgb(var(--graphite-900));
-}
-
-.row-action[data-tip]:hover::after,
-.row-action[data-tip]:focus-visible::after {
-    opacity: 1;
-    transform: translate(-50%, 0);
-}
-
-.row-action[aria-expanded='true']::after {
-    display: none;
-}
-
-/*
- * "عرض": brushed graphite with a soft sheen on top; burgundy and lifted
- * when pointed at. Polished silver with a dark icon in the dark themes so
- * it stays the strongest button. With a menu, an arrow beside it opens
- * the quick actions.
- */
-.row-view-split {
-    display: inline-flex;
-    align-items: stretch;
-    height: 38px;
-    overflow: hidden;
-    border-radius: 12px;
-    background: linear-gradient(180deg, rgb(var(--graphite-700)), rgb(var(--graphite-900)));
-    color: #fff;
-    box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.14),
-        0 6px 14px -8px rgb(16 24 40 / 0.6);
-    transition:
-        transform 120ms ease,
-        box-shadow 120ms ease;
-}
-
-.row-view-split > button,
-.row-view-split > a {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0 12px;
-    color: inherit;
-    font-size: 14.5px;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.row-view-split > .row-view-caret {
-    padding: 0 8px;
-    border-inline-start: 1px solid rgb(255 255 255 / 0.16);
-}
-
-.row-view-split > .row-view-caret svg {
-    width: 15px;
-    height: 15px;
-}
-
-.row-view-split:hover {
-    background: linear-gradient(180deg, #b8232c, #7d121b);
-    color: #fff;
-    transform: translateY(-1px);
-    box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.18),
-        0 12px 22px -10px rgb(165 29 38 / 0.8);
-}
-
-.dark .row-view-split:not(:hover) {
-    background: linear-gradient(180deg, #f4f5f7, #c9ced6);
-    color: rgb(var(--graphite-900));
-    box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.8),
-        0 6px 14px -8px rgb(0 0 0 / 0.7);
-}
-
-.dark .row-view-split:not(:hover) > .row-view-caret {
-    border-color: rgb(16 24 40 / 0.14);
-}
-
-/*
- * A quiet table: with a mouse, a row shows only a faint "⋯" (or faint
- * buttons when it has no menu) until the pointer or the keyboard reaches
- * it. Touch screens have no hover, so there the buttons always show.
- */
-@media (hover: hover) and (pointer: fine) {
-    .data-table tbody tr .row-actions-buttons {
-        opacity: 0.45;
-    }
-
-    .data-table tbody tr .row-actions.has-menu .row-actions-buttons {
-        opacity: 0;
-    }
-
-    .data-table tbody tr .row-actions.has-menu .row-actions-idle {
-        position: absolute;
-        inset-inline-end: 10px;
-        top: 50%;
-        display: flex;
-        color: rgb(var(--gray-400));
-        pointer-events: none;
-        transform: translateY(-50%);
-        transition: opacity 120ms ease;
-    }
-
-    .data-table tbody tr:is(:hover, :focus-within) .row-actions .row-actions-buttons,
-    .data-table tbody tr .row-actions[data-open] .row-actions-buttons {
-        opacity: 1;
-    }
-
-    .data-table tbody tr:is(:hover, :focus-within) .row-actions .row-actions-idle,
-    .data-table tbody tr .row-actions[data-open] .row-actions-idle {
-        opacity: 0;
-    }
-}
-
-/* The tick-box column for picking rows (bulk actions). */
-.data-table th.data-table-select,
-.data-table td.data-table-select {
-    width: 52px;
-    padding-inline: 14px 4px;
-}
-
-/* A row that opens when clicked anywhere (see lib/rowClick.js). */
-.data-table tbody tr[data-row-click] {
-    cursor: pointer;
-}
-
-/* The "More" menu: it grows out of its button; on phones it slides up from the bottom. */
-@keyframes row-menu-in {
-    from {
-        opacity: 0;
-        transform: scale(0.96);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-@keyframes sheet-in {
-    from {
-        transform: translateY(100%);
-    }
-    to {
-        transform: translateY(0);
-    }
-}
-
-.animate-row-menu {
-    animation: row-menu-in 140ms cubic-bezier(0.2, 0.7, 0.2, 1);
-    transform-origin: inherit;
-}
-
-.animate-sheet {
-    animation: sheet-in 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-
-/* The quick preview slides in from the page's end (the left, in Arabic); on phones, up from the bottom. */
-@keyframes panel-in {
-    from {
-        opacity: 0;
-        transform: translateX(-24px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-.animate-panel-in {
-    animation: sheet-in 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-
-@media (min-width: 640px) {
-    .animate-panel-in {
-        animation-name: panel-in;
-    }
+    outline-offset: 1px;
 }
 
 /* Notifications */
@@ -1126,53 +710,6 @@
 
 .animate-glow-breathe {
     animation: glow-breathe 8s ease-in-out infinite;
-}
-
-/*
- * Printing (e.g. a subscriber's statement as PDF): just the page's content
- * on white A4, the table's lines tight enough to fit across the paper.
- */
-@media print {
-    @page {
-        size: A4 landscape;
-        margin: 10mm;
-    }
-
-    body {
-        background: #fff;
-    }
-
-    .rise-in,
-    .data-table tbody tr {
-        animation: none !important;
-    }
-
-    .data-table-container {
-        overflow: visible;
-        padding: 0;
-        border: 0;
-        background: none;
-    }
-
-    .data-table {
-        border-spacing: 0 2px;
-        font-size: 10px;
-    }
-
-    .data-table-ledger {
-        min-width: 0 !important;
-    }
-
-    .data-table th,
-    .data-table td {
-        padding: 4px 5px !important;
-        white-space: normal !important;
-        box-shadow: none !important;
-    }
-
-    .data-table th {
-        font-size: 10px;
-    }
 }
 
 /* Everything above stops for people who ask their device for less motion. */

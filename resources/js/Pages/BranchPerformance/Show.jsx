@@ -11,10 +11,10 @@ import { formatDayLabel, localDay, timeAgo } from '@/lib/dates';
 const STATUSES = [
     { key: 'active', label: 'نشط', bar: 'bg-emerald-500' },
     { key: 'suspended', label: 'مفصول', bar: 'bg-amber-500' },
-    { key: 'disconnected', label: 'مقطوع', bar: 'bg-red-500' },
+    { key: 'disconnected', label: 'مقطوع', bar: 'bg-gray-400' },
 ];
 
-const STATUS_DOTS = { active: 'bg-emerald-500', suspended: 'bg-amber-500', disconnected: 'bg-red-500' };
+const STATUS_DOTS = { active: 'bg-emerald-500', suspended: 'bg-amber-500', disconnected: 'bg-gray-400' };
 
 function Panel({ title, subtitle, className = '', children }) {
     return (
@@ -201,7 +201,7 @@ export default function Show({ branch, dailyEntries, dailyLedger, team, latestEn
                                             <span className="inline-flex items-center gap-2">
                                                 {formatDayLabel(day.date)}
                                                 {day.date === today && (
-                                                    <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[12px] font-bold text-white">
+                                                    <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold text-white">
                                                         اليوم
                                                     </span>
                                                 )}

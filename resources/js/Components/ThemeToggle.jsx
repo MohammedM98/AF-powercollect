@@ -2,63 +2,39 @@ import { useState } from 'react';
 import Icon from '@/Components/Icon';
 
 /**
- * The three themes, in the order the button steps through them: light
- * (the default), dim (light navy, between the two) and dark. `classes` are
- * what <html> carries for each: dim is dark with navy neutrals on top.
- */
-const THEMES = [
-    { value: 'light', label: 'النهاري', icon: 'sun', classes: [] },
-    { value: 'dim', label: 'الكحلي', icon: 'sunset', classes: ['dark', 'dim'] },
-    { value: 'dark', label: 'الليلي', icon: 'moon', classes: ['dark'] },
-];
-
-function currentTheme() {
-    const root = document.documentElement;
-
-    if (root.classList.contains('dim')) {
-        return 'dim';
-    }
-
-    return root.classList.contains('dark') ? 'dark' : 'light';
-}
-
-/**
- * Steps through the light, dim and dark themes. The choice is remembered
- * in this browser; app.blade.php applies it before the page paints so
- * there is no flash.
+ * Switches between the light (default) and dark theme. The choice is
+ * remembered in this browser; app.blade.php applies it before the page
+ * paints so there is no flash.
  */
 export default function ThemeToggle({ className = '' }) {
-    const [theme, setTheme] = useState(currentTheme);
-    const index = THEMES.findIndex((option) => option.value === theme);
-    const current = THEMES[index];
-    const next = THEMES[(index + 1) % THEMES.length];
+    const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
 
-    function step() {
+    function toggle() {
         const root = document.documentElement;
+        const next = !dark;
 
         root.classList.add('theme-transition');
-        root.classList.remove('dark', 'dim');
-        root.classList.add(...next.classes);
+        root.classList.toggle('dark', next);
         window.setTimeout(() => root.classList.remove('theme-transition'), 400);
 
         try {
-            localStorage.setItem('theme', next.value);
+            localStorage.setItem('theme', next ? 'dark' : 'light');
         } catch {
             // Storage may be blocked (private mode); the switch still works for this visit.
         }
 
-        setTheme(next.value);
+        setDark(next);
     }
 
     return (
         <button
             type="button"
-            onClick={step}
-            aria-label={`الوضع ${current.label}. التبديل إلى الوضع ${next.label}`}
-            title={`الوضع ${current.label} · اضغط للوضع ${next.label}`}
+            onClick={toggle}
+            aria-label={dark ? 'التبديل إلى الوضع الفاتح' : 'التبديل إلى الوضع الغامق'}
+            title={dark ? 'الوضع الفاتح' : 'الوضع الغامق'}
             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-control border border-gray-200 bg-surface text-gray-700 shadow-sm transition hover:border-gray-300 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 ${className}`}
         >
-            <Icon name={current.icon} className="h-5 w-5" />
+            <Icon name={dark ? 'sun' : 'moon'} className="h-5 w-5" />
         </button>
     );
 }

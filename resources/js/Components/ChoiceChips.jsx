@@ -1,4 +1,9 @@
-import { TONE_DOT_CLASSES } from '@/lib/subscriberStatus';
+const DOT_CLASSES = {
+    green: 'bg-emerald-500',
+    amber: 'bg-amber-500',
+    gray: 'bg-gray-400',
+    red: 'bg-brand-500',
+};
 
 /**
  * A short list of choices shown as pill buttons, one of which is picked
@@ -43,7 +48,7 @@ export default function ChoiceChips({ id, value, onChange, options, label, disab
                                 : 'border-gray-200 bg-surface text-gray-700 hover:border-gray-300 hover:text-gray-900'
                         }`}
                     >
-                        {option.dot && <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT_CLASSES[option.dot]}`} aria-hidden="true" />}
+                        {option.dot && <span className={`h-2 w-2 shrink-0 rounded-full ${DOT_CLASSES[option.dot]}`} aria-hidden="true" />}
                         {option.label}
                         {option.hint && (
                             <span className="text-xs font-medium text-gray-500" dir="ltr">

@@ -11,7 +11,6 @@ import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import BranchModal from './BranchModal';
-import { rowClickProps } from '@/lib/rowClick';
 
 export default function Index({ branches, canCreate, filters, filterOptions, governorates, areas }) {
     const [modalBranch, setModalBranch] = useState(null);
@@ -74,7 +73,7 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
                             </tr>
                         ) : (
                             branches.data.map((branch) => (
-                                <tr key={branch.id} {...rowClickProps(branch.canUpdate && (() => setModalBranch(branch)))}>
+                                <tr key={branch.id}>
                                     <td>
                                         <RowIdentity
                                             icon="pin"

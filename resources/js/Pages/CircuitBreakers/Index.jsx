@@ -11,7 +11,6 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
 import CircuitBreakerModal from './CircuitBreakerModal';
-import { rowClickProps } from '@/lib/rowClick';
 
 export default function Index({ circuitBreakers, canCreate, filters, filterOptions }) {
     const [modalCircuitBreaker, setModalCircuitBreaker] = useState(null);
@@ -69,10 +68,7 @@ export default function Index({ circuitBreakers, canCreate, filters, filterOptio
                             </tr>
                         ) : (
                             circuitBreakers.data.map((circuitBreaker) => (
-                                <tr
-                                    key={circuitBreaker.id}
-                                    {...rowClickProps(circuitBreaker.canUpdate && (() => setModalCircuitBreaker(circuitBreaker)))}
-                                >
+                                <tr key={circuitBreaker.id}>
                                     <td>
                                         <RowIdentity icon="bolt" name={`${circuitBreaker.ampere} أمبير`} />
                                     </td>

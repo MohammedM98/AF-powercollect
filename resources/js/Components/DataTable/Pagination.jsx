@@ -69,7 +69,7 @@ export default function Pagination({ meta, filters, baseUrl, extraParams = {} })
                                 key={page}
                                 aria-current={page === current ? 'page' : undefined}
                                 onClick={() => goTo(page)}
-                                className={`h-8 min-w-[2rem] rounded-[10px] px-2 font-display text-[14.5px] font-semibold transition ${
+                                className={`h-8 min-w-[2rem] rounded-[10px] px-2 font-display text-[13px] font-semibold transition ${
                                     page === current
                                         ? 'bg-brand-gradient text-white shadow-glow'
                                         : 'text-gray-500 hover:bg-surface hover:text-gray-900'

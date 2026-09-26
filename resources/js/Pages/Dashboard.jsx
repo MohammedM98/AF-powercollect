@@ -72,7 +72,7 @@ function IconTile({ icon, className = 'h-11 w-11' }) {
     );
 }
 
-function InitialsTile({ name, className = 'h-11 w-11 text-[14.5px]' }) {
+function InitialsTile({ name, className = 'h-11 w-11 text-[13px]' }) {
     return (
         <span
             className={`flex shrink-0 items-center justify-center rounded-[13px] bg-graphite-gradient font-display font-bold text-white dark:ring-1 dark:ring-white/10 ${className}`}
@@ -107,7 +107,7 @@ function HeroCard({ label, section, className }) {
                             ['غير نشط', section.total - section.active],
                         ].map(([tileLabel, value]) => (
                             <div key={tileLabel} className="min-w-[72px] rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5">
-                                <div className="text-[12px] text-[#9aa3ae]">{tileLabel}</div>
+                                <div className="text-[11px] text-[#9aa3ae]">{tileLabel}</div>
                                 <div className="font-display text-xl font-bold">{value.toLocaleString('en')}</div>
                             </div>
                         ))}
@@ -122,7 +122,7 @@ function HeroCard({ label, section, className }) {
                         labelSize="text-4xl"
                         labelClass="text-white"
                     />
-                    <span className="absolute inset-x-0 top-[62%] text-center text-[12px] text-[#9aa3ae]">نسبة النشاط</span>
+                    <span className="absolute inset-x-0 top-[62%] text-center text-[11px] text-[#9aa3ae]">نسبة النشاط</span>
                 </div>
             </div>
             <div className="brand-spectrum absolute inset-x-8 bottom-0" aria-hidden="true" />
@@ -146,7 +146,7 @@ function TeamCard({ section, className }) {
                 </div>
                 <div className="flex shrink-0 -space-x-2.5 space-x-reverse pt-2" aria-hidden="true">
                     {team.map((user) => (
-                        <InitialsTile key={user.id} name={user.name} className="h-9 w-9 rounded-full border-2 border-surface text-[12px]" />
+                        <InitialsTile key={user.id} name={user.name} className="h-9 w-9 rounded-full border-2 border-surface text-[11px]" />
                     ))}
                 </div>
             </div>

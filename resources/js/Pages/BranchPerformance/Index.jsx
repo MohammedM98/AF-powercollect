@@ -81,7 +81,7 @@ function BranchCard({ branch, style }) {
                 </div>
                 <div className="text-center">
                     <Sparkline values={branch.sparkline} />
-                    <p className="mt-1 text-[12px] text-gray-400">إدخالات آخر 14 يوم</p>
+                    <p className="mt-1 text-[10px] text-gray-400">إدخالات آخر 14 يوم</p>
                 </div>
             </div>
 
@@ -104,7 +104,7 @@ function BranchCard({ branch, style }) {
                     ['الموظفون', branch.staff],
                 ].map(([label, value]) => (
                     <div key={label} className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2.5">
-                        <div className="text-[12px] text-gray-500">{label}</div>
+                        <div className="text-[11px] text-gray-500">{label}</div>
                         <div className="font-display text-lg font-bold text-gray-900">{value}</div>
                     </div>
                 ))}

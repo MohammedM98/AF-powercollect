@@ -5,11 +5,6 @@ import { createPortal } from 'react-dom';
 // so a confirmation shown over a form doesn't close the form with it.
 const openModals = [];
 
-/** Whether a modal is open, so a panel under it can leave the Escape key to the modal. */
-export function isModalOpen() {
-    return openModals.length > 0;
-}
-
 /**
  * Rendered into <body>, so a modal opened from inside another one (or
  * from inside an animated card) still covers the whole screen. `centered`

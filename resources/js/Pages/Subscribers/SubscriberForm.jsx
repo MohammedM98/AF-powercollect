@@ -6,13 +6,18 @@ import SearchableSelect from '@/Components/SearchableSelect';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import ChoiceChips from '@/Components/ChoiceChips';
 import Icon from '@/Components/Icon';
-import { SUBSCRIBER_STATUS_TONES, TONE_DOT_CLASSES } from '@/lib/subscriberStatus';
 
 const STATUS_OPTIONS = [
     { value: 'active', label: 'نشط', dot: 'green' },
     { value: 'suspended', label: 'مفصول', dot: 'amber' },
-    { value: 'disconnected', label: 'مقطوع', dot: 'red' },
+    { value: 'disconnected', label: 'مقطوع', dot: 'gray' },
 ];
+
+const STATUS_DOT_CLASSES = {
+    active: 'bg-emerald-500',
+    suspended: 'bg-amber-500',
+    disconnected: 'bg-gray-400',
+};
 
 /** One group of fields in its own card, with an icon, a title and a hint. */
 function Section({ icon, title, description, children }) {
@@ -32,65 +37,49 @@ function Section({ icon, title, description, children }) {
     );
 }
 
-/** A unit inside the end of a field, like "شيكل" on a money field or "ك.و.س" on a meter reading. */
-function Affix({ children }) {
+/** The small "شيكل" tag at the end of a money field. */
+function CurrencySuffix() {
     return (
         <span className="pointer-events-none absolute inset-y-1.5 end-1.5 flex items-center rounded-lg bg-gray-100 px-2.5 text-xs font-semibold text-gray-500">
-            {children}
+            شيكل
         </span>
     );
 }
 
 /**
- * The dark card above the form: who is being registered — name, phone,
- * subscription type and circuit breaker, with a status dot, filled in as
- * they are typed or picked — and how many required fields are done.
+ * The card above the form: who is being registered (name, phone and a
+ * status dot, filled in as they are typed) and how many required fields
+ * are done.
  */
-function SummaryCard({ data, requiredFields, isEdit, tariffLabel, circuitBreakerLabel }) {
+function SummaryCard({ data, requiredFields, isEdit }) {
     const filled = requiredFields.filter((field) => String(data[field] ?? '').trim() !== '').length;
     const percent = Math.round((filled / requiredFields.length) * 100);
-    const chips = [tariffLabel && { icon: 'bolt', label: tariffLabel }, circuitBreakerLabel && { icon: 'shield', label: circuitBreakerLabel }].filter(
-        Boolean,
-    );
 
     return (
-        <div className="relative flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-card bg-graphite-gradient p-5 text-white shadow-card dark:ring-1 dark:ring-white/10">
-            <div className="pointer-events-none absolute -start-10 -top-16 h-44 w-72 rounded-full bg-brand-500/25 blur-3xl" aria-hidden="true" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-card border border-gray-100 bg-surface p-5 shadow-sm">
+            <div className="pointer-events-none absolute -start-10 -top-16 h-44 w-72 rounded-full bg-brand-500/15 blur-3xl" aria-hidden="true" />
             <div className="relative flex min-w-0 items-center gap-4">
-                <span className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-[#c9ced6]">
+                <span className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-gray-100 bg-gray-100 text-gray-600">
                     <Icon name="user" className="h-6 w-6" />
                     <span
-                        className={`absolute -bottom-1 -start-1 h-4 w-4 rounded-full border-[3px] border-graphite-800 ${TONE_DOT_CLASSES[SUBSCRIBER_STATUS_TONES[data.status]] ?? 'bg-gray-400'}`}
+                        className={`absolute -bottom-1 -start-1 h-4 w-4 rounded-full border-[3px] border-surface ${STATUS_DOT_CLASSES[data.status] ?? 'bg-gray-400'}`}
                         aria-hidden="true"
                     />
                 </span>
                 <div className="min-w-0">
-                    <p className="truncate text-lg font-bold text-white">{data.full_name.trim() || (isEdit ? '—' : 'مشترك جديد')}</p>
-                    <p className="mt-0.5 font-display text-sm tracking-wider text-[#9aa3ae]" dir="ltr">
+                    <p className="truncate text-lg font-bold text-gray-900">{data.full_name.trim() || (isEdit ? '—' : 'مشترك جديد')}</p>
+                    <p className="mt-0.5 font-display text-sm tracking-wider text-gray-500" dir="ltr">
                         {data.phone || '05— ——— ———'}
                     </p>
-                    {chips.length > 0 && (
-                        <p className="mt-2 flex flex-wrap gap-1.5">
-                            {chips.map((chip) => (
-                                <span
-                                    key={chip.icon}
-                                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs font-semibold text-[#c9ced6]"
-                                >
-                                    <Icon name={chip.icon} className="h-3.5 w-3.5" />
-                                    {chip.label}
-                                </span>
-                            ))}
-                        </p>
-                    )}
                 </div>
             </div>
             <div className="relative w-36">
-                <p className="text-xs text-[#9aa3ae]">الحقول المطلوبة</p>
-                <p className="mt-1 font-display text-lg font-bold text-white" dir="ltr">
+                <p className="text-xs text-gray-500">الحقول المطلوبة</p>
+                <p className="mt-1 font-display text-lg font-bold text-gray-900" dir="ltr">
                     {filled}/{requiredFields.length}
                 </p>
                 <div
-                    className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10"
+                    className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100"
                     role="progressbar"
                     aria-label="الحقول المطلوبة المكتملة"
                     aria-valuenow={filled}
@@ -100,16 +89,6 @@ function SummaryCard({ data, requiredFields, isEdit, tariffLabel, circuitBreaker
                     <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-300" style={{ width: `${percent}%` }} />
                 </div>
             </div>
-        </div>
-    );
-}
-
-/** A field with a unit inside its end; Field's `id` goes on to the input itself. */
-function WithAffix({ id, affix, children }) {
-    return (
-        <div className="relative">
-            {cloneElement(children, { id })}
-            <Affix>{affix}</Affix>
         </div>
     );
 }
@@ -234,7 +213,6 @@ export default function SubscriberForm({
     const showMeterBoxField = Boolean(subAreaId) || Boolean(data.meter_box_id);
 
     const selectedTariff = tariffs.find((tariff) => String(tariff.id) === String(data.tariff_id));
-    const selectedCircuitBreaker = circuitBreakers.find((circuitBreaker) => String(circuitBreaker.id) === String(data.circuit_breaker_id));
 
     function onBranchChange(value) {
         setSubAreaId('');
@@ -286,13 +264,7 @@ export default function SubscriberForm({
 
     return (
         <div className="space-y-5">
-            <SummaryCard
-                data={data}
-                requiredFields={requiredFields}
-                isEdit={isEdit}
-                tariffLabel={selectedTariff?.categoryLabel}
-                circuitBreakerLabel={selectedCircuitBreaker ? `${selectedCircuitBreaker.ampere} أمبير` : null}
-            />
+            <SummaryCard data={data} requiredFields={requiredFields} isEdit={isEdit} />
 
             <Section icon="user" title="بيانات المشترك" description="الاسم والهوية ورقم الجوال">
                 <Field id="full_name" label="الاسم" required error={errors.full_name}>
@@ -360,7 +332,7 @@ export default function SubscriberForm({
                             value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : '—'}
                             className="w-full ps-16 text-end text-gray-600"
                         />
-                        <Affix>شيكل</Affix>
+                        <CurrencySuffix />
                     </div>
                 </div>
 
@@ -412,7 +384,7 @@ export default function SubscriberForm({
                             value={data.minimum_charge}
                             onChange={(e) => setData('minimum_charge', e.target.value)}
                         />
-                        <Affix>شيكل</Affix>
+                        <CurrencySuffix />
                     </div>
                     <InputError message={errors.minimum_charge} className="mt-1" />
                     <ConfirmDialog
@@ -486,49 +458,26 @@ export default function SubscriberForm({
             </Section>
 
             <Section icon="calendar" title="معلومات الاشتراك" description="القراءة الأولى للعداد والرسوم وتاريخ الاشتراك">
-                <Field
-                    id="initial_reading"
-                    label={
-                        <>
-                            القراءة السابقة<span className="sr-only"> (كيلوواط ساعة)</span>
-                        </>
-                    }
-                    required
-                    error={errors.initial_reading}
-                >
-                    <WithAffix affix="ك.و.س">
-                        <TextInput
-                            type="number"
-                            required
-                            min={0}
-                            step={1}
-                            dir="ltr"
-                            className="block w-full ps-16 text-end"
-                            value={data.initial_reading}
-                            onChange={(event) => setData('initial_reading', event.target.value)}
-                        />
-                    </WithAffix>
+                <Field id="initial_reading" label="القراءة السابقة (كيلوواط ساعة)" required error={errors.initial_reading}>
+                    <TextInput
+                        type="number"
+                        required
+                        min={0}
+                        step={1}
+                        className="block w-full"
+                        value={data.initial_reading}
+                        onChange={(event) => setData('initial_reading', event.target.value)}
+                    />
                 </Field>
 
-                <Field
-                    id="subscription_fee"
-                    label={
-                        <>
-                            رسوم الاشتراك<span className="sr-only"> (شيكل)</span>
-                        </>
-                    }
-                    error={errors.subscription_fee}
-                >
-                    <WithAffix affix="شيكل">
-                        <TextInput
-                            type="number"
-                            step="0.01"
-                            dir="ltr"
-                            className="block w-full ps-16 text-end"
-                            value={data.subscription_fee}
-                            onChange={(e) => setData('subscription_fee', e.target.value)}
-                        />
-                    </WithAffix>
+                <Field id="subscription_fee" label="رسوم الاشتراك (شيكل)" error={errors.subscription_fee}>
+                    <TextInput
+                        type="number"
+                        step="0.01"
+                        className="block w-full"
+                        value={data.subscription_fee}
+                        onChange={(e) => setData('subscription_fee', e.target.value)}
+                    />
                 </Field>
 
                 <Field id="subscription_date" label="تاريخ الاشتراك" error={errors.subscription_date}>

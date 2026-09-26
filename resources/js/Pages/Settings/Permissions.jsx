@@ -12,7 +12,6 @@ import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { initials } from '@/lib/initials';
-import { rowClickProps } from '@/lib/rowClick';
 
 /**
  * The matrix's three columns. "Record" (readings, collections) sits in the
@@ -61,7 +60,7 @@ function PermissionGroupRows({ group, isOn, onToggle, disabled }) {
                                         ariaLabel={`${group.label}: ${ACTION_LABELS[entry.action] ?? entry.permission.label}`}
                                         disabled={disabled}
                                     />
-                                    {entry.action === 'record' && <span className="text-xs text-gray-500">تسجيل</span>}
+                                    {entry.action === 'record' && <span className="text-[11px] text-gray-400">تسجيل</span>}
                                 </label>
                             ) : (
                                 <span className="text-gray-300" aria-hidden="true">
@@ -80,15 +79,15 @@ function PermissionGroupRows({ group, isOn, onToggle, disabled }) {
                         <td colSpan={COLUMNS.length + 1} className="pb-3.5">
                             <label
                                 className={`flex cursor-pointer items-center justify-between gap-4 rounded-control border px-4 py-2.5 ${
-                                    danger ? 'border-warning/30 bg-warning/10' : 'border-gray-100 bg-gray-50'
+                                    danger ? 'border-brand-500/25 bg-brand-500/10' : 'border-gray-100 bg-gray-50'
                                 }`}
                             >
                                 <span className="min-w-0">
-                                    <span className={`flex items-center gap-1.5 text-sm font-bold ${danger ? 'text-warning-ink' : 'text-gray-900'}`}>
+                                    <span className={`flex items-center gap-1.5 text-sm font-bold ${danger ? 'text-brand-600' : 'text-gray-900'}`}>
                                         {danger && <Icon name="warning" className="h-4 w-4 shrink-0" strokeWidth={2} />}
                                         {label}
                                     </span>
-                                    <span className={`block text-xs ${danger ? 'text-warning-ink' : 'text-gray-500'}`}>{hint}</span>
+                                    <span className={`block text-xs ${danger ? 'text-brand-600' : 'text-gray-500'}`}>{hint}</span>
                                 </span>
                                 <PermissionCheckbox
                                     checked={isOn(entry.permission.id)}
@@ -233,7 +232,7 @@ function PermissionEditorModal({ employee, permissionGroups, scopedToOwnBranch, 
                             </tbody>
                         </table>
 
-                        <div className="mt-4 flex items-start gap-2.5 rounded-control border border-gray-100 bg-gray-50 px-4 py-3 text-[14.5px] text-gray-600">
+                        <div className="mt-4 flex items-start gap-2.5 rounded-control border border-gray-100 bg-gray-50 px-4 py-3 text-[13px] text-gray-600">
                             <Icon name="info" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-gray-400" />
                             <p>
                                 <b className="text-gray-900">ملاحظة: </b>
@@ -372,23 +371,22 @@ export default function Permissions({ users, selectedUser, permissionGroups, fil
                             </tr>
                         ) : (
                             users.data.map((user) => (
-                                <tr key={user.id} {...rowClickProps(loadingId === null && (() => openEmployee(user)))}>
+                                <tr key={user.id}>
                                     <td>
                                         <RowIdentity name={user.name} subtitle={`@${user.username}`} subtitleDir="ltr" />
                                     </td>
                                     <td className="text-gray-600">{user.roleLabel}</td>
                                     <td className="text-gray-600">{user.branchName ?? '—'}</td>
                                     <td className="text-end">
-                                        <div className="row-actions">
+                                        <div className="data-table-actions">
                                             <button
                                                 type="button"
                                                 className="row-action"
-                                                data-action="permissions"
                                                 onClick={() => openEmployee(user)}
                                                 disabled={loadingId !== null}
                                                 aria-busy={loadingId === user.id}
                                             >
-                                                <Icon name="shield" />
+                                                <Icon name="shield" className="h-4 w-4" />
                                                 إدارة الصلاحيات
                                             </button>
                                         </div>

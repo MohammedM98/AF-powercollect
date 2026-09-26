@@ -13,7 +13,6 @@ import { formatCurrency } from '@/lib/currency';
 import Icon from '@/Components/Icon';
 import TariffModal from './TariffModal';
 import TariffSegmentModal from './TariffSegmentModal';
-import { rowClickProps } from '@/lib/rowClick';
 
 export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegment, categoryOptions, filters, filterOptions }) {
     const [modalTariff, setModalTariff] = useState(null);
@@ -75,7 +74,7 @@ export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegm
                             </tr>
                         ) : (
                             tariffs.data.map((tariff) => (
-                                <tr key={tariff.id} {...rowClickProps(tariff.canUpdate && (() => setModalTariff(tariff)))}>
+                                <tr key={tariff.id}>
                                     <td>
                                         <RowIdentity icon="dollar" name={tariff.categoryLabel} />
                                     </td>

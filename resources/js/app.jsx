@@ -11,19 +11,6 @@ router.on('finish', (event) => {
     }
 });
 
-// Paper is white: print in the light theme, whichever theme is on screen.
-let printedThemeClasses = [];
-
-window.addEventListener('beforeprint', () => {
-    const root = document.documentElement;
-    printedThemeClasses = ['dark', 'dim'].filter((name) => root.classList.contains(name));
-    root.classList.remove(...printedThemeClasses);
-});
-
-window.addEventListener('afterprint', () => {
-    document.documentElement.classList.add(...printedThemeClasses);
-});
-
 createInertiaApp({
     // Each page's code is downloaded only when that page is first opened.
     resolve: (name) => {

@@ -231,7 +231,7 @@ export default function AuthenticatedLayout({ header, children }) {
             {/* Sidebar: fixed on large screens (full or icons only), a drawer on small ones. */}
             <aside
                 id="app-sidebar"
-                className={`fixed inset-y-0 start-0 z-40 hidden overflow-hidden border-e border-gray-100 bg-sidebar transition-[width] duration-300 ease-out lg:block print:!hidden ${
+                className={`fixed inset-y-0 start-0 z-40 hidden overflow-hidden border-e border-gray-100 bg-surface transition-[width] duration-300 ease-out lg:block ${
                     sidebarCollapsed ? 'w-[88px]' : 'w-72'
                 }`}
             >
@@ -244,15 +244,15 @@ export default function AuthenticatedLayout({ header, children }) {
                         className="animate-modal-backdrop absolute inset-0 bg-graphite-900/60 backdrop-blur-sm"
                         onClick={() => setDrawerOpen(false)}
                     />
-                    <aside className="animate-modal-panel absolute inset-y-0 start-0 w-72 max-w-[85vw] bg-sidebar shadow-2xl">
+                    <aside className="animate-modal-panel absolute inset-y-0 start-0 w-72 max-w-[85vw] bg-surface shadow-2xl">
                         <SidebarContent onNavigate={() => setDrawerOpen(false)} />
                     </aside>
                 </div>
             )}
 
-            <div className={`transition-[padding] duration-300 ease-out print:!ps-0 ${sidebarCollapsed ? 'lg:ps-[88px]' : 'lg:ps-72'}`}>
+            <div className={`transition-[padding] duration-300 ease-out ${sidebarCollapsed ? 'lg:ps-[88px]' : 'lg:ps-72'}`}>
                 {/* Top bar */}
-                <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-gray-100 bg-surface/75 px-4 backdrop-blur-xl sm:px-6 lg:px-10 print:hidden">
+                <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-gray-100 bg-surface/75 px-4 backdrop-blur-xl sm:px-6 lg:px-10">
                     <button
                         type="button"
                         onClick={onMenuButton}
@@ -284,7 +284,7 @@ export default function AuthenticatedLayout({ header, children }) {
                     <ActivityBell />
                 </header>
 
-                <main className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-10 print:max-w-none print:p-0">
+                <main className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-10">
                     {header && <div className="rise-in mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">{header}</div>}
                     {children}
                 </main>

@@ -99,7 +99,7 @@ export default function ActivityBell() {
                 {unreadCount > 0 && (
                     <span
                         dir="ltr"
-                        className="absolute -end-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-brand-600 px-1 text-[12px] font-bold leading-none tabular-nums text-white ring-2 ring-surface"
+                        className="absolute -end-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-brand-600 px-1 text-[11px] font-bold leading-none tabular-nums text-white ring-2 ring-surface"
                     >
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>

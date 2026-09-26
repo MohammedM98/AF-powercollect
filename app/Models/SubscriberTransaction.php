@@ -14,6 +14,12 @@ class SubscriberTransaction extends Model
     /** @use HasFactory<SubscriberTransactionFactory> */
     use HasFactory;
 
+    /** The fee charged when a subscriber is registered. */
+    public const TYPE_SUBSCRIPTION_FEE = 'subscription_fee';
+
+    /** An approved weekly reading's amount due. */
+    public const TYPE_METER_READING = 'meter_reading';
+
     protected function casts(): array
     {
         return ['amount' => 'decimal:2'];

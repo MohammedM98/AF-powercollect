@@ -13,6 +13,7 @@ export const ACTION_MESSAGES = {
     'meter-box-updated': 'تم تحديث الطبلون بنجاح.',
     'meter-reading-created': 'تم حفظ القراءة بنجاح.',
     'meter-reading-updated': 'تم تحديث القراءة بنجاح.',
+    'meter-readings-approved': 'تم اعتماد القراءات بنجاح.',
     'reading-schedule-updated': 'تم حفظ مواعيد القراءات بنجاح.',
     'tariff-created': 'تم إنشاء التعرفة بنجاح.',
     'tariff-updated': 'تم تحديث التعرفة بنجاح.',

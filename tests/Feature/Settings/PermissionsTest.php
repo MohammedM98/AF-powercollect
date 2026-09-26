@@ -19,8 +19,9 @@ class PermissionsTest extends TestCase
 
     private function seedPermissions(): void
     {
+        // Migrations may already have added some (e.g. "Approve Meter Readings").
         foreach (PermissionKey::cases() as $key) {
-            Permission::create(['key' => $key->value, 'label' => $key->label()]);
+            Permission::firstOrCreate(['key' => $key->value], ['label' => $key->label()]);
         }
     }
 

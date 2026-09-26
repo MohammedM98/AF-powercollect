@@ -12,6 +12,7 @@ enum UserRole: string
     case BranchAdmin = 'branch_admin';
     case Collector = 'collector';
     case DataEntry = 'data_entry';
+    case Accountant = 'accountant';
     case FinancialAuditor = 'financial_auditor';
 
     public function label(): string
@@ -21,6 +22,7 @@ enum UserRole: string
             self::BranchAdmin => 'Branch Admin',
             self::Collector => 'Collector',
             self::DataEntry => 'Data Entry',
+            self::Accountant => 'Accountant',
             self::FinancialAuditor => 'Financial Auditor',
         };
     }
@@ -33,7 +35,7 @@ enum UserRole: string
      */
     public static function staffRoles(): array
     {
-        return [self::Collector, self::DataEntry, self::FinancialAuditor];
+        return [self::Collector, self::DataEntry, self::Accountant, self::FinancialAuditor];
     }
 
     /**
@@ -73,6 +75,10 @@ enum UserRole: string
             self::DataEntry => [
                 PermissionKey::ViewSubscribers, PermissionKey::CreateSubscribers, PermissionKey::UpdateSubscribers,
                 PermissionKey::ViewMeterReadings, PermissionKey::RecordMeterReadings,
+            ],
+            self::Accountant => [
+                PermissionKey::ViewSubscribers,
+                PermissionKey::ViewMeterReadings, PermissionKey::ApproveMeterReadings,
             ],
             self::SuperAdmin, self::Collector, self::FinancialAuditor => [],
         };

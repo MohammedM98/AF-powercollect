@@ -9,12 +9,13 @@ import ConfirmDialog from '@/Components/ConfirmDialog';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 
-const ACTION_LABELS = { view: 'عرض', create: 'إضافة', update: 'تعديل', record: 'تسجيل' };
+const ACTION_LABELS = { view: 'عرض', create: 'إضافة', update: 'تعديل', record: 'تسجيل', approve: 'اعتماد' };
 
 /** Permissions shown apart, in their own box, so nobody grants them by accident. */
 const SENSITIVE_ACTIONS = {
     minimum_charge: { label: 'تعديل الحد الأدنى للدفع', hint: 'صلاحية خاصة وحساسة', danger: false },
     confirm: { label: 'تأكيد التحصيل', hint: 'صلاحية حساسة — تُمنح بحذر', danger: true },
+    approve: { label: 'اعتماد القراءات', hint: 'تُضاف مبالغها إلى معاملات المشتركين المالية', danger: true },
 };
 
 /** The icon and one-line description of each permission group (keyed like PermissionKey::resourceGroups()). */

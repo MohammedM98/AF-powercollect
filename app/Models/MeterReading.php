@@ -11,10 +11,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'subscriber_id', 'branch_id', 'week_start', 'week_end', 'previous_reading', 'current_reading',
     'consumption', 'unit_price', 'reading_fee', 'minimum_payment', 'amount_due', 'status', 'recorded_by', 'notes',
+    'approved_by', 'approved_at',
 ])]
 class MeterReading extends Model
 {
@@ -36,6 +38,7 @@ class MeterReading extends Model
             'reading_fee' => 'decimal:2',
             'minimum_payment' => 'decimal:2',
             'amount_due' => 'decimal:2',
+            'approved_at' => 'datetime',
         ];
     }
 
@@ -103,6 +106,37 @@ class MeterReading extends Model
         return $this->status === MeterReadingStatus::Pending;
     }
 
+    /**
+     * Approve the reading: it is locked from then on, and its amount is
+     * charged to the subscriber's transactions. A reading that is already
+     * approved is left as it is.
+     */
+    public function approve(User $approver): void
+    {
+        DB::transaction(function () use ($approver): void {
+            $reading = self::query()->lockForUpdate()->findOrFail($this->id);
+
+            if (! $reading->isPending()) {
+                return;
+            }
+
+            $reading->update([
+                'status' => MeterReadingStatus::Approved,
+                'approved_by' => $approver->id,
+                'approved_at' => now(),
+            ]);
+
+            $reading->subscriber->transactions()->create([
+                'recorded_by' => $approver->id,
+                'type' => SubscriberTransaction::TYPE_METER_READING,
+                'source_key' => 'meter-reading:'.$reading->id,
+                'amount' => $reading->amount_due,
+            ]);
+
+            $this->setRawAttributes($reading->getAttributes(), true);
+        });
+    }
+
     public function subscriber(): BelongsTo
     {
         return $this->belongsTo(Subscriber::class);
@@ -111,5 +145,10 @@ class MeterReading extends Model
     public function recordedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }

@@ -1,33 +1,44 @@
+/** How each kind of ledger transaction is described in the statement. */
+const TRANSACTION_DESCRIPTIONS = {
+    subscription_fee: 'رسوم اشتراك',
+};
+
 /**
- * One statement row per ledger transaction and per weekly meter reading,
- * newest first, so both appear in the subscriber's single statement table.
+ * One statement row per ledger transaction and per approved weekly meter
+ * reading, newest first. A reading reaches the statement (and the balance)
+ * only once it is approved; its charge is shown on the reading's own row
+ * rather than again as a separate transaction.
  */
 export function buildSubscriberStatement({ transactions = [], meterReadings = [] }) {
-    const feeRows = transactions.map((transaction) => ({
-        key: `transaction-${transaction.id}`,
-        kind: 'fee',
-        date: transaction.recordedAt,
-        description: 'رسوم اشتراك',
-        amount: transaction.amount,
-        statusLabel: 'مستحق',
-        statusTone: 'amber',
-        recordedByName: transaction.recordedByName,
-    }));
+    const feeRows = transactions
+        .filter((transaction) => transaction.type !== 'meter_reading')
+        .map((transaction) => ({
+            key: `transaction-${transaction.id}`,
+            kind: 'fee',
+            date: transaction.recordedAt,
+            description: TRANSACTION_DESCRIPTIONS[transaction.type] ?? 'معاملة',
+            amount: transaction.amount,
+            statusLabel: 'مستحق',
+            statusTone: 'amber',
+            recordedByName: transaction.recordedByName,
+        }));
 
-    const readingRows = meterReadings.map((reading) => ({
-        key: `reading-${reading.id}`,
-        kind: 'reading',
-        date: reading.recordedAt,
-        description: `قراءة أسبوعية ${reading.weekStart} ← ${reading.weekEnd}`,
-        previousReading: reading.previous_reading,
-        currentReading: reading.current_reading,
-        consumption: reading.consumption,
-        amount: reading.amountDue,
-        statusLabel: reading.statusLabel,
-        statusTone: reading.status === 'approved' ? 'green' : 'amber',
-        recordedByName: reading.recordedByName,
-        reading,
-    }));
+    const readingRows = meterReadings
+        .filter((reading) => reading.status === 'approved')
+        .map((reading) => ({
+            key: `reading-${reading.id}`,
+            kind: 'reading',
+            date: reading.recordedAt,
+            description: `قراءة أسبوعية ${reading.weekStart} ← ${reading.weekEnd}`,
+            previousReading: reading.previous_reading,
+            currentReading: reading.current_reading,
+            consumption: reading.consumption,
+            amount: reading.amountDue,
+            statusLabel: reading.statusLabel,
+            statusTone: 'green',
+            recordedByName: reading.recordedByName,
+            reading,
+        }));
 
     return [...readingRows, ...feeRows].sort((a, b) => b.date.localeCompare(a.date));
 }

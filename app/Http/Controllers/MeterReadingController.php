@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Enums\MeterReadingStatus;
+use App\Enums\PermissionKey;
 use App\Enums\ReadingEntryMode;
 use App\Enums\SubscriberStatus;
 use App\Http\Concerns\FiltersDataTable;
+use App\Http\Requests\ApproveMeterReadingsRequest;
 use App\Http\Requests\StoreMeterReadingRequest;
 use App\Http\Requests\UpdateMeterReadingRequest;
 use App\Models\Area;
@@ -18,6 +20,7 @@ use App\Models\Tariff;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -69,6 +72,7 @@ class MeterReadingController extends Controller
             ->through(fn (Subscriber $subscriber) => $this->sheetRow($subscriber, $weekStart, $actor));
 
         $scope = $this->subscribersInScope($actor);
+        $canApprove = $actor->can('approveAny', MeterReading::class);
 
         return Inertia::render('MeterReadings/Index', [
             'rows' => $rows,
@@ -83,6 +87,8 @@ class MeterReadingController extends Controller
                     ->sum('amount_due'), 2, '.', ''),
             ],
             'canRecord' => $actor->can('create', MeterReading::class),
+            'canApprove' => $canApprove,
+            'pendingApproval' => $canApprove ? $this->pendingApprovalSummary($request, $actor, $week) : null,
             // The actor could record now, just not in this earlier week.
             'weekIsViewOnly' => $actor->can('create', MeterReading::class) && ! $actor->can('create', [MeterReading::class, $weekStart]),
             'entryWindow' => $this->entryWindow($actor),
@@ -149,8 +155,86 @@ class MeterReadingController extends Controller
     }
 
     /**
+     * Approve the ticked readings, or `all` pending readings of the given
+     * week among the subscribers matching the sheet's search and filters.
+     * Approving locks a reading and charges it to the subscriber's
+     * transactions; readings the actor may not approve, or that are no
+     * longer pending, are skipped.
+     */
+    public function approve(ApproveMeterReadingsRequest $request): RedirectResponse
+    {
+        $actor = $request->user();
+        $query = $request->boolean('all')
+            ? $this->pendingInSheet($request, $actor, MeterReading::weekStartFor($request->date('week'))->toDateString())
+            : $this->pendingReadings($actor)->whereKey($request->validated('reading_ids'));
+
+        $approved = 0;
+        $query->with('subscriber')->chunkById(200, function (Collection $readings) use ($actor, &$approved): void {
+            foreach ($readings as $reading) {
+                $reading->approve($actor);
+                $approved++;
+            }
+        });
+
+        if ($approved === 0) {
+            return back()->withErrors(['reading_ids' => 'لا توجد قراءات بانتظار الاعتماد ضمن اختيارك.']);
+        }
+
+        $actor->notify(new ActionCompleted('meter-readings-approved', "عدد القراءات: {$approved}"));
+
+        return back()->with('status', 'meter-readings-approved');
+    }
+
+    /**
+     * How many of the week's readings on the sheet (search and filters
+     * applied) still wait for approval, and what they add up to.
+     *
+     * @return array{count: int, amountDue: string}
+     */
+    private function pendingApprovalSummary(Request $request, User $actor, string $week): array
+    {
+        $pending = $this->pendingInSheet($request, $actor, $week);
+
+        return [
+            'count' => (clone $pending)->count(),
+            'amountDue' => number_format((float) $pending->sum('amount_due'), 2, '.', ''),
+        ];
+    }
+
+    /**
+     * Pending readings in the actor's branch (every branch for the Super Admin).
+     *
+     * @return Builder<MeterReading>
+     */
+    private function pendingReadings(User $actor): Builder
+    {
+        return MeterReading::query()
+            ->visibleTo($actor)
+            ->where('status', MeterReadingStatus::Pending);
+    }
+
+    /**
+     * The week's pending readings for the subscribers the sheet shows with
+     * the request's search and filters.
+     *
+     * @return Builder<MeterReading>
+     */
+    private function pendingInSheet(Request $request, User $actor, string $week): Builder
+    {
+        $subscribers = $this->subscribersInScope($actor);
+        $this->applyDataTableFilters($subscribers, $request, ['full_name', 'account_number', 'phone'], [], 'full_name');
+        $this->applyDataTableFilterSelects($subscribers, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
+        $this->applySheetFilters($subscribers, $request, $week);
+
+        return $this->pendingReadings($actor)
+            ->whereDate('week_start', $week)
+            ->whereIn('subscriber_id', $subscribers->reorder()->select('subscribers.id'));
+    }
+
+    /**
      * Whether the company-wide reading entry window is open, and whether it
-     * restricts this actor at all (the Super Admin may enter readings any time).
+     * restricts this actor at all: only people who enter readings are held to
+     * it, and the Super Admin may enter them any time.
      *
      * @return array{isOpen: bool, appliesToActor: bool, openDays: array<int, int>}
      */
@@ -160,7 +244,7 @@ class MeterReadingController extends Controller
 
         return [
             'isOpen' => $setting->isOpen(),
-            'appliesToActor' => ! $actor->isSuperAdmin(),
+            'appliesToActor' => ! $actor->isSuperAdmin() && $actor->hasPermission(PermissionKey::RecordMeterReadings),
             'openDays' => $setting->mode === ReadingEntryMode::Automatic ? array_map('intval', $setting->open_days) : [],
         ];
     }
@@ -282,6 +366,7 @@ class MeterReadingController extends Controller
                 'statusLabel' => __($reading->status->label()),
             ] : null,
             'hasLaterWeek' => (bool) $subscriber->has_later_week,
+            'canApprove' => $reading !== null && $actor->can('approve', $reading),
             'canEdit' => $reading
                 ? ! $subscriber->has_later_week && $actor->can('update', $reading)
                 : ! $subscriber->has_later_week && $actor->can('create', [MeterReading::class, $weekStart]),

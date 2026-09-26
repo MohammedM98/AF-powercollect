@@ -135,7 +135,7 @@ function TeamCard({ section, className }) {
 
     return (
         <Panel title="فريق العمل" viewAll="/users" className={className}>
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <div className="font-display text-4xl font-bold text-gray-900">
                         <CountUp value={section.total} />

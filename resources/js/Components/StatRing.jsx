@@ -2,16 +2,9 @@ import { useEffect, useState } from 'react';
 
 /**
  * A percentage ring that draws itself in. `size` is in pixels; `trackClass`
- * colors the empty part of the ring and `labelSize` sizes the percentage.
+ * colors the empty part of the ring.
  */
-export default function StatRing({
-    percent = 0,
-    color = 'text-brand-500',
-    size = 64,
-    trackClass = 'text-gray-100',
-    labelClass = 'text-gray-700',
-    labelSize = 'text-xs',
-}) {
+export default function StatRing({ percent = 0, color = 'text-brand-500', size = 64, trackClass = 'text-gray-100', labelClass = 'text-gray-700' }) {
     const clamped = Math.min(100, Math.max(0, percent));
     const [drawn, setDrawn] = useState(0);
 
@@ -36,7 +29,7 @@ export default function StatRing({
                     className={`transition-[stroke-dasharray] duration-[1100ms] ease-out ${color}`}
                 />
             </svg>
-            <div className={`absolute inset-0 flex items-center justify-center font-display font-bold ${labelSize} ${labelClass}`}>
+            <div className={`absolute inset-0 flex items-center justify-center font-display text-xs font-bold ${labelClass}`}>
                 {Math.round(percent)}%
             </div>
         </div>

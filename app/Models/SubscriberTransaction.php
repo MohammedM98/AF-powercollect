@@ -6,8 +6,6 @@ use App\Enums\Currency;
 use App\Enums\PaymentMethod;
 use Database\Factories\SubscriberTransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Scope;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -95,16 +93,6 @@ class SubscriberTransaction extends Model
                 'notes' => $payment['notes'] ?? null,
             ]);
         });
-    }
-
-    /**
-     * Only the charges (subscription fees and approved readings), leaving
-     * out payments — for totals of what was charged.
-     */
-    #[Scope]
-    protected function charges(Builder $query): void
-    {
-        $query->where($query->qualifyColumn('type'), '!=', self::TYPE_PAYMENT);
     }
 
     public function isPayment(): bool

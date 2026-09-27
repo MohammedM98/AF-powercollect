@@ -27,11 +27,6 @@ class MeterReading extends Model
     /** @use HasFactory<MeterReadingFactory> */
     use BelongsToBranch, HasFactory;
 
-    /**
-     * Reading weeks run Friday → Thursday.
-     */
-    public const WEEK_STARTS_ON = CarbonInterface::FRIDAY;
-
     protected function casts(): array
     {
         return [
@@ -47,46 +42,54 @@ class MeterReading extends Model
     }
 
     /**
-     * The Friday that starts the reading week containing the given date.
+     * The first day of the reading week containing the given date. Weeks end
+     * on the company's reading day (Thursday unless changed in the reading
+     * schedule settings) and start the day after the previous one.
      */
     public static function weekStartFor(CarbonInterface $date): Carbon
     {
-        return Carbon::instance($date)->startOfWeek(self::WEEK_STARTS_ON)->startOfDay();
+        return ReadingEntrySetting::current()->weekStartFor($date);
+    }
+
+    /**
+     * The reading day that ends the reading week containing the given date.
+     */
+    public static function weekEndFor(CarbonInterface $date): Carbon
+    {
+        return ReadingEntrySetting::current()->weekEndFor($date);
     }
 
     /**
      * The start of the latest week that has ended, counting today as its
-     * last day if today is Thursday: readings taken on Thursday — or any
-     * day after it before the next Thursday — belong to that week. "Today"
-     * is the business's local date.
+     * last day if today is the reading day. "Today" is the business's local
+     * date.
      */
     public static function latestEndedWeekStart(?CarbonInterface $at = null): Carbon
     {
-        $today = Carbon::instance($at ?? now())->setTimezone(config('app.business_timezone'))->toDateString();
-
-        return self::weekStartFor(Carbon::parse($today)->subDays(6));
+        return ReadingEntrySetting::current()->latestEndedWeekStart($at);
     }
 
     /**
      * The latest ended week and the ones before it, newest first, as
-     * select options.
+     * select options. Weeks read on an earlier reading day keep their dates.
      *
      * @return array<int, array{value: string, label: string}>
      */
     public static function recentWeekOptions(int $count = 8): array
     {
-        $latestWeekStart = self::latestEndedWeekStart();
+        $weekStart = self::latestEndedWeekStart();
+        $options = [];
 
-        return collect(range(0, $count - 1))
-            ->map(function (int $weeksAgo) use ($latestWeekStart) {
-                $weekStart = $latestWeekStart->copy()->subWeeks($weeksAgo);
+        while (count($options) < $count) {
+            $weekEnd = self::weekEndFor($weekStart);
+            $options[] = [
+                'value' => $weekStart->toDateString(),
+                'label' => 'الأسبوع المنتهي في '.$weekEnd->locale('ar')->dayName.' '.$weekEnd->format('d-m-Y'),
+            ];
+            $weekStart = self::weekStartFor($weekStart->copy()->subDay());
+        }
 
-                return [
-                    'value' => $weekStart->toDateString(),
-                    'label' => 'الأسبوع المنتهي في الخميس '.$weekStart->copy()->addDays(6)->format('d-m-Y'),
-                ];
-            })
-            ->all();
+        return $options;
     }
 
     /**

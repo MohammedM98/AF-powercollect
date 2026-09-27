@@ -80,7 +80,7 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
                     )}
 
                     <div>
-                        <InputLabel htmlFor="week_start" value="الأسبوع (جمعة ← خميس)" />
+                        <InputLabel htmlFor="week_start" value="الأسبوع" />
                         <select
                             id="week_start"
                             className="mt-1 block w-full"

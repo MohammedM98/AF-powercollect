@@ -79,6 +79,7 @@ class MeterReadingController extends Controller
         return Inertia::render('MeterReadings/Index', [
             'rows' => $rows,
             'week' => $week,
+            'weekEnd' => MeterReading::weekEndFor($weekStart)->toDateString(),
             'weekOptions' => MeterReading::recentWeekOptions(),
             'summary' => [
                 'total' => (clone $scope)->count(),
@@ -118,7 +119,7 @@ class MeterReadingController extends Controller
             'subscriber_id' => $subscriber->id,
             'branch_id' => $subscriber->branch_id,
             'week_start' => $weekStart,
-            'week_end' => $weekStart->copy()->addDays(6),
+            'week_end' => MeterReading::weekEndFor($weekStart),
             'previous_reading' => $previousReading,
             'current_reading' => $currentReading,
             'consumption' => $consumption,
@@ -304,8 +305,9 @@ class MeterReadingController extends Controller
     }
 
     /**
-     * The requested week (any date is snapped to its Friday), defaulting
-     * to the latest week that has ended and never later than it.
+     * The requested week (any date is snapped to the first day of its
+     * week), defaulting to the latest week that has ended and never later
+     * than it.
      */
     private function selectedWeek(Request $request): Carbon
     {

@@ -16,19 +16,19 @@ const BALANCE_PILLS = {
 };
 
 const COLUMNS = [
-    'تاريخ الحركة',
-    'رقم السند',
+    'رقم الصندوق',
     'السند اليدوي',
+    'رقم السند',
+    'الرقم المرجعي',
+    'البنك',
+    'تاريخ الحركة',
     'البيان',
-    'نوع الحركة',
     'المبلغ',
     'العملة',
+    'نوع الحركة',
+    'طريقة الدفع',
     'سعر الصرف',
     'الرصيد (شيكل)',
-    'طريقة الدفع',
-    'البنك',
-    'الرقم المرجعي',
-    'رقم الصندوق',
     'اسم المستخدم',
 ];
 
@@ -246,14 +246,23 @@ export default function Statement({
 
                                 return (
                                     <tr key={entry.id}>
-                                        <td data-label="تاريخ الحركة" className="tabular-nums text-gray-600">
-                                            <span dir="ltr">{entry.date}</span>
+                                        <td data-label="رقم الصندوق" className="tabular-nums text-gray-700">
+                                            {entry.cashBox ?? <Dash />}
+                                        </td>
+                                        <td data-label="السند اليدوي" className="tabular-nums text-gray-600">
+                                            {entry.manualVoucherNumber ?? <Dash />}
                                         </td>
                                         <td data-label="رقم السند" className="font-semibold tabular-nums text-gray-900">
                                             {entry.voucherNumber ?? <Dash />}
                                         </td>
-                                        <td data-label="السند اليدوي" className="tabular-nums text-gray-600">
-                                            {entry.manualVoucherNumber ?? <Dash />}
+                                        <td data-label="الرقم المرجعي" className="tabular-nums text-gray-700">
+                                            {entry.referenceNumber ? <span dir="ltr">{entry.referenceNumber}</span> : <Dash />}
+                                        </td>
+                                        <td data-label="البنك" className="text-gray-700">
+                                            {entry.bankName ?? <Dash />}
+                                        </td>
+                                        <td data-label="تاريخ الحركة" className="tabular-nums text-gray-600">
+                                            <span dir="ltr">{entry.date}</span>
                                         </td>
                                         <td data-label="البيان" className="font-medium text-gray-900">
                                             <div className="ledger-description">{withLtrDates(entry.description)}</div>
@@ -262,12 +271,6 @@ export default function Statement({
                                                     {withLtrDates(entry.details)}
                                                 </p>
                                             )}
-                                        </td>
-                                        <td data-label="نوع الحركة">
-                                            <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                <StatusPill tone={entry.isCredit ? 'green' : 'red'} label={entry.isCredit ? 'له' : 'عليه'} />
-                                                <span className="font-medium text-gray-900">{entry.typeLabel}</span>
-                                            </span>
                                         </td>
                                         <td
                                             data-label="المبلغ"
@@ -278,6 +281,15 @@ export default function Statement({
                                         <td data-label="العملة" className="text-gray-700">
                                             {entry.currencyLabel}
                                         </td>
+                                        <td data-label="نوع الحركة">
+                                            <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                <StatusPill tone={entry.isCredit ? 'green' : 'red'} label={entry.isCredit ? 'له' : 'عليه'} />
+                                                <span className="font-medium text-gray-900">{entry.typeLabel}</span>
+                                            </span>
+                                        </td>
+                                        <td data-label="طريقة الدفع" className="text-gray-700">
+                                            {entry.paymentMethodLabel ?? <Dash />}
+                                        </td>
                                         <td data-label="سعر الصرف" className="tabular-nums text-gray-600">
                                             {entry.exchangeRate}
                                         </td>
@@ -286,18 +298,6 @@ export default function Statement({
                                                 <b className="tabular-nums text-gray-900">{entryBalance.amount}</b>
                                                 <StatusPill tone={BALANCE_PILLS[entryBalance.tone]} label={entryBalance.label} />
                                             </span>
-                                        </td>
-                                        <td data-label="طريقة الدفع" className="text-gray-700">
-                                            {entry.paymentMethodLabel ?? <Dash />}
-                                        </td>
-                                        <td data-label="البنك" className="text-gray-700">
-                                            {entry.bankName ?? <Dash />}
-                                        </td>
-                                        <td data-label="الرقم المرجعي" className="tabular-nums text-gray-700">
-                                            {entry.referenceNumber ? <span dir="ltr">{entry.referenceNumber}</span> : <Dash />}
-                                        </td>
-                                        <td data-label="رقم الصندوق" className="tabular-nums text-gray-700">
-                                            {entry.cashBox ?? <Dash />}
                                         </td>
                                         <td data-label="اسم المستخدم" className="text-gray-700">
                                             {entry.recordedByName ?? <Dash />}

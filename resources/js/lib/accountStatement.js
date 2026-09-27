@@ -33,7 +33,6 @@ export function filterStatementEntries(entries, { search = '', type = '', method
         const text = [
             entry.description,
             entry.typeLabel,
-            entry.paidFor,
             entry.details,
             entry.voucherNumber,
             entry.manualVoucherNumber,
@@ -104,32 +103,6 @@ export function discountAmount(method, value, owed, kiloPrice) {
     const amount = { percentage: (Number(owed) * number) / 100, kilowatt: number * Number(kiloPrice), shekel: number }[method];
 
     return amount === undefined ? null : roundToCents(amount);
-}
-
-/**
- * Where a payment goes, as the server records it (Subscriber::applyCredits()):
- * the picked charges first, then the other unpaid ones, oldest first, and
- * what is left over stays as credit (له). Amounts in shekels.
- */
-export function allocatePayment(amount, unpaidCharges, pickedIds) {
-    let left = Math.round(Number(amount) * 100);
-    const ordered = [
-        ...unpaidCharges.filter((charge) => pickedIds.includes(charge.id)),
-        ...unpaidCharges.filter((charge) => !pickedIds.includes(charge.id)),
-    ];
-    const covered = [];
-
-    for (const charge of ordered) {
-        if (left <= 0) {
-            break;
-        }
-
-        const taken = Math.min(left, Math.round(Number(charge.remaining) * 100));
-        covered.push({ id: charge.id, label: charge.label, amount: taken / 100 });
-        left -= taken;
-    }
-
-    return { covered, leftover: Math.max(left, 0) / 100 };
 }
 
 /** Rounded through the decimal text (78.225 → 78.23), as the server rounds it. */

@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'tariff_segment_id', 'branch_id',
@@ -129,53 +128,6 @@ class Subscriber extends Model
             ->value('current_reading');
 
         return (float) ($lastReading ?? $this->initial_reading ?? 0);
-    }
-
-    /**
-     * Set the account's money not yet used (payments and discounts, oldest
-     * first) against its charges not yet paid, oldest first, putting the
-     * charges in `$firstChargeIds` before the rest. Every change to the
-     * account runs this, so each payment's record shows what it paid for
-     * and a subscriber has unpaid charges or unused credit, never both.
-     *
-     * @param  array<int, int|string>  $firstChargeIds
-     */
-    public function applyCredits(array $firstChargeIds = []): void
-    {
-        DB::transaction(function () use ($firstChargeIds): void {
-            $lines = $this->transactions()
-                ->with(['coveredCharges', 'coveringCredits'])
-                ->oldest()
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
-
-            $unused = $lines->filter->isCredit()->map->openCents()->filter()->all();
-            $unpaid = $lines->reject->isCredit()
-                ->sortBy(fn (SubscriberTransaction $charge): int => in_array($charge->id, array_map('intval', $firstChargeIds), true) ? 0 : 1)
-                ->map->openCents()
-                ->filter(fn (int $owed): bool => $owed > 0)
-                ->all();
-
-            foreach ($unused as $creditId => $left) {
-                foreach ($unpaid as $chargeId => $owed) {
-                    if ($left === 0) {
-                        break;
-                    }
-
-                    $taken = min($left, $owed);
-
-                    if ($taken === 0) {
-                        continue;
-                    }
-
-                    $lines[$creditId]->coveredCharges()->attach($chargeId, ['amount' => number_format($taken / 100, 2, '.', '')]);
-                    $left -= $taken;
-                    $unpaid[$chargeId] = $owed - $taken;
-                }
-            }
-        });
     }
 
     /**

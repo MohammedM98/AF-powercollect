@@ -153,7 +153,6 @@ class MeterReading extends Model
                 'amount' => $reading->amount_due,
                 'currency_amount' => $reading->amount_due,
             ]);
-            $reading->subscriber->applyCredits();
 
             $this->setRawAttributes($reading->getAttributes(), true);
         });
@@ -172,9 +171,7 @@ class MeterReading extends Model
             $consumption = self::consumptionBetween($this->previous_reading, $currentReading);
 
             if ($wasApproved) {
-                // What paid for the charge is freed and goes towards the account's other charges.
                 SubscriberTransaction::where('source_key', $this->chargeSourceKey())->delete();
-                $this->subscriber->applyCredits();
             }
 
             $this->update([

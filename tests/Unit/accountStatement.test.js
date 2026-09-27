@@ -1,12 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-    allocatePayment,
-    describeBalance,
-    discountAmount,
-    filterStatementEntries,
-    paymentInShekels,
-} from '../../resources/js/lib/accountStatement.js';
+import { describeBalance, discountAmount, filterStatementEntries, paymentInShekels } from '../../resources/js/lib/accountStatement.js';
 
 const entries = [
     {
@@ -103,23 +97,4 @@ test('a discount is a percentage of what is owed, kilowatts at the kilo price, o
     assert.equal(discountAmount('percentage', '12.5', '78.18', '0.60'), 9.77);
     assert.equal(discountAmount('shekel', '', '250.00', '0.60'), null);
     assert.equal(discountAmount('shekel', '0', '250.00', '0.60'), null);
-});
-
-test('a payment goes to the picked charges first, then the oldest, and the rest stays as credit', () => {
-    const unpaid = [
-        { id: 1, label: 'رسوم اشتراك', remaining: '50.00' },
-        { id: 2, label: 'غرامة مالية', remaining: '20.00' },
-        { id: 3, label: 'تسوية', remaining: '30.00' },
-    ];
-
-    assert.deepEqual(allocatePayment(25, unpaid, [3]), { covered: [{ id: 3, label: 'تسوية', amount: 25 }], leftover: 0 });
-    assert.deepEqual(allocatePayment(60, unpaid, [2]), {
-        covered: [
-            { id: 2, label: 'غرامة مالية', amount: 20 },
-            { id: 1, label: 'رسوم اشتراك', amount: 40 },
-        ],
-        leftover: 0,
-    });
-    assert.deepEqual(allocatePayment(115, unpaid, []).leftover, 15);
-    assert.deepEqual(allocatePayment(10, [], []), { covered: [], leftover: 10 });
 });

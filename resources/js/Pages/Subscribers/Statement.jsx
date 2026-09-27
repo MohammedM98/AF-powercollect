@@ -78,7 +78,6 @@ export default function Statement({
     summary,
     canRecordPayment,
     canAdjustBalance,
-    unpaidCharges,
     currencies,
     paymentMethods,
     transferBanks,
@@ -258,11 +257,6 @@ export default function Statement({
                                         </td>
                                         <td data-label="البيان" className="font-medium text-gray-900">
                                             <div className="ledger-description">{withLtrDates(entry.description)}</div>
-                                            {entry.paidFor && (
-                                                <p className="ledger-description mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                                                    {withLtrDates(entry.paidFor)}
-                                                </p>
-                                            )}
                                             {entry.details && (
                                                 <p className="ledger-description mt-1 text-xs font-normal text-gray-500">
                                                     {withLtrDates(entry.details)}
@@ -333,7 +327,6 @@ export default function Statement({
                     onClose={() => setOpenForm(null)}
                     subscriber={subscriber}
                     balance={summary.balance}
-                    unpaidCharges={unpaidCharges}
                     currencies={currencies}
                     paymentMethods={paymentMethods}
                     transferBanks={transferBanks}

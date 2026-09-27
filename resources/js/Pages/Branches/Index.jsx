@@ -10,11 +10,13 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useRowClick } from '@/hooks/useRowClick';
 import BranchModal from './BranchModal';
 
 export default function Index({ branches, canCreate, filters, filterOptions, governorates, areas }) {
     const [modalBranch, setModalBranch] = useState(null);
     const [creating, setCreating] = useState(false);
+    const rowClick = useRowClick();
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/branches', filters);
 
     return (
@@ -73,7 +75,7 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
                             </tr>
                         ) : (
                             branches.data.map((branch) => (
-                                <tr key={branch.id}>
+                                <tr key={branch.id} {...rowClick(branch.canUpdate ? () => setModalBranch(branch) : null)}>
                                     <td>
                                         <RowIdentity
                                             icon="pin"

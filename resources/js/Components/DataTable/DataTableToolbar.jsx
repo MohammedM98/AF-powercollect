@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import Icon from '@/Components/Icon';
+import DensityToggle from './DensityToggle';
 
 const PAGE_SIZES = [15, 25, 50, 100];
 
 /**
  * The top of a table card: search (press / to jump to it, Esc to clear),
- * the result count and the page-size switch, with the filter row below.
+ * the result count, the row-density switch and the page-size switch, with
+ * the filter row below.
  */
 export default function DataTableToolbar({
     search,
@@ -69,6 +71,7 @@ export default function DataTableToolbar({
                         نتيجة
                     </span>
                 )}
+                <DensityToggle />
                 <div
                     role="group"
                     aria-label="عدد الصفوف في الصفحة"

@@ -28,6 +28,21 @@ export default {
                 luxe: ['"El Messiri"', '"IBM Plex Sans Arabic"', ...defaultTheme.fontFamily.serif],
                 display: ['Alexandria', '"IBM Plex Sans Arabic"', ...defaultTheme.fontFamily.sans],
             },
+            /*
+             * Arabic needs more room than Latin text to read comfortably, so
+             * every size sits two pixels above Tailwind's default (xs 14,
+             * sm 16, base 17, lg 20…) with looser lines, all in step so the
+             * proportions hold. The smallest text anywhere is 12px.
+             */
+            fontSize: {
+                xs: ['0.875rem', { lineHeight: '1.6' }],
+                sm: ['1rem', { lineHeight: '1.6' }],
+                base: ['1.0625rem', { lineHeight: '1.7' }],
+                lg: ['1.25rem', { lineHeight: '1.6' }],
+                xl: ['1.375rem', { lineHeight: '1.5' }],
+                '2xl': ['1.625rem', { lineHeight: '1.4' }],
+                '3xl': ['2rem', { lineHeight: '1.3' }],
+            },
             colors: {
                 brand: scale('brand', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]),
                 gray: scale('gray', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]),

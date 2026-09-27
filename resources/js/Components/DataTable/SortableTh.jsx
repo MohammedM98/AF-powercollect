@@ -10,8 +10,8 @@ export default function SortableTh({ column, label, sortState, onSort, className
             <button
                 type="button"
                 onClick={() => onSort(column)}
-                className={`-mx-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${
-                    active ? 'bg-brand-500/10 text-gray-900' : 'text-gray-400 hover:text-gray-900'
+                className={`-mx-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${
+                    active ? 'bg-brand-500/10 text-gray-900' : 'text-gray-700 hover:text-gray-900'
                 }`}
             >
                 {label}

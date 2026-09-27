@@ -9,6 +9,7 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useRowClick } from '@/hooks/useRowClick';
 import { formatCurrency } from '@/lib/currency';
 import Icon from '@/Components/Icon';
 import TariffModal from './TariffModal';
@@ -17,6 +18,7 @@ import TariffSegmentModal from './TariffSegmentModal';
 export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegment, categoryOptions, filters, filterOptions }) {
     const [modalTariff, setModalTariff] = useState(null);
     const [creating, setCreating] = useState(false);
+    const rowClick = useRowClick();
     // The tariff a new segment is being added under, and the segment being renamed.
     const [creatingSegmentFor, setCreatingSegmentFor] = useState(null);
     const [modalSegment, setModalSegment] = useState(null);
@@ -74,7 +76,7 @@ export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegm
                             </tr>
                         ) : (
                             tariffs.data.map((tariff) => (
-                                <tr key={tariff.id}>
+                                <tr key={tariff.id} {...rowClick(tariff.canUpdate ? () => setModalTariff(tariff) : null)}>
                                     <td>
                                         <RowIdentity icon="dollar" name={tariff.categoryLabel} />
                                     </td>

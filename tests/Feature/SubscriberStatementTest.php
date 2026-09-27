@@ -184,6 +184,54 @@ class SubscriberStatementTest extends TestCase
         $this->assertDatabaseCount('subscriber_transactions', 0);
     }
 
+    public function test_the_subscribers_list_opens_the_statement_named_in_its_address(): void
+    {
+        SubscriberTransaction::factory()->for($this->subscriber)->create(['amount' => '50.00', 'recorded_by' => $this->branchAdmin->id]);
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.index', ['statement' => $this->subscriber->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Subscribers/Index')
+                ->where('statement.subscriber.fullName', 'Ahmad')
+                ->where('statement.entries.0.description', 'رسوم اشتراك جديد')
+                ->where('statement.summary.balance', '50.00')
+                ->where('statement.canRecordPayment', true));
+    }
+
+    /**
+     * @param  array<string, mixed>  $query
+     */
+    #[TestWith([[]])]
+    #[TestWith([['statement' => 'abc']])]
+    #[TestWith([['statement' => ['1']]])]
+    public function test_the_subscribers_list_opens_no_statement_without_a_subscriber_id(array $query): void
+    {
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.index', $query))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('statement', null));
+    }
+
+    public function test_the_subscribers_list_does_not_open_another_branchs_statement(): void
+    {
+        $this->actingAs(User::factory()->branchAdmin()->create())
+            ->get(route('subscribers.index', ['statement' => $this->subscriber->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('statement', null));
+    }
+
+    public function test_a_payment_saved_over_the_list_returns_to_the_list_with_the_statement_still_open(): void
+    {
+        $listWithStatement = route('subscribers.index', ['page' => 2, 'statement' => $this->subscriber->id]);
+
+        $this->actingAs($this->branchAdmin)
+            ->from($listWithStatement)
+            ->post(route('subscribers.payments.store', $this->subscriber), ['amount' => '25', 'currency' => 'ILS', 'payment_method' => 'cash'])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect($listWithStatement);
+    }
+
     public function test_the_statement_is_only_shown_within_the_actors_branch(): void
     {
         $this->actingAs(User::factory()->branchAdmin()->create())

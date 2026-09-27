@@ -126,7 +126,7 @@ function EmployeeList({ users, selectedId, filters, filterOptions, search, onSea
                                         <span className={`block truncate font-semibold ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
                                             {user.name}
                                         </span>
-                                        <span className="block truncate text-[12.5px] text-gray-500">
+                                        <span className="block truncate text-xs text-gray-500">
                                             {user.roleLabel} · {user.branchName ?? 'بلا فرع'}
                                         </span>
                                     </span>
@@ -162,7 +162,7 @@ function PermissionGroupRow({ group, isOn, onToggle, disabled }) {
                     </span>
                     <div className="min-w-0">
                         <h4 className="font-bold text-gray-900">{group.label}</h4>
-                        {details.description && <p className="text-[12.5px] text-gray-500">{details.description}</p>}
+                        {details.description && <p className="text-xs text-gray-500">{details.description}</p>}
                     </div>
                 </div>
 
@@ -322,7 +322,7 @@ function PermissionEditor({ employee, permissionGroups, scopedToOwnBranch, onDir
                     ))}
                 </div>
 
-                <div className="mt-5 flex items-start gap-2.5 rounded-control border border-gray-100 bg-gray-50 px-4 py-3 text-[13px] text-gray-600">
+                <div className="mt-5 flex items-start gap-2.5 rounded-control border border-gray-100 bg-gray-50 px-4 py-3 text-[15px] text-gray-600">
                     <Icon name="info" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-gray-400" />
                     <p>
                         <b className="text-gray-900">ملاحظة: </b>

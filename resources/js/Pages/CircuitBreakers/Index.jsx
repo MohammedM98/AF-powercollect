@@ -9,12 +9,14 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useRowClick } from '@/hooks/useRowClick';
 import { formatCurrency } from '@/lib/currency';
 import CircuitBreakerModal from './CircuitBreakerModal';
 
 export default function Index({ circuitBreakers, canCreate, filters, filterOptions }) {
     const [modalCircuitBreaker, setModalCircuitBreaker] = useState(null);
     const [creating, setCreating] = useState(false);
+    const rowClick = useRowClick();
     const { setPerPage, sort, filterValues, setFilter, clearFilters } = useDataTable('/circuit-breakers', filters);
 
     return (
@@ -68,7 +70,10 @@ export default function Index({ circuitBreakers, canCreate, filters, filterOptio
                             </tr>
                         ) : (
                             circuitBreakers.data.map((circuitBreaker) => (
-                                <tr key={circuitBreaker.id}>
+                                <tr
+                                    key={circuitBreaker.id}
+                                    {...rowClick(circuitBreaker.canUpdate ? () => setModalCircuitBreaker(circuitBreaker) : null)}
+                                >
                                     <td>
                                         <RowIdentity icon="bolt" name={`${circuitBreaker.ampere}A`} />
                                     </td>

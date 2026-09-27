@@ -1,3 +1,5 @@
+import { formatAmount } from '@/lib/currency';
+
 /**
  * The statement page's filters, applied in the browser. Every line already
  * carries the balance it left, so hiding some lines never changes the
@@ -45,14 +47,14 @@ export function describeBalance(balance) {
     const value = Number(balance);
 
     if (value > 0) {
-        return { amount: value.toFixed(2), label: 'عليه', tone: 'owes' };
+        return { amount: formatAmount(value), label: 'عليه', tone: 'owes' };
     }
 
     if (value < 0) {
-        return { amount: (-value).toFixed(2), label: 'له', tone: 'credit' };
+        return { amount: formatAmount(-value), label: 'له', tone: 'credit' };
     }
 
-    return { amount: '0.00', label: 'مسدّد', tone: 'settled' };
+    return { amount: '0', label: 'مسدّد', tone: 'settled' };
 }
 
 /**

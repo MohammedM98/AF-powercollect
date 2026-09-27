@@ -99,7 +99,7 @@ class SubscriberStatementTest extends TestCase
         $this->assertSame(['-74.00', '-20.86'], SubscriberTransaction::where('type', 'payment')->orderBy('id')->pluck('amount')->all());
         $this->assertSame([1, 2], SubscriberTransaction::where('type', 'payment')->orderBy('id')->pluck('voucher_number')->all());
         $this->assertSame(
-            ['action' => 'payment-recorded', 'subject' => 'Ahmad — 74.00 شيكل'],
+            ['action' => 'payment-recorded', 'subject' => 'Ahmad — 74 شيكل'],
             $this->branchAdmin->notifications()->oldest()->first()->data,
         );
 

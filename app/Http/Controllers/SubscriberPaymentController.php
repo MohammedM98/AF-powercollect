@@ -7,6 +7,7 @@ use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Str;
 
 class SubscriberPaymentController extends Controller
 {
@@ -20,7 +21,7 @@ class SubscriberPaymentController extends Controller
 
         $request->user()->notify(new ActionCompleted(
             'payment-recorded',
-            sprintf('%s — %s شيكل', $subscriber->full_name, ltrim($payment->amount, '-')),
+            sprintf('%s — %s شيكل', $subscriber->full_name, Str::replaceEnd('.00', '', ltrim($payment->amount, '-'))),
         ));
 
         return back()->with('status', 'payment-recorded');

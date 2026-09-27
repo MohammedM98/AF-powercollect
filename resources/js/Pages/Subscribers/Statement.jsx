@@ -5,6 +5,7 @@ import AddButton from '@/Components/AddButton';
 import Icon from '@/Components/Icon';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { describeBalance, filterStatementEntries } from '@/lib/accountStatement';
+import { formatAmount } from '@/lib/currency';
 import PaymentModal from './PaymentModal';
 
 const BALANCE_PILLS = {
@@ -169,10 +170,10 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
                     }
                     tone={balance.tone === 'settled' ? 'default' : balance.tone}
                 />
-                <SummaryCard label="مجموع ما عليه (تحميل)" value={`${summary.charged} شيكل`} hint="رسوم الاشتراك والقراءات المعتمدة" />
+                <SummaryCard label="مجموع ما عليه (تحميل)" value={`${formatAmount(summary.charged)} شيكل`} hint="رسوم الاشتراك والقراءات المعتمدة" />
                 <SummaryCard
                     label="مجموع ما دفعه (تسديد)"
-                    value={`${summary.paid} شيكل`}
+                    value={`${formatAmount(summary.paid)} شيكل`}
                     hint={`عدد الدفعات: ${summary.paymentsCount}`}
                     tone="paid"
                 />
@@ -283,7 +284,7 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
                                             data-label="المبلغ"
                                             className={`font-semibold tabular-nums ${entry.isPayment ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900'}`}
                                         >
-                                            {entry.amount}
+                                            {formatAmount(entry.amount)}
                                         </td>
                                         <td data-label="العملة" className="text-gray-700">
                                             {entry.currencyLabel}

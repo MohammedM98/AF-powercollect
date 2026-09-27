@@ -4,6 +4,7 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import SearchableSelect from '@/Components/SearchableSelect';
 import ConfirmDialog from '@/Components/ConfirmDialog';
+import { formatAmount } from '@/lib/currency';
 
 const STATUS_OPTIONS = [
     { value: 'active', label: 'نشط' },
@@ -243,12 +244,7 @@ export default function SubscriberForm({
                 </select>
             </Field>
 
-            <ReadOnlyField
-                id="tariff_rate"
-                label="سعر الكيلو (شيكل)"
-                value={selectedTariff ? Number(selectedTariff.rate).toFixed(2) : '—'}
-                dir="ltr"
-            />
+            <ReadOnlyField id="tariff_rate" label="سعر الكيلو (شيكل)" value={selectedTariff ? formatAmount(selectedTariff.rate) : '—'} dir="ltr" />
 
             <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id}>
                 <select

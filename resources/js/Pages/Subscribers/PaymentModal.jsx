@@ -4,6 +4,7 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import { useResourceForm } from '@/hooks/useResourceForm';
 import { describeBalance, paymentInShekels } from '@/lib/accountStatement';
+import { formatAmount, formatCurrency } from '@/lib/currency';
 
 const BALANCE_TONES = {
     owes: 'text-brand-700',
@@ -14,7 +15,7 @@ const BALANCE_TONES = {
 function BalanceText({ balance }) {
     return (
         <span className={`font-bold tabular-nums ${BALANCE_TONES[balance.tone]}`}>
-            {balance.tone === 'settled' ? '0.00 شيكل — مسدّد' : `${balance.amount} شيكل ${balance.label}`}
+            {balance.tone === 'settled' ? '0 شيكل — مسدّد' : `${balance.amount} شيكل ${balance.label}`}
         </span>
     );
 }
@@ -46,7 +47,7 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
     const confirmMessage =
         inShekels === null
             ? null
-            : `سيتم تسجيل دفعة بقيمة ${Number(data.amount).toFixed(2)} ${currencyLabel}${isShekel ? '' : ` (${inShekels.toFixed(2)} شيكل)`} على حساب ${subscriber.fullName}، ويصبح الرصيد ${
+            : `سيتم تسجيل دفعة بقيمة ${formatAmount(data.amount)} ${currencyLabel}${isShekel ? '' : ` (${formatAmount(inShekels)} شيكل)`} على حساب ${subscriber.fullName}، ويصبح الرصيد ${
                   balanceAfter.tone === 'settled' ? 'مسدّدًا' : `${balanceAfter.amount} شيكل ${balanceAfter.label}`
               }. هل تريد المتابعة؟`;
 
@@ -121,7 +122,7 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
                 <div>
                     <InputLabel value="يُخصم من الرصيد" />
                     <p className="mt-1 flex h-11 items-center rounded-control bg-gray-50 px-3 text-sm font-bold tabular-nums text-gray-900">
-                        {inShekels === null ? '—' : `${inShekels.toFixed(2)} شيكل`}
+                        {inShekels === null ? '—' : formatCurrency(inShekels)}
                     </p>
                 </div>
             </div>

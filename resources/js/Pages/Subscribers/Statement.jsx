@@ -80,6 +80,7 @@ export default function Statement({
     canAdjustBalance,
     currencies,
     paymentMethods,
+    transferBanks,
     chargeTypes,
     discountMethods,
     transactionTypes,
@@ -328,6 +329,7 @@ export default function Statement({
                     balance={summary.balance}
                     currencies={currencies}
                     paymentMethods={paymentMethods}
+                    transferBanks={transferBanks}
                 />
             )}
 

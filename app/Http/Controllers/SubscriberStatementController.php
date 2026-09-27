@@ -66,7 +66,8 @@ class SubscriberStatementController extends Controller
             'canRecordPayment' => $request->user()->can('recordPayment', $subscriber),
             'canAdjustBalance' => $request->user()->can('adjustBalance', $subscriber),
             'currencies' => Currency::options(),
-            'paymentMethods' => PaymentMethod::options(),
+            'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
+            'transferBanks' => config('powercollect.transfer_banks'),
             'chargeTypes' => ChargeType::options(),
             'discountMethods' => DiscountMethod::options(),
             'transactionTypes' => collect(SubscriberTransaction::typeLabels())

@@ -6,7 +6,7 @@ function messageFor(field) {
     const { validity } = field;
 
     if (validity.valueMissing) {
-        return field.tagName === 'SELECT' ? 'اختر قيمة لهذا الحقل.' : 'هذا الحقل مطلوب.';
+        return field.tagName === 'SELECT' || field.type === 'radio' ? 'اختر قيمة لهذا الحقل.' : 'هذا الحقل مطلوب.';
     }
 
     if (validity.badInput) {

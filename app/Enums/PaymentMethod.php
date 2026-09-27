@@ -24,6 +24,18 @@ enum PaymentMethod: string
     }
 
     /**
+     * The ways a payment is recorded now: cash, or a transfer to one of the
+     * banks and e-wallets in `powercollect.transfer_banks`. Cheques and
+     * other e-wallets remain only on payments recorded before.
+     *
+     * @return array<int, self>
+     */
+    public static function offered(): array
+    {
+        return [self::Cash, self::BankTransfer];
+    }
+
+    /**
      * Whether a payment this way goes through a bank, so the bank and the
      * transfer or cheque number are recorded with it.
      */

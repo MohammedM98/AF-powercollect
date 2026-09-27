@@ -12,7 +12,7 @@ import { AccountHeader, BalanceAfter } from './AccountSummary';
  * and at what rate, and how it was paid. Shows what it takes off the
  * balance before saving.
  */
-export default function PaymentModal({ show, onClose, subscriber, balance, currencies, paymentMethods }) {
+export default function PaymentModal({ show, onClose, subscriber, balance, currencies, paymentMethods, transferBanks }) {
     const form = useResourceForm(`/subscribers/${subscriber.id}/payments`, null, {
         amount: '',
         currency: 'ILS',
@@ -27,7 +27,7 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
     const { data, setData, errors } = form;
 
     const isShekel = data.currency === 'ILS';
-    const throughBank = ['bank_transfer', 'cheque'].includes(data.payment_method);
+    const throughBank = data.payment_method === 'bank_transfer';
     const inShekels = paymentInShekels(data.amount, data.currency, data.exchange_rate);
     const balanceAfter = inShekels === null ? null : describeBalance(Number(balance) - inShekels);
     const currencyLabel = currencies.find((currency) => currency.value === data.currency)?.label;
@@ -106,7 +106,7 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
 
             <fieldset>
                 <legend className="text-sm font-medium text-gray-700">طريقة الدفع</legend>
-                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="mt-1 grid grid-cols-2 gap-2">
                     {paymentMethods.map((method) => (
                         <label
                             key={method.value}
@@ -131,6 +131,36 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
                 <InputError message={errors.payment_method} className="mt-2" />
             </fieldset>
 
+            {throughBank && (
+                <fieldset>
+                    <legend className="text-sm font-medium text-gray-700">البنك أو المحفظة</legend>
+                    <div className="mt-1 grid grid-cols-3 gap-2">
+                        {transferBanks.map((bank) => (
+                            <label
+                                key={bank}
+                                className={`flex h-11 cursor-pointer items-center justify-center rounded-control border px-2 text-center text-sm font-semibold transition focus-within:ring-2 focus-within:ring-brand-500 ${
+                                    data.bank_name === bank
+                                        ? 'border-brand-500 bg-brand-50 text-brand-700'
+                                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                                }`}
+                            >
+                                <input
+                                    type="radio"
+                                    name="bank_name"
+                                    value={bank}
+                                    required
+                                    checked={data.bank_name === bank}
+                                    onChange={(e) => setData('bank_name', e.target.value)}
+                                    className="sr-only"
+                                />
+                                {bank}
+                            </label>
+                        ))}
+                    </div>
+                    <InputError message={errors.bank_name} className="mt-2" />
+                </fieldset>
+            )}
+
             <div className="grid gap-4 sm:grid-cols-2">
                 {data.payment_method === 'cash' && (
                     <div>
@@ -148,33 +178,16 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
                 )}
                 {throughBank && (
                     <div>
-                        <InputLabel htmlFor="bank_name" value="البنك" />
-                        <TextInput
-                            id="bank_name"
-                            className="mt-1 w-full"
-                            value={data.bank_name}
-                            onChange={(e) => setData('bank_name', e.target.value)}
-                        />
-                        <InputError message={errors.bank_name} className="mt-2" />
-                    </div>
-                )}
-                {data.payment_method !== 'cash' && (
-                    <div>
                         <InputLabel htmlFor="reference_number" value="الرقم المرجعي" />
                         <TextInput
                             id="reference_number"
+                            required
                             dir="ltr"
                             className="mt-1 w-full"
                             value={data.reference_number}
                             onChange={(e) => setData('reference_number', e.target.value)}
                         />
-                        <p className="mt-1 text-xs text-gray-500">
-                            {data.payment_method === 'cheque'
-                                ? 'رقم الشيك'
-                                : data.payment_method === 'bank_transfer'
-                                  ? 'رقم الحوالة'
-                                  : 'رقم العملية (اختياري)'}
-                        </p>
+                        <p className="mt-1 text-xs text-gray-500">رقم الحوالة أو العملية</p>
                         <InputError message={errors.reference_number} className="mt-2" />
                     </div>
                 )}

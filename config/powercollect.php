@@ -20,4 +20,17 @@ return [
         'password' => env('SUPER_ADMIN_PASSWORD'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Bank Transfer Destinations
+    |--------------------------------------------------------------------------
+    |
+    | Where a subscriber can transfer a payment to: the company's bank
+    | account and e-wallets. A bank transfer is recorded against one of
+    | these, and it shows in the البنك column of the account statement.
+    |
+    */
+
+    'transfer_banks' => ['بنك فلسطين', 'جوال باي', 'بال باي'],
+
 ];

@@ -118,19 +118,19 @@ class SubscriberStatementTest extends TestCase
         $this->assertSame('1.0000', $payment->exchange_rate);
     }
 
-    public function test_a_bank_transfer_or_cheque_needs_its_bank_and_number_and_keeps_no_cash_box(): void
+    public function test_a_bank_transfer_needs_one_of_the_transfer_banks_and_its_number_and_keeps_no_cash_box(): void
     {
-        $this->recordPayment(['payment_method' => 'cheque', 'bank_name' => '', 'reference_number' => ''])
-            ->assertSessionHasErrors(['bank_name', 'reference_number']);
+        $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => '', 'reference_number' => ''])
+            ->assertSessionHasErrors(['bank_name' => 'اختر البنك أو المحفظة التي حُوّل إليها المبلغ.', 'reference_number']);
+        $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => 'بنك القاهرة', 'reference_number' => 'TRX-1'])
+            ->assertSessionHasErrors(['bank_name' => 'اختر أحد البنوك أو المحافظ المتاحة.']);
+        $this->assertDatabaseCount('subscriber_transactions', 0);
 
-        $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'reference_number' => 'TRX-88214', 'cash_box' => '3'])
-            ->assertSessionHasNoErrors();
-        $this->recordPayment(['payment_method' => 'e_wallet', 'bank_name' => 'بنك فلسطين', 'reference_number' => ''])
+        $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => 'جوال باي', 'reference_number' => 'TRX-88214', 'cash_box' => '3'])
             ->assertSessionHasNoErrors();
 
-        [$transfer, $wallet] = SubscriberTransaction::orderBy('id')->get();
-        $this->assertSame(['بنك فلسطين', 'TRX-88214', null], [$transfer->bank_name, $transfer->reference_number, $transfer->cash_box]);
-        $this->assertNull($wallet->bank_name);
+        $transfer = SubscriberTransaction::sole();
+        $this->assertSame(['جوال باي', 'TRX-88214', null], [$transfer->bank_name, $transfer->reference_number, $transfer->cash_box]);
     }
 
     /**
@@ -141,6 +141,8 @@ class SubscriberStatementTest extends TestCase
     #[TestWith([['currency' => 'EUR'], 'currency'])]
     #[TestWith([['currency' => 'USD', 'exchange_rate' => ''], 'exchange_rate'])]
     #[TestWith([['payment_method' => 'gold'], 'payment_method'])]
+    #[TestWith([['payment_method' => 'cheque', 'bank_name' => 'بنك فلسطين', 'reference_number' => '77'], 'payment_method'])]
+    #[TestWith([['payment_method' => 'e_wallet'], 'payment_method'])]
     public function test_an_invalid_payment_is_rejected(array $payment, string $field): void
     {
         $this->recordPayment($payment)->assertSessionHasErrors($field);

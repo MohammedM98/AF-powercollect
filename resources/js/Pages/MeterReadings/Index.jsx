@@ -12,6 +12,7 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
+import { consumptionBetween } from '@/lib/readings';
 import { WEEK_DAYS, formatWeekDay } from '@/lib/weekDays';
 
 const SORT_OPTIONS = [
@@ -38,7 +39,7 @@ function calculateCharges(currentReading, row) {
         return null;
     }
 
-    const consumption = Number(currentReading) - row.previousReading;
+    const consumption = consumptionBetween(row.previousReading, currentReading);
     const readingFee = Math.round(consumption * Number(row.unitPrice) * 100) / 100;
 
     return { consumption, readingFee, amountDue: Math.max(readingFee, Number(row.minimumPayment)) };
@@ -121,7 +122,8 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
             <td className="px-4">
                 <input
                     type="number"
-                    inputMode="numeric"
+                    inputMode="decimal"
+                    step="0.01"
                     min={row.previousReading}
                     dir="ltr"
                     data-reading-input

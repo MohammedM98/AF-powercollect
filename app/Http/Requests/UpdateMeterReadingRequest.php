@@ -26,7 +26,7 @@ class UpdateMeterReadingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'current_reading' => ['required', 'integer', 'min:0', 'max:4294967295'],
+            'current_reading' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -59,7 +59,7 @@ class UpdateMeterReadingRequest extends FormRequest
                     return;
                 }
 
-                if ($this->integer('current_reading') < $meterReading->previous_reading) {
+                if ($this->float('current_reading') < $meterReading->previous_reading) {
                     $validator->errors()->add('current_reading', "القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة ({$meterReading->previous_reading}).");
                 }
             },

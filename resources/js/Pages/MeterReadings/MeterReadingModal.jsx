@@ -4,6 +4,7 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import SearchableSelect from '@/Components/SearchableSelect';
 import { useResourceForm } from '@/hooks/useResourceForm';
+import { consumptionBetween } from '@/lib/readings';
 
 const APPROVED_READING_WARNING = 'هذه القراءة معتمدة. تعديلها يعيدها إلى قيد المراجعة ويزيل مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.';
 
@@ -36,7 +37,7 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
     const selectedSubscriber = isEdit ? null : (fixedSubscriber ?? subscriberOptions.find((option) => option.value === String(data.subscriber_id)));
     const previousReading = isEdit ? reading.previous_reading : selectedSubscriber?.lastReading;
     const hasPrevious = previousReading !== undefined && previousReading !== null;
-    const consumption = hasPrevious && data.current_reading !== '' ? Number(data.current_reading) - previousReading : null;
+    const consumption = hasPrevious && data.current_reading !== '' ? consumptionBetween(previousReading, data.current_reading) : null;
 
     return (
         <FormModal
@@ -107,7 +108,8 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
                     id="current_reading"
                     type="number"
                     min="0"
-                    inputMode="numeric"
+                    step="0.01"
+                    inputMode="decimal"
                     dir="ltr"
                     className="mt-1 block w-full"
                     value={data.current_reading}

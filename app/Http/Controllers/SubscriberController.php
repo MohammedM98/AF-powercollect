@@ -161,7 +161,7 @@ class SubscriberController extends Controller
             'registeredByName' => $subscriber->registeredBy?->name,
             'outstandingBalance' => $subscriber->outstanding_balance ?? '0.00',
             'meterReadings' => $readings->map(fn (MeterReading $reading) => $this->statementReading($reading, $actor)),
-            'lastReading' => (int) ($latestReading?->current_reading ?? $subscriber->initial_reading ?? 0),
+            'lastReading' => (float) ($latestReading?->current_reading ?? $subscriber->initial_reading ?? 0),
             'lastReadingWeekStart' => $latestReading?->week_start->format('Y-m-d'),
             'canRecordReading' => $canRecordReadings && $subscriber->status === SubscriberStatus::Active,
             'canUpdate' => $actor->can('update', $subscriber),

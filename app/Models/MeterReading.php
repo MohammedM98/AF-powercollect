@@ -32,6 +32,9 @@ class MeterReading extends Model
         return [
             'week_start' => 'date',
             'week_end' => 'date',
+            'previous_reading' => 'float',
+            'current_reading' => 'float',
+            'consumption' => 'float',
             'status' => MeterReadingStatus::class,
             'unit_price' => 'decimal:2',
             'reading_fee' => 'decimal:2',
@@ -93,12 +96,21 @@ class MeterReading extends Model
     }
 
     /**
+     * The kWh used between two meter readings, rounded to the two decimal
+     * places readings are kept to.
+     */
+    public static function consumptionBetween(float $previousReading, float $currentReading): float
+    {
+        return round($currentReading - $previousReading, 2);
+    }
+
+    /**
      * What a week's consumption costs: consumption × kilowatt price, but
      * never less than the minimum payment.
      *
      * @return array{reading_fee: string, amount_due: string}
      */
-    public static function chargesFor(int $consumption, float|string $unitPrice, float|string $minimumPayment): array
+    public static function chargesFor(float $consumption, float|string $unitPrice, float|string $minimumPayment): array
     {
         $readingFee = round($consumption * (float) $unitPrice, 2);
 
@@ -152,11 +164,11 @@ class MeterReading extends Model
      * charge is taken off the subscriber's transactions until it is approved
      * again. Returns whether that happened.
      */
-    public function correct(int $currentReading, ?string $notes): bool
+    public function correct(float $currentReading, ?string $notes): bool
     {
         return DB::transaction(function () use ($currentReading, $notes): bool {
             $wasApproved = ! $this->isPending();
-            $consumption = $currentReading - $this->previous_reading;
+            $consumption = self::consumptionBetween($this->previous_reading, $currentReading);
 
             if ($wasApproved) {
                 SubscriberTransaction::where('source_key', $this->chargeSourceKey())->delete();

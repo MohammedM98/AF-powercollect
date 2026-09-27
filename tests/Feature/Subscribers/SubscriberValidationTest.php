@@ -87,9 +87,9 @@ class SubscriberValidationTest extends TestCase
     }
 
     #[TestWith([-1])]
-    #[TestWith([1.5])]
+    #[TestWith([1.555])]
     #[TestWith(['invalid'])]
-    public function test_initial_reading_must_be_a_non_negative_integer(int|float|string $reading): void
+    public function test_initial_reading_must_be_non_negative_with_at_most_two_decimal_places(int|float|string $reading): void
     {
         $payload = $this->validPayload();
         $payload['initial_reading'] = $reading;
@@ -113,6 +113,17 @@ class SubscriberValidationTest extends TestCase
             'initial_reading' => 0,
             'branch_id' => auth()->user()->branch_id,
         ]);
+    }
+
+    public function test_registration_accepts_a_decimal_initial_reading(): void
+    {
+        $payload = $this->validPayload();
+        $payload['initial_reading'] = '255.2';
+
+        $this->post(route('subscribers.store'), $payload)
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(255.2, Subscriber::sole()->initial_reading);
     }
 
     public function test_update_rejects_another_subscribers_national_id(): void

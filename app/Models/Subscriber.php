@@ -62,6 +62,7 @@ class Subscriber extends Model
             'status' => SubscriberStatus::class,
             'subscription_date' => 'date',
             'subscription_fee' => 'decimal:2',
+            'initial_reading' => 'float',
         ];
     }
 
@@ -119,13 +120,13 @@ class Subscriber extends Model
      * last week recorded before it, or the subscriber's initial reading if
      * this is their first week.
      */
-    public function previousReadingBefore(Carbon $weekStart): int
+    public function previousReadingBefore(Carbon $weekStart): float
     {
         $lastReading = $this->meterReadings()
             ->where('week_start', '<', $weekStart->toDateString())
             ->orderByDesc('week_start')
             ->value('current_reading');
 
-        return (int) ($lastReading ?? $this->initial_reading ?? 0);
+        return (float) ($lastReading ?? $this->initial_reading ?? 0);
     }
 }

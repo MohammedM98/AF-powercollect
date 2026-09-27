@@ -378,7 +378,7 @@ export default function SubscriberForm({
                     type="number"
                     required
                     min={0}
-                    step={1}
+                    step="0.01"
                     className="block w-full"
                     value={data.initial_reading}
                     onChange={(event) => setData('initial_reading', event.target.value)}

@@ -55,9 +55,9 @@ class MeterReadingTest extends TestCase
         $reading = MeterReading::sole();
         $this->assertSame('2026-09-18', $reading->week_start->toDateString());
         $this->assertSame('2026-09-24', $reading->week_end->toDateString());
-        $this->assertSame(1200, $reading->previous_reading);
-        $this->assertSame(1250, $reading->current_reading);
-        $this->assertSame(50, $reading->consumption);
+        $this->assertSame(1200.0, $reading->previous_reading);
+        $this->assertSame(1250.0, $reading->current_reading);
+        $this->assertSame(50.0, $reading->consumption);
         $this->assertSame(MeterReadingStatus::Pending, $reading->status);
         $this->assertSame($this->branch->id, $reading->branch_id);
         $this->assertTrue($reading->recordedBy->is($this->dataEntry));
@@ -95,6 +95,32 @@ class MeterReadingTest extends TestCase
         $this->assertSame('20.00', $reading->amount_due);
     }
 
+    public function test_a_reading_can_have_two_decimal_places(): void
+    {
+        $this->subscriber->update(['initial_reading' => 255.2]);
+        $this->subscriber->tariff->update(['rate' => 0.6]);
+        $this->subscriber->update(['minimum_charge' => 0]);
+
+        $this->actingAs($this->dataEntry)
+            ->post(route('meter-readings.store'), $this->payload(['current_reading' => '260.35']))
+            ->assertSessionHasNoErrors();
+
+        $reading = MeterReading::sole();
+        $this->assertSame(255.2, $reading->previous_reading);
+        $this->assertSame(260.35, $reading->current_reading);
+        $this->assertSame(5.15, $reading->consumption);
+        $this->assertSame('3.09', $reading->reading_fee);
+    }
+
+    public function test_a_reading_with_more_than_two_decimal_places_is_rejected(): void
+    {
+        $this->actingAs($this->dataEntry)
+            ->post(route('meter-readings.store'), $this->payload(['current_reading' => '1250.555']))
+            ->assertSessionHasErrors('current_reading');
+
+        $this->assertDatabaseCount('meter_readings', 0);
+    }
+
     public function test_correcting_a_reading_recalculates_its_charges_at_the_recorded_price(): void
     {
         $reading = $this->recordedReading('2026-09-18', 1200, 1250);
@@ -119,8 +145,8 @@ class MeterReadingTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $reading = MeterReading::whereDate('week_start', '2026-09-18')->sole();
-        $this->assertSame(1300, $reading->previous_reading);
-        $this->assertSame(40, $reading->consumption);
+        $this->assertSame(1300.0, $reading->previous_reading);
+        $this->assertSame(40.0, $reading->consumption);
     }
 
     public function test_a_reading_cannot_be_lower_than_the_previous_reading(): void
@@ -250,8 +276,8 @@ class MeterReadingTest extends TestCase
         $reading = MeterReading::latest('id')->first();
         $this->assertSame('2026-09-25', $reading->week_start->toDateString());
         $this->assertSame('2026-09-26', $reading->week_end->toDateString());
-        $this->assertSame(1250, $reading->previous_reading);
-        $this->assertSame(20, $reading->consumption);
+        $this->assertSame(1250.0, $reading->previous_reading);
+        $this->assertSame(20.0, $reading->consumption);
     }
 
     public function test_the_week_list_keeps_the_weeks_read_on_the_old_reading_day(): void
@@ -354,7 +380,7 @@ class MeterReadingTest extends TestCase
             ->post(route('meter-readings.store'), $this->payload(['subscriber_id' => $missing->id]))
             ->assertForbidden();
 
-        $this->assertSame(1260, $reading->fresh()->current_reading);
+        $this->assertSame(1260.0, $reading->fresh()->current_reading);
         $this->assertDatabaseCount('meter_readings', 1);
     }
 
@@ -547,8 +573,8 @@ class MeterReadingTest extends TestCase
             ->assertRedirect(route('meter-readings.index'));
 
         $reading->refresh();
-        $this->assertSame(1235, $reading->current_reading);
-        $this->assertSame(35, $reading->consumption);
+        $this->assertSame(1235.0, $reading->current_reading);
+        $this->assertSame(35.0, $reading->consumption);
         $this->assertSame('تصحيح', $reading->notes);
     }
 
@@ -560,7 +586,7 @@ class MeterReadingTest extends TestCase
             ->put(route('meter-readings.update', $reading), ['current_reading' => 1235])
             ->assertForbidden();
 
-        $this->assertSame(1250, $reading->fresh()->current_reading);
+        $this->assertSame(1250.0, $reading->fresh()->current_reading);
     }
 
     public function test_a_reading_cannot_be_corrected_once_a_later_week_exists(): void
@@ -573,7 +599,7 @@ class MeterReadingTest extends TestCase
             ->put(route('meter-readings.update', $earlier), ['current_reading' => 1260])
             ->assertSessionHasErrors(['current_reading' => 'لا يمكن تعديل هذه القراءة لوجود قراءة لأسبوع لاحق.']);
 
-        $this->assertSame(1250, $earlier->fresh()->current_reading);
+        $this->assertSame(1250.0, $earlier->fresh()->current_reading);
     }
 
     public function test_a_reading_from_an_earlier_week_cannot_be_corrected_even_by_a_branch_admin(): void
@@ -585,7 +611,7 @@ class MeterReadingTest extends TestCase
             ->put(route('meter-readings.update', $reading), ['current_reading' => 1260])
             ->assertForbidden();
 
-        $this->assertSame(1250, $reading->fresh()->current_reading);
+        $this->assertSame(1250.0, $reading->fresh()->current_reading);
     }
 
     public function test_the_super_admin_can_correct_a_reading_from_an_earlier_week(): void
@@ -596,7 +622,7 @@ class MeterReadingTest extends TestCase
             ->put(route('meter-readings.update', $reading), ['current_reading' => 1260])
             ->assertSessionHasNoErrors();
 
-        $this->assertSame(1260, $reading->fresh()->current_reading);
+        $this->assertSame(1260.0, $reading->fresh()->current_reading);
     }
 
     public function test_another_branchs_reading_cannot_be_corrected(): void

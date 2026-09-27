@@ -129,4 +129,13 @@ class Subscriber extends Model
 
         return (float) ($lastReading ?? $this->initial_reading ?? 0);
     }
+
+    /**
+     * What the subscriber owes, in shekels: the sum of their account's
+     * lines (negative when they are in credit).
+     */
+    public function balance(): float
+    {
+        return round((float) $this->transactions()->sum('amount'), 2);
+    }
 }

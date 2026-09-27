@@ -5,20 +5,7 @@ import InputError from '@/Components/InputError';
 import { useResourceForm } from '@/hooks/useResourceForm';
 import { describeBalance, paymentInShekels } from '@/lib/accountStatement';
 import { formatAmount, formatCurrency } from '@/lib/currency';
-
-const BALANCE_TONES = {
-    owes: 'text-brand-700',
-    credit: 'text-emerald-700',
-    settled: 'text-gray-900',
-};
-
-function BalanceText({ balance }) {
-    return (
-        <span className={`font-bold tabular-nums ${BALANCE_TONES[balance.tone]}`}>
-            {balance.tone === 'settled' ? '0 شيكل — مسدّد' : `${balance.amount} شيكل ${balance.label}`}
-        </span>
-    );
-}
+import { AccountHeader, BalanceAfter } from './AccountSummary';
 
 /**
  * Record a payment on a subscriber's account: how much, in which currency
@@ -62,17 +49,7 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
             bodyClassName="space-y-5"
             saveConfirmMessage={confirmMessage}
         >
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 px-4 py-3 text-sm">
-                <div>
-                    <p className="font-semibold text-gray-900">{subscriber.fullName}</p>
-                    <p className="mt-0.5 text-gray-500">
-                        حساب <span dir="ltr">{subscriber.accountNumber}</span>
-                    </p>
-                </div>
-                <p className="text-gray-600">
-                    الرصيد الحالي: <BalanceText balance={describeBalance(balance)} />
-                </p>
-            </div>
+            <AccountHeader subscriber={subscriber} balance={balance} />
 
             <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -216,9 +193,10 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
             </div>
 
             <div>
-                <InputLabel htmlFor="payment_notes" value="ملاحظات" />
+                <InputLabel htmlFor="payment_notes" value="تفاصيل (تظهر في البيان بكشف الحساب)" />
                 <textarea
                     id="payment_notes"
+                    name="notes"
                     rows={2}
                     className="mt-1 block w-full"
                     value={data.notes}
@@ -227,9 +205,7 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
                 <InputError message={errors.notes} className="mt-2" />
             </div>
 
-            <p className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                الرصيد بعد الدفعة: {balanceAfter ? <BalanceText balance={balanceAfter} /> : <span className="text-gray-400">أدخل المبلغ</span>}
-            </p>
+            <BalanceAfter label="الرصيد بعد الدفعة" balanceAfter={balanceAfter} placeholder="أدخل المبلغ" />
         </FormModal>
     );
 }

@@ -68,6 +68,17 @@ class SubscriberPolicy
     }
 
     /**
+     * Adding a charge (a settlement, penalty or disconnection fee) or a
+     * discount by hand takes its own permission, for a subscriber of the
+     * user's own branch (any branch for the Super Admin).
+     */
+    public function adjustBalance(User $user, Subscriber $subscriber): bool
+    {
+        return $user->hasPermission(PermissionKey::AdjustBalances)
+            && ($user->isSuperAdmin() || $subscriber->branch_id === $user->branch_id);
+    }
+
+    /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Subscriber $subscriber): bool

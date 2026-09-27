@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
-import Icon from '@/Components/Icon';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { describeBalance, filterStatementEntries } from '@/lib/accountStatement';
 import { formatAmount } from '@/lib/currency';
+import ChargeModal from './ChargeModal';
+import DiscountModal from './DiscountModal';
 import PaymentModal from './PaymentModal';
 
 const BALANCE_PILLS = {
@@ -29,10 +30,9 @@ const COLUMNS = [
     'الرقم المرجعي',
     'رقم الصندوق',
     'اسم المستخدم',
-    'ملاحظات',
 ];
 
-const EMPTY_FILTERS = { search: '', direction: '', method: '', dateFrom: '', dateTo: '' };
+const EMPTY_FILTERS = { search: '', type: '', method: '', dateFrom: '', dateTo: '' };
 
 /** Keeps dates like 2026-09-18 reading left to right inside Arabic text. */
 function withLtrDates(text) {
@@ -49,58 +49,6 @@ function withLtrDates(text) {
 
 function Dash() {
     return <span className="text-gray-300">—</span>;
-}
-
-/** A line's note, opened from a small button so long notes don't stretch the row. */
-function NoteButton({ note }) {
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-
-    useEffect(() => {
-        if (!open) {
-            return;
-        }
-
-        function close(event) {
-            if (event.type === 'keydown' ? event.key === 'Escape' : !ref.current?.contains(event.target)) {
-                setOpen(false);
-            }
-        }
-
-        document.addEventListener('mousedown', close);
-        document.addEventListener('keydown', close);
-        return () => {
-            document.removeEventListener('mousedown', close);
-            document.removeEventListener('keydown', close);
-        };
-    }, [open]);
-
-    if (!note) {
-        return <Dash />;
-    }
-
-    return (
-        <div ref={ref} className="relative inline-block">
-            <button
-                type="button"
-                onClick={() => setOpen(!open)}
-                aria-expanded={open}
-                aria-label="عرض الملاحظة"
-                title={note}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 text-white shadow-glow transition hover:brightness-110"
-            >
-                <Icon name="note" className="h-4 w-4" strokeWidth={2} />
-            </button>
-            {open && (
-                <div
-                    role="status"
-                    className="animate-dropdown absolute end-0 top-full z-20 mt-2 w-64 whitespace-normal rounded-xl border border-gray-100 bg-surface p-3 text-sm text-gray-700 shadow-lift"
-                >
-                    {note}
-                </div>
-            )}
-        </div>
-    );
 }
 
 function SummaryCard({ label, value, hint, tone = 'default' }) {
@@ -121,12 +69,24 @@ function SummaryCard({ label, value, hint, tone = 'default' }) {
 }
 
 /**
- * A subscriber's account statement: every charge (عليه) and payment (له),
- * oldest first, with the balance after each line.
+ * A subscriber's account statement: every charge (عليه), payment and
+ * discount (له), oldest first, with the balance after each line.
  */
-export default function Statement({ subscriber, entries, summary, canRecordPayment, currencies, paymentMethods }) {
+export default function Statement({
+    subscriber,
+    entries,
+    summary,
+    canRecordPayment,
+    canAdjustBalance,
+    currencies,
+    paymentMethods,
+    chargeTypes,
+    discountMethods,
+    transactionTypes,
+}) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
-    const [recordingPayment, setRecordingPayment] = useState(false);
+    // The form open over the statement: 'payment', 'charge' or 'discount'.
+    const [openForm, setOpenForm] = useState(null);
     const visibleEntries = filterStatementEntries(entries, filters);
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
@@ -151,9 +111,19 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
                             {subscriber.meterBoxNumber && ` · طبلون ${subscriber.meterBoxNumber}`} · {subscriber.branchName}
                         </p>
                     </div>
-                    {canRecordPayment && (
-                        <div className="shrink-0">
-                            <AddButton onClick={() => setRecordingPayment(true)}>تسجيل دفعة</AddButton>
+                    {(canRecordPayment || canAdjustBalance) && (
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                            {canAdjustBalance && (
+                                <>
+                                    <AddButton variant="soft" onClick={() => setOpenForm('charge')}>
+                                        إضافة تحميل
+                                    </AddButton>
+                                    <AddButton variant="soft" onClick={() => setOpenForm('discount')}>
+                                        إضافة خصم
+                                    </AddButton>
+                                </>
+                            )}
+                            {canRecordPayment && <AddButton onClick={() => setOpenForm('payment')}>تسجيل دفعة</AddButton>}
                         </div>
                     )}
                 </>
@@ -161,7 +131,7 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
         >
             <Head title={`كشف حساب ${subscriber.fullName}`} />
 
-            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <SummaryCard
                     label="الرصيد الحالي"
                     value={`${balance.amount} شيكل`}
@@ -170,11 +140,21 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
                     }
                     tone={balance.tone === 'settled' ? 'default' : balance.tone}
                 />
-                <SummaryCard label="مجموع ما عليه (تحميل)" value={`${formatAmount(summary.charged)} شيكل`} hint="رسوم الاشتراك والقراءات المعتمدة" />
+                <SummaryCard
+                    label="مجموع ما عليه (تحميل)"
+                    value={`${formatAmount(summary.charged)} شيكل`}
+                    hint="القراءات المعتمدة والرسوم والغرامات"
+                />
                 <SummaryCard
                     label="مجموع ما دفعه (تسديد)"
                     value={`${formatAmount(summary.paid)} شيكل`}
                     hint={`عدد الدفعات: ${summary.paymentsCount}`}
+                    tone="paid"
+                />
+                <SummaryCard
+                    label="مجموع الخصومات"
+                    value={`${formatAmount(summary.discounted)} شيكل`}
+                    hint={`عدد الخصومات: ${summary.discountsCount}`}
                     tone="paid"
                 />
             </div>
@@ -187,20 +167,21 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
                             type="search"
                             value={filters.search}
                             onChange={(e) => setFilter('search', e.target.value)}
-                            placeholder="البيان، رقم السند، المبلغ، البنك أو اسم الموظف..."
+                            placeholder="البيان والتفاصيل، رقم السند، المبلغ، البنك أو اسم الموظف..."
                             className="mt-1 block w-full text-sm"
                         />
                     </label>
                     <label className="block text-sm text-gray-600">
                         نوع الحركة
-                        <select
-                            value={filters.direction}
-                            onChange={(e) => setFilter('direction', e.target.value)}
-                            className="mt-1 block w-full text-sm"
-                        >
+                        <select value={filters.type} onChange={(e) => setFilter('type', e.target.value)} className="mt-1 block w-full text-sm">
                             <option value="">الكل</option>
-                            <option value="debit">عليه (تحميل)</option>
-                            <option value="credit">له (تسديد)</option>
+                            <option value="debit">كل ما عليه (تحميل)</option>
+                            <option value="credit">كل ما له (تسديد وخصم)</option>
+                            {transactionTypes.map((type) => (
+                                <option key={type.value} value={type.value}>
+                                    {type.label}
+                                </option>
+                            ))}
                         </select>
                     </label>
                     <label className="block text-sm text-gray-600">
@@ -275,14 +256,21 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
                                         </td>
                                         <td data-label="البيان" className="font-medium text-gray-900">
                                             <div className="ledger-description">{withLtrDates(entry.description)}</div>
+                                            {entry.details && (
+                                                <p className="ledger-description mt-1 text-xs font-normal text-gray-500">
+                                                    {withLtrDates(entry.details)}
+                                                </p>
+                                            )}
                                         </td>
                                         <td data-label="نوع الحركة">
-                                            <StatusPill tone={entry.isPayment ? 'green' : 'red'} label={entry.isPayment ? 'له' : 'عليه'} />
-                                            <p className="mt-1 text-xs text-gray-500">{entry.kindLabel}</p>
+                                            <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                <StatusPill tone={entry.isCredit ? 'green' : 'red'} label={entry.isCredit ? 'له' : 'عليه'} />
+                                                <span className="font-medium text-gray-900">{entry.typeLabel}</span>
+                                            </span>
                                         </td>
                                         <td
                                             data-label="المبلغ"
-                                            className={`font-semibold tabular-nums ${entry.isPayment ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900'}`}
+                                            className={`font-semibold tabular-nums ${entry.isCredit ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900'}`}
                                         >
                                             {formatAmount(entry.amount)}
                                         </td>
@@ -313,9 +301,6 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
                                         <td data-label="اسم المستخدم" className="text-gray-700">
                                             {entry.recordedByName ?? <Dash />}
                                         </td>
-                                        <td data-label="ملاحظات">
-                                            <NoteButton note={entry.notes} />
-                                        </td>
                                     </tr>
                                 );
                             })
@@ -337,13 +322,32 @@ export default function Statement({ subscriber, entries, summary, canRecordPayme
 
             {canRecordPayment && (
                 <PaymentModal
-                    show={recordingPayment}
-                    onClose={() => setRecordingPayment(false)}
+                    show={openForm === 'payment'}
+                    onClose={() => setOpenForm(null)}
                     subscriber={subscriber}
                     balance={summary.balance}
                     currencies={currencies}
                     paymentMethods={paymentMethods}
                 />
+            )}
+
+            {canAdjustBalance && (
+                <>
+                    <ChargeModal
+                        show={openForm === 'charge'}
+                        onClose={() => setOpenForm(null)}
+                        subscriber={subscriber}
+                        balance={summary.balance}
+                        chargeTypes={chargeTypes}
+                    />
+                    <DiscountModal
+                        show={openForm === 'discount'}
+                        onClose={() => setOpenForm(null)}
+                        subscriber={subscriber}
+                        balance={summary.balance}
+                        discountMethods={discountMethods}
+                    />
+                </>
             )}
         </AuthenticatedLayout>
     );

@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\ChargeType;
 use App\Enums\Currency;
+use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
 use Database\Factories\SubscriberTransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -10,11 +12,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * One line of a subscriber's account. `amount` is its effect on the
- * balance in shekels: charges are positive, payments negative, so the
- * balance is the sum of `amount`.
+ * balance in shekels: charges (تحميل) are positive, payments and discounts
+ * negative, so the balance is the sum of `amount`. A charge recorded by
+ * hand stores its ChargeType as its `type`.
  */
 #[Fillable([
     'subscriber_id',
@@ -32,6 +36,9 @@ use Illuminate\Support\Facades\DB;
     'voucher_number',
     'manual_voucher_number',
     'cash_box',
+    'discount_method',
+    'discount_value',
+    'discount_base',
     'notes',
 ])]
 class SubscriberTransaction extends Model
@@ -48,6 +55,9 @@ class SubscriberTransaction extends Model
     /** Money the subscriber paid. */
     public const TYPE_PAYMENT = 'payment';
 
+    /** An amount taken off what the subscriber owes. */
+    public const TYPE_DISCOUNT = 'discount';
+
     protected function casts(): array
     {
         return [
@@ -56,6 +66,9 @@ class SubscriberTransaction extends Model
             'currency_amount' => 'decimal:2',
             'exchange_rate' => 'decimal:4',
             'payment_method' => PaymentMethod::class,
+            'discount_method' => DiscountMethod::class,
+            'discount_value' => 'decimal:2',
+            'discount_base' => 'decimal:2',
         ];
     }
 
@@ -95,9 +108,78 @@ class SubscriberTransaction extends Model
         });
     }
 
+    /**
+     * Charge the subscriber a settlement, penalty or disconnection fee.
+     */
+    public static function recordCharge(Subscriber $subscriber, User $recorder, ChargeType $type, float|string $amount, ?string $notes): self
+    {
+        return $subscriber->transactions()->create([
+            'recorded_by' => $recorder->id,
+            'type' => $type->value,
+            'source_key' => 'charge:'.Str::ulid(),
+            'amount' => number_format((float) $amount, 2, '.', ''),
+            'notes' => $notes,
+        ]);
+    }
+
+    /**
+     * Take a discount off what the subscriber owes, worked out by
+     * discountFor() from their current balance and kilo price.
+     */
+    public static function recordDiscount(Subscriber $subscriber, User $recorder, DiscountMethod $method, float|string $value, ?string $notes): self
+    {
+        $base = match ($method) {
+            DiscountMethod::Percentage => $subscriber->balance(),
+            DiscountMethod::Kilowatt => (float) $subscriber->tariff->rate,
+            DiscountMethod::Shekel => null,
+        };
+
+        return $subscriber->transactions()->create([
+            'recorded_by' => $recorder->id,
+            'type' => self::TYPE_DISCOUNT,
+            'source_key' => 'discount:'.Str::ulid(),
+            'amount' => number_format(-self::discountFor($method, $value, $base), 2, '.', ''),
+            'discount_method' => $method,
+            'discount_value' => $value,
+            'discount_base' => $base,
+            'notes' => $notes,
+        ]);
+    }
+
+    /**
+     * What a discount takes off, in shekels: a percentage of the balance
+     * owed, kilowatts at the kilo price, or the shekels given.
+     */
+    public static function discountFor(DiscountMethod $method, float|string $value, float|string|null $base): float
+    {
+        return round(match ($method) {
+            DiscountMethod::Percentage => (float) $base * (float) $value / 100,
+            DiscountMethod::Kilowatt => (float) $value * (float) $base,
+            DiscountMethod::Shekel => (float) $value,
+        }, 2);
+    }
+
+    /**
+     * An amount as the app shows it: no decimals when whole (50), two
+     * otherwise (617.50).
+     */
+    public static function formatAmount(float|string $amount): string
+    {
+        return Str::replaceEnd('.00', '', number_format((float) $amount, 2, '.', ''));
+    }
+
     public function isPayment(): bool
     {
         return $this->type === self::TYPE_PAYMENT;
+    }
+
+    /**
+     * Whether the line is in the subscriber's favour (له): a payment or a
+     * discount. Everything else is a charge (عليه).
+     */
+    public function isCredit(): bool
+    {
+        return in_array($this->type, [self::TYPE_PAYMENT, self::TYPE_DISCOUNT], true);
     }
 
     /**
@@ -122,21 +204,37 @@ class SubscriberTransaction extends Model
                 PaymentMethod::EWallet => 'دفعة بمحفظة إلكترونية',
                 default => 'دفعة',
             },
-            default => 'حركة',
+            self::TYPE_DISCOUNT => match ($this->discount_method) {
+                DiscountMethod::Percentage => sprintf('خصم %s%% من الرصيد المستحق (%s شيكل)', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
+                DiscountMethod::Kilowatt => sprintf('خصم %s كيلو × %s شيكل', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
+                default => 'خصم بمبلغ ثابت',
+            },
+            default => $this->typeLabel(),
         };
     }
 
     /**
-     * What kind of line this is, under its عليه / له tag.
+     * The type of line, shown with its عليه / له tag.
      */
-    public function kindLabel(): string
+    public function typeLabel(): string
     {
-        return match ($this->type) {
-            self::TYPE_SUBSCRIPTION_FEE => 'تحميل · رسوم اشتراك',
-            self::TYPE_METER_READING => 'تحميل · قراءة أسبوعية',
-            self::TYPE_PAYMENT => 'تسديد · دفعة',
-            default => 'حركة',
-        };
+        return self::typeLabels()[$this->type] ?? 'حركة';
+    }
+
+    /**
+     * Every type of line and its name, charges first.
+     *
+     * @return array<string, string>
+     */
+    public static function typeLabels(): array
+    {
+        return [
+            self::TYPE_METER_READING => 'قراءة أسبوعية',
+            self::TYPE_SUBSCRIPTION_FEE => 'رسوم اشتراك',
+            ...collect(ChargeType::cases())->mapWithKeys(fn (ChargeType $type) => [$type->value => __($type->label())])->all(),
+            self::TYPE_PAYMENT => 'دفعة',
+            self::TYPE_DISCOUNT => 'خصم',
+        ];
     }
 
     public function subscriber(): BelongsTo

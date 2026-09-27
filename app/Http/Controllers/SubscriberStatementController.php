@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ChargeType;
 use App\Enums\Currency;
+use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
@@ -13,8 +15,8 @@ use Inertia\Response as InertiaResponse;
 class SubscriberStatementController extends Controller
 {
     /**
-     * The subscriber's account statement: every charge and payment, oldest
-     * first, each with the balance it left.
+     * The subscriber's account statement: every charge, payment and
+     * discount, oldest first, each with the balance it left.
      */
     public function show(Request $request, Subscriber $subscriber): InertiaResponse
     {
@@ -36,6 +38,8 @@ class SubscriberStatementController extends Controller
         });
 
         $payments = $transactions->filter(fn (SubscriberTransaction $transaction): bool => $transaction->isPayment());
+        $discounts = $transactions->filter(fn (SubscriberTransaction $transaction): bool => $transaction->type === SubscriberTransaction::TYPE_DISCOUNT);
+        $sumOf = fn ($lines): int => $lines->sum(fn (SubscriberTransaction $transaction): int => $this->cents($transaction->amount));
 
         return Inertia::render('Subscribers/Statement', [
             'subscriber' => [
@@ -46,26 +50,36 @@ class SubscriberStatementController extends Controller
                 'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
                 'tariffSegmentName' => $subscriber->tariffSegment?->name,
                 'meterBoxNumber' => $subscriber->meterBox?->box_number,
+                'kiloPrice' => $subscriber->tariff->rate,
                 'status' => $subscriber->status->value,
                 'statusLabel' => __($subscriber->status->label()),
             ],
             'entries' => $entries,
             'summary' => [
                 'balance' => $this->money($balanceInCents),
-                'charged' => $this->money($transactions->reject->isPayment()->sum(fn (SubscriberTransaction $transaction): int => $this->cents($transaction->amount))),
-                'paid' => $this->money(-$payments->sum(fn (SubscriberTransaction $transaction): int => $this->cents($transaction->amount))),
+                'charged' => $this->money($sumOf($transactions->reject->isCredit())),
+                'paid' => $this->money(-$sumOf($payments)),
                 'paymentsCount' => $payments->count(),
+                'discounted' => $this->money(-$sumOf($discounts)),
+                'discountsCount' => $discounts->count(),
             ],
             'canRecordPayment' => $request->user()->can('recordPayment', $subscriber),
+            'canAdjustBalance' => $request->user()->can('adjustBalance', $subscriber),
             'currencies' => Currency::options(),
             'paymentMethods' => PaymentMethod::options(),
+            'chargeTypes' => ChargeType::options(),
+            'discountMethods' => DiscountMethod::options(),
+            'transactionTypes' => collect(SubscriberTransaction::typeLabels())
+                ->map(fn (string $label, string $type): array => ['value' => $type, 'label' => $label])
+                ->values(),
         ]);
     }
 
     /**
      * One statement line. `balance` is what the subscriber owes after it
-     * (negative when they are in credit); `amount` is what was charged or
-     * handed over, in the line's own currency.
+     * (negative when they are in credit); `amount` is what was charged,
+     * handed over or discounted, in the line's own currency. `details` is
+     * what the user wrote about it (a reading's notes for a weekly reading).
      *
      * @return array<string, mixed>
      */
@@ -77,8 +91,9 @@ class SubscriberStatementController extends Controller
             'voucherNumber' => $transaction->voucher_number ? str_pad((string) $transaction->voucher_number, 6, '0', STR_PAD_LEFT) : null,
             'manualVoucherNumber' => $transaction->manual_voucher_number,
             'description' => $transaction->description(),
-            'isPayment' => $transaction->isPayment(),
-            'kindLabel' => $transaction->kindLabel(),
+            'type' => $transaction->type,
+            'typeLabel' => $transaction->typeLabel(),
+            'isCredit' => $transaction->isCredit(),
             'amount' => $transaction->currency_amount ?? ltrim($transaction->amount, '-'),
             'currencyLabel' => __($transaction->currency->label()),
             'exchangeRate' => rtrim(rtrim($transaction->exchange_rate, '0'), '.'),
@@ -89,7 +104,7 @@ class SubscriberStatementController extends Controller
             'referenceNumber' => $transaction->reference_number,
             'cashBox' => $transaction->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
-            'notes' => $transaction->notes ?? $transaction->meterReading?->notes,
+            'details' => $transaction->notes ?? $transaction->meterReading?->notes,
         ];
     }
 

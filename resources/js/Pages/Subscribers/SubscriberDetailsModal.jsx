@@ -37,7 +37,7 @@ function Section({ title, children }) {
 }
 
 export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, onOpenStatement, canUpdate, readingWeekOptions = [] }) {
-    const [activeTab, setActiveTab] = useState('transactions');
+    const [activeTab, setActiveTab] = useState('details');
     const [expanded, setExpanded] = useState(false);
     const [enteringReading, setEnteringReading] = useState(false);
     const tabsId = useId();

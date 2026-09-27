@@ -79,7 +79,7 @@ export default function Index({
         statementWindow.open(statementHeader(subscriber), form);
     }
 
-    /** The row's "more" menu: the account's forms and entering this week's reading. */
+    /** The row's "more" menu: the subscriber's details, the account's forms and entering this week's reading. */
     function rowMenu(subscriber) {
         const readingItem = { label: 'إدخال قراءة', icon: 'gauge', shortcut: 'R', onSelect: () => setReadingSubscriber(subscriber) };
 
@@ -96,9 +96,12 @@ export default function Index({
             subtitle: subscriber.phone,
             groups: [
                 {
+                    label: 'المشترك',
+                    items: [{ label: 'بيانات المشترك', icon: 'user', shortcut: 'I', onSelect: () => setViewingSubscriberId(subscriber.id) }],
+                },
+                {
                     label: 'الحساب المالي',
                     items: [
-                        { label: 'كشف الحساب', icon: 'ledger', shortcut: 'S', onSelect: () => openStatement(subscriber) },
                         {
                             label: 'تسجيل دفعة',
                             icon: 'banknotes',
@@ -194,7 +197,7 @@ export default function Index({
                             </tr>
                         ) : (
                             subscribers.data.map((subscriber) => (
-                                <tr key={subscriber.id} {...rowClick(() => setViewingSubscriberId(subscriber.id))}>
+                                <tr key={subscriber.id} {...rowClick(() => openStatement(subscriber))}>
                                     <td className="text-end text-gray-600" dir="ltr">
                                         {subscriber.account_number}
                                     </td>
@@ -219,7 +222,7 @@ export default function Index({
                                     </td>
                                     <td className="text-end">
                                         <RowActionsMenu
-                                            onView={() => setViewingSubscriberId(subscriber.id)}
+                                            onView={() => openStatement(subscriber)}
                                             onEdit={subscriber.canUpdate ? () => setModalSubscriber(subscriber) : undefined}
                                             menu={rowMenu(subscriber)}
                                         />
@@ -238,10 +241,12 @@ export default function Index({
             {/* Keyed by subscriber id so switching who's being edited remounts
                 the form with fresh initial values — useForm() only captures
                 its initial data once, it won't pick up a changed `subscriber`
-                prop on an already-mounted instance. */}
+                prop on an already-mounted instance. Each window's key has its
+                own prefix: siblings sharing a key (the same subscriber open in
+                two windows) make React duplicate them. */}
             {modalSubscriber && (
                 <SubscriberModal
-                    key={modalSubscriber.id}
+                    key={`edit-${modalSubscriber.id}`}
                     show
                     onClose={() => setModalSubscriber(null)}
                     subscriber={modalSubscriber}
@@ -250,7 +255,7 @@ export default function Index({
             )}
 
             <SubscriberDetailsModal
-                key={viewingSubscriber?.id ?? 'closed'}
+                key={`details-${viewingSubscriber?.id ?? 'closed'}`}
                 subscriber={viewingSubscriber}
                 canUpdate={viewingSubscriber?.canUpdate}
                 readingWeekOptions={readingWeekOptions}
@@ -259,7 +264,11 @@ export default function Index({
                     setModalSubscriber(viewingSubscriber);
                     setViewingSubscriberId(null);
                 }}
-                onOpenStatement={() => openStatement(viewingSubscriber)}
+                onOpenStatement={() => {
+                    // The statement takes the details' place rather than opening over them.
+                    setViewingSubscriberId(null);
+                    openStatement(viewingSubscriber);
+                }}
             />
 
             {readingSubscriber && (
@@ -275,7 +284,7 @@ export default function Index({
             {/* Keyed by subscriber so each statement opens with its own filters and forms. */}
             {statementWindow.subscriber && (
                 <StatementModal
-                    key={statementWindow.subscriber.id}
+                    key={`statement-${statementWindow.subscriber.id}`}
                     subscriber={statementWindow.subscriber}
                     statement={statementWindow.statement}
                     initialForm={statementWindow.form}

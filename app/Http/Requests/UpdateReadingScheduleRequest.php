@@ -19,13 +19,15 @@ class UpdateReadingScheduleRequest extends FormRequest
     }
 
     /**
-     * Open days are Carbon day-of-week numbers (0 = Sunday … 6 = Saturday).
+     * The reading day and open days are Carbon day-of-week numbers
+     * (0 = Sunday … 6 = Saturday).
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
+            'reading_day' => ['required', 'integer', 'between:0,6'],
             'open_days' => ['required', 'array', 'min:1'],
             'open_days.*' => ['integer', 'between:0,6', 'distinct'],
             'mode' => ['required', Rule::enum(ReadingEntryMode::class)],
@@ -38,6 +40,7 @@ class UpdateReadingScheduleRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'reading_day.required' => 'اختر يوم القراءة الأسبوعي.',
             'open_days.required' => 'اختر يومًا واحدًا على الأقل لفتح الإدخال.',
             'open_days.min' => 'اختر يومًا واحدًا على الأقل لفتح الإدخال.',
         ];

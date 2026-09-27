@@ -97,7 +97,7 @@ class StoreMeterReadingRequest extends FormRequest
     }
 
     /**
-     * The Friday that starts the week the submitted date falls in.
+     * The first day of the week the submitted date falls in.
      */
     public function weekStart(): Carbon
     {

@@ -9,3 +9,15 @@ export const WEEK_DAYS = [
     { value: 4, label: 'الخميس' },
     { value: 5, label: 'الجمعة' },
 ];
+
+/** The weekday a Y-m-d date falls on, e.g. 'الخميس'. */
+export function weekDayName(isoDate) {
+    const day = new Date(`${isoDate}T00:00:00Z`).getUTCDay();
+
+    return WEEK_DAYS.find((weekDay) => weekDay.value === day).label;
+}
+
+/** Y-m-d → 'الخميس 24-09-2026', the format used across the app's Arabic screens. */
+export function formatWeekDay(isoDate) {
+    return `${weekDayName(isoDate)} ${isoDate.split('-').reverse().join('-')}`;
+}

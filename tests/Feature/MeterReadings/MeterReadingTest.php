@@ -222,6 +222,70 @@ class MeterReadingTest extends TestCase
         $this->assertSame('2026-09-18', MeterReading::latestEndedWeekStart(now()->parse('2026-09-23 22:30:00', 'UTC'))->toDateString());
     }
 
+    public function test_the_last_week_on_the_old_reading_day_stays_the_latest_until_a_week_ends_on_the_new_day(): void
+    {
+        $reading = $this->recordedReading('2026-09-18', 1200, 1250);
+        $this->readingDayMovedFromThursdayTo(CarbonInterface::SATURDAY, firstWeekEnd: '2026-09-26');
+        $this->travelTo('2026-09-25 10:00:00'); // Friday
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('week', '2026-09-18')
+                ->where('weekEnd', '2026-09-24')
+                ->where('rows.data.0.reading.id', $reading->id)
+                ->where('rows.data.0.canEdit', true));
+    }
+
+    public function test_the_first_week_on_a_later_reading_day_starts_the_day_after_the_last_week_on_the_old_day(): void
+    {
+        $this->recordedReading('2026-09-18', 1200, 1250);
+        $this->readingDayMovedFromThursdayTo(CarbonInterface::SATURDAY, firstWeekEnd: '2026-09-26');
+        $this->travelTo('2026-09-26 10:00:00'); // Saturday
+
+        $this->actingAs($this->dataEntry)
+            ->post(route('meter-readings.store'), $this->payload(['week_start' => '2026-09-25', 'current_reading' => 1270]))
+            ->assertSessionHasNoErrors();
+
+        $reading = MeterReading::latest('id')->first();
+        $this->assertSame('2026-09-25', $reading->week_start->toDateString());
+        $this->assertSame('2026-09-26', $reading->week_end->toDateString());
+        $this->assertSame(1250, $reading->previous_reading);
+        $this->assertSame(20, $reading->consumption);
+    }
+
+    public function test_the_week_list_keeps_the_weeks_read_on_the_old_reading_day(): void
+    {
+        $this->readingDayMovedFromThursdayTo(CarbonInterface::SATURDAY, firstWeekEnd: '2026-09-26');
+        $this->travelTo('2026-10-03 10:00:00'); // Saturday
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('week', '2026-09-27')
+                ->where('weekOptions', fn ($options): bool => $options->take(4)->pluck('label', 'value')->all() === [
+                    '2026-09-27' => 'الأسبوع المنتهي في السبت 03-10-2026',
+                    '2026-09-25' => 'الأسبوع المنتهي في السبت 26-09-2026',
+                    '2026-09-18' => 'الأسبوع المنتهي في الخميس 24-09-2026',
+                    '2026-09-11' => 'الأسبوع المنتهي في الخميس 17-09-2026',
+                ]));
+    }
+
+    public function test_the_first_week_on_an_earlier_reading_day_starts_the_day_after_the_last_week_on_the_old_day(): void
+    {
+        $this->readingDayMovedFromThursdayTo(CarbonInterface::TUESDAY, firstWeekEnd: '2026-09-29');
+
+        // Monday: the first Tuesday week (25 → 29 Sep) hasn't ended yet.
+        $this->assertSame('2026-09-18', MeterReading::latestEndedWeekStart(now()->parse('2026-09-28 10:00:00'))->toDateString());
+
+        $firstWeek = MeterReading::latestEndedWeekStart(now()->parse('2026-09-29 10:00:00'));
+        $this->assertSame('2026-09-25', $firstWeek->toDateString());
+        $this->assertSame('2026-09-29', MeterReading::weekEndFor($firstWeek)->toDateString());
+
+        // After it, weeks run Wednesday → Tuesday.
+        $this->assertSame('2026-09-30', MeterReading::latestEndedWeekStart(now()->parse('2026-10-06 10:00:00'))->toDateString());
+    }
+
     public function test_a_future_week_is_rejected(): void
     {
         $this->actingAs($this->dataEntry)
@@ -556,6 +620,19 @@ class MeterReadingTest extends TestCase
             'current_reading' => 1250,
             ...$overrides,
         ];
+    }
+
+    /**
+     * The reading day moved away from Thursday after the 18 → 24 Sep week
+     * ended, the first week on the new day ending on `$firstWeekEnd`. Entry
+     * is left open so only the weeks decide what can be entered.
+     */
+    private function readingDayMovedFromThursdayTo(int $readingDay, string $firstWeekEnd): void
+    {
+        ReadingEntrySetting::factory()->forcedOpen()->create([
+            'reading_day' => $readingDay,
+            'reading_day_history' => [['reading_day' => CarbonInterface::THURSDAY, 'last_week_end' => '2026-09-24', 'next_week_end' => $firstWeekEnd]],
+        ]);
     }
 
     private function recordedReading(string $weekStart, int $previous, int $current, MeterReadingStatus $status = MeterReadingStatus::Pending): MeterReading

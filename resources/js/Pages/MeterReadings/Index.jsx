@@ -12,7 +12,7 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
-import { WEEK_DAYS } from '@/lib/weekDays';
+import { WEEK_DAYS, formatWeekDay } from '@/lib/weekDays';
 
 const SORT_OPTIONS = [
     { value: 'full_name', label: 'الاسم' },
@@ -42,19 +42,6 @@ function calculateCharges(currentReading, row) {
     const readingFee = Math.round(consumption * Number(row.unitPrice) * 100) / 100;
 
     return { consumption, readingFee, amountDue: Math.max(readingFee, Number(row.minimumPayment)) };
-}
-
-/** Shift a Y-m-d date by whole days without timezone drift. */
-function addDays(isoDate, days) {
-    const date = new Date(`${isoDate}T00:00:00Z`);
-    date.setUTCDate(date.getUTCDate() + days);
-
-    return date.toISOString().slice(0, 10);
-}
-
-/** Y-m-d → d-m-Y, the format used across the app's Arabic screens. */
-function formatDay(isoDate) {
-    return isoDate.split('-').reverse().join('-');
 }
 
 function focusNextReadingInput(currentInput) {
@@ -246,6 +233,7 @@ function EntryWindowNotice({ entryWindow, canRecord, canApprove, weekIsViewOnly,
 export default function Index({
     rows,
     week,
+    weekEnd,
     weekOptions,
     summary,
     canRecord,
@@ -331,9 +319,9 @@ export default function Index({
             <Head title="القراءات الأسبوعية" />
 
             <div className="mb-4 rounded-xl border border-gray-200 bg-surface px-5 py-4">
-                <p className="text-lg font-bold text-gray-900">قراءة الأسبوع المنتهي في الخميس {formatDay(addDays(week, 6))}</p>
+                <p className="text-lg font-bold text-gray-900">قراءة الأسبوع المنتهي في {formatWeekDay(weekEnd)}</p>
                 <p className="mt-1 text-sm text-gray-500">
-                    من الجمعة {formatDay(week)} إلى الخميس {formatDay(addDays(week, 6))}
+                    من {formatWeekDay(week)} إلى {formatWeekDay(weekEnd)}
                 </p>
             </div>
 

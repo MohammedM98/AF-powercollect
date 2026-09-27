@@ -49,7 +49,7 @@ class RecentActivityTest extends TestCase
         $superAdmin = User::factory()->superAdmin()->create();
 
         $this->actingAs($superAdmin)
-            ->put(route('settings.reading-schedule.update'), ['open_days' => [4], 'mode' => 'automatic'])
+            ->put(route('settings.reading-schedule.update'), ['reading_day' => 4, 'open_days' => [4], 'mode' => 'automatic'])
             ->assertSessionHasNoErrors();
 
         $this->assertSame(

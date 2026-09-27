@@ -1,23 +1,273 @@
-import FormModal from '@/Components/FormModal';
-import InputLabel from '@/Components/InputLabel';
-import TextInput from '@/Components/TextInput';
+import { useId, useRef, useState } from 'react';
+import { usePage } from '@inertiajs/react';
+import ConfirmDialog from '@/Components/ConfirmDialog';
+import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
+import Modal from '@/Components/Modal';
+import PrimaryButton from '@/Components/PrimaryButton';
+import SecondaryButton from '@/Components/SecondaryButton';
+import Switch from '@/Components/Switch';
 import { useResourceForm } from '@/hooks/useResourceForm';
 import { describeBalance, paymentInShekels } from '@/lib/accountStatement';
-import { formatAmount, formatCurrency } from '@/lib/currency';
-import { AccountHeader, BalanceAfter } from './AccountSummary';
+import { formatClock, formatMoney, initials, normalizeDecimalInput } from '@/lib/format';
+import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/formValidation';
+
+const CURRENCY_ORDER = ['ILS', 'USD', 'JOD'];
+const CURRENCY_SYMBOLS = { ILS: '₪', USD: '$', JOD: 'JD' };
+const QUICK_AMOUNTS = [50, 100, 200];
+
+/** Each transfer bank or e-wallet's logo, color and kind; one not listed here gets a plain tile. */
+const BANKS = {
+    'بنك فلسطين': { logo: '/images/banks/bank-of-palestine.webp', color: '#b8007a', kind: 'تحويل بنكي' },
+    'جوال باي': { logo: '/images/banks/jawwal-pay.webp', color: '#7cb342', kind: 'محفظة' },
+    'بال باي': { logo: '/images/banks/palpay.webp', color: '#9b30e0', kind: 'محفظة' },
+};
+
+const STATUS_DOTS = { active: 'bg-emerald-500', suspended: 'bg-amber-500', disconnected: 'bg-gray-400' };
+
+const BALANCE_CHIPS = {
+    owes: 'bg-brand-500/10 text-brand-600',
+    credit: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+    settled: 'bg-gray-100 text-gray-700',
+};
+
+const inputClass =
+    'block h-[50px] w-full rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-4 text-base text-gray-900 transition placeholder:text-gray-400 hover:border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-900/10 read-only:bg-gray-50 read-only:text-gray-500';
+
+/** "377 ₪ عليه", "9.10 ₪ له" or "0 ₪ مسدّد". */
+function balanceText(balance) {
+    return `${formatMoney(balance.tone === 'settled' ? 0 : balance.amount)} ₪ ${balance.label}`;
+}
+
+function FieldLabel({ htmlFor, required = false, hint, children }) {
+    return (
+        <div className="mb-2 flex items-baseline justify-between gap-2.5">
+            <label htmlFor={htmlFor} className="text-[14.5px] font-semibold text-gray-700">
+                {children}
+                {required && <span className="text-brand-600"> *</span>}
+            </label>
+            {hint && <span className="text-[13px] text-gray-500">{hint}</span>}
+        </div>
+    );
+}
+
+/** One way of paying, as a big radio tile. */
+function MethodTile({ value, checked, onChange, icon, title, hint }) {
+    return (
+        <label
+            className={`relative flex cursor-pointer items-center gap-3 rounded-[18px] border-[1.5px] bg-surface px-4 py-3.5 transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-gray-900 ${
+                checked ? 'border-gray-900 shadow-[0_0_0_4px_rgb(var(--gray-900)/0.07)]' : 'border-gray-200 hover:border-gray-300'
+            }`}
+        >
+            <input type="radio" name="payment_method" value={value} checked={checked} onChange={() => onChange(value)} className="sr-only" />
+            <span
+                className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[13px] transition ${
+                    checked ? 'bg-graphite-gradient text-white' : 'bg-gray-100 text-gray-700'
+                }`}
+            >
+                <Icon name={icon} className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            </span>
+            <span className="min-w-0">
+                <b className="block text-[15.5px] text-gray-900">{title}</b>
+                <small className="block text-[13px] text-gray-500">{hint}</small>
+            </span>
+            <span
+                className={`ms-auto flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition ${
+                    checked ? 'border-gray-900 bg-gray-900' : 'border-gray-300'
+                }`}
+                aria-hidden="true"
+            >
+                {checked && <span className="h-2 w-2 rounded-full bg-surface" />}
+            </span>
+        </label>
+    );
+}
+
+/** A bank or e-wallet the transfer went to, with its logo and brand color. */
+function BankTile({ bank, checked, onChange }) {
+    const look = BANKS[bank];
+    const color = look?.color;
+
+    return (
+        <label
+            className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-[14px] border-[1.5px] bg-surface px-1.5 py-2.5 text-center text-[14.5px] font-semibold text-gray-900 transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-gray-900 sm:flex-row sm:gap-2.5 sm:px-3 sm:text-start ${
+                checked ? (color ? '' : 'border-gray-900') : 'border-gray-100 hover:border-gray-300'
+            }`}
+            style={checked && color ? { borderColor: color, boxShadow: `0 0 0 3px ${color}29`, backgroundColor: `${color}0d` } : undefined}
+        >
+            <input type="radio" name="bank_name" value={bank} required checked={checked} onChange={() => onChange(bank)} className="sr-only" />
+            {look ? (
+                <img
+                    src={look.logo}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-[0_0_0_1px_rgb(0_0_0/0.06),0_4px_10px_-6px_rgb(0_0_0/0.4)]"
+                />
+            ) : (
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
+                    <Icon name="bank" className="h-5 w-5" />
+                </span>
+            )}
+            <span className="min-w-0">
+                {bank}
+                <small className="block text-xs font-medium text-gray-500">{look?.kind ?? 'تحويل'}</small>
+            </span>
+        </label>
+    );
+}
+
+/** The dark panel beside the form: what will be recorded and what it does to the balance, before saving. */
+function PaymentSummary({ amount, symbol, currencyLabel, isShekel, rate, inShekels, balance, methodText, collector }) {
+    const before = describeBalance(balance);
+    const after = inShekels === null ? null : describeBalance(Number(balance) - inShekels);
+    const owed = Number(balance) > 0 ? Number(balance) : 0;
+    const coverage = owed > 0 && inShekels !== null ? Math.min(100, Math.round((inShekels / owed) * 100)) : 0;
+    const now = new Date();
+
+    return (
+        <aside
+            aria-live="polite"
+            className="relative flex flex-col gap-[18px] overflow-hidden bg-graphite-gradient p-5 text-white sm:p-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:overflow-y-auto"
+        >
+            <span className="absolute inset-x-0 top-0 h-[3px] bg-spectrum" aria-hidden="true" />
+            <span
+                className="pointer-events-none absolute -bottom-32 -end-20 h-80 w-80 rounded-full bg-[radial-gradient(closest-side,rgb(165_29_38/0.25),transparent)]"
+                aria-hidden="true"
+            />
+
+            <h4 className="relative flex items-center gap-2 font-luxe text-lg font-bold">
+                <Icon name="receipt" className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                ملخص الدفعة
+                <span className="ms-auto rounded-full bg-white/10 px-2.5 py-0.5 font-sans text-[11.5px] font-semibold text-white/80">قبل الحفظ</span>
+            </h4>
+
+            <div className="relative">
+                <p className="text-[13px] text-white/60">المبلغ</p>
+                <p className="text-end font-display text-[34px] font-extrabold leading-tight sm:text-[40px]" dir="ltr">
+                    {formatMoney(amount || 0)}
+                    <span className="ms-1.5 text-lg font-semibold text-white/70">{symbol}</span>
+                </p>
+                {!isShekel && (
+                    <p className="mt-0.5 text-[13px] text-white/60">
+                        {inShekels === null
+                            ? 'أدخل سعر الصرف لتحويل المبلغ إلى شيكل'
+                            : `= ${formatMoney(inShekels)} شيكل على سعر ${rate} لكل ${currencyLabel}`}
+                    </p>
+                )}
+            </div>
+
+            <dl className="relative grid gap-2.5 rounded-[18px] border border-white/10 bg-white/5 p-3.5 text-sm text-white/75">
+                <div className="flex items-baseline justify-between gap-3">
+                    <dt>الرصيد الحالي</dt>
+                    <dd className="font-display text-[15px] font-semibold text-white">{balanceText(before)}</dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                    <dt>هذه الدفعة</dt>
+                    <dd className="font-display text-[15px] font-semibold text-white" dir="ltr">
+                        +{formatMoney(inShekels ?? 0)} ₪
+                    </dd>
+                </div>
+                <div className="h-px bg-white/10" aria-hidden="true" />
+                <div className="flex items-baseline justify-between gap-3">
+                    <dt>الرصيد بعد الدفعة</dt>
+                    <dd
+                        className={`font-display text-lg font-semibold ${after ? (after.tone === 'owes' ? 'text-red-300' : 'text-emerald-300') : 'text-white/50'}`}
+                    >
+                        {after ? balanceText(after) : '—'}
+                    </dd>
+                </div>
+            </dl>
+
+            {owed > 0 && (
+                <div className="relative">
+                    <div className="mb-1.5 flex justify-between text-[12.5px] text-white/60">
+                        <span>تغطية المبلغ المستحق</span>
+                        <span className="font-display">{coverage}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+                        <div
+                            className="h-full rounded-full bg-gradient-to-l from-emerald-400 to-emerald-500 transition-[width] duration-500"
+                            style={{ width: `${coverage}%` }}
+                        />
+                    </div>
+                </div>
+            )}
+
+            <ul className="relative hidden gap-2 text-[13.5px] text-white/75 lg:grid">
+                <li className="flex items-center gap-2">
+                    <Icon name="banknotes" className="h-[18px] w-[18px] text-white/50" />
+                    الطريقة: <b className="font-semibold text-white">{methodText}</b>
+                </li>
+                <li className="flex items-center gap-2">
+                    <Icon name="user" className="h-[18px] w-[18px] text-white/50" />
+                    المحصّل: <b className="font-semibold text-white">{collector}</b>
+                </li>
+                <li className="flex items-center gap-2">
+                    <Icon name="clock" className="h-[18px] w-[18px] text-white/50" />
+                    اليوم، <b className="font-display font-semibold text-white">{formatClock(`${now.getHours()}:${now.getMinutes()}`)}</b>
+                </li>
+            </ul>
+        </aside>
+    );
+}
+
+/** After saving: what was recorded, the voucher it got and the balance it left. */
+function PaymentReceipt({ receipt, subscriberName, onAnother, onDone }) {
+    const after = describeBalance(receipt.balanceAfter);
+    const rows = [
+        ['رقم السند', receipt.voucherNumber ?? '—'],
+        ['المبلغ', `${formatMoney(receipt.amount)} ${receipt.symbol}`],
+        ...(receipt.isShekel ? [] : [['بالشيكل', `${formatMoney(receipt.inShekels)} ₪`]]),
+        ['الطريقة', receipt.methodText],
+        ['الرصيد بعد الدفعة', balanceText(after)],
+    ];
+
+    return (
+        <div className="px-6 pb-8 pt-10 text-center sm:px-8">
+            <span className="mx-auto mb-3.5 flex h-[76px] w-[76px] items-center justify-center rounded-3xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <Icon name="check" className="h-10 w-10" strokeWidth={2.2} />
+            </span>
+            <h3 className="font-luxe text-[26px] font-bold text-gray-900">سُجّلت الدفعة</h3>
+            <p className="mt-1.5 text-gray-600">
+                {formatMoney(receipt.amount)} {receipt.currencyLabel} من {subscriberName} · الرصيد الجديد {balanceText(after)}
+            </p>
+            <dl className="mx-auto mt-6 w-full max-w-[420px] rounded-[20px] border border-gray-100 bg-gray-50 px-[18px] py-1.5 text-start">
+                {rows.map(([label, value]) => (
+                    <div key={label} className="flex justify-between gap-4 border-b border-dashed border-gray-200 py-2.5 text-[14.5px] last:border-0">
+                        <dt className="text-gray-500">{label}</dt>
+                        <dd className="font-semibold text-gray-900">{value}</dd>
+                    </div>
+                ))}
+            </dl>
+            <div className="mt-6 flex flex-wrap justify-center gap-2.5">
+                <SecondaryButton onClick={onAnother} className="h-12 rounded-[14px] px-5 text-[15.5px]">
+                    <Icon name="plus" className="h-[18px] w-[18px]" strokeWidth={2} />
+                    دفعة جديدة
+                </SecondaryButton>
+                <PrimaryButton type="button" onClick={onDone} autoFocus className="h-12 min-w-28 rounded-[14px] px-5 text-[15.5px]">
+                    تم
+                </PrimaryButton>
+            </div>
+        </div>
+    );
+}
 
 /**
  * Record a payment on a subscriber's account: how much, in which currency
- * and at what rate, and how it was paid. Shows what it takes off the
- * balance before saving.
+ * (at what rate, for dollars and dinars) and how it was paid — in cash, or
+ * by a transfer to one of the company's banks or e-wallets, with who sent
+ * it and its reference. A dark panel beside the form shows what it does to
+ * the balance before saving; once saved, the window shows the receipt with
+ * the voucher number. Keys: Ctrl + Enter saves, 1 and 2 pick the method.
  */
 export default function PaymentModal({ show, onClose, subscriber, balance, currencies, paymentMethods, transferBanks }) {
+    const titleId = useId();
+    const amountInput = useRef(null);
+    const collector = usePage().props.auth?.user?.name ?? '';
     const form = useResourceForm(`/subscribers/${subscriber.id}/payments`, null, {
         amount: '',
         currency: 'ILS',
         exchange_rate: '',
-        payment_method: 'cash',
+        payment_method: 'bank_transfer',
         bank_name: '',
         // Who the transfer came from: the subscriber unless someone else paid.
         sender_name: subscriber.fullName,
@@ -27,226 +277,532 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
         notes: '',
     });
     const { data, setData, errors } = form;
+    const [senderIsSubscriber, setSenderIsSubscriber] = useState(true);
+    const [detailsOpen, setDetailsOpen] = useState(false);
+    const [discarding, setDiscarding] = useState(false);
+    const [receipt, setReceipt] = useState(null);
 
     const isShekel = data.currency === 'ILS';
     const throughBank = data.payment_method === 'bank_transfer';
     const inShekels = paymentInShekels(data.amount, data.currency, data.exchange_rate);
-    const balanceAfter = inShekels === null ? null : describeBalance(Number(balance) - inShekels);
-    const currencyLabel = currencies.find((currency) => currency.value === data.currency)?.label;
-    const confirmMessage =
-        inShekels === null
-            ? null
-            : `سيتم تسجيل دفعة بقيمة ${formatAmount(data.amount)} ${currencyLabel}${isShekel ? '' : ` (${formatAmount(inShekels)} شيكل)`} على حساب ${subscriber.fullName}، ويصبح الرصيد ${
-                  balanceAfter.tone === 'settled' ? 'مسدّدًا' : `${balanceAfter.amount} شيكل ${balanceAfter.label}`
-              }. هل تريد المتابعة؟`;
+    const currencyLabel = currencies.find((currency) => currency.value === data.currency)?.label ?? data.currency;
+    const symbol = CURRENCY_SYMBOLS[data.currency] ?? data.currency;
+    const owed = Number(balance) > 0 ? Number(balance) : 0;
+    const rate = isShekel ? 1 : Number(data.exchange_rate);
+    const methodText = throughBank ? (data.bank_name ? `تحويل · ${data.bank_name}` : 'تحويل بنكي') : 'نقد';
+    const sortedCurrencies = [...currencies].sort((a, b) => rank(a.value) - rank(b.value));
+    const methods = ['bank_transfer', 'cash'].filter((method) => paymentMethods.some((option) => option.value === method));
+    const detailsLabel = throughBank ? 'اختياري: ملاحظة' : 'اختياري: السند اليدوي، رقم الصندوق، ملاحظة';
+    const detailErrors = Boolean(errors.notes || (!throughBank && (errors.manual_voucher_number || errors.cash_box)));
+
+    function rank(currency) {
+        const index = CURRENCY_ORDER.indexOf(currency);
+
+        return index === -1 ? CURRENCY_ORDER.length : index;
+    }
+
+    function close() {
+        setDiscarding(false);
+        setReceipt(null);
+        setDetailsOpen(false);
+        setSenderIsSubscriber(true);
+        form.resetAndClearErrors();
+        onClose();
+    }
+
+    function requestClose() {
+        if (!receipt && form.isDirty) {
+            setDiscarding(true);
+        } else {
+            close();
+        }
+    }
+
+    function setAmount(value) {
+        setData('amount', value);
+        form.clearErrors('amount');
+        amountInput.current?.focus();
+    }
+
+    function toggleSender(isSubscriber) {
+        setSenderIsSubscriber(isSubscriber);
+        setData('sender_name', isSubscriber ? subscriber.fullName : '');
+        form.clearErrors('sender_name');
+
+        if (!isSubscriber) {
+            requestAnimationFrame(() => document.getElementById('sender_name')?.focus());
+        }
+    }
+
+    /** 1 picks the transfer, 2 cash — unless a field is being typed in. */
+    function onKeyDown(event) {
+        submitOnCtrlEnter(event);
+
+        const typing = event.target.matches('textarea, select, input:not([type=radio]):not([type=checkbox])');
+
+        if (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && ['1', '2'].includes(event.key)) {
+            const method = methods[Number(event.key) - 1];
+
+            if (method) {
+                event.preventDefault();
+                setData('payment_method', method);
+            }
+        }
+    }
+
+    function submit(event) {
+        event.preventDefault();
+
+        if (!validateFormFields(event.currentTarget, form)) {
+            return;
+        }
+
+        if (!(Number(data.amount) > 0)) {
+            form.setError('amount', 'أدخل مبلغًا أكبر من صفر.');
+            amountInput.current?.focus();
+
+            return;
+        }
+
+        const recorded = { amount: data.amount, symbol, currencyLabel, isShekel, inShekels, methodText };
+
+        form.save({
+            preserveScroll: true,
+            onSuccess: (page) => {
+                const flashed = page.flash?.recordedPayment ?? {};
+
+                setReceipt({
+                    ...recorded,
+                    voucherNumber: flashed.voucherNumber ?? null,
+                    balanceAfter: flashed.balance ?? Number(balance) - (inShekels ?? 0),
+                });
+                form.resetAndClearErrors();
+                setSenderIsSubscriber(true);
+                setDetailsOpen(false);
+            },
+        });
+    }
 
     return (
-        <FormModal
-            show={show}
-            onClose={onClose}
-            form={form}
-            title="تسجيل دفعة"
-            icon="card"
-            maxWidth="2xl"
-            bodyClassName="space-y-5"
-            saveConfirmMessage={confirmMessage}
-        >
-            <AccountHeader subscriber={subscriber} balance={balance} />
-
-            <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <InputLabel htmlFor="amount" value="المبلغ" />
-                    <TextInput
-                        id="amount"
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        inputMode="decimal"
-                        dir="ltr"
-                        className="mt-1 w-full"
-                        value={data.amount}
-                        autoFocus
-                        onChange={(e) => setData('amount', e.target.value)}
-                    />
-                    <InputError message={errors.amount} className="mt-2" />
-                </div>
-                <div>
-                    <InputLabel htmlFor="currency" value="العملة" />
-                    <select id="currency" className="mt-1 block w-full" value={data.currency} onChange={(e) => setData('currency', e.target.value)}>
-                        {currencies.map((currency) => (
-                            <option key={currency.value} value={currency.value}>
-                                {currency.label}
-                            </option>
-                        ))}
-                    </select>
-                    <InputError message={errors.currency} className="mt-2" />
-                </div>
-                <div>
-                    <InputLabel htmlFor="exchange_rate" value="سعر الصرف" />
-                    <TextInput
-                        id="exchange_rate"
-                        type="number"
-                        min="0.0001"
-                        step="0.0001"
-                        inputMode="decimal"
-                        dir="ltr"
-                        className="mt-1 w-full disabled:bg-gray-50 disabled:text-gray-500"
-                        value={isShekel ? '1' : data.exchange_rate}
-                        disabled={isShekel}
-                        onChange={(e) => setData('exchange_rate', e.target.value)}
-                    />
-                    <p className="mt-1 text-xs text-gray-500">{isShekel ? 'الشيكل = 1 دائمًا' : `كم شيكل يساوي 1 ${currencyLabel}`}</p>
-                    <InputError message={errors.exchange_rate} className="mt-2" />
-                </div>
-                <div>
-                    <InputLabel value="يُخصم من الرصيد" />
-                    <p className="mt-1 flex h-11 items-center rounded-control bg-gray-50 px-3 text-sm font-bold tabular-nums text-gray-900">
-                        {inShekels === null ? '—' : formatCurrency(inShekels)}
-                    </p>
-                </div>
-            </div>
-
-            <fieldset>
-                <legend className="text-sm font-medium text-gray-700">طريقة الدفع</legend>
-                <div className="mt-1 grid grid-cols-2 gap-2">
-                    {paymentMethods.map((method) => (
-                        <label
-                            key={method.value}
-                            className={`flex h-11 cursor-pointer items-center justify-center rounded-control border px-2 text-center text-sm font-semibold transition focus-within:ring-2 focus-within:ring-brand-500 ${
-                                data.payment_method === method.value
-                                    ? 'border-brand-500 bg-brand-50 text-brand-700'
-                                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                            }`}
-                        >
-                            <input
-                                type="radio"
-                                name="payment_method"
-                                value={method.value}
-                                checked={data.payment_method === method.value}
-                                onChange={(e) => setData('payment_method', e.target.value)}
-                                className="sr-only"
-                            />
-                            {method.label}
-                        </label>
-                    ))}
-                </div>
-                <InputError message={errors.payment_method} className="mt-2" />
-            </fieldset>
-
-            {throughBank && (
-                <fieldset>
-                    <legend className="text-sm font-medium text-gray-700">البنك أو المحفظة</legend>
-                    <div className="mt-1 grid grid-cols-3 gap-2">
-                        {transferBanks.map((bank) => (
-                            <label
-                                key={bank}
-                                className={`flex h-11 cursor-pointer items-center justify-center rounded-control border px-2 text-center text-sm font-semibold transition focus-within:ring-2 focus-within:ring-brand-500 ${
-                                    data.bank_name === bank
-                                        ? 'border-brand-500 bg-brand-50 text-brand-700'
-                                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                                }`}
+        <>
+            <Modal show={show} onClose={requestClose} maxWidth="5xl">
+                {receipt ? (
+                    <div role="dialog" aria-modal="true" aria-label="سُجّلت الدفعة">
+                        <PaymentReceipt receipt={receipt} subscriberName={subscriber.fullName} onAnother={() => setReceipt(null)} onDone={close} />
+                    </div>
+                ) : (
+                    <form
+                        noValidate
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby={titleId}
+                        onSubmit={submit}
+                        onInput={(e) => clearErrorOnInput(e, form)}
+                        onKeyDown={onKeyDown}
+                        className="flex max-h-[calc(100dvh-6rem)] flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_minmax(0,1fr)_auto]"
+                    >
+                        <div className="flex shrink-0 items-center gap-3.5 border-b border-gray-100 px-5 py-4 sm:px-6 sm:py-5 lg:col-start-1 lg:row-start-1">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-graphite-gradient text-white shadow-sm">
+                                <Icon name="card" className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                            </span>
+                            <div className="min-w-0">
+                                <h3 id={titleId} className="font-luxe text-[22px] font-bold leading-tight text-gray-900">
+                                    تسجيل دفعة
+                                </h3>
+                                <p className="mt-0.5 text-[13.5px] text-gray-500">سجّل المبلغ المستلم، ويُحدَّث الرصيد تلقائيًا.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={requestClose}
+                                aria-label="إغلاق"
+                                className="ms-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-100 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
                             >
-                                <input
-                                    type="radio"
-                                    name="bank_name"
-                                    value={bank}
-                                    required
-                                    checked={data.bank_name === bank}
-                                    onChange={(e) => setData('bank_name', e.target.value)}
-                                    className="sr-only"
-                                />
-                                {bank}
-                            </label>
-                        ))}
-                    </div>
-                    <InputError message={errors.bank_name} className="mt-2" />
-                </fieldset>
-            )}
+                                <Icon name="close" className="h-[18px] w-[18px]" strokeWidth={2} />
+                            </button>
+                        </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-                {data.payment_method === 'cash' && (
-                    <div>
-                        <InputLabel htmlFor="cash_box" value="رقم الصندوق" />
-                        <TextInput
-                            id="cash_box"
-                            dir="ltr"
-                            className="mt-1 w-full"
-                            value={data.cash_box}
-                            onChange={(e) => setData('cash_box', e.target.value)}
-                        />
-                        <p className="mt-1 text-xs text-gray-500">الصندوق الذي استلم المبلغ (اختياري)</p>
-                        <InputError message={errors.cash_box} className="mt-2" />
-                    </div>
-                )}
-                {throughBank && (
-                    <div>
-                        <InputLabel htmlFor="sender_name" value="اسم المحوِّل" />
-                        <TextInput
-                            id="sender_name"
-                            required
-                            className="mt-1 w-full"
-                            value={data.sender_name}
-                            onChange={(e) => setData('sender_name', e.target.value)}
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                            {data.sender_name.trim() === subscriber.fullName ? (
-                                'المشترك نفسه — غيّره إن حوّل شخص آخر من حسابه'
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={() => setData('sender_name', subscriber.fullName)}
-                                    className="font-medium text-gray-700 underline hover:text-gray-900"
-                                >
-                                    حوّل المشترك بنفسه؟ استخدم اسمه
-                                </button>
-                            )}
-                        </p>
-                        <InputError message={errors.sender_name} className="mt-2" />
-                    </div>
-                )}
-                {throughBank && (
-                    <div>
-                        <InputLabel htmlFor="reference_number" value="الرقم المرجعي" />
-                        <TextInput
-                            id="reference_number"
-                            required
-                            dir="ltr"
-                            className="mt-1 w-full"
-                            value={data.reference_number}
-                            onChange={(e) => setData('reference_number', e.target.value)}
-                        />
-                        <p className="mt-1 text-xs text-gray-500">رقم الحوالة أو العملية</p>
-                        <InputError message={errors.reference_number} className="mt-2" />
-                    </div>
-                )}
-                <div>
-                    <InputLabel htmlFor="manual_voucher_number" value="السند اليدوي" />
-                    <TextInput
-                        id="manual_voucher_number"
-                        dir="ltr"
-                        className="mt-1 w-full"
-                        value={data.manual_voucher_number}
-                        onChange={(e) => setData('manual_voucher_number', e.target.value)}
-                    />
-                    <p className="mt-1 text-xs text-gray-500">رقم الوصل الورقي (اختياري) — رقم السند يُولّد تلقائيًا</p>
-                    <InputError message={errors.manual_voucher_number} className="mt-2" />
-                </div>
-            </div>
+                        {/* On phones the fields and the summary scroll together; side by side they each scroll alone. */}
+                        <div className="min-h-0 flex-1 overflow-y-auto lg:contents">
+                            <div className="grid grid-cols-1 content-start gap-[22px] px-5 pb-3 pt-5 sm:px-6 lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto">
+                                <div className="flex flex-wrap items-center gap-3.5 rounded-[18px] border border-gray-100 bg-gray-50 px-3.5 py-3">
+                                    <div className="flex min-w-0 flex-1 basis-52 items-center gap-3.5">
+                                        <span className="relative flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[14px] bg-graphite-gradient font-display text-[15px] font-bold text-white">
+                                            {initials(subscriber.fullName)}
+                                            <span
+                                                className={`absolute -bottom-0.5 -start-0.5 h-[13px] w-[13px] rounded-full border-[2.5px] border-gray-50 ${STATUS_DOTS[subscriber.status] ?? 'bg-gray-400'}`}
+                                                aria-hidden="true"
+                                            />
+                                        </span>
+                                        <div className="min-w-0">
+                                            <p className="break-words text-[16.5px] font-bold text-gray-900">{subscriber.fullName}</p>
+                                            <p className="text-[13.5px] text-gray-500">
+                                                حساب{' '}
+                                                <span dir="ltr" className="font-display">
+                                                    {subscriber.accountNumber}
+                                                </span>
+                                                {subscriber.branchName && ` · ${subscriber.branchName}`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="ms-auto flex shrink-0 flex-col items-end gap-0.5">
+                                        <span className="text-[12.5px] text-gray-500">الرصيد الحالي</span>
+                                        <span
+                                            className={`whitespace-nowrap rounded-[10px] px-2.5 py-0.5 font-display text-[17px] font-bold ${BALANCE_CHIPS[describeBalance(balance).tone]}`}
+                                        >
+                                            {balanceText(describeBalance(balance))}
+                                        </span>
+                                    </div>
+                                </div>
 
-            <div>
-                <InputLabel htmlFor="payment_notes" value="تفاصيل (تظهر في البيان بكشف الحساب)" />
-                <textarea
-                    id="payment_notes"
-                    name="notes"
-                    rows={2}
-                    className="mt-1 block w-full"
-                    value={data.notes}
-                    onChange={(e) => setData('notes', e.target.value)}
-                />
-                <InputError message={errors.notes} className="mt-2" />
-            </div>
+                                <div>
+                                    <FieldLabel htmlFor="amount" required hint="بالعملة التي استُلم بها">
+                                        المبلغ المستلم
+                                    </FieldLabel>
+                                    <div
+                                        className={`rounded-[22px] border-[1.5px] bg-surface px-[18px] pb-3.5 pt-4 transition ${
+                                            errors.amount
+                                                ? 'border-brand-500 shadow-[0_0_0_5px_rgb(var(--brand-500)/0.08)]'
+                                                : 'border-gray-200 focus-within:border-gray-900 focus-within:shadow-[0_0_0_5px_rgb(var(--gray-900)/0.08)]'
+                                        }`}
+                                    >
+                                        <div className="flex flex-col items-stretch gap-3.5 sm:flex-row sm:items-center">
+                                            <input
+                                                ref={amountInput}
+                                                id="amount"
+                                                name="amount"
+                                                required
+                                                autoFocus
+                                                inputMode="decimal"
+                                                autoComplete="off"
+                                                placeholder="0.00"
+                                                dir="ltr"
+                                                aria-describedby={errors.amount ? `${titleId}-amount-error` : undefined}
+                                                value={data.amount}
+                                                onChange={(e) => setData('amount', normalizeDecimalInput(e.target.value))}
+                                                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-end font-display text-[38px] font-extrabold leading-tight text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-0 sm:text-[44px]"
+                                            />
+                                            <div
+                                                role="radiogroup"
+                                                aria-label="العملة"
+                                                className="flex shrink-0 gap-0.5 rounded-[14px] border border-gray-100 bg-gray-100 p-1"
+                                            >
+                                                {sortedCurrencies.map((currency) => {
+                                                    const checked = data.currency === currency.value;
 
-            <BalanceAfter label="الرصيد بعد الدفعة" balanceAfter={balanceAfter} placeholder="أدخل المبلغ" />
-        </FormModal>
+                                                    return (
+                                                        <label
+                                                            key={currency.value}
+                                                            className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[14.5px] font-bold transition focus-within:outline focus-within:outline-2 focus-within:outline-gray-900 ${
+                                                                checked
+                                                                    ? 'bg-surface text-gray-900 shadow-sm ring-1 ring-gray-100'
+                                                                    : 'text-gray-500 hover:text-gray-900'
+                                                            }`}
+                                                        >
+                                                            <input
+                                                                type="radio"
+                                                                name="currency"
+                                                                value={currency.value}
+                                                                checked={checked}
+                                                                onChange={() => {
+                                                                    setData('currency', currency.value);
+                                                                    amountInput.current?.focus();
+                                                                }}
+                                                                className="sr-only"
+                                                            />
+                                                            <span className="font-display text-[15px]" aria-hidden="true">
+                                                                {CURRENCY_SYMBOLS[currency.value] ?? currency.value}
+                                                            </span>
+                                                            {currency.label}
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-gray-200 pt-3">
+                                            {QUICK_AMOUNTS.map((quick) => (
+                                                <button
+                                                    key={quick}
+                                                    type="button"
+                                                    onClick={() => setAmount(String(quick))}
+                                                    className="rounded-full border border-gray-100 bg-gray-50 px-3 py-1 font-display text-[13.5px] font-semibold text-gray-700 transition hover:border-gray-200 hover:bg-surface hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
+                                                >
+                                                    {quick}
+                                                </button>
+                                            ))}
+                                            {owed > 0 && (
+                                                <button
+                                                    type="button"
+                                                    disabled={!(rate > 0)}
+                                                    title={rate > 0 ? undefined : 'أدخل سعر الصرف أولًا'}
+                                                    onClick={() => setAmount(String(Number((owed / rate).toFixed(2))))}
+                                                    className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-[13.5px] font-semibold text-emerald-700 transition hover:bg-emerald-500/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-400"
+                                                >
+                                                    تسديد كامل الدين
+                                                </button>
+                                            )}
+                                            {!isShekel && (
+                                                <span className="flex w-full items-center gap-1.5 text-[13.5px] text-gray-500 sm:ms-auto sm:w-auto">
+                                                    <label htmlFor="exchange_rate">سعر الصرف</label>
+                                                    <input
+                                                        id="exchange_rate"
+                                                        name="exchange_rate"
+                                                        required
+                                                        inputMode="decimal"
+                                                        autoComplete="off"
+                                                        dir="ltr"
+                                                        title={`كم شيكل يساوي 1 ${currencyLabel}`}
+                                                        value={data.exchange_rate}
+                                                        onChange={(e) => setData('exchange_rate', normalizeDecimalInput(e.target.value, 4))}
+                                                        className="h-[30px] w-[74px] rounded-[9px] border border-gray-200 bg-surface text-center font-display text-sm font-semibold text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                                                    />
+                                                    {inShekels !== null && (
+                                                        <>
+                                                            · يُسجَّل{' '}
+                                                            <b className="font-display text-gray-900" dir="ltr">
+                                                                {formatMoney(inShekels)} ₪
+                                                            </b>
+                                                        </>
+                                                    )}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {errors.amount && (
+                                        <p
+                                            id={`${titleId}-amount-error`}
+                                            role="alert"
+                                            className="mt-2 flex items-center gap-1.5 text-[13.5px] text-brand-600"
+                                        >
+                                            <Icon name="info" className="h-[18px] w-[18px]" />
+                                            {errors.amount}
+                                        </p>
+                                    )}
+                                    <InputError message={errors.exchange_rate} className="mt-2" />
+                                    <InputError message={errors.currency} className="mt-2" />
+                                </div>
+
+                                <fieldset>
+                                    <legend className="mb-2 text-[14.5px] font-semibold text-gray-700">
+                                        طريقة الدفع <span className="text-brand-600">*</span>
+                                    </legend>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        {methods.map((method) =>
+                                            method === 'bank_transfer' ? (
+                                                <MethodTile
+                                                    key={method}
+                                                    value={method}
+                                                    checked={throughBank}
+                                                    onChange={(value) => setData('payment_method', value)}
+                                                    icon="bank"
+                                                    title="تحويل بنكي أو محفظة"
+                                                    hint={transferBanks.join('، ')}
+                                                />
+                                            ) : (
+                                                <MethodTile
+                                                    key={method}
+                                                    value={method}
+                                                    checked={data.payment_method === method}
+                                                    onChange={(value) => setData('payment_method', value)}
+                                                    icon="banknotes"
+                                                    title="نقد"
+                                                    hint="استُلم المبلغ نقدًا"
+                                                />
+                                            ),
+                                        )}
+                                    </div>
+                                    <InputError message={errors.payment_method} className="mt-2" />
+
+                                    {throughBank && (
+                                        <div className="animate-menu mt-3 grid gap-4 rounded-[20px] border border-gray-100 bg-gray-50 p-4">
+                                            <fieldset>
+                                                <legend className="mb-2 text-[14.5px] font-semibold text-gray-700">
+                                                    البنك أو المحفظة <span className="text-brand-600">*</span>
+                                                </legend>
+                                                <div className="grid grid-cols-3 gap-2.5">
+                                                    {transferBanks.map((bank) => (
+                                                        <BankTile
+                                                            key={bank}
+                                                            bank={bank}
+                                                            checked={data.bank_name === bank}
+                                                            onChange={(value) => setData('bank_name', value)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                                <InputError message={errors.bank_name} className="mt-2" />
+                                            </fieldset>
+
+                                            <div className="grid gap-4 sm:grid-cols-2">
+                                                <div>
+                                                    <div className="mb-2 flex items-center justify-between gap-2.5">
+                                                        <label htmlFor="sender_name" className="text-[14.5px] font-semibold text-gray-700">
+                                                            اسم المحوِّل <span className="text-brand-600">*</span>
+                                                        </label>
+                                                        <Switch
+                                                            checked={senderIsSubscriber}
+                                                            onChange={toggleSender}
+                                                            label={<span className="text-[13.5px] font-medium text-gray-600">المشترك نفسه</span>}
+                                                            ariaLabel="المحوِّل هو المشترك نفسه"
+                                                        />
+                                                    </div>
+                                                    <input
+                                                        id="sender_name"
+                                                        name="sender_name"
+                                                        required
+                                                        readOnly={senderIsSubscriber}
+                                                        placeholder="اسم صاحب الحساب الذي حُوّل منه المبلغ"
+                                                        value={data.sender_name}
+                                                        onChange={(e) => setData('sender_name', e.target.value)}
+                                                        className={inputClass}
+                                                    />
+                                                    <InputError message={errors.sender_name} className="mt-2" />
+                                                </div>
+                                                <div>
+                                                    <FieldLabel htmlFor="reference_number" required hint="من إشعار الحوالة">
+                                                        الرقم المرجعي
+                                                    </FieldLabel>
+                                                    <input
+                                                        id="reference_number"
+                                                        name="reference_number"
+                                                        required
+                                                        dir="ltr"
+                                                        autoComplete="off"
+                                                        placeholder="مثال: TRX-48213"
+                                                        value={data.reference_number}
+                                                        onChange={(e) => setData('reference_number', e.target.value)}
+                                                        className={`${inputClass} text-end font-display`}
+                                                    />
+                                                    <InputError message={errors.reference_number} className="mt-2" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </fieldset>
+
+                                <div>
+                                    <button
+                                        type="button"
+                                        aria-expanded={detailsOpen || detailErrors}
+                                        aria-controls={`${titleId}-details`}
+                                        onClick={() => setDetailsOpen(!(detailsOpen || detailErrors))}
+                                        className="flex items-center gap-2 rounded-lg text-start text-[14.5px] font-semibold text-gray-600 transition hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+                                    >
+                                        <Icon
+                                            name="chevron-down"
+                                            className={`h-[18px] w-[18px] shrink-0 transition-transform ${detailsOpen || detailErrors ? 'rotate-180' : ''}`}
+                                            strokeWidth={2}
+                                        />
+                                        تفاصيل إضافية <span className="font-medium text-gray-500">({detailsLabel})</span>
+                                    </button>
+                                    {(detailsOpen || detailErrors) && (
+                                        <div id={`${titleId}-details`} className="animate-menu mt-3.5 grid gap-3.5">
+                                            {!throughBank && (
+                                                <div className="grid gap-4 sm:grid-cols-2">
+                                                    <div>
+                                                        <FieldLabel htmlFor="manual_voucher_number" hint="إن وُجد وصل ورقي">
+                                                            رقم السند اليدوي
+                                                        </FieldLabel>
+                                                        <input
+                                                            id="manual_voucher_number"
+                                                            name="manual_voucher_number"
+                                                            dir="ltr"
+                                                            autoComplete="off"
+                                                            placeholder="مثال: 00412"
+                                                            value={data.manual_voucher_number}
+                                                            onChange={(e) => setData('manual_voucher_number', e.target.value)}
+                                                            className={`${inputClass} text-end font-display`}
+                                                        />
+                                                        <InputError message={errors.manual_voucher_number} className="mt-2" />
+                                                    </div>
+                                                    <div>
+                                                        <FieldLabel htmlFor="cash_box" hint="الصندوق الذي استلم المبلغ">
+                                                            رقم الصندوق
+                                                        </FieldLabel>
+                                                        <input
+                                                            id="cash_box"
+                                                            name="cash_box"
+                                                            dir="ltr"
+                                                            autoComplete="off"
+                                                            value={data.cash_box}
+                                                            onChange={(e) => setData('cash_box', e.target.value)}
+                                                            className={`${inputClass} text-end font-display`}
+                                                        />
+                                                        <InputError message={errors.cash_box} className="mt-2" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div>
+                                                <FieldLabel htmlFor="payment_notes" hint="تظهر في كشف الحساب">
+                                                    ملاحظة
+                                                </FieldLabel>
+                                                <input
+                                                    id="payment_notes"
+                                                    name="notes"
+                                                    autoComplete="off"
+                                                    placeholder="أي تفصيل يُحفظ مع الدفعة"
+                                                    value={data.notes}
+                                                    onChange={(e) => setData('notes', e.target.value)}
+                                                    className={inputClass}
+                                                />
+                                                <InputError message={errors.notes} className="mt-2" />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <PaymentSummary
+                                amount={data.amount}
+                                symbol={symbol}
+                                currencyLabel={currencyLabel}
+                                isShekel={isShekel}
+                                rate={data.exchange_rate}
+                                inShekels={inShekels}
+                                balance={balance}
+                                methodText={methodText}
+                                collector={collector}
+                            />
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:px-6 lg:col-start-1 lg:row-start-3">
+                            <SecondaryButton onClick={requestClose} className="h-12 rounded-[14px] px-5 text-[15.5px]">
+                                إلغاء
+                            </SecondaryButton>
+                            <span className="hidden items-center gap-1.5 text-[13px] text-gray-500 xl:flex">
+                                <span className="kbd" dir="ltr">
+                                    Ctrl + Enter
+                                </span>
+                                للحفظ ·<span className="kbd">1</span>
+                                <span className="kbd">2</span>
+                                للطريقة
+                            </span>
+                            <PrimaryButton
+                                type="submit"
+                                disabled={!(Number(data.amount) > 0) || form.processing}
+                                className="ms-auto h-12 min-w-0 flex-1 rounded-[14px] px-5 text-[15.5px] font-bold sm:min-w-[230px] sm:flex-none"
+                            >
+                                <Icon name="check" className="h-[18px] w-[18px]" strokeWidth={2.2} />
+                                {form.processing
+                                    ? 'جارٍ الحفظ...'
+                                    : Number(data.amount) > 0
+                                      ? `تسجيل ${formatMoney(data.amount)} ${currencyLabel}`
+                                      : 'تسجيل الدفعة'}
+                            </PrimaryButton>
+                        </div>
+                    </form>
+                )}
+            </Modal>
+
+            <ConfirmDialog
+                show={show && discarding}
+                onConfirm={close}
+                onCancel={() => setDiscarding(false)}
+                title="تجاهل الدفعة؟"
+                message="أدخلت بيانات لم تُحفظ بعد. إذا أغلقت النافذة الآن فستفقدها."
+                confirmLabel="تجاهل الدفعة"
+                cancelLabel="البقاء ومتابعة الإدخال"
+                icon="alert"
+                tone="danger"
+            />
+        </>
     );
 }

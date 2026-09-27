@@ -113,7 +113,7 @@ trait BuildsSubscriberStatement
         return [
             'id' => $transaction->id,
             'date' => $transaction->created_at->format('Y-m-d H:i'),
-            'voucherNumber' => $transaction->voucher_number ? str_pad((string) $transaction->voucher_number, 6, '0', STR_PAD_LEFT) : null,
+            'voucherNumber' => $transaction->printedVoucherNumber(),
             'manualVoucherNumber' => $transaction->manual_voucher_number,
             'description' => $transaction->description(),
             'type' => $transaction->type,

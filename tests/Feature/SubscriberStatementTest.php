@@ -118,7 +118,7 @@ class SubscriberStatementTest extends TestCase
         $this->assertSame('1.0000', $payment->exchange_rate);
     }
 
-    public function test_a_bank_transfer_needs_one_of_the_transfer_banks_its_number_and_sender_and_keeps_no_cash_box(): void
+    public function test_a_bank_transfer_needs_one_of_the_transfer_banks_its_number_and_sender_and_keeps_no_cash_box_or_paper_voucher(): void
     {
         $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => '', 'reference_number' => '', 'sender_name' => ''])
             ->assertSessionHasErrors([
@@ -136,11 +136,28 @@ class SubscriberStatementTest extends TestCase
             'reference_number' => 'TRX-88214',
             'sender_name' => 'محمود سالم',
             'cash_box' => '3',
+            'manual_voucher_number' => '4471',
         ])->assertSessionHasNoErrors();
 
         $transfer = SubscriberTransaction::sole();
-        $this->assertSame(['جوال باي', 'TRX-88214', null], [$transfer->bank_name, $transfer->reference_number, $transfer->cash_box]);
+        $this->assertSame(
+            ['جوال باي', 'TRX-88214', null, null],
+            [$transfer->bank_name, $transfer->reference_number, $transfer->cash_box, $transfer->manual_voucher_number],
+        );
         $this->assertSame('دفعة بتحويل بنكي من محمود سالم', $transfer->description());
+    }
+
+    public function test_a_recorded_payment_hands_its_form_the_voucher_number_and_the_balance_it_left(): void
+    {
+        SubscriberTransaction::factory()->for($this->subscriber)->create(['amount' => '50.00', 'recorded_by' => $this->branchAdmin->id]);
+
+        $this->followingRedirects()
+            ->recordPayment(['amount' => '20', 'currency' => 'USD', 'exchange_rate' => '3.7'])
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Subscribers/Statement')
+                ->hasFlash('recordedPayment.voucherNumber', '000001')
+                ->hasFlash('recordedPayment.balance', '-24.00'));
     }
 
     public function test_a_cash_payment_keeps_no_sender(): void

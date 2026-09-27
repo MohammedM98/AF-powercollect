@@ -170,7 +170,13 @@ export default function SubscriberForm({
             <Section title="بيانات المشترك" />
 
             <Field id="full_name" label="الاسم" required error={errors.full_name}>
-                <TextInput className="block w-full" value={data.full_name} autoFocus onChange={(e) => setData('full_name', e.target.value)} />
+                <TextInput
+                    required
+                    className="block w-full"
+                    value={data.full_name}
+                    autoFocus
+                    onChange={(e) => setData('full_name', e.target.value)}
+                />
             </Field>
 
             <Field id="national_id" label="رقم الهوية" required error={errors.national_id}>
@@ -180,6 +186,7 @@ export default function SubscriberForm({
                     inputMode="numeric"
                     maxLength={9}
                     pattern="[0-9]{9}"
+                    title="رقم الهوية يجب أن يتكون من 9 أرقام"
                     className="block w-full"
                     value={data.national_id ?? ''}
                     onChange={(event) => setData('national_id', event.target.value)}
@@ -215,6 +222,7 @@ export default function SubscriberForm({
 
             <Field id="tariff_id" label="نوع الاشتراك" required error={errors.tariff_id}>
                 <select
+                    required
                     className="block w-full rounded-md border-gray-300 shadow-sm"
                     value={data.tariff_id}
                     onChange={(e) => onTariffChange(e.target.value)}
@@ -309,6 +317,7 @@ export default function SubscriberForm({
                         <p className="text-sm text-gray-500">لا توجد فروع بعد — أنشئ فرعًا أولاً.</p>
                     ) : (
                         <select
+                            required
                             className="block w-full rounded-md border-gray-300 shadow-sm"
                             value={data.branch_id}
                             onChange={(e) => onBranchChange(e.target.value)}

@@ -3,5 +3,9 @@ export default function InputError({ message, className = '' }) {
         return null;
     }
 
-    return <p className={`text-[12.5px] text-brand-600 ${className}`}>{message}</p>;
+    return (
+        <p data-input-error className={`text-[12.5px] text-brand-600 ${className}`}>
+            {message}
+        </p>
+    );
 }

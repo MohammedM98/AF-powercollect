@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { SaveConfirmDialog } from '@/Components/ConfirmDialog';
 import PrimaryButton from '@/Components/PrimaryButton';
+import { clearErrorOnInput, validateFormFields } from '@/lib/formValidation';
 
 /**
  * The standalone Create/Edit page every resource uses: a titled card
@@ -17,7 +18,10 @@ export default function FormPage({ title, form, cancelHref, layout: Layout = Aut
 
     function submit(e) {
         e.preventDefault();
-        setConfirmingSave(true);
+
+        if (validateFormFields(e.currentTarget, form)) {
+            setConfirmingSave(true);
+        }
     }
 
     function save() {
@@ -31,7 +35,7 @@ export default function FormPage({ title, form, cancelHref, layout: Layout = Aut
 
             <div className={widthClass}>
                 <div className="rise-in rounded-card border border-gray-100 bg-surface p-6 shadow-card">
-                    <form onSubmit={submit}>
+                    <form noValidate onSubmit={submit} onInput={(e) => clearErrorOnInput(e, form)}>
                         {children}
 
                         <div className="mt-6 flex items-center gap-4">

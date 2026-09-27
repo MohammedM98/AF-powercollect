@@ -12,7 +12,9 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReadingScheduleController;
 use App\Http\Controllers\ReadNotificationController;
 use App\Http\Controllers\SubAreaController;
+use App\Http\Controllers\SubscriberChargeController;
 use App\Http\Controllers\SubscriberController;
+use App\Http\Controllers\SubscriberDiscountController;
 use App\Http\Controllers\SubscriberPaymentController;
 use App\Http\Controllers\SubscriberStatementController;
 use App\Http\Controllers\TariffController;
@@ -36,6 +38,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::get('/subscribers/{subscriber}/statement', [SubscriberStatementController::class, 'show'])->name('subscribers.statement');
     Route::post('/subscribers/{subscriber}/payments', [SubscriberPaymentController::class, 'store'])->name('subscribers.payments.store');
+    Route::post('/subscribers/{subscriber}/charges', [SubscriberChargeController::class, 'store'])->name('subscribers.charges.store');
+    Route::post('/subscribers/{subscriber}/discounts', [SubscriberDiscountController::class, 'store'])->name('subscribers.discounts.store');
     Route::resource('tariffs', TariffController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('tariff-segments', TariffSegmentController::class)->only(['store', 'update']);
     Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update']);

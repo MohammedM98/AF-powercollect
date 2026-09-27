@@ -64,12 +64,13 @@ class SubscriberStatementTest extends TestCase
                         collect($entries)->pluck('description')->all(),
                     );
                     $this->assertSame(['50.00', '103.70', '29.70'], collect($entries)->pluck('balance')->all());
-                    $this->assertSame('قراءة من الطبلون', $entries[1]['notes']);
+                    $this->assertSame(['رسوم اشتراك', 'قراءة أسبوعية', 'دفعة'], collect($entries)->pluck('typeLabel')->all());
+                    $this->assertSame('قراءة من الطبلون', $entries[1]['details']);
                     $this->assertSame([
                         'date' => '2026-08-30 12:40',
                         'voucherNumber' => '000001',
                         'manualVoucherNumber' => '4471',
-                        'isPayment' => true,
+                        'isCredit' => true,
                         'amount' => '20.00',
                         'currencyLabel' => 'دولار',
                         'exchangeRate' => '3.7',
@@ -77,12 +78,12 @@ class SubscriberStatementTest extends TestCase
                         'cashBox' => '3',
                         'recordedByName' => 'Mohammed',
                     ], collect($entries[2])->only([
-                        'date', 'voucherNumber', 'manualVoucherNumber', 'isPayment', 'amount', 'currencyLabel', 'exchangeRate', 'paymentMethodLabel', 'cashBox', 'recordedByName',
+                        'date', 'voucherNumber', 'manualVoucherNumber', 'isCredit', 'amount', 'currencyLabel', 'exchangeRate', 'paymentMethodLabel', 'cashBox', 'recordedByName',
                     ])->all());
 
                     return true;
                 })
-                ->where('summary', ['balance' => '29.70', 'charged' => '103.70', 'paid' => '74.00', 'paymentsCount' => 1])
+                ->where('summary', ['balance' => '29.70', 'charged' => '103.70', 'paid' => '74.00', 'paymentsCount' => 1, 'discounted' => '0.00', 'discountsCount' => 0])
                 ->where('canRecordPayment', true));
     }
 

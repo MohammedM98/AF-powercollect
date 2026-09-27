@@ -204,5 +204,12 @@
     "Cash": "نقد",
     "Bank Transfer": "تحويل بنكي",
     "Cheque": "شيك",
-    "E-Wallet": "محفظة إلكترونية"
+    "E-Wallet": "محفظة إلكترونية",
+    "Settlement": "تسوية",
+    "Financial Penalty": "غرامة مالية",
+    "Service Disconnection Fee": "رسوم قطع الخدمة",
+    "Percentage": "نسبة مئوية",
+    "Kilowatts": "كيلوواط",
+    "Shekels": "شيكل",
+    "Add Charges and Discounts": "إضافة تحميل وخصم"
 }

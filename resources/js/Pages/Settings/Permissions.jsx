@@ -16,6 +16,7 @@ const SENSITIVE_ACTIONS = {
     minimum_charge: { label: 'تعديل الحد الأدنى للدفع', hint: 'صلاحية خاصة وحساسة', danger: false },
     confirm: { label: 'تأكيد التحصيل', hint: 'صلاحية حساسة — تُمنح بحذر', danger: true },
     approve: { label: 'اعتماد القراءات', hint: 'تُضاف مبالغها إلى معاملات المشتركين المالية', danger: true },
+    adjust: { label: 'إضافة تحميل وخصم', hint: 'غرامات وتسويات وخصومات على أرصدة المشتركين — تُمنح بحذر', danger: true },
 };
 
 /** The icon and one-line description of each permission group (keyed like PermissionKey::resourceGroups()). */

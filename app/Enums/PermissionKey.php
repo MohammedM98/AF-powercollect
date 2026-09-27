@@ -47,6 +47,7 @@ enum PermissionKey: string
     case RecordCollections = 'collections.record';
     case ConfirmCollections = 'collections.confirm';
     case ViewCollections = 'collections.view';
+    case AdjustBalances = 'collections.adjust';
 
     public function label(): string
     {
@@ -85,6 +86,7 @@ enum PermissionKey: string
             self::RecordCollections => 'Record Collections',
             self::ConfirmCollections => 'Confirm Collections',
             self::ViewCollections => 'View Collections',
+            self::AdjustBalances => 'Add Charges and Discounts',
         };
     }
 
@@ -164,7 +166,12 @@ enum PermissionKey: string
             ],
             'collections' => [
                 'label' => 'Collections',
-                'actions' => ['view' => self::ViewCollections, 'record' => self::RecordCollections, 'confirm' => self::ConfirmCollections],
+                'actions' => [
+                    'view' => self::ViewCollections,
+                    'record' => self::RecordCollections,
+                    'confirm' => self::ConfirmCollections,
+                    'adjust' => self::AdjustBalances,
+                ],
             ],
         ];
     }

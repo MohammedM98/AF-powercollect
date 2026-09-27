@@ -32,13 +32,6 @@ class Subscriber extends Model
         static::creating(function (Subscriber $subscriber): void {
             $subscriber->account_number ??= static::nextAccountNumber();
         });
-
-        // Readings not yet approved follow the subscriber's tariff and minimum.
-        static::updated(function (Subscriber $subscriber): void {
-            if ($subscriber->wasChanged(['tariff_id', 'minimum_charge', 'circuit_breaker_id'])) {
-                MeterReading::repricePendingFor($subscriber);
-            }
-        });
     }
 
     /**

@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
@@ -11,6 +11,7 @@ import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
+import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import SubscriberModal from './SubscriberModal';
@@ -43,14 +44,6 @@ function needsPermission(permission) {
     return `تحتاج صلاحية «${permission}» — يمنحها مدير الفرع أو مدير النظام.`;
 }
 
-/** The current address without the open statement. */
-function urlWithoutStatement() {
-    const url = new URL(window.location.href);
-    url.searchParams.delete('statement');
-
-    return `${url.pathname}${url.search}`;
-}
-
 export default function Index({
     subscribers,
     canCreate,
@@ -79,27 +72,11 @@ export default function Index({
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/subscribers', filters);
     const rowClick = useRowClick();
 
-    // The statement window: open while a statement is loading (`loadingStatement`,
-    // from the row that asked) or once one is in the page props. Its subscriber is
-    // kept in the address (?statement=…) so it stays open after a payment is saved.
-    const [loadingStatement, setLoadingStatement] = useState(null);
-    const [statementForm, setStatementForm] = useState(null);
-    const statementRequest = useRef(null);
-    const statementSubscriber = loadingStatement ?? statement?.subscriber ?? null;
+    const statementWindow = useStatementWindow(statement);
 
     /** Show a subscriber's financial history; `form` also opens its payment, charge or discount form. */
     function openStatement(subscriber, form = null) {
-        setLoadingStatement(statementHeader(subscriber));
-        setStatementForm(form);
-        router.reload({
-            data: { statement: subscriber.id },
-            only: ['statement'],
-            onCancelToken: (token) => (statementRequest.current = token),
-            onFinish: () => {
-                statementRequest.current = null;
-                setLoadingStatement(null);
-            },
-        });
+        statementWindow.open(statementHeader(subscriber), form);
     }
 
     /** The row's "more" menu: the account's forms and entering this week's reading. */
@@ -146,18 +123,6 @@ export default function Index({
                 { label: 'القراءات', items: [readingItem] },
             ],
         };
-    }
-
-    function closeStatement() {
-        statementRequest.current?.cancel();
-        setLoadingStatement(null);
-        setStatementForm(null);
-        router.replace({
-            url: urlWithoutStatement(),
-            props: (props) => ({ ...props, statement: null }),
-            preserveScroll: true,
-            preserveState: true,
-        });
     }
 
     const modalProps = {
@@ -308,13 +273,13 @@ export default function Index({
             )}
 
             {/* Keyed by subscriber so each statement opens with its own filters and forms. */}
-            {statementSubscriber && (
+            {statementWindow.subscriber && (
                 <StatementModal
-                    key={statementSubscriber.id}
-                    subscriber={statementSubscriber}
-                    statement={statement?.subscriber.id === statementSubscriber.id ? statement : null}
-                    initialForm={statementForm}
-                    onClose={closeStatement}
+                    key={statementWindow.subscriber.id}
+                    subscriber={statementWindow.subscriber}
+                    statement={statementWindow.statement}
+                    initialForm={statementWindow.form}
+                    onClose={statementWindow.close}
                 />
             )}
         </AuthenticatedLayout>

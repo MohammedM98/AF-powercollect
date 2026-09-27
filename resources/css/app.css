@@ -284,6 +284,33 @@
     border-end-end-radius: 0;
 }
 
+/* A totals line between a table and its pagination (the financial log). */
+.data-table-totals {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 24px;
+    padding: 14px 24px;
+    border: 1px solid rgb(var(--gray-100));
+    border-top: 0;
+    background: rgb(var(--surface));
+}
+
+.data-table-container:has(+ .data-table-totals) {
+    border-bottom: 0;
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+}
+
+.data-table-totals:not(:has(+ .data-table-pagination)) {
+    border-radius: 0 0 28px 28px;
+}
+
+.data-table-totals + .data-table-pagination {
+    border-top: 1px solid rgb(var(--gray-100));
+}
+
 .data-table-pagination {
     padding: 16px 24px 20px;
     border: 1px solid rgb(var(--gray-100));
@@ -488,6 +515,30 @@
 /* A row that opens when clicked anywhere (see useRowClick). */
 .data-table tbody tr[data-clickable] {
     cursor: pointer;
+}
+
+/* A day's header in a table grouped by day (the financial log): plain text on the tray, not a card. */
+.data-table tbody tr.data-table-group td,
+.data-table tbody tr.data-table-group:hover td,
+.data-table tbody tr.data-table-group:hover td:first-child {
+    padding: 16px 8px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    font-size: inherit;
+    text-align: start;
+    white-space: normal;
+}
+
+@container (max-width: 640px) {
+    .data-table tbody tr.data-table-group {
+        display: block;
+        padding: 14px 4px 0;
+        border: 0;
+        background: none;
+    }
 }
 
 /*

@@ -227,12 +227,15 @@ class DemoActivitySeeder extends Seeder
     }
 
     /**
-     * A working-hours moment on the given day, never later than the real now.
+     * A working-hours moment on the given day; today, one before the real now.
      */
     private function timeOn(Carbon $day): Carbon
     {
-        $at = $day->copy()->setTime(fake()->numberBetween(8, 17), fake()->numberBetween(0, 59), fake()->numberBetween(0, 59));
+        $opening = $day->copy()->setTime(8, 0);
+        $closing = $day->copy()->setTime(17, 59, 59)->min($this->startedAt);
 
-        return $at->min($this->startedAt);
+        return $closing->lte($opening)
+            ? $closing->copy()
+            : Carbon::createFromTimestamp(fake()->numberBetween($opening->getTimestamp(), $closing->getTimestamp()), $day->getTimezone());
     }
 }

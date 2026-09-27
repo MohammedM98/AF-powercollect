@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\BranchPerformanceController;
 use App\Http\Controllers\CircuitBreakerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GovernorateController;
+use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MeterBoxController;
 use App\Http\Controllers\MeterReadingController;
 use App\Http\Controllers\PermissionController;
@@ -32,6 +34,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
+    Route::get('/branch-performance', [BranchPerformanceController::class, 'index'])->name('branch-performance.index');
+    Route::get('/branch-performance/{branch}', [BranchPerformanceController::class, 'show'])->name('branch-performance.show');
 
     Route::resource('branches', BranchController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update']);

@@ -8,6 +8,8 @@ use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
 use Database\Factories\SubscriberTransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -58,6 +60,12 @@ class SubscriberTransaction extends Model
 
     /** An amount taken off what the subscriber owes. */
     public const TYPE_DISCOUNT = 'discount';
+
+    /**
+     * The lines in the subscriber's favour (له); every other type is a
+     * charge (عليه).
+     */
+    public const CREDIT_TYPES = [self::TYPE_PAYMENT, self::TYPE_DISCOUNT];
 
     protected function casts(): array
     {
@@ -181,7 +189,25 @@ class SubscriberTransaction extends Model
      */
     public function isCredit(): bool
     {
-        return in_array($this->type, [self::TYPE_PAYMENT, self::TYPE_DISCOUNT], true);
+        return in_array($this->type, self::CREDIT_TYPES, true);
+    }
+
+    /**
+     * Only the charges (عليه): readings, fees, settlements and penalties.
+     */
+    #[Scope]
+    protected function charges(Builder $query): void
+    {
+        $query->whereNotIn($query->qualifyColumn('type'), self::CREDIT_TYPES);
+    }
+
+    /**
+     * Only the lines in the subscriber's favour (له): payments and discounts.
+     */
+    #[Scope]
+    protected function credits(Builder $query): void
+    {
+        $query->whereIn($query->qualifyColumn('type'), self::CREDIT_TYPES);
     }
 
     /**

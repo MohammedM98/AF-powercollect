@@ -9,6 +9,7 @@ use App\Enums\PaymentMethod;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\User;
+use Illuminate\Http\Request;
 
 /**
  * A subscriber's account statement — every charge, payment and discount,
@@ -18,6 +19,27 @@ use App\Models\User;
  */
 trait BuildsSubscriberStatement
 {
+    /**
+     * The statement shown in a window over a list, for the subscriber named
+     * by `?statement=` — kept in the address so the window stays open after
+     * a payment, charge or discount is saved in it. Null when none is asked
+     * for, or the subscriber isn't one the actor may see.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function requestedStatement(Request $request, User $actor): ?array
+    {
+        $subscriberId = $request->query('statement');
+
+        if (! is_string($subscriberId) || ! ctype_digit($subscriberId)) {
+            return null;
+        }
+
+        $subscriber = Subscriber::query()->visibleTo($actor)->find($subscriberId);
+
+        return $subscriber && $actor->can('view', $subscriber) ? $this->subscriberStatement($actor, $subscriber) : null;
+    }
+
     /**
      * @return array<string, mixed>
      */

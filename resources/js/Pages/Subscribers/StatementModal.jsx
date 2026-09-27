@@ -60,9 +60,19 @@ export default function StatementModal({ subscriber, statement, initialForm = nu
                                     <StatusPill tone={STATUS_TONES[header.status]} label={header.statusLabel} />
                                 </div>
                                 <p className="mt-0.5 text-sm text-gray-500">
-                                    حساب <span dir="ltr">{header.accountNumber}</span> · {header.tariffCategoryLabel}
-                                    {header.tariffSegmentName && ` (${header.tariffSegmentName})`}
-                                    {header.meterBoxNumber && ` · طبلون ${header.meterBoxNumber}`} · {header.branchName}
+                                    {header.accountNumber && (
+                                        <>
+                                            حساب <span dir="ltr">{header.accountNumber}</span> ·{' '}
+                                        </>
+                                    )}
+                                    {header.tariffCategoryLabel && (
+                                        <>
+                                            {header.tariffCategoryLabel}
+                                            {header.tariffSegmentName && ` (${header.tariffSegmentName})`} ·{' '}
+                                        </>
+                                    )}
+                                    {header.meterBoxNumber && `طبلون ${header.meterBoxNumber} · `}
+                                    {header.branchName}
                                 </p>
                             </div>
                         </div>

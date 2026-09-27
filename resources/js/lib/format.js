@@ -47,6 +47,11 @@ export function formatMoney(amount) {
     return (cents / 100).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
+/** A part of a whole as a whole percentage (96 of 159 → 60), or 0 when the whole is empty. */
+export function percentOf(part, whole) {
+    return whole > 0 ? Math.round((part / whole) * 100) : 0;
+}
+
 /** A calendar date (Y-m-d) at midnight UTC, so formatting never shifts it by a day. */
 function calendarDate(day) {
     return new Date(`${day}T00:00:00Z`);

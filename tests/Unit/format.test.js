@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatClock, formatDayLabel, formatMoney, formatNumber, formatShortDay, initials, timeAgo } from '../../resources/js/lib/format.js';
+import {
+    formatClock,
+    formatDayLabel,
+    formatMoney,
+    formatNumber,
+    formatShortDay,
+    initials,
+    percentOf,
+    timeAgo,
+} from '../../resources/js/lib/format.js';
 
 test('avatar initials take the first letters of the first two words, skipping a title', () => {
     assert.equal(initials("Ahmad O'Keefe"), 'AO');
@@ -21,6 +30,12 @@ test('money gets thousands separators and decimals only when it has them', () =>
     assert.equal(formatMoney(1255.5), '1,255.50');
     assert.equal(formatMoney(null), '0');
     assert.equal(formatNumber(1234.6), '1,235');
+});
+
+test('a share is a whole percentage, and nothing of an empty whole', () => {
+    assert.equal(percentOf(96, 159), 60);
+    assert.equal(percentOf(0, 12), 0);
+    assert.equal(percentOf(5, 0), 0);
 });
 
 test('calendar days read in Arabic without shifting across time zones', () => {

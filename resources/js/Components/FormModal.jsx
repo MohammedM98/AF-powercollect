@@ -4,6 +4,7 @@ import ConfirmDialog, { SaveConfirmDialog } from '@/Components/ConfirmDialog';
 import Icon from '@/Components/Icon';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
+import { clearErrorOnInput, validateFormFields } from '@/lib/formValidation';
 
 /**
  * The create/edit modal every resource uses: a header with an icon and
@@ -14,6 +15,8 @@ import SecondaryButton from '@/Components/SecondaryButton';
  * question's explanation), and closing with unsaved input
  * asks whether to discard it. Closing clears the form, and a successful
  * save closes the modal. `visitOptions` are passed on to the save request.
+ * Fields are checked in the page first, with their errors shown under
+ * them rather than in the browser's pop-ups.
  */
 export default function FormModal({
     show,
@@ -53,6 +56,10 @@ export default function FormModal({
     function submit(e) {
         e.preventDefault();
 
+        if (!validateFormFields(e.currentTarget, form)) {
+            return;
+        }
+
         if (confirmBeforeSave) {
             setPendingConfirmation('save');
         } else {
@@ -63,7 +70,7 @@ export default function FormModal({
     return (
         <>
             <Modal show={show} onClose={requestClose} maxWidth={maxWidth}>
-                <form onSubmit={submit} className="flex max-h-[90vh] flex-col">
+                <form noValidate onSubmit={submit} onInput={(e) => clearErrorOnInput(e, form)} className="flex max-h-[90vh] flex-col">
                     <div className="flex items-center justify-between border-b border-gray-100 px-7 py-5">
                         <div className="flex items-center gap-3">
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">

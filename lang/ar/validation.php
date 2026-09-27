@@ -201,6 +201,7 @@ return [
         'exchange_rate' => 'سعر الصرف',
         'payment_method' => 'طريقة الدفع',
         'bank_name' => 'البنك',
+        'sender_name' => 'اسم المحوِّل',
         'reference_number' => 'الرقم المرجعي',
         'cash_box' => 'رقم الصندوق',
         'manual_voucher_number' => 'السند اليدوي',

@@ -19,6 +19,8 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
         exchange_rate: '',
         payment_method: 'cash',
         bank_name: '',
+        // Who the transfer came from: the subscriber unless someone else paid.
+        sender_name: subscriber.fullName,
         reference_number: '',
         cash_box: '',
         manual_voucher_number: '',
@@ -174,6 +176,32 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
                         />
                         <p className="mt-1 text-xs text-gray-500">الصندوق الذي استلم المبلغ (اختياري)</p>
                         <InputError message={errors.cash_box} className="mt-2" />
+                    </div>
+                )}
+                {throughBank && (
+                    <div>
+                        <InputLabel htmlFor="sender_name" value="اسم المحوِّل" />
+                        <TextInput
+                            id="sender_name"
+                            required
+                            className="mt-1 w-full"
+                            value={data.sender_name}
+                            onChange={(e) => setData('sender_name', e.target.value)}
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                            {data.sender_name.trim() === subscriber.fullName ? (
+                                'المشترك نفسه — غيّره إن حوّل شخص آخر من حسابه'
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setData('sender_name', subscriber.fullName)}
+                                    className="font-medium text-gray-700 underline hover:text-gray-900"
+                                >
+                                    حوّل المشترك بنفسه؟ استخدم اسمه
+                                </button>
+                            )}
+                        </p>
+                        <InputError message={errors.sender_name} className="mt-2" />
                     </div>
                 )}
                 {throughBank && (

@@ -32,6 +32,7 @@ use Illuminate\Support\Str;
     'exchange_rate',
     'payment_method',
     'bank_name',
+    'sender_name',
     'reference_number',
     'voucher_number',
     'manual_voucher_number',
@@ -77,7 +78,7 @@ class SubscriberTransaction extends Model
      * at `exchange_rate` (always 1 for shekels), with the next voucher
      * number.
      *
-     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string}  $payment
+     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, sender_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string}  $payment
      */
     public static function recordPayment(Subscriber $subscriber, User $collector, array $payment): self
     {
@@ -99,6 +100,7 @@ class SubscriberTransaction extends Model
                 'exchange_rate' => $exchangeRate,
                 'payment_method' => $method,
                 'bank_name' => $method->throughBank() ? $payment['bank_name'] : null,
+                'sender_name' => $method->throughBank() ? ($payment['sender_name'] ?? null) : null,
                 'reference_number' => $method === PaymentMethod::Cash ? null : ($payment['reference_number'] ?? null),
                 'voucher_number' => $voucherNumber,
                 'manual_voucher_number' => $payment['manual_voucher_number'] ?? null,
@@ -199,7 +201,7 @@ class SubscriberTransaction extends Model
                 : 'قراءة أسبوعية',
             self::TYPE_PAYMENT => match ($this->payment_method) {
                 PaymentMethod::Cash => 'دفعة نقدية',
-                PaymentMethod::BankTransfer => 'دفعة بتحويل بنكي',
+                PaymentMethod::BankTransfer => $this->sender_name ? 'دفعة بتحويل بنكي من '.$this->sender_name : 'دفعة بتحويل بنكي',
                 PaymentMethod::Cheque => 'دفعة بشيك',
                 PaymentMethod::EWallet => 'دفعة بمحفظة إلكترونية',
                 default => 'دفعة',

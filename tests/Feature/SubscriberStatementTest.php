@@ -118,19 +118,38 @@ class SubscriberStatementTest extends TestCase
         $this->assertSame('1.0000', $payment->exchange_rate);
     }
 
-    public function test_a_bank_transfer_needs_one_of_the_transfer_banks_and_its_number_and_keeps_no_cash_box(): void
+    public function test_a_bank_transfer_needs_one_of_the_transfer_banks_its_number_and_sender_and_keeps_no_cash_box(): void
     {
-        $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => '', 'reference_number' => ''])
-            ->assertSessionHasErrors(['bank_name' => 'اختر البنك أو المحفظة التي حُوّل إليها المبلغ.', 'reference_number']);
-        $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => 'بنك القاهرة', 'reference_number' => 'TRX-1'])
+        $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => '', 'reference_number' => '', 'sender_name' => ''])
+            ->assertSessionHasErrors([
+                'bank_name' => 'اختر البنك أو المحفظة التي حُوّل إليها المبلغ.',
+                'reference_number',
+                'sender_name' => 'أدخل اسم صاحب الحساب الذي حُوّل منه المبلغ.',
+            ]);
+        $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => 'بنك القاهرة', 'reference_number' => 'TRX-1', 'sender_name' => 'Ahmad'])
             ->assertSessionHasErrors(['bank_name' => 'اختر أحد البنوك أو المحافظ المتاحة.']);
         $this->assertDatabaseCount('subscriber_transactions', 0);
 
-        $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => 'جوال باي', 'reference_number' => 'TRX-88214', 'cash_box' => '3'])
-            ->assertSessionHasNoErrors();
+        $this->recordPayment([
+            'payment_method' => 'bank_transfer',
+            'bank_name' => 'جوال باي',
+            'reference_number' => 'TRX-88214',
+            'sender_name' => 'محمود سالم',
+            'cash_box' => '3',
+        ])->assertSessionHasNoErrors();
 
         $transfer = SubscriberTransaction::sole();
         $this->assertSame(['جوال باي', 'TRX-88214', null], [$transfer->bank_name, $transfer->reference_number, $transfer->cash_box]);
+        $this->assertSame('دفعة بتحويل بنكي من محمود سالم', $transfer->description());
+    }
+
+    public function test_a_cash_payment_keeps_no_sender(): void
+    {
+        $this->recordPayment(['payment_method' => 'cash', 'sender_name' => 'محمود سالم'])->assertSessionHasNoErrors();
+
+        $payment = SubscriberTransaction::sole();
+        $this->assertNull($payment->sender_name);
+        $this->assertSame('دفعة نقدية', $payment->description());
     }
 
     /**

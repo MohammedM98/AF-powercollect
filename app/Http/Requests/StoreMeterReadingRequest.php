@@ -41,7 +41,7 @@ class StoreMeterReadingRequest extends FormRequest
                     ->when(! $actor->isSuperAdmin(), fn ($rule) => $rule->where('branch_id', $actor->branch_id)),
             ],
             'week_start' => ['required', 'date', 'before_or_equal:today'],
-            'current_reading' => ['required', 'integer', 'min:0', 'max:4294967295'],
+            'current_reading' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -89,7 +89,7 @@ class StoreMeterReadingRequest extends FormRequest
 
                 $previousReading = $subscriber->previousReadingBefore($weekStart);
 
-                if ($this->integer('current_reading') < $previousReading) {
+                if ($this->float('current_reading') < $previousReading) {
                     $validator->errors()->add('current_reading', "القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة ({$previousReading}).");
                 }
             },

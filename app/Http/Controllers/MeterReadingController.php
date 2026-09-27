@@ -110,8 +110,8 @@ class MeterReadingController extends Controller
         $subscriber = Subscriber::with(['tariff', 'circuitBreaker'])->findOrFail($request->integer('subscriber_id'));
         $weekStart = $request->weekStart();
         $previousReading = $subscriber->previousReadingBefore($weekStart);
-        $currentReading = $request->integer('current_reading');
-        $consumption = $currentReading - $previousReading;
+        $currentReading = $request->float('current_reading');
+        $consumption = MeterReading::consumptionBetween($previousReading, $currentReading);
         $unitPrice = (string) $subscriber->tariff->rate;
         $minimumPayment = $subscriber->weeklyMinimumPayment();
 
@@ -145,7 +145,7 @@ class MeterReadingController extends Controller
     {
         $actor = $request->user();
         $wentBackToReview = $meterReading->correct(
-            $request->integer('current_reading'),
+            $request->float('current_reading'),
             $request->has('notes') ? $request->input('notes') : $meterReading->notes,
         );
 
@@ -369,7 +369,7 @@ class MeterReadingController extends Controller
             'fullName' => $subscriber->full_name,
             'meterBoxNumber' => $subscriber->meterBox?->box_number,
             'subAreaName' => $subscriber->meterBox?->subArea?->name,
-            'previousReading' => $reading?->previous_reading ?? (int) ($lastBefore?->current_reading ?? $subscriber->initial_reading ?? 0),
+            'previousReading' => $reading?->previous_reading ?? (float) ($lastBefore?->current_reading ?? $subscriber->initial_reading ?? 0),
             'unitPrice' => (string) ($reading?->unit_price ?? $subscriber->tariff->rate),
             'minimumPayment' => (string) ($reading?->minimum_payment ?? $subscriber->weeklyMinimumPayment()),
             'reading' => $reading ? [

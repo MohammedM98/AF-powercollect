@@ -45,7 +45,7 @@ class StoreSubscriberRequest extends FormRequest
             'status' => ['required', Rule::enum(SubscriberStatus::class)],
             'circuit_breaker_id' => ['nullable', Rule::exists('circuit_breakers', 'id')],
             'minimum_charge' => ['required', 'numeric', 'min:0'],
-            'initial_reading' => ['required', 'integer', 'min:0'],
+            'initial_reading' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'subscription_fee' => ['nullable', 'numeric', 'min:0'],
             'subscription_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],

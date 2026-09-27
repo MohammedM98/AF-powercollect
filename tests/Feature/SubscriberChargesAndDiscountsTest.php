@@ -72,7 +72,8 @@ class SubscriberChargesAndDiscountsTest extends TestCase
                 ->where('entries.1.isCredit', true)
                 ->where('summary.balance', '70.00')
                 ->where('summary.charged', '100.00')
-                ->where('summary.discounted', '30.00'));
+                ->where('summary.discounted', '30.00')
+                ->where('unpaidCharges.0.remaining', '70.00'));
     }
 
     public function test_a_kilowatt_discount_is_priced_at_the_subscribers_kilo_price(): void

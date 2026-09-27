@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -58,6 +59,9 @@ class SubscriberTransaction extends Model
     /** An amount taken off what the subscriber owes. */
     public const TYPE_DISCOUNT = 'discount';
 
+    /** The lines in the subscriber's favour (له); every other line is a charge (عليه). */
+    public const CREDIT_TYPES = [self::TYPE_PAYMENT, self::TYPE_DISCOUNT];
+
     protected function casts(): array
     {
         return [
@@ -77,7 +81,10 @@ class SubscriberTransaction extends Model
      * at `exchange_rate` (always 1 for shekels), with the next voucher
      * number.
      *
-     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string}  $payment
+     * The payment goes towards the charges in `charge_ids` first, then the
+     * other unpaid charges, oldest first (Subscriber::applyCredits()).
+     *
+     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string, charge_ids?: array<int, int|string>}  $payment
      */
     public static function recordPayment(Subscriber $subscriber, User $collector, array $payment): self
     {
@@ -89,7 +96,7 @@ class SubscriberTransaction extends Model
         return DB::transaction(function () use ($subscriber, $collector, $payment, $currency, $method, $exchangeRate, $inShekels): self {
             $voucherNumber = (int) self::query()->lockForUpdate()->max('voucher_number') + 1;
 
-            return $subscriber->transactions()->create([
+            $recorded = $subscriber->transactions()->create([
                 'recorded_by' => $collector->id,
                 'type' => self::TYPE_PAYMENT,
                 'source_key' => 'payment:'.$voucherNumber,
@@ -105,6 +112,10 @@ class SubscriberTransaction extends Model
                 'cash_box' => $method === PaymentMethod::Cash ? ($payment['cash_box'] ?? null) : null,
                 'notes' => $payment['notes'] ?? null,
             ]);
+
+            $subscriber->applyCredits($payment['charge_ids'] ?? []);
+
+            return $recorded;
         });
     }
 
@@ -113,13 +124,19 @@ class SubscriberTransaction extends Model
      */
     public static function recordCharge(Subscriber $subscriber, User $recorder, ChargeType $type, float|string $amount, ?string $notes): self
     {
-        return $subscriber->transactions()->create([
-            'recorded_by' => $recorder->id,
-            'type' => $type->value,
-            'source_key' => 'charge:'.Str::ulid(),
-            'amount' => number_format((float) $amount, 2, '.', ''),
-            'notes' => $notes,
-        ]);
+        return DB::transaction(function () use ($subscriber, $recorder, $type, $amount, $notes): self {
+            $charge = $subscriber->transactions()->create([
+                'recorded_by' => $recorder->id,
+                'type' => $type->value,
+                'source_key' => 'charge:'.Str::ulid(),
+                'amount' => number_format((float) $amount, 2, '.', ''),
+                'notes' => $notes,
+            ]);
+
+            $subscriber->applyCredits();
+
+            return $charge;
+        });
     }
 
     /**
@@ -134,16 +151,22 @@ class SubscriberTransaction extends Model
             DiscountMethod::Shekel => null,
         };
 
-        return $subscriber->transactions()->create([
-            'recorded_by' => $recorder->id,
-            'type' => self::TYPE_DISCOUNT,
-            'source_key' => 'discount:'.Str::ulid(),
-            'amount' => number_format(-self::discountFor($method, $value, $base), 2, '.', ''),
-            'discount_method' => $method,
-            'discount_value' => $value,
-            'discount_base' => $base,
-            'notes' => $notes,
-        ]);
+        return DB::transaction(function () use ($subscriber, $recorder, $method, $value, $base, $notes): self {
+            $discount = $subscriber->transactions()->create([
+                'recorded_by' => $recorder->id,
+                'type' => self::TYPE_DISCOUNT,
+                'source_key' => 'discount:'.Str::ulid(),
+                'amount' => number_format(-self::discountFor($method, $value, $base), 2, '.', ''),
+                'discount_method' => $method,
+                'discount_value' => $value,
+                'discount_base' => $base,
+                'notes' => $notes,
+            ]);
+
+            $subscriber->applyCredits();
+
+            return $discount;
+        });
     }
 
     /**
@@ -179,7 +202,62 @@ class SubscriberTransaction extends Model
      */
     public function isCredit(): bool
     {
-        return in_array($this->type, [self::TYPE_PAYMENT, self::TYPE_DISCOUNT], true);
+        return in_array($this->type, self::CREDIT_TYPES, true);
+    }
+
+    /**
+     * What is still open on the line, in agorot (1/100 shekel): for a
+     * charge, what is left to pay; for a payment or discount, what hasn't
+     * gone towards a charge yet. Needs coveredCharges or coveringCredits.
+     */
+    public function openCents(): int
+    {
+        $allocations = $this->isCredit() ? $this->coveredCharges : $this->coveringCredits;
+        $amount = (int) round(abs((float) $this->amount) * 100);
+
+        return $amount - (int) $allocations->sum(fn (self $line): int => (int) round((float) $line->pivot->amount * 100));
+    }
+
+    /**
+     * What a payment paid for, shown in its البيان: the charges it went
+     * towards and how much to each, and what is left of it as credit (له).
+     * Needs coveredCharges loaded.
+     */
+    public function paidForText(): ?string
+    {
+        if (! $this->isPayment()) {
+            return null;
+        }
+
+        $parts = [];
+        $charges = $this->coveredCharges->sortBy('id');
+
+        if ($charges->isNotEmpty()) {
+            $parts[] = 'عن: '.$charges
+                ->map(fn (self $charge): string => sprintf('%s (%s)', $charge->chargeLabel(), self::formatAmount($charge->pivot->amount)))
+                ->implode('، ');
+        }
+
+        if (($unused = $this->openCents()) > 0) {
+            $parts[] = sprintf($charges->isEmpty() ? 'رصيد له %s شيكل' : 'والباقي %s شيكل رصيد له', self::formatAmount($unused / 100));
+        }
+
+        return $parts ? implode(' · ', $parts) : null;
+    }
+
+    /**
+     * A charge's short name, as the payment form lists it and a payment's
+     * البيان names what it paid for.
+     */
+    public function chargeLabel(): string
+    {
+        return match ($this->type) {
+            self::TYPE_METER_READING => $this->meterReading
+                ? 'قراءة الأسبوع المنتهي في '.$this->meterReading->week_end->format('Y-m-d')
+                : 'قراءة أسبوعية',
+            self::TYPE_SUBSCRIPTION_FEE => 'رسوم اشتراك',
+            default => $this->typeLabel().' '.$this->created_at->format('Y-m-d'),
+        };
     }
 
     /**
@@ -250,5 +328,27 @@ class SubscriberTransaction extends Model
     public function meterReading(): BelongsTo
     {
         return $this->belongsTo(MeterReading::class);
+    }
+
+    /**
+     * The charges this payment or discount went towards; `pivot->amount`
+     * is how much went to each.
+     */
+    public function coveredCharges(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'transaction_allocations', 'credit_id', 'charge_id')
+            ->withPivot('amount')
+            ->withTimestamps();
+    }
+
+    /**
+     * The payments and discounts that went towards this charge;
+     * `pivot->amount` is how much each paid.
+     */
+    public function coveringCredits(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'transaction_allocations', 'charge_id', 'credit_id')
+            ->withPivot('amount')
+            ->withTimestamps();
     }
 }

@@ -25,7 +25,7 @@ class SubscriberStatementController extends Controller
         $subscriber->load(['branch', 'tariff', 'tariffSegment', 'meterBox']);
 
         $transactions = $subscriber->transactions()
-            ->with(['recordedBy', 'meterReading'])
+            ->with(['recordedBy', 'meterReading', 'coveredCharges.meterReading', 'coveringCredits'])
             ->oldest()
             ->orderBy('id')
             ->get();
@@ -63,6 +63,15 @@ class SubscriberStatementController extends Controller
                 'discounted' => $this->money(-$sumOf($discounts)),
                 'discountsCount' => $discounts->count(),
             ],
+            // What a payment can be picked for: the charges not yet paid, oldest first.
+            'unpaidCharges' => $transactions->reject->isCredit()
+                ->filter(fn (SubscriberTransaction $charge): bool => $charge->openCents() > 0)
+                ->map(fn (SubscriberTransaction $charge): array => [
+                    'id' => $charge->id,
+                    'label' => $charge->chargeLabel(),
+                    'remaining' => $this->money($charge->openCents()),
+                ])
+                ->values(),
             'canRecordPayment' => $request->user()->can('recordPayment', $subscriber),
             'canAdjustBalance' => $request->user()->can('adjustBalance', $subscriber),
             'currencies' => Currency::options(),
@@ -79,8 +88,9 @@ class SubscriberStatementController extends Controller
     /**
      * One statement line. `balance` is what the subscriber owes after it
      * (negative when they are in credit); `amount` is what was charged,
-     * handed over or discounted, in the line's own currency. `details` is
-     * what the user wrote about it (a reading's notes for a weekly reading).
+     * handed over or discounted, in the line's own currency. `paidFor` is
+     * what a payment paid for; `details` is what the user wrote about the
+     * line (a reading's notes for a weekly reading).
      *
      * @return array<string, mixed>
      */
@@ -105,6 +115,7 @@ class SubscriberStatementController extends Controller
             'referenceNumber' => $transaction->reference_number,
             'cashBox' => $transaction->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
+            'paidFor' => $transaction->paidForText(),
             'details' => $transaction->notes ?? $transaction->meterReading?->notes,
         ];
     }

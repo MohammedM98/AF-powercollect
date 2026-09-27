@@ -41,6 +41,9 @@ export default function RowMenu({ anchor, menu, onClose }) {
     const [position, setPosition] = useState(null);
     const items = menu.groups.flatMap((group) => group.items);
 
+    // Hidden until placed, and a hidden item can't take focus: focus the first one once it shows.
+    const placed = phone || position !== null;
+
     useLayoutEffect(() => {
         if (!phone) {
             setPosition(placeBeside(anchor, menuRef.current));
@@ -48,8 +51,12 @@ export default function RowMenu({ anchor, menu, onClose }) {
     }, [anchor, phone]);
 
     useEffect(() => {
-        menuRef.current?.querySelector('[role="menuitem"]:not([aria-disabled="true"])')?.focus();
+        if (placed) {
+            menuRef.current?.querySelector('[role="menuitem"]:not([aria-disabled="true"])')?.focus();
+        }
+    }, [placed]);
 
+    useEffect(() => {
         function onPointerDown(event) {
             if (!menuRef.current?.contains(event.target) && !anchor.contains(event.target)) {
                 onClose(false);
@@ -190,7 +197,8 @@ export default function RowMenu({ anchor, menu, onClose }) {
                                 ) : item.disabled && item.hint ? (
                                     <span className="shrink-0 text-[12px] text-gray-500">{item.hint}</span>
                                 ) : (
-                                    item.shortcut && (
+                                    item.shortcut &&
+                                    !phone && (
                                         <kbd className="kbd shrink-0" dir="ltr">
                                             {item.shortcut}
                                         </kbd>

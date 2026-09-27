@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\PermissionKey;
 use App\Enums\SubscriberStatus;
+use App\Http\Concerns\BuildsSubscriberStatement;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreSubscriberRequest;
 use App\Http\Requests\UpdateSubscriberRequest;
@@ -27,7 +28,7 @@ use Inertia\Response as InertiaResponse;
 
 class SubscriberController extends Controller
 {
-    use FiltersDataTable;
+    use BuildsSubscriberStatement, FiltersDataTable;
 
     private const SORTABLE = ['account_number', 'full_name', 'status', 'created_at'];
 
@@ -56,10 +57,12 @@ class SubscriberController extends Controller
         return Inertia::render('Subscribers/Index', [
             'subscribers' => $subscribers,
             'canCreate' => $actor->can('create', Subscriber::class),
+            'canRecordReadings' => $canRecordReadings,
             'filters' => $this->dataTableState($request, 'full_name'),
             'filterOptions' => $this->filterOptions($actor),
             // Only the Super Admin may enter a reading for an earlier week.
             'readingWeekOptions' => MeterReading::recentWeekOptions($actor->isSuperAdmin() ? 8 : 1),
+            'statement' => fn () => $this->requestedStatement($request, $actor),
             ...$this->formOptions(),
         ]);
     }
@@ -165,6 +168,8 @@ class SubscriberController extends Controller
             'lastReadingWeekStart' => $latestReading?->week_start->format('Y-m-d'),
             'canRecordReading' => $canRecordReadings && $subscriber->status === SubscriberStatus::Active,
             'canUpdate' => $actor->can('update', $subscriber),
+            'canRecordPayment' => $actor->can('recordPayment', $subscriber),
+            'canAdjustBalance' => $actor->can('adjustBalance', $subscriber),
         ];
     }
 

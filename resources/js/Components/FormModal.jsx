@@ -4,7 +4,7 @@ import ConfirmDialog, { SaveConfirmDialog } from '@/Components/ConfirmDialog';
 import Icon from '@/Components/Icon';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
-import { clearErrorOnInput, validateFormFields } from '@/lib/formValidation';
+import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/formValidation';
 
 /**
  * The create/edit modal every resource uses: a header with an icon and
@@ -16,7 +16,8 @@ import { clearErrorOnInput, validateFormFields } from '@/lib/formValidation';
  * asks whether to discard it. Closing clears the form, and a successful
  * save closes the modal. `visitOptions` are passed on to the save request.
  * Fields are checked in the page first, with their errors shown under
- * them rather than in the browser's pop-ups.
+ * them rather than in the browser's pop-ups. Ctrl + Enter (⌘ + Enter on a
+ * Mac) saves from any field.
  */
 export default function FormModal({
     show,
@@ -70,7 +71,13 @@ export default function FormModal({
     return (
         <>
             <Modal show={show} onClose={requestClose} maxWidth={maxWidth}>
-                <form noValidate onSubmit={submit} onInput={(e) => clearErrorOnInput(e, form)} className="flex max-h-[90vh] flex-col">
+                <form
+                    noValidate
+                    onSubmit={submit}
+                    onInput={(e) => clearErrorOnInput(e, form)}
+                    onKeyDown={submitOnCtrlEnter}
+                    className="flex max-h-[90vh] flex-col"
+                >
                     <div className="flex items-center justify-between border-b border-gray-100 px-7 py-5">
                         <div className="flex items-center gap-3">
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
@@ -91,6 +98,12 @@ export default function FormModal({
                     <div className={`flex-1 overflow-y-auto px-7 py-6 ${bodyClassName}`}>{children}</div>
 
                     <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-7 py-4">
+                        <span className="me-auto hidden items-center gap-1.5 text-xs text-gray-500 sm:inline-flex">
+                            <span className="kbd" dir="ltr">
+                                Ctrl + Enter
+                            </span>
+                            للحفظ
+                        </span>
                         <SecondaryButton onClick={requestClose}>إلغاء</SecondaryButton>
                         <PrimaryButton disabled={form.processing}>{form.processing ? 'جارٍ الحفظ...' : 'حفظ'}</PrimaryButton>
                     </div>

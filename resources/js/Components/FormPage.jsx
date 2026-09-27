@@ -3,12 +3,12 @@ import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { SaveConfirmDialog } from '@/Components/ConfirmDialog';
 import PrimaryButton from '@/Components/PrimaryButton';
-import { clearErrorOnInput, validateFormFields } from '@/lib/formValidation';
+import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/formValidation';
 
 /**
  * The standalone Create/Edit page every resource uses: a titled card
  * holding the form fields (children), with Save and Cancel. Saving asks
- * for confirmation first.
+ * for confirmation first; Ctrl + Enter saves from any field.
  *
  * `form` comes from useResourceForm(); `cancelHref` is where Cancel goes.
  * Pass `layout={SettingsLayout}` for pages under the Settings tabs.
@@ -35,7 +35,7 @@ export default function FormPage({ title, form, cancelHref, layout: Layout = Aut
 
             <div className={widthClass}>
                 <div className="rise-in rounded-card border border-gray-100 bg-surface p-6 shadow-card">
-                    <form noValidate onSubmit={submit} onInput={(e) => clearErrorOnInput(e, form)}>
+                    <form noValidate onSubmit={submit} onInput={(e) => clearErrorOnInput(e, form)} onKeyDown={submitOnCtrlEnter}>
                         {children}
 
                         <div className="mt-6 flex items-center gap-4">

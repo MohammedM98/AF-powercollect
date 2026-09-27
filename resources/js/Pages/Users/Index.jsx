@@ -10,11 +10,13 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useRowClick } from '@/hooks/useRowClick';
 import UserModal from './UserModal';
 
 export default function Index({ users, canCreate, branches, canChooseBranch, createRoleOptions, filters, filterOptions }) {
     const [modalUser, setModalUser] = useState(null);
     const [creating, setCreating] = useState(false);
+    const rowClick = useRowClick();
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/users', filters);
 
     return (
@@ -67,7 +69,7 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
                             </tr>
                         ) : (
                             users.data.map((user) => (
-                                <tr key={user.id}>
+                                <tr key={user.id} {...rowClick(user.canUpdate ? () => setModalUser(user) : null)}>
                                     <td>
                                         <RowIdentity name={user.name} subtitle={user.roleLabel} status={user.is_active ? 'green' : 'gray'} />
                                     </td>

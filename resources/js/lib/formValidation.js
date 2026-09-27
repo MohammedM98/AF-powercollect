@@ -63,6 +63,17 @@ export function validateFormFields(formElement, form) {
 }
 
 /**
+ * Save a form with Ctrl + Enter (⌘ + Enter on a Mac) from any of its
+ * fields, a textarea included, going through its usual checks.
+ */
+export function submitOnCtrlEnter(event) {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.nativeEvent?.isComposing) {
+        event.preventDefault();
+        event.currentTarget.requestSubmit();
+    }
+}
+
+/**
  * Clear a field's error as soon as it is edited, so the message doesn't
  * linger once the value is fixed.
  */

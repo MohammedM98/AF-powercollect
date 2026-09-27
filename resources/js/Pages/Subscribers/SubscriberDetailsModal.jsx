@@ -1,5 +1,4 @@
 import { useId, useState } from 'react';
-import { Link } from '@inertiajs/react';
 import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
@@ -7,6 +6,7 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatCurrency } from '@/lib/currency';
 import Icon from '@/Components/Icon';
 import { describeBalance } from '@/lib/accountStatement';
+import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 
 const STATUS_TONES = {
@@ -36,22 +36,15 @@ function Section({ title, children }) {
     );
 }
 
-export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, canUpdate, readingWeekOptions = [] }) {
+export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, onOpenStatement, canUpdate, readingWeekOptions = [] }) {
     const [activeTab, setActiveTab] = useState('transactions');
     const [expanded, setExpanded] = useState(false);
     const [enteringReading, setEnteringReading] = useState(false);
     const tabsId = useId();
     const balance = describeBalance(subscriber?.outstandingBalance ?? 0);
     const lastReading = subscriber?.meterReadings?.[0];
-    const currentWeekRecorded = Boolean(lastReading && lastReading.weekStart === readingWeekOptions[0]?.value);
-    const readingSubscriberOption = subscriber
-        ? {
-              value: String(subscriber.id),
-              label: `${subscriber.account_number} — ${subscriber.full_name}`,
-              lastReading: subscriber.lastReading,
-              lastWeekStart: subscriber.lastReadingWeekStart,
-          }
-        : null;
+    const currentWeekRecorded = subscriber ? hasLatestWeekReading(subscriber, readingWeekOptions) : false;
+    const readingSubscriberOption = subscriber ? readingOptionFor(subscriber) : null;
 
     return (
         <>
@@ -248,13 +241,14 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                         )}
                                     </div>
                                 )}
-                                <Link
-                                    href={`/subscribers/${subscriber.id}/statement`}
-                                    className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-5 transition hover:border-gray-300 hover:shadow-card"
+                                <button
+                                    type="button"
+                                    onClick={onOpenStatement}
+                                    className="flex w-full items-center justify-between gap-4 rounded-xl border border-gray-200 p-5 text-start transition hover:border-gray-300 hover:shadow-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
                                 >
                                     <span className="flex items-center gap-3">
                                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
-                                            <Icon name="table" />
+                                            <Icon name="ledger" />
                                         </span>
                                         <span>
                                             <span className="block font-semibold text-gray-900">كشف الحساب</span>
@@ -263,8 +257,8 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, ca
                                             </span>
                                         </span>
                                     </span>
-                                    <span className="shrink-0 text-sm font-semibold text-brand-600">فتح ←</span>
-                                </Link>
+                                    <span className="shrink-0 text-sm font-semibold text-brand-600">عرض ←</span>
+                                </button>
                             </div>
                         </div>
 

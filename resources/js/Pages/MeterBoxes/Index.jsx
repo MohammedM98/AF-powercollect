@@ -9,6 +9,7 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useRowClick } from '@/hooks/useRowClick';
 import MeterBoxModal from './MeterBoxModal';
 
 export default function Index({
@@ -25,6 +26,7 @@ export default function Index({
 }) {
     const [modalMeterBox, setModalMeterBox] = useState(null);
     const [creating, setCreating] = useState(false);
+    const rowClick = useRowClick();
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-boxes', filters);
 
     return (
@@ -82,7 +84,7 @@ export default function Index({
                             </tr>
                         ) : (
                             meterBoxes.data.map((meterBox) => (
-                                <tr key={meterBox.id}>
+                                <tr key={meterBox.id} {...rowClick(meterBox.canUpdate ? () => setModalMeterBox(meterBox) : null)}>
                                     <td>
                                         <RowIdentity icon="table" name={meterBox.name} subtitle={meterBox.subAreaName} />
                                     </td>

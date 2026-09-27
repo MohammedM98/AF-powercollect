@@ -21,6 +21,7 @@ export default function Create({
                 data={form.data}
                 setData={form.setData}
                 errors={form.errors}
+                clearErrors={form.clearErrors}
                 branches={branches}
                 meterBoxes={meterBoxes}
                 tariffs={tariffs}

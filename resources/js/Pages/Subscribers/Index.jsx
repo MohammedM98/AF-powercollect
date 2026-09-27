@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
@@ -10,8 +10,13 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useRowClick } from '@/hooks/useRowClick';
+import { useStatementWindow } from '@/hooks/useStatementWindow';
+import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
+import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import SubscriberModal from './SubscriberModal';
 import SubscriberDetailsModal from './SubscriberDetailsModal';
+import StatementModal from './StatementModal';
 
 const STATUS_TONES = {
     active: 'green',
@@ -19,9 +24,30 @@ const STATUS_TONES = {
     disconnected: 'gray',
 };
 
+/** A row of the list in the shape the statement window's header reads. */
+function statementHeader(subscriber) {
+    return {
+        id: subscriber.id,
+        fullName: subscriber.full_name,
+        accountNumber: subscriber.account_number,
+        status: subscriber.status,
+        statusLabel: subscriber.statusLabel,
+        branchName: subscriber.branchName,
+        tariffCategoryLabel: subscriber.tariffCategoryLabel,
+        tariffSegmentName: subscriber.tariffSegmentName,
+        meterBoxNumber: subscriber.meterBoxNumber,
+    };
+}
+
+/** Why a menu action is locked: the permission it needs and who grants it. */
+function needsPermission(permission) {
+    return `تحتاج صلاحية «${permission}» — يمنحها مدير الفرع أو مدير النظام.`;
+}
+
 export default function Index({
     subscribers,
     canCreate,
+    canRecordReadings,
     branches,
     meterBoxes,
     tariffs,
@@ -34,6 +60,7 @@ export default function Index({
     filters,
     filterOptions,
     readingWeekOptions,
+    statement,
 }) {
     const [modalSubscriber, setModalSubscriber] = useState(null);
     const [viewingSubscriberId, setViewingSubscriberId] = useState(null);
@@ -41,7 +68,62 @@ export default function Index({
     // statement refreshes after a reading is saved from inside it.
     const viewingSubscriber = subscribers.data.find((subscriber) => subscriber.id === viewingSubscriberId) ?? null;
     const [creating, setCreating] = useState(false);
+    const [readingSubscriber, setReadingSubscriber] = useState(null);
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/subscribers', filters);
+    const rowClick = useRowClick();
+
+    const statementWindow = useStatementWindow(statement);
+
+    /** Show a subscriber's financial history; `form` also opens its payment, charge or discount form. */
+    function openStatement(subscriber, form = null) {
+        statementWindow.open(statementHeader(subscriber), form);
+    }
+
+    /** The row's "more" menu: the account's forms and entering this week's reading. */
+    function rowMenu(subscriber) {
+        const readingItem = { label: 'إدخال قراءة', icon: 'gauge', shortcut: 'R', onSelect: () => setReadingSubscriber(subscriber) };
+
+        if (!canRecordReadings) {
+            readingItem.lockedReason = needsPermission('تسجيل القراءات');
+        } else if (subscriber.status !== 'active') {
+            Object.assign(readingItem, { disabled: true, hint: 'المشترك غير نشط' });
+        } else if (hasLatestWeekReading(subscriber, readingWeekOptions)) {
+            Object.assign(readingItem, { disabled: true, hint: 'مُدخلة هذا الأسبوع' });
+        }
+
+        return {
+            title: subscriber.full_name,
+            subtitle: subscriber.phone,
+            groups: [
+                {
+                    label: 'الحساب المالي',
+                    items: [
+                        { label: 'كشف الحساب', icon: 'ledger', shortcut: 'S', onSelect: () => openStatement(subscriber) },
+                        {
+                            label: 'تسجيل دفعة',
+                            icon: 'banknotes',
+                            shortcut: 'P',
+                            onSelect: () => openStatement(subscriber, 'payment'),
+                            lockedReason: subscriber.canRecordPayment ? null : needsPermission('تسجيل التحصيلات'),
+                        },
+                        {
+                            label: 'إضافة تحميل',
+                            icon: 'document-plus',
+                            onSelect: () => openStatement(subscriber, 'charge'),
+                            lockedReason: subscriber.canAdjustBalance ? null : needsPermission('إضافة تحميل وخصم'),
+                        },
+                        {
+                            label: 'إضافة خصم',
+                            icon: 'discount',
+                            onSelect: () => openStatement(subscriber, 'discount'),
+                            lockedReason: subscriber.canAdjustBalance ? null : needsPermission('إضافة تحميل وخصم'),
+                        },
+                    ],
+                },
+                { label: 'القراءات', items: [readingItem] },
+            ],
+        };
+    }
 
     const modalProps = {
         branches,
@@ -112,19 +194,17 @@ export default function Index({
                             </tr>
                         ) : (
                             subscribers.data.map((subscriber) => (
-                                <tr key={subscriber.id}>
+                                <tr key={subscriber.id} {...rowClick(() => setViewingSubscriberId(subscriber.id))}>
                                     <td className="text-end text-gray-600" dir="ltr">
                                         {subscriber.account_number}
                                     </td>
                                     <td>
-                                        <button type="button" onClick={() => setViewingSubscriberId(subscriber.id)} className="text-start">
-                                            <RowIdentity
-                                                name={subscriber.full_name}
-                                                subtitle={subscriber.phone}
-                                                subtitleDir="ltr"
-                                                status={STATUS_TONES[subscriber.status]}
-                                            />
-                                        </button>
+                                        <RowIdentity
+                                            name={subscriber.full_name}
+                                            subtitle={subscriber.phone}
+                                            subtitleDir="ltr"
+                                            status={STATUS_TONES[subscriber.status]}
+                                        />
                                     </td>
                                     <td className="text-gray-600">
                                         {subscriber.meterBoxNumber ? <span className="data-chip">{subscriber.meterBoxNumber}</span> : '—'}
@@ -138,11 +218,11 @@ export default function Index({
                                         <StatusPill tone={STATUS_TONES[subscriber.status]} label={subscriber.statusLabel} />
                                     </td>
                                     <td className="text-end">
-                                        <RowActionsMenu>
-                                            <button onClick={() => setViewingSubscriberId(subscriber.id)}>عرض</button>
-                                            <Link href={`/subscribers/${subscriber.id}/statement`}>كشف الحساب</Link>
-                                            {subscriber.canUpdate && <button onClick={() => setModalSubscriber(subscriber)}>تعديل</button>}
-                                        </RowActionsMenu>
+                                        <RowActionsMenu
+                                            onView={() => setViewingSubscriberId(subscriber.id)}
+                                            onEdit={subscriber.canUpdate ? () => setModalSubscriber(subscriber) : undefined}
+                                            menu={rowMenu(subscriber)}
+                                        />
                                     </td>
                                 </tr>
                             ))
@@ -179,7 +259,29 @@ export default function Index({
                     setModalSubscriber(viewingSubscriber);
                     setViewingSubscriberId(null);
                 }}
+                onOpenStatement={() => openStatement(viewingSubscriber)}
             />
+
+            {readingSubscriber && (
+                <MeterReadingModal
+                    show
+                    onClose={() => setReadingSubscriber(null)}
+                    reading={null}
+                    fixedSubscriber={readingOptionFor(readingSubscriber)}
+                    weekOptions={readingWeekOptions}
+                />
+            )}
+
+            {/* Keyed by subscriber so each statement opens with its own filters and forms. */}
+            {statementWindow.subscriber && (
+                <StatementModal
+                    key={statementWindow.subscriber.id}
+                    subscriber={statementWindow.subscriber}
+                    statement={statementWindow.statement}
+                    initialForm={statementWindow.form}
+                    onClose={statementWindow.close}
+                />
+            )}
         </AuthenticatedLayout>
     );
 }

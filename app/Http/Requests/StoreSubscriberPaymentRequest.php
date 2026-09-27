@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\Currency;
 use App\Enums\PaymentMethod;
+use App\Models\SubscriberTransaction;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -38,6 +39,15 @@ class StoreSubscriberPaymentRequest extends FormRequest
             'cash_box' => ['exclude_unless:payment_method,'.PaymentMethod::Cash->value, 'nullable', 'string', 'max:20'],
             'manual_voucher_number' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            // What the payment is for: the subscriber's own charges.
+            'charge_ids' => ['nullable', 'array'],
+            'charge_ids.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('subscriber_transactions', 'id')
+                    ->where('subscriber_id', $this->route('subscriber')->id)
+                    ->whereNotIn('type', SubscriberTransaction::CREDIT_TYPES),
+            ],
         ];
     }
 
@@ -49,6 +59,7 @@ class StoreSubscriberPaymentRequest extends FormRequest
         return [
             'bank_name.required' => 'اختر البنك أو المحفظة التي حُوّل إليها المبلغ.',
             'bank_name.in' => 'اختر أحد البنوك أو المحافظ المتاحة.',
+            'charge_ids.*' => 'أحد البنود المختارة لا يخص هذا المشترك.',
         ];
     }
 

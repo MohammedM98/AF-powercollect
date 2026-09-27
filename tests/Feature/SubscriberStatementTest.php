@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ChargeType;
 use App\Models\Branch;
 use App\Models\MeterReading;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
@@ -165,6 +167,94 @@ class SubscriberStatementTest extends TestCase
         $this->assertDatabaseCount('subscriber_transactions', 0);
     }
 
+    public function test_a_payment_goes_to_the_charges_picked_for_it_and_its_line_says_what_it_paid_for(): void
+    {
+        $fee = $this->charge('subscription_fee', '50.00');
+        $penalty = $this->charge('penalty', '20.00');
+
+        $this->recordPayment(['amount' => '20', 'charge_ids' => [$penalty->id]])->assertSessionHasNoErrors();
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.2.paidFor', 'عن: غرامة مالية 2026-08-20 (20)')
+                ->where('unpaidCharges', [['id' => $fee->id, 'label' => 'رسوم اشتراك', 'remaining' => '50.00']]));
+    }
+
+    public function test_a_payment_without_picks_pays_the_oldest_charges_and_anything_over_stays_as_credit(): void
+    {
+        $this->charge('subscription_fee', '50.00');
+        $this->charge('penalty', '20.00');
+
+        $this->recordPayment(['amount' => '100'])->assertSessionHasNoErrors();
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.2.paidFor', 'عن: رسوم اشتراك (50)، غرامة مالية 2026-08-20 (20) · والباقي 30 شيكل رصيد له')
+                ->where('summary.balance', '-30.00')
+                ->where('unpaidCharges', []));
+    }
+
+    public function test_credit_left_from_a_payment_goes_towards_the_next_charge(): void
+    {
+        $this->charge('subscription_fee', '50.00');
+        $this->recordPayment(['amount' => '80']);
+
+        SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::Settlement, '40', null);
+
+        $payment = SubscriberTransaction::where('type', 'payment')->sole();
+        $this->assertSame('عن: رسوم اشتراك (50)، تسوية 2026-08-20 (30)', $payment->paidForText());
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page->where('unpaidCharges.0.remaining', '10.00'));
+    }
+
+    public function test_reopening_an_approved_reading_frees_what_paid_for_it_until_it_is_approved_again(): void
+    {
+        $reading = MeterReading::factory()->create([
+            'subscriber_id' => $this->subscriber->id,
+            'unit_price' => '0.50',
+            'minimum_payment' => '0.00',
+            'amount_due' => '53.70',
+        ]);
+        $reading->approve($this->branchAdmin);
+        $this->recordPayment(['amount' => '53.70']);
+        $payment = SubscriberTransaction::where('type', 'payment')->sole();
+
+        $reading->correct($reading->current_reading + 10, null);
+
+        $this->assertSame('رصيد له 53.70 شيكل', $payment->fresh()->paidForText());
+
+        $reading->fresh()->approve($this->branchAdmin);
+
+        $this->assertStringStartsWith('عن: قراءة الأسبوع المنتهي في ', $payment->fresh()->paidForText());
+    }
+
+    public function test_a_payment_can_only_be_picked_for_the_subscribers_own_charges(): void
+    {
+        $othersCharge = SubscriberTransaction::factory()->create();
+
+        $this->recordPayment(['charge_ids' => [$othersCharge->id]])
+            ->assertSessionHasErrors(['charge_ids.0' => 'أحد البنود المختارة لا يخص هذا المشترك.']);
+
+        $this->assertDatabaseCount('subscriber_transactions', 1);
+    }
+
+    public function test_payments_recorded_before_are_set_against_the_oldest_charges(): void
+    {
+        $fee = $this->charge('subscription_fee', '50.00');
+        $penalty = $this->charge('penalty', '20.00');
+        $payment = $this->charge('payment', '-60.00');
+
+        $this->subscriber->applyCredits();
+
+        $this->assertSame(
+            [$fee->id => 50.0, $penalty->id => 10.0],
+            $payment->coveredCharges()->orderBy('charge_id')->get()->mapWithKeys(fn ($charge) => [$charge->id => (float) $charge->pivot->amount])->all(),
+        );
+    }
+
     public function test_the_statement_is_only_shown_within_the_actors_branch(): void
     {
         $this->actingAs(User::factory()->branchAdmin()->create())
@@ -176,8 +266,17 @@ class SubscriberStatementTest extends TestCase
             ->assertForbidden();
     }
 
+    private function charge(string $type, string $amount): SubscriberTransaction
+    {
+        return SubscriberTransaction::factory()->for($this->subscriber)->create([
+            'type' => $type,
+            'amount' => $amount,
+            'source_key' => $type.':'.Str::ulid(),
+        ]);
+    }
+
     /**
-     * @param  array<string, string>  $overrides
+     * @param  array<string, mixed>  $overrides
      */
     private function recordPayment(array $overrides = [], ?User $actor = null): TestResponse
     {

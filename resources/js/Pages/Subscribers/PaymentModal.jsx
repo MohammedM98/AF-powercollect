@@ -3,16 +3,32 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import { useResourceForm } from '@/hooks/useResourceForm';
-import { describeBalance, paymentInShekels } from '@/lib/accountStatement';
+import { allocatePayment, describeBalance, paymentInShekels } from '@/lib/accountStatement';
 import { formatAmount, formatCurrency } from '@/lib/currency';
 import { AccountHeader, BalanceAfter } from './AccountSummary';
 
+/** What a payment will be recorded against, as its البيان will read. */
+function paidForText({ covered, leftover }) {
+    const parts = [];
+
+    if (covered.length) {
+        parts.push(`عن: ${covered.map((charge) => `${charge.label} (${formatAmount(charge.amount)})`).join('، ')}`);
+    }
+
+    if (leftover > 0) {
+        parts.push(covered.length ? `والباقي ${formatAmount(leftover)} شيكل رصيد له` : `رصيد له ${formatAmount(leftover)} شيكل`);
+    }
+
+    return parts.join(' · ');
+}
+
 /**
- * Record a payment on a subscriber's account: how much, in which currency
- * and at what rate, and how it was paid. Shows what it takes off the
- * balance before saving.
+ * Record a payment on a subscriber's account: what it is for (the unpaid
+ * charges ticked, or the oldest ones), how much, in which currency and at
+ * what rate, and how it was paid. Shows what it pays for and the balance
+ * it leaves before saving; anything paid over what is owed stays as credit.
  */
-export default function PaymentModal({ show, onClose, subscriber, balance, currencies, paymentMethods, transferBanks }) {
+export default function PaymentModal({ show, onClose, subscriber, balance, unpaidCharges, currencies, paymentMethods, transferBanks }) {
     const form = useResourceForm(`/subscribers/${subscriber.id}/payments`, null, {
         amount: '',
         currency: 'ILS',
@@ -23,6 +39,7 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
         cash_box: '',
         manual_voucher_number: '',
         notes: '',
+        charge_ids: [],
     });
     const { data, setData, errors } = form;
 
@@ -30,11 +47,26 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
     const throughBank = data.payment_method === 'bank_transfer';
     const inShekels = paymentInShekels(data.amount, data.currency, data.exchange_rate);
     const balanceAfter = inShekels === null ? null : describeBalance(Number(balance) - inShekels);
+    const allocation = inShekels === null ? null : allocatePayment(inShekels, unpaidCharges, data.charge_ids);
+
+    // Ticking what the payment is for fills in their total (in shekels).
+    function toggleCharge(chargeId) {
+        const chargeIds = data.charge_ids.includes(chargeId) ? data.charge_ids.filter((id) => id !== chargeId) : [...data.charge_ids, chargeId];
+        const total = unpaidCharges
+            .filter((charge) => chargeIds.includes(charge.id))
+            .reduce((sum, charge) => sum + Math.round(Number(charge.remaining) * 100), 0);
+
+        setData((current) => ({
+            ...current,
+            charge_ids: chargeIds,
+            ...(current.currency === 'ILS' && chargeIds.length ? { amount: String(total / 100) } : {}),
+        }));
+    }
     const currencyLabel = currencies.find((currency) => currency.value === data.currency)?.label;
     const confirmMessage =
         inShekels === null
             ? null
-            : `سيتم تسجيل دفعة بقيمة ${formatAmount(data.amount)} ${currencyLabel}${isShekel ? '' : ` (${formatAmount(inShekels)} شيكل)`} على حساب ${subscriber.fullName}، ويصبح الرصيد ${
+            : `سيتم تسجيل دفعة بقيمة ${formatAmount(data.amount)} ${currencyLabel}${isShekel ? '' : ` (${formatAmount(inShekels)} شيكل)`} على حساب ${subscriber.fullName} (${paidForText(allocation)})، ويصبح الرصيد ${
                   balanceAfter.tone === 'settled' ? 'مسدّدًا' : `${balanceAfter.amount} شيكل ${balanceAfter.label}`
               }. هل تريد المتابعة؟`;
 
@@ -50,6 +82,39 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
             saveConfirmMessage={confirmMessage}
         >
             <AccountHeader subscriber={subscriber} balance={balance} />
+
+            <fieldset>
+                <legend className="text-sm font-medium text-gray-700">عن ماذا هذه الدفعة؟</legend>
+                {unpaidCharges.length === 0 ? (
+                    <p className="mt-1 text-sm text-gray-500">لا توجد مستحقات غير مدفوعة — تُسجَّل الدفعة رصيدًا للمشترك (له).</p>
+                ) : (
+                    <>
+                        <div className="mt-1 max-h-48 divide-y divide-gray-100 overflow-y-auto rounded-xl border border-gray-100">
+                            {unpaidCharges.map((charge) => (
+                                <label
+                                    key={charge.id}
+                                    className="flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-gray-50"
+                                >
+                                    <span className="flex items-center gap-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={data.charge_ids.includes(charge.id)}
+                                            onChange={() => toggleCharge(charge.id)}
+                                        />
+                                        <span className="text-gray-900">{charge.label}</span>
+                                    </span>
+                                    <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(charge.remaining)}</span>
+                                </label>
+                            ))}
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">إذا لم تختر شيئًا تُسدَّد أقدم المستحقات أولًا.</p>
+                    </>
+                )}
+                <InputError
+                    message={errors.charge_ids ?? Object.entries(errors).find(([key]) => key.startsWith('charge_ids.'))?.[1]}
+                    className="mt-2"
+                />
+            </fieldset>
 
             <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -217,6 +282,12 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
                 />
                 <InputError message={errors.notes} className="mt-2" />
             </div>
+
+            {allocation && (
+                <p className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
+                    تُسجَّل في البيان: {paidForText(allocation)}
+                </p>
+            )}
 
             <BalanceAfter label="الرصيد بعد الدفعة" balanceAfter={balanceAfter} placeholder="أدخل المبلغ" />
         </FormModal>

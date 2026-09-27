@@ -84,7 +84,8 @@ class SubscriberTransaction extends Model
     /**
      * Record a payment on the subscriber's account, converted to shekels
      * at `exchange_rate` (always 1 for shekels), with the next voucher
-     * number.
+     * number. A transfer keeps its bank, sender and reference; cash keeps
+     * its cash box and paper voucher.
      *
      * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, sender_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string}  $payment
      */
@@ -111,7 +112,7 @@ class SubscriberTransaction extends Model
                 'sender_name' => $method->throughBank() ? ($payment['sender_name'] ?? null) : null,
                 'reference_number' => $method === PaymentMethod::Cash ? null : ($payment['reference_number'] ?? null),
                 'voucher_number' => $voucherNumber,
-                'manual_voucher_number' => $payment['manual_voucher_number'] ?? null,
+                'manual_voucher_number' => $method === PaymentMethod::Cash ? ($payment['manual_voucher_number'] ?? null) : null,
                 'cash_box' => $method === PaymentMethod::Cash ? ($payment['cash_box'] ?? null) : null,
                 'notes' => $payment['notes'] ?? null,
             ]);
@@ -176,6 +177,15 @@ class SubscriberTransaction extends Model
     public static function formatAmount(float|string $amount): string
     {
         return Str::replaceEnd('.00', '', number_format((float) $amount, 2, '.', ''));
+    }
+
+    /**
+     * The voucher number as it is printed, six digits (000042), or null
+     * for a line that has none.
+     */
+    public function printedVoucherNumber(): ?string
+    {
+        return $this->voucher_number ? str_pad((string) $this->voucher_number, 6, '0', STR_PAD_LEFT) : null;
     }
 
     public function isPayment(): bool

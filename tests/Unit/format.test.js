@@ -7,6 +7,7 @@ import {
     formatNumber,
     formatShortDay,
     initials,
+    normalizeDecimalInput,
     percentOf,
     timeAgo,
 } from '../../resources/js/lib/format.js';
@@ -36,6 +37,16 @@ test('a share is a whole percentage, and nothing of an empty whole', () => {
     assert.equal(percentOf(96, 159), 60);
     assert.equal(percentOf(0, 12), 0);
     assert.equal(percentOf(5, 0), 0);
+});
+
+test('typed amounts keep plain digits and one decimal point', () => {
+    assert.equal(normalizeDecimalInput('١٬٢٥٠٫٥٧٩'), '1250.57');
+    assert.equal(normalizeDecimalInput('۲۵'), '25');
+    assert.equal(normalizeDecimalInput('1,250.5'), '1250.5');
+    assert.equal(normalizeDecimalInput('12.5.3'), '12.53');
+    assert.equal(normalizeDecimalInput('3.71234', 4), '3.7123');
+    assert.equal(normalizeDecimalInput('.5'), '.5');
+    assert.equal(normalizeDecimalInput('abc'), '');
 });
 
 test('calendar days read in Arabic without shifting across time zones', () => {

@@ -52,6 +52,22 @@ export function percentOf(part, whole) {
     return whole > 0 ? Math.round((part / whole) * 100) : 0;
 }
 
+/**
+ * A typed number as plain digits, for a money field: Arabic-Indic digits
+ * become 0-9, the Arabic decimal mark a point, thousands separators and
+ * anything else are dropped, and at most `decimals` digits stay after the
+ * first point ("١٬٢٥٠٫٥٧٩" → "1250.57").
+ */
+export function normalizeDecimalInput(text, decimals = 2) {
+    const [whole, ...fraction] = String(text ?? '')
+        .replace(/[\u0660-\u0669\u06f0-\u06f9]/g, (digit) => String(digit.charCodeAt(0) % 16))
+        .replace(/\u066b/g, '.')
+        .replace(/[^0-9.]/g, '')
+        .split('.');
+
+    return fraction.length > 0 ? `${whole}.${fraction.join('').slice(0, decimals)}` : whole;
+}
+
 /** A calendar date (Y-m-d) at midnight UTC, so formatting never shifts it by a day. */
 function calendarDate(day) {
     return new Date(`${day}T00:00:00Z`);

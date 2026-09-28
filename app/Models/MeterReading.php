@@ -162,8 +162,8 @@ class MeterReading extends Model
     /**
      * Approve the reading: it is locked from then on, and its amount is
      * charged to the subscriber's transactions — the week's full bill, with
-     * its standing discount beside it as a discount line. A reading that is
-     * already approved is left as it is.
+     * its standing discount beside it as a line of its own (خصم قراءة
+     * أسبوعية). A reading that is already approved is left as it is.
      */
     public function approve(User $approver): void
     {
@@ -193,7 +193,7 @@ class MeterReading extends Model
                 $reading->subscriber->transactions()->create([
                     'recorded_by' => $approver->id,
                     'meter_reading_id' => $reading->id,
-                    'type' => SubscriberTransaction::TYPE_DISCOUNT,
+                    'type' => SubscriberTransaction::TYPE_READING_DISCOUNT,
                     'source_key' => $reading->discountSourceKey(),
                     'amount' => number_format(-(float) $reading->discount_amount, 2, '.', ''),
                     'currency_amount' => $reading->discount_amount,

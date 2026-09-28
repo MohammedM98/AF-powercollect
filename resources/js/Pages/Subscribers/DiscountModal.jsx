@@ -294,8 +294,8 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
 
                 {isStanding ? (
                     <p className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                        يُطبَّق على القراءات التي تُدخل من الآن، ويظهر في كشف الحساب سطر خصم بجانب كل قراءة معتمدة. القراءات المسجلة قبل ذلك تبقى كما
-                        هي.
+                        يُطبَّق على القراءات التي تُدخل من الآن، ويظهر في كشف الحساب حركة «خصم قراءة أسبوعية» بجانب كل قراءة معتمدة. القراءات المسجلة
+                        قبل ذلك تبقى كما هي.
                     </p>
                 ) : (
                     <BalanceAfter label="الرصيد بعد الخصم" balanceAfter={balanceAfter} placeholder="أدخل قيمة الخصم" />

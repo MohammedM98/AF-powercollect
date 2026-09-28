@@ -176,7 +176,7 @@ class SubscriberStandingDiscountTest extends TestCase
         $this->assertSame(['60.00', '40.00', '20.00'], [$reading->reading_fee, $reading->discount_amount, $reading->amount_due]);
     }
 
-    public function test_approving_a_discounted_reading_charges_the_full_bill_with_the_discount_beside_it(): void
+    public function test_approving_a_discounted_reading_charges_the_full_bill_with_its_discount_as_a_transaction_of_its_own(): void
     {
         StandingDiscount::factory()->for($this->subscriber)->kilowatts(3)->create();
         $this->recordReading(1205, 'عداد جديد');
@@ -193,13 +193,16 @@ class SubscriberStandingDiscountTest extends TestCase
                 ->where('entries.0.description', 'قراءة أسبوعية من 2026-09-18 إلى 2026-09-24 · 5 كيلو')
                 ->where('entries.0.amount', '150.00')
                 ->where('entries.0.details', 'عداد جديد')
-                ->where('entries.1.description', 'خصم دائم على القراءة الأسبوعية: 3 كيلو')
-                ->where('entries.1.typeLabel', 'خصم')
+                ->where('entries.1.type', 'reading_discount')
+                ->where('entries.1.typeLabel', 'خصم قراءة أسبوعية')
+                ->where('entries.1.description', 'خصم قراءة أسبوعية من 2026-09-18 إلى 2026-09-24 · 3 كيلو')
                 ->where('entries.1.isCredit', true)
                 ->where('entries.1.amount', '90.00')
                 ->where('entries.1.details', null)
                 ->where('summary.balance', '60.00')
-                ->where('summary.discounted', '90.00'));
+                ->where('summary.discounted', '90.00')
+                ->where('summary.discountsCount', 1)
+                ->where('transactionTypes', fn ($types): bool => collect($types)->contains(['value' => 'reading_discount', 'label' => 'خصم قراءة أسبوعية'])));
     }
 
     public function test_correcting_an_approved_reading_takes_its_discount_off_too_and_keeps_the_discount_it_was_recorded_with(): void

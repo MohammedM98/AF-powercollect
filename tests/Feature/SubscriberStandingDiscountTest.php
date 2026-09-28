@@ -9,6 +9,7 @@ use App\Models\MeterReading;
 use App\Models\StandingDiscount;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
+use App\Models\TariffSegment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -45,18 +46,21 @@ class SubscriberStandingDiscountTest extends TestCase
         $this->subscriber->tariff->update(['rate' => 30]);
     }
 
-    public function test_a_standing_discount_is_given_to_the_subscriber_and_shown_on_their_account(): void
+    public function test_a_standing_discount_is_given_to_a_customer_segment_and_shown_on_the_subscribers_account(): void
     {
-        $this->giveDiscount(['method' => 'kilowatt', 'value' => '3', 'notes' => 'موظف في الشركة'])
+        $this->giveDiscount(['method' => 'kilowatt', 'value' => '3', 'segment' => 'موظفو أبو زايد', 'notes' => 'قسم الصيانة'])
             ->assertSessionHasNoErrors()
             ->assertSessionHas('status', 'standing-discount-saved')
             ->assertRedirect(route('subscribers.statement', $this->subscriber));
 
         $discount = $this->subscriber->standingDiscount()->sole();
-        $this->assertSame([DiscountMethod::Kilowatt, '3.00', 'موظف في الشركة'], [$discount->method, $discount->value, $discount->notes]);
+        $this->assertSame(
+            [DiscountMethod::Kilowatt, '3.00', 'موظفو أبو زايد', 'قسم الصيانة'],
+            [$discount->method, $discount->value, $discount->segment, $discount->notes],
+        );
         $this->assertTrue($discount->grantedBy->is($this->branchAdmin));
         $this->assertSame(
-            ['action' => 'standing-discount-saved', 'subject' => 'Ahmad — 3 كيلو'],
+            ['action' => 'standing-discount-saved', 'subject' => 'Ahmad — 3 كيلو · موظفو أبو زايد'],
             $this->branchAdmin->notifications()->sole()->data,
         );
 
@@ -64,12 +68,24 @@ class SubscriberStandingDiscountTest extends TestCase
             ->get(route('subscribers.statement', $this->subscriber))
             ->assertInertia(fn ($page) => $page
                 ->where('subscriber.standingDiscount.terms', '3 كيلو')
-                ->where('subscriber.standingDiscount.notes', 'موظف في الشركة')
+                ->where('subscriber.standingDiscount.segment', 'موظفو أبو زايد')
+                ->where('subscriber.standingDiscount.notes', 'قسم الصيانة')
                 ->where('subscriber.standingDiscount.grantedByName', 'Mohammed')
                 ->where('subscriber.standingDiscount.grantedAt', '2026-09-24'));
         $this->actingAs($this->branchAdmin)
             ->get(route('subscribers.index'))
-            ->assertInertia(fn ($page) => $page->where('subscribers.data.0.standingDiscountTerms', '3 كيلو'));
+            ->assertInertia(fn ($page) => $page->where('subscribers.data.0.standingDiscountSummary', '3 كيلو · موظفو أبو زايد'));
+    }
+
+    public function test_the_discount_form_suggests_the_segments_already_given_a_discount_and_the_tariffs_segments(): void
+    {
+        StandingDiscount::factory()->create(['segment' => 'موظفو أبو زايد']);
+        StandingDiscount::factory()->create(['segment' => 'موظفو أبو زايد']);
+        TariffSegment::factory()->for($this->subscriber->tariff)->create(['name' => 'مساجد']);
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page->where('discountSegments', ['مساجد', 'موظفو أبو زايد']));
     }
 
     public function test_giving_a_standing_discount_again_replaces_the_one_the_subscriber_has(): void
@@ -117,6 +133,14 @@ class SubscriberStandingDiscountTest extends TestCase
     {
         $this->giveDiscount(['method' => 'shekel', 'value' => '31'])
             ->assertSessionHasErrors(['value' => 'لا يمكن أن يزيد الخصم على سعر الكيلو (30 شيكل).']);
+
+        $this->assertDatabaseCount('standing_discounts', 0);
+    }
+
+    public function test_a_customer_segment_longer_than_100_characters_is_rejected(): void
+    {
+        $this->giveDiscount(['method' => 'kilowatt', 'value' => '3', 'segment' => str_repeat('س', 101)])
+            ->assertSessionHasErrors('segment');
 
         $this->assertDatabaseCount('standing_discounts', 0);
     }
@@ -177,9 +201,9 @@ class SubscriberStandingDiscountTest extends TestCase
         $this->assertSame(['60.00', '40.00', '20.00'], [$reading->reading_fee, $reading->discount_amount, $reading->amount_due]);
     }
 
-    public function test_approving_a_discounted_reading_charges_the_full_bill_with_its_discount_as_a_transaction_of_its_own(): void
+    public function test_approving_a_discounted_reading_charges_the_full_bill_with_its_permanent_discount_as_a_transaction_of_its_own(): void
     {
-        StandingDiscount::factory()->for($this->subscriber)->kilowatts(3)->create();
+        StandingDiscount::factory()->for($this->subscriber)->kilowatts(3)->create(['segment' => 'موظفو أبو زايد']);
         $this->recordReading(1205, 'عداد جديد');
 
         $this->actingAs($this->branchAdmin)
@@ -195,15 +219,15 @@ class SubscriberStandingDiscountTest extends TestCase
                 ->where('entries.0.amount', '150.00')
                 ->where('entries.0.details', 'عداد جديد')
                 ->where('entries.1.type', 'reading_discount')
-                ->where('entries.1.typeLabel', 'خصم قراءة أسبوعية')
-                ->where('entries.1.description', 'خصم قراءة أسبوعية من 2026-09-18 إلى 2026-09-24 · 3 كيلو')
+                ->where('entries.1.typeLabel', 'خصم دائم')
+                ->where('entries.1.description', 'خصم دائم على قراءة الأسبوع من 2026-09-18 إلى 2026-09-24 · 3 كيلو')
                 ->where('entries.1.isCredit', true)
                 ->where('entries.1.amount', '90.00')
-                ->where('entries.1.details', null)
+                ->where('entries.1.details', 'موظفو أبو زايد')
                 ->where('summary.balance', '60.00')
                 ->where('summary.discounted', '90.00')
                 ->where('summary.discountsCount', 1)
-                ->where('transactionTypes', fn ($types): bool => collect($types)->contains(['value' => 'reading_discount', 'label' => 'خصم قراءة أسبوعية'])));
+                ->where('transactionTypes', fn ($types): bool => collect($types)->contains(['value' => 'reading_discount', 'label' => 'خصم دائم'])));
     }
 
     public function test_correcting_an_approved_reading_takes_its_discount_off_too_and_keeps_the_discount_it_was_recorded_with(): void
@@ -230,10 +254,10 @@ class SubscriberStandingDiscountTest extends TestCase
     {
         $this->recordReading(1205);
 
-        $this->giveDiscount(['method' => 'kilowatt', 'value' => '3'])->assertSessionHasNoErrors();
+        $this->giveDiscount(['method' => 'kilowatt', 'value' => '3', 'segment' => 'مساجد'])->assertSessionHasNoErrors();
 
         $reading = MeterReading::sole();
-        $this->assertSame([DiscountMethod::Kilowatt, '3.00'], [$reading->discount_method, $reading->discount_value]);
+        $this->assertSame([DiscountMethod::Kilowatt, '3.00', 'مساجد'], [$reading->discount_method, $reading->discount_value, $reading->discount_segment]);
         $this->assertSame(['150.00', '90.00', '60.00'], [$reading->reading_fee, $reading->discount_amount, $reading->amount_due]);
         $this->assertSame(MeterReadingStatus::Pending, $reading->status);
         $this->assertDatabaseCount('subscriber_transactions', 0);
@@ -309,20 +333,20 @@ class SubscriberStandingDiscountTest extends TestCase
 
     public function test_the_reading_sheet_bills_a_row_with_its_readings_discount_or_else_the_subscribers(): void
     {
-        $discount = StandingDiscount::factory()->for($this->subscriber)->kilowatts(3)->create();
+        $discount = StandingDiscount::factory()->for($this->subscriber)->kilowatts(3)->create(['segment' => 'موظفو أبو زايد']);
         $this->recordReading(1205);
-        $discount->update(['method' => DiscountMethod::Percentage, 'value' => 10]);
+        $discount->update(['method' => DiscountMethod::Percentage, 'value' => 10, 'segment' => 'مدارس']);
         $notReadYet = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Basem']);
-        StandingDiscount::factory()->for($notReadYet)->shekelsOffKiloPrice(5)->create();
+        StandingDiscount::factory()->for($notReadYet)->shekelsOffKiloPrice(5)->create(['segment' => 'مساجد']);
 
         $this->actingAs($this->branchAdmin)
             ->get(route('meter-readings.index'))
             ->assertInertia(fn ($page) => $page
                 ->where('rows.data.0.fullName', 'Ahmad')
-                ->where('rows.data.0.discount', ['method' => 'kilowatt', 'value' => '3.00', 'terms' => '3 كيلو'])
+                ->where('rows.data.0.discount', ['method' => 'kilowatt', 'value' => '3.00', 'terms' => '3 كيلو', 'segment' => 'موظفو أبو زايد'])
                 ->where('rows.data.0.reading.discountAmount', '90.00')
                 ->where('rows.data.1.fullName', 'Basem')
-                ->where('rows.data.1.discount', ['method' => 'shekel', 'value' => '5.00', 'terms' => '5 شيكل من سعر الكيلو']));
+                ->where('rows.data.1.discount', ['method' => 'shekel', 'value' => '5.00', 'terms' => '5 شيكل من سعر الكيلو', 'segment' => 'مساجد']));
     }
 
     /**

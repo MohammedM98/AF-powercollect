@@ -264,12 +264,12 @@ class SubscriberTransaction extends Model
             },
             self::TYPE_READING_DISCOUNT => $this->meterReading
                 ? sprintf(
-                    'خصم قراءة أسبوعية من %s إلى %s · %s',
+                    'خصم دائم على قراءة الأسبوع من %s إلى %s · %s',
                     $this->meterReading->week_start->format('Y-m-d'),
                     $this->meterReading->week_end->format('Y-m-d'),
                     StandingDiscount::termsFor($this->discount_method, $this->discount_value),
                 )
-                : 'خصم قراءة أسبوعية · '.StandingDiscount::termsFor($this->discount_method, $this->discount_value),
+                : 'خصم دائم · '.StandingDiscount::termsFor($this->discount_method, $this->discount_value),
             default => $this->typeLabel(),
         };
     }
@@ -295,7 +295,7 @@ class SubscriberTransaction extends Model
             ...collect(ChargeType::cases())->mapWithKeys(fn (ChargeType $type) => [$type->value => __($type->label())])->all(),
             self::TYPE_PAYMENT => 'دفعة',
             self::TYPE_DISCOUNT => 'خصم',
-            self::TYPE_READING_DISCOUNT => 'خصم قراءة أسبوعية',
+            self::TYPE_READING_DISCOUNT => 'خصم دائم',
         ];
     }
 

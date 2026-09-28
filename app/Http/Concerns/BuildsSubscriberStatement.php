@@ -65,6 +65,7 @@ trait BuildsSubscriberStatement
         $discounts = $transactions->filter(fn (SubscriberTransaction $transaction): bool => $transaction->isDiscount());
         $sumOf = fn ($lines): int => $lines->sum(fn (SubscriberTransaction $transaction): int => $this->cents($transaction->amount));
         $latestWeekReading = $subscriber->latestWeekReading();
+        $canAdjustBalance = $actor->can('adjustBalance', $subscriber);
 
         return [
             'subscriber' => [
@@ -101,12 +102,14 @@ trait BuildsSubscriberStatement
                 'discountsCount' => $discounts->count(),
             ],
             'canRecordPayment' => $actor->can('recordPayment', $subscriber),
-            'canAdjustBalance' => $actor->can('adjustBalance', $subscriber),
+            'canAdjustBalance' => $canAdjustBalance,
             'currencies' => Currency::options(),
             'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
             'transferBanks' => config('powercollect.transfer_banks'),
             'chargeTypes' => ChargeType::options(),
             'discountMethods' => DiscountMethod::options(),
+            // Offered while typing a standing discount's customer segment.
+            'discountSegments' => $canAdjustBalance ? StandingDiscount::segmentSuggestions() : [],
             'transactionTypes' => collect(SubscriberTransaction::typeLabels())
                 ->map(fn (string $label, string $type): array => ['value' => $type, 'label' => $label])
                 ->values(),
@@ -117,7 +120,7 @@ trait BuildsSubscriberStatement
      * The subscriber's standing discount as the statement shows it, or null
      * when they have none.
      *
-     * @return array{method: string, value: string, terms: string, notes: ?string, grantedByName: ?string, grantedAt: string}|null
+     * @return array{method: string, value: string, terms: string, segment: ?string, notes: ?string, grantedByName: ?string, grantedAt: string}|null
      */
     private function statementStandingDiscount(?StandingDiscount $discount): ?array
     {
@@ -129,6 +132,7 @@ trait BuildsSubscriberStatement
             'method' => $discount->method->value,
             'value' => $discount->value,
             'terms' => $discount->terms(),
+            'segment' => $discount->segment,
             'notes' => $discount->notes,
             'grantedByName' => $discount->grantedBy?->name,
             'grantedAt' => $discount->updated_at->format('Y-m-d'),

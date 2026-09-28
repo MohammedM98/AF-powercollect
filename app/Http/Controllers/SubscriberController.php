@@ -160,7 +160,7 @@ class SubscriberController extends Controller
             'tariffSegmentName' => $subscriber->tariffSegment?->name,
             'tariffRate' => $subscriber->tariff->rate,
             'circuitBreakerAmpere' => $subscriber->circuitBreaker?->ampere,
-            'standingDiscountTerms' => $subscriber->standingDiscount?->terms(),
+            'standingDiscountSummary' => $subscriber->standingDiscount?->summary(),
             'statusLabel' => __($subscriber->status->label()),
             'registeredByName' => $subscriber->registeredBy?->name,
             'outstandingBalance' => $subscriber->outstanding_balance ?? '0.00',

@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'subscriber_id', 'branch_id', 'week_start', 'week_end', 'previous_reading', 'current_reading',
-    'consumption', 'unit_price', 'reading_fee', 'minimum_payment', 'discount_method', 'discount_value', 'discount_amount',
+    'consumption', 'unit_price', 'reading_fee', 'minimum_payment', 'discount_method', 'discount_value', 'discount_segment', 'discount_amount',
     'amount_due', 'status', 'recorded_by', 'notes', 'approved_by', 'approved_at',
 ])]
 class MeterReading extends Model
@@ -162,8 +162,8 @@ class MeterReading extends Model
     /**
      * Approve the reading: it is locked from then on, and its amount is
      * charged to the subscriber's transactions — the week's full bill, with
-     * its standing discount beside it as a line of its own (خصم قراءة
-     * أسبوعية). A reading that is already approved is left as it is.
+     * its standing discount beside it as a line of its own (خصم دائم). A
+     * reading that is already approved is left as it is.
      */
     public function approve(User $approver): void
     {
@@ -210,6 +210,7 @@ class MeterReading extends Model
             $reading->update([
                 'discount_method' => $discount?->method,
                 'discount_value' => $discount?->value,
+                'discount_segment' => $discount?->segment,
                 ...self::chargesFor($reading->consumption, $reading->unit_price, $reading->minimum_payment, $discount?->method, $discount?->value),
             ]);
 
@@ -224,8 +225,9 @@ class MeterReading extends Model
 
     /**
      * Take the reading's standing discount off the subscriber's account as
-     * a line of its own (خصم قراءة أسبوعية) beside the reading's charge; a
-     * reading billed without one takes nothing off.
+     * a line of its own (خصم دائم) beside the reading's charge, naming the
+     * customer segment it was given to in its details; a reading billed
+     * without one takes nothing off.
      */
     private function recordDiscountLine(User $recorder): void
     {
@@ -242,6 +244,7 @@ class MeterReading extends Model
             'currency_amount' => $this->discount_amount,
             'discount_method' => $this->discount_method,
             'discount_value' => $this->discount_value,
+            'notes' => $this->discount_segment,
         ]);
     }
 

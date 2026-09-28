@@ -24,6 +24,7 @@ class SubscriberStandingDiscountController extends Controller
             $discount = $subscriber->standingDiscount()->updateOrCreate([], [
                 'method' => $request->validated('method'),
                 'value' => $request->validated('value'),
+                'segment' => $request->validated('segment'),
                 'notes' => $request->validated('notes'),
                 'granted_by' => $request->user()->id,
             ]);
@@ -33,7 +34,7 @@ class SubscriberStandingDiscountController extends Controller
             return $discount;
         });
 
-        $request->user()->notify(new ActionCompleted('standing-discount-saved', $subscriber->full_name.' — '.$discount->terms()));
+        $request->user()->notify(new ActionCompleted('standing-discount-saved', $subscriber->full_name.' — '.$discount->summary()));
 
         return back()->with('status', 'standing-discount-saved');
     }

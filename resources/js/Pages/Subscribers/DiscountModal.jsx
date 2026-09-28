@@ -10,6 +10,7 @@ import { describeBalance, discountAmount } from '@/lib/accountStatement';
 import { formatAmount, formatCurrency } from '@/lib/currency';
 import { weeklyCharges } from '@/lib/readings';
 import { AccountHeader, BalanceAfter } from './AccountSummary';
+import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './CorrectionFields';
 
 /** A discount comes off the balance once, or off every weekly reading from now on. */
 const KINDS = [
@@ -77,16 +78,37 @@ function ChoiceTile({ name, value, checked, onChange, children }) {
  * the kilo price — until it is stopped. Shows before saving the balance a
  * discount leaves, or what the subscriber would pay for the latest week
  * with a standing one.
+ *
+ * With `correcting` (a statement line), it corrects that one-off discount
+ * instead: the form starts from it, `balance` leaves it out, and saving
+ * cancels it and records this one in its place, with one of
+ * `correctionReasons`.
  */
-export default function DiscountModal({ show, onClose, subscriber, balance, discountMethods, discountSegments = [] }) {
+export default function DiscountModal({
+    show,
+    onClose,
+    subscriber,
+    balance,
+    discountMethods,
+    discountSegments = [],
+    correcting = null,
+    correctionReasons = [],
+}) {
     const standingDiscount = subscriber.standingDiscount;
-    const form = useResourceForm(`/subscribers/${subscriber.id}/discounts`, null, {
-        kind: 'once',
-        method: 'shekel',
-        value: '',
-        segment: '',
-        notes: '',
-    });
+    const form = useResourceForm(
+        correcting ? `/subscribers/${subscriber.id}/transactions` : `/subscribers/${subscriber.id}/discounts`,
+        correcting,
+        correcting
+            ? {
+                  kind: 'once',
+                  method: correcting.recorded.method ?? 'shekel',
+                  value: correcting.recorded.value ? formatAmount(correcting.recorded.value) : '',
+                  segment: '',
+                  notes: correcting.recorded.notes,
+                  ...EMPTY_CORRECTION,
+              }
+            : { kind: 'once', method: 'shekel', value: '', segment: '', notes: '' },
+    );
     const { data, setData, errors } = form;
     const [confirmingStop, setConfirmingStop] = useState(false);
     const [stopping, setStopping] = useState(false);
@@ -134,6 +156,10 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
                 ? `، ويُسجَّل خصم الأسبوع الأخير (${formatCurrency(exampleWithDiscount.discountAmount)}) في المعاملات المالية الآن`
                 : '';
         confirmMessage = `${given} ${scope}${postedNow}. هل تريد المتابعة؟`;
+    } else if (discount !== null && correcting) {
+        confirmMessage = `ستُلغى الحركة الأصلية ويُسجَّل مكانها خصم ${formatAmount(discount)} شيكل، ويصبح الرصيد ${
+            balanceAfter.tone === 'settled' ? 'مسدّدًا' : `${balanceAfter.amount} شيكل ${balanceAfter.label}`
+        }. هل تريد المتابعة؟`;
     } else if (discount !== null) {
         confirmMessage = `سيتم خصم ${formatAmount(discount)} شيكل من حساب ${subscriber.fullName}، ويصبح الرصيد ${
             balanceAfter.tone === 'settled' ? 'مسدّدًا' : `${balanceAfter.amount} شيكل ${balanceAfter.label}`
@@ -188,15 +214,15 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
                 show={show}
                 onClose={onClose}
                 form={discountForm}
-                title="إضافة خصم"
-                icon="dollar"
+                title={correcting ? 'تعديل خصم' : 'إضافة خصم'}
+                icon={correcting ? 'pencil' : 'dollar'}
                 maxWidth="2xl"
                 bodyClassName="space-y-5"
                 saveConfirmMessage={confirmMessage}
             >
-                <AccountHeader subscriber={subscriber} balance={balance} />
+                {correcting ? <OriginalLine entry={correcting} /> : <AccountHeader subscriber={subscriber} balance={balance} />}
 
-                <fieldset>
+                <fieldset hidden={Boolean(correcting)}>
                     <legend className="text-sm font-medium text-gray-700">نوع الخصم</legend>
                     <div className="mt-1 grid grid-cols-2 gap-2">
                         {KINDS.map((kind) => (
@@ -341,6 +367,8 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
                     <InputError message={errors.notes} className="mt-2" />
                 </div>
 
+                {correcting && <CorrectionReasonFields form={form} reasons={correctionReasons} />}
+
                 {isStanding ? (
                     <p className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
                         {!latestWeek &&
@@ -352,7 +380,11 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
                         ويُطبَّق كذلك على كل قراءة بعدها، أما قراءات الأسابيع السابقة فتبقى كما هي.
                     </p>
                 ) : (
-                    <BalanceAfter label="الرصيد بعد الخصم" balanceAfter={balanceAfter} placeholder="أدخل قيمة الخصم" />
+                    <BalanceAfter
+                        label={correcting ? 'الرصيد بعد التعديل' : 'الرصيد بعد الخصم'}
+                        balanceAfter={balanceAfter}
+                        placeholder="أدخل قيمة الخصم"
+                    />
                 )}
             </FormModal>
 

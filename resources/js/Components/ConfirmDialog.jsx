@@ -64,7 +64,23 @@ export default function ConfirmDialog({
  * picks the wording for changing an existing record over adding a new one;
  * `message` replaces the explanation when a save needs a specific warning.
  */
-export function SaveConfirmDialog({ show, isEdit, onConfirm, onCancel, message = null }) {
+export function SaveConfirmDialog({ show, isEdit, onConfirm, onCancel, message = null, action = null }) {
+    if (action) {
+        return (
+            <ConfirmDialog
+                show={show}
+                onConfirm={onConfirm}
+                onCancel={onCancel}
+                title={action.title}
+                message={message}
+                confirmLabel={action.confirmLabel}
+                cancelLabel="مراجعة البيانات"
+                icon={action.icon}
+                tone={action.tone}
+            />
+        );
+    }
+
     return (
         <ConfirmDialog
             show={show}

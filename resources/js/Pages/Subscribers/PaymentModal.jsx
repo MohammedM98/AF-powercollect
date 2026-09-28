@@ -11,6 +11,7 @@ import { useResourceForm } from '@/hooks/useResourceForm';
 import { describeBalance, paymentInShekels } from '@/lib/accountStatement';
 import { formatClock, formatMoney, initials, normalizeDecimalInput } from '@/lib/format';
 import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/formValidation';
+import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './CorrectionFields';
 
 const CURRENCY_ORDER = ['ILS', 'USD', 'JOD'];
 const CURRENCY_SYMBOLS = { ILS: '₪', USD: '$', JOD: 'JD' };
@@ -211,7 +212,7 @@ function PaymentSummary({ amount, symbol, currencyLabel, isShekel, rate, inSheke
 }
 
 /** After saving: what was recorded, the voucher it got and the balance it left. */
-function PaymentReceipt({ receipt, subscriberName, onAnother, onDone }) {
+function PaymentReceipt({ receipt, subscriberName, title, onAnother, onDone }) {
     const after = describeBalance(receipt.balanceAfter);
     const rows = [
         ['رقم السند', receipt.voucherNumber ?? '—'],
@@ -226,7 +227,7 @@ function PaymentReceipt({ receipt, subscriberName, onAnother, onDone }) {
             <span className="mx-auto mb-3.5 flex h-[76px] w-[76px] items-center justify-center rounded-3xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <Icon name="check" className="h-10 w-10" strokeWidth={2.2} />
             </span>
-            <h3 className="font-luxe text-[26px] font-bold text-gray-900">سُجّلت الدفعة</h3>
+            <h3 className="font-luxe text-[26px] font-bold text-gray-900">{title}</h3>
             <p className="mt-1.5 text-gray-600">
                 {formatMoney(receipt.amount)} {receipt.currencyLabel} من {subscriberName} · الرصيد الجديد {balanceText(after)}
             </p>
@@ -239,10 +240,12 @@ function PaymentReceipt({ receipt, subscriberName, onAnother, onDone }) {
                 ))}
             </dl>
             <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-                <SecondaryButton onClick={onAnother} className="h-12 rounded-[14px] px-5 text-[15.5px]">
-                    <Icon name="plus" className="h-[18px] w-[18px]" strokeWidth={2} />
-                    دفعة جديدة
-                </SecondaryButton>
+                {onAnother && (
+                    <SecondaryButton onClick={onAnother} className="h-12 rounded-[14px] px-5 text-[15.5px]">
+                        <Icon name="plus" className="h-[18px] w-[18px]" strokeWidth={2} />
+                        دفعة جديدة
+                    </SecondaryButton>
+                )}
                 <PrimaryButton type="button" onClick={onDone} autoFocus className="h-12 min-w-28 rounded-[14px] px-5 text-[15.5px]">
                     تم
                 </PrimaryButton>
@@ -258,27 +261,63 @@ function PaymentReceipt({ receipt, subscriberName, onAnother, onDone }) {
  * it and its reference. A dark panel beside the form shows what it does to
  * the balance before saving; once saved, the window shows the receipt with
  * the voucher number. Keys: Ctrl + Enter saves, 1 and 2 pick the method.
+ *
+ * With `correcting` (a statement line), it corrects that payment instead:
+ * the form starts from it, `balance` leaves it out, and saving cancels it
+ * and records this one in its place, under a new voucher number, with one
+ * of `correctionReasons`.
  */
-export default function PaymentModal({ show, onClose, subscriber, balance, currencies, paymentMethods, transferBanks }) {
+export default function PaymentModal({
+    show,
+    onClose,
+    subscriber,
+    balance,
+    currencies,
+    paymentMethods,
+    transferBanks,
+    correcting = null,
+    correctionReasons = [],
+}) {
     const titleId = useId();
     const amountInput = useRef(null);
     const collector = usePage().props.auth?.user?.name ?? '';
-    const form = useResourceForm(`/subscribers/${subscriber.id}/payments`, null, {
-        amount: '',
-        currency: 'ILS',
-        exchange_rate: '',
-        payment_method: 'bank_transfer',
-        bank_name: '',
-        // Who the transfer came from: the subscriber unless someone else paid.
-        sender_name: subscriber.fullName,
-        reference_number: '',
-        cash_box: '',
-        manual_voucher_number: '',
-        notes: '',
-    });
+    const recorded = correcting?.recorded;
+    const form = useResourceForm(
+        correcting ? `/subscribers/${subscriber.id}/transactions` : `/subscribers/${subscriber.id}/payments`,
+        correcting,
+        recorded
+            ? {
+                  amount: recorded.amount,
+                  currency: recorded.currency,
+                  exchange_rate: recorded.exchange_rate,
+                  payment_method: paymentMethods.some((method) => method.value === recorded.payment_method)
+                      ? recorded.payment_method
+                      : 'bank_transfer',
+                  bank_name: recorded.bank_name,
+                  sender_name: recorded.sender_name || subscriber.fullName,
+                  reference_number: recorded.reference_number,
+                  cash_box: recorded.cash_box,
+                  manual_voucher_number: recorded.manual_voucher_number,
+                  notes: recorded.notes,
+                  ...EMPTY_CORRECTION,
+              }
+            : {
+                  amount: '',
+                  currency: 'ILS',
+                  exchange_rate: '',
+                  payment_method: 'bank_transfer',
+                  bank_name: '',
+                  // Who the transfer came from: the subscriber unless someone else paid.
+                  sender_name: subscriber.fullName,
+                  reference_number: '',
+                  cash_box: '',
+                  manual_voucher_number: '',
+                  notes: '',
+              },
+    );
     const { data, setData, errors } = form;
-    const [senderIsSubscriber, setSenderIsSubscriber] = useState(true);
-    const [detailsOpen, setDetailsOpen] = useState(false);
+    const [senderIsSubscriber, setSenderIsSubscriber] = useState(!recorded?.sender_name || recorded.sender_name === subscriber.fullName);
+    const [detailsOpen, setDetailsOpen] = useState(Boolean(recorded && (recorded.notes || recorded.cash_box || recorded.manual_voucher_number)));
     const [discarding, setDiscarding] = useState(false);
     const [receipt, setReceipt] = useState(null);
 
@@ -388,7 +427,13 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
             <Modal show={show} onClose={requestClose} maxWidth="5xl">
                 {receipt ? (
                     <div role="dialog" aria-modal="true" aria-label="سُجّلت الدفعة">
-                        <PaymentReceipt receipt={receipt} subscriberName={subscriber.fullName} onAnother={() => setReceipt(null)} onDone={close} />
+                        <PaymentReceipt
+                            receipt={receipt}
+                            subscriberName={subscriber.fullName}
+                            title={correcting ? 'عُدّلت الدفعة' : 'سُجّلت الدفعة'}
+                            onAnother={correcting ? null : () => setReceipt(null)}
+                            onDone={close}
+                        />
                     </div>
                 ) : (
                     <form
@@ -403,13 +448,17 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
                     >
                         <div className="flex shrink-0 items-center gap-3.5 border-b border-gray-100 px-5 py-4 sm:px-6 sm:py-5 lg:col-start-1 lg:row-start-1">
                             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-graphite-gradient text-white shadow-sm">
-                                <Icon name="card" className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                                <Icon name={correcting ? 'pencil' : 'card'} className="h-[18px] w-[18px]" strokeWidth={1.8} />
                             </span>
                             <div className="min-w-0">
                                 <h3 id={titleId} className="font-luxe text-[22px] font-bold leading-tight text-gray-900">
-                                    تسجيل دفعة
+                                    {correcting ? 'تعديل دفعة' : 'تسجيل دفعة'}
                                 </h3>
-                                <p className="mt-0.5 text-[13.5px] text-gray-500">سجّل المبلغ المستلم، ويُحدَّث الرصيد تلقائيًا.</p>
+                                <p className="mt-0.5 text-[13.5px] text-gray-500">
+                                    {correcting
+                                        ? 'صحّح بيانات الدفعة؛ تبقى الأصلية في الكشف ملغاة مع سبب التعديل.'
+                                        : 'سجّل المبلغ المستلم، ويُحدَّث الرصيد تلقائيًا.'}
+                                </p>
                             </div>
                             <button
                                 type="button"
@@ -445,7 +494,9 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
                                         </div>
                                     </div>
                                     <div className="ms-auto flex shrink-0 flex-col items-end gap-0.5">
-                                        <span className="text-[12.5px] text-gray-500">الرصيد الحالي</span>
+                                        <span className="text-[12.5px] text-gray-500">
+                                            {correcting ? 'الرصيد بدون الدفعة الأصلية' : 'الرصيد الحالي'}
+                                        </span>
                                         <span
                                             className={`whitespace-nowrap rounded-[10px] px-2.5 py-0.5 font-display text-[17px] font-bold ${BALANCE_CHIPS[describeBalance(balance).tone]}`}
                                         >
@@ -453,6 +504,8 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
                                         </span>
                                     </div>
                                 </div>
+
+                                {correcting && <OriginalLine entry={correcting} />}
 
                                 <div>
                                     <FieldLabel htmlFor="amount" required hint="بالعملة التي استُلم بها">
@@ -678,6 +731,8 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
                                     )}
                                 </fieldset>
 
+                                {correcting && <CorrectionReasonFields form={form} reasons={correctionReasons} />}
+
                                 <div>
                                     <button
                                         type="button"
@@ -783,9 +838,11 @@ export default function PaymentModal({ show, onClose, subscriber, balance, curre
                                 <Icon name="check" className="h-[18px] w-[18px]" strokeWidth={2.2} />
                                 {form.processing
                                     ? 'جارٍ الحفظ...'
-                                    : Number(data.amount) > 0
-                                      ? `تسجيل ${formatMoney(data.amount)} ${currencyLabel}`
-                                      : 'تسجيل الدفعة'}
+                                    : correcting
+                                      ? 'حفظ التعديل'
+                                      : Number(data.amount) > 0
+                                        ? `تسجيل ${formatMoney(data.amount)} ${currencyLabel}`
+                                        : 'تسجيل الدفعة'}
                             </PrimaryButton>
                         </div>
                     </form>

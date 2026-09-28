@@ -24,6 +24,16 @@ class StoreSubscriberChargeRequest extends FormRequest
      */
     public function rules(): array
     {
+        return self::chargeRules();
+    }
+
+    /**
+     * The charge's rules; shared with correcting a charge.
+     *
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
+    public static function chargeRules(): array
+    {
         return [
             'type' => ['required', Rule::enum(ChargeType::class)],
             'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'],

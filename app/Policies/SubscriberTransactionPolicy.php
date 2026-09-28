@@ -8,10 +8,10 @@ use App\Models\SubscriberTransaction;
 use App\Models\User;
 
 /**
- * Read-only access to the subscribers' account lines as a whole — the
- * financial log and the branch performance pages built on them. Lines are
- * written only by the subscriber, payment and reading flows, each under
- * its own permission, never from these pages.
+ * Access to the subscribers' account lines as a whole — the financial log
+ * and the branch performance pages built on them — and to correcting or
+ * deleting one. Lines are written by the subscriber, payment and reading
+ * flows, each under its own permission.
  */
 class SubscriberTransactionPolicy
 {
@@ -50,19 +50,28 @@ class SubscriberTransactionPolicy
     }
 
     /**
-     * Determine whether the user can update the model.
+     * Correcting a line takes the "Edit Transactions" permission, for a
+     * subscriber of the user's own branch (any branch for the Super Admin),
+     * and only while the line can still be corrected.
      */
     public function update(User $user, SubscriberTransaction $subscriberTransaction): bool
     {
-        return false;
+        return $user->hasPermission(PermissionKey::CorrectTransactions) && $this->mayChange($user, $subscriberTransaction);
     }
 
     /**
-     * Determine whether the user can delete the model.
+     * Deleting (cancelling) a line takes the "Delete Transactions"
+     * permission, on the same terms as correcting one.
      */
     public function delete(User $user, SubscriberTransaction $subscriberTransaction): bool
     {
-        return false;
+        return $user->hasPermission(PermissionKey::DeleteTransactions) && $this->mayChange($user, $subscriberTransaction);
+    }
+
+    private function mayChange(User $user, SubscriberTransaction $subscriberTransaction): bool
+    {
+        return $subscriberTransaction->isCorrectable()
+            && ($user->isSuperAdmin() || $subscriberTransaction->subscriber->branch_id === $user->branch_id);
     }
 
     /**

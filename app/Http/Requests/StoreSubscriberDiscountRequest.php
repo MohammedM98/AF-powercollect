@@ -27,11 +27,22 @@ class StoreSubscriberDiscountRequest extends FormRequest
      */
     public function rules(): array
     {
+        return self::discountRules($this->input('method'));
+    }
+
+    /**
+     * The discount's rules, for a discount given by `$method`; shared with
+     * correcting a discount.
+     *
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
+    public static function discountRules(mixed $method): array
+    {
         return [
             'method' => ['required', Rule::enum(DiscountMethod::class)],
             'value' => [
                 'required', 'numeric', 'decimal:0,2', 'gt:0',
-                $this->input('method') === DiscountMethod::Percentage->value ? 'max:100' : 'max:1000000',
+                $method === DiscountMethod::Percentage->value ? 'max:100' : 'max:1000000',
             ],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
@@ -53,32 +64,41 @@ class StoreSubscriberDiscountRequest extends FormRequest
 
                 /** @var Subscriber $subscriber */
                 $subscriber = $this->route('subscriber');
-                $owed = $subscriber->balance();
 
-                if ($owed <= 0) {
-                    $validator->errors()->add('value', 'لا يوجد رصيد مستحق على المشترك ليُخصم منه.');
-
-                    return;
-                }
-
-                $method = DiscountMethod::from($this->input('method'));
-                $discount = SubscriberTransaction::discountFor($method, $this->input('value'), match ($method) {
-                    DiscountMethod::Percentage => $owed,
-                    DiscountMethod::Kilowatt => $subscriber->tariff->rate,
-                    DiscountMethod::Shekel => null,
-                });
-
-                if ($discount < 0.01) {
-                    $validator->errors()->add('value', 'قيمة الخصم أقل من أن تُسجَّل.');
-                } elseif ($discount > $owed) {
-                    $validator->errors()->add('value', sprintf(
-                        'لا يمكن أن يزيد الخصم (%s شيكل) عن الرصيد المستحق (%s شيكل).',
-                        SubscriberTransaction::formatAmount($discount),
-                        SubscriberTransaction::formatAmount($owed),
-                    ));
-                }
+                self::checkAgainstBalance($validator, $subscriber, $subscriber->balance(), $this->input('method'), $this->input('value'));
             },
         ];
+    }
+
+    /**
+     * Add an error when the discount would take `$owed` below zero, or
+     * nothing is owed; shared with correcting a discount, where `$owed`
+     * leaves out the discount being corrected.
+     */
+    public static function checkAgainstBalance(Validator $validator, Subscriber $subscriber, float $owed, string $method, float|string $value): void
+    {
+        if ($owed <= 0) {
+            $validator->errors()->add('value', 'لا يوجد رصيد مستحق على المشترك ليُخصم منه.');
+
+            return;
+        }
+
+        $method = DiscountMethod::from($method);
+        $discount = SubscriberTransaction::discountFor($method, $value, match ($method) {
+            DiscountMethod::Percentage => $owed,
+            DiscountMethod::Kilowatt => $subscriber->tariff->rate,
+            DiscountMethod::Shekel => null,
+        });
+
+        if ($discount < 0.01) {
+            $validator->errors()->add('value', 'قيمة الخصم أقل من أن تُسجَّل.');
+        } elseif ($discount > $owed) {
+            $validator->errors()->add('value', sprintf(
+                'لا يمكن أن يزيد الخصم (%s شيكل) عن الرصيد المستحق (%s شيكل).',
+                SubscriberTransaction::formatAmount($discount),
+                SubscriberTransaction::formatAmount($owed),
+            ));
+        }
     }
 
     /**

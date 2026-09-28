@@ -128,6 +128,20 @@ class PermissionsTest extends TestCase
         ]));
     }
 
+    public function test_editing_and_deleting_transactions_are_granted_under_collections_on_the_permissions_page(): void
+    {
+        $this->seedPermissions();
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())->get(route('settings.permissions.edit'));
+
+        $response->assertInertia(fn ($page) => $page->where(
+            'permissionGroups',
+            fn ($groups): bool => collect(collect($groups)->firstWhere('key', 'collections')['actions'])->pluck('action')->all() === [
+                'view', 'record', 'confirm', 'adjust', 'correct', 'delete',
+            ],
+        ));
+    }
+
     public function test_branch_admin_does_not_see_company_wide_permissions_on_the_permissions_page(): void
     {
         $this->seedPermissions();

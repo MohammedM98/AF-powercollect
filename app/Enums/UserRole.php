@@ -69,7 +69,7 @@ enum UserRole: string
                 PermissionKey::ViewSubAreas, PermissionKey::CreateSubAreas, PermissionKey::UpdateSubAreas,
                 PermissionKey::ViewMeterReadings, PermissionKey::RecordMeterReadings, PermissionKey::ApproveMeterReadings,
                 PermissionKey::ViewCollections, PermissionKey::RecordCollections, PermissionKey::ConfirmCollections,
-                PermissionKey::AdjustBalances,
+                PermissionKey::AdjustBalances, PermissionKey::CorrectTransactions, PermissionKey::DeleteTransactions,
                 PermissionKey::ViewTariffs,
                 PermissionKey::ViewCircuitBreakers,
             ],

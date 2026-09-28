@@ -11,21 +11,26 @@ const ICONS = {
     'كشف الحساب': 'ledger',
 };
 
+/** Actions with a color of their own: blue to edit, burgundy to delete. */
+const TONES = {
+    تعديل: 'row-action-edit',
+    حذف: 'row-action-delete',
+};
+
 /**
- * A row's actions, at the end of the row:
+ * A row's actions, at the end of the row, always showing:
  *
  * - `onView`: the graphite "عرض" button, the row's main action. With a
  *   `menu`, it is split and its arrow opens the menu.
- * - `onEdit`: a pencil button ("تعديل").
+ * - `onEdit`: a blue pencil button ("تعديل").
+ * - `onDelete`: a burgundy trash button ("حذف").
  * - `menu`: more actions in groups (see RowMenu); opened from "عرض"'s
  *   arrow, or from a ⋯ button when there is no "عرض".
  * - children, e.g. <RowActionsMenu><button onClick={…}>تعديل</button></RowActionsMenu>:
- *   each becomes a same-size icon button with its word as the tooltip.
- *
- * On screens with a mouse, the buttons show only while the row is
- * hovered or focused (faint dots otherwise).
+ *   each becomes a same-size icon button with its word as the tooltip
+ *   (and its color, for تعديل and حذف).
  */
-export default function RowActionsMenu({ onView, onEdit, menu, children }) {
+export default function RowActionsMenu({ onView, onEdit, onDelete, menu, children }) {
     const [menuAnchor, setMenuAnchor] = useState(null);
 
     const toggleMenu = useCallback((event) => {
@@ -53,10 +58,6 @@ export default function RowActionsMenu({ onView, onEdit, menu, children }) {
 
     return (
         <div className="row-actions">
-            <span className="row-actions-ghost" aria-hidden="true">
-                <Icon name="dots" className="h-5 w-5" strokeWidth={2} />
-            </span>
-
             <div className="row-actions-buttons">
                 {Children.map(children, (child) => {
                     if (!isValidElement(child)) {
@@ -64,11 +65,12 @@ export default function RowActionsMenu({ onView, onEdit, menu, children }) {
                     }
 
                     const label = child.props.children;
-                    const icon = typeof label === 'string' ? ICONS[label.trim()] : null;
+                    const word = typeof label === 'string' ? label.trim() : null;
+                    const icon = word ? ICONS[word] : null;
 
                     return cloneElement(child, {
                         type: child.props.type ?? 'button',
-                        className: 'row-action',
+                        className: `row-action ${TONES[word] ?? ''}`.trim(),
                         title: label,
                         'aria-label': label,
                         children: <Icon name={icon ?? 'dots'} className="h-[18px] w-[18px]" />,
@@ -81,8 +83,14 @@ export default function RowActionsMenu({ onView, onEdit, menu, children }) {
                     </button>
                 )}
 
+                {onDelete && (
+                    <button type="button" className="row-action row-action-delete" title="حذف" aria-label="حذف" onClick={onDelete}>
+                        <Icon name="trash" className="h-[18px] w-[18px]" />
+                    </button>
+                )}
+
                 {onEdit && (
-                    <button type="button" className="row-action" title="تعديل" aria-label="تعديل" onClick={onEdit}>
+                    <button type="button" className="row-action row-action-edit" title="تعديل" aria-label="تعديل" onClick={onEdit}>
                         <Icon name="pencil" className="h-[18px] w-[18px]" />
                     </button>
                 )}

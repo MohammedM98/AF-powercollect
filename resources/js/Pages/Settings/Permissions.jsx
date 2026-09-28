@@ -17,6 +17,8 @@ const SENSITIVE_ACTIONS = {
     confirm: { label: 'تأكيد التحصيل', hint: 'صلاحية حساسة — تُمنح بحذر', danger: true },
     approve: { label: 'اعتماد القراءات', hint: 'تُضاف مبالغها إلى معاملات المشتركين المالية', danger: true },
     adjust: { label: 'إضافة تحميل وخصم', hint: 'غرامات وتسويات وخصومات على أرصدة المشتركين — تُمنح بحذر', danger: true },
+    correct: { label: 'تعديل الحركات المالية', hint: 'تصحيح دفعة أو تحميل أو خصم مسجّل خطأً، مع ذكر السبب', danger: true },
+    delete: { label: 'حذف الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف مع السبب', danger: true },
 };
 
 /** The icon and one-line description of each permission group (keyed like PermissionKey::resourceGroups()). */

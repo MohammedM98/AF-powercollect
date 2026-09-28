@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import StatusPill from '@/Components/DataTable/StatusPill';
+import Icon from '@/Components/Icon';
 import { describeBalance, filterStatementEntries } from '@/lib/accountStatement';
 import { formatAmount } from '@/lib/currency';
 
@@ -45,6 +47,30 @@ function Dash() {
     return <span className="text-gray-300">—</span>;
 }
 
+/** Under a corrected or deleted line: why, who did it and when. */
+function CancellationNote({ cancellation }) {
+    return (
+        <p className="ledger-description mt-1.5 flex items-start gap-1.5 text-xs font-normal text-gray-600">
+            <Icon name={cancellation.wasCorrected ? 'pencil' : 'trash'} className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+            <span>
+                <b className="font-semibold text-gray-700">
+                    {cancellation.wasCorrected ? 'عُدّلت' : 'حُذفت'}: {cancellation.reasonLabel}
+                </b>
+                {cancellation.notes && <> — {cancellation.notes}</>}
+                <span className="text-gray-500">
+                    {' '}
+                    · {cancellation.byName} · <bdi dir="ltr">{cancellation.at}</bdi>
+                </span>
+            </span>
+        </p>
+    );
+}
+
+/** The row's look: a cancelled line greyed, a reversal or replacement marked as following the line above. */
+function rowClass(entry) {
+    return [entry.cancellation && 'ledger-cancelled', entry.isFollowUp && 'ledger-follow-up'].filter(Boolean).join(' ') || undefined;
+}
+
 function SummaryCard({ label, value, hint, tone = 'default' }) {
     const styles = {
         default: ['border-gray-200 bg-surface', 'text-gray-500', 'text-gray-900'],
@@ -65,15 +91,20 @@ function SummaryCard({ label, value, hint, tone = 'default' }) {
 /**
  * The body of a subscriber's account statement: the balance and totals,
  * the search and filters, and every line (charges عليه, payments and
- * discounts له) oldest first with the balance after each. Used by the
- * statement page and by the statement window on the subscribers list.
+ * discounts له) oldest first with the balance after each. A corrected or
+ * deleted line stays, struck through, with its reversal and replacement
+ * under it; `onCorrect` and `onDelete` get the line to change, for users
+ * allowed to. Used by the statement page and by the statement window on
+ * the subscribers list.
  */
-export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes }) {
+export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes, onCorrect, onDelete }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
     const visibleEntries = filterStatementEntries(entries, filters);
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
     const balance = describeBalance(summary.balance);
+    const canChangeLines = entries.some((entry) => entry.canCorrect || entry.canDelete);
+    const columns = canChangeLines ? [...COLUMNS, ''] : COLUMNS;
 
     function setFilter(key, value) {
         setFilters((current) => ({ ...current, [key]: value }));
@@ -177,7 +208,7 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                 <table className="data-table data-table-ledger w-full text-start text-sm">
                     <thead>
                         <tr>
-                            {COLUMNS.map((column) => (
+                            {columns.map((column) => (
                                 <th key={column}>{column}</th>
                             ))}
                         </tr>
@@ -185,7 +216,7 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                     <tbody>
                         {visibleEntries.length === 0 ? (
                             <tr>
-                                <td colSpan={COLUMNS.length}>
+                                <td colSpan={columns.length}>
                                     {entries.length ? 'لا توجد حركات تطابق البحث والتصفية.' : 'لا توجد حركات على هذا الحساب بعد.'}
                                 </td>
                             </tr>
@@ -194,7 +225,7 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                 const entryBalance = describeBalance(entry.balance);
 
                                 return (
-                                    <tr key={entry.id}>
+                                    <tr key={entry.id} className={rowClass(entry)}>
                                         <td data-label="رقم الصندوق" className="tabular-nums text-gray-700">
                                             {entry.cashBox ?? <Dash />}
                                         </td>
@@ -214,18 +245,22 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                             <span dir="ltr">{entry.date}</span>
                                         </td>
                                         <td data-label="البيان" className="font-medium text-gray-900">
-                                            <div className="ledger-description">{withLtrDates(entry.description)}</div>
+                                            <div className="ledger-description">
+                                                {entry.isFollowUp && <span className="me-1 text-blue-600">↲</span>}
+                                                <span className="ledger-struck">{withLtrDates(entry.description)}</span>
+                                            </div>
                                             {entry.details && (
                                                 <p className="ledger-description mt-1 text-xs font-normal text-gray-500">
                                                     {withLtrDates(entry.details)}
                                                 </p>
                                             )}
+                                            {entry.cancellation && <CancellationNote cancellation={entry.cancellation} />}
                                         </td>
                                         <td
                                             data-label="المبلغ"
                                             className={`font-display font-semibold tabular-nums ${entry.isCredit ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900'}`}
                                         >
-                                            {formatAmount(entry.amount)}
+                                            <span className="ledger-struck">{formatAmount(entry.amount)}</span>
                                         </td>
                                         <td data-label="العملة" className="text-gray-700">
                                             {entry.currencyLabel}
@@ -234,6 +269,14 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                             <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
                                                 <StatusPill tone={entry.isCredit ? 'green' : 'red'} label={entry.isCredit ? 'له' : 'عليه'} />
                                                 <span className="font-medium text-gray-900">{entry.typeLabel}</span>
+                                                {entry.cancellation && (
+                                                    <StatusPill tone="gray" label={entry.cancellation.wasCorrected ? 'مُعدّلة' : 'محذوفة'} />
+                                                )}
+                                                {entry.isCorrection && (
+                                                    <span className="inline-flex items-center whitespace-nowrap rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-600">
+                                                        تصحيح
+                                                    </span>
+                                                )}
                                             </span>
                                         </td>
                                         <td data-label="طريقة الدفع" className="text-gray-700">
@@ -251,6 +294,16 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                         <td data-label="اسم المستخدم" className="text-gray-700">
                                             {entry.recordedByName ?? <Dash />}
                                         </td>
+                                        {canChangeLines && (
+                                            <td className="text-end">
+                                                {(entry.canCorrect || entry.canDelete) && (
+                                                    <RowActionsMenu
+                                                        onEdit={entry.canCorrect ? () => onCorrect(entry) : undefined}
+                                                        onDelete={entry.canDelete ? () => onDelete(entry) : undefined}
+                                                    />
+                                                )}
+                                            </td>
+                                        )}
                                     </tr>
                                 );
                             })

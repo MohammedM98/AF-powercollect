@@ -176,8 +176,10 @@ export default function Index({
     const label = headlineLabel(side, filterValues.type);
     const groupedByDay = filters.sort !== 'amount';
     const canPickBranch = filterOptions.some((group) => group.key === 'branch_id');
-    const pageCharged = entries.data.filter((entry) => !entry.isCredit).reduce((total, entry) => total + Number(entry.amount), 0);
-    const pageCredited = entries.data.filter((entry) => entry.isCredit).reduce((total, entry) => total + Number(entry.amount), 0);
+    // Cancelled lines and their reversals cancel each other out, so the page's totals leave both out.
+    const countedEntries = entries.data.filter((entry) => !entry.isCancelled);
+    const pageCharged = countedEntries.filter((entry) => !entry.isCredit).reduce((total, entry) => total + Number(entry.amount), 0);
+    const pageCredited = countedEntries.filter((entry) => entry.isCredit).reduce((total, entry) => total + Number(entry.amount), 0);
 
     function changePeriod(next) {
         router.get(
@@ -334,12 +336,23 @@ export default function Index({
                                                 >
                                                     {entry.typeLabel}
                                                 </span>
+                                                {entry.isCancelled && entry.type !== 'reversal' && (
+                                                    <span className="ms-1.5 inline-flex whitespace-nowrap rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-semibold text-gray-500">
+                                                        ملغاة
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="text-gray-600">{entry.recordedByName ?? '—'}</td>
                                             <td>
                                                 <Shekels
                                                     amount={entry.amount}
-                                                    className={entry.isCredit ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900'}
+                                                    className={
+                                                        entry.isCancelled
+                                                            ? 'text-gray-400 line-through'
+                                                            : entry.isCredit
+                                                              ? 'text-emerald-700 dark:text-emerald-400'
+                                                              : 'text-gray-900'
+                                                    }
                                                 />
                                             </td>
                                         </tr>

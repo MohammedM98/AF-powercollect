@@ -11,7 +11,7 @@ import { StatementActions, StatementForms } from './StatementForms';
  */
 export default function Statement(statement) {
     const { subscriber, entries, summary, canRecordPayment, canAdjustBalance, paymentMethods, transactionTypes } = statement;
-    // The form open over the statement: 'payment', 'charge' or 'discount'.
+    // The form open over the statement: 'payment', 'charge' or 'discount', or a line to correct or delete.
     const [openForm, setOpenForm] = useState(null);
 
     return (
@@ -40,7 +40,14 @@ export default function Statement(statement) {
         >
             <Head title={`كشف حساب ${subscriber.fullName}`} />
 
-            <AccountStatement entries={entries} summary={summary} paymentMethods={paymentMethods} transactionTypes={transactionTypes} />
+            <AccountStatement
+                entries={entries}
+                summary={summary}
+                paymentMethods={paymentMethods}
+                transactionTypes={transactionTypes}
+                onCorrect={(entry) => setOpenForm({ action: 'correct', entry })}
+                onDelete={(entry) => setOpenForm({ action: 'delete', entry })}
+            />
 
             <StatementForms statement={statement} openForm={openForm} onClose={() => setOpenForm(null)} />
         </AuthenticatedLayout>

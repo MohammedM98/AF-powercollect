@@ -211,5 +211,16 @@
     "Percentage": "نسبة مئوية",
     "Kilowatts": "كيلوواط",
     "Shekels": "شيكل",
-    "Add Charges and Discounts": "إضافة تحميل وخصم"
+    "Add Charges and Discounts": "إضافة تحميل وخصم",
+    "Edit Transactions": "تعديل الحركات المالية",
+    "Delete Transactions": "حذف الحركات المالية",
+    "Wrong amount": "مبلغ خاطئ",
+    "Wrong payment method": "طريقة دفع خاطئة",
+    "Wrong currency or exchange rate": "عملة أو سعر صرف خاطئ",
+    "Wrong type": "نوع خاطئ",
+    "Wrong details": "بيانات خاطئة",
+    "Recorded on the wrong subscriber": "سُجّلت على مشترك آخر",
+    "Duplicate entry": "حركة مكررة",
+    "Money not received": "المبلغ لم يُستلم",
+    "Other reason": "سبب آخر"
 }

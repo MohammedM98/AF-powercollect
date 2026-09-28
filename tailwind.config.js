@@ -47,6 +47,7 @@ export default {
                 brand: scale('brand', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]),
                 gray: scale('gray', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]),
                 graphite: scale('graphite', [700, 800, 900]),
+                blue: scale('blue', [500, 600, 700]),
                 surface: variable('surface'),
             },
             borderRadius: {

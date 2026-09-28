@@ -40,7 +40,7 @@ function StatementSkeleton() {
  */
 export default function StatementModal({ subscriber, statement, initialForm = null, onClose }) {
     const titleId = useId();
-    // The form open over the statement: 'payment', 'charge' or 'discount'.
+    // The form open over the statement: 'payment', 'charge' or 'discount', or a line to correct or delete.
     const [openForm, setOpenForm] = useState(initialForm);
     const header = statement?.subscriber ?? subscriber;
 
@@ -116,6 +116,8 @@ export default function StatementModal({ subscriber, statement, initialForm = nu
                                 summary={statement.summary}
                                 paymentMethods={statement.paymentMethods}
                                 transactionTypes={statement.transactionTypes}
+                                onCorrect={(entry) => setOpenForm({ action: 'correct', entry })}
+                                onDelete={(entry) => setOpenForm({ action: 'delete', entry })}
                             />
                         ) : (
                             <StatementSkeleton />

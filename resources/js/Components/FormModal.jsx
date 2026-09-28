@@ -17,7 +17,9 @@ import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/
  * save closes the modal. `visitOptions` are passed on to the save request.
  * Fields are checked in the page first, with their errors shown under
  * them rather than in the browser's pop-ups. Ctrl + Enter (⌘ + Enter on a
- * Mac) saves from any field.
+ * Mac) saves from any field. `action` renames what saving does — its
+ * button, and the question before it: `{ submitLabel, title,
+ * confirmLabel, icon, tone }`.
  */
 export default function FormModal({
     show,
@@ -30,6 +32,7 @@ export default function FormModal({
     bodyClassName = '',
     confirmBeforeSave = true,
     saveConfirmMessage = null,
+    action = null,
     children,
 }) {
     // The question shown over the form: 'save' before sending it, 'discard' before throwing away unsaved input.
@@ -105,7 +108,7 @@ export default function FormModal({
                             للحفظ
                         </span>
                         <SecondaryButton onClick={requestClose}>إلغاء</SecondaryButton>
-                        <PrimaryButton disabled={form.processing}>{form.processing ? 'جارٍ الحفظ...' : 'حفظ'}</PrimaryButton>
+                        <PrimaryButton disabled={form.processing}>{form.processing ? 'جارٍ الحفظ...' : (action?.submitLabel ?? 'حفظ')}</PrimaryButton>
                     </div>
                 </form>
             </Modal>
@@ -114,6 +117,7 @@ export default function FormModal({
                 show={show && pendingConfirmation === 'save'}
                 isEdit={form.isEdit}
                 message={saveConfirmMessage}
+                action={action}
                 onConfirm={save}
                 onCancel={() => setPendingConfirmation(null)}
             />

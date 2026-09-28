@@ -1,0 +1,41 @@
+<?php
+
+namespace App\Http\Requests;
+
+use App\Enums\CorrectionReason;
+use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+/**
+ * Deleting a payment, charge or discount, and why.
+ */
+class DeleteSubscriberTransactionRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        return $this->user()->can('delete', $this->route('transaction'));
+    }
+
+    /**
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'correction_reason' => ['required', Rule::enum(CorrectionReason::class)->only(CorrectionReason::forDeletion())],
+            'correction_notes' => ['required', 'string', 'max:1000'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return ['correction_reason' => 'سبب الحذف', 'correction_notes' => 'شرح الحذف'];
+    }
+}

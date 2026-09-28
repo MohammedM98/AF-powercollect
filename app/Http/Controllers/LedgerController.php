@@ -21,7 +21,9 @@ use Inertia\Response as InertiaResponse;
  *
  * The figures sum one side of the accounts: the charges (عليه) unless the
  * type filter picks payments or discounts (له), since adding money owed to
- * money paid would mean nothing. Amounts are in shekels.
+ * money paid would mean nothing. Amounts are in shekels. Cancelled lines
+ * and their reversals are listed but left out of every figure, since they
+ * cancel each other out.
  */
 class LedgerController extends Controller
 {
@@ -177,7 +179,7 @@ class LedgerController extends Controller
             'largest' => round((float) $totals->largest, 2),
             'previousTotal' => $previousTotal,
             'changePct' => $previousTotal ? (int) round(($total - $previousTotal) / $previousTotal * 100) : null,
-            'collected' => round(-(float) $inPeriod->where('type', SubscriberTransaction::TYPE_PAYMENT)->sum('amount'), 2),
+            'collected' => round(-(float) $inPeriod->counted()->where('type', SubscriberTransaction::TYPE_PAYMENT)->sum('amount'), 2),
         ];
     }
 
@@ -200,6 +202,7 @@ class LedgerController extends Controller
         $until = CarbonImmutable::parse(max($days), config('app.business_timezone'))->addDay()->utc();
 
         return $inPeriod
+            ->counted()
             ->where('subscriber_transactions.created_at', '>=', $from)
             ->where('subscriber_transactions.created_at', '<', $until)
             ->toBase()
@@ -262,6 +265,8 @@ class LedgerController extends Controller
             'type' => $transaction->type,
             'typeLabel' => $transaction->typeLabel(),
             'isCredit' => $transaction->isCredit(),
+            // Listed, but left out of the totals.
+            'isCancelled' => $transaction->isCancelled() || $transaction->isReversal(),
             'recordedByName' => $transaction->recordedBy?->name,
             'amount' => ltrim($transaction->amount, '-'),
         ];

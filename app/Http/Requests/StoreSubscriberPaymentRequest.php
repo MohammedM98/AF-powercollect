@@ -27,7 +27,18 @@ class StoreSubscriberPaymentRequest extends FormRequest
      */
     public function rules(): array
     {
-        $throughBank = PaymentMethod::tryFrom((string) $this->input('payment_method'))?->throughBank() ?? false;
+        return self::paymentRules($this->input('payment_method'));
+    }
+
+    /**
+     * The payment's rules, for a payment made by `$paymentMethod`; shared
+     * with correcting a payment.
+     *
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
+    public static function paymentRules(mixed $paymentMethod): array
+    {
+        $throughBank = PaymentMethod::tryFrom((string) $paymentMethod)?->throughBank() ?? false;
 
         return [
             'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'],
@@ -47,6 +58,14 @@ class StoreSubscriberPaymentRequest extends FormRequest
      * @return array<string, string>
      */
     public function messages(): array
+    {
+        return self::paymentMessages();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function paymentMessages(): array
     {
         return [
             'bank_name.required' => 'اختر البنك أو المحفظة التي حُوّل إليها المبلغ.',

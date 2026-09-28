@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Enums\ChargeType;
+use App\Enums\CorrectionReason;
 use App\Enums\Currency;
 use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
+use Closure;
 use Database\Factories\SubscriberTransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -13,19 +15,29 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * One line of a subscriber's account. `amount` is its effect on the
  * balance in shekels: charges (تحميل) are positive, payments and discounts
  * negative, so the balance is the sum of `amount`. A charge recorded by
  * hand stores its ChargeType as its `type`.
+ *
+ * A line is never edited or removed. Deleting it cancels it — marked with
+ * who, when and why — and adds a reversal line under it that takes its
+ * amount back off the balance; correcting it does the same, then records
+ * the right line in its place (`corrects_id`). The cancelled line and its
+ * reversal cancel each other out, so the totals leave both out.
  */
 #[Fillable([
     'subscriber_id',
     'recorded_by',
     'meter_reading_id',
+    'reverses_id',
+    'corrects_id',
     'type',
     'source_key',
     'amount',
@@ -43,6 +55,10 @@ use Illuminate\Support\Str;
     'discount_value',
     'discount_base',
     'notes',
+    'cancelled_at',
+    'cancelled_by',
+    'cancellation_reason',
+    'cancellation_notes',
 ])]
 class SubscriberTransaction extends Model
 {
@@ -68,6 +84,12 @@ class SubscriberTransaction extends Model
     public const TYPE_READING_DISCOUNT = 'reading_discount';
 
     /**
+     * Takes a cancelled line's amount back off the balance, on the other
+     * side of the account from it.
+     */
+    public const TYPE_REVERSAL = 'reversal';
+
+    /**
      * The lines in the subscriber's favour (له); every other type is a
      * charge (عليه).
      */
@@ -84,6 +106,8 @@ class SubscriberTransaction extends Model
             'discount_method' => DiscountMethod::class,
             'discount_value' => 'decimal:2',
             'discount_base' => 'decimal:2',
+            'cancelled_at' => 'datetime',
+            'cancellation_reason' => CorrectionReason::class,
         ];
     }
 
@@ -164,6 +188,63 @@ class SubscriberTransaction extends Model
     }
 
     /**
+     * Delete the line: mark it cancelled — by whom, when and why — and add
+     * the reversal under it that takes its amount back off the balance.
+     * Returns the reversal.
+     *
+     * @throws ValidationException when the line was cancelled meanwhile
+     */
+    public function cancel(User $actor, CorrectionReason $reason, ?string $notes): self
+    {
+        return DB::transaction(function () use ($actor, $reason, $notes): self {
+            $line = self::query()->lockForUpdate()->findOrFail($this->id);
+
+            if (! $line->isCorrectable()) {
+                throw ValidationException::withMessages(['reason' => 'هذه الحركة أُلغيت أو عُدّلت من قبل.']);
+            }
+
+            $line->update([
+                'cancelled_at' => now(),
+                'cancelled_by' => $actor->id,
+                'cancellation_reason' => $reason,
+                'cancellation_notes' => $notes,
+            ]);
+            $this->setRawAttributes($line->getAttributes(), true);
+
+            return $line->subscriber->transactions()->create([
+                'recorded_by' => $actor->id,
+                'reverses_id' => $line->id,
+                'type' => self::TYPE_REVERSAL,
+                'source_key' => 'reversal:'.$line->id,
+                'amount' => number_format(-(float) $line->amount, 2, '.', ''),
+                'currency' => $line->currency,
+                'currency_amount' => $line->currency_amount,
+                'exchange_rate' => $line->exchange_rate,
+                'payment_method' => $line->payment_method,
+            ]);
+        });
+    }
+
+    /**
+     * Correct the line: cancel it as cancel() does, then record the right
+     * line in its place with `$record`, which gets the subscriber (whose
+     * balance no longer counts this line) and returns the new line.
+     *
+     * @param  Closure(Subscriber): self  $record
+     */
+    public function correct(User $actor, CorrectionReason $reason, ?string $notes, Closure $record): self
+    {
+        return DB::transaction(function () use ($actor, $reason, $notes, $record): self {
+            $this->cancel($actor, $reason, $notes);
+
+            $replacement = $record($this->subscriber);
+            $replacement->update(['corrects_id' => $this->id]);
+
+            return $replacement;
+        });
+    }
+
+    /**
      * What a discount takes off, in shekels: a percentage of the balance
      * owed, kilowatts at the kilo price, or the shekels given.
      */
@@ -194,6 +275,37 @@ class SubscriberTransaction extends Model
         return $this->voucher_number ? str_pad((string) $this->voucher_number, 6, '0', STR_PAD_LEFT) : null;
     }
 
+    public function isCancelled(): bool
+    {
+        return $this->cancelled_at !== null;
+    }
+
+    public function isReversal(): bool
+    {
+        return $this->type === self::TYPE_REVERSAL;
+    }
+
+    /**
+     * Whether a line may be corrected or deleted: a payment, discount or
+     * charge recorded by hand that still stands. Weekly readings, their
+     * standing discounts and the subscription fee are billed by their own
+     * flows.
+     */
+    public function isCorrectable(): bool
+    {
+        return ! $this->isCancelled() && in_array($this->type, self::correctableTypes(), true);
+    }
+
+    /**
+     * The types of line a user may correct or delete.
+     *
+     * @return array<int, string>
+     */
+    public static function correctableTypes(): array
+    {
+        return [self::TYPE_PAYMENT, self::TYPE_DISCOUNT, ...array_map(fn (ChargeType $type): string => $type->value, ChargeType::cases())];
+    }
+
     public function isPayment(): bool
     {
         return $this->type === self::TYPE_PAYMENT;
@@ -210,29 +322,42 @@ class SubscriberTransaction extends Model
 
     /**
      * Whether the line is in the subscriber's favour (له): a payment or a
-     * discount. Everything else is a charge (عليه).
+     * discount, or the reversal of a charge. Everything else is a charge
+     * (عليه).
      */
     public function isCredit(): bool
     {
-        return in_array($this->type, self::CREDIT_TYPES, true);
+        return $this->isReversal() ? (float) $this->amount < 0 : in_array($this->type, self::CREDIT_TYPES, true);
     }
 
     /**
-     * Only the charges (عليه): readings, fees, settlements and penalties.
+     * Only the lines that count in the totals: neither cancelled nor the
+     * reversal of a cancelled line, which cancel each other out.
+     */
+    #[Scope]
+    protected function counted(Builder $query): void
+    {
+        $query->whereNull($query->qualifyColumn('cancelled_at'))->whereNull($query->qualifyColumn('reverses_id'));
+    }
+
+    /**
+     * Only the charges (عليه) that count: readings, fees, settlements and
+     * penalties.
      */
     #[Scope]
     protected function charges(Builder $query): void
     {
-        $query->whereNotIn($query->qualifyColumn('type'), self::CREDIT_TYPES);
+        $query->counted()->whereNotIn($query->qualifyColumn('type'), [...self::CREDIT_TYPES, self::TYPE_REVERSAL]);
     }
 
     /**
-     * Only the lines in the subscriber's favour (له): payments and discounts.
+     * Only the lines in the subscriber's favour (له) that count: payments
+     * and discounts.
      */
     #[Scope]
     protected function credits(Builder $query): void
     {
-        $query->whereIn($query->qualifyColumn('type'), self::CREDIT_TYPES);
+        $query->counted()->whereIn($query->qualifyColumn('type'), self::CREDIT_TYPES);
     }
 
     /**
@@ -270,6 +395,9 @@ class SubscriberTransaction extends Model
                     StandingDiscount::termsFor($this->discount_method, $this->discount_value),
                 )
                 : 'خصم دائم · '.StandingDiscount::termsFor($this->discount_method, $this->discount_value),
+            self::TYPE_REVERSAL => $this->reverses
+                ? 'إلغاء: '.$this->reverses->description().($this->reverses->voucher_number ? ' · سند '.$this->reverses->printedVoucherNumber() : '')
+                : 'قيد عكسي',
             default => $this->typeLabel(),
         };
     }
@@ -296,6 +424,7 @@ class SubscriberTransaction extends Model
             self::TYPE_PAYMENT => 'دفعة',
             self::TYPE_DISCOUNT => 'خصم',
             self::TYPE_READING_DISCOUNT => 'خصم دائم',
+            self::TYPE_REVERSAL => 'قيد عكسي',
         ];
     }
 
@@ -312,5 +441,35 @@ class SubscriberTransaction extends Model
     public function meterReading(): BelongsTo
     {
         return $this->belongsTo(MeterReading::class);
+    }
+
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
+    /**
+     * The cancelled line a reversal takes back.
+     */
+    public function reverses(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reverses_id');
+    }
+
+    /**
+     * The cancelled line a correction replaces.
+     */
+    public function corrects(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'corrects_id');
+    }
+
+    /**
+     * The line that replaced this one, when it was corrected rather than
+     * deleted.
+     */
+    public function correction(): HasOne
+    {
+        return $this->hasOne(self::class, 'corrects_id');
     }
 }

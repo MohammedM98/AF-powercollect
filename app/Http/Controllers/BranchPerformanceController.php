@@ -214,6 +214,7 @@ class BranchPerformanceController extends Controller
         $readings = $perMember(MeterReading::query()->where('branch_id', $branch->id), 'recorded_by');
         $credit = implode(', ', array_fill(0, count(SubscriberTransaction::CREDIT_TYPES), '?'));
         $recorded = SubscriberTransaction::query()
+            ->counted()
             ->whereIn('recorded_by', $members->modelKeys())
             ->whereHas('subscriber', fn (Builder $query) => $query->where('branch_id', $branch->id))
             ->toBase()

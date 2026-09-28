@@ -19,6 +19,8 @@ export const ACTION_MESSAGES = {
     'payment-recorded': 'تم تسجيل الدفعة بنجاح.',
     'charge-recorded': 'تم تسجيل التحميل بنجاح.',
     'discount-recorded': 'تم تسجيل الخصم بنجاح.',
+    'transaction-corrected': 'تم تعديل الحركة، وأُضيف التصحيح تحتها في كشف الحساب.',
+    'transaction-deleted': 'تم حذف الحركة، وأُضيف تحتها قيد عكسي يلغي أثرها.',
     'standing-discount-saved': 'تم حفظ الخصم الدائم، ويُطبَّق من قراءة الأسبوع الأخير فصاعدًا.',
     'standing-discount-stopped': 'تم إيقاف الخصم الدائم.',
     'reading-schedule-updated': 'تم حفظ مواعيد القراءات بنجاح.',

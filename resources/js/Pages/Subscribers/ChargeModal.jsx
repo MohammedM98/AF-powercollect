@@ -6,38 +6,47 @@ import { useResourceForm } from '@/hooks/useResourceForm';
 import { describeBalance } from '@/lib/accountStatement';
 import { formatAmount } from '@/lib/currency';
 import { AccountHeader, BalanceAfter } from './AccountSummary';
+import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './CorrectionFields';
 
 /**
  * Charge a subscriber by hand (تحميل): a settlement, a financial penalty
  * or a service disconnection fee. Shows the balance it leaves before saving.
+ *
+ * With `correcting` (a statement line), it corrects that charge instead:
+ * the form starts from it, `balance` leaves it out, and saving cancels it
+ * and records this one in its place, with one of `correctionReasons`.
  */
-export default function ChargeModal({ show, onClose, subscriber, balance, chargeTypes }) {
-    const form = useResourceForm(`/subscribers/${subscriber.id}/charges`, null, {
-        type: chargeTypes[0]?.value ?? '',
-        amount: '',
-        notes: '',
-    });
+export default function ChargeModal({ show, onClose, subscriber, balance, chargeTypes, correcting = null, correctionReasons = [] }) {
+    const form = useResourceForm(
+        correcting ? `/subscribers/${subscriber.id}/transactions` : `/subscribers/${subscriber.id}/charges`,
+        correcting,
+        correcting
+            ? { type: correcting.recorded.type, amount: correcting.recorded.amount, notes: correcting.recorded.notes, ...EMPTY_CORRECTION }
+            : { type: chargeTypes[0]?.value ?? '', amount: '', notes: '' },
+    );
     const { data, setData, errors } = form;
 
     const amount = Number(data.amount);
     const balanceAfter = data.amount !== '' && amount > 0 ? describeBalance(Number(balance) + amount) : null;
     const typeLabel = chargeTypes.find((type) => type.value === data.type)?.label;
-    const confirmMessage = balanceAfter
-        ? `سيتم تحميل ${typeLabel} بقيمة ${formatAmount(amount)} شيكل على حساب ${subscriber.fullName}، ويصبح الرصيد ${balanceAfter.amount} شيكل ${balanceAfter.label}. هل تريد المتابعة؟`
-        : null;
+    const confirmMessage = !balanceAfter
+        ? null
+        : correcting
+          ? `ستُلغى الحركة الأصلية ويُسجَّل مكانها ${typeLabel} بقيمة ${formatAmount(amount)} شيكل، ويصبح الرصيد ${balanceAfter.amount} شيكل ${balanceAfter.label}. هل تريد المتابعة؟`
+          : `سيتم تحميل ${typeLabel} بقيمة ${formatAmount(amount)} شيكل على حساب ${subscriber.fullName}، ويصبح الرصيد ${balanceAfter.amount} شيكل ${balanceAfter.label}. هل تريد المتابعة؟`;
 
     return (
         <FormModal
             show={show}
             onClose={onClose}
             form={form}
-            title="إضافة تحميل"
-            icon="plus"
+            title={correcting ? 'تعديل تحميل' : 'إضافة تحميل'}
+            icon={correcting ? 'pencil' : 'plus'}
             maxWidth="xl"
             bodyClassName="space-y-5"
             saveConfirmMessage={confirmMessage}
         >
-            <AccountHeader subscriber={subscriber} balance={balance} />
+            {correcting ? <OriginalLine entry={correcting} /> : <AccountHeader subscriber={subscriber} balance={balance} />}
 
             <fieldset>
                 <legend className="text-sm font-medium text-gray-700">نوع التحميل</legend>
@@ -99,7 +108,9 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
                 <InputError message={errors.notes} className="mt-2" />
             </div>
 
-            <BalanceAfter label="الرصيد بعد التحميل" balanceAfter={balanceAfter} placeholder="أدخل المبلغ" />
+            {correcting && <CorrectionReasonFields form={form} reasons={correctionReasons} />}
+
+            <BalanceAfter label={correcting ? 'الرصيد بعد التعديل' : 'الرصيد بعد التحميل'} balanceAfter={balanceAfter} placeholder="أدخل المبلغ" />
         </FormModal>
     );
 }

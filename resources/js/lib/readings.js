@@ -34,24 +34,25 @@ export function readingDiscount(discount, consumption, unitPrice) {
 }
 
 /**
- * What a week's consumption costs: consumption × kilo price, less the
- * standing discount if there is one, but never less than the minimum
- * payment. `discountAmount` is what the discount took off the week's bill
- * and `minimumApplies` whether the minimum payment is what is due.
+ * What a week's consumption costs: consumption × kilo price, but never
+ * less than the minimum payment. With a standing discount the subscriber
+ * pays the fee less the discount instead, with no minimum: only the kilos
+ * the discount leaves are paid for. `discountAmount` is what the discount
+ * took off and `minimumApplies` whether the minimum payment is what is due.
  * Mirrors MeterReading::chargesFor().
  */
 export function weeklyCharges(consumption, unitPrice, minimumPayment, discount = null) {
     const readingFee = roundToCents(Number(consumption) * Number(unitPrice));
-    const discountedFee = roundToCents(readingFee - (discount ? readingDiscount(discount, consumption, unitPrice) : 0));
-    const minimum = Number(minimumPayment);
-    const amountDue = Math.max(discountedFee, minimum);
 
-    return {
-        readingFee,
-        discountAmount: roundToCents(Math.max(readingFee, minimum) - amountDue),
-        amountDue,
-        minimumApplies: discountedFee < minimum,
-    };
+    if (discount) {
+        const discountAmount = readingDiscount(discount, consumption, unitPrice);
+
+        return { readingFee, discountAmount, amountDue: roundToCents(readingFee - discountAmount), minimumApplies: false };
+    }
+
+    const minimum = Number(minimumPayment);
+
+    return { readingFee, discountAmount: 0, amountDue: Math.max(readingFee, minimum), minimumApplies: readingFee < minimum };
 }
 
 /**

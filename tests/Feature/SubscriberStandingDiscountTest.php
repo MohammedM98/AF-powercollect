@@ -77,6 +77,23 @@ class SubscriberStandingDiscountTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('subscribers.data.0.standingDiscountSummary', '3 كيلو · موظفو أبو زايد'));
     }
 
+    public function test_free_kilowatts_are_taken_off_the_week_so_only_the_kilos_above_them_are_paid(): void
+    {
+        // 2 free kilos at 30 shekels a kilo; the week uses 3, so 90 shekels less 60 — even though the weekly minimum is more.
+        $this->subscriber->update(['minimum_charge' => 53.54]);
+        StandingDiscount::factory()->for($this->subscriber)->kilowatts(2)->create();
+        $this->recordReading(1203)->assertSessionHasNoErrors();
+
+        $reading = MeterReading::sole();
+        $this->assertSame(['90.00', '60.00', '30.00'], [$reading->reading_fee, $reading->discount_amount, $reading->amount_due]);
+
+        $this->actingAs($this->branchAdmin)
+            ->post(route('meter-readings.approve'), ['reading_ids' => [$reading->id]])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(30.0, $this->subscriber->balance());
+    }
+
     public function test_the_discount_form_suggests_the_segments_already_given_a_discount_and_the_tariffs_segments(): void
     {
         StandingDiscount::factory()->create(['segment' => 'موظفو أبو زايد']);
@@ -191,14 +208,34 @@ class SubscriberStandingDiscountTest extends TestCase
         $this->assertSame(['150.00', $discountAmount, $amountDue], [$reading->reading_fee, $reading->discount_amount, $reading->amount_due]);
     }
 
-    public function test_the_weekly_minimum_is_still_due_when_the_discount_leaves_less(): void
+    public function test_a_subscriber_with_a_standing_discount_pays_no_weekly_minimum(): void
     {
         StandingDiscount::factory()->for($this->subscriber)->kilowatts(3)->create();
 
         $this->recordReading(1202)->assertSessionHasNoErrors();
 
         $reading = MeterReading::sole();
-        $this->assertSame(['60.00', '40.00', '20.00'], [$reading->reading_fee, $reading->discount_amount, $reading->amount_due]);
+        $this->assertSame(['60.00', '60.00', '0.00'], [$reading->reading_fee, $reading->discount_amount, $reading->amount_due]);
+    }
+
+    public function test_pending_discounted_readings_are_rebilled_without_the_minimum(): void
+    {
+        $reading = MeterReading::factory()->for($this->subscriber)->create([
+            'consumption' => 3, 'unit_price' => 30, 'minimum_payment' => 53.54,
+            'discount_method' => DiscountMethod::Kilowatt, 'discount_value' => 2,
+            'reading_fee' => 90, 'discount_amount' => 36.46, 'amount_due' => 53.54,
+        ]);
+        $approved = MeterReading::factory()->approved()->for($this->subscriber)->create([
+            'week_start' => '2026-09-11', 'week_end' => '2026-09-17',
+            'consumption' => 3, 'unit_price' => 30, 'minimum_payment' => 53.54,
+            'discount_method' => DiscountMethod::Kilowatt, 'discount_value' => 2,
+            'reading_fee' => 90, 'discount_amount' => 36.46, 'amount_due' => 53.54,
+        ]);
+
+        (require database_path('migrations/2026_09_28_141413_rebill_pending_discounted_readings_without_the_minimum.php'))->up();
+
+        $this->assertSame(['60.00', '30.00'], [$reading->fresh()->discount_amount, $reading->fresh()->amount_due]);
+        $this->assertSame('53.54', $approved->fresh()->amount_due);
     }
 
     public function test_approving_a_discounted_reading_charges_the_full_bill_with_its_permanent_discount_as_a_transaction_of_its_own(): void

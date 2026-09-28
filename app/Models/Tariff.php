@@ -30,6 +30,25 @@ class Tariff extends Model
     }
 
     /**
+     * Every kilo price it has had, newest first.
+     */
+    public function rateChanges(): HasMany
+    {
+        return $this->hasMany(TariffRateChange::class)->latest()->latest('id');
+    }
+
+    /**
+     * Record its current kilo price in its history, when it is new or has
+     * just changed.
+     */
+    public function recordRateChange(User $changedBy): void
+    {
+        if ($this->wasRecentlyCreated || $this->wasChanged('rate')) {
+            $this->rateChanges()->create(['rate' => $this->rate, 'changed_by' => $changedBy->id]);
+        }
+    }
+
+    /**
      * Its customer segments (e.g. mosques, schools), which share its rate.
      */
     public function segments(): HasMany

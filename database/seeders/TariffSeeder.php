@@ -14,7 +14,12 @@ class TariffSeeder extends Seeder
      */
     public function run(): void
     {
-        Tariff::updateOrCreate(['category' => TariffCategory::Residential->value], ['rate' => 50]);
-        Tariff::updateOrCreate(['category' => TariffCategory::Commercial->value], ['rate' => 120]);
+        foreach ([TariffCategory::Residential->value => 50, TariffCategory::Commercial->value => 120] as $category => $rate) {
+            $tariff = Tariff::updateOrCreate(['category' => $category], ['rate' => $rate]);
+
+            if ($tariff->rateChanges()->doesntExist()) {
+                $tariff->rateChanges()->create(['rate' => $tariff->rate]);
+            }
+        }
     }
 }

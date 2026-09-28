@@ -112,7 +112,7 @@ trait BuildsSubscriberStatement
             'currencies' => Currency::options(),
             'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
             'transferBanks' => config('powercollect.transfer_banks'),
-            'chargeTypes' => ChargeType::options(),
+            'chargeTypes' => ChargeType::formOptions(),
             'discountMethods' => DiscountMethod::options(),
             // Offered while typing a standing discount's customer segment.
             'discountSegments' => $canAdjustBalance ? StandingDiscount::segmentSuggestions() : [],

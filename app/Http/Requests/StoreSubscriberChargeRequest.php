@@ -37,8 +37,24 @@ class StoreSubscriberChargeRequest extends FormRequest
         return [
             'type' => ['required', Rule::enum(ChargeType::class)],
             'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'],
-            'notes' => ['nullable', 'string', 'max:1000'],
+            'notes' => ['required_if:type,'.ChargeType::Penalty->value, 'nullable', 'string', 'max:1000'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return self::chargeMessages();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function chargeMessages(): array
+    {
+        return ['notes.required_if' => 'اكتب سبب الغرامة؛ يظهر في كشف حساب المشترك.'];
     }
 
     /**

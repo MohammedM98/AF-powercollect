@@ -33,4 +33,19 @@ return [
 
     'transfer_banks' => ['بنك فلسطين', 'جوال باي', 'بال باي'],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Usual Charge Amounts
+    |--------------------------------------------------------------------------
+    |
+    | What a charge of each type usually comes to, in shekels, suggested in
+    | the charge form (the user can still change it). Types not listed have
+    | no usual amount.
+    |
+    */
+
+    'usual_charges' => [
+        'disconnection_fee' => (float) env('USUAL_DISCONNECTION_FEE', 50),
+    ],
+
 ];

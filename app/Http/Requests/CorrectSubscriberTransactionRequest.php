@@ -70,7 +70,7 @@ class CorrectSubscriberTransactionRequest extends FormRequest
      */
     public function messages(): array
     {
-        return StoreSubscriberPaymentRequest::paymentMessages();
+        return [...StoreSubscriberPaymentRequest::paymentMessages(), ...StoreSubscriberChargeRequest::chargeMessages()];
     }
 
     /**

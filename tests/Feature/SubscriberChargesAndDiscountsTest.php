@@ -55,6 +55,21 @@ class SubscriberChargesAndDiscountsTest extends TestCase
                 ->where('canAdjustBalance', true));
     }
 
+    public function test_a_penalty_must_say_why_and_the_form_suggests_the_usual_disconnection_fee(): void
+    {
+        $this->postAs($this->branchAdmin, route('subscribers.charges.store', $this->subscriber), ['type' => 'penalty', 'amount' => '50', 'notes' => ''])
+            ->assertSessionHasErrors(['notes' => 'اكتب سبب الغرامة؛ يظهر في كشف حساب المشترك.']);
+        $this->postAs($this->branchAdmin, route('subscribers.charges.store', $this->subscriber), ['type' => 'settlement', 'amount' => '50'])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('chargeTypes.0', ['value' => 'settlement', 'label' => 'مقاصة', 'usualAmount' => null, 'needsReason' => false])
+                ->where('chargeTypes.1.needsReason', true)
+                ->where('chargeTypes.2.usualAmount', 50));
+    }
+
     public function test_a_shekel_discount_lowers_the_balance_and_is_listed_as_a_discount(): void
     {
         $this->subscriberOwes('100.00');

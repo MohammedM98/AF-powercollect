@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MeterReadingStatus;
 use App\Enums\TariffCategory;
 use App\Http\Concerns\DeletesRecords;
-use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreTariffRequest;
 use App\Http\Requests\UpdateTariffRequest;
+use App\Models\MeterReading;
 use App\Models\Tariff;
+use App\Models\TariffRateChange;
 use App\Models\TariffSegment;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
@@ -18,41 +20,42 @@ use Inertia\Response as InertiaResponse;
 
 class TariffController extends Controller
 {
-    use DeletesRecords, FiltersDataTable;
-
-    private const SORTABLE = ['category', 'rate'];
+    use DeletesRecords;
 
     /**
-     * Display a listing of the resource.
+     * How many recent weeks of approved readings the average consumption
+     * on each tariff card covers.
+     */
+    private const AVERAGE_WEEKS = 4;
+
+    /**
+     * The tariffs page: a card for each tariff with its kilo price, since
+     * when and who set it, its price history, its subscribers and their
+     * average weekly consumption, and its customer segments.
      */
     public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', Tariff::class);
 
         $actor = $request->user();
-        $query = Tariff::query();
-        $this->applyDataTableFilters($query, $request, [], self::SORTABLE, 'category');
-        $this->applyDataTableFilterSelects($query, $request, ['category']);
-
-        $tariffs = $query->paginate($this->dataTablePerPage($request))
-            ->withQueryString()
-            ->through(fn (Tariff $tariff) => [
-                ...$this->editableFields($tariff),
-                'categoryLabel' => __($tariff->category->label()),
-                'canUpdate' => $actor->can('update', $tariff),
-                'canDelete' => $actor->can('delete', $tariff),
-            ]);
+        $tariffs = Tariff::query()
+            ->withCount('subscribers')
+            ->with(['rateChanges.changedBy', 'segments' => fn ($query) => $query->withCount('subscribers')])
+            ->get()
+            ->sortBy(fn (Tariff $tariff): int => array_search($tariff->category, TariffCategory::cases(), true))
+            ->values();
+        $averages = $this->averageWeeklyConsumption();
+        $missing = array_values(array_filter(
+            TariffCategory::cases(),
+            fn (TariffCategory $category): bool => ! $tariffs->contains('category', $category),
+        ));
 
         return Inertia::render('Tariffs/Index', [
-            'tariffs' => $tariffs,
-            'segmentGroups' => $this->segmentGroups($actor),
-            'canCreate' => $actor->can('create', Tariff::class),
+            'tariffs' => $tariffs->map(fn (Tariff $tariff): array => $this->card($tariff, $actor, $averages[$tariff->id] ?? null))->all(),
+            'canCreate' => $missing !== [] && $actor->can('create', Tariff::class),
             'canCreateSegment' => $actor->can('create', TariffSegment::class),
-            'filters' => $this->dataTableState($request, 'category'),
-            'categoryOptions' => TariffCategory::options(),
-            'filterOptions' => [
-                $this->filterGroup('category', 'الفئة', TariffCategory::options()),
-            ],
+            // Only a category with no tariff yet can be added.
+            'categoryOptions' => TariffCategory::options($missing),
         ]);
     }
 
@@ -74,6 +77,7 @@ class TariffController extends Controller
     public function store(StoreTariffRequest $request): RedirectResponse
     {
         $tariff = Tariff::create($request->validated());
+        $tariff->recordRateChange($request->user());
         $request->user()->notify(new ActionCompleted('tariff-created', __($tariff->category->label())));
 
         return redirect()->route('tariffs.index')->with('status', 'tariff-created');
@@ -98,6 +102,7 @@ class TariffController extends Controller
     public function update(UpdateTariffRequest $request, Tariff $tariff): RedirectResponse
     {
         $tariff->update($request->validated());
+        $tariff->recordRateChange($request->user());
         $request->user()->notify(new ActionCompleted('tariff-updated', __($tariff->category->label())));
 
         return redirect()->route('tariffs.index')->with('status', 'tariff-updated');
@@ -112,29 +117,58 @@ class TariffController extends Controller
     }
 
     /**
-     * Every tariff with its customer segments and how many subscribers
-     * each has, for the segments panel on the index page.
+     * One tariff's card on the index page.
      *
-     * @return array<int, array{id: int, categoryLabel: string, segments: array<int, array{id: int, tariff_id: int, name: string, subscribersCount: int, canUpdate: bool, canDelete: bool}>}>
+     * @return array<string, mixed>
      */
-    private function segmentGroups(User $actor): array
+    private function card(Tariff $tariff, User $actor, ?float $averageConsumption): array
     {
-        return Tariff::query()
-            ->with(['segments' => fn ($query) => $query->withCount('subscribers')])
-            ->orderBy('category')
-            ->get()
-            ->map(fn (Tariff $tariff) => [
-                'id' => $tariff->id,
-                'categoryLabel' => __($tariff->category->label()),
-                'segments' => $tariff->segments->map(fn (TariffSegment $segment) => [
-                    'id' => $segment->id,
-                    'tariff_id' => $segment->tariff_id,
-                    'name' => $segment->name,
-                    'subscribersCount' => $segment->subscribers_count,
-                    'canUpdate' => $actor->can('update', $segment),
-                    'canDelete' => $actor->can('delete', $segment),
-                ])->all(),
-            ])
+        $latest = $tariff->rateChanges->first();
+        $segmented = $tariff->segments->sum('subscribers_count');
+
+        return [
+            ...$this->editableFields($tariff),
+            'categoryLabel' => __($tariff->category->label()),
+            'subscribersCount' => $tariff->subscribers_count,
+            'unsegmentedCount' => max(0, $tariff->subscribers_count - $segmented),
+            'averageConsumption' => $averageConsumption === null ? null : round($averageConsumption, 1),
+            'rateSince' => $latest?->created_at->locale('ar')->translatedFormat('j F Y'),
+            'rateChangedBy' => $latest?->changedBy?->name,
+            // Oldest first, the last few prices it has had.
+            'history' => $tariff->rateChanges->take(5)->reverse()->values()->map(fn (TariffRateChange $change): array => [
+                'id' => $change->id,
+                'date' => $change->created_at->locale('ar')->translatedFormat('j F Y'),
+                'rate' => $change->rate,
+            ])->all(),
+            'segments' => $tariff->segments->map(fn (TariffSegment $segment): array => [
+                'id' => $segment->id,
+                'name' => $segment->name,
+                'subscribersCount' => $segment->subscribers_count,
+                'canUpdate' => $actor->can('update', $segment),
+                'canDelete' => $actor->can('delete', $segment),
+            ])->all(),
+            'canUpdate' => $actor->can('update', $tariff),
+            'canDelete' => $actor->can('delete', $tariff),
+        ];
+    }
+
+    /**
+     * The average weekly consumption, in kilos, of each tariff's approved
+     * readings over the last few weeks.
+     *
+     * @return array<int, float> tariff id => kilos
+     */
+    private function averageWeeklyConsumption(): array
+    {
+        return MeterReading::query()
+            ->join('subscribers', 'subscribers.id', '=', 'meter_readings.subscriber_id')
+            ->where('meter_readings.status', MeterReadingStatus::Approved)
+            ->where('meter_readings.week_start', '>=', now()->subWeeks(self::AVERAGE_WEEKS)->toDateString())
+            ->groupBy('subscribers.tariff_id')
+            ->toBase()
+            ->selectRaw('subscribers.tariff_id, avg(meter_readings.consumption) as average')
+            ->pluck('average', 'tariff_id')
+            ->map(fn ($average): float => (float) $average)
             ->all();
     }
 

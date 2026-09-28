@@ -94,7 +94,7 @@ class TariffAuthorizationTest extends TestCase
 
         $response->assertInertia(fn ($page) => $page
             ->where('canCreate', false)
-            ->where('tariffs.data.0.canUpdate', false));
+            ->where('tariffs.0.canUpdate', false));
     }
 
     public function test_a_branch_admin_can_only_view_tariffs_by_default(): void
@@ -106,7 +106,7 @@ class TariffAuthorizationTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('canCreate', false)
-                ->where('tariffs.data.0.canUpdate', false));
+                ->where('tariffs.0.canUpdate', false));
         $this->post(route('tariffs.store'), ['category' => TariffCategory::Commercial->value, 'rate' => 15])->assertForbidden();
         $this->put(route('tariffs.update', $tariff), ['category' => TariffCategory::Residential->value, 'rate' => 30])->assertForbidden();
 
@@ -123,7 +123,7 @@ class TariffAuthorizationTest extends TestCase
         $this->actingAs($branchAdmin)->get(route('tariffs.index'))
             ->assertInertia(fn ($page) => $page
                 ->where('canCreate', true)
-                ->where('tariffs.data.0.canUpdate', true));
+                ->where('tariffs.0.canUpdate', true));
         $this->post(route('tariffs.store'), ['category' => TariffCategory::Commercial->value, 'rate' => 15])->assertRedirect(route('tariffs.index'));
         $this->put(route('tariffs.update', $tariff), ['category' => TariffCategory::Residential->value, 'rate' => 30])->assertRedirect(route('tariffs.index'));
 

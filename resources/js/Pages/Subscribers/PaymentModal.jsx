@@ -9,8 +9,9 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import Switch from '@/Components/Switch';
 import { useResourceForm } from '@/hooks/useResourceForm';
 import { describeBalance, paymentInShekels } from '@/lib/accountStatement';
-import { formatClock, formatMoney, initials, normalizeDecimalInput } from '@/lib/format';
+import { formatClock, formatMoney, normalizeDecimalInput } from '@/lib/format';
 import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/formValidation';
+import { balanceText, FieldLabel, SubscriberStrip } from './AccountFormParts';
 import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './CorrectionFields';
 
 const CURRENCY_ORDER = ['ILS', 'USD', 'JOD'];
@@ -24,33 +25,8 @@ const BANKS = {
     'بال باي': { logo: '/images/banks/palpay.webp', color: '#9b30e0', kind: 'محفظة' },
 };
 
-const STATUS_DOTS = { active: 'bg-emerald-500', suspended: 'bg-amber-500', disconnected: 'bg-gray-400' };
-
-const BALANCE_CHIPS = {
-    owes: 'bg-brand-500/10 text-brand-600',
-    credit: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-    settled: 'bg-gray-100 text-gray-700',
-};
-
 const inputClass =
     'block h-[50px] w-full rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-4 text-base text-gray-900 transition placeholder:text-gray-400 hover:border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-900/10 read-only:bg-gray-50 read-only:text-gray-500';
-
-/** "377 ₪ عليه", "9.10 ₪ له" or "0 ₪ مسدّد". */
-function balanceText(balance) {
-    return `${formatMoney(balance.tone === 'settled' ? 0 : balance.amount)} ₪ ${balance.label}`;
-}
-
-function FieldLabel({ htmlFor, required = false, hint, children }) {
-    return (
-        <div className="mb-2 flex items-baseline justify-between gap-2.5">
-            <label htmlFor={htmlFor} className="text-[14.5px] font-semibold text-gray-700">
-                {children}
-                {required && <span className="text-brand-600"> *</span>}
-            </label>
-            {hint && <span className="text-[13px] text-gray-500">{hint}</span>}
-        </div>
-    );
-}
 
 /** One way of paying, as a big radio tile. */
 function MethodTile({ value, checked, onChange, icon, title, hint }) {
@@ -473,37 +449,11 @@ export default function PaymentModal({
                         {/* On phones the fields and the summary scroll together; side by side they each scroll alone. */}
                         <div className="min-h-0 flex-1 overflow-y-auto lg:contents">
                             <div className="grid grid-cols-1 content-start gap-[22px] px-5 pb-3 pt-5 sm:px-6 lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto">
-                                <div className="flex flex-wrap items-center gap-3.5 rounded-[18px] border border-gray-100 bg-gray-50 px-3.5 py-3">
-                                    <div className="flex min-w-0 flex-1 basis-52 items-center gap-3.5">
-                                        <span className="relative flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[14px] bg-graphite-gradient font-display text-[15px] font-bold text-white">
-                                            {initials(subscriber.fullName)}
-                                            <span
-                                                className={`absolute -bottom-0.5 -start-0.5 h-[13px] w-[13px] rounded-full border-[2.5px] border-gray-50 ${STATUS_DOTS[subscriber.status] ?? 'bg-gray-400'}`}
-                                                aria-hidden="true"
-                                            />
-                                        </span>
-                                        <div className="min-w-0">
-                                            <p className="break-words text-[16.5px] font-bold text-gray-900">{subscriber.fullName}</p>
-                                            <p className="text-[13.5px] text-gray-500">
-                                                حساب{' '}
-                                                <span dir="ltr" className="font-display">
-                                                    {subscriber.accountNumber}
-                                                </span>
-                                                {subscriber.branchName && ` · ${subscriber.branchName}`}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="ms-auto flex shrink-0 flex-col items-end gap-0.5">
-                                        <span className="text-[12.5px] text-gray-500">
-                                            {correcting ? 'الرصيد بدون الدفعة الأصلية' : 'الرصيد الحالي'}
-                                        </span>
-                                        <span
-                                            className={`whitespace-nowrap rounded-[10px] px-2.5 py-0.5 font-display text-[17px] font-bold ${BALANCE_CHIPS[describeBalance(balance).tone]}`}
-                                        >
-                                            {balanceText(describeBalance(balance))}
-                                        </span>
-                                    </div>
-                                </div>
+                                <SubscriberStrip
+                                    subscriber={subscriber}
+                                    balance={balance}
+                                    balanceLabel={correcting ? 'الرصيد بدون الدفعة الأصلية' : 'الرصيد الحالي'}
+                                />
 
                                 {correcting && <OriginalLine entry={correcting} />}
 

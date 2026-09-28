@@ -1,5 +1,4 @@
 import Icon from '@/Components/Icon';
-import { describeBalance } from '@/lib/accountStatement';
 
 const BALANCE_TONES = {
     owes: 'text-brand-700',
@@ -13,23 +12,6 @@ export function BalanceText({ balance }) {
         <span className={`font-bold tabular-nums ${BALANCE_TONES[balance.tone]}`}>
             {balance.tone === 'settled' ? '0 شيكل — مسدّد' : `${balance.amount} شيكل ${balance.label}`}
         </span>
-    );
-}
-
-/** The subscriber and their current balance, at the top of the payment, charge and discount forms. */
-export function AccountHeader({ subscriber, balance }) {
-    return (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 px-4 py-3 text-sm">
-            <div>
-                <p className="font-semibold text-gray-900">{subscriber.fullName}</p>
-                <p className="mt-0.5 text-gray-500">
-                    حساب <span dir="ltr">{subscriber.accountNumber}</span>
-                </p>
-            </div>
-            <p className="text-gray-600">
-                الرصيد الحالي: <BalanceText balance={describeBalance(balance)} />
-            </p>
-        </div>
     );
 }
 

@@ -76,9 +76,10 @@ class TariffSegmentTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('canCreateSegment', true)
-                ->where('segmentGroups.0.id', $tariff->id)
-                ->where('segmentGroups.0.segments.0.name', 'مساجد')
-                ->where('segmentGroups.0.segments.0.subscribersCount', 2)
-                ->where('segmentGroups.0.segments.0.canUpdate', true));
+                ->where('tariffs.0.id', $tariff->id)
+                ->where('tariffs.0.segments.0.name', 'مساجد')
+                ->where('tariffs.0.segments.0.subscribersCount', 2)
+                ->where('tariffs.0.segments.0.canUpdate', true)
+                ->where('tariffs.0.unsegmentedCount', 0));
     }
 }

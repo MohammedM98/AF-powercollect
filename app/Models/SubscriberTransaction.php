@@ -382,24 +382,34 @@ class SubscriberTransaction extends Model
                 PaymentMethod::EWallet => 'دفعة بمحفظة إلكترونية',
                 default => 'دفعة',
             },
-            self::TYPE_DISCOUNT => match ($this->discount_method) {
-                DiscountMethod::Percentage => sprintf('خصم %s%% من الرصيد المستحق (%s شيكل)', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
-                DiscountMethod::Kilowatt => sprintf('خصم %s كيلو × %s شيكل', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
-                default => 'خصم بمبلغ ثابت',
+            self::TYPE_DISCOUNT => 'خصم لمرة واحدة · '.match ($this->discount_method) {
+                DiscountMethod::Percentage => sprintf('نسبة %s%% من الرصيد المستحق (%s شيكل)', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
+                DiscountMethod::Kilowatt => sprintf('%s كيلو × %s شيكل', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
+                default => 'مبلغ ثابت',
             },
-            self::TYPE_READING_DISCOUNT => $this->meterReading
-                ? sprintf(
-                    'خصم دائم على قراءة الأسبوع من %s إلى %s · %s',
-                    $this->meterReading->week_start->format('Y-m-d'),
-                    $this->meterReading->week_end->format('Y-m-d'),
-                    StandingDiscount::termsFor($this->discount_method, $this->discount_value),
-                )
-                : 'خصم دائم · '.StandingDiscount::termsFor($this->discount_method, $this->discount_value),
+            self::TYPE_READING_DISCOUNT => implode(' · ', array_filter([
+                'خصم دائم',
+                match ($this->discount_method) {
+                    DiscountMethod::Percentage => 'نسبة '.self::formatAmount($this->discount_value).'%',
+                    DiscountMethod::Kilowatt => self::formatAmount($this->discount_value).' كيلو مجاني',
+                    default => self::formatAmount($this->discount_value).' شيكل من سعر الكيلو',
+                },
+                $this->readingDiscountSegment(),
+            ])),
             self::TYPE_REVERSAL => $this->reverses
                 ? 'إلغاء: '.$this->reverses->description().($this->reverses->voucher_number ? ' · سند '.$this->reverses->printedVoucherNumber() : '')
                 : 'قيد عكسي',
             default => $this->typeLabel(),
         };
+    }
+
+    /**
+     * The customer segment a weekly reading's standing discount was given
+     * to, or null when none was named.
+     */
+    public function readingDiscountSegment(): ?string
+    {
+        return $this->meterReading?->discount_segment ?? $this->notes;
     }
 
     /**

@@ -200,7 +200,12 @@ trait BuildsSubscriberStatement
             'referenceNumber' => $transaction->reference_number,
             'cashBox' => $transaction->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
-            'details' => $transaction->notes ?? ($transaction->type === SubscriberTransaction::TYPE_METER_READING ? $transaction->meterReading?->notes : null),
+            'details' => match ($transaction->type) {
+                SubscriberTransaction::TYPE_METER_READING => $transaction->notes ?? $transaction->meterReading?->notes,
+                // Its customer segment is already in the description.
+                SubscriberTransaction::TYPE_READING_DISCOUNT => null,
+                default => $transaction->notes,
+            },
             // A reversal or a replacement, shown indented under the line it corrects.
             'isFollowUp' => $transaction->reverses_id !== null || $transaction->corrects_id !== null,
             'isReversal' => $transaction->isReversal(),

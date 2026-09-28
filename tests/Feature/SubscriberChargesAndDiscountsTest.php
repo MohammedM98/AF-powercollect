@@ -83,7 +83,7 @@ class SubscriberChargesAndDiscountsTest extends TestCase
             ->get(route('subscribers.statement', $this->subscriber))
             ->assertInertia(fn ($page) => $page
                 ->where('entries.1.typeLabel', 'خصم')
-                ->where('entries.1.description', 'خصم بمبلغ ثابت')
+                ->where('entries.1.description', 'خصم لمرة واحدة · مبلغ ثابت')
                 ->where('entries.1.isCredit', true)
                 ->where('summary.balance', '70.00')
                 ->where('summary.charged', '100.00')
@@ -99,7 +99,7 @@ class SubscriberChargesAndDiscountsTest extends TestCase
 
         $discount = $this->latestTransaction();
         $this->assertSame('-15.00', $discount->amount);
-        $this->assertSame('خصم 25 كيلو × 0.60 شيكل', $discount->description());
+        $this->assertSame('خصم لمرة واحدة · 25 كيلو × 0.60 شيكل', $discount->description());
     }
 
     public function test_a_percentage_discount_is_taken_off_the_balance_owed(): void
@@ -110,7 +110,7 @@ class SubscriberChargesAndDiscountsTest extends TestCase
 
         $discount = $this->latestTransaction();
         $this->assertSame('-25.00', $discount->amount);
-        $this->assertSame('خصم 10% من الرصيد المستحق (250 شيكل)', $discount->description());
+        $this->assertSame('خصم لمرة واحدة · نسبة 10% من الرصيد المستحق (250 شيكل)', $discount->description());
     }
 
     public function test_a_discount_cannot_be_more_than_the_subscriber_owes(): void

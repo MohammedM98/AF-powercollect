@@ -36,7 +36,26 @@ export const ACTION_MESSAGES = {
     'area-updated': 'تم تحديث المنطقة بنجاح.',
     'sub-area-created': 'تم إنشاء منطقة 2 بنجاح.',
     'sub-area-updated': 'تم تحديث منطقة 2 بنجاح.',
+    'branch-deleted': 'تم حذف الفرع بنجاح.',
+    'user-deleted': 'تم حذف المستخدم بنجاح.',
+    'subscriber-deleted': 'تم حذف المشترك بنجاح.',
+    'tariff-deleted': 'تم حذف التعرفة بنجاح.',
+    'tariff-segment-deleted': 'تم حذف تصنيف الزبائن بنجاح.',
+    'circuit-breaker-deleted': 'تم حذف القاطع بنجاح.',
+    'meter-box-deleted': 'تم حذف الطبلون بنجاح.',
+    'governorate-deleted': 'تم حذف المحافظة بنجاح.',
+    'area-deleted': 'تم حذف المنطقة بنجاح.',
+    'sub-area-deleted': 'تم حذف منطقة 2 بنجاح.',
     'permissions-updated': 'تم حفظ الصلاحيات بنجاح.',
     'profile-updated': 'تم حفظ الملف الشخصي بنجاح.',
     'password-updated': 'تم تحديث كلمة المرور بنجاح.',
 };
+
+/**
+ * Whether a visit's response carries the flashed `status`. A partial
+ * reload that leaves `status` out (opening a statement window, say) keeps
+ * the page's old one, which must not be announced again.
+ */
+export function visitReturnsStatus({ only = [], except = [] } = {}) {
+    return (only.length === 0 || only.includes('status')) && !except.includes('status');
+}

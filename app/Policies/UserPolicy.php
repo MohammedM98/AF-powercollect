@@ -66,11 +66,22 @@ class UserPolicy
     }
 
     /**
-     * Determine whether the user can delete the model.
+     * Deleting takes its own permission, on the same terms as editing,
+     * and never reaches the user's own account or a Super Admin.
      */
     public function delete(User $user, User $model): bool
     {
-        return false;
+        if ($user->is($model) || $model->isSuperAdmin()) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return $user->hasPermission(PermissionKey::DeleteUsers)
+            && in_array($model->role, UserRole::staffRoles(), true)
+            && $model->branch_id === $user->branch_id;
     }
 
     /**

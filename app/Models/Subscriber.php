@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\SubscriberStatus;
 use App\Models\Concerns\BelongsToBranch;
+use App\Support\DeletionBlocker;
 use Database\Factories\SubscriberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'tariff_segment_id', 'branch_id',
@@ -155,5 +157,30 @@ class Subscriber extends Model
     public function balance(): float
     {
         return round((float) $this->transactions()->sum('amount'), 2);
+    }
+
+    /**
+     * Why the subscriber can't be deleted yet — readings or account lines
+     * beyond the subscription fee charged when they were added — or null
+     * when they can: a subscriber added by mistake.
+     */
+    public function deletionBlocker(): ?string
+    {
+        return DeletionBlocker::describe('المشترك', [
+            'القراءات' => $this->meterReadings()->count(),
+            'الحركات المالية' => $this->transactions()->where('type', '!=', SubscriberTransaction::TYPE_SUBSCRIPTION_FEE)->count(),
+        ], 'يمكنك تغيير حالته إلى «مفصول» بدلًا من حذفه.');
+    }
+
+    /**
+     * Delete the subscriber with their subscription fee (and standing
+     * discount); deletionBlocker() must allow it first.
+     */
+    public function deleteWithSubscriptionFee(): void
+    {
+        DB::transaction(function (): void {
+            $this->transactions()->delete();
+            $this->delete();
+        });
     }
 }

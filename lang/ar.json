@@ -222,5 +222,14 @@
     "Recorded on the wrong subscriber": "سُجّلت على مشترك آخر",
     "Duplicate entry": "حركة مكررة",
     "Money not received": "المبلغ لم يُستلم",
-    "Other reason": "سبب آخر"
+    "Other reason": "سبب آخر",
+    "Delete Branches": "حذف الفروع",
+    "Delete Users": "حذف المستخدمين",
+    "Delete Subscribers": "حذف المشتركين",
+    "Delete Tariffs": "حذف التعرفات",
+    "Delete Circuit Breakers": "حذف القواطع",
+    "Delete Meter Boxes": "حذف الطبلونات",
+    "Delete Areas": "حذف المناطق",
+    "Delete Sub Areas": "حذف المناطق الفرعية",
+    "Delete Governorates": "حذف المحافظات"
 }

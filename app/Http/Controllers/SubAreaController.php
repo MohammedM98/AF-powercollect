@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Concerns\DeletesRecords;
 use App\Http\Requests\StoreSubAreaRequest;
 use App\Http\Requests\UpdateSubAreaRequest;
 use App\Models\Area;
@@ -14,6 +15,8 @@ use Inertia\Response as InertiaResponse;
 
 class SubAreaController extends Controller
 {
+    use DeletesRecords;
+
     /**
      * Show the form for creating a new resource. Anyone but a Super Admin
      * can only pick their own branch's area.
@@ -69,6 +72,14 @@ class SubAreaController extends Controller
             'selected' => $subArea->area?->governorate_id,
             'selectedArea' => $subArea->area_id,
         ]))->with('status', 'sub-area-updated');
+    }
+
+    /**
+     * Delete the sub-area, once nothing uses it any more.
+     */
+    public function destroy(Request $request, SubArea $subArea): RedirectResponse
+    {
+        return $this->deleteRecord($request, $subArea, 'sub-area-deleted', $subArea->name);
     }
 
     /**

@@ -9,6 +9,7 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import MeterBoxModal from './MeterBoxModal';
 
@@ -27,6 +28,7 @@ export default function Index({
     const [modalMeterBox, setModalMeterBox] = useState(null);
     const [creating, setCreating] = useState(false);
     const rowClick = useRowClick();
+    const { requestDelete, deleteDialog } = useDeleteRecord('الطبلون');
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-boxes', filters);
 
     return (
@@ -96,9 +98,12 @@ export default function Index({
                                         {[meterBox.governorateName, meterBox.areaName, meterBox.subAreaName].filter(Boolean).join(' / ') || '—'}
                                     </td>
                                     <td className="text-end">
-                                        {meterBox.canUpdate && (
+                                        {(meterBox.canUpdate || meterBox.canDelete) && (
                                             <RowActionsMenu>
-                                                <button onClick={() => setModalMeterBox(meterBox)}>تعديل</button>
+                                                {meterBox.canDelete && (
+                                                    <button onClick={() => requestDelete(`/meter-boxes/${meterBox.id}`, meterBox.name)}>حذف</button>
+                                                )}
+                                                {meterBox.canUpdate && <button onClick={() => setModalMeterBox(meterBox)}>تعديل</button>}
                                             </RowActionsMenu>
                                         )}
                                     </td>
@@ -141,6 +146,8 @@ export default function Index({
                     currentBranchAreaId={currentBranchAreaId}
                 />
             )}
+
+            {deleteDialog}
         </SettingsLayout>
     );
 }

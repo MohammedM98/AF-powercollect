@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Concerns\DeletesRecords;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Concerns\ProvidesFormOptions;
 use App\Http\Requests\StoreBranchRequest;
@@ -17,7 +18,7 @@ use Inertia\Response as InertiaResponse;
 
 class BranchController extends Controller
 {
-    use FiltersDataTable, ProvidesFormOptions;
+    use DeletesRecords, FiltersDataTable, ProvidesFormOptions;
 
     private const SORTABLE = ['name', 'location', 'phone', 'is_active', 'created_at'];
 
@@ -38,6 +39,7 @@ class BranchController extends Controller
             ->through(fn (Branch $branch) => [
                 ...$branch->toArray(),
                 'canUpdate' => $actor->can('update', $branch),
+                'canDelete' => $actor->can('delete', $branch),
             ]);
 
         return Inertia::render('Branches/Index', [
@@ -92,6 +94,14 @@ class BranchController extends Controller
         $request->user()->notify(new ActionCompleted('branch-updated', $branch->name));
 
         return redirect()->route('branches.index')->with('status', 'branch-updated');
+    }
+
+    /**
+     * Delete the branch, once nothing uses it any more.
+     */
+    public function destroy(Request $request, Branch $branch): RedirectResponse
+    {
+        return $this->deleteRecord($request, $branch, 'branch-deleted', $branch->name);
     }
 
     /**

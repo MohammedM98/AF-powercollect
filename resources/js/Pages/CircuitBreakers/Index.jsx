@@ -9,6 +9,7 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import { formatCurrency } from '@/lib/currency';
 import CircuitBreakerModal from './CircuitBreakerModal';
@@ -17,6 +18,7 @@ export default function Index({ circuitBreakers, canCreate, filters, filterOptio
     const [modalCircuitBreaker, setModalCircuitBreaker] = useState(null);
     const [creating, setCreating] = useState(false);
     const rowClick = useRowClick();
+    const { requestDelete, deleteDialog } = useDeleteRecord('القاطع');
     const { setPerPage, sort, filterValues, setFilter, clearFilters } = useDataTable('/circuit-breakers', filters);
 
     return (
@@ -81,9 +83,20 @@ export default function Index({ circuitBreakers, canCreate, filters, filterOptio
                                         {formatCurrency(circuitBreaker.minimum_payment)}
                                     </td>
                                     <td className="text-end">
-                                        {circuitBreaker.canUpdate && (
+                                        {(circuitBreaker.canUpdate || circuitBreaker.canDelete) && (
                                             <RowActionsMenu>
-                                                <button onClick={() => setModalCircuitBreaker(circuitBreaker)}>تعديل</button>
+                                                {circuitBreaker.canDelete && (
+                                                    <button
+                                                        onClick={() =>
+                                                            requestDelete(`/circuit-breakers/${circuitBreaker.id}`, `${circuitBreaker.ampere}A`)
+                                                        }
+                                                    >
+                                                        حذف
+                                                    </button>
+                                                )}
+                                                {circuitBreaker.canUpdate && (
+                                                    <button onClick={() => setModalCircuitBreaker(circuitBreaker)}>تعديل</button>
+                                                )}
                                             </RowActionsMenu>
                                         )}
                                     </td>
@@ -105,6 +118,8 @@ export default function Index({ circuitBreakers, canCreate, filters, filterOptio
                     circuitBreaker={modalCircuitBreaker}
                 />
             )}
+
+            {deleteDialog}
         </SettingsLayout>
     );
 }

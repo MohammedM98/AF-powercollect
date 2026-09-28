@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Concerns\DeletesRecords;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreCircuitBreakerRequest;
 use App\Http\Requests\UpdateCircuitBreakerRequest;
@@ -14,7 +15,7 @@ use Inertia\Response as InertiaResponse;
 
 class CircuitBreakerController extends Controller
 {
-    use FiltersDataTable;
+    use DeletesRecords, FiltersDataTable;
 
     private const SORTABLE = ['ampere', 'minimum_payment'];
 
@@ -35,6 +36,7 @@ class CircuitBreakerController extends Controller
             ->through(fn (CircuitBreaker $circuitBreaker) => [
                 ...$this->editableFields($circuitBreaker),
                 'canUpdate' => $actor->can('update', $circuitBreaker),
+                'canDelete' => $actor->can('delete', $circuitBreaker),
             ]);
 
         return Inertia::render('CircuitBreakers/Index', [
@@ -87,6 +89,14 @@ class CircuitBreakerController extends Controller
         $request->user()->notify(new ActionCompleted('circuit-breaker-updated', __(':ampere A', ['ampere' => $circuitBreaker->ampere])));
 
         return redirect()->route('circuit-breakers.index')->with('status', 'circuit-breaker-updated');
+    }
+
+    /**
+     * Delete the circuit breaker, once nothing uses it any more.
+     */
+    public function destroy(Request $request, CircuitBreaker $circuitBreaker): RedirectResponse
+    {
+        return $this->deleteRecord($request, $circuitBreaker, 'circuit-breaker-deleted', __(':ampere A', ['ampere' => $circuitBreaker->ampere]));
     }
 
     /**

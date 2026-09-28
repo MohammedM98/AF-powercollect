@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TariffCategory;
+use App\Http\Concerns\DeletesRecords;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreTariffRequest;
 use App\Http\Requests\UpdateTariffRequest;
@@ -17,7 +18,7 @@ use Inertia\Response as InertiaResponse;
 
 class TariffController extends Controller
 {
-    use FiltersDataTable;
+    use DeletesRecords, FiltersDataTable;
 
     private const SORTABLE = ['category', 'rate'];
 
@@ -39,6 +40,7 @@ class TariffController extends Controller
                 ...$this->editableFields($tariff),
                 'categoryLabel' => __($tariff->category->label()),
                 'canUpdate' => $actor->can('update', $tariff),
+                'canDelete' => $actor->can('delete', $tariff),
             ]);
 
         return Inertia::render('Tariffs/Index', [
@@ -102,10 +104,18 @@ class TariffController extends Controller
     }
 
     /**
+     * Delete the tariff, once nothing uses it any more.
+     */
+    public function destroy(Request $request, Tariff $tariff): RedirectResponse
+    {
+        return $this->deleteRecord($request, $tariff, 'tariff-deleted', __($tariff->category->label()));
+    }
+
+    /**
      * Every tariff with its customer segments and how many subscribers
      * each has, for the segments panel on the index page.
      *
-     * @return array<int, array{id: int, categoryLabel: string, segments: array<int, array{id: int, tariff_id: int, name: string, subscribersCount: int, canUpdate: bool}>}>
+     * @return array<int, array{id: int, categoryLabel: string, segments: array<int, array{id: int, tariff_id: int, name: string, subscribersCount: int, canUpdate: bool, canDelete: bool}>}>
      */
     private function segmentGroups(User $actor): array
     {
@@ -122,6 +132,7 @@ class TariffController extends Controller
                     'name' => $segment->name,
                     'subscribersCount' => $segment->subscribers_count,
                     'canUpdate' => $actor->can('update', $segment),
+                    'canDelete' => $actor->can('delete', $segment),
                 ])->all(),
             ])
             ->all();

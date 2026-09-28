@@ -10,6 +10,7 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
@@ -71,6 +72,7 @@ export default function Index({
     const [readingSubscriber, setReadingSubscriber] = useState(null);
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/subscribers', filters);
     const rowClick = useRowClick();
+    const { requestDelete, deleteDialog } = useDeleteRecord('المشترك');
 
     const statementWindow = useStatementWindow(statement);
 
@@ -224,6 +226,11 @@ export default function Index({
                                         <RowActionsMenu
                                             onView={() => openStatement(subscriber)}
                                             onEdit={subscriber.canUpdate ? () => setModalSubscriber(subscriber) : undefined}
+                                            onDelete={
+                                                subscriber.canDelete
+                                                    ? () => requestDelete(`/subscribers/${subscriber.id}`, subscriber.full_name)
+                                                    : undefined
+                                            }
                                             menu={rowMenu(subscriber)}
                                         />
                                     </td>
@@ -291,6 +298,8 @@ export default function Index({
                     onClose={statementWindow.close}
                 />
             )}
+
+            {deleteDialog}
         </AuthenticatedLayout>
     );
 }

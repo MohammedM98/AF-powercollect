@@ -10,6 +10,7 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import UserModal from './UserModal';
 
@@ -17,6 +18,7 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
     const [modalUser, setModalUser] = useState(null);
     const [creating, setCreating] = useState(false);
     const rowClick = useRowClick();
+    const { requestDelete, deleteDialog } = useDeleteRecord('المستخدم');
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/users', filters);
 
     return (
@@ -82,9 +84,10 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
                                         <StatusPill tone={user.is_active ? 'green' : 'gray'} label={user.is_active ? 'نشط' : 'متوقف'} />
                                     </td>
                                     <td className="text-end">
-                                        {user.canUpdate && (
+                                        {(user.canUpdate || user.canDelete) && (
                                             <RowActionsMenu>
-                                                <button onClick={() => setModalUser(user)}>تعديل</button>
+                                                {user.canDelete && <button onClick={() => requestDelete(`/users/${user.id}`, user.name)}>حذف</button>}
+                                                {user.canUpdate && <button onClick={() => setModalUser(user)}>تعديل</button>}
                                             </RowActionsMenu>
                                         )}
                                     </td>
@@ -121,6 +124,8 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
                     roleOptions={modalUser.roleOptions}
                 />
             )}
+
+            {deleteDialog}
         </AuthenticatedLayout>
     );
 }

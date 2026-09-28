@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\PermissionKey;
 use App\Enums\SubscriberStatus;
 use App\Http\Concerns\BuildsSubscriberStatement;
+use App\Http\Concerns\DeletesRecords;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreSubscriberRequest;
 use App\Http\Requests\UpdateSubscriberRequest;
@@ -28,7 +29,7 @@ use Inertia\Response as InertiaResponse;
 
 class SubscriberController extends Controller
 {
-    use BuildsSubscriberStatement, FiltersDataTable;
+    use BuildsSubscriberStatement, DeletesRecords, FiltersDataTable;
 
     private const SORTABLE = ['account_number', 'full_name', 'status', 'created_at'];
 
@@ -139,6 +140,14 @@ class SubscriberController extends Controller
     }
 
     /**
+     * Delete the subscriber, once nothing uses it any more.
+     */
+    public function destroy(Request $request, Subscriber $subscriber): RedirectResponse
+    {
+        return $this->deleteRecord($request, $subscriber, 'subscriber-deleted', $subscriber->full_name, fn () => $subscriber->deleteWithSubscriptionFee());
+    }
+
+    /**
      * One row of the subscribers list: the editable fields, plus what the
      * table, the details window and the reading form display.
      *
@@ -169,6 +178,7 @@ class SubscriberController extends Controller
             'lastReadingWeekStart' => $latestReading?->week_start->format('Y-m-d'),
             'canRecordReading' => $canRecordReadings && $subscriber->status === SubscriberStatus::Active,
             'canUpdate' => $actor->can('update', $subscriber),
+            'canDelete' => $actor->can('delete', $subscriber),
             'canRecordPayment' => $actor->can('recordPayment', $subscriber),
             'canAdjustBalance' => $actor->can('adjustBalance', $subscriber),
         ];

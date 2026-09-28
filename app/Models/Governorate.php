@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DeletionBlocker;
 use Database\Factories\GovernorateFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,5 +18,17 @@ class Governorate extends Model
     public function areas(): HasMany
     {
         return $this->hasMany(Area::class);
+    }
+
+    /**
+     * Why the governorate can't be deleted yet — what still uses it — or null
+     * when it can.
+     */
+    public function deletionBlocker(): ?string
+    {
+        return DeletionBlocker::describe('المحافظة', [
+            'المناطق' => $this->areas()->count(),
+            'الفروع' => Branch::query()->where('governorate_id', $this->id)->count(),
+        ]);
     }
 }

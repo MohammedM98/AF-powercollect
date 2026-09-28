@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Concerns\DeletesRecords;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreGovernorateRequest;
 use App\Http\Requests\UpdateGovernorateRequest;
@@ -19,7 +20,7 @@ use Inertia\Response as InertiaResponse;
 
 class GovernorateController extends Controller
 {
-    use FiltersDataTable;
+    use DeletesRecords, FiltersDataTable;
 
     private const SORTABLE = ['name', 'created_at'];
 
@@ -56,6 +57,7 @@ class GovernorateController extends Controller
                 ...$this->editableFields($governorate),
                 'areasCount' => $governorate->areas_count,
                 'canUpdate' => $user->can('update', $governorate),
+                'canDelete' => $user->can('delete', $governorate),
             ]);
 
         return Inertia::render('Governorates/Index', [
@@ -116,6 +118,14 @@ class GovernorateController extends Controller
     }
 
     /**
+     * Delete the governorate, once nothing uses it any more.
+     */
+    public function destroy(Request $request, Governorate $governorate): RedirectResponse
+    {
+        return $this->deleteRecord($request, $governorate, 'governorate-deleted', $governorate->name);
+    }
+
+    /**
      * A governorate's editable fields — used both for the dedicated edit
      * page and for the edit modal's initial form data on the index page.
      *
@@ -161,6 +171,7 @@ class GovernorateController extends Controller
                 'name' => $area->name,
                 'governorate_id' => $area->governorate_id,
                 'canUpdate' => $user->can('update', $area),
+                'canDelete' => $user->can('delete', $area),
             ]),
         ];
     }
@@ -195,6 +206,7 @@ class GovernorateController extends Controller
                 'name' => $subArea->name,
                 'area_id' => $subArea->area_id,
                 'canUpdate' => $user->can('update', $subArea),
+                'canDelete' => $user->can('delete', $subArea),
             ]),
         ];
     }

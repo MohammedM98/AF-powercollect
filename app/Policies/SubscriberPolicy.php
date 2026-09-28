@@ -79,11 +79,13 @@ class SubscriberPolicy
     }
 
     /**
-     * Determine whether the user can delete the model.
+     * Deleting takes its own permission, for a subscriber of the user's
+     * own branch (any branch for the Super Admin).
      */
     public function delete(User $user, Subscriber $subscriber): bool
     {
-        return false;
+        return $user->hasPermission(PermissionKey::DeleteSubscribers)
+            && ($user->isSuperAdmin() || $subscriber->branch_id === $user->branch_id);
     }
 
     /**

@@ -129,6 +129,7 @@ export default function ActivityBell() {
                             {activity.recent.map((item) => {
                                 const isCreation = item.action.endsWith('-created') || item.action === 'payment-recorded';
                                 const isAlert = item.action === 'meter-reading-needs-reapproval';
+                                const isDeletion = item.action.endsWith('-deleted');
 
                                 return (
                                     <li key={item.id} className={`flex items-start gap-3 px-5 py-3.5 ${item.read ? '' : 'bg-brand-50/60'}`}>
@@ -136,12 +137,18 @@ export default function ActivityBell() {
                                             className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
                                                 isAlert
                                                     ? 'bg-amber-500/10 text-amber-600'
-                                                    : isCreation
-                                                      ? 'bg-emerald-500/10 text-emerald-600'
-                                                      : 'bg-gray-500/10 text-gray-600'
+                                                    : isDeletion
+                                                      ? 'bg-brand-500/10 text-brand-600'
+                                                      : isCreation
+                                                        ? 'bg-emerald-500/10 text-emerald-600'
+                                                        : 'bg-gray-500/10 text-gray-600'
                                             }`}
                                         >
-                                            <Icon name={isAlert ? 'alert' : isCreation ? 'plus' : 'pencil'} className="h-4 w-4" strokeWidth={2} />
+                                            <Icon
+                                                name={isAlert ? 'alert' : isDeletion ? 'trash' : isCreation ? 'plus' : 'pencil'}
+                                                className="h-4 w-4"
+                                                strokeWidth={2}
+                                            />
                                         </span>
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-semibold text-gray-900">{ACTION_MESSAGES[item.action] ?? item.action}</p>

@@ -10,6 +10,7 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import BranchModal from './BranchModal';
 
@@ -17,6 +18,7 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
     const [modalBranch, setModalBranch] = useState(null);
     const [creating, setCreating] = useState(false);
     const rowClick = useRowClick();
+    const { requestDelete, deleteDialog } = useDeleteRecord('الفرع');
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/branches', filters);
 
     return (
@@ -93,9 +95,12 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
                                         <StatusPill tone={branch.is_active ? 'green' : 'gray'} label={branch.is_active ? 'نشط' : 'متوقف'} />
                                     </td>
                                     <td className="text-end">
-                                        {branch.canUpdate && (
+                                        {(branch.canUpdate || branch.canDelete) && (
                                             <RowActionsMenu>
-                                                <button onClick={() => setModalBranch(branch)}>تعديل</button>
+                                                {branch.canDelete && (
+                                                    <button onClick={() => requestDelete(`/branches/${branch.id}`, branch.name)}>حذف</button>
+                                                )}
+                                                {branch.canUpdate && <button onClick={() => setModalBranch(branch)}>تعديل</button>}
                                             </RowActionsMenu>
                                         )}
                                     </td>
@@ -124,6 +129,8 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
                     areas={areas}
                 />
             )}
+
+            {deleteDialog}
         </SettingsLayout>
     );
 }

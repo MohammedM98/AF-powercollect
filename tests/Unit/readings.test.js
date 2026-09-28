@@ -25,18 +25,19 @@ test('a week is billed consumption × kilo price, less its standing discount', (
     });
 });
 
-test('the weekly minimum is still due when the discount leaves less, and the discount counts only what it took off', () => {
+test('the weekly minimum is due when the week comes to less, unless the subscriber has a standing discount', () => {
+    assert.deepEqual(weeklyCharges(0.5, '30.00', '20.00'), { readingFee: 15, discountAmount: 0, amountDue: 20, minimumApplies: true });
     assert.deepEqual(weeklyCharges(2, '30.00', '20.00', { method: 'kilowatt', value: '3' }), {
         readingFee: 60,
-        discountAmount: 40,
-        amountDue: 20,
-        minimumApplies: true,
+        discountAmount: 60,
+        amountDue: 0,
+        minimumApplies: false,
     });
     assert.deepEqual(weeklyCharges(0.5, '30.00', '20.00', { method: 'percentage', value: '50' }), {
         readingFee: 15,
-        discountAmount: 0,
-        amountDue: 20,
-        minimumApplies: true,
+        discountAmount: 7.5,
+        amountDue: 7.5,
+        minimumApplies: false,
     });
 });
 
@@ -47,8 +48,8 @@ test('a standing discount never takes off more than the reading, nor anything fr
     assert.equal(readingDiscount({ method: 'kilowatt', value: '3' }, -2, '30.00'), 0);
 });
 
-test('free kilowatts leave only the kilos above them to pay: 3 kilos at 30 with 2 free comes to 30', () => {
-    assert.deepEqual(weeklyCharges(3, '30.00', '20.00', { method: 'kilowatt', value: '2' }), {
+test('free kilowatts leave only the kilos above them to pay, whatever the minimum: 3 kilos at 30 with 2 free comes to 30', () => {
+    assert.deepEqual(weeklyCharges(3, '30.00', '53.54', { method: 'kilowatt', value: '2' }), {
         readingFee: 90,
         discountAmount: 60,
         amountDue: 30,

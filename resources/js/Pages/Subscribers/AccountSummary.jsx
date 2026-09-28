@@ -42,6 +42,7 @@ export function StandingDiscountBadge({ discount }) {
         >
             <Icon name="discount" className="h-3.5 w-3.5" />
             خصم دائم: {discount.terms}
+            {discount.segment && ` · ${discount.segment}`}
         </span>
     );
 }

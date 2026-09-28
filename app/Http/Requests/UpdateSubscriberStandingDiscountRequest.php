@@ -22,7 +22,8 @@ class UpdateSubscriberStandingDiscountRequest extends FormRequest
 
     /**
      * `value` is the percentage of each reading, the kilowatts off each
-     * reading's consumption, or the shekels off the kilo price, by `method`.
+     * reading's consumption, or the shekels off the kilo price, by `method`;
+     * `segment` is the customer segment it is given to, typed freely.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -34,6 +35,7 @@ class UpdateSubscriberStandingDiscountRequest extends FormRequest
                 'required', 'numeric', 'decimal:0,2', 'gt:0',
                 $this->input('method') === DiscountMethod::Percentage->value ? 'max:100' : 'max:1000000',
             ],
+            'segment' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -70,6 +72,6 @@ class UpdateSubscriberStandingDiscountRequest extends FormRequest
      */
     public function attributes(): array
     {
-        return ['method' => 'طريقة الخصم', 'value' => 'قيمة الخصم', 'notes' => 'التفاصيل'];
+        return ['method' => 'طريقة الخصم', 'value' => 'قيمة الخصم', 'segment' => 'تصنيف الزبون', 'notes' => 'الملاحظات'];
     }
 }

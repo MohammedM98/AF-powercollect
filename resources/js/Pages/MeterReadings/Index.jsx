@@ -114,7 +114,12 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                         <p className="text-xs text-gray-500">
                             {[row.meterBoxNumber && `طبلون ${row.meterBoxNumber}`, row.subAreaName].filter(Boolean).join(' · ') || '—'}
                         </p>
-                        {row.discount && <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">خصم دائم: {row.discount.terms}</p>}
+                        {row.discount && (
+                            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                                خصم دائم: {row.discount.terms}
+                                {row.discount.segment && ` · ${row.discount.segment}`}
+                            </p>
+                        )}
                     </div>
                 </div>
             </td>

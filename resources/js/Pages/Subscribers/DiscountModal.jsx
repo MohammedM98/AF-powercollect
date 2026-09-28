@@ -14,7 +14,7 @@ import { AccountHeader, BalanceAfter } from './AccountSummary';
 /** A discount comes off the balance once, or off every weekly reading from now on. */
 const KINDS = [
     { value: 'once', label: 'لمرة واحدة', hint: 'يُخصم الآن من الرصيد المستحق.' },
-    { value: 'standing', label: 'دائم على كل قراءة', hint: 'ميزة للمشترك: يُخصم تلقائيًا من قراءة الأسبوع الأخير وكل قراءة بعدها حتى تُوقفه.' },
+    { value: 'standing', label: 'خصم دائم', hint: 'ميزة للمشترك: يُخصم تلقائيًا من قراءة الأسبوع الأخير وكل قراءة بعدها حتى تُوقفه.' },
 ];
 
 /**
@@ -49,6 +49,11 @@ function standingTerms(method, value) {
     return { percentage: `${amount}%`, kilowatt: `${amount} كيلو`, shekel: `${amount} شيكل من سعر الكيلو` }[method];
 }
 
+/** A standing discount's terms with the customer segment it is given to: "3 كيلو · موظفو أبو زايد". */
+function withSegment(terms, segment) {
+    return segment ? `${terms} · ${segment}` : terms;
+}
+
 /** One choice of a row of radio tiles. */
 function ChoiceTile({ name, value, checked, onChange, children }) {
     return (
@@ -73,12 +78,13 @@ function ChoiceTile({ name, value, checked, onChange, children }) {
  * discount leaves, or what the subscriber would pay for the latest week
  * with a standing one.
  */
-export default function DiscountModal({ show, onClose, subscriber, balance, discountMethods }) {
+export default function DiscountModal({ show, onClose, subscriber, balance, discountMethods, discountSegments = [] }) {
     const standingDiscount = subscriber.standingDiscount;
     const form = useResourceForm(`/subscribers/${subscriber.id}/discounts`, null, {
         kind: 'once',
         method: 'shekel',
         value: '',
+        segment: '',
         notes: '',
     });
     const { data, setData, errors } = form;
@@ -118,9 +124,9 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
     let confirmMessage = null;
 
     if (isStanding && value > 0) {
-        const terms = standingTerms(data.method, data.value);
+        const terms = withSegment(standingTerms(data.method, data.value), data.segment.trim());
         const given = standingDiscount
-            ? `سيُستبدل الخصم الدائم لـ ${subscriber.fullName} (${standingDiscount.terms}) بخصم ${terms}`
+            ? `سيُستبدل الخصم الدائم لـ ${subscriber.fullName} (${withSegment(standingDiscount.terms, standingDiscount.segment)}) بخصم ${terms}`
             : `سيحصل ${subscriber.fullName} على خصم دائم (${terms})`;
         const scope = latestWeek ? 'على قراءة الأسبوع الأخير وكل قراءة بعدها' : 'على كل قراءة أسبوعية تُدخل من الآن';
         const postedNow =
@@ -142,14 +148,17 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
     };
 
     function changeKind(kind) {
-        // Switching to the standing kind starts from the subscriber's current one, to change it.
+        // Switching to the standing kind starts from the subscriber's current one, to change it,
+        // or else from their customer segment on the tariff, if they have one.
         const current = kind === 'standing' ? standingDiscount : null;
+        const segment = current ? (current.segment ?? '') : kind === 'standing' ? (subscriber.tariffSegmentName ?? '') : '';
 
         setData((previous) => ({
             ...previous,
             kind,
             method: current?.method ?? previous.method,
             value: current ? formatAmount(current.value) : '',
+            segment,
             notes: current?.notes ?? '',
         }));
         form.clearErrors();
@@ -202,7 +211,9 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
                 {isStanding && standingDiscount && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm">
                         <div className="min-w-0">
-                            <p className="font-semibold text-emerald-800 dark:text-emerald-300">الخصم الدائم الحالي: {standingDiscount.terms}</p>
+                            <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+                                الخصم الدائم الحالي: {withSegment(standingDiscount.terms, standingDiscount.segment)}
+                            </p>
                             <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
                                 منذ <bdi dir="ltr">{standingDiscount.grantedAt}</bdi>
                                 {standingDiscount.grantedByName && ` · ${standingDiscount.grantedByName}`}
@@ -292,17 +303,38 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
                     )}
                 </div>
 
+                {isStanding && (
+                    <div>
+                        <InputLabel htmlFor="discount_segment" value="تصنيف الزبون" />
+                        <TextInput
+                            id="discount_segment"
+                            name="segment"
+                            list="discount_segment_suggestions"
+                            maxLength={100}
+                            autoComplete="off"
+                            className="mt-1 w-full"
+                            placeholder="مثال: موظفو أبو زايد، مساجد"
+                            value={data.segment}
+                            onChange={(e) => setData('segment', e.target.value)}
+                        />
+                        <datalist id="discount_segment_suggestions">
+                            {discountSegments.map((segment) => (
+                                <option key={segment} value={segment} />
+                            ))}
+                        </datalist>
+                        <p className="mt-1 text-xs text-gray-500">اكتبه أو اختره من التصنيفات السابقة؛ يظهر مع الخصم في كشف الحساب والقراءات.</p>
+                        <InputError message={errors.segment} className="mt-2" />
+                    </div>
+                )}
+
                 <div>
-                    <InputLabel
-                        htmlFor="discount_notes"
-                        value={isStanding ? 'سبب الخصم (يظهر مع الخصم الدائم)' : 'تفاصيل (تظهر في البيان بكشف الحساب)'}
-                    />
+                    <InputLabel htmlFor="discount_notes" value={isStanding ? 'ملاحظات (اختياري)' : 'تفاصيل (تظهر في البيان بكشف الحساب)'} />
                     <textarea
                         id="discount_notes"
                         name="notes"
                         rows={2}
                         className="mt-1 block w-full"
-                        placeholder={isStanding ? 'مثال: مسجد، أو موظف في الشركة' : 'مثال: تعويض عن انقطاع الكهرباء'}
+                        placeholder={isStanding ? 'أي تفاصيل أخرى عن الخصم' : 'مثال: تعويض عن انقطاع الكهرباء'}
                         value={data.notes}
                         onChange={(e) => setData('notes', e.target.value)}
                     />
@@ -312,11 +344,11 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
                 {isStanding ? (
                     <p className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
                         {!latestWeek &&
-                            'يُطبَّق على قراءة الأسبوع الأخير عند إدخالها، وتُضاف حركة «خصم قراءة أسبوعية» إلى المعاملات المالية عند اعتماد كل قراءة.'}
+                            'يُطبَّق على قراءة الأسبوع الأخير عند إدخالها، وتُضاف حركة «خصم دائم» إلى المعاملات المالية عند اعتماد كل قراءة.'}
                         {latestWeek?.isApproved === false &&
-                            'قراءة الأسبوع الأخير بانتظار الاعتماد: يُطبَّق عليها الخصم فورًا، وتُضاف حركة «خصم قراءة أسبوعية» إلى المعاملات المالية عند اعتمادها.'}
+                            'قراءة الأسبوع الأخير بانتظار الاعتماد: يُطبَّق عليها الخصم فورًا، وتُضاف حركة «خصم دائم» إلى المعاملات المالية عند اعتمادها.'}
                         {latestWeek?.isApproved &&
-                            'قراءة الأسبوع الأخير معتمدة: يُطبَّق عليها الخصم فورًا، وتُضاف حركة «خصم قراءة أسبوعية» إلى المعاملات المالية عند الحفظ.'}{' '}
+                            'قراءة الأسبوع الأخير معتمدة: يُطبَّق عليها الخصم فورًا، وتُضاف حركة «خصم دائم» إلى المعاملات المالية عند الحفظ.'}{' '}
                         ويُطبَّق كذلك على كل قراءة بعدها، أما قراءات الأسابيع السابقة فتبقى كما هي.
                     </p>
                 ) : (
@@ -330,9 +362,10 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
                 onCancel={() => setConfirmingStop(false)}
                 title="إيقاف الخصم الدائم؟"
                 message={
-                    latestWeek
-                        ? `سيُزال الخصم (${standingDiscount?.terms}) من قراءة الأسبوع الأخير${latestWeek.isApproved ? ' ومن المعاملات المالية' : ''} ومن كل قراءة تُدخل بعدها. قراءات الأسابيع السابقة تحتفظ بخصمها.`
-                        : `لن يُخصم (${standingDiscount?.terms}) من قراءات ${subscriber.fullName} التي تُدخل بعد الآن. القراءات السابقة تحتفظ بخصمها.`
+                    standingDiscount &&
+                    (latestWeek
+                        ? `سيُزال الخصم (${withSegment(standingDiscount.terms, standingDiscount.segment)}) من قراءة الأسبوع الأخير${latestWeek.isApproved ? ' ومن المعاملات المالية' : ''} ومن كل قراءة تُدخل بعدها. قراءات الأسابيع السابقة تحتفظ بخصمها.`
+                        : `لن يُخصم (${withSegment(standingDiscount.terms, standingDiscount.segment)}) من قراءات ${subscriber.fullName} التي تُدخل بعد الآن. القراءات السابقة تحتفظ بخصمها.`)
                 }
                 confirmLabel="نعم، أوقف الخصم"
                 cancelLabel="إبقاء الخصم"

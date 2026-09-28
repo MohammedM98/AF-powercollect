@@ -67,6 +67,7 @@ export function StatementForms({ statement, openForm, onClose }) {
                         subscriber={subscriber}
                         balance={summary.balance}
                         discountMethods={statement.discountMethods}
+                        discountSegments={statement.discountSegments}
                     />
                 </>
             )}

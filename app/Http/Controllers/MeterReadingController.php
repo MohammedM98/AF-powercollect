@@ -130,6 +130,7 @@ class MeterReadingController extends Controller
             'minimum_payment' => $minimumPayment,
             'discount_method' => $discount?->method,
             'discount_value' => $discount?->value,
+            'discount_segment' => $discount?->segment,
             ...MeterReading::chargesFor($consumption, $unitPrice, $minimumPayment, $discount?->method, $discount?->value),
             'status' => MeterReadingStatus::Pending,
             'recorded_by' => $request->user()->id,
@@ -368,9 +369,9 @@ class MeterReadingController extends Controller
     {
         $reading = $subscriber->meterReadings->first(fn (MeterReading $r) => $r->week_start->equalTo($weekStart));
         $lastBefore = $subscriber->meterReadings->first(fn (MeterReading $r) => $r->week_start->lessThan($weekStart));
-        [$discountMethod, $discountValue] = $reading
-            ? [$reading->discount_method, $reading->discount_value]
-            : [$subscriber->standingDiscount?->method, $subscriber->standingDiscount?->value];
+        [$discountMethod, $discountValue, $discountSegment] = $reading
+            ? [$reading->discount_method, $reading->discount_value, $reading->discount_segment]
+            : [$subscriber->standingDiscount?->method, $subscriber->standingDiscount?->value, $subscriber->standingDiscount?->segment];
 
         return [
             'id' => $subscriber->id,
@@ -385,6 +386,7 @@ class MeterReadingController extends Controller
                 'method' => $discountMethod->value,
                 'value' => $discountValue,
                 'terms' => StandingDiscount::termsFor($discountMethod, $discountValue),
+                'segment' => $discountSegment,
             ] : null,
             'reading' => $reading ? [
                 'id' => $reading->id,

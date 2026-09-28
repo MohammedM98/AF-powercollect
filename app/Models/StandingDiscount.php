@@ -12,10 +12,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * A subscriber's standing discount (خصم دائم): an advantage taken off every
  * weekly reading recorded while it lasts — a percentage of the reading,
- * free kilowatts of its consumption, or shekels off the kilo price. Each
- * reading keeps the discount it was recorded with.
+ * free kilowatts of its consumption, or shekels off the kilo price — given
+ * to a customer segment typed with it, such as موظفو أبو زايد. Each reading
+ * keeps the discount it was recorded with.
  */
-#[Fillable(['subscriber_id', 'method', 'value', 'notes', 'granted_by'])]
+#[Fillable(['subscriber_id', 'method', 'value', 'segment', 'notes', 'granted_by'])]
 class StandingDiscount extends Model
 {
     /** @use HasFactory<StandingDiscountFactory> */
@@ -47,6 +48,31 @@ class StandingDiscount extends Model
     public function terms(): string
     {
         return self::termsFor($this->method, $this->value);
+    }
+
+    /**
+     * Its terms and the customer segment it was given to, as listed with
+     * the subscriber: "3 كيلو · موظفو أبو زايد".
+     */
+    public function summary(): string
+    {
+        return $this->segment ? $this->terms().' · '.$this->segment : $this->terms();
+    }
+
+    /**
+     * The customer segments offered while typing one: those already given
+     * a standing discount and the tariffs' own customer segments.
+     *
+     * @return array<int, string>
+     */
+    public static function segmentSuggestions(): array
+    {
+        return self::query()->whereNotNull('segment')->distinct()->pluck('segment')
+            ->merge(TariffSegment::query()->distinct()->pluck('name'))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 
     public function subscriber(): BelongsTo

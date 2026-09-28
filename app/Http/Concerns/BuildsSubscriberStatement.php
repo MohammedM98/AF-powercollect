@@ -6,6 +6,7 @@ use App\Enums\ChargeType;
 use App\Enums\Currency;
 use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
+use App\Models\StandingDiscount;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\User;
@@ -45,7 +46,7 @@ trait BuildsSubscriberStatement
      */
     protected function subscriberStatement(User $actor, Subscriber $subscriber): array
     {
-        $subscriber->loadMissing(['branch', 'tariff', 'tariffSegment', 'meterBox']);
+        $subscriber->loadMissing(['branch', 'tariff', 'tariffSegment', 'meterBox', 'circuitBreaker', 'standingDiscount.grantedBy', 'latestMeterReading']);
 
         $transactions = $subscriber->transactions()
             ->with(['recordedBy', 'meterReading'])
@@ -75,6 +76,10 @@ trait BuildsSubscriberStatement
                 'tariffSegmentName' => $subscriber->tariffSegment?->name,
                 'meterBoxNumber' => $subscriber->meterBox?->box_number,
                 'kiloPrice' => $subscriber->tariff->rate,
+                'minimumPayment' => $subscriber->weeklyMinimumPayment(),
+                // The discount form's worked example uses the last week read.
+                'lastConsumption' => $subscriber->latestMeterReading?->consumption,
+                'standingDiscount' => $this->statementStandingDiscount($subscriber->standingDiscount),
                 'status' => $subscriber->status->value,
                 'statusLabel' => __($subscriber->status->label()),
             ],
@@ -97,6 +102,28 @@ trait BuildsSubscriberStatement
             'transactionTypes' => collect(SubscriberTransaction::typeLabels())
                 ->map(fn (string $label, string $type): array => ['value' => $type, 'label' => $label])
                 ->values(),
+        ];
+    }
+
+    /**
+     * The subscriber's standing discount as the statement shows it, or null
+     * when they have none.
+     *
+     * @return array{method: string, value: string, terms: string, notes: ?string, grantedByName: ?string, grantedAt: string}|null
+     */
+    private function statementStandingDiscount(?StandingDiscount $discount): ?array
+    {
+        if ($discount === null) {
+            return null;
+        }
+
+        return [
+            'method' => $discount->method->value,
+            'value' => $discount->value,
+            'terms' => $discount->terms(),
+            'notes' => $discount->notes,
+            'grantedByName' => $discount->grantedBy?->name,
+            'grantedAt' => $discount->updated_at->format('Y-m-d'),
         ];
     }
 
@@ -129,7 +156,7 @@ trait BuildsSubscriberStatement
             'referenceNumber' => $transaction->reference_number,
             'cashBox' => $transaction->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
-            'details' => $transaction->notes ?? $transaction->meterReading?->notes,
+            'details' => $transaction->notes ?? ($transaction->type === SubscriberTransaction::TYPE_METER_READING ? $transaction->meterReading?->notes : null),
         ];
     }
 

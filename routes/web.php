@@ -18,6 +18,7 @@ use App\Http\Controllers\SubscriberChargeController;
 use App\Http\Controllers\SubscriberController;
 use App\Http\Controllers\SubscriberDiscountController;
 use App\Http\Controllers\SubscriberPaymentController;
+use App\Http\Controllers\SubscriberStandingDiscountController;
 use App\Http\Controllers\SubscriberStatementController;
 use App\Http\Controllers\TariffController;
 use App\Http\Controllers\TariffSegmentController;
@@ -46,6 +47,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/subscribers/{subscriber}/payments', [SubscriberPaymentController::class, 'store'])->name('subscribers.payments.store');
     Route::post('/subscribers/{subscriber}/charges', [SubscriberChargeController::class, 'store'])->name('subscribers.charges.store');
     Route::post('/subscribers/{subscriber}/discounts', [SubscriberDiscountController::class, 'store'])->name('subscribers.discounts.store');
+    Route::put('/subscribers/{subscriber}/standing-discount', [SubscriberStandingDiscountController::class, 'update'])->name('subscribers.standing-discount.update');
+    Route::delete('/subscribers/{subscriber}/standing-discount', [SubscriberStandingDiscountController::class, 'destroy'])->name('subscribers.standing-discount.destroy');
     Route::resource('tariffs', TariffController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('tariff-segments', TariffSegmentController::class)->only(['store', 'update']);
     Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update']);

@@ -43,7 +43,7 @@ class SubscriberController extends Controller
 
         $query = Subscriber::query()
             ->visibleTo($actor)
-            ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'tariffSegment', 'circuitBreaker', 'registeredBy', 'meterReadings.recordedBy'])
+            ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'tariffSegment', 'circuitBreaker', 'standingDiscount', 'registeredBy', 'meterReadings.recordedBy'])
             ->withSum('transactions as outstanding_balance', 'amount');
         $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'account_number'], self::SORTABLE, 'full_name');
         $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'tariff_segment_id', 'meter_box_id']);
@@ -160,6 +160,7 @@ class SubscriberController extends Controller
             'tariffSegmentName' => $subscriber->tariffSegment?->name,
             'tariffRate' => $subscriber->tariff->rate,
             'circuitBreakerAmpere' => $subscriber->circuitBreaker?->ampere,
+            'standingDiscountTerms' => $subscriber->standingDiscount?->terms(),
             'statusLabel' => __($subscriber->status->label()),
             'registeredByName' => $subscriber->registeredBy?->name,
             'outstandingBalance' => $subscriber->outstanding_balance ?? '0.00',

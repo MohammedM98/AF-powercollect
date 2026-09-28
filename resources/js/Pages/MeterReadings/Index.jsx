@@ -12,7 +12,7 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
-import { consumptionBetween } from '@/lib/readings';
+import { consumptionBetween, weeklyCharges } from '@/lib/readings';
 import { WEEK_DAYS, formatWeekDay } from '@/lib/weekDays';
 
 const SORT_OPTIONS = [
@@ -31,8 +31,8 @@ const STATUS_TONES = {
 };
 
 /**
- * The week's cost for a typed reading: consumption × kilowatt price, but
- * never less than the minimum payment. Mirrors MeterReading::chargesFor().
+ * The week's cost for a typed reading: consumption × kilowatt price, less
+ * the row's standing discount, but never less than the minimum payment.
  */
 function calculateCharges(currentReading, row) {
     if (currentReading === '' || Number.isNaN(Number(currentReading))) {
@@ -40,9 +40,8 @@ function calculateCharges(currentReading, row) {
     }
 
     const consumption = consumptionBetween(row.previousReading, currentReading);
-    const readingFee = Math.round(consumption * Number(row.unitPrice) * 100) / 100;
 
-    return { consumption, readingFee, amountDue: Math.max(readingFee, Number(row.minimumPayment)) };
+    return { consumption, ...weeklyCharges(consumption, row.unitPrice, row.minimumPayment, row.discount) };
 }
 
 function focusNextReadingInput(currentInput) {
@@ -68,7 +67,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     }, [savedValue]);
 
     const charges = calculateCharges(value, row);
-    const belowMinimum = charges && charges.readingFee < Number(row.minimumPayment);
+    const belowMinimum = charges?.minimumApplies;
 
     function save({ confirmed = false } = {}) {
         if (value === '' || value === savedValue || saving) {
@@ -115,6 +114,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                         <p className="text-xs text-gray-500">
                             {[row.meterBoxNumber && `طبلون ${row.meterBoxNumber}`, row.subAreaName].filter(Boolean).join(' · ') || '—'}
                         </p>
+                        {row.discount && <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">خصم دائم: {row.discount.terms}</p>}
                     </div>
                 </div>
             </td>
@@ -157,6 +157,9 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
             </td>
             <td className="whitespace-nowrap px-4 font-bold tabular-nums text-gray-900">
                 {charges && charges.consumption >= 0 ? formatCurrency(charges.amountDue) : '—'}
+                {charges?.discountAmount > 0 && charges.consumption >= 0 && (
+                    <p className="text-xs font-normal text-emerald-700 dark:text-emerald-400">بعد خصم {formatCurrency(charges.discountAmount)}</p>
+                )}
                 {belowMinimum && charges.consumption >= 0 && <p className="text-xs font-normal text-gray-500">الحد الأدنى</p>}
             </td>
             <td className="px-4">

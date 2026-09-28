@@ -14,6 +14,7 @@ use App\Models\Area;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\ReadingEntrySetting;
+use App\Models\StandingDiscount;
 use App\Models\SubArea;
 use App\Models\Subscriber;
 use App\Models\Tariff;
@@ -56,6 +57,7 @@ class MeterReadingController extends Controller
             ->with([
                 'tariff',
                 'circuitBreaker',
+                'standingDiscount',
                 'meterBox.subArea',
                 'meterReadings' => fn ($q) => $q->whereDate('week_start', '<=', $week)->orderByDesc('week_start'),
             ])
@@ -102,18 +104,19 @@ class MeterReadingController extends Controller
 
     /**
      * Store a newly created resource in storage. The reading records the
-     * meter and what the week costs, but does not charge the subscriber's
-     * balance.
+     * meter and what the week costs, with the subscriber's standing
+     * discount taken off, but does not charge the subscriber's balance.
      */
     public function store(StoreMeterReadingRequest $request): RedirectResponse
     {
-        $subscriber = Subscriber::with(['tariff', 'circuitBreaker'])->findOrFail($request->integer('subscriber_id'));
+        $subscriber = Subscriber::with(['tariff', 'circuitBreaker', 'standingDiscount'])->findOrFail($request->integer('subscriber_id'));
         $weekStart = $request->weekStart();
         $previousReading = $subscriber->previousReadingBefore($weekStart);
         $currentReading = $request->float('current_reading');
         $consumption = MeterReading::consumptionBetween($previousReading, $currentReading);
         $unitPrice = (string) $subscriber->tariff->rate;
         $minimumPayment = $subscriber->weeklyMinimumPayment();
+        $discount = $subscriber->standingDiscount;
 
         MeterReading::create([
             'subscriber_id' => $subscriber->id,
@@ -125,7 +128,9 @@ class MeterReadingController extends Controller
             'consumption' => $consumption,
             'unit_price' => $unitPrice,
             'minimum_payment' => $minimumPayment,
-            ...MeterReading::chargesFor($consumption, $unitPrice, $minimumPayment),
+            'discount_method' => $discount?->method,
+            'discount_value' => $discount?->value,
+            ...MeterReading::chargesFor($consumption, $unitPrice, $minimumPayment, $discount?->method, $discount?->value),
             'status' => MeterReadingStatus::Pending,
             'recorded_by' => $request->user()->id,
             'notes' => $request->input('notes'),
@@ -353,8 +358,9 @@ class MeterReadingController extends Controller
 
     /**
      * One sheet row. A reading already entered for the week shows the
-     * prices captured with it; otherwise the subscriber's current price
-     * and minimum are shown for the live calculation.
+     * prices and standing discount captured with it; otherwise the
+     * subscriber's current price, minimum and discount are shown for the
+     * live calculation.
      *
      * @return array<string, mixed>
      */
@@ -362,6 +368,9 @@ class MeterReadingController extends Controller
     {
         $reading = $subscriber->meterReadings->first(fn (MeterReading $r) => $r->week_start->equalTo($weekStart));
         $lastBefore = $subscriber->meterReadings->first(fn (MeterReading $r) => $r->week_start->lessThan($weekStart));
+        [$discountMethod, $discountValue] = $reading
+            ? [$reading->discount_method, $reading->discount_value]
+            : [$subscriber->standingDiscount?->method, $subscriber->standingDiscount?->value];
 
         return [
             'id' => $subscriber->id,
@@ -372,11 +381,17 @@ class MeterReadingController extends Controller
             'previousReading' => $reading?->previous_reading ?? (float) ($lastBefore?->current_reading ?? $subscriber->initial_reading ?? 0),
             'unitPrice' => (string) ($reading?->unit_price ?? $subscriber->tariff->rate),
             'minimumPayment' => (string) ($reading?->minimum_payment ?? $subscriber->weeklyMinimumPayment()),
+            'discount' => $discountMethod ? [
+                'method' => $discountMethod->value,
+                'value' => $discountValue,
+                'terms' => StandingDiscount::termsFor($discountMethod, $discountValue),
+            ] : null,
             'reading' => $reading ? [
                 'id' => $reading->id,
                 'currentReading' => $reading->current_reading,
                 'consumption' => $reading->consumption,
                 'readingFee' => $reading->reading_fee,
+                'discountAmount' => $reading->discount_amount,
                 'amountDue' => $reading->amount_due,
                 'status' => $reading->status->value,
                 'statusLabel' => __($reading->status->label()),

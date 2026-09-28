@@ -125,6 +125,15 @@ class Subscriber extends Model
     }
 
     /**
+     * Their reading for the latest week that has ended — the week the
+     * reading sheet opens on — if it has been entered.
+     */
+    public function latestWeekReading(): ?MeterReading
+    {
+        return $this->meterReadings()->whereDate('week_start', MeterReading::latestEndedWeekStart()->toDateString())->first();
+    }
+
+    /**
      * The meter reading a new week starts from: the current reading of the
      * last week recorded before it, or the subscriber's initial reading if
      * this is their first week.

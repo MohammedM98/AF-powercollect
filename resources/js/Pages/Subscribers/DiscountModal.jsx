@@ -14,7 +14,7 @@ import { AccountHeader, BalanceAfter } from './AccountSummary';
 /** A discount comes off the balance once, or off every weekly reading from now on. */
 const KINDS = [
     { value: 'once', label: 'لمرة واحدة', hint: 'يُخصم الآن من الرصيد المستحق.' },
-    { value: 'standing', label: 'دائم على كل قراءة', hint: 'ميزة للمشترك: يُخصم تلقائيًا من كل قراءة أسبوعية تُدخل من الآن حتى تُوقفه.' },
+    { value: 'standing', label: 'دائم على كل قراءة', hint: 'ميزة للمشترك: يُخصم تلقائيًا من قراءة الأسبوع الأخير وكل قراءة بعدها حتى تُوقفه.' },
 ];
 
 /**
@@ -66,11 +66,12 @@ function ChoiceTile({ name, value, checked, onChange, children }) {
 /**
  * Give a subscriber a discount (خصم). Once: taken off what they owe now —
  * a percentage of the balance, kilowatts at their kilo price, or shekels.
- * Standing: an advantage taken off every weekly reading recorded from now
- * on — a percentage of the reading, kilowatts off its consumption, or
- * shekels off the kilo price — until it is stopped. Shows before saving
- * the balance a discount leaves, or what the subscriber would pay for
- * their last week with a standing one.
+ * Standing: an advantage taken off the latest week's reading, straight
+ * away if it has been entered, and every weekly reading after it — a
+ * percentage of the reading, kilowatts off its consumption, or shekels off
+ * the kilo price — until it is stopped. Shows before saving the balance a
+ * discount leaves, or what the subscriber would pay for the latest week
+ * with a standing one.
  */
 export default function DiscountModal({ show, onClose, subscriber, balance, discountMethods }) {
     const standingDiscount = subscriber.standingDiscount;
@@ -94,19 +95,39 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
     const discount = isStanding ? null : discountAmount(data.method, data.value, owed, subscriber.kiloPrice);
     const balanceAfter = discount === null ? null : describeBalance(Number(balance) - discount);
 
-    // Standing: the subscriber's last week (or 10 kilos) billed without and with it.
+    // Standing: the latest week's reading, which saving rebills at once, billed without and with it —
+    // else the last week read, or 10 kilos, at the subscriber's prices.
+    const latestWeek = subscriber.latestWeekReading;
     const hasLastReading = Number(subscriber.lastConsumption) > 0;
-    const exampleKilos = hasLastReading ? Number(subscriber.lastConsumption) : 10;
-    const exampleBill = weeklyCharges(exampleKilos, subscriber.kiloPrice, subscriber.minimumPayment);
-    const exampleWithDiscount = isStanding && value > 0 ? weeklyCharges(exampleKilos, subscriber.kiloPrice, subscriber.minimumPayment, data) : null;
+    const example = latestWeek
+        ? {
+              kilos: Number(latestWeek.consumption),
+              unitPrice: latestWeek.unitPrice,
+              minimumPayment: latestWeek.minimumPayment,
+              label: `يدفع عن قراءة الأسبوع الأخير (${formatAmount(latestWeek.consumption)} كيلو)`,
+          }
+        : {
+              kilos: hasLastReading ? Number(subscriber.lastConsumption) : 10,
+              unitPrice: subscriber.kiloPrice,
+              minimumPayment: subscriber.minimumPayment,
+              label: hasLastReading ? `يدفع عن آخر قراءة (${formatAmount(subscriber.lastConsumption)} كيلو)` : 'يدفع عن 10 كيلو (مثال)',
+          };
+    const exampleBill = weeklyCharges(example.kilos, example.unitPrice, example.minimumPayment);
+    const exampleWithDiscount = isStanding && value > 0 ? weeklyCharges(example.kilos, example.unitPrice, example.minimumPayment, data) : null;
 
     let confirmMessage = null;
 
     if (isStanding && value > 0) {
         const terms = standingTerms(data.method, data.value);
-        confirmMessage = standingDiscount
-            ? `سيُستبدل الخصم الدائم لـ ${subscriber.fullName} (${standingDiscount.terms}) بخصم ${terms} على كل قراءة أسبوعية تُدخل من الآن. هل تريد المتابعة؟`
-            : `سيحصل ${subscriber.fullName} على خصم دائم (${terms}) على كل قراءة أسبوعية تُدخل من الآن. هل تريد المتابعة؟`;
+        const given = standingDiscount
+            ? `سيُستبدل الخصم الدائم لـ ${subscriber.fullName} (${standingDiscount.terms}) بخصم ${terms}`
+            : `سيحصل ${subscriber.fullName} على خصم دائم (${terms})`;
+        const scope = latestWeek ? 'على قراءة الأسبوع الأخير وكل قراءة بعدها' : 'على كل قراءة أسبوعية تُدخل من الآن';
+        const postedNow =
+            latestWeek?.isApproved && exampleWithDiscount.discountAmount > 0
+                ? `، ويُسجَّل خصم الأسبوع الأخير (${formatCurrency(exampleWithDiscount.discountAmount)}) في المعاملات المالية الآن`
+                : '';
+        confirmMessage = `${given} ${scope}${postedNow}. هل تريد المتابعة؟`;
     } else if (discount !== null) {
         confirmMessage = `سيتم خصم ${formatAmount(discount)} شيكل من حساب ${subscriber.fullName}، ويصبح الرصيد ${
             balanceAfter.tone === 'settled' ? 'مسدّدًا' : `${balanceAfter.amount} شيكل ${balanceAfter.label}`
@@ -240,11 +261,7 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
                     </div>
                     {isStanding ? (
                         <div>
-                            <InputLabel
-                                value={
-                                    hasLastReading ? `يدفع عن آخر قراءة (${formatAmount(exampleKilos)} كيلو)` : `يدفع عن ${exampleKilos} كيلو (مثال)`
-                                }
-                            />
+                            <InputLabel value={example.label} />
                             <p className="mt-1 flex h-11 items-center gap-2 rounded-control bg-gray-50 px-3 text-sm tabular-nums">
                                 {exampleWithDiscount ? (
                                     <>
@@ -261,7 +278,7 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
                             </p>
                             {exampleWithDiscount?.minimumApplies && (
                                 <p className="mt-1 text-xs text-gray-500">
-                                    لا يقل عن الحد الأدنى للأسبوع ({formatCurrency(subscriber.minimumPayment)}).
+                                    لا يقل عن الحد الأدنى للأسبوع ({formatCurrency(example.minimumPayment)}).
                                 </p>
                             )}
                         </div>
@@ -294,8 +311,13 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
 
                 {isStanding ? (
                     <p className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                        يُطبَّق على القراءات التي تُدخل من الآن، ويظهر في كشف الحساب حركة «خصم قراءة أسبوعية» بجانب كل قراءة معتمدة. القراءات المسجلة
-                        قبل ذلك تبقى كما هي.
+                        {!latestWeek &&
+                            'يُطبَّق على قراءة الأسبوع الأخير عند إدخالها، وتُضاف حركة «خصم قراءة أسبوعية» إلى المعاملات المالية عند اعتماد كل قراءة.'}
+                        {latestWeek?.isApproved === false &&
+                            'قراءة الأسبوع الأخير بانتظار الاعتماد: يُطبَّق عليها الخصم فورًا، وتُضاف حركة «خصم قراءة أسبوعية» إلى المعاملات المالية عند اعتمادها.'}
+                        {latestWeek?.isApproved &&
+                            'قراءة الأسبوع الأخير معتمدة: يُطبَّق عليها الخصم فورًا، وتُضاف حركة «خصم قراءة أسبوعية» إلى المعاملات المالية عند الحفظ.'}{' '}
+                        ويُطبَّق كذلك على كل قراءة بعدها، أما قراءات الأسابيع السابقة فتبقى كما هي.
                     </p>
                 ) : (
                     <BalanceAfter label="الرصيد بعد الخصم" balanceAfter={balanceAfter} placeholder="أدخل قيمة الخصم" />
@@ -307,7 +329,11 @@ export default function DiscountModal({ show, onClose, subscriber, balance, disc
                 onConfirm={stopStandingDiscount}
                 onCancel={() => setConfirmingStop(false)}
                 title="إيقاف الخصم الدائم؟"
-                message={`لن يُخصم (${standingDiscount?.terms}) من قراءات ${subscriber.fullName} التي تُدخل بعد الآن. القراءات المسجلة قبل ذلك تحتفظ بخصمها.`}
+                message={
+                    latestWeek
+                        ? `سيُزال الخصم (${standingDiscount?.terms}) من قراءة الأسبوع الأخير${latestWeek.isApproved ? ' ومن المعاملات المالية' : ''} ومن كل قراءة تُدخل بعدها. قراءات الأسابيع السابقة تحتفظ بخصمها.`
+                        : `لن يُخصم (${standingDiscount?.terms}) من قراءات ${subscriber.fullName} التي تُدخل بعد الآن. القراءات السابقة تحتفظ بخصمها.`
+                }
                 confirmLabel="نعم، أوقف الخصم"
                 cancelLabel="إبقاء الخصم"
                 icon="alert"

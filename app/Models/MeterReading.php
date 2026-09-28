@@ -189,21 +189,60 @@ class MeterReading extends Model
                 'currency_amount' => $reading->amountBeforeDiscount(),
             ]);
 
-            if ((float) $reading->discount_amount > 0) {
-                $reading->subscriber->transactions()->create([
-                    'recorded_by' => $approver->id,
-                    'meter_reading_id' => $reading->id,
-                    'type' => SubscriberTransaction::TYPE_READING_DISCOUNT,
-                    'source_key' => $reading->discountSourceKey(),
-                    'amount' => number_format(-(float) $reading->discount_amount, 2, '.', ''),
-                    'currency_amount' => $reading->discount_amount,
-                    'discount_method' => $reading->discount_method,
-                    'discount_value' => $reading->discount_value,
-                ]);
+            $reading->recordDiscountLine($approver);
+
+            $this->setRawAttributes($reading->getAttributes(), true);
+        });
+    }
+
+    /**
+     * Bill the reading with the subscriber's standing discount as it is now
+     * (none when it was stopped), at the prices the reading was recorded
+     * with. An approved reading's discount line is replaced to match, so the
+     * subscriber's transactions show the change straight away; a pending
+     * one's shows when it is approved.
+     */
+    public function applyStandingDiscount(?StandingDiscount $discount, User $recorder): void
+    {
+        DB::transaction(function () use ($discount, $recorder): void {
+            $reading = self::query()->lockForUpdate()->findOrFail($this->id);
+
+            $reading->update([
+                'discount_method' => $discount?->method,
+                'discount_value' => $discount?->value,
+                ...self::chargesFor($reading->consumption, $reading->unit_price, $reading->minimum_payment, $discount?->method, $discount?->value),
+            ]);
+
+            if (! $reading->isPending()) {
+                SubscriberTransaction::where('source_key', $reading->discountSourceKey())->delete();
+                $reading->recordDiscountLine($recorder);
             }
 
             $this->setRawAttributes($reading->getAttributes(), true);
         });
+    }
+
+    /**
+     * Take the reading's standing discount off the subscriber's account as
+     * a line of its own (خصم قراءة أسبوعية) beside the reading's charge; a
+     * reading billed without one takes nothing off.
+     */
+    private function recordDiscountLine(User $recorder): void
+    {
+        if ((float) $this->discount_amount <= 0) {
+            return;
+        }
+
+        $this->subscriber->transactions()->create([
+            'recorded_by' => $recorder->id,
+            'meter_reading_id' => $this->id,
+            'type' => SubscriberTransaction::TYPE_READING_DISCOUNT,
+            'source_key' => $this->discountSourceKey(),
+            'amount' => number_format(-(float) $this->discount_amount, 2, '.', ''),
+            'currency_amount' => $this->discount_amount,
+            'discount_method' => $this->discount_method,
+            'discount_value' => $this->discount_value,
+        ]);
     }
 
     /**

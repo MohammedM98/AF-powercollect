@@ -64,6 +64,7 @@ trait BuildsSubscriberStatement
         $payments = $transactions->filter(fn (SubscriberTransaction $transaction): bool => $transaction->isPayment());
         $discounts = $transactions->filter(fn (SubscriberTransaction $transaction): bool => $transaction->isDiscount());
         $sumOf = fn ($lines): int => $lines->sum(fn (SubscriberTransaction $transaction): int => $this->cents($transaction->amount));
+        $latestWeekReading = $subscriber->latestWeekReading();
 
         return [
             'subscriber' => [
@@ -79,6 +80,13 @@ trait BuildsSubscriberStatement
                 'minimumPayment' => $subscriber->weeklyMinimumPayment(),
                 // The discount form's worked example uses the last week read.
                 'lastConsumption' => $subscriber->latestMeterReading?->consumption,
+                // Giving or stopping a standing discount rebills this reading at once.
+                'latestWeekReading' => $latestWeekReading ? [
+                    'consumption' => $latestWeekReading->consumption,
+                    'unitPrice' => $latestWeekReading->unit_price,
+                    'minimumPayment' => $latestWeekReading->minimum_payment,
+                    'isApproved' => ! $latestWeekReading->isPending(),
+                ] : null,
                 'standingDiscount' => $this->statementStandingDiscount($subscriber->standingDiscount),
                 'status' => $subscriber->status->value,
                 'statusLabel' => __($subscriber->status->label()),

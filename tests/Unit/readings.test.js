@@ -46,3 +46,12 @@ test('a standing discount never takes off more than the reading, nor anything fr
     assert.equal(readingDiscount({ method: 'percentage', value: '10' }, 3.33, '0.45'), 0.15);
     assert.equal(readingDiscount({ method: 'kilowatt', value: '3' }, -2, '30.00'), 0);
 });
+
+test('free kilowatts leave only the kilos above them to pay: 3 kilos at 30 with 2 free comes to 30', () => {
+    assert.deepEqual(weeklyCharges(3, '30.00', '20.00', { method: 'kilowatt', value: '2' }), {
+        readingFee: 90,
+        discountAmount: 60,
+        amountDue: 30,
+        minimumApplies: false,
+    });
+});

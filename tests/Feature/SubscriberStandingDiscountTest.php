@@ -77,6 +77,22 @@ class SubscriberStandingDiscountTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('subscribers.data.0.standingDiscountSummary', '3 كيلو · موظفو أبو زايد'));
     }
 
+    public function test_free_kilowatts_are_taken_off_the_week_so_only_the_kilos_above_them_are_paid(): void
+    {
+        // 2 free kilos at 30 shekels a kilo; the week uses 3, so 90 shekels less 60.
+        StandingDiscount::factory()->for($this->subscriber)->kilowatts(2)->create();
+        $this->recordReading(1203)->assertSessionHasNoErrors();
+
+        $reading = MeterReading::sole();
+        $this->assertSame(['90.00', '60.00', '30.00'], [$reading->reading_fee, $reading->discount_amount, $reading->amount_due]);
+
+        $this->actingAs($this->branchAdmin)
+            ->post(route('meter-readings.approve'), ['reading_ids' => [$reading->id]])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(30.0, $this->subscriber->balance());
+    }
+
     public function test_the_discount_form_suggests_the_segments_already_given_a_discount_and_the_tariffs_segments(): void
     {
         StandingDiscount::factory()->create(['segment' => 'موظفو أبو زايد']);

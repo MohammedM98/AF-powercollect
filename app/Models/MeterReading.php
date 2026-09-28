@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DiscountMethod;
 use App\Enums\MeterReadingStatus;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
@@ -19,8 +20,8 @@ use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'subscriber_id', 'branch_id', 'week_start', 'week_end', 'previous_reading', 'current_reading',
-    'consumption', 'unit_price', 'reading_fee', 'minimum_payment', 'amount_due', 'status', 'recorded_by', 'notes',
-    'approved_by', 'approved_at',
+    'consumption', 'unit_price', 'reading_fee', 'minimum_payment', 'discount_method', 'discount_value', 'discount_amount',
+    'amount_due', 'status', 'recorded_by', 'notes', 'approved_by', 'approved_at',
 ])]
 class MeterReading extends Model
 {
@@ -39,6 +40,9 @@ class MeterReading extends Model
             'unit_price' => 'decimal:2',
             'reading_fee' => 'decimal:2',
             'minimum_payment' => 'decimal:2',
+            'discount_method' => DiscountMethod::class,
+            'discount_value' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
             'amount_due' => 'decimal:2',
             'approved_at' => 'datetime',
         ];
@@ -105,18 +109,48 @@ class MeterReading extends Model
     }
 
     /**
-     * What a week's consumption costs: consumption × kilowatt price, but
-     * never less than the minimum payment.
-     *
-     * @return array{reading_fee: string, amount_due: string}
+     * What a standing discount takes off a week's reading fee, in shekels:
+     * a percentage of the fee, kilowatts of the consumption at the kilo
+     * price, or shekels off the price of each kilo — never more than the fee.
      */
-    public static function chargesFor(float $consumption, float|string $unitPrice, float|string $minimumPayment): array
+    public static function discountFor(DiscountMethod $method, float|string $value, float $consumption, float|string $unitPrice): float
     {
         $readingFee = round($consumption * (float) $unitPrice, 2);
 
+        $discount = match ($method) {
+            DiscountMethod::Percentage => $readingFee * (float) $value / 100,
+            DiscountMethod::Kilowatt => min((float) $value, $consumption) * (float) $unitPrice,
+            DiscountMethod::Shekel => $consumption * min((float) $value, (float) $unitPrice),
+        };
+
+        return min(round($discount, 2), $readingFee);
+    }
+
+    /**
+     * What a week's consumption costs: consumption × kilowatt price, less
+     * the standing discount if there is one, but never less than the
+     * minimum payment. `discount_amount` is what the discount took off the
+     * week's bill, so less than the discount itself when the minimum applies.
+     *
+     * @return array{reading_fee: string, discount_amount: string, amount_due: string}
+     */
+    public static function chargesFor(
+        float $consumption,
+        float|string $unitPrice,
+        float|string $minimumPayment,
+        ?DiscountMethod $discountMethod = null,
+        float|string|null $discountValue = null,
+    ): array {
+        $readingFee = round($consumption * (float) $unitPrice, 2);
+        $discount = $discountMethod !== null && $discountValue !== null
+            ? self::discountFor($discountMethod, $discountValue, $consumption, $unitPrice)
+            : 0.0;
+        $amountDue = max(round($readingFee - $discount, 2), (float) $minimumPayment);
+
         return [
             'reading_fee' => number_format($readingFee, 2, '.', ''),
-            'amount_due' => number_format(max($readingFee, (float) $minimumPayment), 2, '.', ''),
+            'discount_amount' => number_format(max($readingFee, (float) $minimumPayment) - $amountDue, 2, '.', ''),
+            'amount_due' => number_format($amountDue, 2, '.', ''),
         ];
     }
 
@@ -127,8 +161,9 @@ class MeterReading extends Model
 
     /**
      * Approve the reading: it is locked from then on, and its amount is
-     * charged to the subscriber's transactions. A reading that is already
-     * approved is left as it is.
+     * charged to the subscriber's transactions — the week's full bill, with
+     * its standing discount beside it as a discount line. A reading that is
+     * already approved is left as it is.
      */
     public function approve(User $approver): void
     {
@@ -150,19 +185,33 @@ class MeterReading extends Model
                 'meter_reading_id' => $reading->id,
                 'type' => SubscriberTransaction::TYPE_METER_READING,
                 'source_key' => $reading->chargeSourceKey(),
-                'amount' => $reading->amount_due,
-                'currency_amount' => $reading->amount_due,
+                'amount' => $reading->amountBeforeDiscount(),
+                'currency_amount' => $reading->amountBeforeDiscount(),
             ]);
+
+            if ((float) $reading->discount_amount > 0) {
+                $reading->subscriber->transactions()->create([
+                    'recorded_by' => $approver->id,
+                    'meter_reading_id' => $reading->id,
+                    'type' => SubscriberTransaction::TYPE_DISCOUNT,
+                    'source_key' => $reading->discountSourceKey(),
+                    'amount' => number_format(-(float) $reading->discount_amount, 2, '.', ''),
+                    'currency_amount' => $reading->discount_amount,
+                    'discount_method' => $reading->discount_method,
+                    'discount_value' => $reading->discount_value,
+                ]);
+            }
 
             $this->setRawAttributes($reading->getAttributes(), true);
         });
     }
 
     /**
-     * Correct the reading and recalculate its charges at the prices captured
-     * when it was recorded. An approved reading goes back to review: its
-     * charge is taken off the subscriber's transactions until it is approved
-     * again. Returns whether that happened.
+     * Correct the reading and recalculate its charges at the prices and
+     * standing discount captured when it was recorded. An approved reading
+     * goes back to review: its charge and discount are taken off the
+     * subscriber's transactions until it is approved again. Returns whether
+     * that happened.
      */
     public function correct(float $currentReading, ?string $notes): bool
     {
@@ -171,13 +220,13 @@ class MeterReading extends Model
             $consumption = self::consumptionBetween($this->previous_reading, $currentReading);
 
             if ($wasApproved) {
-                SubscriberTransaction::where('source_key', $this->chargeSourceKey())->delete();
+                SubscriberTransaction::whereIn('source_key', [$this->chargeSourceKey(), $this->discountSourceKey()])->delete();
             }
 
             $this->update([
                 'current_reading' => $currentReading,
                 'consumption' => $consumption,
-                ...self::chargesFor($consumption, $this->unit_price, $this->minimum_payment),
+                ...self::chargesFor($consumption, $this->unit_price, $this->minimum_payment, $this->discount_method, $this->discount_value),
                 'notes' => $notes,
                 ...($wasApproved ? ['status' => MeterReadingStatus::Pending, 'approved_by' => null, 'approved_at' => null] : []),
             ]);
@@ -210,6 +259,24 @@ class MeterReading extends Model
     public function chargeSourceKey(): string
     {
         return 'meter-reading:'.$this->id;
+    }
+
+    /**
+     * The key of the transaction that takes this reading's standing
+     * discount off once it is approved.
+     */
+    public function discountSourceKey(): string
+    {
+        return 'meter-reading-discount:'.$this->id;
+    }
+
+    /**
+     * The week's bill before its standing discount: the reading fee, or
+     * the minimum payment when that is more.
+     */
+    public function amountBeforeDiscount(): string
+    {
+        return number_format((float) $this->amount_due + (float) $this->discount_amount, 2, '.', '');
     }
 
     public function subscriber(): BelongsTo

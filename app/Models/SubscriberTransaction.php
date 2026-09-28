@@ -20,7 +20,8 @@ use Illuminate\Support\Str;
  * One line of a subscriber's account. `amount` is its effect on the
  * balance in shekels: charges (تحميل) are positive, payments and discounts
  * negative, so the balance is the sum of `amount`. A charge recorded by
- * hand stores its ChargeType as its `type`.
+ * hand stores its ChargeType as its `type`. A discount with a
+ * `meter_reading_id` is that approved reading's standing discount.
  */
 #[Fillable([
     'subscriber_id',
@@ -242,11 +243,13 @@ class SubscriberTransaction extends Model
                 PaymentMethod::EWallet => 'دفعة بمحفظة إلكترونية',
                 default => 'دفعة',
             },
-            self::TYPE_DISCOUNT => match ($this->discount_method) {
-                DiscountMethod::Percentage => sprintf('خصم %s%% من الرصيد المستحق (%s شيكل)', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
-                DiscountMethod::Kilowatt => sprintf('خصم %s كيلو × %s شيكل', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
-                default => 'خصم بمبلغ ثابت',
-            },
+            self::TYPE_DISCOUNT => $this->meter_reading_id
+                ? 'خصم دائم على القراءة الأسبوعية: '.StandingDiscount::termsFor($this->discount_method, $this->discount_value)
+                : match ($this->discount_method) {
+                    DiscountMethod::Percentage => sprintf('خصم %s%% من الرصيد المستحق (%s شيكل)', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
+                    DiscountMethod::Kilowatt => sprintf('خصم %s كيلو × %s شيكل', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
+                    default => 'خصم بمبلغ ثابت',
+                },
             default => $this->typeLabel(),
         };
     }

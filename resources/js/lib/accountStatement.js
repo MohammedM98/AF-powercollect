@@ -1,4 +1,4 @@
-import { formatAmount } from './currency.js';
+import { formatAmount, roundToCents } from './currency.js';
 
 /**
  * The statement page's filters, applied in the browser. Every line already
@@ -103,9 +103,4 @@ export function discountAmount(method, value, owed, kiloPrice) {
     const amount = { percentage: (Number(owed) * number) / 100, kilowatt: number * Number(kiloPrice), shekel: number }[method];
 
     return amount === undefined ? null : roundToCents(amount);
-}
-
-/** Rounded through the decimal text (78.225 → 78.23), as the server rounds it. */
-function roundToCents(amount) {
-    return Number(`${Math.round(Number(`${amount}e2`))}e-2`);
 }

@@ -97,6 +97,15 @@ class Subscriber extends Model
     }
 
     /**
+     * The discount taken off every weekly reading recorded for them, if
+     * they have one.
+     */
+    public function standingDiscount(): HasOne
+    {
+        return $this->hasOne(StandingDiscount::class);
+    }
+
+    /**
      * The weekly minimum payment: the subscriber's own minimum charge, or
      * their circuit breaker's minimum payment if none is set.
      */

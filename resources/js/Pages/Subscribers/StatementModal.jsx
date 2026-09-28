@@ -4,6 +4,7 @@ import Modal from '@/Components/Modal';
 import Icon from '@/Components/Icon';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import AccountStatement from './AccountStatement';
+import { StandingDiscountBadge } from './AccountSummary';
 import { StatementActions, StatementForms } from './StatementForms';
 
 const STATUS_TONES = {
@@ -58,6 +59,7 @@ export default function StatementModal({ subscriber, statement, initialForm = nu
                                         كشف حساب {header.fullName}
                                     </h3>
                                     <StatusPill tone={STATUS_TONES[header.status]} label={header.statusLabel} />
+                                    {header.standingDiscount && <StandingDiscountBadge discount={header.standingDiscount} />}
                                 </div>
                                 <p className="mt-0.5 text-sm text-gray-500">
                                     {header.accountNumber && (

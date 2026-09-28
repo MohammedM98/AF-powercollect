@@ -176,6 +176,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, on
                                         value={subscriber.circuitBreakerAmpere ? `${subscriber.circuitBreakerAmpere} أمبير` : '—'}
                                     />
                                     <Field label="الحد الادنى" value={formatCurrency(subscriber.minimum_charge)} />
+                                    <Field label="الخصم الدائم على القراءات" value={subscriber.standingDiscountTerms ?? 'لا يوجد'} />
                                 </Section>
 
                                 <Section title="الموقع والعداد">

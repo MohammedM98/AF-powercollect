@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AccountStatement from './AccountStatement';
+import { StandingDiscountBadge } from './AccountSummary';
 import { StatementActions, StatementForms } from './StatementForms';
 
 /**
@@ -27,6 +28,11 @@ export default function Statement(statement) {
                             {subscriber.tariffSegmentName && ` (${subscriber.tariffSegmentName})`}
                             {subscriber.meterBoxNumber && ` · طبلون ${subscriber.meterBoxNumber}`} · {subscriber.branchName}
                         </p>
+                        {subscriber.standingDiscount && (
+                            <div className="mt-2">
+                                <StandingDiscountBadge discount={subscriber.standingDiscount} />
+                            </div>
+                        )}
                     </div>
                     <StatementActions canRecordPayment={canRecordPayment} canAdjustBalance={canAdjustBalance} onOpen={setOpenForm} />
                 </>

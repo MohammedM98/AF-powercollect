@@ -127,11 +127,10 @@ class MeterReading extends Model
     }
 
     /**
-     * What a week's consumption costs: consumption × kilowatt price, but
-     * never less than the minimum payment. A subscriber with a standing
-     * discount pays the fee less the discount instead, with no minimum:
-     * only the kilos the discount leaves are paid for. `discount_amount`
-     * is what the discount took off the week's bill.
+     * What a week's consumption costs: consumption × kilowatt price, less
+     * the standing discount if there is one, but never less than the
+     * minimum payment. `discount_amount` is what the discount took off the
+     * week's bill, so less than the discount itself when the minimum applies.
      *
      * @return array{reading_fee: string, discount_amount: string, amount_due: string}
      */
@@ -143,13 +142,14 @@ class MeterReading extends Model
         float|string|null $discountValue = null,
     ): array {
         $readingFee = round($consumption * (float) $unitPrice, 2);
-        $hasDiscount = $discountMethod !== null && $discountValue !== null;
-        $discount = $hasDiscount ? self::discountFor($discountMethod, $discountValue, $consumption, $unitPrice) : 0.0;
-        $amountDue = $hasDiscount ? round($readingFee - $discount, 2) : max($readingFee, (float) $minimumPayment);
+        $discount = $discountMethod !== null && $discountValue !== null
+            ? self::discountFor($discountMethod, $discountValue, $consumption, $unitPrice)
+            : 0.0;
+        $amountDue = max(round($readingFee - $discount, 2), (float) $minimumPayment);
 
         return [
             'reading_fee' => number_format($readingFee, 2, '.', ''),
-            'discount_amount' => number_format($discount, 2, '.', ''),
+            'discount_amount' => number_format(max($readingFee, (float) $minimumPayment) - $amountDue, 2, '.', ''),
             'amount_due' => number_format($amountDue, 2, '.', ''),
         ];
     }

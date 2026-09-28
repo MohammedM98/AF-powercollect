@@ -491,10 +491,10 @@ export default function DiscountModal({
                                         )}
                                     </AmountBox>
                                     <InputError message={errors.value ?? invalid} className="mt-2" />
-                                    {isStanding && value > 0 && !invalid && exampleWithDiscount.amountDue < Number(example.minimumPayment) && (
+                                    {isStanding && value > 0 && !invalid && exampleWithDiscount.minimumApplies && (
                                         <FieldWarning>
-                                            مع الخصم الدائم لا يُطبَّق الحد الأدنى للأسبوع ({formatMoney(example.minimumPayment)} ₪): يدفع المشترك ثمن
-                                            الكيلوات بعد الخصم فقط.
+                                            الحد الأدنى للأسبوع {formatMoney(example.minimumPayment)} ₪، فيدفع المشترك الحد الأدنى حتى لو كان الخصم
+                                            أكبر.
                                         </FieldWarning>
                                     )}
                                 </div>

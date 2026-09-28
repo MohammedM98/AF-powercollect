@@ -62,7 +62,7 @@ trait BuildsSubscriberStatement
         });
 
         $payments = $transactions->filter(fn (SubscriberTransaction $transaction): bool => $transaction->isPayment());
-        $discounts = $transactions->filter(fn (SubscriberTransaction $transaction): bool => $transaction->type === SubscriberTransaction::TYPE_DISCOUNT);
+        $discounts = $transactions->filter(fn (SubscriberTransaction $transaction): bool => $transaction->isDiscount());
         $sumOf = fn ($lines): int => $lines->sum(fn (SubscriberTransaction $transaction): int => $this->cents($transaction->amount));
 
         return [

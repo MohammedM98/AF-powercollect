@@ -108,15 +108,17 @@ class LedgerTest extends TestCase
      * @param  array<int, float>  $expected  total and count of the headline
      */
     #[TestWith(['payment', 'credit', [100, 1]])]
-    #[TestWith(['credit', 'credit', [110, 2]])]
+    #[TestWith(['credit', 'credit', [116, 3]])]
     #[TestWith(['debit', 'debit', [150, 2]])]
     #[TestWith(['meter_reading', 'debit', [120, 1]])]
+    #[TestWith(['reading_discount', 'credit', [6, 1]])]
     public function test_the_type_filter_picks_the_lines_and_the_side_the_headline_sums(string $type, string $side, array $expected): void
     {
         $this->line($this->subscriber, 'meter_reading', '120.00');
         $this->line($this->subscriber, 'subscription_fee', '30.00');
         $this->line($this->subscriber, 'payment', '-100.00');
         $this->line($this->subscriber, 'discount', '-10.00');
+        $this->line($this->subscriber, 'reading_discount', '-6.00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index', ['filter' => ['type' => $type]]))

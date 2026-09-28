@@ -22,7 +22,9 @@ const STATUS_DOTS = { active: 'green', suspended: 'amber', disconnected: 'gray' 
 /** The headline's name for the side of the accounts (and type of line) the figures sum. */
 function headlineLabel(side, type) {
     if (side === 'credit') {
-        return { payment: 'إجمالي الدفعات', discount: 'إجمالي الخصومات' }[type] ?? 'إجمالي التسديد والخصم';
+        return (
+            { payment: 'إجمالي الدفعات', discount: 'إجمالي الخصومات', reading_discount: 'إجمالي خصومات القراءات' }[type] ?? 'إجمالي التسديد والخصم'
+        );
     }
 
     return 'إجمالي القيود';

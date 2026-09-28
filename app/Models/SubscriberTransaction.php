@@ -20,8 +20,7 @@ use Illuminate\Support\Str;
  * One line of a subscriber's account. `amount` is its effect on the
  * balance in shekels: charges (تحميل) are positive, payments and discounts
  * negative, so the balance is the sum of `amount`. A charge recorded by
- * hand stores its ChargeType as its `type`. A discount with a
- * `meter_reading_id` is that approved reading's standing discount.
+ * hand stores its ChargeType as its `type`.
  */
 #[Fillable([
     'subscriber_id',
@@ -63,10 +62,16 @@ class SubscriberTransaction extends Model
     public const TYPE_DISCOUNT = 'discount';
 
     /**
+     * The standing discount taken off an approved weekly reading, beside
+     * the reading's own line.
+     */
+    public const TYPE_READING_DISCOUNT = 'reading_discount';
+
+    /**
      * The lines in the subscriber's favour (له); every other type is a
      * charge (عليه).
      */
-    public const CREDIT_TYPES = [self::TYPE_PAYMENT, self::TYPE_DISCOUNT];
+    public const CREDIT_TYPES = [self::TYPE_PAYMENT, self::TYPE_DISCOUNT, self::TYPE_READING_DISCOUNT];
 
     protected function casts(): array
     {
@@ -195,6 +200,15 @@ class SubscriberTransaction extends Model
     }
 
     /**
+     * Whether the line is a discount: one given by hand, or a weekly
+     * reading's standing discount.
+     */
+    public function isDiscount(): bool
+    {
+        return in_array($this->type, [self::TYPE_DISCOUNT, self::TYPE_READING_DISCOUNT], true);
+    }
+
+    /**
      * Whether the line is in the subscriber's favour (له): a payment or a
      * discount. Everything else is a charge (عليه).
      */
@@ -243,13 +257,19 @@ class SubscriberTransaction extends Model
                 PaymentMethod::EWallet => 'دفعة بمحفظة إلكترونية',
                 default => 'دفعة',
             },
-            self::TYPE_DISCOUNT => $this->meter_reading_id
-                ? 'خصم دائم على القراءة الأسبوعية: '.StandingDiscount::termsFor($this->discount_method, $this->discount_value)
-                : match ($this->discount_method) {
-                    DiscountMethod::Percentage => sprintf('خصم %s%% من الرصيد المستحق (%s شيكل)', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
-                    DiscountMethod::Kilowatt => sprintf('خصم %s كيلو × %s شيكل', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
-                    default => 'خصم بمبلغ ثابت',
-                },
+            self::TYPE_DISCOUNT => match ($this->discount_method) {
+                DiscountMethod::Percentage => sprintf('خصم %s%% من الرصيد المستحق (%s شيكل)', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
+                DiscountMethod::Kilowatt => sprintf('خصم %s كيلو × %s شيكل', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
+                default => 'خصم بمبلغ ثابت',
+            },
+            self::TYPE_READING_DISCOUNT => $this->meterReading
+                ? sprintf(
+                    'خصم قراءة أسبوعية من %s إلى %s · %s',
+                    $this->meterReading->week_start->format('Y-m-d'),
+                    $this->meterReading->week_end->format('Y-m-d'),
+                    StandingDiscount::termsFor($this->discount_method, $this->discount_value),
+                )
+                : 'خصم قراءة أسبوعية · '.StandingDiscount::termsFor($this->discount_method, $this->discount_value),
             default => $this->typeLabel(),
         };
     }
@@ -275,6 +295,7 @@ class SubscriberTransaction extends Model
             ...collect(ChargeType::cases())->mapWithKeys(fn (ChargeType $type) => [$type->value => __($type->label())])->all(),
             self::TYPE_PAYMENT => 'دفعة',
             self::TYPE_DISCOUNT => 'خصم',
+            self::TYPE_READING_DISCOUNT => 'خصم قراءة أسبوعية',
         ];
     }
 

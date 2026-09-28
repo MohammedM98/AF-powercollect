@@ -41,11 +41,12 @@ class GovernoratePolicy
     }
 
     /**
-     * Determine whether the user can delete the model.
+     * Deleting takes its own permission; only an unused record is
+     * deleted (see deletionBlocker()).
      */
     public function delete(User $user, Governorate $governorate): bool
     {
-        return false;
+        return $user->hasPermission(PermissionKey::DeleteGovernorates);
     }
 
     /**

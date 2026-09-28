@@ -9,6 +9,7 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import { formatCurrency } from '@/lib/currency';
 import Icon from '@/Components/Icon';
@@ -19,6 +20,8 @@ export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegm
     const [modalTariff, setModalTariff] = useState(null);
     const [creating, setCreating] = useState(false);
     const rowClick = useRowClick();
+    const { requestDelete, deleteDialog } = useDeleteRecord('التعرفة');
+    const { requestDelete: requestSegmentDelete, deleteDialog: segmentDeleteDialog } = useDeleteRecord('تصنيف الزبائن');
     // The tariff a new segment is being added under, and the segment being renamed.
     const [creatingSegmentFor, setCreatingSegmentFor] = useState(null);
     const [modalSegment, setModalSegment] = useState(null);
@@ -84,9 +87,12 @@ export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegm
                                         {formatCurrency(tariff.rate)}
                                     </td>
                                     <td className="text-end">
-                                        {tariff.canUpdate && (
+                                        {(tariff.canUpdate || tariff.canDelete) && (
                                             <RowActionsMenu>
-                                                <button onClick={() => setModalTariff(tariff)}>تعديل</button>
+                                                {tariff.canDelete && (
+                                                    <button onClick={() => requestDelete(`/tariffs/${tariff.id}`, tariff.categoryLabel)}>حذف</button>
+                                                )}
+                                                {tariff.canUpdate && <button onClick={() => setModalTariff(tariff)}>تعديل</button>}
                                             </RowActionsMenu>
                                         )}
                                     </td>
@@ -131,9 +137,8 @@ export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegm
                                         const chipClass =
                                             'inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3.5 py-1.5 text-sm font-semibold text-gray-800';
 
-                                        return segment.canUpdate ? (
+                                        const chip = segment.canUpdate ? (
                                             <button
-                                                key={segment.id}
                                                 type="button"
                                                 onClick={() => setModalSegment(segment)}
                                                 title="تعديل تصنيف الزبائن"
@@ -142,8 +147,23 @@ export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegm
                                                 {content}
                                             </button>
                                         ) : (
-                                            <span key={segment.id} className={chipClass}>
-                                                {content}
+                                            <span className={chipClass}>{content}</span>
+                                        );
+
+                                        return (
+                                            <span key={segment.id} className="inline-flex items-center gap-1">
+                                                {chip}
+                                                {segment.canDelete && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => requestSegmentDelete(`/tariff-segments/${segment.id}`, segment.name)}
+                                                        title="حذف تصنيف الزبائن"
+                                                        aria-label={`حذف تصنيف الزبائن ${segment.name}`}
+                                                        className="flex h-8 w-8 items-center justify-center rounded-full text-brand-600 transition hover:bg-brand-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
+                                                    >
+                                                        <Icon name="trash" className="h-4 w-4" />
+                                                    </button>
+                                                )}
                                             </span>
                                         );
                                     })}
@@ -191,6 +211,9 @@ export default function Index({ tariffs, segmentGroups, canCreate, canCreateSegm
                     tariffOptions={tariffOptions}
                 />
             )}
+
+            {deleteDialog}
+            {segmentDeleteDialog}
         </SettingsLayout>
     );
 }

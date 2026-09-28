@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DeletionBlocker;
 use Database\Factories\AreaFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -38,5 +39,17 @@ class Area extends Model
             ! $user->isSuperAdmin(),
             fn (Builder $query) => $query->whereKey($user->branchAreaId()),
         );
+    }
+
+    /**
+     * Why the area can't be deleted yet — what still uses it — or null
+     * when it can.
+     */
+    public function deletionBlocker(): ?string
+    {
+        return DeletionBlocker::describe('المنطقة', [
+            'منطقة 2' => $this->subAreas()->count(),
+            'الفروع' => Branch::query()->where('area_id', $this->id)->count(),
+        ]);
     }
 }

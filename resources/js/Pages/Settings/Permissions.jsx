@@ -11,14 +11,19 @@ import { useDataTable } from '@/hooks/useDataTable';
 
 const ACTION_LABELS = { view: 'عرض', create: 'إضافة', update: 'تعديل', record: 'تسجيل', approve: 'اعتماد' };
 
-/** Permissions shown apart, in their own box, so nobody grants them by accident. */
+/**
+ * Permissions shown apart, in their own box, so nobody grants them by
+ * accident: keyed by action, or by `group.action` for one group's own.
+ */
+
 const SENSITIVE_ACTIONS = {
+    delete: { label: 'الحذف', hint: 'يحذف نهائيًا ما لا يرتبط به شيء — تُمنح بحذر', danger: true },
     minimum_charge: { label: 'تعديل الحد الأدنى للدفع', hint: 'صلاحية خاصة وحساسة', danger: false },
     confirm: { label: 'تأكيد التحصيل', hint: 'صلاحية حساسة — تُمنح بحذر', danger: true },
     approve: { label: 'اعتماد القراءات', hint: 'تُضاف مبالغها إلى معاملات المشتركين المالية', danger: true },
     adjust: { label: 'إضافة تحميل وخصم', hint: 'غرامات وتسويات وخصومات على أرصدة المشتركين — تُمنح بحذر', danger: true },
     correct: { label: 'تعديل الحركات المالية', hint: 'تصحيح دفعة أو تحميل أو خصم مسجّل خطأً، مع ذكر السبب', danger: true },
-    delete: { label: 'حذف الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف مع السبب', danger: true },
+    'collections.delete': { label: 'حذف الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف مع السبب', danger: true },
 };
 
 /** The icon and one-line description of each permission group (keyed like PermissionKey::resourceGroups()). */
@@ -152,8 +157,9 @@ function EmployeeList({ users, selectedId, filters, filterOptions, search, onSea
 function PermissionGroupRow({ group, isOn, onToggle, disabled }) {
     const details = GROUP_DETAILS[group.key] ?? { icon: 'shield', description: '' };
     const entries = group.actions.filter((entry) => entry.permission);
-    const everyday = entries.filter((entry) => !SENSITIVE_ACTIONS[entry.action]);
-    const sensitive = entries.filter((entry) => SENSITIVE_ACTIONS[entry.action]);
+    const sensitiveAction = (entry) => SENSITIVE_ACTIONS[`${group.key}.${entry.action}`] ?? SENSITIVE_ACTIONS[entry.action];
+    const everyday = entries.filter((entry) => !sensitiveAction(entry));
+    const sensitive = entries.filter((entry) => sensitiveAction(entry));
 
     return (
         <section className="rounded-row border border-gray-100 bg-surface p-4 sm:p-5">
@@ -185,7 +191,7 @@ function PermissionGroupRow({ group, isOn, onToggle, disabled }) {
             {sensitive.length > 0 && (
                 <div className="mt-4 flex flex-wrap gap-3 lg:ps-60">
                     {sensitive.map((entry) => {
-                        const { label, hint, danger } = SENSITIVE_ACTIONS[entry.action];
+                        const { label, hint, danger } = sensitiveAction(entry);
 
                         return (
                             <div

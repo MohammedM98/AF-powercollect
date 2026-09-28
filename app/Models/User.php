@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToBranch;
+use App\Support\DeletionBlocker;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 
 #[Fillable(['name', 'username', 'password', 'role', 'branch_id', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
@@ -131,5 +133,32 @@ class User extends Authenticatable
         }
 
         return false;
+    }
+
+    /**
+     * Why the user can't be deleted yet — the work recorded in their name —
+     * or null when they can: an account added by mistake.
+     */
+    public function deletionBlocker(): ?string
+    {
+        return DeletionBlocker::describe('المستخدم', [
+            'المشتركون المسجّلون' => $this->registeredSubscribers()->count(),
+            'الحركات المالية' => SubscriberTransaction::query()->where('recorded_by', $this->id)->orWhere('cancelled_by', $this->id)->count(),
+            'القراءات' => MeterReading::query()->where('recorded_by', $this->id)->orWhere('approved_by', $this->id)->count(),
+            'الخصومات الدائمة' => StandingDiscount::query()->where('granted_by', $this->id)->count(),
+        ], 'يمكنك إيقاف حسابه بدلًا من حذفه.');
+    }
+
+    /**
+     * Delete the account, its permissions, notifications and sessions (so
+     * it is signed out); deletionBlocker() must allow it first.
+     */
+    public function deleteAccount(): void
+    {
+        DB::transaction(function (): void {
+            $this->notifications()->delete();
+            DB::table('sessions')->where('user_id', $this->id)->delete();
+            $this->delete();
+        });
     }
 }

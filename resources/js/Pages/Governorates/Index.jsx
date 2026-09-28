@@ -7,6 +7,7 @@ import SortableTh from '@/Components/DataTable/SortableTh';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import GovernorateModal from './GovernorateModal';
 import AreaModal from '../Areas/AreaModal';
 import SubAreaModal from '../SubAreas/SubAreaModal';
@@ -34,6 +35,7 @@ export default function Index({
     const [creatingArea, setCreatingArea] = useState(false);
     const [modalSubArea, setModalSubArea] = useState(null);
     const [creatingSubArea, setCreatingSubArea] = useState(false);
+    const { requestDelete, deleteDialog } = useDeleteRecord('السجل');
 
     const extraParams = { selected: selectedGovernorate?.id, selectedArea: selectedArea?.id };
     const { search, setSearch, sort, setPerPage } = useDataTable('/governorates', filters, extraParams);
@@ -140,16 +142,32 @@ export default function Index({
                                                     </td>
                                                     <td className="text-gray-600">{governorate.areasCount}</td>
                                                     <td className="text-end">
-                                                        {governorate.canUpdate && (
+                                                        {(governorate.canUpdate || governorate.canDelete) && (
                                                             <RowActionsMenu>
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setModalGovernorate(governorate);
-                                                                    }}
-                                                                >
-                                                                    تعديل
-                                                                </button>
+                                                                {governorate.canDelete && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            requestDelete(
+                                                                                `/governorates/${governorate.id}`,
+                                                                                governorate.name,
+                                                                                'المحافظة',
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        حذف
+                                                                    </button>
+                                                                )}
+                                                                {governorate.canUpdate && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setModalGovernorate(governorate);
+                                                                        }}
+                                                                    >
+                                                                        تعديل
+                                                                    </button>
+                                                                )}
                                                             </RowActionsMenu>
                                                         )}
                                                     </td>
@@ -208,16 +226,28 @@ export default function Index({
                                                 <span className={`text-sm font-medium ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
                                                     {area.name}
                                                 </span>
-                                                {area.canUpdate && (
+                                                {(area.canUpdate || area.canDelete) && (
                                                     <RowActionsMenu>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setModalArea(area);
-                                                            }}
-                                                        >
-                                                            تعديل
-                                                        </button>
+                                                        {area.canDelete && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    requestDelete(`/areas/${area.id}`, area.name, 'المنطقة');
+                                                                }}
+                                                            >
+                                                                حذف
+                                                            </button>
+                                                        )}
+                                                        {area.canUpdate && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setModalArea(area);
+                                                                }}
+                                                            >
+                                                                تعديل
+                                                            </button>
+                                                        )}
                                                     </RowActionsMenu>
                                                 )}
                                             </li>
@@ -271,9 +301,14 @@ export default function Index({
                                     {selectedArea.subAreas.map((subArea) => (
                                         <li key={subArea.id} className="flex items-center justify-between px-6 py-3">
                                             <span className="text-sm font-medium text-gray-900">{subArea.name}</span>
-                                            {subArea.canUpdate && (
+                                            {(subArea.canUpdate || subArea.canDelete) && (
                                                 <RowActionsMenu>
-                                                    <button onClick={() => setModalSubArea(subArea)}>تعديل</button>
+                                                    {subArea.canDelete && (
+                                                        <button onClick={() => requestDelete(`/sub-areas/${subArea.id}`, subArea.name, 'منطقة 2')}>
+                                                            حذف
+                                                        </button>
+                                                    )}
+                                                    {subArea.canUpdate && <button onClick={() => setModalSubArea(subArea)}>تعديل</button>}
                                                 </RowActionsMenu>
                                             )}
                                         </li>
@@ -332,6 +367,8 @@ export default function Index({
                     allowNoArea={allowSubAreaWithoutArea}
                 />
             )}
+
+            {deleteDialog}
         </SettingsLayout>
     );
 }

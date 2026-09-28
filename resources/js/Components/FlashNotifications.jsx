@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { router } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
-import { ACTION_MESSAGES } from '@/lib/actionMessages';
+import { ACTION_MESSAGES, visitReturnsStatus } from '@/lib/actionMessages';
 import { createNotificationQueue } from '@/lib/notificationQueue';
 
 /**
@@ -15,6 +15,11 @@ const APPEARANCE = {
     },
     error: {
         title: 'تعذّر الحفظ',
+        icon: 'alert',
+        card: 'bg-gradient-to-br from-red-600 to-red-700 shadow-[0_18px_40px_-14px_rgba(185,28,28,0.7)]',
+    },
+    deleteError: {
+        title: 'تعذّر الحذف',
         icon: 'alert',
         card: 'bg-gradient-to-br from-red-600 to-red-700 shadow-[0_18px_40px_-14px_rgba(185,28,28,0.7)]',
     },
@@ -34,16 +39,36 @@ export default function FlashNotifications({ initialStatus }) {
             currentQueue.push(ACTION_MESSAGES[status] ?? status);
         }
         showStatus(initialStatus);
-        const unsubscribeSuccess = router.on('success', (event) => showStatus(event.detail.page.props.status));
+        // The visits whose response carries a fresh status; a partial reload keeps the page's old one.
+        const visitsWithStatus = new Set();
+        const unsubscribeStart = router.on('start', (event) => {
+            if (visitReturnsStatus(event.detail.visit)) {
+                visitsWithStatus.add(event.detail.visit.id);
+            }
+        });
+        const unsubscribeSuccess = router.on('success', (event) => {
+            if (visitsWithStatus.delete(event.detail.visitId)) {
+                showStatus(event.detail.page.props.status);
+            }
+        });
         // A single-field failure (e.g. a reading lower than the last one)
         // is shown with its own message; anything else gets the general one.
         const unsubscribeError = router.on('error', (event) => {
-            const messages = Object.values(event.detail.errors ?? {});
+            const errors = event.detail.errors ?? {};
+            const messages = Object.values(errors);
+
+            // A refused delete says what still uses the record.
+            if (errors.delete) {
+                currentQueue.push(errors.delete, 'deleteError');
+
+                return;
+            }
 
             currentQueue.push(messages.length === 1 ? messages[0] : 'يرجى مراجعة الحقول المحددة والمحاولة مجددًا.', 'error');
         });
 
         return () => {
+            unsubscribeStart();
             unsubscribeSuccess();
             unsubscribeError();
             currentQueue.dispose();
@@ -62,12 +87,12 @@ export default function FlashNotifications({ initialStatus }) {
                 return (
                     <div
                         key={notification.id}
-                        role={notification.type === 'error' ? 'alert' : 'status'}
+                        role={notification.type !== 'success' ? 'alert' : 'status'}
                         style={{ '--flash-duration': `${notification.duration}ms` }}
                         onMouseEnter={() => queue.current.pause(notification.id)}
                         onMouseLeave={() => queue.current.resume(notification.id)}
                         className={`flash-notification pointer-events-auto relative shrink-0 overflow-hidden rounded-row text-white ring-1 ring-inset ring-white/15 ${appearance.card} ${
-                            notification.type === 'error' ? 'flash-notification-error' : ''
+                            notification.type !== 'success' ? 'flash-notification-error' : ''
                         } ${notification.leaving ? 'flash-notification-leaving' : ''}`}
                     >
                         <div className={`flex gap-3 py-4 pe-3 ps-4 ${appearance.title ? 'items-start' : 'items-center'}`}>

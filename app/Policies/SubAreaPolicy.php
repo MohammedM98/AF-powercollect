@@ -61,11 +61,18 @@ class SubAreaPolicy
     }
 
     /**
-     * Determine whether the user can delete the model.
+     * Deleting takes its own permission, for a sub-area of the user's
+     * branch's area (any for the Super Admin).
      */
     public function delete(User $user, SubArea $subArea): bool
     {
-        return false;
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return $user->hasPermission(PermissionKey::DeleteSubAreas)
+            && $subArea->area_id !== null
+            && (int) $subArea->area_id === $user->branchAreaId();
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
+use App\Http\Concerns\DeletesRecords;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Concerns\ProvidesFormOptions;
 use App\Http\Requests\StoreUserRequest;
@@ -18,7 +19,7 @@ use Inertia\Response as InertiaResponse;
 
 class UserController extends Controller
 {
-    use FiltersDataTable, ProvidesFormOptions;
+    use DeletesRecords, FiltersDataTable, ProvidesFormOptions;
 
     private const SORTABLE = ['name', 'username', 'role', 'is_active', 'created_at'];
 
@@ -42,6 +43,7 @@ class UserController extends Controller
                 'roleLabel' => __($user->role->label()),
                 'branchName' => $user->branch?->name,
                 'canUpdate' => $actor->can('update', $user),
+                'canDelete' => $actor->can('delete', $user),
             ]);
 
         return Inertia::render('Users/Index', [
@@ -121,6 +123,14 @@ class UserController extends Controller
         $request->user()->notify(new ActionCompleted('user-updated', $user->name));
 
         return redirect()->route('users.index')->with('status', 'user-updated');
+    }
+
+    /**
+     * Delete the user account, once nothing uses it any more.
+     */
+    public function destroy(Request $request, User $user): RedirectResponse
+    {
+        return $this->deleteRecord($request, $user, 'user-deleted', $user->name, fn () => $user->deleteAccount());
     }
 
     /**

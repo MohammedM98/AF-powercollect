@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Concerns\DeletesRecords;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreMeterBoxRequest;
 use App\Http\Requests\UpdateMeterBoxRequest;
@@ -20,7 +21,7 @@ use Inertia\Response as InertiaResponse;
 
 class MeterBoxController extends Controller
 {
-    use FiltersDataTable;
+    use DeletesRecords, FiltersDataTable;
 
     private const SORTABLE = ['name', 'box_number', 'created_at'];
 
@@ -46,6 +47,7 @@ class MeterBoxController extends Controller
                 'areaName' => $meterBox->branch->area?->name,
                 'subAreaName' => $meterBox->subArea?->name,
                 'canUpdate' => $actor->can('update', $meterBox),
+                'canDelete' => $actor->can('delete', $meterBox),
             ]);
 
         return Inertia::render('MeterBoxes/Index', [
@@ -107,6 +109,14 @@ class MeterBoxController extends Controller
         $request->user()->notify(new ActionCompleted('meter-box-updated', $meterBox->name));
 
         return redirect()->route('meter-boxes.index')->with('status', 'meter-box-updated');
+    }
+
+    /**
+     * Delete the meter box, once nothing uses it any more.
+     */
+    public function destroy(Request $request, MeterBox $meterBox): RedirectResponse
+    {
+        return $this->deleteRecord($request, $meterBox, 'meter-box-deleted', $meterBox->name);
     }
 
     /**

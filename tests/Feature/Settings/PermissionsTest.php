@@ -128,6 +128,20 @@ class PermissionsTest extends TestCase
         ]));
     }
 
+    public function test_each_kind_of_record_can_be_granted_its_own_delete_permission(): void
+    {
+        $this->seedPermissions();
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())->get(route('settings.permissions.edit'));
+
+        $response->assertInertia(fn ($page) => $page->where(
+            'permissionGroups',
+            fn ($groups): bool => collect($groups)
+                ->reject(fn (array $group): bool => in_array($group['key'], ['meter_readings', 'collections'], true))
+                ->every(fn (array $group): bool => collect($group['actions'])->contains('action', 'delete')),
+        ));
+    }
+
     public function test_editing_and_deleting_transactions_are_granted_under_collections_on_the_permissions_page(): void
     {
         $this->seedPermissions();

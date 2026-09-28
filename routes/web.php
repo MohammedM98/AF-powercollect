@@ -41,9 +41,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/branch-performance', [BranchPerformanceController::class, 'index'])->name('branch-performance.index');
     Route::get('/branch-performance/{branch}', [BranchPerformanceController::class, 'show'])->name('branch-performance.show');
 
-    Route::resource('branches', BranchController::class)->only(['index', 'create', 'store', 'edit', 'update']);
-    Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update']);
-    Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::resource('branches', BranchController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+    Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+    Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('/subscribers/{subscriber}/statement', [SubscriberStatementController::class, 'show'])->name('subscribers.statement');
     Route::post('/subscribers/{subscriber}/payments', [SubscriberPaymentController::class, 'store'])->name('subscribers.payments.store');
     Route::post('/subscribers/{subscriber}/charges', [SubscriberChargeController::class, 'store'])->name('subscribers.charges.store');
@@ -52,15 +52,15 @@ Route::middleware('auth')->group(function () {
     Route::delete('/subscribers/{subscriber}/transactions/{transaction}', [SubscriberTransactionController::class, 'destroy'])->scopeBindings()->name('subscribers.transactions.destroy');
     Route::put('/subscribers/{subscriber}/standing-discount', [SubscriberStandingDiscountController::class, 'update'])->name('subscribers.standing-discount.update');
     Route::delete('/subscribers/{subscriber}/standing-discount', [SubscriberStandingDiscountController::class, 'destroy'])->name('subscribers.standing-discount.destroy');
-    Route::resource('tariffs', TariffController::class)->only(['index', 'create', 'store', 'edit', 'update']);
-    Route::resource('tariff-segments', TariffSegmentController::class)->only(['store', 'update']);
-    Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
-    Route::resource('meter-boxes', MeterBoxController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::resource('tariffs', TariffController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+    Route::resource('tariff-segments', TariffSegmentController::class)->only(['store', 'update', 'destroy']);
+    Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+    Route::resource('meter-boxes', MeterBoxController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('meter-readings', MeterReadingController::class)->only(['index', 'store', 'update']);
     Route::post('/meter-readings/approve', [MeterReadingController::class, 'approve'])->name('meter-readings.approve');
-    Route::resource('areas', AreaController::class)->only(['create', 'store', 'edit', 'update']);
-    Route::resource('sub-areas', SubAreaController::class)->only(['create', 'store', 'edit', 'update']);
-    Route::resource('governorates', GovernorateController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::resource('areas', AreaController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
+    Route::resource('sub-areas', SubAreaController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
+    Route::resource('governorates', GovernorateController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
 
     Route::get('/settings/permissions', [PermissionController::class, 'edit'])->name('settings.permissions.edit');
     Route::put('/settings/permissions', [PermissionController::class, 'update'])->name('settings.permissions.update');

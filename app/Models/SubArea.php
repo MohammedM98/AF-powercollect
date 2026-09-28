@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DeletionBlocker;
 use Database\Factories\SubAreaFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -32,5 +33,16 @@ class SubArea extends Model
             ! $user->isSuperAdmin(),
             fn (Builder $query) => $query->where('area_id', $user->branchAreaId()),
         );
+    }
+
+    /**
+     * Why the sub-area can't be deleted yet — what still uses it — or null
+     * when it can.
+     */
+    public function deletionBlocker(): ?string
+    {
+        return DeletionBlocker::describe('منطقة 2', [
+            'الطبلونات' => MeterBox::query()->where('sub_area_id', $this->id)->count(),
+        ]);
     }
 }

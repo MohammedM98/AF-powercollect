@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DeletionBlocker;
 use Database\Factories\BranchFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -59,5 +60,19 @@ class Branch extends Model
     public function transactions(): HasManyThrough
     {
         return $this->hasManyThrough(SubscriberTransaction::class, Subscriber::class);
+    }
+
+    /**
+     * Why the branch can't be deleted yet — what still uses it — or null
+     * when it can.
+     */
+    public function deletionBlocker(): ?string
+    {
+        return DeletionBlocker::describe('الفرع', [
+            'المشتركون' => $this->subscribers()->count(),
+            'المستخدمون' => $this->users()->count(),
+            'الطبلونات' => $this->meterBoxes()->count(),
+            'القراءات' => $this->meterReadings()->count(),
+        ]);
     }
 }

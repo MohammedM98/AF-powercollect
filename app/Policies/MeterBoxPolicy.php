@@ -49,11 +49,13 @@ class MeterBoxPolicy
     }
 
     /**
-     * Determine whether the user can delete the model.
+     * Deleting takes its own permission, for a meter box of the user's
+     * own branch (any branch for the Super Admin).
      */
     public function delete(User $user, MeterBox $meterBox): bool
     {
-        return false;
+        return $user->hasPermission(PermissionKey::DeleteMeterBoxes)
+            && ($user->isSuperAdmin() || $meterBox->branch_id === $user->branch_id);
     }
 
     /**

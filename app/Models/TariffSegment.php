@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DeletionBlocker;
 use Database\Factories\TariffSegmentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -36,5 +37,14 @@ class TariffSegment extends Model
     public function label(): string
     {
         return __($this->tariff->category->label()).' — '.$this->name;
+    }
+
+    /**
+     * Why the customer segment can't be deleted yet — what still uses it — or null
+     * when it can.
+     */
+    public function deletionBlocker(): ?string
+    {
+        return DeletionBlocker::describe('التصنيف', ['المشتركون' => $this->subscribers()->count()]);
     }
 }

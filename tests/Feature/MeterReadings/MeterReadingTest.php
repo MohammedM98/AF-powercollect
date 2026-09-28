@@ -540,6 +540,8 @@ class MeterReadingTest extends TestCase
                 ->has('subscribers.data.0.meterReadings', 2)
                 ->where('subscribers.data.0.meterReadings.0.weekStart', '2026-09-18')
                 ->where('subscribers.data.0.meterReadings.0.consumption', 40)
+                ->where('subscribers.data.0.meterReadings.0.discountAmount', '0.00')
+                ->where('subscribers.data.0.meterReadings.1.status', 'approved')
                 ->where('subscribers.data.0.meterReadings.0.canUpdate', true)
                 ->where('subscribers.data.0.meterReadings.1.canUpdate', false)
                 ->has('readingWeekOptions', 1)

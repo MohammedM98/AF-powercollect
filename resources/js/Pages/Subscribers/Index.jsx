@@ -17,6 +17,7 @@ import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import SubscriberModal from './SubscriberModal';
 import SubscriberDetailsModal from './SubscriberDetailsModal';
+import ReadingHistoryModal from './ReadingHistoryModal';
 import StatementModal from './StatementModal';
 
 const STATUS_TONES = {
@@ -70,6 +71,8 @@ export default function Index({
     const viewingSubscriber = subscribers.data.find((subscriber) => subscriber.id === viewingSubscriberId) ?? null;
     const [creating, setCreating] = useState(false);
     const [readingSubscriber, setReadingSubscriber] = useState(null);
+    const [historySubscriberId, setHistorySubscriberId] = useState(null);
+    const historySubscriber = subscribers.data.find((subscriber) => subscriber.id === historySubscriberId) ?? null;
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/subscribers', filters);
     const rowClick = useRowClick();
     const { requestDelete, deleteDialog } = useDeleteRecord('المشترك');
@@ -81,7 +84,7 @@ export default function Index({
         statementWindow.open(statementHeader(subscriber), form);
     }
 
-    /** The row's "more" menu: the subscriber's details, the account's forms and entering this week's reading. */
+    /** The row's "more" menu: the subscriber's details, the account's forms, entering this week's reading and the past readings. */
     function rowMenu(subscriber) {
         const readingItem = { label: 'إدخال قراءة', icon: 'gauge', shortcut: 'R', onSelect: () => setReadingSubscriber(subscriber) };
 
@@ -125,7 +128,19 @@ export default function Index({
                         },
                     ],
                 },
-                { label: 'القراءات', items: [readingItem] },
+                {
+                    label: 'القراءات',
+                    items: [
+                        readingItem,
+                        {
+                            label: 'سجل القراءات',
+                            icon: 'chart',
+                            shortcut: 'H',
+                            hint: subscriber.meterReadings.length ? `${subscriber.meterReadings.length} قراءة` : 'لا توجد بعد',
+                            onSelect: () => setHistorySubscriberId(subscriber.id),
+                        },
+                    ],
+                },
             ],
         };
     }
@@ -276,6 +291,12 @@ export default function Index({
                     setViewingSubscriberId(null);
                     openStatement(viewingSubscriber);
                 }}
+            />
+
+            <ReadingHistoryModal
+                key={`history-${historySubscriber?.id ?? 'closed'}`}
+                subscriber={historySubscriber}
+                onClose={() => setHistorySubscriberId(null)}
             />
 
             {readingSubscriber && (

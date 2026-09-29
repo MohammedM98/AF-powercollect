@@ -1,0 +1,22 @@
+name: power_collect
+version: 0.1.0+1
+publish_to: none
+description: Arabic mobile prototype for Power Collect with local demo data.
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/brand.webp

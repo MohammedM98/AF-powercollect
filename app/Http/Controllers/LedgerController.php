@@ -300,7 +300,7 @@ class LedgerController extends Controller
 
         $groups[] = $this->filterGroup('type', 'نوع القيد', [
             ['value' => self::DEBIT, 'label' => 'كل ما عليه (تحميل)'],
-            ['value' => self::CREDIT, 'label' => 'كل ما له (تسديد وخصم)'],
+            ['value' => self::CREDIT, 'label' => 'كل ما له (تسديد وخصم ومقاصة)'],
             ...collect(SubscriberTransaction::typeLabels())->map(fn (string $label, string $type): array => ['value' => $type, 'label' => $label])->values(),
         ]);
 
@@ -318,7 +318,7 @@ class LedgerController extends Controller
 
     /**
      * Which side the headline figures sum: the credits when the type filter
-     * picks payments, discounts or everything له; otherwise the charges.
+     * picks payments, discounts, clearings or everything له; otherwise the charges.
      */
     private function headlineSide(Request $request): string
     {

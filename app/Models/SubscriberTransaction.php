@@ -196,10 +196,33 @@ class SubscriberTransaction extends Model
      */
     public function cancel(User $actor, CorrectionReason $reason, ?string $notes): self
     {
-        return DB::transaction(function () use ($actor, $reason, $notes): self {
+        return $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCorrectable());
+    }
+
+    /**
+     * Cancel a weekly reading's charge or standing-discount line when the
+     * reading is corrected or rebilled, as cancel() does. Its key is freed
+     * so the line the reading is billed with next can take it.
+     */
+    public function cancelForReading(User $actor, CorrectionReason $reason): self
+    {
+        return $this->reverse($actor, $reason, null, fn (self $line): bool => ! $line->isCancelled(), freeSourceKey: true);
+    }
+
+    /**
+     * Mark the line cancelled and add its reversal, once `$mayCancel`
+     * allows it on the locked line.
+     *
+     * @param  Closure(self): bool  $mayCancel
+     *
+     * @throws ValidationException when it may not be cancelled (any more)
+     */
+    private function reverse(User $actor, CorrectionReason $reason, ?string $notes, Closure $mayCancel, bool $freeSourceKey = false): self
+    {
+        return DB::transaction(function () use ($actor, $reason, $notes, $mayCancel, $freeSourceKey): self {
             $line = self::query()->lockForUpdate()->findOrFail($this->id);
 
-            if (! $line->isCorrectable()) {
+            if (! $mayCancel($line)) {
                 throw ValidationException::withMessages(['reason' => 'هذه الحركة أُلغيت أو عُدّلت من قبل.']);
             }
 
@@ -208,6 +231,7 @@ class SubscriberTransaction extends Model
                 'cancelled_by' => $actor->id,
                 'cancellation_reason' => $reason,
                 'cancellation_notes' => $notes,
+                ...($freeSourceKey ? ['source_key' => $line->source_key.':cancelled:'.$line->id] : []),
             ]);
             $this->setRawAttributes($line->getAttributes(), true);
 

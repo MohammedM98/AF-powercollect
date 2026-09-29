@@ -280,7 +280,9 @@ class SubscriberStandingDiscountTest extends TestCase
             ->assertSessionHasNoErrors()
             ->assertSessionHas('status', 'meter-reading-reopened');
 
-        $this->assertDatabaseCount('subscriber_transactions', 0);
+        // Its charge and discount stay on the statement, cancelled, and no longer count.
+        $this->assertSame(2, SubscriberTransaction::whereNotNull('cancelled_at')->count());
+        $this->assertSame(0.0, $this->subscriber->balance());
         $reading->refresh();
         $this->assertSame(MeterReadingStatus::Pending, $reading->status);
         // 6 kilos, 3 of them still free: 90 of 180 shekels.
@@ -335,7 +337,9 @@ class SubscriberStandingDiscountTest extends TestCase
 
         $this->giveDiscount(['method' => 'percentage', 'value' => '10'])->assertSessionHasNoErrors();
 
-        $this->assertSame(['-15.00'], SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->pluck('amount')->all());
+        $this->assertSame(['-15.00'], SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->whereNull('cancelled_at')->pluck('amount')->all());
+        $old = SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->whereNotNull('cancelled_at')->sole();
+        $this->assertSame(['-90.00', 'standing_discount_changed'], [$old->amount, $old->cancellation_reason->value]);
         $this->assertSame(135.0, $this->subscriber->balance());
     }
 
@@ -349,10 +353,40 @@ class SubscriberStandingDiscountTest extends TestCase
             ->delete(route('subscribers.standing-discount.destroy', $this->subscriber))
             ->assertSessionHasNoErrors();
 
-        $this->assertSame(0, SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->count());
+        $this->assertSame(0, SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->whereNull('cancelled_at')->count());
+        $this->assertSame(1, SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->whereNotNull('cancelled_at')->count());
         $this->assertSame(150.0, $this->subscriber->balance());
         $reading = MeterReading::sole();
         $this->assertSame([null, '0.00', '150.00'], [$reading->discount_method, $reading->discount_amount, $reading->amount_due]);
+    }
+
+    public function test_stopping_the_discount_rebills_an_approved_week_the_minimum_now_applies_to_and_keeps_the_old_lines(): void
+    {
+        // 1 kilo at 30 shekels with 2 free kilos: nothing to pay; without the discount the weekly minimum of 50 is due.
+        $this->subscriber->update(['minimum_charge' => 50]);
+        StandingDiscount::factory()->for($this->subscriber)->kilowatts(2)->create();
+        $this->recordReading(1201);
+        $reading = MeterReading::sole();
+        $reading->approve($this->branchAdmin);
+        $this->assertSame(0.0, $this->subscriber->balance());
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.standing-discount.destroy', $this->subscriber))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(50.0, $this->subscriber->balance());
+        $charge = SubscriberTransaction::where('type', SubscriberTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->sole();
+        $this->assertSame('50.00', $charge->amount);
+        $this->assertNotNull($charge->corrects_id);
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.0.cancellation.wasCorrected', true)
+                ->where('entries.0.cancellation.reasonLabel', 'تغيير الخصم الدائم')
+                ->where('entries.1.type', 'reversal')
+                ->where('entries.2.id', $charge->id)
+                ->where('summary.balance', '50.00'));
     }
 
     public function test_the_statement_tells_the_discount_form_about_the_latest_weeks_reading(): void

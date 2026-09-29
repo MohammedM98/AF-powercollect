@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CorrectionReason;
 use App\Enums\DiscountMethod;
 use App\Enums\MeterReadingStatus;
 use App\Enums\PermissionKey;
@@ -180,15 +181,7 @@ class MeterReading extends Model
                 'approved_at' => now(),
             ]);
 
-            $reading->subscriber->transactions()->create([
-                'recorded_by' => $approver->id,
-                'meter_reading_id' => $reading->id,
-                'type' => SubscriberTransaction::TYPE_METER_READING,
-                'source_key' => $reading->chargeSourceKey(),
-                'amount' => $reading->amountBeforeDiscount(),
-                'currency_amount' => $reading->amountBeforeDiscount(),
-            ]);
-
+            $reading->recordChargeLine($approver);
             $reading->recordDiscountLine($approver);
 
             $this->setRawAttributes($reading->getAttributes(), true);
@@ -198,9 +191,10 @@ class MeterReading extends Model
     /**
      * Bill the reading with the subscriber's standing discount as it is now
      * (none when it was stopped), at the prices the reading was recorded
-     * with. An approved reading's discount line is replaced to match, so the
-     * subscriber's transactions show the change straight away; a pending
-     * one's shows when it is approved.
+     * with. An approved reading's lines are rebilled to match — the old ones
+     * cancelled with a reversal, kept on the statement, and the new ones
+     * recorded under them — so the subscriber's transactions show the change
+     * straight away; a pending one's shows when it is approved.
      */
     public function applyStandingDiscount(?StandingDiscount $discount, User $recorder): void
     {
@@ -215,12 +209,36 @@ class MeterReading extends Model
             ]);
 
             if (! $reading->isPending()) {
-                SubscriberTransaction::where('source_key', $reading->discountSourceKey())->delete();
+                $charge = $reading->currentLine(SubscriberTransaction::TYPE_METER_READING);
+
+                if ($charge && $charge->amount !== $reading->amountBeforeDiscount()) {
+                    $charge->cancelForReading($recorder, CorrectionReason::StandingDiscountChanged);
+                    $reading->recordChargeLine($recorder);
+                }
+
+                $reading->currentLine(SubscriberTransaction::TYPE_READING_DISCOUNT)?->cancelForReading($recorder, CorrectionReason::StandingDiscountChanged);
                 $reading->recordDiscountLine($recorder);
             }
 
             $this->setRawAttributes($reading->getAttributes(), true);
         });
+    }
+
+    /**
+     * Charge the reading's week to the subscriber's account: the full bill,
+     * before its standing discount.
+     */
+    private function recordChargeLine(User $recorder): void
+    {
+        $this->subscriber->transactions()->create([
+            'recorded_by' => $recorder->id,
+            'meter_reading_id' => $this->id,
+            'corrects_id' => $this->lastCancelledLineId(SubscriberTransaction::TYPE_METER_READING),
+            'type' => SubscriberTransaction::TYPE_METER_READING,
+            'source_key' => $this->chargeSourceKey(),
+            'amount' => $this->amountBeforeDiscount(),
+            'currency_amount' => $this->amountBeforeDiscount(),
+        ]);
     }
 
     /**
@@ -238,6 +256,7 @@ class MeterReading extends Model
         $this->subscriber->transactions()->create([
             'recorded_by' => $recorder->id,
             'meter_reading_id' => $this->id,
+            'corrects_id' => $this->lastCancelledLineId(SubscriberTransaction::TYPE_READING_DISCOUNT),
             'type' => SubscriberTransaction::TYPE_READING_DISCOUNT,
             'source_key' => $this->discountSourceKey(),
             'amount' => number_format(-(float) $this->discount_amount, 2, '.', ''),
@@ -249,20 +268,50 @@ class MeterReading extends Model
     }
 
     /**
+     * The reading's charge or standing-discount line that stands on the
+     * subscriber's account, if it has been billed.
+     */
+    private function currentLine(string $type): ?SubscriberTransaction
+    {
+        return SubscriberTransaction::query()
+            ->where('meter_reading_id', $this->id)
+            ->where('type', $type)
+            ->whereNull('cancelled_at')
+            ->first();
+    }
+
+    /**
+     * The reading's last cancelled line of the given type that nothing has
+     * replaced yet, which the line billed next corrects.
+     */
+    private function lastCancelledLineId(string $type): ?int
+    {
+        return SubscriberTransaction::query()
+            ->where('meter_reading_id', $this->id)
+            ->where('type', $type)
+            ->whereNotNull('cancelled_at')
+            ->whereDoesntHave('correction')
+            ->latest('id')
+            ->value('id');
+    }
+
+    /**
      * Correct the reading and recalculate its charges at the prices and
      * standing discount captured when it was recorded. An approved reading
-     * goes back to review: its charge and discount are taken off the
-     * subscriber's transactions until it is approved again. Returns whether
-     * that happened.
+     * goes back to review: its charge and discount lines are cancelled with
+     * a reversal — kept on the statement — until it is approved again, when
+     * the new lines are recorded under them. Returns whether that happened.
      */
-    public function correct(float $currentReading, ?string $notes): bool
+    public function correct(float $currentReading, ?string $notes, User $editor): bool
     {
-        return DB::transaction(function () use ($currentReading, $notes): bool {
+        return DB::transaction(function () use ($currentReading, $notes, $editor): bool {
             $wasApproved = ! $this->isPending();
             $consumption = self::consumptionBetween($this->previous_reading, $currentReading);
 
             if ($wasApproved) {
-                SubscriberTransaction::whereIn('source_key', [$this->chargeSourceKey(), $this->discountSourceKey()])->delete();
+                foreach ([SubscriberTransaction::TYPE_METER_READING, SubscriberTransaction::TYPE_READING_DISCOUNT] as $type) {
+                    $this->currentLine($type)?->cancelForReading($editor, CorrectionReason::ReadingCorrected);
+                }
             }
 
             $this->update([

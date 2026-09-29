@@ -26,7 +26,6 @@ import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './Correc
 
 /** How each type of charge looks in the form: its icon, a hint, quick amounts and an example note. */
 const TYPE_LOOKS = {
-    settlement: { icon: 'scale', hint: 'تصحيح فرق في الحساب', quick: [20, 50, 100], example: 'مثال: مقاصة فرق قراءة شهر 8' },
     penalty: { icon: 'warning', hint: 'مخالفة أو عبث بالعداد', quick: [50, 100, 200], example: 'اكتب سبب الغرامة، مثال: توصيل خط بدون عداد' },
     disconnection_fee: { icon: 'power', hint: 'قطع الكهرباء أو إعادتها', quick: [25, 50], example: 'مثال: فصل بسبب تراكم الدين' },
 };
@@ -38,11 +37,11 @@ const notesClass =
     'block min-h-[76px] w-full resize-y rounded-[14px] border-[1.5px] bg-surface px-4 py-3 text-base leading-relaxed text-gray-900 transition placeholder:text-gray-400 hover:border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-900/10';
 
 /**
- * Charge a subscriber by hand (تحميل): a مقاصة, a financial penalty (which
- * must say why) or a service disconnection fee (with its usual amount
- * suggested). A dark panel beside the form shows what it does to the
- * balance before saving; once saved, the window shows what was recorded.
- * Keys: Ctrl + Enter saves, 1 · 2 · 3 pick the type.
+ * Charge a subscriber by hand (تحميل): a financial penalty (which must say
+ * why) or a service disconnection fee (with its usual amount suggested).
+ * A dark panel beside the form shows what it does to the balance before
+ * saving; once saved, the window shows what was recorded. Keys: Ctrl +
+ * Enter saves, 1 · 2 pick the type.
  *
  * With `correcting` (a statement line), it corrects that charge instead:
  * the form starts from it, `balance` leaves it out, and saving cancels it
@@ -63,7 +62,7 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
     const [receipt, setReceipt] = useState(null);
 
     const type = chargeTypes.find((option) => option.value === data.type) ?? chargeTypes[0];
-    const look = TYPE_LOOKS[type?.value] ?? TYPE_LOOKS.settlement;
+    const look = TYPE_LOOKS[type?.value] ?? TYPE_LOOKS.penalty;
     const amount = Number(data.amount) > 0 ? Number(data.amount) : 0;
     const balanceAfter = amount > 0 ? Number(balance) + amount : null;
     const missingReason = Boolean(type?.needsReason && !data.notes.trim());
@@ -97,7 +96,7 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
         amountInput.current?.focus();
     }
 
-    /** 1 · 2 · 3 pick the type — unless a field is being typed in. */
+    /** 1 · 2 pick the type — unless a field is being typed in. */
     function onKeyDown(event) {
         submitOnCtrlEnter(event);
 
@@ -179,11 +178,11 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
 
                                 <fieldset>
                                     <legend className="contents">
-                                        <FieldLabel required hint="اختر بالأرقام 1 · 2 · 3">
+                                        <FieldLabel required hint="اختر بالأرقام 1 · 2">
                                             نوع التحميل
                                         </FieldLabel>
                                     </legend>
-                                    <div className="grid gap-3 sm:grid-cols-3">
+                                    <div className="grid gap-3 sm:grid-cols-2">
                                         {chargeTypes.map((option, index) => (
                                             <ChoiceTile
                                                 key={option.value}
@@ -278,7 +277,7 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
                             disabled={amount <= 0 || missingReason}
                             processing={form.processing}
                             submitLabel={correcting ? 'حفظ التعديل' : amount > 0 ? `تحميل ${formatMoney(amount)} ₪ على الحساب` : 'إضافة التحميل'}
-                            shortcuts="1 · 2 · 3 للنوع"
+                            shortcuts="1 · 2 للنوع"
                         />
                     </form>
                 )}

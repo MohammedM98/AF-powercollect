@@ -1,13 +1,14 @@
 import AddButton from '@/Components/AddButton';
 import ChargeModal from './ChargeModal';
+import ClearingModal from './ClearingModal';
 import DeleteTransactionModal from './DeleteTransactionModal';
 import DiscountModal from './DiscountModal';
 import PaymentModal from './PaymentModal';
 
 /**
- * The statement's buttons: add a charge or a discount, and record a
- * payment — each shown only to users allowed to. `onOpen` gets 'charge',
- * 'discount' or 'payment'.
+ * The statement's buttons: add a charge, a discount or a clearing, and
+ * record a payment — each shown only to users allowed to. `onOpen` gets
+ * 'charge', 'discount', 'clearing' or 'payment'.
  */
 export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen }) {
     if (!canRecordPayment && !canAdjustBalance) {
@@ -24,6 +25,9 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
                     <AddButton variant="soft" onClick={() => onOpen('discount')}>
                         إضافة خصم
                     </AddButton>
+                    <AddButton variant="soft" onClick={() => onOpen('clearing')}>
+                        مقاصة
+                    </AddButton>
                 </>
             )}
             {canRecordPayment && <AddButton onClick={() => onOpen('payment')}>تسجيل دفعة</AddButton>}
@@ -32,10 +36,10 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
 }
 
 /**
- * The payment, charge and discount forms of a statement; `openForm`
- * names the one showing ('payment', 'charge', 'discount' or null), or is
- * `{ action: 'correct' | 'delete', entry }` to correct or delete a line.
- * `statement` is the statement's page props.
+ * The payment, charge, discount and clearing forms of a statement;
+ * `openForm` names the one showing ('payment', 'charge', 'discount',
+ * 'clearing' or null), or is `{ action: 'correct' | 'delete', entry }` to
+ * correct or delete a line. `statement` is the statement's page props.
  */
 export function StatementForms({ statement, openForm, onClose }) {
     const { subscriber, summary, canRecordPayment, canAdjustBalance, correctionReasons } = statement;
@@ -87,6 +91,18 @@ export function StatementForms({ statement, openForm, onClose }) {
                 />
             )}
 
+            {correcting?.recorded.kind === 'clearing' && (
+                <ClearingModal
+                    key={`correct-${correcting.id}`}
+                    show
+                    onClose={onClose}
+                    subscriber={subscriber}
+                    balance={balanceWithout(correcting)}
+                    correcting={correcting}
+                    correctionReasons={correctionReasons.adjustment}
+                />
+            )}
+
             {deleting && (
                 <DeleteTransactionModal
                     key={`delete-${deleting.id}`}
@@ -127,6 +143,7 @@ export function StatementForms({ statement, openForm, onClose }) {
                         discountMethods={statement.discountMethods}
                         discountSegments={statement.discountSegments}
                     />
+                    <ClearingModal show={openForm === 'clearing'} onClose={onClose} subscriber={subscriber} balance={summary.balance} />
                 </>
             )}
         </>

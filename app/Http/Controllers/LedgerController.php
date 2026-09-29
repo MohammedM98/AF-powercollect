@@ -11,6 +11,7 @@ use App\Support\DailySeries;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -22,8 +23,9 @@ use Inertia\Response as InertiaResponse;
  * The figures sum one side of the accounts: the charges (عليه) unless the
  * type filter picks payments or discounts (له), since adding money owed to
  * money paid would mean nothing. Amounts are in shekels. Cancelled lines
- * and their reversals are listed but left out of every figure, since they
- * cancel each other out.
+ * and their reversals are left out of every figure, since they cancel each
+ * other out; the list folds them under the line that replaced them, or
+ * under the deleted line itself.
  */
 class LedgerController extends Controller
 {
@@ -54,6 +56,11 @@ class LedgerController extends Controller
 
     private const CREDIT = 'credit';
 
+    /**
+     * What each listed line shows besides its own fields.
+     */
+    private const ROW_RELATIONS = ['subscriber.branch', 'recordedBy', 'correction'];
+
     public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', SubscriberTransaction::class);
@@ -68,10 +75,14 @@ class LedgerController extends Controller
         $inPeriod = fn (): Builder => $ledger()->when($from, fn (Builder $query) => $query->where('subscriber_transactions.created_at', '>=', $from));
         $onSide = fn (Builder $query): Builder => $side === self::CREDIT ? $query->credits() : $query->charges();
 
-        $entries = $this->sortEntries($inPeriod()->with(['subscriber.branch', 'recordedBy']), $request)
+        $entries = $this->sortEntries($this->withoutFoldedLines($inPeriod(), $request)->with(self::ROW_RELATIONS), $request)
             ->paginate($this->dataTablePerPage($request, self::DEFAULT_PER_PAGE))
-            ->withQueryString()
-            ->through(fn (SubscriberTransaction $transaction): array => $this->row($transaction));
+            ->withQueryString();
+        $histories = $this->histories(collect($entries->items()));
+        $entries->through(fn (SubscriberTransaction $transaction): array => [
+            ...$this->row($transaction),
+            'history' => $histories[$transaction->id] ?? [],
+        ]);
 
         $groupedByDay = ! $this->sortedByAmount($request);
 
@@ -123,6 +134,78 @@ class LedgerController extends Controller
             ->when($type === self::CREDIT, fn (Builder $query) => $query->credits())
             ->when(array_key_exists((string) $type, SubscriberTransaction::typeLabels()), fn (Builder $query) => $query->where('type', $type))
             ->when($recordedBy, fn (Builder $query) => $query->where('recorded_by', $recordedBy));
+    }
+
+    /**
+     * The lines the log lists on their own: not the reversals, nor a line
+     * that was corrected — each folds under the line that replaced it, or
+     * under the deleted line it cancels. Filtering on reversals lists them.
+     *
+     * @param  Builder<SubscriberTransaction>  $query
+     * @return Builder<SubscriberTransaction>
+     */
+    private function withoutFoldedLines(Builder $query, Request $request): Builder
+    {
+        if ($this->filterValue($request, 'type') === SubscriberTransaction::TYPE_REVERSAL) {
+            return $query;
+        }
+
+        return $query
+            ->where('subscriber_transactions.type', '!=', SubscriberTransaction::TYPE_REVERSAL)
+            ->where(fn (Builder $lines) => $lines->whereNull('subscriber_transactions.cancelled_at')->orWhereDoesntHave('correction'));
+    }
+
+    /**
+     * The lines folded under each listed one, newest first as the log goes:
+     * the lines it replaced (back to the first) and the reversal of each
+     * cancelled one — its own too, when it was deleted. Keyed by the listed
+     * line's id; a line with none is left out.
+     *
+     * @param  Collection<int, SubscriberTransaction>  $listed
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    private function histories(Collection $listed): array
+    {
+        $lines = $listed->keyBy('id');
+        $chains = $listed->mapWithKeys(fn (SubscriberTransaction $line): array => [$line->id => [$line->id]])->all();
+        // The next line back in each chain: the one its latest link replaced.
+        $replaced = $listed->filter(fn (SubscriberTransaction $line): bool => $line->corrects_id !== null)
+            ->mapWithKeys(fn (SubscriberTransaction $line): array => [$line->id => $line->corrects_id])
+            ->all();
+
+        while ($replaced !== []) {
+            $loaded = SubscriberTransaction::query()->with(self::ROW_RELATIONS)->findMany(array_unique($replaced))->keyBy('id');
+            $next = [];
+
+            foreach ($replaced as $listedId => $lineId) {
+                if ($line = $loaded->get($lineId)) {
+                    $lines->put($lineId, $line);
+                    $chains[$listedId][] = $lineId;
+
+                    if ($line->corrects_id !== null) {
+                        $next[$listedId] = $line->corrects_id;
+                    }
+                }
+            }
+
+            $replaced = $next;
+        }
+
+        $reversals = SubscriberTransaction::query()
+            ->with(self::ROW_RELATIONS)
+            ->whereIn('reverses_id', collect($chains)->flatten()->all())
+            ->get()
+            ->keyBy('reverses_id');
+
+        return collect($chains)
+            ->map(fn (array $lineIds, int $listedId): array => collect($lineIds)
+                ->flatMap(fn (int $lineId): array => array_filter([$lineId === $listedId ? null : $lines[$lineId], $reversals->get($lineId)]))
+                ->sortBy([['created_at', 'desc'], ['id', 'desc']])
+                ->map(fn (SubscriberTransaction $line): array => $this->row($line))
+                ->values()
+                ->all())
+            ->filter()
+            ->all();
     }
 
     /**
@@ -267,6 +350,9 @@ class LedgerController extends Controller
             'isCredit' => $transaction->isCredit(),
             // Listed, but left out of the totals.
             'isCancelled' => $transaction->isCancelled() || $transaction->isReversal(),
+            'isReversal' => $transaction->isReversal(),
+            'isCorrection' => $transaction->corrects_id !== null,
+            'wasCorrected' => $transaction->isCancelled() && $transaction->correction !== null,
             'recordedByName' => $transaction->recordedBy?->name,
             'amount' => ltrim($transaction->amount, '-'),
         ];

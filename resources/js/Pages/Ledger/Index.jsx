@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import BarChart from '@/Components/Charts/BarChart';
@@ -115,6 +115,63 @@ function BranchBreakdown({ branches, caption, selectedId, onSelect }) {
     );
 }
 
+const BADGE = 'inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold';
+
+/** A line's type, on its side's colour, with what happened to it: corrected, deleted, or a correction itself. */
+function TypeCell({ entry, children }) {
+    return (
+        <td>
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+                <span
+                    className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                        entry.isCredit
+                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                            : 'border-gray-200 bg-gray-50 text-gray-600'
+                    }`}
+                >
+                    {entry.typeLabel}
+                </span>
+                {entry.isCancelled && !entry.isReversal && (
+                    <span className={`${BADGE} border-gray-200 bg-gray-50 text-gray-500`}>{entry.wasCorrected ? 'مُعدّلة' : 'محذوفة'}</span>
+                )}
+                {entry.isCorrection && <span className={`${BADGE} border-blue-500/25 bg-blue-500/10 text-blue-600`}>تصحيح</span>}
+            </span>
+            {children}
+        </td>
+    );
+}
+
+/**
+ * Under a line with lines folded under it (the ones it replaced, or its
+ * reversal): shows or hides them. They open below it, so it stays put.
+ */
+function HistoryToggle({ entry, expanded, onToggle }) {
+    const count = entry.history.length;
+    const label = entry.isCancelled && count === 1 ? 'القيد العكسي' : `السجل (${count})`;
+
+    return (
+        <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => onToggle(entry.id)}
+            className="mt-1.5 flex items-center gap-1 rounded-md text-xs font-semibold text-blue-600 transition hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+            <Icon name="chevron-down" className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} strokeWidth={2} />
+            {expanded ? `إخفاء ${label}` : `إظهار ${label}`}
+        </button>
+    );
+}
+
+/** A line's amount: struck through and grey when it doesn't count, green when it is in the subscriber's favour. */
+function Amount({ entry }) {
+    return (
+        <Shekels
+            amount={entry.amount}
+            className={entry.isCancelled ? 'text-gray-400 line-through' : entry.isCredit ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900'}
+        />
+    );
+}
+
 /** A day's header row: its date (with "اليوم" on today) and its full figures. */
 function DayHeader({ day, totals, isToday }) {
     return (
@@ -172,6 +229,8 @@ export default function Index({
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/ledger', filters, { period });
     const rowClick = useRowClick();
     const statementWindow = useStatementWindow(statement);
+    // The lines whose folded history is open.
+    const [openHistories, setOpenHistories] = useState(() => new Set());
     const caption = periodCaption(period);
     const label = headlineLabel(side, filterValues.type);
     const groupedByDay = filters.sort !== 'amount';
@@ -180,6 +239,18 @@ export default function Index({
     const countedEntries = entries.data.filter((entry) => !entry.isCancelled);
     const pageCharged = countedEntries.filter((entry) => !entry.isCredit).reduce((total, entry) => total + Number(entry.amount), 0);
     const pageCredited = countedEntries.filter((entry) => entry.isCredit).reduce((total, entry) => total + Number(entry.amount), 0);
+
+    function toggleHistory(entryId) {
+        setOpenHistories((current) => {
+            const next = new Set(current);
+
+            if (!next.delete(entryId)) {
+                next.add(entryId);
+            }
+
+            return next;
+        });
+    }
 
     function changePeriod(next) {
         router.get(
@@ -326,36 +397,42 @@ export default function Index({
                                                 />
                                             </td>
                                             <td className="text-gray-600">{entry.branchName}</td>
-                                            <td>
-                                                <span
-                                                    className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                                                        entry.isCredit
-                                                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                                                            : 'border-gray-200 bg-gray-50 text-gray-600'
-                                                    }`}
-                                                >
-                                                    {entry.typeLabel}
-                                                </span>
-                                                {entry.isCancelled && entry.type !== 'reversal' && (
-                                                    <span className="ms-1.5 inline-flex whitespace-nowrap rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-semibold text-gray-500">
-                                                        ملغاة
-                                                    </span>
+                                            <TypeCell entry={entry}>
+                                                {entry.history.length > 0 && (
+                                                    <HistoryToggle entry={entry} expanded={openHistories.has(entry.id)} onToggle={toggleHistory} />
                                                 )}
-                                            </td>
+                                            </TypeCell>
                                             <td className="text-gray-600">{entry.recordedByName ?? '—'}</td>
                                             <td>
-                                                <Shekels
-                                                    amount={entry.amount}
-                                                    className={
-                                                        entry.isCancelled
-                                                            ? 'text-gray-400 line-through'
-                                                            : entry.isCredit
-                                                              ? 'text-emerald-700 dark:text-emerald-400'
-                                                              : 'text-gray-900'
-                                                    }
-                                                />
+                                                <Amount entry={entry} />
                                             </td>
                                         </tr>
+                                        {openHistories.has(entry.id) &&
+                                            entry.history.map((line) => (
+                                                <tr
+                                                    key={line.id}
+                                                    className={line.isReversal ? 'ledger-follow-up' : 'ledger-cancelled'}
+                                                    {...rowClick(can?.viewSubscribers ? () => openStatement(line) : null)}
+                                                >
+                                                    <td className="whitespace-nowrap text-gray-600">
+                                                        <span className="inline-flex items-center gap-1.5">
+                                                            <span className="text-blue-600" aria-hidden="true">
+                                                                ↲
+                                                            </span>
+                                                            {line.day === entry.day
+                                                                ? formatClock(line.time)
+                                                                : `${formatShortDay(line.day)} · ${formatClock(line.time)}`}
+                                                        </span>
+                                                    </td>
+                                                    <td className="text-gray-500">{line.subscriberName}</td>
+                                                    <td className="text-gray-500">{line.branchName}</td>
+                                                    <TypeCell entry={line} />
+                                                    <td className="text-gray-500">{line.recordedByName ?? '—'}</td>
+                                                    <td>
+                                                        <Amount entry={line} />
+                                                    </td>
+                                                </tr>
+                                            ))}
                                     </Fragment>
                                 ))
                             )}

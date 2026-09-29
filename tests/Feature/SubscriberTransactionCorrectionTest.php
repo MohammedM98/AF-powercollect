@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\ChargeType;
+use App\Enums\CorrectionReason;
 use App\Enums\DiscountMethod;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
@@ -251,10 +252,11 @@ class SubscriberTransactionCorrectionTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_the_financial_log_lists_cancelled_lines_but_leaves_them_out_of_its_figures(): void
+    public function test_the_financial_log_folds_a_corrected_line_under_its_replacement_and_leaves_it_out_of_its_figures(): void
     {
         $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
         $this->correct($payment, [...$this->transfer('100'), 'correction_reason' => 'wrong_amount', 'correction_notes' => 'x']);
+        $reversal = SubscriberTransaction::where('reverses_id', $payment->id)->sole();
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index', ['filter' => ['type' => 'credit']]))
@@ -266,9 +268,36 @@ class SubscriberTransactionCorrectionTest extends TestCase
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index'))
             ->assertInertia(fn ($page) => $page
-                ->where('entries.total', 4)
+                ->where('entries.total', 2)
+                ->where('entries.data.0.id', $payment->refresh()->correction->id)
+                ->where('entries.data.0.isCorrection', true)
+                ->where('entries.data.0.history', fn ($history): bool => collect($history)->pluck('id')->all() === [$reversal->id, $payment->id]
+                    && $history[0]['isReversal'] === true
+                    && $history[1]['wasCorrected'] === true)
+                ->where('entries.data.1.history', [])
                 ->where('summary.total', 200)
                 ->where('summary.collected', 100));
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('ledger.index', ['filter' => ['type' => 'reversal']]))
+            ->assertInertia(fn ($page) => $page->where('entries.total', 1)->where('entries.data.0.id', $reversal->id));
+    }
+
+    public function test_the_financial_log_lists_a_deleted_line_with_its_reversal_folded_under_it(): void
+    {
+        $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
+        $payment->cancel($this->branchAdmin, CorrectionReason::Duplicate, 'x');
+        $reversal = SubscriberTransaction::where('reverses_id', $payment->id)->sole();
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('ledger.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.total', 2)
+                ->where('entries.data.0.id', $payment->id)
+                ->where('entries.data.0.isCancelled', true)
+                ->where('entries.data.0.wasCorrected', false)
+                ->where('entries.data.0.history.0.id', $reversal->id)
+                ->has('entries.data.0.history', 1));
     }
 
     /**

@@ -112,7 +112,7 @@ function rowClass(entry) {
     return [entry.cancellation && 'ledger-cancelled', followsLineAbove(entry) && 'ledger-follow-up'].filter(Boolean).join(' ') || undefined;
 }
 
-function SummaryCard({ label, value, hint, tone = 'default' }) {
+function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
     const styles = {
         default: ['border-gray-200 bg-surface', 'text-gray-500', 'text-gray-900'],
         owes: ['border-brand-100 bg-brand-50', 'text-brand-700', 'text-brand-700'],
@@ -121,7 +121,7 @@ function SummaryCard({ label, value, hint, tone = 'default' }) {
     }[tone];
 
     return (
-        <div className={`rounded-xl border p-4 ${styles[0]}`}>
+        <div className={`rounded-xl border p-4 ${styles[0]} ${className}`}>
             <p className={`text-sm ${styles[1]}`}>{label}</p>
             <p className={`mt-1 font-display text-2xl font-bold tabular-nums ${styles[2]}`}>{value}</p>
             {hint && <p className={`mt-1 text-xs ${styles[1]}`}>{hint}</p>}
@@ -192,7 +192,7 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
 
     return (
         <>
-            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <SummaryCard
                     label="الرصيد الحالي"
                     value={`${balance.amount} شيكل`}
@@ -200,6 +200,7 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                         balance.tone === 'owes' ? 'عليه — مطلوب منه الدفع' : balance.tone === 'credit' ? 'له — رصيد لصالح المشترك' : 'مسدّد بالكامل'
                     }
                     tone={balance.tone === 'settled' ? 'default' : balance.tone}
+                    className="sm:col-span-2 lg:col-span-1"
                 />
                 <SummaryCard
                     label="مجموع ما عليه (تحميل)"
@@ -216,6 +217,12 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                     label="مجموع الخصومات"
                     value={`${formatAmount(summary.discounted)} شيكل`}
                     hint={`عدد الخصومات: ${summary.discountsCount}`}
+                    tone="paid"
+                />
+                <SummaryCard
+                    label="مجموع المقاصات"
+                    value={`${formatAmount(summary.cleared)} شيكل`}
+                    hint={`عدد المقاصات: ${summary.clearingsCount}`}
                     tone="paid"
                 />
             </div>

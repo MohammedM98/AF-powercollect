@@ -29,4 +29,18 @@ class SettlementClearingMigrationTest extends TestCase
         $this->assertSame('100.00', $bill->fresh()->amount);
         $this->assertSame(70.0, $subscriber->balance());
     }
+
+    public function test_rolling_back_turns_back_only_the_clearings_it_made(): void
+    {
+        $subscriber = Subscriber::factory()->create();
+        $settlement = SubscriberTransaction::factory()->for($subscriber)->create(['type' => 'settlement', 'source_key' => 'charge:a', 'amount' => '40.00']);
+        $migration = require database_path('migrations/2026_09_29_090000_turn_settlement_charges_into_clearings.php');
+        $migration->up();
+        $clearing = SubscriberTransaction::factory()->for($subscriber)->create(['type' => 'clearing', 'source_key' => 'clearing:b', 'amount' => '-15.00']);
+
+        $migration->down();
+
+        $this->assertSame(['settlement', '40.00'], [$settlement->fresh()->type, $settlement->fresh()->amount]);
+        $this->assertSame(['clearing', '-15.00'], [$clearing->fresh()->type, $clearing->fresh()->amount]);
+    }
 }

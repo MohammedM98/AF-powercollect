@@ -55,14 +55,18 @@ class AreaController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Update the specified resource in storage, then show the area still
+     * selected on the governorates page (when it sits in a governorate),
+     * with its sub-areas.
      */
     public function update(UpdateAreaRequest $request, Area $area): RedirectResponse
     {
         $area->update($request->validated());
         $request->user()->notify(new ActionCompleted('area-updated', $area->name));
 
-        return redirect()->route('governorates.index', array_filter(['selected' => $area->governorate_id]))
+        $selection = $area->governorate_id ? ['selected' => $area->governorate_id, 'selectedArea' => $area->id] : [];
+
+        return redirect()->route('governorates.index', $selection)
             ->with('status', 'area-updated');
     }
 

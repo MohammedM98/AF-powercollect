@@ -1,22 +1,44 @@
 import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
-import AddButton from '@/Components/AddButton';
-import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
-import SortableTh from '@/Components/DataTable/SortableTh';
-import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useDeleteRecord } from '@/hooks/useDeleteRecord';
-import GovernorateModal from './GovernorateModal';
 import AreaModal from '../Areas/AreaModal';
 import SubAreaModal from '../SubAreas/SubAreaModal';
+import HierarchyColumn from './HierarchyColumn';
+
+/** "منطقة واحدة", "منطقتان", "3 مناطق", "12 منطقة". */
+function areasCountLabel(count) {
+    if (count === 0) {
+        return 'بلا مناطق';
+    }
+    if (count === 1) {
+        return 'منطقة واحدة';
+    }
+    if (count === 2) {
+        return 'منطقتان';
+    }
+
+    return count <= 10 ? `${count} مناطق` : `${count} منطقة`;
+}
+
+function subAreasCountLabel(count) {
+    return count === 0 ? 'بلا منطقة 2' : `منطقة 2 · ${count}`;
+}
 
 /**
- * Governorates → areas → sub-areas (منطقة 2) on one page. With
- * `scopedToBranch` (a branch admin or branch staff) the page shows only the
- * user's own branch location, already selected: they can't change
- * governorates or areas, only the sub-areas inside their branch's area.
+ * Governorates → areas → sub-areas (منطقة 2) side by side: pick a
+ * governorate, then an area, and its sub-areas show in the third column.
+ * Adding and renaming happen in place in each column; "تعديل كامل…" opens
+ * the full form (e.g. to move an area to another governorate). On narrow
+ * screens one column shows at a time, with the breadcrumb and a back
+ * button to move between them.
+ *
+ * With `scopedToBranch` (a branch admin or branch staff) the page shows
+ * only the user's own branch location, already selected: they can't
+ * change governorates or areas, only the sub-areas inside their branch's
+ * area.
  */
 export default function Index({
     governorates,
@@ -29,333 +51,155 @@ export default function Index({
     areaOptions,
     allowSubAreaWithoutArea,
 }) {
-    const [modalGovernorate, setModalGovernorate] = useState(null);
-    const [creatingGovernorate, setCreatingGovernorate] = useState(false);
+    const [activeLevel, setActiveLevel] = useState(selectedArea ? 2 : selectedGovernorate ? 1 : 0);
     const [modalArea, setModalArea] = useState(null);
-    const [creatingArea, setCreatingArea] = useState(false);
     const [modalSubArea, setModalSubArea] = useState(null);
-    const [creatingSubArea, setCreatingSubArea] = useState(false);
     const { requestDelete, deleteDialog } = useDeleteRecord('السجل');
 
     const extraParams = { selected: selectedGovernorate?.id, selectedArea: selectedArea?.id };
-    const { search, setSearch, sort, setPerPage } = useDataTable('/governorates', filters, extraParams);
+    const { search, setSearch } = useDataTable('/governorates', filters, extraParams);
 
-    function selectGovernorate(id) {
+    function visitSelection(selection) {
         router.get(
             '/governorates',
-            { search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page, selected: id },
+            { search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page, ...selection },
             { preserveState: true, preserveScroll: true, replace: true },
         );
     }
 
-    function selectArea(id) {
-        router.get(
-            '/governorates',
-            {
-                search,
-                sort: filters.sort,
-                direction: filters.direction,
-                per_page: filters.per_page,
-                selected: selectedGovernorate?.id,
-                selectedArea: id,
-            },
-            { preserveState: true, preserveScroll: true, replace: true },
-        );
+    function showAllGovernorates() {
+        setActiveLevel(0);
+        if (!scopedToBranch && selectedGovernorate) {
+            visitSelection({});
+        }
     }
+
+    function showGovernorate() {
+        setActiveLevel(1);
+        if (!scopedToBranch && selectedArea) {
+            visitSelection({ selected: selectedGovernorate.id });
+        }
+    }
+
+    const pageTitle = scopedToBranch ? 'مناطق الفرع' : 'المحافظات والمناطق';
 
     return (
         <SettingsLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">{scopedToBranch ? 'مناطق الفرع' : 'المحافظات والمناطق'}</h2>
-                    </div>
-                    {canCreateGovernorate && (
-                        <div className="shrink-0">
-                            <AddButton onClick={() => setCreatingGovernorate(true)}>محافظة جديدة</AddButton>
-                        </div>
-                    )}
-                </>
+                <div className="min-w-0">
+                    <h2 className="font-luxe text-3xl font-bold text-gray-900">{pageTitle}</h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        {scopedToBranch
+                            ? 'منطقة 2 داخل منطقة فرعك. الإضافة والتعديل في مكانهما.'
+                            : 'اختر محافظة ثم منطقة لتظهر منطقة 2 داخلها. الإضافة والتعديل في مكانهما.'}
+                    </p>
+                </div>
             }
         >
-            <Head title={scopedToBranch ? 'مناطق الفرع' : 'المحافظات والمناطق'} />
+            <Head title={pageTitle} />
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                {/* Governorates list — just the branch's own when scoped to a branch */}
-                {scopedToBranch ? (
-                    <div>
-                        <div className="rounded-card border border-gray-100 bg-surface shadow-card">
-                            <div className="border-b border-gray-100 px-6 py-4">
-                                <h3 className="text-base font-bold text-gray-900">محافظة الفرع</h3>
-                            </div>
-                            {governorates.data.length === 0 ? (
-                                <p className="px-6 py-8 text-center text-sm text-gray-500">لم تُحدَّد محافظة لفرعك بعد.</p>
-                            ) : (
-                                <ul className="divide-y">
-                                    {governorates.data.map((governorate) => (
-                                        <li key={governorate.id} className="bg-brand-50 px-6 py-3 text-sm font-medium text-brand-700">
-                                            {governorate.name}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    </div>
-                ) : (
-                    <div>
-                        <DataTableToolbar
-                            search={search}
-                            onSearchChange={setSearch}
-                            placeholder="بحث بالاسم..."
-                            perPage={filters.per_page}
-                            onPerPageChange={setPerPage}
-                            total={governorates.total}
-                        />
-
-                        <div className="data-table-container">
-                            <table className="data-table w-full text-sm text-start">
-                                <thead>
-                                    <tr>
-                                        <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
-                                        <th>عدد المناطق</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {governorates.data.length === 0 ? (
-                                        <tr>
-                                            <td className="text-gray-500" colSpan={3}>
-                                                لا توجد نتائج مطابقة.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        governorates.data.map((governorate) => {
-                                            const isSelected = selectedGovernorate?.id === governorate.id;
-                                            return (
-                                                <tr
-                                                    key={governorate.id}
-                                                    onClick={() => selectGovernorate(governorate.id)}
-                                                    className={`cursor-pointer transition ${isSelected ? 'bg-brand-50' : 'hover:bg-gray-50'}`}
-                                                >
-                                                    <td className={`font-medium ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
-                                                        {governorate.name}
-                                                    </td>
-                                                    <td className="text-gray-600">{governorate.areasCount}</td>
-                                                    <td className="text-end">
-                                                        {(governorate.canUpdate || governorate.canDelete) && (
-                                                            <RowActionsMenu>
-                                                                {governorate.canDelete && (
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            requestDelete(
-                                                                                `/governorates/${governorate.id}`,
-                                                                                governorate.name,
-                                                                                'المحافظة',
-                                                                            );
-                                                                        }}
-                                                                    >
-                                                                        حذف
-                                                                    </button>
-                                                                )}
-                                                                {governorate.canUpdate && (
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setModalGovernorate(governorate);
-                                                                        }}
-                                                                    >
-                                                                        تعديل
-                                                                    </button>
-                                                                )}
-                                                            </RowActionsMenu>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <Pagination meta={governorates} filters={filters} baseUrl="/governorates" extraParams={extraParams} />
-                    </div>
+            <nav aria-label="المسار" className="flex flex-wrap items-center gap-1 text-sm text-gray-500">
+                <CrumbButton onClick={showAllGovernorates}>كل المحافظات</CrumbButton>
+                {selectedGovernorate && (
+                    <>
+                        <span className="opacity-50">‹</span>
+                        <CrumbButton onClick={showGovernorate}>{selectedGovernorate.name}</CrumbButton>
+                    </>
                 )}
+                {selectedArea && (
+                    <>
+                        <span className="opacity-50">‹</span>
+                        <CrumbButton onClick={() => setActiveLevel(2)}>{selectedArea.name}</CrumbButton>
+                    </>
+                )}
+            </nav>
 
-                {/* Selected governorate's areas */}
-                <div>
-                    {!selectedGovernorate ? (
-                        <div className="flex h-full min-h-[16rem] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-surface p-8 text-center">
-                            <svg className="h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="1.5"
-                                    d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"
-                                />
-                            </svg>
-                            <p className="mt-3 text-sm font-medium text-gray-600">اختر محافظة من القائمة لعرض مناطقها</p>
-                            <p className="mt-1 text-sm text-gray-400">أو أنشئ محافظة جديدة لتبدأ بإضافة مناطقها</p>
-                        </div>
-                    ) : (
-                        <div className="rounded-card border border-gray-100 bg-surface shadow-card">
-                            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                                <h3 className="text-base font-bold text-gray-900">مناطق {selectedGovernorate.name}</h3>
-                                {selectedGovernorate.canCreateArea && (
-                                    <AddButton onClick={() => setCreatingArea(true)} variant="soft">
-                                        إضافة منطقة
-                                    </AddButton>
-                                )}
+            <div className="mt-3 grid grid-cols-1 overflow-hidden rounded-card border border-gray-100 bg-surface shadow-card lg:min-h-[35rem] lg:grid-cols-3">
+                <HierarchyColumn
+                    title="المحافظات"
+                    noun="المحافظة"
+                    items={governorates.data}
+                    total={governorates.total}
+                    selectedId={selectedGovernorate?.id}
+                    onPick={
+                        scopedToBranch
+                            ? undefined
+                            : (governorate) => {
+                                  setActiveLevel(1);
+                                  visitSelection({ selected: governorate.id });
+                              }
+                    }
+                    subtitle={(governorate) => areasCountLabel(governorate.areasCount)}
+                    canAdd={canCreateGovernorate && !scopedToBranch}
+                    createRequest={{ method: 'post', url: '/governorates', data: {} }}
+                    updateRequest={(governorate) => ({ method: 'put', url: `/governorates/${governorate.id}`, data: {} })}
+                    onDelete={(governorate) => requestDelete(`/governorates/${governorate.id}`, governorate.name, 'المحافظة')}
+                    search={scopedToBranch ? undefined : search}
+                    onSearchChange={scopedToBranch ? undefined : setSearch}
+                    emptyText={scopedToBranch ? 'لم تُحدَّد محافظة لفرعك بعد' : 'لا توجد محافظات بعد'}
+                    active={activeLevel === 0}
+                    footer={
+                        governorates.last_page > 1 && (
+                            <div className="border-t border-gray-100 px-2">
+                                <Pagination meta={governorates} filters={filters} baseUrl="/governorates" extraParams={extraParams} />
                             </div>
+                        )
+                    }
+                />
 
-                            {selectedGovernorate.areas.length === 0 ? (
-                                <p className="px-6 py-8 text-center text-sm text-gray-500">
-                                    {scopedToBranch ? 'لم تُحدَّد منطقة لفرعك بعد.' : 'لا توجد مناطق في هذه المحافظة بعد.'}
-                                </p>
-                            ) : (
-                                <ul className="divide-y">
-                                    {selectedGovernorate.areas.map((area) => {
-                                        const isSelected = selectedArea?.id === area.id;
-                                        return (
-                                            <li
-                                                key={area.id}
-                                                onClick={scopedToBranch ? undefined : () => selectArea(area.id)}
-                                                className={`flex items-center justify-between px-6 py-3 transition ${isSelected ? 'bg-brand-50' : 'cursor-pointer hover:bg-gray-50'}`}
-                                            >
-                                                <span className={`text-sm font-medium ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>
-                                                    {area.name}
-                                                </span>
-                                                {(area.canUpdate || area.canDelete) && (
-                                                    <RowActionsMenu>
-                                                        {area.canDelete && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    requestDelete(`/areas/${area.id}`, area.name, 'المنطقة');
-                                                                }}
-                                                            >
-                                                                حذف
-                                                            </button>
-                                                        )}
-                                                        {area.canUpdate && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setModalArea(area);
-                                                                }}
-                                                            >
-                                                                تعديل
-                                                            </button>
-                                                        )}
-                                                    </RowActionsMenu>
-                                                )}
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            )}
-                        </div>
-                    )}
-                </div>
+                {/* Keyed by the governorate so an add/rename in progress
+                    doesn't carry over to another governorate's areas. */}
+                <HierarchyColumn
+                    key={`areas-${selectedGovernorate?.id ?? 'none'}`}
+                    title="المناطق"
+                    noun="المنطقة"
+                    items={selectedGovernorate?.areas ?? null}
+                    waiting={{ title: 'اختر محافظة أولًا', text: 'من عمود المحافظات.' }}
+                    selectedId={selectedArea?.id}
+                    onPick={
+                        scopedToBranch
+                            ? undefined
+                            : (area) => {
+                                  setActiveLevel(2);
+                                  visitSelection({ selected: selectedGovernorate.id, selectedArea: area.id });
+                              }
+                    }
+                    subtitle={(area) => subAreasCountLabel(area.subAreasCount)}
+                    canAdd={Boolean(selectedGovernorate?.canCreateArea)}
+                    createRequest={{ method: 'post', url: '/areas', data: { governorate_id: selectedGovernorate?.id } }}
+                    updateRequest={(area) => ({ method: 'put', url: `/areas/${area.id}`, data: { governorate_id: area.governorate_id ?? '' } })}
+                    onMore={setModalArea}
+                    onDelete={(area) => requestDelete(`/areas/${area.id}`, area.name, 'المنطقة')}
+                    emptyText={scopedToBranch ? 'لم تُحدَّد منطقة لفرعك بعد' : 'لا توجد مناطق في هذه المحافظة بعد'}
+                    active={activeLevel === 1}
+                    onBack={scopedToBranch ? undefined : () => setActiveLevel(0)}
+                />
 
-                {/* Selected area's sub-areas (منطقة 2) */}
-                <div>
-                    {!selectedArea ? (
-                        <div className="flex h-full min-h-[16rem] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-surface p-8 text-center">
-                            <svg className="h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="1.5"
-                                    d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"
-                                />
-                            </svg>
-                            {scopedToBranch ? (
-                                <>
-                                    <p className="mt-3 text-sm font-medium text-gray-600">لم تُحدَّد منطقة لفرعك بعد</p>
-                                    <p className="mt-1 text-sm text-gray-400">اطلب من المدير العام تحديد منطقة الفرع لتتمكن من إضافة منطقة 2</p>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="mt-3 text-sm font-medium text-gray-600">اختر منطقة من القائمة لعرض منطقة 2 الخاصة بها</p>
-                                    <p className="mt-1 text-sm text-gray-400">أو أنشئ منطقة جديدة لتبدأ بإضافة مناطق 2 لها</p>
-                                </>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="rounded-card border border-gray-100 bg-surface shadow-card">
-                            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                                <h3 className="text-base font-bold text-gray-900">منطقة 2 لـ {selectedArea.name}</h3>
-                                {selectedArea.canCreateSubArea && (
-                                    <AddButton onClick={() => setCreatingSubArea(true)} variant="soft">
-                                        إضافة منطقة 2
-                                    </AddButton>
-                                )}
-                            </div>
-
-                            {selectedArea.subAreas.length === 0 ? (
-                                <p className="px-6 py-8 text-center text-sm text-gray-500">لا توجد منطقة 2 لهذه المنطقة بعد.</p>
-                            ) : (
-                                <ul className="divide-y">
-                                    {selectedArea.subAreas.map((subArea) => (
-                                        <li key={subArea.id} className="flex items-center justify-between px-6 py-3">
-                                            <span className="text-sm font-medium text-gray-900">{subArea.name}</span>
-                                            {(subArea.canUpdate || subArea.canDelete) && (
-                                                <RowActionsMenu>
-                                                    {subArea.canDelete && (
-                                                        <button onClick={() => requestDelete(`/sub-areas/${subArea.id}`, subArea.name, 'منطقة 2')}>
-                                                            حذف
-                                                        </button>
-                                                    )}
-                                                    {subArea.canUpdate && <button onClick={() => setModalSubArea(subArea)}>تعديل</button>}
-                                                </RowActionsMenu>
-                                            )}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    )}
-                </div>
+                <HierarchyColumn
+                    key={`sub-areas-${selectedArea?.id ?? 'none'}`}
+                    title="منطقة 2"
+                    noun="منطقة 2"
+                    items={selectedArea?.subAreas ?? null}
+                    waiting={
+                        scopedToBranch
+                            ? { title: 'لم تُحدَّد منطقة لفرعك بعد', text: 'اطلب من المدير العام تحديد منطقة الفرع لتتمكن من إضافة منطقة 2.' }
+                            : { title: 'اختر منطقة أولًا', text: 'من عمود المناطق.' }
+                    }
+                    canAdd={Boolean(selectedArea?.canCreateSubArea)}
+                    createRequest={{ method: 'post', url: '/sub-areas', data: { area_id: selectedArea?.id } }}
+                    updateRequest={(subArea) => ({ method: 'put', url: `/sub-areas/${subArea.id}`, data: { area_id: subArea.area_id ?? '' } })}
+                    onMore={setModalSubArea}
+                    onDelete={(subArea) => requestDelete(`/sub-areas/${subArea.id}`, subArea.name, 'منطقة 2')}
+                    emptyText="لا توجد منطقة 2 هنا بعد"
+                    active={activeLevel === 2}
+                    onBack={scopedToBranch ? undefined : () => setActiveLevel(1)}
+                />
             </div>
 
-            <GovernorateModal show={creatingGovernorate} onClose={() => setCreatingGovernorate(false)} governorate={null} />
-
-            {/* Keyed by governorate id so switching who's being edited
-                remounts the form with fresh initial values — useForm() only
-                captures its initial data once, it won't pick up a changed
-                `governorate` prop on an already-mounted instance. */}
-            {modalGovernorate && (
-                <GovernorateModal key={modalGovernorate.id} show onClose={() => setModalGovernorate(null)} governorate={modalGovernorate} />
-            )}
-
-            {/* Keyed by the selected governorate so its id is re-captured as
-                the form's default whenever the selection changes —
-                useForm() only reads defaultGovernorateId once per mount. */}
-            <AreaModal
-                key={`create-${selectedGovernorate?.id ?? 'none'}`}
-                show={creatingArea}
-                onClose={() => setCreatingArea(false)}
-                area={null}
-                governorates={governorateOptions}
-                defaultGovernorateId={selectedGovernorate?.id ?? ''}
-            />
-
+            {/* Keyed by id so switching who's being edited remounts the form
+                with fresh initial values — useForm() only captures its
+                initial data once per mount. */}
             {modalArea && <AreaModal key={modalArea.id} show onClose={() => setModalArea(null)} area={modalArea} governorates={governorateOptions} />}
-
-            {/* Keyed by the selected area so its id is re-captured as the
-                form's default whenever the selection changes — useForm()
-                only reads defaultAreaId once per mount. */}
-            <SubAreaModal
-                key={`create-${selectedArea?.id ?? 'none'}`}
-                show={creatingSubArea}
-                onClose={() => setCreatingSubArea(false)}
-                subArea={null}
-                areas={areaOptions}
-                allowNoArea={allowSubAreaWithoutArea}
-                defaultAreaId={selectedArea?.id ?? ''}
-            />
 
             {modalSubArea && (
                 <SubAreaModal
@@ -370,5 +214,17 @@ export default function Index({
 
             {deleteDialog}
         </SettingsLayout>
+    );
+}
+
+function CrumbButton({ onClick, children }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="rounded-lg px-1.5 py-1 font-bold text-gray-700 transition hover:bg-brand-500/10 hover:text-brand-600"
+        >
+            {children}
+        </button>
     );
 }

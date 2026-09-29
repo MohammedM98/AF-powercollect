@@ -55,7 +55,8 @@ class GovernorateAuthorizationTest extends TestCase
     {
         $superAdmin = User::factory()->superAdmin()->create();
         $governorate = Governorate::factory()->create();
-        Area::factory()->create(['governorate_id' => $governorate->id, 'name' => 'Karrada']);
+        $area = Area::factory()->create(['governorate_id' => $governorate->id, 'name' => 'Karrada']);
+        SubArea::factory()->count(2)->create(['area_id' => $area->id]);
         Area::factory()->create(); // unrelated, different governorate
 
         $this->actingAs($superAdmin)
@@ -64,7 +65,8 @@ class GovernorateAuthorizationTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('selectedGovernorate.id', $governorate->id)
                 ->has('selectedGovernorate.areas', 1)
-                ->where('selectedGovernorate.areas.0.name', 'Karrada'));
+                ->where('selectedGovernorate.areas.0.name', 'Karrada')
+                ->where('selectedGovernorate.areas.0.subAreasCount', 2));
     }
 
     public function test_cannot_create_two_governorates_with_the_same_name(): void

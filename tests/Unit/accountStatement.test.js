@@ -114,12 +114,12 @@ const corrections = [
     { id: 6, groupId: 5, type: 'reversal', isReversal: true, isFollowUp: true },
 ];
 
-test('a corrected line folds under its replacement and a deleted one keeps its reversal folded', () => {
+test('a corrected line folds under its replacement and a deleted one under its reversal', () => {
     const folded = foldCorrections(corrections, corrections, new Set());
 
     assert.deepEqual(
         folded.map((entry) => entry.id),
-        [1, 4, 5],
+        [1, 4, 6],
     );
     assert.equal(folded[0].history, null);
     assert.deepEqual(folded[1].history, { hiddenCount: 2, expanded: false, isHead: true });
@@ -131,9 +131,13 @@ test('an opened group shows all its lines, and the others stay folded', () => {
 
     assert.deepEqual(
         opened.map((entry) => entry.id),
-        [1, 2, 3, 4, 5],
+        [1, 2, 3, 4, 6],
     );
     assert.deepEqual(opened[1].history, { hiddenCount: 2, expanded: true, isHead: false });
+    assert.deepEqual(
+        foldCorrections(corrections, corrections, new Set([5])).map((entry) => entry.id),
+        [1, 4, 5, 6],
+    );
 });
 
 test('a folded line shows when the filters hide the line that stands for it', () => {

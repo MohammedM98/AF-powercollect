@@ -68,19 +68,13 @@ function CancellationNote({ cancellation }) {
 }
 
 /**
- * Under the line that stands for a corrected or deleted one: shows or
- * hides the older lines of its group — the cancelled originals and their
+ * Under the newest line of a corrected or deleted one's group: shows or
+ * hides the older lines of the group — the cancelled lines and their
  * reversals.
  */
 function HistoryToggle({ entry, onToggle }) {
     const { hiddenCount, expanded } = entry.history;
-    // A deleted line's group follows it; a replacement's comes before it.
-    const label =
-        hiddenCount === 1
-            ? entry.cancellation
-                ? 'القيد العكسي'
-                : 'الحركة الأصلية'
-            : `${entry.cancellation ? 'الحركات التالية' : 'الحركات السابقة'} (${hiddenCount})`;
+    const label = hiddenCount === 1 ? (entry.isReversal ? 'الحركة المحذوفة' : 'الحركة الأصلية') : `الحركات السابقة (${hiddenCount})`;
 
     return (
         <button
@@ -138,11 +132,11 @@ function SummaryCard({ label, value, hint, tone = 'default' }) {
 /**
  * The body of a subscriber's account statement: the balance and totals,
  * the search and filters, and every line (charges عليه, payments and
- * discounts له) oldest first with the balance after each. A corrected
- * line folds away under the line that replaced it, and a deleted one keeps
- * its reversal folded under it; each can be opened again to show the line
- * struck through with its reversal and replacement under it — by pressing
- * the line that stands for it, anywhere on its row, or its button. The
+ * discounts له) oldest first with the balance after each. A corrected or
+ * deleted line folds away under the newest line of its group — the line
+ * that replaced it, or its reversal; each can be opened again to show the
+ * line struck through with its reversal and replacement under it — by
+ * pressing that newest line, anywhere on its row, or its button. The
  * older lines open above it, and the statement scrolls so the pressed line
  * stays where it is. `onCorrect` and `onDelete` get the line to change,
  * for users allowed to. Used by the statement page and by the statement

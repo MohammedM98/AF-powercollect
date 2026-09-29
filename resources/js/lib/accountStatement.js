@@ -57,11 +57,12 @@ export function filterStatementEntries(entries, { search = '', type = '', method
 
 /**
  * Folds each corrected or deleted line away under the line that stands for
- * it: the latest replacement of a corrected line, or a deleted line itself
- * (its reversal goes). `entries` is the whole statement, `visibleEntries`
- * the lines the filters leave, and `expandedGroups` the groups (by
- * `groupId`) opened again. Folding hides only lines that cancel each other
- * out, so no balance shown changes. A line whose stand-in the filters hide
+ * it: the newest line of its group — the latest replacement of a corrected
+ * line, or the reversal of a deleted one. `entries` is the whole
+ * statement, `visibleEntries` the lines the filters leave, and
+ * `expandedGroups` the groups (by `groupId`) opened again. Folding hides
+ * only lines that cancel each other out, so no balance shown changes. A
+ * line whose stand-in the filters hide
  * is shown anyway. Each line comes back with `history`: null for a line
  * never corrected or deleted, else how many lines its group hides, whether
  * the group is open, and whether this is the line that stands for it.
@@ -75,9 +76,7 @@ export function foldCorrections(entries, visibleEntries, expandedGroups) {
 
     groups.forEach((lines, groupId) => {
         if (lines.length > 1) {
-            const standing = lines.filter((line) => !line.cancellation && !line.isReversal);
-
-            heads.set(groupId, (standing.at(-1) ?? lines[0]).id);
+            heads.set(groupId, lines.at(-1).id);
         }
     });
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
@@ -85,13 +85,26 @@ function HistoryToggle({ entry, onToggle }) {
         <button
             type="button"
             aria-expanded={expanded}
-            onClick={() => onToggle(entry.groupId)}
+            onClick={(event) => onToggle(entry.groupId, event.currentTarget)}
             className="mt-1.5 inline-flex items-center gap-1 rounded-md text-xs font-semibold text-blue-600 transition hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
             <Icon name="chevron-down" className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} strokeWidth={2} />
             {expanded ? `إخفاء ${label}` : `إظهار ${label}`}
         </button>
     );
+}
+
+/** The nearest box around `element` that scrolls up and down: the statement window's body, or the page. */
+function scrollingBoxOf(element) {
+    for (let box = element.parentElement; box; box = box.parentElement) {
+        const { overflowY } = getComputedStyle(box);
+
+        if ((overflowY === 'auto' || overflowY === 'scroll') && box.scrollHeight > box.clientHeight) {
+            return box;
+        }
+    }
+
+    return document.scrollingElement ?? document.documentElement;
 }
 
 /** Whether a reversal or replacement shows under the line it follows: not when its group is folded, and it stands alone. */
@@ -134,6 +147,8 @@ function SummaryCard({ label, value, hint, tone = 'default' }) {
 export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes, onCorrect, onDelete }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
     const [expandedGroups, setExpandedGroups] = useState(() => new Set());
+    // The button last pressed to fold or open a group, and where it was on screen.
+    const pressedToggle = useRef(null);
     const visibleEntries = foldCorrections(entries, filterStatementEntries(entries, filters), expandedGroups);
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
@@ -145,7 +160,25 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
         setFilters((current) => ({ ...current, [key]: value }));
     }
 
-    function toggleGroup(groupId) {
+    // The older lines of a group open and fold above the line pressed; scroll by as much as they
+    // moved it, so it stays under the user's finger and they don't lose their place.
+    useLayoutEffect(() => {
+        const pressed = pressedToggle.current;
+        pressedToggle.current = null;
+
+        if (!pressed?.button.isConnected) {
+            return;
+        }
+
+        const moved = pressed.button.getBoundingClientRect().top - pressed.top;
+
+        if (moved !== 0) {
+            scrollingBoxOf(pressed.button).scrollBy({ top: moved, behavior: 'instant' });
+        }
+    }, [expandedGroups]);
+
+    function toggleGroup(groupId, button) {
+        pressedToggle.current = { button, top: button.getBoundingClientRect().top };
         setExpandedGroups((current) => {
             const next = new Set(current);
 

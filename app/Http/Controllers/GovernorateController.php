@@ -140,10 +140,11 @@ class GovernorateController extends Controller
     }
 
     /**
-     * The selected governorate with its areas — the right-hand panel's data
-     * on the combined governorates/areas page; only the user's own branch
-     * area when the page is scoped to their branch. Null when nothing is
-     * selected (or the id no longer exists).
+     * The selected governorate with its areas and how many sub-areas each
+     * holds — the second column's data on the combined governorates/areas
+     * page; only the user's own branch area when the page is scoped to
+     * their branch. Null when nothing is selected (or the id no longer
+     * exists).
      *
      * @return array{id: int, name: string, canCreateArea: bool, areas: Collection}|null
      */
@@ -155,6 +156,7 @@ class GovernorateController extends Controller
 
         $governorate = Governorate::with(['areas' => fn ($query) => $query
             ->when($scopedToBranch, fn (Builder $query) => $query->visibleTo($user))
+            ->withCount('subAreas')
             ->orderBy('name')])
             ->find($selectedId);
 
@@ -170,6 +172,7 @@ class GovernorateController extends Controller
                 'id' => $area->id,
                 'name' => $area->name,
                 'governorate_id' => $area->governorate_id,
+                'subAreasCount' => $area->sub_areas_count,
                 'canUpdate' => $user->can('update', $area),
                 'canDelete' => $user->can('delete', $area),
             ]),

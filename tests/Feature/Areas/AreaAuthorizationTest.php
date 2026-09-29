@@ -85,7 +85,7 @@ class AreaAuthorizationTest extends TestCase
             'governorate_id' => $newGovernorate->id,
         ]);
 
-        $response->assertRedirect(route('governorates.index', ['selected' => $newGovernorate->id]));
+        $response->assertRedirect(route('governorates.index', ['selected' => $newGovernorate->id, 'selectedArea' => $area->id]));
         $this->assertDatabaseHas('areas', ['id' => $area->id, 'governorate_id' => $newGovernorate->id]);
     }
 

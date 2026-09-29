@@ -104,19 +104,23 @@ class SubscriberTransactionCorrectionTest extends TestCase
                 ->where('summary.balance', '140.00'));
     }
 
-    public function test_correcting_a_charge_and_a_discount_records_the_right_ones(): void
+    public function test_correcting_a_charge_a_discount_and_a_clearing_records_the_right_ones(): void
     {
         $charge = SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::Penalty, '50', 'تأخير');
         $discount = SubscriberTransaction::recordDiscount($this->subscriber, $this->branchAdmin, DiscountMethod::Shekel, '30', null);
+        $clearing = SubscriberTransaction::recordClearing($this->subscriber, $this->branchAdmin, '60', 'صيانة المولد');
 
-        $this->correct($charge, ['type' => 'settlement', 'amount' => '40', 'notes' => 'تسوية', 'correction_reason' => 'wrong_type', 'correction_notes' => 'كانت تسوية'])
+        $this->correct($charge, ['type' => 'disconnection_fee', 'amount' => '40', 'notes' => 'فصل', 'correction_reason' => 'wrong_type', 'correction_notes' => 'كانت رسوم قطع'])
             ->assertSessionHasNoErrors();
         $this->correct($discount, ['method' => 'shekel', 'value' => '35', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'الخصم 35'])
             ->assertSessionHasNoErrors();
+        $this->correct($clearing, ['amount' => '70', 'notes' => 'صيانة المولد والكوابل', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'قيمة الخدمة 70'])
+            ->assertSessionHasNoErrors();
 
-        $this->assertSame(['settlement', '40.00', 'تسوية'], [$charge->correction->type, $charge->correction->amount, $charge->correction->notes]);
+        $this->assertSame(['disconnection_fee', '40.00', 'فصل'], [$charge->correction->type, $charge->correction->amount, $charge->correction->notes]);
         $this->assertSame(['discount', '-35.00'], [$discount->correction->type, $discount->correction->amount]);
-        $this->assertSame(205.0, $this->subscriber->balance());
+        $this->assertSame(['clearing', '-70.00', 'صيانة المولد والكوابل'], [$clearing->correction->type, $clearing->correction->amount, $clearing->correction->notes]);
+        $this->assertSame(135.0, $this->subscriber->balance());
     }
 
     public function test_a_corrected_discount_is_checked_against_the_balance_without_the_one_it_replaces(): void

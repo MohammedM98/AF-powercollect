@@ -58,12 +58,17 @@ trait BuildsSubscriberStatement
             ->get()
             ->each(fn (SubscriberTransaction $transaction) => $transaction->setRelation('subscriber', $subscriber));
 
+        $firstLineIds = $this->firstLineIds($transactions);
         $balanceInCents = 0;
-        $entries = $this->withFollowUpsUnderTheirLine($transactions)->map(function (SubscriberTransaction $transaction) use (&$balanceInCents, $actor): array {
-            $balanceInCents += $this->cents($transaction->amount);
+        $entries = $transactions
+            ->groupBy(fn (SubscriberTransaction $transaction): int => $firstLineIds[$transaction->id])
+            ->flatten(1)
+            ->map(function (SubscriberTransaction $transaction) use (&$balanceInCents, $actor, $firstLineIds): array {
+                $balanceInCents += $this->cents($transaction->amount);
 
-            return $this->statementEntry($transaction, $balanceInCents, $actor);
-        })->values();
+                return $this->statementEntry($transaction, $balanceInCents, $actor, $firstLineIds[$transaction->id]);
+            })
+            ->values();
 
         // Cancelled lines and their reversals cancel each other out, so the totals leave both out.
         $counted = $transactions->reject(fn (SubscriberTransaction $transaction): bool => $transaction->isCancelled() || $transaction->isReversal());
@@ -131,15 +136,17 @@ trait BuildsSubscriberStatement
     }
 
     /**
-     * The lines oldest first, except that the reversal and replacement of
-     * a corrected or deleted line come straight after it (and those of its
-     * replacement after them), so each correction reads under the line it
-     * corrects.
+     * Each line's group: the id of the first line of the chain it belongs
+     * to — the line itself, or the line its reversal or replacement goes
+     * back to (through any replacements in between). Grouping the lines
+     * oldest first by it puts the reversal and replacement of a corrected
+     * or deleted line straight after it, so each correction reads under
+     * the line it corrects, and lets the statement fold a group away.
      *
      * @param  Collection<int, SubscriberTransaction>  $transactions  oldest first
-     * @return Collection<int, SubscriberTransaction>
+     * @return array<int, int>
      */
-    private function withFollowUpsUnderTheirLine(Collection $transactions): Collection
+    private function firstLineIds(Collection $transactions): array
     {
         $byId = $transactions->keyBy('id');
         $firstLineOf = function (SubscriberTransaction $line) use ($byId, &$firstLineOf): int {
@@ -148,7 +155,7 @@ trait BuildsSubscriberStatement
             return $correctedId && $byId->has($correctedId) ? $firstLineOf($byId[$correctedId]) : $line->id;
         };
 
-        return $transactions->groupBy($firstLineOf)->flatten(1);
+        return $transactions->mapWithKeys(fn (SubscriberTransaction $line): array => [$line->id => $firstLineOf($line)])->all();
     }
 
     /**
@@ -179,16 +186,22 @@ trait BuildsSubscriberStatement
      * (negative when they are in credit); `amount` is what was charged,
      * handed over or discounted, in the line's own currency. `details` is
      * what the user wrote about it (a reading's notes for a weekly reading).
+     * `groupId` is the first line of the chain of corrections it belongs to.
+     * A reversal shows the voucher, cash box, bank and reference of the line
+     * it cancels, which it has none of its own.
      *
      * @return array<string, mixed>
      */
-    private function statementEntry(SubscriberTransaction $transaction, int $balanceInCents, User $actor): array
+    private function statementEntry(SubscriberTransaction $transaction, int $balanceInCents, User $actor, int $groupId): array
     {
+        $receipt = $transaction->isReversal() && $transaction->reverses ? $transaction->reverses : $transaction;
+
         return [
             'id' => $transaction->id,
+            'groupId' => $groupId,
             'date' => $transaction->created_at->format('Y-m-d H:i'),
-            'voucherNumber' => $transaction->printedVoucherNumber(),
-            'manualVoucherNumber' => $transaction->manual_voucher_number,
+            'voucherNumber' => $receipt->printedVoucherNumber(),
+            'manualVoucherNumber' => $receipt->manual_voucher_number,
             'description' => $transaction->description(),
             'type' => $transaction->type,
             'typeLabel' => $transaction->typeLabel(),
@@ -199,9 +212,9 @@ trait BuildsSubscriberStatement
             'balance' => $this->money($balanceInCents),
             'paymentMethod' => $transaction->payment_method?->value,
             'paymentMethodLabel' => $transaction->payment_method ? __($transaction->payment_method->label()) : null,
-            'bankName' => $transaction->bank_name,
-            'referenceNumber' => $transaction->reference_number,
-            'cashBox' => $transaction->cash_box,
+            'bankName' => $receipt->bank_name,
+            'referenceNumber' => $receipt->reference_number,
+            'cashBox' => $receipt->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
             'details' => match ($transaction->type) {
                 SubscriberTransaction::TYPE_METER_READING => $transaction->notes ?? $transaction->meterReading?->notes,

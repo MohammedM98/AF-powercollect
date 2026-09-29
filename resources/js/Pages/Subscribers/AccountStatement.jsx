@@ -2,7 +2,7 @@ import { useState } from 'react';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
-import { describeBalance, filterStatementEntries } from '@/lib/accountStatement';
+import { describeBalance, filterStatementEntries, foldCorrections } from '@/lib/accountStatement';
 import { formatAmount } from '@/lib/currency';
 
 const BALANCE_PILLS = {
@@ -66,9 +66,42 @@ function CancellationNote({ cancellation }) {
     );
 }
 
+/**
+ * Under the line that stands for a corrected or deleted one: shows or
+ * hides the older lines of its group — the cancelled originals and their
+ * reversals.
+ */
+function HistoryToggle({ entry, onToggle }) {
+    const { hiddenCount, expanded } = entry.history;
+    // A deleted line's group follows it; a replacement's comes before it.
+    const label =
+        hiddenCount === 1
+            ? entry.cancellation
+                ? 'القيد العكسي'
+                : 'الحركة الأصلية'
+            : `${entry.cancellation ? 'الحركات التالية' : 'الحركات السابقة'} (${hiddenCount})`;
+
+    return (
+        <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => onToggle(entry.groupId)}
+            className="mt-1.5 inline-flex items-center gap-1 rounded-md text-xs font-semibold text-blue-600 transition hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+            <Icon name="chevron-down" className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} strokeWidth={2} />
+            {expanded ? `إخفاء ${label}` : `إظهار ${label}`}
+        </button>
+    );
+}
+
+/** Whether a reversal or replacement shows under the line it follows: not when its group is folded, and it stands alone. */
+function followsLineAbove(entry) {
+    return entry.isFollowUp && (!entry.history?.isHead || entry.history.expanded);
+}
+
 /** The row's look: a cancelled line greyed, a reversal or replacement marked as following the line above. */
 function rowClass(entry) {
-    return [entry.cancellation && 'ledger-cancelled', entry.isFollowUp && 'ledger-follow-up'].filter(Boolean).join(' ') || undefined;
+    return [entry.cancellation && 'ledger-cancelled', followsLineAbove(entry) && 'ledger-follow-up'].filter(Boolean).join(' ') || undefined;
 }
 
 function SummaryCard({ label, value, hint, tone = 'default' }) {
@@ -91,15 +124,17 @@ function SummaryCard({ label, value, hint, tone = 'default' }) {
 /**
  * The body of a subscriber's account statement: the balance and totals,
  * the search and filters, and every line (charges عليه, payments and
- * discounts له) oldest first with the balance after each. A corrected or
- * deleted line stays, struck through, with its reversal and replacement
- * under it; `onCorrect` and `onDelete` get the line to change, for users
- * allowed to. Used by the statement page and by the statement window on
- * the subscribers list.
+ * discounts له) oldest first with the balance after each. A corrected
+ * line folds away under the line that replaced it, and a deleted one keeps
+ * its reversal folded under it; each can be opened again to show the line
+ * struck through with its reversal and replacement under it. `onCorrect`
+ * and `onDelete` get the line to change, for users allowed to. Used by the
+ * statement page and by the statement window on the subscribers list.
  */
 export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes, onCorrect, onDelete }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
-    const visibleEntries = filterStatementEntries(entries, filters);
+    const [expandedGroups, setExpandedGroups] = useState(() => new Set());
+    const visibleEntries = foldCorrections(entries, filterStatementEntries(entries, filters), expandedGroups);
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
     const balance = describeBalance(summary.balance);
@@ -108,6 +143,18 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
 
     function setFilter(key, value) {
         setFilters((current) => ({ ...current, [key]: value }));
+    }
+
+    function toggleGroup(groupId) {
+        setExpandedGroups((current) => {
+            const next = new Set(current);
+
+            if (!next.delete(groupId)) {
+                next.add(groupId);
+            }
+
+            return next;
+        });
     }
 
     return (
@@ -246,7 +293,7 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                         </td>
                                         <td data-label="البيان" className="font-medium text-gray-900">
                                             <div className="ledger-description">
-                                                {entry.isFollowUp && <span className="me-1 text-blue-600">↲</span>}
+                                                {followsLineAbove(entry) && <span className="me-1 text-blue-600">↲</span>}
                                                 <span className="ledger-struck">{withLtrDates(entry.description)}</span>
                                             </div>
                                             {entry.details && (
@@ -255,6 +302,7 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                                 </p>
                                             )}
                                             {entry.cancellation && <CancellationNote cancellation={entry.cancellation} />}
+                                            {entry.history?.isHead && <HistoryToggle entry={entry} onToggle={toggleGroup} />}
                                         </td>
                                         <td
                                             data-label="المبلغ"

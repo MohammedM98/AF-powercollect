@@ -293,7 +293,7 @@ export default function PaymentModal({
     );
     const { data, setData, errors } = form;
     const [senderIsSubscriber, setSenderIsSubscriber] = useState(!recorded?.sender_name || recorded.sender_name === subscriber.fullName);
-    const [detailsOpen, setDetailsOpen] = useState(Boolean(recorded && (recorded.notes || recorded.cash_box || recorded.manual_voucher_number)));
+    const [detailsOpen, setDetailsOpen] = useState(Boolean(recorded?.notes));
     const [discarding, setDiscarding] = useState(false);
     const [receipt, setReceipt] = useState(null);
 
@@ -307,8 +307,7 @@ export default function PaymentModal({
     const methodText = throughBank ? (data.bank_name ? `تحويل · ${data.bank_name}` : 'تحويل بنكي') : 'نقد';
     const sortedCurrencies = [...currencies].sort((a, b) => rank(a.value) - rank(b.value));
     const methods = ['bank_transfer', 'cash'].filter((method) => paymentMethods.some((option) => option.value === method));
-    const detailsLabel = throughBank ? 'اختياري: ملاحظة' : 'اختياري: السند اليدوي، رقم الصندوق، ملاحظة';
-    const detailErrors = Boolean(errors.notes || (!throughBank && (errors.manual_voucher_number || errors.cash_box)));
+    const detailErrors = Boolean(errors.notes);
 
     function rank(currency) {
         const index = CURRENCY_ORDER.indexOf(currency);
@@ -679,6 +678,42 @@ export default function PaymentModal({
                                             </div>
                                         </div>
                                     )}
+
+                                    {!throughBank && (
+                                        <div className="animate-menu mt-3 grid gap-4 rounded-[20px] border border-gray-100 bg-gray-50 p-4 sm:grid-cols-2">
+                                            <div>
+                                                <FieldLabel htmlFor="manual_voucher_number" hint="رقم الوصل الورقي">
+                                                    رقم السند اليدوي
+                                                </FieldLabel>
+                                                <input
+                                                    id="manual_voucher_number"
+                                                    name="manual_voucher_number"
+                                                    dir="ltr"
+                                                    autoComplete="off"
+                                                    placeholder="مثال: 00412"
+                                                    value={data.manual_voucher_number}
+                                                    onChange={(e) => setData('manual_voucher_number', e.target.value)}
+                                                    className={`${inputClass} text-end font-display`}
+                                                />
+                                                <InputError message={errors.manual_voucher_number} className="mt-2" />
+                                            </div>
+                                            <div>
+                                                <FieldLabel htmlFor="cash_box" hint="الصندوق الذي استلم المبلغ">
+                                                    رقم الصندوق
+                                                </FieldLabel>
+                                                <input
+                                                    id="cash_box"
+                                                    name="cash_box"
+                                                    dir="ltr"
+                                                    autoComplete="off"
+                                                    value={data.cash_box}
+                                                    onChange={(e) => setData('cash_box', e.target.value)}
+                                                    className={`${inputClass} text-end font-display`}
+                                                />
+                                                <InputError message={errors.cash_box} className="mt-2" />
+                                            </div>
+                                        </div>
+                                    )}
                                 </fieldset>
 
                                 {correcting && <CorrectionReasonFields form={form} reasons={correctionReasons} />}
@@ -696,45 +731,10 @@ export default function PaymentModal({
                                             className={`h-[18px] w-[18px] shrink-0 transition-transform ${detailsOpen || detailErrors ? 'rotate-180' : ''}`}
                                             strokeWidth={2}
                                         />
-                                        تفاصيل إضافية <span className="font-medium text-gray-500">({detailsLabel})</span>
+                                        تفاصيل إضافية <span className="font-medium text-gray-500">(اختياري: ملاحظة)</span>
                                     </button>
                                     {(detailsOpen || detailErrors) && (
                                         <div id={`${titleId}-details`} className="animate-menu mt-3.5 grid gap-3.5">
-                                            {!throughBank && (
-                                                <div className="grid gap-4 sm:grid-cols-2">
-                                                    <div>
-                                                        <FieldLabel htmlFor="manual_voucher_number" hint="إن وُجد وصل ورقي">
-                                                            رقم السند اليدوي
-                                                        </FieldLabel>
-                                                        <input
-                                                            id="manual_voucher_number"
-                                                            name="manual_voucher_number"
-                                                            dir="ltr"
-                                                            autoComplete="off"
-                                                            placeholder="مثال: 00412"
-                                                            value={data.manual_voucher_number}
-                                                            onChange={(e) => setData('manual_voucher_number', e.target.value)}
-                                                            className={`${inputClass} text-end font-display`}
-                                                        />
-                                                        <InputError message={errors.manual_voucher_number} className="mt-2" />
-                                                    </div>
-                                                    <div>
-                                                        <FieldLabel htmlFor="cash_box" hint="الصندوق الذي استلم المبلغ">
-                                                            رقم الصندوق
-                                                        </FieldLabel>
-                                                        <input
-                                                            id="cash_box"
-                                                            name="cash_box"
-                                                            dir="ltr"
-                                                            autoComplete="off"
-                                                            value={data.cash_box}
-                                                            onChange={(e) => setData('cash_box', e.target.value)}
-                                                            className={`${inputClass} text-end font-display`}
-                                                        />
-                                                        <InputError message={errors.cash_box} className="mt-2" />
-                                                    </div>
-                                                </div>
-                                            )}
                                             <div>
                                                 <FieldLabel htmlFor="payment_notes" hint="تظهر في كشف الحساب">
                                                     ملاحظة

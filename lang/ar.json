@@ -231,5 +231,7 @@
     "Delete Meter Boxes": "حذف الطبلونات",
     "Delete Areas": "حذف المناطق",
     "Delete Sub Areas": "حذف المناطق الفرعية",
-    "Delete Governorates": "حذف المحافظات"
+    "Delete Governorates": "حذف المحافظات",
+    "Reading corrected": "تعديل القراءة",
+    "Standing discount changed": "تغيير الخصم الدائم"
 }

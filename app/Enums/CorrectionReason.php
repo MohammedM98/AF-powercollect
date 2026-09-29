@@ -23,6 +23,12 @@ enum CorrectionReason: string
     case NotReceived = 'not_received';
     case Other = 'other';
 
+    /** Its weekly reading was corrected, so it goes back for approval. */
+    case ReadingCorrected = 'reading_corrected';
+
+    /** The standing discount on its weekly reading was given, changed or stopped. */
+    case StandingDiscountChanged = 'standing_discount_changed';
+
     public function label(): string
     {
         return match ($this) {
@@ -35,6 +41,8 @@ enum CorrectionReason: string
             self::Duplicate => 'Duplicate entry',
             self::NotReceived => 'Money not received',
             self::Other => 'Other reason',
+            self::ReadingCorrected => 'Reading corrected',
+            self::StandingDiscountChanged => 'Standing discount changed',
         };
     }
 

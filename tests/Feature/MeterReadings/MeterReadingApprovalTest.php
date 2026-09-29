@@ -188,7 +188,7 @@ class MeterReadingApprovalTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('canApprove', true));
     }
 
-    public function test_correcting_an_approved_reading_sends_it_back_for_approval_and_takes_its_charge_off(): void
+    public function test_correcting_an_approved_reading_sends_it_back_for_approval_and_cancels_its_charge_on_the_statement(): void
     {
         $reading = $this->pendingReading('2026-09-18', '42.50');
         $reading->update(['previous_reading' => 1000, 'current_reading' => 1100, 'consumption' => 100, 'unit_price' => '0.50', 'minimum_payment' => '10.00']);
@@ -206,11 +206,18 @@ class MeterReadingApprovalTest extends TestCase
         $this->assertNull($reading->approved_by);
         $this->assertNull($reading->approved_at);
         $this->assertSame('40.00', $reading->amount_due);
-        $this->assertDatabaseCount('subscriber_transactions', 0);
 
-        // Approving it again charges the corrected amount.
+        // The charge stays on the statement, cancelled by a reversal, so it no longer counts.
+        $charge = SubscriberTransaction::where('type', SubscriberTransaction::TYPE_METER_READING)->sole();
+        $this->assertSame(['reading_corrected', $dataEntry->id], [$charge->cancellation_reason->value, $charge->cancelled_by]);
+        $this->assertSame('-42.50', SubscriberTransaction::where('reverses_id', $charge->id)->sole()->amount);
+        $this->assertSame(0.0, $reading->subscriber->balance());
+
+        // Approving it again charges the corrected amount, as the correction of the cancelled line.
         $reading->approve($this->accountant);
-        $this->assertSame('40.00', SubscriberTransaction::sole()->amount);
+        $corrected = SubscriberTransaction::where('type', SubscriberTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->sole();
+        $this->assertSame(['40.00', $charge->id], [$corrected->amount, $corrected->corrects_id]);
+        $this->assertSame(40.0, $reading->subscriber->balance());
     }
 
     public function test_the_people_who_approve_are_told_when_an_approved_reading_is_corrected(): void

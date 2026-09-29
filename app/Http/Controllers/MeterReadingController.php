@@ -153,6 +153,7 @@ class MeterReadingController extends Controller
         $wentBackToReview = $meterReading->correct(
             $request->float('current_reading'),
             $request->has('notes') ? $request->input('notes') : $meterReading->notes,
+            $actor,
         );
 
         $actor->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscriber->full_name));

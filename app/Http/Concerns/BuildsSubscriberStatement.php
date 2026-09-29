@@ -69,6 +69,7 @@ trait BuildsSubscriberStatement
         $counted = $transactions->reject(fn (SubscriberTransaction $transaction): bool => $transaction->isCancelled() || $transaction->isReversal());
         $payments = $counted->filter(fn (SubscriberTransaction $transaction): bool => $transaction->isPayment());
         $discounts = $counted->filter(fn (SubscriberTransaction $transaction): bool => $transaction->isDiscount());
+        $clearings = $counted->filter(fn (SubscriberTransaction $transaction): bool => $transaction->isClearing());
         $sumOf = fn ($lines): int => $lines->sum(fn (SubscriberTransaction $transaction): int => $this->cents($transaction->amount));
         $latestWeekReading = $subscriber->latestWeekReading();
         $canAdjustBalance = $actor->can('adjustBalance', $subscriber);
@@ -106,6 +107,8 @@ trait BuildsSubscriberStatement
                 'paymentsCount' => $payments->count(),
                 'discounted' => $this->money(-$sumOf($discounts)),
                 'discountsCount' => $discounts->count(),
+                'cleared' => $this->money(-$sumOf($clearings)),
+                'clearingsCount' => $clearings->count(),
             ],
             'canRecordPayment' => $actor->can('recordPayment', $subscriber),
             'canAdjustBalance' => $canAdjustBalance,
@@ -225,8 +228,9 @@ trait BuildsSubscriberStatement
     }
 
     /**
-     * A line's own fields, as its payment, charge or discount form names
-     * them, with `effect` — what it did to the balance, in shekels.
+     * A line's own fields, as its payment, charge, discount or clearing
+     * form names them, with `effect` — what it did to the balance, in
+     * shekels.
      *
      * @return array<string, mixed>
      */
@@ -249,6 +253,10 @@ trait BuildsSubscriberStatement
                 'kind' => 'discount',
                 'method' => $transaction->discount_method?->value,
                 'value' => $transaction->discount_value,
+            ],
+            $transaction->isClearing() => [
+                'kind' => 'clearing',
+                'amount' => SubscriberTransaction::formatAmount(ltrim($transaction->amount, '-')),
             ],
             default => [
                 'kind' => 'charge',

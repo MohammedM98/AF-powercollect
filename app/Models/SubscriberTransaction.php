@@ -22,9 +22,9 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * One line of a subscriber's account. `amount` is its effect on the
- * balance in shekels: charges (تحميل) are positive, payments and discounts
- * negative, so the balance is the sum of `amount`. A charge recorded by
- * hand stores its ChargeType as its `type`.
+ * balance in shekels: charges (تحميل) are positive, payments, discounts
+ * and clearings negative, so the balance is the sum of `amount`. A charge
+ * recorded by hand stores its ChargeType as its `type`.
  *
  * A line is never edited or removed. Deleting it cancels it — marked with
  * who, when and why — and adds a reversal line under it that takes its
@@ -78,6 +78,12 @@ class SubscriberTransaction extends Model
     public const TYPE_DISCOUNT = 'discount';
 
     /**
+     * A clearing (مقاصة): a service the subscriber gave the company, whose
+     * value comes off what they owe as a payment would.
+     */
+    public const TYPE_CLEARING = 'clearing';
+
+    /**
      * The standing discount taken off an approved weekly reading, beside
      * the reading's own line.
      */
@@ -93,7 +99,7 @@ class SubscriberTransaction extends Model
      * The lines in the subscriber's favour (له); every other type is a
      * charge (عليه).
      */
-    public const CREDIT_TYPES = [self::TYPE_PAYMENT, self::TYPE_DISCOUNT, self::TYPE_READING_DISCOUNT];
+    public const CREDIT_TYPES = [self::TYPE_PAYMENT, self::TYPE_DISCOUNT, self::TYPE_READING_DISCOUNT, self::TYPE_CLEARING];
 
     protected function casts(): array
     {
@@ -150,7 +156,7 @@ class SubscriberTransaction extends Model
     }
 
     /**
-     * Charge the subscriber a settlement, penalty or disconnection fee.
+     * Charge the subscriber a penalty or disconnection fee.
      */
     public static function recordCharge(Subscriber $subscriber, User $recorder, ChargeType $type, float|string $amount, ?string $notes): self
     {
@@ -160,6 +166,21 @@ class SubscriberTransaction extends Model
             'source_key' => 'charge:'.Str::ulid(),
             'amount' => number_format((float) $amount, 2, '.', ''),
             'notes' => $notes,
+        ]);
+    }
+
+    /**
+     * Take the value of a service the subscriber gave the company off what
+     * they owe; `$service` says what it was. It may leave them in credit.
+     */
+    public static function recordClearing(Subscriber $subscriber, User $recorder, float|string $amount, string $service): self
+    {
+        return $subscriber->transactions()->create([
+            'recorded_by' => $recorder->id,
+            'type' => self::TYPE_CLEARING,
+            'source_key' => 'clearing:'.Str::ulid(),
+            'amount' => number_format(-(float) $amount, 2, '.', ''),
+            'notes' => $service,
         ]);
     }
 
@@ -310,10 +331,10 @@ class SubscriberTransaction extends Model
     }
 
     /**
-     * Whether a line may be corrected or deleted: a payment, discount or
-     * charge recorded by hand that still stands. Weekly readings, their
-     * standing discounts and the subscription fee are billed by their own
-     * flows.
+     * Whether a line may be corrected or deleted: a payment, discount,
+     * clearing or charge recorded by hand that still stands. Weekly
+     * readings, their standing discounts and the subscription fee are
+     * billed by their own flows.
      */
     public function isCorrectable(): bool
     {
@@ -327,12 +348,17 @@ class SubscriberTransaction extends Model
      */
     public static function correctableTypes(): array
     {
-        return [self::TYPE_PAYMENT, self::TYPE_DISCOUNT, ...array_map(fn (ChargeType $type): string => $type->value, ChargeType::cases())];
+        return [self::TYPE_PAYMENT, self::TYPE_DISCOUNT, self::TYPE_CLEARING, ...array_map(fn (ChargeType $type): string => $type->value, ChargeType::cases())];
     }
 
     public function isPayment(): bool
     {
         return $this->type === self::TYPE_PAYMENT;
+    }
+
+    public function isClearing(): bool
+    {
+        return $this->type === self::TYPE_CLEARING;
     }
 
     /**
@@ -345,9 +371,9 @@ class SubscriberTransaction extends Model
     }
 
     /**
-     * Whether the line is in the subscriber's favour (له): a payment or a
-     * discount, or the reversal of a charge. Everything else is a charge
-     * (عليه).
+     * Whether the line is in the subscriber's favour (له): a payment, a
+     * discount or a clearing, or the reversal of a charge. Everything else
+     * is a charge (عليه).
      */
     public function isCredit(): bool
     {
@@ -365,8 +391,7 @@ class SubscriberTransaction extends Model
     }
 
     /**
-     * Only the charges (عليه) that count: readings, fees, settlements and
-     * penalties.
+     * Only the charges (عليه) that count: readings, fees and penalties.
      */
     #[Scope]
     protected function charges(Builder $query): void
@@ -375,8 +400,8 @@ class SubscriberTransaction extends Model
     }
 
     /**
-     * Only the lines in the subscriber's favour (له) that count: payments
-     * and discounts.
+     * Only the lines in the subscriber's favour (له) that count: payments,
+     * discounts and clearings.
      */
     #[Scope]
     protected function credits(Builder $query): void
@@ -411,6 +436,7 @@ class SubscriberTransaction extends Model
                 DiscountMethod::Kilowatt => sprintf('%s كيلو × %s شيكل', self::formatAmount($this->discount_value), self::formatAmount($this->discount_base)),
                 default => 'مبلغ ثابت',
             },
+            self::TYPE_CLEARING => 'مقاصة مقابل خدمة للشركة',
             self::TYPE_READING_DISCOUNT => implode(' · ', array_filter([
                 'خصم دائم',
                 match ($this->discount_method) {
@@ -458,6 +484,7 @@ class SubscriberTransaction extends Model
             self::TYPE_PAYMENT => 'دفعة',
             self::TYPE_DISCOUNT => 'خصم',
             self::TYPE_READING_DISCOUNT => 'خصم دائم',
+            self::TYPE_CLEARING => 'مقاصة',
             self::TYPE_REVERSAL => 'قيد عكسي',
         ];
     }

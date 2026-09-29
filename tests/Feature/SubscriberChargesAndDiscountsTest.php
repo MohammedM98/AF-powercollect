@@ -59,15 +59,63 @@ class SubscriberChargesAndDiscountsTest extends TestCase
     {
         $this->postAs($this->branchAdmin, route('subscribers.charges.store', $this->subscriber), ['type' => 'penalty', 'amount' => '50', 'notes' => ''])
             ->assertSessionHasErrors(['notes' => 'اكتب سبب الغرامة؛ يظهر في كشف حساب المشترك.']);
-        $this->postAs($this->branchAdmin, route('subscribers.charges.store', $this->subscriber), ['type' => 'settlement', 'amount' => '50'])
+        $this->postAs($this->branchAdmin, route('subscribers.charges.store', $this->subscriber), ['type' => 'disconnection_fee', 'amount' => '50'])
             ->assertSessionHasNoErrors();
 
         $this->actingAs($this->branchAdmin)
             ->get(route('subscribers.statement', $this->subscriber))
             ->assertInertia(fn ($page) => $page
-                ->where('chargeTypes.0', ['value' => 'settlement', 'label' => 'مقاصة', 'usualAmount' => null, 'needsReason' => false])
-                ->where('chargeTypes.1.needsReason', true)
-                ->where('chargeTypes.2.usualAmount', 50));
+                ->has('chargeTypes', 2)
+                ->where('chargeTypes.0', ['value' => 'penalty', 'label' => 'غرامة مالية', 'usualAmount' => null, 'needsReason' => true])
+                ->where('chargeTypes.1', ['value' => 'disconnection_fee', 'label' => 'رسوم قطع الخدمة', 'usualAmount' => 50, 'needsReason' => false]));
+    }
+
+    public function test_a_clearing_takes_the_value_of_the_subscribers_service_off_what_they_owe(): void
+    {
+        $this->subscriberOwes('100.00');
+
+        $this->postAs($this->branchAdmin, route('subscribers.clearings.store', $this->subscriber), ['amount' => '40', 'notes' => 'صيانة المولد'])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'clearing-recorded');
+
+        $clearing = $this->latestTransaction();
+        $this->assertSame(['clearing', '-40.00', 'صيانة المولد'], [$clearing->type, $clearing->amount, $clearing->notes]);
+        $this->assertSame(
+            ['action' => 'clearing-recorded', 'subject' => 'Ahmad — مقاصة 40 شيكل'],
+            $this->branchAdmin->notifications()->sole()->data,
+        );
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.1.typeLabel', 'مقاصة')
+                ->where('entries.1.description', 'مقاصة مقابل خدمة للشركة')
+                ->where('entries.1.details', 'صيانة المولد')
+                ->where('entries.1.isCredit', true)
+                ->where('entries.1.recorded.kind', 'clearing')
+                ->where('summary.balance', '60.00')
+                ->where('summary.charged', '100.00')
+                ->where('summary.paid', '0.00')
+                ->where('summary.cleared', '40.00')
+                ->where('summary.clearingsCount', 1));
+    }
+
+    public function test_a_clearing_worth_more_than_the_subscriber_owes_leaves_them_in_credit(): void
+    {
+        $this->subscriberOwes('30.00');
+
+        $this->postAs($this->branchAdmin, route('subscribers.clearings.store', $this->subscriber), ['amount' => '50', 'notes' => 'تأجير السطح'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(-20.0, $this->subscriber->balance());
+    }
+
+    public function test_a_clearing_must_name_the_service_and_its_value(): void
+    {
+        $this->postAs($this->branchAdmin, route('subscribers.clearings.store', $this->subscriber), ['amount' => '0', 'notes' => ''])
+            ->assertSessionHasErrors(['amount', 'notes' => 'اكتب الخدمة التي قدّمها المشترك؛ تظهر في كشف حسابه.']);
+
+        $this->assertDatabaseCount('subscriber_transactions', 0);
     }
 
     public function test_a_shekel_discount_lowers_the_balance_and_is_listed_as_a_discount(): void
@@ -129,7 +177,8 @@ class SubscriberChargesAndDiscountsTest extends TestCase
      * @param  array<string, string>  $input
      */
     #[TestWith(['charges', ['type' => 'bonus', 'amount' => '10'], 'type'])]
-    #[TestWith(['charges', ['type' => 'settlement', 'amount' => '0'], 'amount'])]
+    #[TestWith(['charges', ['type' => 'settlement', 'amount' => '10'], 'type'])]
+    #[TestWith(['charges', ['type' => 'disconnection_fee', 'amount' => '0'], 'amount'])]
     #[TestWith(['discounts', ['method' => 'percentage', 'value' => '150'], 'value'])]
     #[TestWith(['discounts', ['method' => 'coupon', 'value' => '10'], 'method'])]
     public function test_an_invalid_charge_or_discount_is_rejected(string $kind, array $input, string $field): void
@@ -142,21 +191,25 @@ class SubscriberChargesAndDiscountsTest extends TestCase
         $this->assertDatabaseCount('subscriber_transactions', 1);
     }
 
-    public function test_charges_and_discounts_take_their_own_permission_within_the_branch(): void
+    public function test_charges_discounts_and_clearings_take_their_own_permission_within_the_branch(): void
     {
         $this->subscriberOwes('100.00');
         $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
         $accountant = User::factory()->accountant()->create(['branch_id' => $this->branch->id]);
+        $clearing = ['amount' => '10', 'notes' => 'صيانة'];
 
-        $this->postAs($dataEntry, route('subscribers.charges.store', $this->subscriber), ['type' => 'settlement', 'amount' => '10'])->assertForbidden();
+        $this->postAs($dataEntry, route('subscribers.charges.store', $this->subscriber), ['type' => 'penalty', 'amount' => '10', 'notes' => 'x'])->assertForbidden();
+        $this->postAs($dataEntry, route('subscribers.clearings.store', $this->subscriber), $clearing)->assertForbidden();
         $this->postAs(User::factory()->branchAdmin()->create(), route('subscribers.discounts.store', $this->subscriber), ['method' => 'shekel', 'value' => '10'])
             ->assertForbidden();
-        $this->postAs($accountant, route('subscribers.charges.store', $this->subscriber), ['type' => 'settlement', 'amount' => '10'])->assertSessionHasNoErrors();
+        $this->postAs(User::factory()->branchAdmin()->create(), route('subscribers.clearings.store', $this->subscriber), $clearing)->assertForbidden();
+        $this->postAs($accountant, route('subscribers.charges.store', $this->subscriber), ['type' => 'penalty', 'amount' => '10', 'notes' => 'x'])->assertSessionHasNoErrors();
+        $this->postAs($accountant, route('subscribers.clearings.store', $this->subscriber), $clearing)->assertSessionHasNoErrors();
 
         $this->actingAs($dataEntry)
             ->get(route('subscribers.statement', $this->subscriber))
             ->assertInertia(fn ($page) => $page->where('canAdjustBalance', false));
-        $this->assertDatabaseCount('subscriber_transactions', 2);
+        $this->assertDatabaseCount('subscriber_transactions', 3);
     }
 
     /**

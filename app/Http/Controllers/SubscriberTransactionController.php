@@ -14,10 +14,10 @@ use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 
 /**
- * Correcting or deleting a payment, charge or discount on a subscriber's
- * account. Neither edits nor removes the line: it is cancelled, with the
- * reason, and a reversal is added under it; a correction then records the
- * right line in its place.
+ * Correcting or deleting a payment, charge, discount or clearing on a
+ * subscriber's account. Neither edits nor removes the line: it is
+ * cancelled, with the reason, and a reversal is added under it; a
+ * correction then records the right line in its place.
  */
 class SubscriberTransactionController extends Controller
 {
@@ -38,6 +38,7 @@ class SubscriberTransactionController extends Controller
             fn (Subscriber $subscriber): SubscriberTransaction => match (true) {
                 $transaction->isPayment() => SubscriberTransaction::recordPayment($subscriber, $actor, $details),
                 $transaction->isDiscount() => SubscriberTransaction::recordDiscount($subscriber, $actor, DiscountMethod::from($details['method']), $details['value'], $details['notes'] ?? null),
+                $transaction->isClearing() => SubscriberTransaction::recordClearing($subscriber, $actor, $details['amount'], $details['notes']),
                 default => SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::from($details['type']), $details['amount'], $details['notes'] ?? null),
             },
         );

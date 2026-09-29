@@ -83,7 +83,16 @@ class SubscriberStatementTest extends TestCase
 
                     return true;
                 })
-                ->where('summary', ['balance' => '29.70', 'charged' => '103.70', 'paid' => '74.00', 'paymentsCount' => 1, 'discounted' => '0.00', 'discountsCount' => 0])
+                ->where('summary', [
+                    'balance' => '29.70',
+                    'charged' => '103.70',
+                    'paid' => '74.00',
+                    'paymentsCount' => 1,
+                    'discounted' => '0.00',
+                    'discountsCount' => 0,
+                    'cleared' => '0.00',
+                    'clearingsCount' => 0,
+                ])
                 ->where('canRecordPayment', true));
     }
 

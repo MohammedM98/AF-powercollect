@@ -15,6 +15,7 @@ use App\Http\Controllers\ReadingScheduleController;
 use App\Http\Controllers\ReadNotificationController;
 use App\Http\Controllers\SubAreaController;
 use App\Http\Controllers\SubscriberChargeController;
+use App\Http\Controllers\SubscriberClearingController;
 use App\Http\Controllers\SubscriberController;
 use App\Http\Controllers\SubscriberDiscountController;
 use App\Http\Controllers\SubscriberPaymentController;
@@ -48,6 +49,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/subscribers/{subscriber}/payments', [SubscriberPaymentController::class, 'store'])->name('subscribers.payments.store');
     Route::post('/subscribers/{subscriber}/charges', [SubscriberChargeController::class, 'store'])->name('subscribers.charges.store');
     Route::post('/subscribers/{subscriber}/discounts', [SubscriberDiscountController::class, 'store'])->name('subscribers.discounts.store');
+    Route::post('/subscribers/{subscriber}/clearings', [SubscriberClearingController::class, 'store'])->name('subscribers.clearings.store');
     Route::put('/subscribers/{subscriber}/transactions/{transaction}', [SubscriberTransactionController::class, 'update'])->scopeBindings()->name('subscribers.transactions.update');
     Route::delete('/subscribers/{subscriber}/transactions/{transaction}', [SubscriberTransactionController::class, 'destroy'])->scopeBindings()->name('subscribers.transactions.destroy');
     Route::put('/subscribers/{subscriber}/standing-discount', [SubscriberStandingDiscountController::class, 'update'])->name('subscribers.standing-discount.update');

@@ -11,8 +11,9 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 /**
- * Correcting a payment, charge or discount: the right line's fields —
- * the same as recording one of its kind — and why it is corrected.
+ * Correcting a payment, charge, discount or clearing: the right line's
+ * fields — the same as recording one of its kind — and why it is
+ * corrected.
  */
 class CorrectSubscriberTransactionRequest extends FormRequest
 {
@@ -35,6 +36,7 @@ class CorrectSubscriberTransactionRequest extends FormRequest
             ...match (true) {
                 $line->isPayment() => StoreSubscriberPaymentRequest::paymentRules($this->input('payment_method')),
                 $line->isDiscount() => StoreSubscriberDiscountRequest::discountRules($this->input('method')),
+                $line->isClearing() => StoreSubscriberClearingRequest::clearingRules(),
                 default => StoreSubscriberChargeRequest::chargeRules(),
             },
             'correction_reason' => ['required', Rule::enum(CorrectionReason::class)->only(CorrectionReason::forCorrectionOf($line))],
@@ -70,7 +72,10 @@ class CorrectSubscriberTransactionRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [...StoreSubscriberPaymentRequest::paymentMessages(), ...StoreSubscriberChargeRequest::chargeMessages()];
+        return [
+            ...StoreSubscriberPaymentRequest::paymentMessages(),
+            ...($this->line()->isClearing() ? StoreSubscriberClearingRequest::clearingMessages() : StoreSubscriberChargeRequest::chargeMessages()),
+        ];
     }
 
     /**

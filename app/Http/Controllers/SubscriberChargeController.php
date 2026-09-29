@@ -12,8 +12,8 @@ use Illuminate\Http\RedirectResponse;
 class SubscriberChargeController extends Controller
 {
     /**
-     * Charge the subscriber a settlement, penalty or disconnection fee by
-     * hand; it raises the balance straight away.
+     * Charge the subscriber a penalty or disconnection fee by hand; it
+     * raises the balance straight away.
      */
     public function store(StoreSubscriberChargeRequest $request, Subscriber $subscriber): RedirectResponse
     {

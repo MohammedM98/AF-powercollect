@@ -1,0 +1,90 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+const apiBaseUrl = String.fromEnvironment('API_BASE_URL',
+    defaultValue: 'http://10.0.2.2:8000');
+
+class ApiException implements Exception {
+  const ApiException(this.message, this.statusCode);
+  final String message;
+  final int statusCode;
+  bool get isNetwork => statusCode == 0;
+  @override
+  String toString() => message;
+}
+
+class ApiClient {
+  ApiClient({HttpClient? httpClient}) : _client = httpClient ?? HttpClient();
+  final HttpClient _client;
+  String? token;
+
+  Future<Map<String, dynamic>> login(String username, String password) async {
+    final result = await _request('POST', '/api/mobile/login',
+        body: {'username': username, 'password': password});
+    token = result['token'] as String;
+    return result;
+  }
+
+  Future<Map<String, dynamic>> me() => _request('GET', '/api/mobile/me');
+  Future<Map<String, dynamic>> rosterPage(int page) =>
+      _request('GET', '/api/mobile/subscribers', query: {'page': '$page'});
+  Future<Map<String, dynamic>> sendReading(Map<String, dynamic> reading) =>
+      _request('POST', '/api/mobile/readings', body: reading);
+  Future<Map<String, dynamic>> findCollectionSubscribers(String search) =>
+      _request('GET', '/api/mobile/collections/subscribers',
+          query: {'search': search});
+  Future<Map<String, dynamic>> collectionsToday() =>
+      _request('GET', '/api/mobile/collections');
+  Future<Map<String, dynamic>> sendCollection(
+          Map<String, dynamic> collection) =>
+      _request('POST', '/api/mobile/collections', body: collection);
+  Future<void> logout() async {
+    await _request('POST', '/api/mobile/logout');
+    token = null;
+  }
+
+  Future<Map<String, dynamic>> _request(String method, String path,
+      {Map<String, String>? query, Map<String, dynamic>? body}) async {
+    final uri =
+        Uri.parse(apiBaseUrl).resolve(path).replace(queryParameters: query);
+    try {
+      final request = await _client
+          .openUrl(method, uri)
+          .timeout(const Duration(seconds: 12));
+      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      if (token != null)
+        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      if (body != null) {
+        request.headers.contentType = ContentType.json;
+        request.write(jsonEncode(body));
+      }
+      final response =
+          await request.close().timeout(const Duration(seconds: 18));
+      final payload = await utf8.decoder.bind(response).join();
+      final decoded = jsonDecode(payload) as Map<String, dynamic>;
+      if (response.statusCode >= 400) {
+        final errors = decoded['errors'];
+        String? firstError;
+        if (errors is Map && errors.isNotEmpty) {
+          final value = errors.values.first;
+          if (value is List && value.isNotEmpty) firstError = '${value.first}';
+        }
+        throw ApiException(
+            firstError ?? '${decoded['message'] ?? 'تعذر إكمال الطلب.'}',
+            response.statusCode);
+      }
+      return decoded;
+    } on SocketException {
+      throw const ApiException('لا يمكن الوصول إلى خادم Laravel.', 0);
+    } on TimeoutException {
+      throw const ApiException('انتهت مهلة الاتصال بالخادم.', 0);
+    } on HandshakeException {
+      throw const ApiException('تعذر إنشاء اتصال آمن بالخادم.', 0);
+    } on HttpException {
+      throw const ApiException('استجابة غير صالحة من الخادم.', 0);
+    } on FormatException {
+      throw const ApiException('استجابة غير مفهومة من الخادم.', 0);
+    }
+  }
+}

@@ -40,6 +40,7 @@ use Illuminate\Validation\ValidationException;
     'corrects_id',
     'type',
     'source_key',
+    'mobile_operation_id',
     'amount',
     'currency',
     'currency_amount',
@@ -123,7 +124,7 @@ class SubscriberTransaction extends Model
      * number. A transfer keeps its bank, sender and reference; cash keeps
      * its cash box and paper voucher.
      *
-     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, sender_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string}  $payment
+     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, sender_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string, mobile_operation_id?: ?string}  $payment
      */
     public static function recordPayment(Subscriber $subscriber, User $collector, array $payment): self
     {
@@ -139,6 +140,7 @@ class SubscriberTransaction extends Model
                 'recorded_by' => $collector->id,
                 'type' => self::TYPE_PAYMENT,
                 'source_key' => 'payment:'.$voucherNumber,
+                'mobile_operation_id' => $payment['mobile_operation_id'] ?? null,
                 'amount' => number_format(-$inShekels, 2, '.', ''),
                 'currency' => $currency,
                 'currency_amount' => $payment['amount'],

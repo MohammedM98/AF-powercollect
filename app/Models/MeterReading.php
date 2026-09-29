@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
 #[Fillable([
     'subscriber_id', 'branch_id', 'week_start', 'week_end', 'previous_reading', 'current_reading',
     'consumption', 'unit_price', 'reading_fee', 'minimum_payment', 'discount_method', 'discount_value', 'discount_segment', 'discount_amount',
-    'amount_due', 'status', 'recorded_by', 'notes', 'approved_by', 'approved_at',
+    'amount_due', 'status', 'recorded_by', 'notes', 'approved_by', 'approved_at', 'mobile_operation_id',
 ])]
 class MeterReading extends Model
 {

@@ -60,9 +60,10 @@ export function filterStatementEntries(entries, { search = '', type = '', method
  * it: the latest replacement of a corrected line, or a deleted line itself
  * (its reversal goes). `entries` is the whole statement, `visibleEntries`
  * the lines the filters leave, and `expandedGroups` the groups (by
- * `groupId`) opened again. Folding hides only lines that cancel each other
- * out, so no balance shown changes. A line whose stand-in the filters hide
- * is shown anyway. Each line comes back with `history`: null for a line
+ * `groupId`) opened again: the line that stands for the group comes first,
+ * with its older lines under it, newest first. Folding hides only lines
+ * that cancel each other out, so no balance shown changes. A line whose
+ * stand-in the filters hide is shown anyway. Each line comes back with `history`: null for a line
  * never corrected or deleted, else how many lines its group hides, whether
  * the group is open, and whether this is the line that stands for it.
  */
@@ -82,23 +83,49 @@ export function foldCorrections(entries, visibleEntries, expandedGroups) {
     });
 
     const visibleIds = new Set(visibleEntries.map((entry) => entry.id));
+    const withHistory = (entry) => ({
+        ...entry,
+        history: heads.has(entry.groupId)
+            ? {
+                  hiddenCount: groups.get(entry.groupId).length - 1,
+                  expanded: expandedGroups.has(entry.groupId),
+                  isHead: heads.get(entry.groupId) === entry.id,
+              }
+            : null,
+    });
+    const rows = [];
+    const placedGroups = new Set();
 
-    return visibleEntries
-        .filter((entry) => {
-            const head = heads.get(entry.groupId);
+    visibleEntries.forEach((entry) => {
+        const head = heads.get(entry.groupId);
 
-            return head === undefined || head === entry.id || expandedGroups.has(entry.groupId) || !visibleIds.has(head);
-        })
-        .map((entry) => ({
-            ...entry,
-            history: heads.has(entry.groupId)
-                ? {
-                      hiddenCount: groups.get(entry.groupId).length - 1,
-                      expanded: expandedGroups.has(entry.groupId),
-                      isHead: heads.get(entry.groupId) === entry.id,
-                  }
-                : null,
-        }));
+        if (head === undefined || !visibleIds.has(head)) {
+            rows.push(withHistory(entry));
+
+            return;
+        }
+
+        if (placedGroups.has(entry.groupId)) {
+            return;
+        }
+
+        // The group sits where it starts: the line that stands for it, then — when opened — the
+        // lines it holds, newest first, going back to the first.
+        placedGroups.add(entry.groupId);
+
+        const members = visibleEntries.filter((line) => line.groupId === entry.groupId);
+
+        rows.push(withHistory(members.find((line) => line.id === head)));
+
+        if (expandedGroups.has(entry.groupId)) {
+            members
+                .filter((line) => line.id !== head)
+                .reverse()
+                .forEach((line) => rows.push(withHistory(line)));
+        }
+    });
+
+    return rows;
 }
 
 /**

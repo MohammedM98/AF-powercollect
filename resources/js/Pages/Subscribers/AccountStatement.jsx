@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
+import { useRowClick } from '@/hooks/useRowClick';
 import { describeBalance, filterStatementEntries, foldCorrections } from '@/lib/accountStatement';
 import { formatAmount } from '@/lib/currency';
 
@@ -68,24 +69,18 @@ function CancellationNote({ cancellation }) {
 
 /**
  * Under the line that stands for a corrected or deleted one: shows or
- * hides the older lines of its group — the cancelled originals and their
- * reversals.
+ * hides the older lines of its group under it — the values it had before
+ * each correction, and the reversals that cancelled them.
  */
 function HistoryToggle({ entry, onToggle }) {
     const { hiddenCount, expanded } = entry.history;
-    // A deleted line's group follows it; a replacement's comes before it.
-    const label =
-        hiddenCount === 1
-            ? entry.cancellation
-                ? 'القيد العكسي'
-                : 'الحركة الأصلية'
-            : `${entry.cancellation ? 'الحركات التالية' : 'الحركات السابقة'} (${hiddenCount})`;
+    const label = entry.cancellation && hiddenCount === 1 ? 'القيد العكسي' : `القيم السابقة (${hiddenCount})`;
 
     return (
         <button
             type="button"
             aria-expanded={expanded}
-            onClick={(event) => onToggle(entry.groupId, event.currentTarget)}
+            onClick={() => onToggle(entry.groupId)}
             className="mt-1.5 inline-flex items-center gap-1 rounded-md text-xs font-semibold text-blue-600 transition hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
             <Icon name="chevron-down" className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} strokeWidth={2} />
@@ -94,25 +89,12 @@ function HistoryToggle({ entry, onToggle }) {
     );
 }
 
-/** The nearest box around `element` that scrolls up and down: the statement window's body, or the page. */
-function scrollingBoxOf(element) {
-    for (let box = element.parentElement; box; box = box.parentElement) {
-        const { overflowY } = getComputedStyle(box);
-
-        if ((overflowY === 'auto' || overflowY === 'scroll') && box.scrollHeight > box.clientHeight) {
-            return box;
-        }
-    }
-
-    return document.scrollingElement ?? document.documentElement;
-}
-
-/** Whether a reversal or replacement shows under the line it follows: not when its group is folded, and it stands alone. */
+/** Whether a line shows under the line that stands for its group: one of the older lines of an opened group. */
 function followsLineAbove(entry) {
-    return entry.isFollowUp && (!entry.history?.isHead || entry.history.expanded);
+    return Boolean(entry.history && !entry.history.isHead);
 }
 
-/** The row's look: a cancelled line greyed, a reversal or replacement marked as following the line above. */
+/** The row's look: a cancelled line greyed, an older line of an opened group marked as belonging to the line above it. */
 function rowClass(entry) {
     return [entry.cancellation && 'ledger-cancelled', followsLineAbove(entry) && 'ledger-follow-up'].filter(Boolean).join(' ') || undefined;
 }
@@ -139,16 +121,17 @@ function SummaryCard({ label, value, hint, tone = 'default' }) {
  * the search and filters, and every line (charges عليه, payments and
  * discounts له) oldest first with the balance after each. A corrected
  * line folds away under the line that replaced it, and a deleted one keeps
- * its reversal folded under it; each can be opened again to show the line
- * struck through with its reversal and replacement under it. `onCorrect`
+ * its reversal folded under it. Pressing that line (or its button) opens
+ * the older lines under it, newest first — the reversal, then the line as
+ * it was before, struck through — and pressing it again folds them; they
+ * open below it, so it stays where it is. `onCorrect`
  * and `onDelete` get the line to change, for users allowed to. Used by the
  * statement page and by the statement window on the subscribers list.
  */
 export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes, onCorrect, onDelete }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
     const [expandedGroups, setExpandedGroups] = useState(() => new Set());
-    // The button last pressed to fold or open a group, and where it was on screen.
-    const pressedToggle = useRef(null);
+    const rowClick = useRowClick();
     const visibleEntries = foldCorrections(entries, filterStatementEntries(entries, filters), expandedGroups);
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
@@ -160,25 +143,7 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
         setFilters((current) => ({ ...current, [key]: value }));
     }
 
-    // The older lines of a group open and fold above the line pressed; scroll by as much as they
-    // moved it, so it stays under the user's finger and they don't lose their place.
-    useLayoutEffect(() => {
-        const pressed = pressedToggle.current;
-        pressedToggle.current = null;
-
-        if (!pressed?.button.isConnected) {
-            return;
-        }
-
-        const moved = pressed.button.getBoundingClientRect().top - pressed.top;
-
-        if (moved !== 0) {
-            scrollingBoxOf(pressed.button).scrollBy({ top: moved, behavior: 'instant' });
-        }
-    }, [expandedGroups]);
-
-    function toggleGroup(groupId, button) {
-        pressedToggle.current = { button, top: button.getBoundingClientRect().top };
+    function toggleGroup(groupId) {
         setExpandedGroups((current) => {
             const next = new Set(current);
 
@@ -305,7 +270,11 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                 const entryBalance = describeBalance(entry.balance);
 
                                 return (
-                                    <tr key={entry.id} className={rowClass(entry)}>
+                                    <tr
+                                        key={entry.id}
+                                        className={rowClass(entry)}
+                                        {...rowClick(entry.history?.isHead ? () => toggleGroup(entry.groupId) : null)}
+                                    >
                                         <td data-label="رقم الصندوق" className="tabular-nums text-gray-700">
                                             {entry.cashBox ?? <Dash />}
                                         </td>

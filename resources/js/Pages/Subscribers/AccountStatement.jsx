@@ -67,14 +67,25 @@ function CancellationNote({ cancellation }) {
     );
 }
 
+/** Under a line that replaces a corrected one: which line it corrects, further up the statement. */
+function CorrectsNote({ corrects }) {
+    return (
+        <p className="ledger-description mt-1.5 flex items-center gap-1.5 text-xs font-normal text-blue-700 dark:text-blue-400">
+            <Icon name="pencil" className="h-3.5 w-3.5 shrink-0" />
+            <span>
+                تصحيح لحركة <bdi dir="ltr">{corrects.date}</bdi>
+            </span>
+        </p>
+    );
+}
+
 /**
- * Under the newest line of a corrected or deleted one's group: shows or
- * hides the older lines of the group — the cancelled lines and their
- * reversals.
+ * Under the reversal of a corrected or deleted line: shows or hides the
+ * line it cancels.
  */
 function HistoryToggle({ entry, onToggle }) {
-    const { hiddenCount, expanded } = entry.history;
-    const label = hiddenCount === 1 ? (entry.isReversal ? 'الحركة المحذوفة' : 'الحركة الأصلية') : `الحركات السابقة (${hiddenCount})`;
+    const { hiddenCount, expanded, wasCorrected } = entry.history;
+    const label = hiddenCount === 1 ? (wasCorrected ? 'الحركة المعدّلة' : 'الحركة المحذوفة') : `الحركات السابقة (${hiddenCount})`;
 
     return (
         <button
@@ -133,14 +144,15 @@ function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
  * The body of a subscriber's account statement: the balance and totals,
  * the search and filters, and every line (charges عليه, payments and
  * discounts له) oldest first with the balance after each. A corrected or
- * deleted line folds away under the newest line of its group — the line
- * that replaced it, or its reversal; each can be opened again to show the
- * line struck through with its reversal and replacement under it — by
- * pressing that newest line, anywhere on its row, or its button. The
- * older lines open above it, and the statement scrolls so the pressed line
- * stays where it is. `onCorrect` and `onDelete` get the line to change,
- * for users allowed to. Used by the statement page and by the statement
- * window on the subscribers list.
+ * deleted line folds away under its reversal, which sits right under it;
+ * it can be opened again to show the line struck through with its
+ * reversal under it — by pressing the reversal, anywhere on its row, or
+ * its button. The line that corrects it is a new line, listed where it
+ * falls in time (the newest when just made) and naming the line it
+ * corrects. The folded line opens above the reversal, and the statement
+ * scrolls so the pressed line stays where it is. `onCorrect` and
+ * `onDelete` get the line to change, for users allowed to. Used by the
+ * statement page and by the statement window on the subscribers list.
  */
 export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes, onCorrect, onDelete }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
@@ -351,6 +363,7 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                                 </p>
                                             )}
                                             {entry.cancellation && <CancellationNote cancellation={entry.cancellation} />}
+                                            {entry.corrects && <CorrectsNote corrects={entry.corrects} />}
                                             {entry.history?.isHead && <HistoryToggle entry={entry} onToggle={toggleGroup} />}
                                         </td>
                                         <td

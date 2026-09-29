@@ -109,21 +109,22 @@ const corrections = [
     { id: 1, groupId: 1, type: 'meter_reading' },
     { id: 2, groupId: 2, type: 'payment', cancellation: { wasCorrected: true } },
     { id: 3, groupId: 2, type: 'reversal', isReversal: true, isFollowUp: true },
-    { id: 4, groupId: 2, type: 'payment', isFollowUp: true, isCorrection: true },
+    { id: 4, groupId: 4, type: 'payment', isCorrection: true, corrects: { id: 2, date: '2026-09-05 10:00' } },
     { id: 5, groupId: 5, type: 'payment', cancellation: { wasCorrected: false } },
     { id: 6, groupId: 5, type: 'reversal', isReversal: true, isFollowUp: true },
 ];
 
-test('a corrected line folds under its replacement and a deleted one under its reversal', () => {
+test('a corrected or deleted line folds under its reversal, and a replacement stands on its own', () => {
     const folded = foldCorrections(corrections, corrections, new Set());
 
     assert.deepEqual(
         folded.map((entry) => entry.id),
-        [1, 4, 6],
+        [1, 3, 4, 6],
     );
     assert.equal(folded[0].history, null);
-    assert.deepEqual(folded[1].history, { hiddenCount: 2, expanded: false, isHead: true });
-    assert.deepEqual(folded[2].history, { hiddenCount: 1, expanded: false, isHead: true });
+    assert.deepEqual(folded[1].history, { hiddenCount: 1, wasCorrected: true, expanded: false, isHead: true });
+    assert.equal(folded[2].history, null);
+    assert.deepEqual(folded[3].history, { hiddenCount: 1, wasCorrected: false, expanded: false, isHead: true });
 });
 
 test('an opened group shows all its lines, and the others stay folded', () => {
@@ -133,10 +134,10 @@ test('an opened group shows all its lines, and the others stay folded', () => {
         opened.map((entry) => entry.id),
         [1, 2, 3, 4, 6],
     );
-    assert.deepEqual(opened[1].history, { hiddenCount: 2, expanded: true, isHead: false });
+    assert.deepEqual(opened[1].history, { hiddenCount: 1, wasCorrected: true, expanded: true, isHead: false });
     assert.deepEqual(
         foldCorrections(corrections, corrections, new Set([5])).map((entry) => entry.id),
-        [1, 4, 5, 6],
+        [1, 3, 4, 5, 6],
     );
 });
 

@@ -84,7 +84,7 @@ class SubscriberTransactionCorrectionTest extends TestCase
                 ->where('summary.paymentsCount', 1));
     }
 
-    public function test_a_corrected_cash_payment_is_grouped_and_its_reversal_shows_its_voucher_and_cash_box(): void
+    public function test_a_corrected_cash_payment_is_grouped_with_its_reversal_which_shows_its_voucher_and_cash_box(): void
     {
         $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash', 'manual_voucher_number' => '00412', 'cash_box' => '4554']);
 
@@ -110,13 +110,14 @@ class SubscriberTransactionCorrectionTest extends TestCase
                 ->where('entries.2.voucherNumber', $payment->printedVoucherNumber())
                 ->where('entries.2.manualVoucherNumber', '00412')
                 ->where('entries.2.cashBox', '4554')
-                ->where('entries.3.groupId', $payment->id)
+                ->where('entries.3.groupId', $payment->correction->id)
+                ->where('entries.3.corrects.id', $payment->id)
                 ->where('entries.3.manualVoucherNumber', '00413')
                 ->where('entries.3.recorded.manual_voucher_number', '00413')
                 ->where('entries.3.recorded.cash_box', '4554'));
     }
 
-    public function test_a_correction_is_listed_under_its_line_even_when_other_lines_came_between(): void
+    public function test_the_reversal_stays_under_its_line_and_the_correction_comes_last_after_the_lines_between(): void
     {
         $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
         $charge = SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::Penalty, '20', null);
@@ -129,9 +130,12 @@ class SubscriberTransactionCorrectionTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('entries.1.id', $payment->id)
                 ->where('entries.2.type', 'reversal')
-                ->where('entries.3.isCorrection', true)
-                ->where('entries.3.paymentMethod', 'bank_transfer')
-                ->where('entries.4.id', $charge->id)
+                ->where('entries.2.isFollowUp', true)
+                ->where('entries.3.id', $charge->id)
+                ->where('entries.4.isCorrection', true)
+                ->where('entries.4.isFollowUp', false)
+                ->where('entries.4.corrects.id', $payment->id)
+                ->where('entries.4.paymentMethod', 'bank_transfer')
                 ->where('entries.4.balance', '140.00')
                 ->where('summary.balance', '140.00'));
     }

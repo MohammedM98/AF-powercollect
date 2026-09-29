@@ -52,7 +52,7 @@ trait BuildsSubscriberStatement
         $subscriber->loadMissing(['branch', 'tariff', 'tariffSegment', 'meterBox', 'circuitBreaker', 'standingDiscount.grantedBy', 'latestMeterReading']);
 
         $transactions = $subscriber->transactions()
-            ->with(['recordedBy', 'meterReading', 'cancelledBy', 'reverses', 'correction'])
+            ->with(['recordedBy', 'meterReading', 'cancelledBy', 'reverses', 'corrects', 'correction'])
             ->oldest()
             ->orderBy('id')
             ->get()
@@ -136,12 +136,12 @@ trait BuildsSubscriberStatement
     }
 
     /**
-     * Each line's group: the id of the first line of the chain it belongs
-     * to — the line itself, or the line its reversal or replacement goes
-     * back to (through any replacements in between). Grouping the lines
-     * oldest first by it puts the reversal and replacement of a corrected
-     * or deleted line straight after it, so each correction reads under
-     * the line it corrects, and lets the statement fold a group away.
+     * Each line's group: the line itself, or for a reversal the line it
+     * cancels. Grouping the lines oldest first by it puts the reversal of
+     * a corrected or deleted line straight under it, and lets the
+     * statement fold the pair away. The line that replaces a corrected one
+     * is a new line of its own, so it stays where it falls in time — the
+     * newest on the statement when it was just made.
      *
      * @param  Collection<int, SubscriberTransaction>  $transactions  oldest first
      * @return array<int, int>
@@ -149,13 +149,12 @@ trait BuildsSubscriberStatement
     private function firstLineIds(Collection $transactions): array
     {
         $byId = $transactions->keyBy('id');
-        $firstLineOf = function (SubscriberTransaction $line) use ($byId, &$firstLineOf): int {
-            $correctedId = $line->reverses_id ?? $line->corrects_id;
 
-            return $correctedId && $byId->has($correctedId) ? $firstLineOf($byId[$correctedId]) : $line->id;
-        };
-
-        return $transactions->mapWithKeys(fn (SubscriberTransaction $line): array => [$line->id => $firstLineOf($line)])->all();
+        return $transactions
+            ->mapWithKeys(fn (SubscriberTransaction $line): array => [
+                $line->id => $line->reverses_id && $byId->has($line->reverses_id) ? (int) $line->reverses_id : $line->id,
+            ])
+            ->all();
     }
 
     /**
@@ -222,10 +221,15 @@ trait BuildsSubscriberStatement
                 SubscriberTransaction::TYPE_READING_DISCOUNT => null,
                 default => $transaction->notes,
             },
-            // A reversal or a replacement, shown indented under the line it corrects.
-            'isFollowUp' => $transaction->reverses_id !== null || $transaction->corrects_id !== null,
+            // A reversal, shown indented under the line it cancels.
+            'isFollowUp' => $transaction->reverses_id !== null,
             'isReversal' => $transaction->isReversal(),
             'isCorrection' => $transaction->corrects_id !== null,
+            // The line a replacement corrects, which stays further up the statement.
+            'corrects' => $transaction->corrects ? [
+                'id' => $transaction->corrects->id,
+                'date' => $transaction->corrects->created_at->format('Y-m-d H:i'),
+            ] : null,
             'cancellation' => $transaction->isCancelled() ? [
                 'wasCorrected' => $transaction->correction !== null,
                 'reasonLabel' => __($transaction->cancellation_reason->label()),

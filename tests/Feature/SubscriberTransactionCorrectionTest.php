@@ -84,6 +84,38 @@ class SubscriberTransactionCorrectionTest extends TestCase
                 ->where('summary.paymentsCount', 1));
     }
 
+    public function test_a_corrected_cash_payment_is_grouped_and_its_reversal_shows_its_voucher_and_cash_box(): void
+    {
+        $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash', 'manual_voucher_number' => '00412', 'cash_box' => '4554']);
+
+        $this->correct($payment, [
+            'amount' => '100',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+            'manual_voucher_number' => '00413',
+            'cash_box' => '4554',
+            'correction_reason' => 'wrong_amount',
+            'correction_notes' => 'x',
+        ])->assertSessionHasNoErrors();
+
+        $fee = $this->subscriber->transactions()->oldest('id')->first();
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.0.groupId', $fee->id)
+                ->where('entries.1.groupId', $payment->id)
+                ->where('entries.2.groupId', $payment->id)
+                ->where('entries.2.isReversal', true)
+                ->where('entries.2.voucherNumber', $payment->printedVoucherNumber())
+                ->where('entries.2.manualVoucherNumber', '00412')
+                ->where('entries.2.cashBox', '4554')
+                ->where('entries.3.groupId', $payment->id)
+                ->where('entries.3.manualVoucherNumber', '00413')
+                ->where('entries.3.recorded.manual_voucher_number', '00413')
+                ->where('entries.3.recorded.cash_box', '4554'));
+    }
+
     public function test_a_correction_is_listed_under_its_line_even_when_other_lines_came_between(): void
     {
         $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);

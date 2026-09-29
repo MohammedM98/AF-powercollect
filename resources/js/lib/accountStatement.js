@@ -56,6 +56,52 @@ export function filterStatementEntries(entries, { search = '', type = '', method
 }
 
 /**
+ * Folds each corrected or deleted line away under the line that stands for
+ * it: the latest replacement of a corrected line, or a deleted line itself
+ * (its reversal goes). `entries` is the whole statement, `visibleEntries`
+ * the lines the filters leave, and `expandedGroups` the groups (by
+ * `groupId`) opened again. Folding hides only lines that cancel each other
+ * out, so no balance shown changes. A line whose stand-in the filters hide
+ * is shown anyway. Each line comes back with `history`: null for a line
+ * never corrected or deleted, else how many lines its group hides, whether
+ * the group is open, and whether this is the line that stands for it.
+ */
+export function foldCorrections(entries, visibleEntries, expandedGroups) {
+    const groups = new Map();
+
+    entries.forEach((entry) => groups.set(entry.groupId, [...(groups.get(entry.groupId) ?? []), entry]));
+
+    const heads = new Map();
+
+    groups.forEach((lines, groupId) => {
+        if (lines.length > 1) {
+            const standing = lines.filter((line) => !line.cancellation && !line.isReversal);
+
+            heads.set(groupId, (standing.at(-1) ?? lines[0]).id);
+        }
+    });
+
+    const visibleIds = new Set(visibleEntries.map((entry) => entry.id));
+
+    return visibleEntries
+        .filter((entry) => {
+            const head = heads.get(entry.groupId);
+
+            return head === undefined || head === entry.id || expandedGroups.has(entry.groupId) || !visibleIds.has(head);
+        })
+        .map((entry) => ({
+            ...entry,
+            history: heads.has(entry.groupId)
+                ? {
+                      hiddenCount: groups.get(entry.groupId).length - 1,
+                      expanded: expandedGroups.has(entry.groupId),
+                      isHead: heads.get(entry.groupId) === entry.id,
+                  }
+                : null,
+        }));
+}
+
+/**
  * How a balance reads: a positive balance is what the subscriber owes
  * (عليه), a negative one is credit in their favour (له).
  */

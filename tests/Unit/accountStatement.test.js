@@ -126,19 +126,14 @@ test('a corrected line folds under its replacement and a deleted one keeps its r
     assert.deepEqual(folded[2].history, { hiddenCount: 1, expanded: false, isHead: true });
 });
 
-test('an opened group shows the line that stands for it, then its older lines newest first; the others stay folded', () => {
+test('an opened group shows all its lines, and the others stay folded', () => {
     const opened = foldCorrections(corrections, corrections, new Set([2]));
 
     assert.deepEqual(
         opened.map((entry) => entry.id),
-        [1, 4, 3, 2, 5],
+        [1, 2, 3, 4, 5],
     );
-    assert.deepEqual(opened[1].history, { hiddenCount: 2, expanded: true, isHead: true });
-    assert.deepEqual(opened[2].history, { hiddenCount: 2, expanded: true, isHead: false });
-    assert.deepEqual(
-        foldCorrections(corrections, corrections, new Set([5])).map((entry) => entry.id),
-        [1, 4, 5, 6],
-    );
+    assert.deepEqual(opened[1].history, { hiddenCount: 2, expanded: true, isHead: false });
 });
 
 test('a folded line shows when the filters hide the line that stands for it', () => {

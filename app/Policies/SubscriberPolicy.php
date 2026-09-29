@@ -68,8 +68,8 @@ class SubscriberPolicy
     }
 
     /**
-     * Adding a charge (a settlement, penalty or disconnection fee) or a
-     * discount by hand takes its own permission, for a subscriber of the
+     * Adding a charge (a penalty or disconnection fee), a discount or a
+     * clearing by hand takes its own permission, for a subscriber of the
      * user's own branch (any branch for the Super Admin).
      */
     public function adjustBalance(User $user, Subscriber $subscriber): bool

@@ -378,6 +378,7 @@ class SubscriberStandingDiscountTest extends TestCase
         $charge = SubscriberTransaction::where('type', SubscriberTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->sole();
         $this->assertSame('50.00', $charge->amount);
         $this->assertNotNull($charge->corrects_id);
+        $lastEntry = $this->subscriber->transactions()->count() - 1;
 
         $this->actingAs($this->branchAdmin)
             ->get(route('subscribers.statement', $this->subscriber))
@@ -385,7 +386,8 @@ class SubscriberStandingDiscountTest extends TestCase
                 ->where('entries.0.cancellation.wasCorrected', true)
                 ->where('entries.0.cancellation.reasonLabel', 'تغيير الخصم الدائم')
                 ->where('entries.1.type', 'reversal')
-                ->where('entries.2.id', $charge->id)
+                ->where('entries.1.groupId', $charge->corrects_id)
+                ->where("entries.{$lastEntry}.id", $charge->id)
                 ->where('summary.balance', '50.00'));
     }
 

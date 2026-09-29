@@ -57,15 +57,16 @@ export function filterStatementEntries(entries, { search = '', type = '', method
 
 /**
  * Folds each corrected or deleted line away under the line that stands for
- * it: the newest line of its group — the latest replacement of a corrected
- * line, or the reversal of a deleted one. `entries` is the whole
+ * it: its reversal, the newest line of its group. (A corrected line's
+ * replacement is a group of its own, further down the statement.) `entries` is the whole
  * statement, `visibleEntries` the lines the filters leave, and
  * `expandedGroups` the groups (by `groupId`) opened again. Folding hides
  * only lines that cancel each other out, so no balance shown changes. A
  * line whose stand-in the filters hide
  * is shown anyway. Each line comes back with `history`: null for a line
  * never corrected or deleted, else how many lines its group hides, whether
- * the group is open, and whether this is the line that stands for it.
+ * the group is open, whether its first line was corrected (rather than
+ * deleted), and whether this is the line that stands for it.
  */
 export function foldCorrections(entries, visibleEntries, expandedGroups) {
     const groups = new Map();
@@ -93,6 +94,7 @@ export function foldCorrections(entries, visibleEntries, expandedGroups) {
             history: heads.has(entry.groupId)
                 ? {
                       hiddenCount: groups.get(entry.groupId).length - 1,
+                      wasCorrected: Boolean(groups.get(entry.groupId)[0].cancellation?.wasCorrected),
                       expanded: expandedGroups.has(entry.groupId),
                       isHead: heads.get(entry.groupId) === entry.id,
                   }

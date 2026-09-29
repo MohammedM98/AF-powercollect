@@ -135,7 +135,7 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
                             subtitle={
                                 correcting
                                     ? 'صحّح المقاصة؛ تبقى الأصلية في الكشف ملغاة مع سبب التعديل.'
-                                    : 'خدمة مقابل خدمة: المشترك يأخذ الكهرباء ويقدّم للشركة خدمة، فتُنزَّل قيمتها من حسابه.'
+                                    : 'خدمة مقابل خدمة: المشترك يأخذ الكهرباء ويقدّم للشركة خدمة، فتُنزَّل قيمتها من حسابه.'
                             }
                             onClose={requestClose}
                         />

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Mobile;
 
 use App\Enums\PermissionKey;
 use App\Http\Controllers\Controller;
+use App\Models\MeterReading;
 use App\Models\MobileAccessToken;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -59,7 +60,7 @@ class MobileSessionController extends Controller
     }
 
     /**
-     * @return array{id: int, name: string, username: string, branch_name: ?string, can_record_readings: bool, can_record_collections: bool}
+     * @return array{id: int, name: string, username: string, branch_name: ?string, can_record_readings: bool, can_record_collections: bool, can_view_readings: bool}
      */
     private function userData(User $user): array
     {
@@ -71,6 +72,7 @@ class MobileSessionController extends Controller
             'username' => $user->username,
             'branch_name' => $user->branch?->name,
             'can_record_readings' => $user->hasPermission(PermissionKey::RecordMeterReadings),
+            'can_view_readings' => $user->can('viewAny', MeterReading::class),
             'can_record_collections' => $user->hasPermission(PermissionKey::RecordCollections),
         ];
     }

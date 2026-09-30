@@ -31,9 +31,17 @@ class ApiClient {
       _request('GET', '/api/mobile/subscribers', query: {'page': '$page'});
   Future<Map<String, dynamic>> sendReading(Map<String, dynamic> reading) =>
       _request('POST', '/api/mobile/readings', body: reading);
-  Future<Map<String, dynamic>> findCollectionSubscribers(String search) =>
+  Future<Map<String, dynamic>> weeklyReadings(
+          {String search = '', String? week, int page = 1}) =>
+      _request('GET', '/api/mobile/readings', query: {
+        'search': search,
+        'page': '$page',
+        if (week != null) 'week': week,
+      });
+  Future<Map<String, dynamic>> findCollectionSubscribers(String search,
+          {int page = 1}) =>
       _request('GET', '/api/mobile/collections/subscribers',
-          query: {'search': search});
+          query: {'search': search, 'page': '$page'});
   Future<Map<String, dynamic>> collectionsToday() =>
       _request('GET', '/api/mobile/collections');
   Future<Map<String, dynamic>> sendCollection(

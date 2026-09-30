@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'api_client.dart';
+import 'app_identity.dart';
+import 'collection_view.dart';
+import 'payment_page.dart';
 import 'field_store.dart';
-
-const wine = Color(0xFFA51D26);
-const ink = Color(0xFF252B33);
-const paper = Color(0xFFF1F3F6);
+import 'reading_flow.dart';
+import 'weekly_readings_page.dart';
 
 void main() => runApp(const PowerCollectApp());
 
@@ -52,12 +53,22 @@ class _PowerCollectAppState extends State<PowerCollectApp> {
       throw const ApiException(
           'توجد قراءات غير مرسلة لحساب آخر. اتصل بالإنترنت وزامنها أولًا.', 0);
     }
+    final previousToken = api.token;
     final result = await api.login(username, password);
-    store.state['token'] = result['token'];
-    store.state['user'] = result['user'];
-    await store.save();
-    if (mounted)
-      setState(() => user = Map<String, dynamic>.from(result['user'] as Map));
+    final nextUser = Map<String, dynamic>.from(result['user'] as Map);
+    try {
+      await store.saveSession(nextUser, result['token'] as String);
+    } on PendingReadingsAccountSwitch {
+      try {
+        await api.logout();
+      } on ApiException catch (_) {
+        // Restore the original session even if the new token cannot be revoked.
+      }
+      api.token = previousToken;
+      throw const ApiException(
+          'توجد قراءات غير مرسلة لحساب آخر. زامنها أولًا.', 0);
+    }
+    if (mounted) setState(() => user = nextUser);
   }
 
   Future<void> logout() async {
@@ -87,16 +98,7 @@ class _PowerCollectAppState extends State<PowerCollectApp> {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: wine),
-          scaffoldBackgroundColor: paper,
-          inputDecorationTheme: InputDecorationTheme(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-        ),
+        theme: AppIdentity.theme,
         home: loading
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
             : startupError != null
@@ -151,60 +153,64 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
         body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Image.asset('assets/images/brand.webp', height: 100),
-                      const SizedBox(height: 24),
-                      const Text('تطبيق الميدان',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: ink)),
-                      const SizedBox(height: 8),
-                      const Text('التحصيل وقراءات العدادات',
-                          textAlign: TextAlign.center),
-                      const SizedBox(height: 28),
-                      field('اسم المستخدم', username),
-                      const SizedBox(height: 14),
+            child: Center(
+                child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 32, 20, 24),
+              children: [
+                Image.asset('assets/images/brand.webp', height: 140),
+                const SizedBox(height: 16),
+                Text('تطبيق الميدان',
+                    textAlign: TextAlign.center,
+                    style: AppIdentity.heading(26)),
+                Text('سجّل الدخول للبدء',
+                    textAlign: TextAlign.center,
+                    style: AppIdentity.body(14, color: AppIdentity.faint)),
+                const SizedBox(height: 28),
+                AppPanel(
+                    child: AutofillGroup(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                      TextField(
+                          controller: username,
+                          autofillHints: const [AutofillHints.username],
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                              labelText: 'اسم المستخدم',
+                              prefixIcon: Icon(Icons.person_outline))),
+                      const SizedBox(height: 16),
                       TextField(
                           controller: password,
                           obscureText: true,
+                          autofillHints: const [AutofillHints.password],
                           onSubmitted: (_) => submit(),
-                          decoration:
-                              const InputDecoration(labelText: 'كلمة المرور')),
+                          decoration: const InputDecoration(
+                              labelText: 'كلمة المرور',
+                              prefixIcon: Icon(Icons.lock_outline))),
                       if (error != null) ...[
                         const SizedBox(height: 12),
-                        Text(error!, style: const TextStyle(color: wine)),
+                        AppNotice(error!, error: true)
                       ],
                       const SizedBox(height: 20),
-                      FilledButton(
-                          onPressed: busy ? null : submit,
-                          child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Text(
-                                  busy ? 'جارٍ الدخول...' : 'تسجيل الدخول'))),
-                    ]),
-              ),
-            ),
-          ),
-        ),
+                      AppAction(
+                          label: busy ? 'جارٍ الدخول...' : 'تسجيل الدخول',
+                          icon: Icons.login,
+                          busy: busy,
+                          onPressed: busy ? null : submit),
+                    ]))),
+                const SizedBox(height: 16),
+                Text(
+                    'بعد أول دخول وتحميل البيانات، يمكنك إدخال قراءات العدادات دون اتصال. التحصيل يحتاج إلى الإنترنت.',
+                    textAlign: TextAlign.center,
+                    style: AppIdentity.body(12.5, color: AppIdentity.faint)),
+              ]),
+        ))),
       );
 }
 
-Widget field(String label, TextEditingController controller,
-        {TextInputType? keyboard, bool enabled = true}) =>
-    TextField(
-        controller: controller,
-        enabled: enabled,
-        keyboardType: keyboard,
-        decoration: InputDecoration(labelText: label));
+enum FieldSection { home, readings, collections, sync, account }
 
 class FieldShell extends StatefulWidget {
   const FieldShell(
@@ -224,20 +230,26 @@ class FieldShell extends StatefulWidget {
 }
 
 class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
-  int tab = 0;
+  late Map<String, dynamic> currentUser = widget.user;
+  FieldSection section = FieldSection.home;
   bool online = false;
   bool syncing = false;
   String? message;
   Timer? timer;
-  final readingSearch = TextEditingController();
   final collectionSearch = TextEditingController();
   List<Map<String, dynamic>> collectionResults = [];
   List<Map<String, dynamic>> today = [];
   bool collectionBusy = false;
+  Timer? collectionDebounce;
+  int collectionRequest = 0;
+  int collectionPage = 0;
+  int collectionLastPage = 1;
+  String? collectionError;
   bool requiresLogin = false;
 
-  bool get canRead => widget.user['can_record_readings'] == true;
-  bool get canCollect => widget.user['can_record_collections'] == true;
+  bool get canRead => currentUser['can_record_readings'] == true;
+  bool get canCollect => currentUser['can_record_collections'] == true;
+  bool get canViewReadings => currentUser['can_view_readings'] == true;
 
   @override
   void initState() {
@@ -256,7 +268,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     timer?.cancel();
-    readingSearch.dispose();
+    collectionDebounce?.cancel();
     collectionSearch.dispose();
     super.dispose();
   }
@@ -265,9 +277,17 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     if (syncing) return;
     setState(() => syncing = true);
     try {
-      await widget.api.me();
+      final session = await widget.api.me();
       if (!mounted) return;
-      setState(() => online = true);
+      setState(() {
+        if (session['user'] is Map &&
+            session['user']['id'] == widget.user['id']) {
+          currentUser = Map<String, dynamic>.from(session['user'] as Map);
+          widget.store.state['user'] = currentUser;
+        }
+        online = true;
+        requiresLogin = false;
+      });
       var sentAnyReading = false;
       for (final reading in widget.store.queuedReadings) {
         if (reading['sync_error'] != null) continue;
@@ -347,85 +367,70 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           .toList());
   }
 
-  Future<void> searchCollections() async {
-    if (collectionBusy) return;
+  void collectionSearchChanged() {
+    collectionDebounce?.cancel();
+    collectionRequest++;
     setState(() {
       collectionBusy = true;
-      message = null;
+      collectionResults = [];
+      collectionPage = 0;
+      collectionError = null;
+    });
+    collectionDebounce = Timer(const Duration(milliseconds: 300),
+        () => unawaited(searchCollections()));
+  }
+
+  Future<void> searchCollections({bool loadMore = false}) async {
+    if (!canCollect || !mounted) return;
+    if (loadMore && (collectionBusy || collectionPage >= collectionLastPage)) {
+      return;
+    }
+    collectionDebounce?.cancel();
+    final request = ++collectionRequest;
+    final query = collectionSearch.text.trim();
+    final page = loadMore ? collectionPage + 1 : 1;
+    setState(() {
+      collectionBusy = true;
+      collectionError = null;
+      if (!loadMore) {
+        collectionResults = [];
+        collectionPage = 0;
+      }
     });
     try {
-      final result = await widget.api
-          .findCollectionSubscribers(collectionSearch.text.trim());
-      if (mounted)
+      final result =
+          await widget.api.findCollectionSubscribers(query, page: page);
+      if (mounted && request == collectionRequest)
         setState(() {
           online = true;
-          collectionResults = (result['data'] as List)
+          requiresLogin = false;
+          final results = (result['data'] as List)
               .map((item) => Map<String, dynamic>.from(item as Map))
               .toList();
+          collectionResults =
+              loadMore ? [...collectionResults, ...results] : results;
+          collectionPage = result['current_page'] as int? ?? page;
+          collectionLastPage = result['last_page'] as int? ?? page;
         });
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted && request == collectionRequest)
         setState(() {
-          online = false;
-          message = error.message;
-          collectionResults = [];
+          if (error.isNetwork || error.statusCode == 401) online = false;
+          if (error.statusCode == 401) requiresLogin = true;
+          collectionError = error.message;
         });
     } finally {
-      if (mounted) setState(() => collectionBusy = false);
+      if (mounted && request == collectionRequest) {
+        setState(() => collectionBusy = false);
+      }
     }
   }
 
-  Future<void> addReading(Map<String, dynamic> subscriber) async {
-    final previous = double.tryParse('${subscriber['previous_reading']}') ?? 0;
-    final current = TextEditingController();
-    final notes = TextEditingController();
-    final result = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-              title: Text('قراءة ${subscriber['full_name']}'),
-              content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                        'السابقة: $previous   •   ${subscriber['account_number']}'),
-                    const SizedBox(height: 12),
-                    field('القراءة الحالية', current,
-                        keyboard: const TextInputType.numberWithOptions(
-                            decimal: true)),
-                    const SizedBox(height: 12),
-                    field('ملاحظات (اختياري)', notes),
-                  ]),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('إلغاء')),
-                FilledButton(
-                    onPressed: () {
-                      final value = double.tryParse(current.text.trim());
-                      if (value == null || value < previous) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('أدخل قراءة لا تقل عن $previous')));
-                        return;
-                      }
-                      Navigator.pop(context, true);
-                    },
-                    child: const Text('حفظ القراءة')),
-              ],
-            ));
-    if (result != true) return;
-    final reading = <String, dynamic>{
-      'mobile_operation_id': newOperationId(),
-      'subscriber_id': subscriber['id'],
-      'week_start': widget.store.state['week_start'],
-      'current_reading': current.text.trim(),
-      'notes': notes.text.trim(),
-    };
-    await widget.store.queueReading(reading);
+  Future<void> saveReadings(List<Map<String, dynamic>> readings) async {
+    await widget.store.queueReadings(readings);
     if (!mounted) return;
-    setState(
-        () => message = 'حُفظت القراءة على الجهاز وستُرسل عند توفر الاتصال.');
-    await synchronize();
+    setState(() => message = null);
+    unawaited(synchronize());
   }
 
   Future<void> openPayment(Map<String, dynamic> subscriber) async {
@@ -433,18 +438,18 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
       setState(() => message = 'التحصيل يتطلب اتصالًا بالخادم.');
       return;
     }
-    final submitted = await showDialog<bool>(
-        context: context,
-        builder: (context) =>
-            PaymentDialog(api: widget.api, subscriber: subscriber));
+    final submitted = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => PaymentPage(api: widget.api, subscriber: subscriber),
+    ));
+    if (!mounted) return;
     if (submitted == true) {
-      if (mounted)
-        setState(() => message = 'سُجلت الدفعة مباشرة في السجل المالي.');
-      try {
-        await refreshCollections();
-      } on ApiException catch (_) {
-        // The payment is already recorded; a failed refresh must not obscure it.
-      }
+      setState(() => message = 'سُجلت الدفعة مباشرة في السجل المالي.');
+    }
+    try {
+      await refreshCollections();
+      if (mounted) await searchCollections();
+    } on ApiException catch (_) {
+      // The payment is already recorded; a failed refresh must not obscure it.
     }
   }
 
@@ -477,399 +482,285 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
+  void navigate(FieldSection destination) {
+    setState(() {
+      section = destination;
+      message = null;
+    });
+    if (destination == FieldSection.collections && canCollect) {
+      unawaited(searchCollections());
+    }
+  }
+
+  void openWeeklyReadings() {
+    if (!canViewReadings) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WeeklyReadingsPage(api: widget.api)));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final tabs = <NavigationDestination>[
-      const NavigationDestination(
-          icon: Icon(Icons.home_outlined), label: 'الرئيسية'),
-      if (canRead)
-        const NavigationDestination(
-            icon: Icon(Icons.electric_meter_outlined), label: 'القراءات'),
-      if (canCollect)
-        const NavigationDestination(
-            icon: Icon(Icons.payments_outlined), label: 'التحصيل'),
-      const NavigationDestination(
-          icon: Icon(Icons.person_outline), label: 'حسابي'),
-    ];
-    final pages = <Widget>[
-      home(),
-      if (canRead) readings(),
-      if (canCollect) collections(),
-      account()
-    ];
-    if (tab >= pages.length) tab = 0;
-    return Scaffold(
-      appBar: AppBar(
-          title: const Text('PowerCollect'),
-          backgroundColor: Colors.white,
-          actions: [
-            IconButton(
-                onPressed: syncing ? null : synchronize,
-                tooltip: 'مزامنة',
-                icon: syncing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.sync))
-          ]),
-      body: Column(children: [
-        Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: online ? const Color(0xFFE8F4EB) : const Color(0xFFFFF1E2),
-            child: Text(
-                '${online ? 'متصل' : 'غير متصل'} • ${widget.store.queuedReadings.length} قراءات بانتظار المزامنة',
-                style: TextStyle(
-                    color: online
-                        ? Colors.green.shade800
-                        : Colors.orange.shade900))),
-        if (message != null)
+    if (section == FieldSection.readings && canRead) {
+      return Scaffold(
+          body: ReadingFlow(
+        store: widget.store,
+        online: online,
+        syncing: syncing,
+        message: message,
+        requiresLogin: requiresLogin,
+        onSync: () => unawaited(synchronize()),
+        onSave: saveReadings,
+        onExit: () => navigate(FieldSection.home),
+        onReauthenticate: widget.onReauthenticate,
+      ));
+    }
+    final title = switch (section) {
+      FieldSection.collections => 'التحصيل',
+      FieldSection.sync => 'حالة الإرسال',
+      FieldSection.account => 'حسابي',
+      _ => 'مرحبًا، ${widget.user['name']}',
+    };
+    return PopScope(
+      canPop: section == FieldSection.home,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) navigate(FieldSection.home);
+      },
+      child: Scaffold(
+          body: SafeArea(
+              child: Column(children: [
+        AppHeader(
+            title: title,
+            subtitle: section == FieldSection.home
+                ? '${widget.user['branch_name'] ?? 'جميع الفروع'}'
+                : null,
+            onBack: section == FieldSection.home
+                ? null
+                : () => navigate(FieldSection.home),
+            onSync: () => navigate(FieldSection.sync),
+            online: online,
+            syncing: syncing,
+            pending: widget.store.queuedReadings.length),
+        if (!online && !syncing)
           Padding(
-              padding: const EdgeInsets.all(10),
-              child: Text(message!, style: const TextStyle(color: wine))),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: AppNotice(canRead
+                  ? 'لا يوجد اتصال. تُحفظ القراءات على الجهاز وتُرسل تلقائيًا. التحصيل يحتاج إلى الإنترنت.'
+                  : 'لا يوجد اتصال. اتصل بالإنترنت لتسجيل الدفعات.')),
+        if (message != null && (online || requiresLogin))
+          Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: AppNotice(message!)),
         if (requiresLogin)
           TextButton(
               onPressed: widget.onReauthenticate,
               child: const Text('تسجيل الدخول مجددًا')),
-        Expanded(child: pages[tab]),
-      ]),
-      bottomNavigationBar: NavigationBar(
-          selectedIndex: tab,
-          onDestinationSelected: (value) => setState(() => tab = value),
-          destinations: tabs),
+        Expanded(
+            child: switch (section) {
+          FieldSection.collections when canCollect => CollectionView(
+              search: collectionSearch,
+              results: collectionResults,
+              today: today,
+              busy: collectionBusy,
+              online: online,
+              error: collectionError,
+              hasMore:
+                  collectionPage > 0 && collectionPage < collectionLastPage,
+              onSearchChanged: collectionSearchChanged,
+              onLoadMore: () => unawaited(searchCollections(loadMore: true)),
+              onSearch: () => unawaited(searchCollections()),
+              onWeeklyReadings: canViewReadings ? openWeeklyReadings : null,
+              onOpen: openPayment),
+          FieldSection.sync => syncView(),
+          FieldSection.account => account(),
+          _ => home(),
+        }),
+      ]))),
     );
   }
 
-  Widget home() => ListView(padding: const EdgeInsets.all(20), children: [
-        Text('مرحبًا، ${widget.user['name']}',
-            style: const TextStyle(
-                fontSize: 25, fontWeight: FontWeight.bold, color: ink)),
-        Text('${widget.user['branch_name'] ?? 'جميع الفروع'}'),
-        const SizedBox(height: 22),
-        if (canRead)
-          workflowCard(
-              Icons.electric_meter,
-              'إدخال قراءات العدادات',
-              '${widget.store.subscribers.length} مشترك • ${widget.store.queuedReadings.length} غير مرسلة',
-              () => setState(() => tab = 1)),
-        if (canCollect)
-          workflowCard(
-              Icons.payments,
-              'تحصيل الدفعات',
-              'بحث مباشر وتسجيل الدفعة في السجل المالي',
-              () => setState(() => tab = canRead ? 2 : 1)),
-        if (!canRead && !canCollect)
-          const Text('ليس لديك صلاحية لإدخال القراءات أو الدفعات.'),
-        if (canRead && widget.store.queuedReadings.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          const Text('القراءات المحفوظة على الجهاز',
-              style: TextStyle(fontWeight: FontWeight.bold)),
-          for (final reading in widget.store.queuedReadings)
-            ListTile(
-              title: Text(
-                  'مشترك #${reading['subscriber_id']} • ${reading['current_reading']}'),
-              subtitle: Text('${reading['sync_error'] ?? 'بانتظار الاتصال'}'),
-              trailing: reading['sync_error'] == null
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      tooltip: 'حذف القراءة المرفوضة',
-                      onPressed: () => discardRejectedReading(reading),
-                    ),
-            ),
-        ],
-      ]);
-
-  Widget workflowCard(
-          IconData icon, String title, String subtitle, VoidCallback open) =>
-      Card(
-          color: Colors.white,
-          child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              leading: CircleAvatar(
-                  backgroundColor: wine,
-                  child: Icon(icon, color: Colors.white)),
-              title: Text(title,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(subtitle),
-              trailing: const Icon(Icons.arrow_back_ios_new),
-              onTap: open));
-
-  Widget readings() {
-    final search = readingSearch.text.trim().toLowerCase();
-    final subscribers = widget.store.subscribers.where((item) {
-      if (search.isEmpty) return true;
-      return [
-        'full_name',
-        'account_number',
-        'meter_box_number',
-        'meter_box_name'
-      ].any((key) => '${item[key] ?? ''}'.toLowerCase().contains(search));
-    }).toList();
-    final groups = <String, List<Map<String, dynamic>>>{};
-    for (final subscriber in subscribers) {
-      final box = '${subscriber['meter_box_number'] ?? 'بدون صندوق'}';
-      groups.putIfAbsent(box, () => []).add(subscriber);
-    }
-    return ListView(padding: const EdgeInsets.all(16), children: [
-      const Text('قراءات العدادات',
-          style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
-      Text(
-          'الأسبوع ${widget.store.state['week_start'] ?? '—'} إلى ${widget.store.state['week_end'] ?? '—'}'),
-      Text(
-          'آخر تحديث: ${widget.store.state['roster_updated_at'] ?? 'لم تُحمّل البيانات بعد'}'),
-      const SizedBox(height: 14),
-      TextField(
-          controller: readingSearch,
-          onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-              labelText: 'ابحث بالاسم أو الحساب أو الصندوق',
-              prefixIcon: Icon(Icons.search))),
-      const SizedBox(height: 12),
-      if (widget.store.subscribers.isEmpty)
-        const Text('اتصل بالخادم أولًا لتحميل المشتركين إلى الجهاز.'),
-      for (final entry in groups.entries) ...[
-        Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Text('صندوق ${entry.key} (${entry.value.length})',
-                style: const TextStyle(fontWeight: FontWeight.bold))),
-        for (final subscriber in entry.value)
-          Card(
-              color: Colors.white,
-              child: ListTile(
-                title: Text('${subscriber['full_name']}'),
-                subtitle: Text(
-                    'حساب ${subscriber['account_number']} • السابقة ${subscriber['previous_reading']}'),
-                trailing: Icon(
-                    subscriber['reading_status'] != null ||
-                            widget.store.queuedReadings.any((reading) =>
-                                reading['subscriber_id'] == subscriber['id'] &&
-                                reading['week_start'] ==
-                                    widget.store.state['week_start'])
-                        ? Icons.check_circle
-                        : Icons.edit_outlined,
-                    color: wine),
-                onTap: subscriber['reading_status'] != null ||
-                        widget.store.state['can_record_readings_now'] != true ||
-                        widget.store.queuedReadings.any((reading) =>
-                            reading['subscriber_id'] == subscriber['id'] &&
-                            reading['week_start'] ==
-                                widget.store.state['week_start'])
-                    ? null
-                    : () => addReading(subscriber),
-              )),
-      ],
-      if (widget.store.state['can_record_readings_now'] == false)
-        const Text('إدخال قراءات هذا الأسبوع غير متاح حاليًا.'),
-    ]);
+  Widget home() {
+    final total = today.fold<double>(0,
+        (sum, payment) => sum + (double.tryParse('${payment['amount']}') ?? 0));
+    final done = widget.store.subscribers
+        .where((subscriber) =>
+            subscriber['reading_status'] != null ||
+            widget.store.queuedReadings.any((reading) =>
+                reading['subscriber_id'] == subscriber['id'] &&
+                reading['week_start'] == widget.store.state['week_start']))
+        .length;
+    return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        children: [
+          Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text('ماذا تريد أن تسجّل اليوم؟',
+                  style: AppIdentity.body(15, weight: FontWeight.w600))),
+          if (canRead)
+            AppServiceCard(
+                title: 'إدخال القراءات',
+                subtitle: 'قراءات عدادات الطبلونات',
+                summary: 'قُرئت $done من ${widget.store.subscribers.length}',
+                icon: Icons.bolt_outlined,
+                onTap: () => navigate(FieldSection.readings)),
+          if (canCollect)
+            AppServiceCard(
+                title: 'تسجيل الدفعات',
+                subtitle: 'تحصيل دفعات المشتركين',
+                summary: 'اليوم ${AppIdentity.money(total)} ₪',
+                icon: Icons.payments_outlined,
+                onTap: () => navigate(FieldSection.collections)),
+          if (canViewReadings)
+            AppServiceCard(
+                title: 'القراءات الأسبوعية',
+                subtitle: 'قراءات المشتركين والاستهلاك',
+                summary: 'عرض فقط',
+                icon: Icons.history_outlined,
+                onTap: openWeeklyReadings),
+          if (!canRead && !canCollect && !canViewReadings)
+            const AppNotice(
+                'ليس لديك صلاحية لعرض القراءات أو إدخالها أو تسجيل الدفعات.'),
+          Row(children: [
+            Expanded(
+                child: utilityCard(
+                    'حالة الإرسال',
+                    '${widget.store.queuedReadings.length} قراءات بانتظار المزامنة',
+                    Icons.cloud_outlined,
+                    () => navigate(FieldSection.sync))),
+            const SizedBox(width: 10),
+            Expanded(
+                child: utilityCard(
+                    'حسابي',
+                    '${widget.user['username']}',
+                    Icons.person_outline,
+                    () => navigate(FieldSection.account))),
+          ]),
+        ]);
   }
 
-  Widget collections() =>
-      ListView(padding: const EdgeInsets.all(16), children: [
-        const Text('تحصيل الدفعات',
-            style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
-        const Text(
-            'يتطلب اتصالًا مباشرًا. تُسجّل الدفعة في السجل المالي فور تأكيدك.'),
-        const SizedBox(height: 15),
-        TextField(
-            controller: collectionSearch,
-            onSubmitted: (_) => searchCollections(),
-            decoration: InputDecoration(
-                labelText: 'ابحث باسم المشترك أو رقم الحساب',
-                suffixIcon: IconButton(
-                    onPressed: searchCollections,
-                    icon: const Icon(Icons.search)))),
+  Widget utilityCard(
+          String title, String subtitle, IconData icon, VoidCallback open) =>
+      InkWell(
+          onTap: open,
+          borderRadius: BorderRadius.circular(20),
+          child: AppPanel(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(icon, color: AppIdentity.muted),
+              const SizedBox(height: 8),
+              Text(title, style: AppIdentity.body(15, weight: FontWeight.w700)),
+              const SizedBox(height: 3),
+              Text(subtitle,
+                  style: AppIdentity.body(12, color: AppIdentity.faint)),
+            ]),
+          ));
+
+  Widget syncView() =>
+      ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
+        AppStat(
+            'قراءات بانتظار الإرسال', '${widget.store.queuedReadings.length}',
+            color: widget.store.queuedReadings.isEmpty
+                ? AppIdentity.good
+                : AppIdentity.warning),
+        const SizedBox(height: 16),
+        Text('القراءات المحفوظة على الجهاز', style: AppIdentity.heading(17)),
+        const SizedBox(height: 10),
+        if (widget.store.queuedReadings.isEmpty)
+          const AppPanel(
+              child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Column(children: [
+                    Icon(Icons.cloud_done_outlined,
+                        color: AppIdentity.good, size: 36),
+                    SizedBox(height: 10),
+                    Text('لا توجد قراءات بانتظار الإرسال')
+                  ]))),
+        for (final reading in widget.store.queuedReadings)
+          Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: AppPanel(
+                  padding: const EdgeInsets.all(4),
+                  child: ListTile(
+                    leading: Icon(
+                        reading['sync_error'] == null
+                            ? Icons.schedule
+                            : Icons.error_outline,
+                        color: reading['sync_error'] == null
+                            ? AppIdentity.warning
+                            : AppIdentity.bad),
+                    title: Text(
+                        'مشترك #${reading['subscriber_id']} · ${reading['current_reading']}'),
+                    subtitle:
+                        Text('${reading['sync_error'] ?? 'بانتظار الاتصال'}'),
+                    trailing: reading['sync_error'] == null
+                        ? null
+                        : IconButton(
+                            tooltip: 'حذف القراءة المرفوضة',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => discardRejectedReading(reading)),
+                  ))),
+        const SizedBox(height: 16),
+        AppAction(
+            label: syncing ? 'جارٍ المزامنة...' : 'مزامنة الآن',
+            busy: syncing,
+            icon: Icons.sync,
+            onPressed: syncing ? null : () => unawaited(synchronize())),
         const SizedBox(height: 12),
-        FilledButton(
-            onPressed: collectionBusy ? null : searchCollections,
-            child: Text(collectionBusy ? 'جارٍ البحث...' : 'بحث مباشر')),
-        for (final subscriber in collectionResults)
-          Card(
-              color: Colors.white,
-              child: ListTile(
-                  title: Text('${subscriber['full_name']}'),
-                  subtitle: Text(
-                      'حساب ${subscriber['account_number']} • الرصيد ${subscriber['balance']} ₪'),
-                  trailing: const Icon(Icons.add_circle_outline),
-                  onTap: () => openPayment(subscriber))),
-        const SizedBox(height: 22),
-        const Text('دفعاتي اليوم',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        for (final payment in today)
-          ListTile(
-            title: Text('${payment['subscriber']} • ${payment['amount']} ₪'),
-            subtitle:
-                Text('${payment['status']} • ${payment['payment_method']}'),
-          ),
+        const AppNotice(
+            'المزامنة دون اتصال مخصصة لقراءات العدادات فقط. الدفعات تُسجّل أثناء الاتصال مباشرة.'),
       ]);
 
-  Widget account() => ListView(padding: const EdgeInsets.all(20), children: [
-        const Icon(Icons.account_circle, size: 70, color: wine),
-        Text('${widget.user['name']}',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        Text(
-            '${widget.user['username']} • ${widget.user['branch_name'] ?? 'جميع الفروع'}',
-            textAlign: TextAlign.center),
-        const SizedBox(height: 20),
-        if (widget.store.queuedReadings.isNotEmpty)
-          Text(
+  Widget account() =>
+      ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
+        AppPanel(
+            child: Column(children: [
+          Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                  gradient: AppIdentity.hero,
+                  borderRadius: BorderRadius.circular(24)),
+              child: const Icon(Icons.person_outline,
+                  color: Colors.white, size: 36)),
+          const SizedBox(height: 14),
+          Text('${widget.user['name']}', style: AppIdentity.heading(22)),
+          Text('${widget.user['username']}',
+              style: AppIdentity.body(14, color: AppIdentity.faint)),
+          const SizedBox(height: 10),
+          Text('${widget.user['branch_name'] ?? 'جميع الفروع'}',
+              style: AppIdentity.body(14)),
+        ])),
+        const SizedBox(height: 16),
+        Text('الصلاحيات المتاحة', style: AppIdentity.heading(17)),
+        const SizedBox(height: 10),
+        AppPanel(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+              if (canRead)
+                const ListTile(
+                    leading: Icon(Icons.bolt_outlined),
+                    title: Text('إدخال القراءات')),
+              if (canCollect)
+                const ListTile(
+                    leading: Icon(Icons.payments_outlined),
+                    title: Text('تسجيل الدفعات')),
+              if (canViewReadings)
+                const ListTile(
+                    leading: Icon(Icons.history_outlined),
+                    title: Text('عرض القراءات الأسبوعية')),
+              if (!canRead && !canCollect && !canViewReadings)
+                const Text('لا توجد صلاحيات ميدانية متاحة.'),
+            ])),
+        if (widget.store.queuedReadings.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          AppNotice(
               '${widget.store.queuedReadings.length} قراءات لم تُرسل بعد. زامنها قبل تسجيل الخروج.'),
-        OutlinedButton.icon(
-            onPressed: signOut,
-            icon: const Icon(Icons.logout),
-            label: const Text('تسجيل الخروج')),
-      ]);
-}
-
-class PaymentDialog extends StatefulWidget {
-  const PaymentDialog({required this.api, required this.subscriber, super.key});
-  final ApiClient api;
-  final Map<String, dynamic> subscriber;
-  @override
-  State<PaymentDialog> createState() => _PaymentDialogState();
-}
-
-class _PaymentDialogState extends State<PaymentDialog> {
-  final amount = TextEditingController();
-  final sender = TextEditingController();
-  final reference = TextEditingController();
-  final notes = TextEditingController();
-  final voucher = TextEditingController();
-  String method = 'cash';
-  String bank = 'بنك فلسطين';
-  bool busy = false;
-  bool collectorConfirmed = false;
-  String? error;
-
-  Map<String, dynamic>? submission;
-
-  @override
-  void dispose() {
-    for (final controller in [amount, sender, reference, notes, voucher]) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  Future<void> submit() async {
-    final value = double.tryParse(amount.text.trim());
-    if (value == null ||
-        value <= 0 ||
-        (method == 'bank_transfer' &&
-            (sender.text.trim().isEmpty || reference.text.trim().isEmpty))) {
-      setState(() => error = 'أدخل المبلغ وبيانات التحويل المطلوبة.');
-      return;
-    }
-    setState(() {
-      busy = true;
-      error = null;
-    });
-    try {
-      submission ??= {
-        'mobile_operation_id': newOperationId(),
-        'collector_confirmed': true,
-        'subscriber_id': widget.subscriber['id'],
-        'amount': amount.text.trim(),
-        'currency': 'ILS',
-        'payment_method': method,
-        if (method == 'bank_transfer') ...{
-          'bank_name': bank,
-          'sender_name': sender.text.trim(),
-          'reference_number': reference.text.trim(),
-        },
-        if (method == 'cash' && voucher.text.trim().isNotEmpty)
-          'manual_voucher_number': voucher.text.trim(),
-        'notes': notes.text.trim(),
-      };
-      await widget.api.sendCollection(submission!);
-      if (mounted) Navigator.pop(context, true);
-    } on ApiException catch (exception) {
-      if (exception.statusCode >= 400 && exception.statusCode < 500) {
-        submission = null;
-      }
-      if (mounted)
-        setState(() => error = exception.isNetwork
-            ? 'تعذر تأكيد الدفعة. تحقق من دفعات اليوم قبل إعادة المحاولة.'
-            : exception.message);
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-        title: Text('دفعة ${widget.subscriber['full_name']}'),
-        content: SizedBox(
-            width: 400,
-            child: SingleChildScrollView(
-                child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('الرصيد الحالي ${widget.subscriber['balance']} ₪'),
-                const SizedBox(height: 12),
-                field('المبلغ بالشيكل', amount,
-                    enabled: submission == null,
-                    keyboard:
-                        const TextInputType.numberWithOptions(decimal: true)),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                    initialValue: method,
-                    items: const [
-                      DropdownMenuItem(value: 'cash', child: Text('نقدًا')),
-                      DropdownMenuItem(
-                          value: 'bank_transfer',
-                          child: Text('تحويل بنكي / محفظة'))
-                    ],
-                    onChanged: submission == null
-                        ? (value) => setState(() => method = value ?? 'cash')
-                        : null),
-                const SizedBox(height: 10),
-                if (method == 'bank_transfer') ...[
-                  DropdownButtonFormField<String>(
-                      initialValue: bank,
-                      items: const ['بنك فلسطين', 'جوال باي', 'بال باي']
-                          .map((name) =>
-                              DropdownMenuItem(value: name, child: Text(name)))
-                          .toList(),
-                      onChanged: submission == null
-                          ? (value) => setState(() => bank = value ?? bank)
-                          : null),
-                  const SizedBox(height: 10),
-                  field('اسم المرسل', sender, enabled: submission == null),
-                  const SizedBox(height: 10),
-                  field('رقم التحويل', reference, enabled: submission == null),
-                ] else
-                  field('رقم الوصل اليدوي (اختياري)', voucher,
-                      enabled: submission == null),
-                const SizedBox(height: 10),
-                field('ملاحظات (اختياري)', notes, enabled: submission == null),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: collectorConfirmed,
-                  onChanged: busy
-                      ? null
-                      : (value) =>
-                          setState(() => collectorConfirmed = value ?? false),
-                  title: Text(
-                      'أؤكد استلام هذه الدفعة من ${widget.subscriber['full_name']} وتسجيلها مباشرة في السجل المالي.'),
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
-                if (error != null)
-                  Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Text(error!, style: const TextStyle(color: wine))),
-              ],
-            ))),
-        actions: [
-          TextButton(
-              onPressed: busy ? null : () => Navigator.pop(context, false),
-              child: const Text('إلغاء')),
-          FilledButton(
-              onPressed: busy || !collectorConfirmed ? null : submit,
-              child: Text(busy ? 'جارٍ التسجيل...' : 'تسجيل الدفعة')),
         ],
-      );
+        const SizedBox(height: 20),
+        AppAction(
+            label: 'تسجيل الخروج',
+            primary: false,
+            icon: Icons.logout,
+            onPressed: signOut),
+      ]);
 }

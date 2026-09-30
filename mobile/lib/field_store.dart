@@ -13,10 +13,14 @@ String newOperationId() {
   return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
 }
 
+class PendingReadingsAccountSwitch implements Exception {}
+
 class FieldStore {
   FieldStore({Directory? directory}) : _directory = directory;
   Directory? _directory;
   Map<String, dynamic> state = {};
+  Future<void> _lastWrite = Future<void>.value();
+  Future<void> _lastMutation = Future<void>.value();
 
   Future<File> _file() async {
     _directory ??= Directory(await const MethodChannel('powercollect.storage')
@@ -35,11 +39,40 @@ class FieldStore {
     if (decoded is Map<String, dynamic>) state = decoded;
   }
 
-  Future<void> save() async {
-    final file = await _file();
-    final temporary = File('${file.path}.tmp');
-    await temporary.writeAsString(jsonEncode(state), flush: true);
-    await temporary.rename(file.path);
+  Future<void> save() {
+    final snapshot = jsonEncode(state);
+    final write = _lastWrite.then<void>((_) async {
+      final file = await _file();
+      final temporary = File('${file.path}.tmp');
+      await temporary.writeAsString(snapshot, flush: true);
+      await temporary.rename(file.path);
+    });
+    _lastWrite =
+        write.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+
+    return write;
+  }
+
+  Future<void> saveSession(
+      Map<String, dynamic> nextUser, String nextToken) async {
+    if (user?['id'] != nextUser['id']) {
+      if (queuedReadings.isNotEmpty) {
+        throw PendingReadingsAccountSwitch();
+      }
+      for (final key in [
+        'subscribers',
+        'week_start',
+        'week_end',
+        'can_record_readings_now',
+        'roster_updated_at',
+        'queued_readings',
+      ]) {
+        state.remove(key);
+      }
+    }
+    state['user'] = nextUser;
+    state['token'] = nextToken;
+    await save();
   }
 
   List<Map<String, dynamic>> get queuedReadings =>
@@ -58,26 +91,49 @@ class FieldStore {
 
   String? get token => state['token'] as String?;
 
-  Future<void> queueReading(Map<String, dynamic> reading) async {
-    final queue = queuedReadings;
-    queue.add(reading);
-    state['queued_readings'] = queue;
-    await save();
+  Future<void> queueReading(Map<String, dynamic> reading) =>
+      queueReadings([reading]);
+
+  Future<void> queueReadings(List<Map<String, dynamic>> readings) async {
+    await _mutate(() {
+      final queue = queuedReadings;
+      queue.addAll(readings);
+      state['queued_readings'] = queue;
+    });
   }
 
   Future<void> removeReading(String operationId) async {
-    state['queued_readings'] = queuedReadings
-        .where((reading) => reading['mobile_operation_id'] != operationId)
-        .toList();
-    await save();
+    await _mutate(() {
+      state['queued_readings'] = queuedReadings
+          .where((reading) => reading['mobile_operation_id'] != operationId)
+          .toList();
+    });
   }
 
   Future<void> markReadingError(String operationId, String error) async {
-    state['queued_readings'] = queuedReadings.map((reading) {
-      if (reading['mobile_operation_id'] == operationId)
-        reading['sync_error'] = error;
-      return reading;
-    }).toList();
-    await save();
+    await _mutate(() {
+      state['queued_readings'] = queuedReadings.map((reading) {
+        if (reading['mobile_operation_id'] == operationId)
+          reading['sync_error'] = error;
+        return reading;
+      }).toList();
+    });
+  }
+
+  Future<void> _mutate(void Function() change) {
+    final mutation = _lastMutation.then<void>((_) async {
+      final previous = jsonEncode(state);
+      try {
+        change();
+        await save();
+      } catch (_) {
+        state = jsonDecode(previous) as Map<String, dynamic>;
+        rethrow;
+      }
+    });
+    _lastMutation =
+        mutation.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+
+    return mutation;
   }
 }

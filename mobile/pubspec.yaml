@@ -1,7 +1,7 @@
 name: power_collect
 version: 0.1.0+1
 publish_to: none
-description: Arabic mobile prototype for Power Collect with local demo data.
+description: PowerCollect field app for meter readings and payment collection.
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -18,5 +18,18 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: PlexArabic
+      fonts:
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
+          weight: 700
+    - family: ElMessiri
+      fonts:
+        - asset: assets/fonts/ElMessiri[wght].ttf
+    - family: Alexandria
+      fonts:
+        - asset: assets/fonts/Alexandria[wght].ttf
   assets:
     - assets/images/brand.webp
+    - assets/images/brand-mark.webp

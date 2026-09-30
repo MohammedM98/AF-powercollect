@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             PermissionSeeder::class,
+            UserTypeSeeder::class,
             TariffSeeder::class,
         ]);
 

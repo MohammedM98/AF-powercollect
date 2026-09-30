@@ -23,7 +23,7 @@ class MobileSubscriberController extends Controller
         $subscribers = Subscriber::query()
             ->visibleTo($actor)
             ->where('status', SubscriberStatus::Active)
-            ->with(['meterBox:id,box_number,name,location', 'latestMeterReading', 'meterReadings' => fn ($query) => $query->whereDate('week_start', $week)])
+            ->with(['meterBox:id,box_number,name,name_suffix,location', 'latestMeterReading', 'meterReadings' => fn ($query) => $query->whereDate('week_start', $week)])
             ->orderBy('id')
             ->paginate(500);
 
@@ -37,10 +37,10 @@ class MobileSubscriberController extends Controller
                 return [
                     'id' => $subscriber->id,
                     'account_number' => $subscriber->account_number,
-                    'full_name' => $subscriber->full_name,
+                    'full_name' => $subscriber->displayName(),
                     'meter_box_id' => $subscriber->meter_box_id,
                     'meter_box_number' => $subscriber->meterBox?->box_number,
-                    'meter_box_name' => $subscriber->meterBox?->name,
+                    'meter_box_name' => $subscriber->meterBox?->displayName(),
                     'meter_box_location' => $subscriber->meterBox?->location,
                     'previous_reading' => $currentWeekReading?->previous_reading
                         ?? $subscriber->latestMeterReading?->current_reading

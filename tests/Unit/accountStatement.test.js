@@ -40,6 +40,7 @@ const entries = [
         isCredit: true,
         paymentMethod: 'bank_transfer',
         bankName: 'بنك فلسطين',
+        senderBankName: 'البنك الإسلامي الفلسطيني',
         referenceNumber: 'TRX-88214',
         amount: '49.30',
         recordedByName: 'علي',
@@ -69,6 +70,7 @@ test('filters by every charge, every payment and discount, one type, or payment 
 test('search matches voucher numbers, banks, references and employee names', () => {
     assert.deepEqual(ids(filterStatementEntries(entries, { search: '000118' })), [2]);
     assert.deepEqual(ids(filterStatementEntries(entries, { search: 'بنك فلسطين' })), [3]);
+    assert.deepEqual(ids(filterStatementEntries(entries, { search: 'البنك الإسلامي الفلسطيني' })), [3]);
     assert.deepEqual(ids(filterStatementEntries(entries, { search: ' trx-88214 ' })), [3]);
     assert.deepEqual(ids(filterStatementEntries(entries, { search: 'MOHAMMED' })), [2]);
     assert.deepEqual(ids(filterStatementEntries(entries, { search: 'انقطاع' })), [4]);

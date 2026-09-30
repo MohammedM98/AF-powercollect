@@ -10,6 +10,7 @@ import InputError from '@/Components/InputError';
 export function meterBoxFormData(meterBox) {
     return {
         name: meterBox?.name ?? '',
+        name_suffix: meterBox?.name_suffix ?? '',
         box_number: meterBox?.box_number ?? '',
         branch_id: meterBox?.branch_id ?? '',
         sub_area_id: meterBox?.sub_area_id ?? '',
@@ -47,9 +48,32 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
     return (
         <>
             <div>
-                <InputLabel htmlFor="name" value="اسم الطبلون" />
-                <TextInput id="name" className="mt-1 block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
-                <InputError message={errors.name} className="mt-2" />
+                <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                        <InputLabel htmlFor="name" value="اسم الطبلون" />
+                        <TextInput id="name" className="mt-1 block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
+                        <InputError message={errors.name} className="mt-2" />
+                    </div>
+                    <div className="w-24 shrink-0">
+                        <InputLabel htmlFor="name_suffix" value="لاحقة (اختياري)" />
+                        <TextInput
+                            id="name_suffix"
+                            name="name_suffix"
+                            maxLength={50}
+                            placeholder="2 / 2A"
+                            dir="auto"
+                            className="mt-1 block w-full text-center"
+                            value={data.name_suffix}
+                            onChange={(e) => setData('name_suffix', e.target.value)}
+                        />
+                        <InputError message={errors.name_suffix} className="mt-2" />
+                    </div>
+                </div>
+                {data.name.trim() && (
+                    <p className="mt-2 text-sm text-gray-500">
+                        يظهر باسم: <bdi>{[data.name.trim(), data.name_suffix.trim()].filter(Boolean).join(' ')}{data.box_number && ` - (${data.box_number})`}</bdi>
+                    </p>
+                )}
             </div>
 
             <div className="mt-4">

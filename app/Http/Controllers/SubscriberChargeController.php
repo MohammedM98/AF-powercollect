@@ -12,7 +12,7 @@ use Illuminate\Http\RedirectResponse;
 class SubscriberChargeController extends Controller
 {
     /**
-     * Charge the subscriber a penalty or disconnection fee by hand; it
+     * Charge the subscriber a penalty, disconnection fee or subscription fee; it
      * raises the balance straight away.
      */
     public function store(StoreSubscriberChargeRequest $request, Subscriber $subscriber): RedirectResponse
@@ -22,7 +22,7 @@ class SubscriberChargeController extends Controller
 
         $request->user()->notify(new ActionCompleted(
             'charge-recorded',
-            sprintf('%s — %s %s شيكل', $subscriber->full_name, __($type->label()), SubscriberTransaction::formatAmount($charge->amount)),
+            sprintf('%s — %s %s شيكل', $subscriber->displayName(), __($type->label()), SubscriberTransaction::formatAmount($charge->amount)),
         ));
 
         return back()->with('status', 'charge-recorded');

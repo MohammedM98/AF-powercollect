@@ -14,6 +14,11 @@ enum PermissionKey: string
     case UpdateUsers = 'users.update';
     case DeleteUsers = 'users.delete';
 
+    case ViewUserTypes = 'user_types.view';
+    case CreateUserTypes = 'user_types.create';
+    case UpdateUserTypes = 'user_types.update';
+    case DeleteUserTypes = 'user_types.delete';
+
     case ViewSubscribers = 'subscribers.view';
     case CreateSubscribers = 'subscribers.create';
     case UpdateSubscribers = 'subscribers.update';
@@ -71,6 +76,10 @@ enum PermissionKey: string
             self::CreateUsers => 'Add Users',
             self::UpdateUsers => 'Edit Users',
             self::DeleteUsers => 'Delete Users',
+            self::ViewUserTypes => 'View User Types',
+            self::CreateUserTypes => 'Add User Types',
+            self::UpdateUserTypes => 'Edit User Types',
+            self::DeleteUserTypes => 'Delete User Types',
             self::ViewSubscribers => 'View Subscribers',
             self::CreateSubscribers => 'Add Subscribers',
             self::UpdateSubscribers => 'Edit Subscribers',
@@ -124,7 +133,8 @@ enum PermissionKey: string
         return match ($this) {
             self::ViewBranches, self::CreateBranches, self::UpdateBranches, self::DeleteBranches,
             self::ViewGovernorates, self::CreateGovernorates, self::UpdateGovernorates, self::DeleteGovernorates,
-            self::ViewAreas, self::CreateAreas, self::UpdateAreas, self::DeleteAreas => true,
+            self::ViewAreas, self::CreateAreas, self::UpdateAreas, self::DeleteAreas,
+            self::ViewUserTypes, self::CreateUserTypes, self::UpdateUserTypes, self::DeleteUserTypes => true,
             default => false,
         };
     }
@@ -148,6 +158,10 @@ enum PermissionKey: string
             'users' => [
                 'label' => 'Users',
                 'actions' => ['view' => self::ViewUsers, 'create' => self::CreateUsers, 'update' => self::UpdateUsers, 'delete' => self::DeleteUsers],
+            ],
+            'user_types' => [
+                'label' => 'User Types',
+                'actions' => ['view' => self::ViewUserTypes, 'create' => self::CreateUserTypes, 'update' => self::UpdateUserTypes, 'delete' => self::DeleteUserTypes],
             ],
             'subscribers' => [
                 'label' => 'Subscribers',

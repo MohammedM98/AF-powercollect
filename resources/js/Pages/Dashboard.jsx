@@ -80,7 +80,7 @@ function buildSubtitle(sections, scopedToBranch) {
     return null;
 }
 
-export default function Dashboard({ greeting, sections, scopedToBranch, auth, canCreateBranch, canCreateUser, branchForm, userForm }) {
+export default function Dashboard({ greeting, sections, scopedToBranch, auth, canCreateBranch, canCreateUser, branchForm, userForm, can }) {
     const [creating, setCreating] = useState(null);
     const sectionKeys = Object.keys(sections);
     const hasAnyData = sectionKeys.length > 0;
@@ -113,7 +113,10 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                         </h2>
                         {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
                     </div>
-                    <div className="shrink-0">
+                    <div className="flex shrink-0 items-center gap-3">
+                        {can?.viewUserTypes && (
+                            <Link href="/user-types" className="text-sm font-semibold text-brand-600 hover:underline">أنواع المستخدمين</Link>
+                        )}
                         {canCreateBranch ? (
                             <AddButton onClick={() => openCreateForm('branch')}>فرع جديد</AddButton>
                         ) : canCreateUser ? (
@@ -287,6 +290,7 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                     branches={userForm.branches}
                     canChooseBranch={userForm.canChooseBranch}
                     roleOptions={userForm.roleOptions}
+                    userTypeOptions={userForm.userTypeOptions}
                 />
             )}
         </AuthenticatedLayout>

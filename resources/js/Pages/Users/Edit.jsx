@@ -2,8 +2,8 @@ import FormPage from '@/Components/FormPage';
 import { useResourceForm } from '@/hooks/useResourceForm';
 import UserForm, { userFormData } from './UserForm';
 
-export default function Edit({ user, roleOptions, branches, canChooseBranch }) {
-    const form = useResourceForm('/users', user, userFormData(user, roleOptions));
+export default function Edit({ user, roleOptions, branches, canChooseBranch, userTypeOptions }) {
+    const form = useResourceForm('/users', user, userFormData(user));
 
     return (
         <FormPage title="تعديل المستخدم" form={form} cancelHref="/users">
@@ -13,6 +13,7 @@ export default function Edit({ user, roleOptions, branches, canChooseBranch }) {
                 errors={form.errors}
                 isEdit={form.isEdit}
                 roleOptions={roleOptions}
+                userTypeOptions={userTypeOptions}
                 branches={branches}
                 canChooseBranch={canChooseBranch}
             />

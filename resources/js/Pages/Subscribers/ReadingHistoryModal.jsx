@@ -52,7 +52,7 @@ export default function ReadingHistoryModal({ subscriber, onClose }) {
                         </span>
                         <div className="min-w-0">
                             <h3 id={titleId} className="text-xl font-bold text-gray-900">
-                                سجل قراءات {subscriber.full_name}
+                                سجل قراءات {subscriber.display_name}
                             </h3>
                             <p className="mt-0.5 text-sm text-gray-500">
                                 حساب <span dir="ltr">{subscriber.account_number}</span>

@@ -64,7 +64,7 @@ class MeterReadingController extends Controller
             ->withExists(['meterReadings as has_later_week' => fn ($q) => $q->whereDate('week_start', '>', $week)]);
 
         $this->withSheetColumns($query, $week);
-        $this->applyDataTableFilters($query, $request, ['full_name', 'account_number', 'phone'], self::SORTABLE, 'full_name');
+        $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'account_number', 'phone', 'subscription_phone'], self::SORTABLE, 'full_name');
         $query->orderBy('subscribers.id');
         $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
         $this->applySheetFilters($query, $request, $week);
@@ -137,7 +137,7 @@ class MeterReadingController extends Controller
             'notes' => $request->input('notes'),
         ]);
 
-        $request->user()->notify(new ActionCompleted('meter-reading-created', $subscriber->full_name));
+        $request->user()->notify(new ActionCompleted('meter-reading-created', $subscriber->displayName()));
 
         return back()->with('status', 'meter-reading-created');
     }
@@ -156,7 +156,7 @@ class MeterReadingController extends Controller
             $actor,
         );
 
-        $actor->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscriber->full_name));
+        $actor->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscriber->displayName()));
 
         if (! $wentBackToReview) {
             return back()->with('status', 'meter-reading-updated');
@@ -164,7 +164,7 @@ class MeterReadingController extends Controller
 
         Notification::send(
             $meterReading->approvers()->reject(fn (User $approver) => $approver->is($actor)),
-            new ReadingNeedsReapproval($meterReading->subscriber->full_name, $actor->name),
+            new ReadingNeedsReapproval($meterReading->subscriber->displayName(), $actor->name),
         );
 
         return back()->with('status', 'meter-reading-reopened');
@@ -238,7 +238,7 @@ class MeterReadingController extends Controller
     private function pendingInSheet(Request $request, User $actor, string $week): Builder
     {
         $subscribers = $this->subscribersInScope($actor);
-        $this->applyDataTableFilters($subscribers, $request, ['full_name', 'account_number', 'phone'], [], 'full_name');
+        $this->applyDataTableFilters($subscribers, $request, ['full_name', 'subscription_name', 'account_number', 'phone', 'subscription_phone'], [], 'full_name');
         $this->applyDataTableFilterSelects($subscribers, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
         $this->applySheetFilters($subscribers, $request, $week);
 
@@ -377,7 +377,7 @@ class MeterReadingController extends Controller
         return [
             'id' => $subscriber->id,
             'accountNumber' => $subscriber->account_number,
-            'fullName' => $subscriber->full_name,
+            'fullName' => $subscriber->displayName(),
             'meterBoxNumber' => $subscriber->meterBox?->box_number,
             'subAreaName' => $subscriber->meterBox?->subArea?->name,
             'previousReading' => $reading?->previous_reading ?? (float) ($lastBefore?->current_reading ?? $subscriber->initial_reading ?? 0),
@@ -425,7 +425,7 @@ class MeterReadingController extends Controller
 
         $groups[] = $this->filterGroup('meter_box_id', 'الطبلون', $this->modelOptions(
             MeterBox::query()->visibleTo($actor)->orderBy('box_number')->get(),
-            fn (MeterBox $box) => $box->name ? "{$box->box_number} — {$box->name}" : $box->box_number,
+            fn (MeterBox $box) => $box->label(),
         ));
 
         $groups[] = $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(

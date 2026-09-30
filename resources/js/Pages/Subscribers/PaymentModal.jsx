@@ -22,7 +22,7 @@ const QUICK_AMOUNTS = [50, 100, 200];
 const BANKS = {
     'بنك فلسطين': { logo: '/images/banks/bank-of-palestine.webp', color: '#b8007a', kind: 'تحويل بنكي' },
     'جوال باي': { logo: '/images/banks/jawwal-pay.webp', color: '#7cb342', kind: 'محفظة' },
-    'بال باي': { logo: '/images/banks/palpay.webp', color: '#9b30e0', kind: 'محفظة' },
+    'محفظة بالباي': { logo: '/images/banks/palpay.webp', color: '#9b30e0', kind: 'محفظة' },
 };
 
 const inputClass =
@@ -269,7 +269,8 @@ export default function PaymentModal({
                   payment_method: paymentMethods.some((method) => method.value === recorded.payment_method)
                       ? recorded.payment_method
                       : 'bank_transfer',
-                  bank_name: recorded.bank_name,
+                  bank_name: recorded.bank_name === 'بال باي' ? 'محفظة بالباي' : recorded.bank_name,
+                  sender_bank_name: recorded.sender_bank_name ?? '',
                   sender_name: recorded.sender_name || subscriber.fullName,
                   reference_number: recorded.reference_number,
                   cash_box: recorded.cash_box,
@@ -283,6 +284,7 @@ export default function PaymentModal({
                   exchange_rate: '',
                   payment_method: 'bank_transfer',
                   bank_name: '',
+                  sender_bank_name: '',
                   // Who the transfer came from: the subscriber unless someone else paid.
                   sender_name: subscriber.fullName,
                   reference_number: '',
@@ -304,7 +306,11 @@ export default function PaymentModal({
     const symbol = CURRENCY_SYMBOLS[data.currency] ?? data.currency;
     const owed = Number(balance) > 0 ? Number(balance) : 0;
     const rate = isShekel ? 1 : Number(data.exchange_rate);
-    const methodText = throughBank ? (data.bank_name ? `تحويل · ${data.bank_name}` : 'تحويل بنكي') : 'نقد';
+    const methodText = throughBank
+        ? data.bank_name
+            ? `تحويل ${data.sender_bank_name ? `من ${data.sender_bank_name} ` : ''}إلى ${data.bank_name}`
+            : 'تحويل بنكي'
+        : 'نقد';
     const sortedCurrencies = [...currencies].sort((a, b) => rank(a.value) - rank(b.value));
     const methods = ['bank_transfer', 'cash'].filter((method) => paymentMethods.some((option) => option.value === method));
     const detailErrors = Boolean(errors.notes);
@@ -618,9 +624,9 @@ export default function PaymentModal({
                                         <div className="animate-menu mt-3 grid gap-4 rounded-[20px] border border-gray-100 bg-gray-50 p-4">
                                             <fieldset>
                                                 <legend className="mb-2 text-[14.5px] font-semibold text-gray-700">
-                                                    البنك أو المحفظة <span className="text-brand-600">*</span>
+                                                    البنك المستلم (إلى) <span className="text-brand-600">*</span>
                                                 </legend>
-                                                <div className="grid grid-cols-3 gap-2.5">
+                                                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                                                     {transferBanks.map((bank) => (
                                                         <BankTile
                                                             key={bank}
@@ -632,6 +638,25 @@ export default function PaymentModal({
                                                 </div>
                                                 <InputError message={errors.bank_name} className="mt-2" />
                                             </fieldset>
+
+                                            <div>
+                                                <FieldLabel htmlFor="sender_bank_name" hint="اختياري">
+                                                    البنك المحوّل منه (من)
+                                                </FieldLabel>
+                                                <select
+                                                    id="sender_bank_name"
+                                                    name="sender_bank_name"
+                                                    value={data.sender_bank_name}
+                                                    onChange={(e) => setData('sender_bank_name', e.target.value)}
+                                                    className={inputClass}
+                                                >
+                                                    <option value="">اختر البنك أو المحفظة المحوّل منها</option>
+                                                    {transferBanks.map((bank) => (
+                                                        <option key={bank} value={bank}>{bank}</option>
+                                                    ))}
+                                                </select>
+                                                <InputError message={errors.sender_bank_name} className="mt-2" />
+                                            </div>
 
                                             <div className="grid gap-4 sm:grid-cols-2">
                                                 <div>
@@ -680,7 +705,7 @@ export default function PaymentModal({
                                     )}
 
                                     {!throughBank && (
-                                        <div className="animate-menu mt-3 grid gap-4 rounded-[20px] border border-gray-100 bg-gray-50 p-4 sm:grid-cols-2">
+                                        <div className="animate-menu mt-3 grid gap-4 rounded-[20px] border border-gray-100 bg-gray-50 p-4">
                                             <div>
                                                 <FieldLabel htmlFor="manual_voucher_number" hint="رقم الوصل الورقي">
                                                     رقم السند اليدوي
@@ -696,21 +721,6 @@ export default function PaymentModal({
                                                     className={`${inputClass} text-end font-display`}
                                                 />
                                                 <InputError message={errors.manual_voucher_number} className="mt-2" />
-                                            </div>
-                                            <div>
-                                                <FieldLabel htmlFor="cash_box" hint="الصندوق الذي استلم المبلغ">
-                                                    رقم الصندوق
-                                                </FieldLabel>
-                                                <input
-                                                    id="cash_box"
-                                                    name="cash_box"
-                                                    dir="ltr"
-                                                    autoComplete="off"
-                                                    value={data.cash_box}
-                                                    onChange={(e) => setData('cash_box', e.target.value)}
-                                                    className={`${inputClass} text-end font-display`}
-                                                />
-                                                <InputError message={errors.cash_box} className="mt-2" />
                                             </div>
                                         </div>
                                     )}

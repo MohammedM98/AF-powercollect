@@ -65,9 +65,10 @@ class SubscriberChargesAndDiscountsTest extends TestCase
         $this->actingAs($this->branchAdmin)
             ->get(route('subscribers.statement', $this->subscriber))
             ->assertInertia(fn ($page) => $page
-                ->has('chargeTypes', 2)
+                ->has('chargeTypes', 3)
                 ->where('chargeTypes.0', ['value' => 'penalty', 'label' => 'غرامة مالية', 'usualAmount' => null, 'needsReason' => true])
-                ->where('chargeTypes.1', ['value' => 'disconnection_fee', 'label' => 'رسوم قطع الخدمة', 'usualAmount' => 50, 'needsReason' => false]));
+                ->where('chargeTypes.1', ['value' => 'disconnection_fee', 'label' => 'رسوم قطع الخدمة', 'usualAmount' => 50, 'needsReason' => false])
+                ->where('chargeTypes.2', ['value' => 'subscription_fee', 'label' => 'رسوم اشتراك', 'usualAmount' => null, 'needsReason' => false]));
     }
 
     public function test_a_clearing_takes_the_value_of_the_subscribers_service_off_what_they_owe(): void

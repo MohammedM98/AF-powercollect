@@ -46,6 +46,7 @@ class StoreSubscriberPaymentRequest extends FormRequest
             'exchange_rate' => ['exclude_if:currency,'.Currency::Shekel->value, 'required', 'numeric', 'decimal:0,4', 'gt:0', 'max:1000'],
             'payment_method' => ['required', Rule::enum(PaymentMethod::class)->only(PaymentMethod::offered())],
             'bank_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'required', Rule::in(config('powercollect.transfer_banks'))],
+            'sender_bank_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'nullable', Rule::in(config('powercollect.transfer_banks'))],
             'sender_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'required', 'string', 'max:255'],
             'reference_number' => ['exclude_if:payment_method,'.PaymentMethod::Cash->value, Rule::requiredIf($throughBank), 'nullable', 'string', 'max:100'],
             'cash_box' => ['exclude_unless:payment_method,'.PaymentMethod::Cash->value, 'nullable', 'string', 'max:20'],
@@ -70,6 +71,7 @@ class StoreSubscriberPaymentRequest extends FormRequest
         return [
             'bank_name.required' => 'اختر البنك أو المحفظة التي حُوّل إليها المبلغ.',
             'bank_name.in' => 'اختر أحد البنوك أو المحافظ المتاحة.',
+            'sender_bank_name.in' => 'اختر أحد البنوك أو المحافظ المتاحة للتحويل منه.',
             'sender_name.required' => 'أدخل اسم صاحب الحساب الذي حُوّل منه المبلغ.',
         ];
     }

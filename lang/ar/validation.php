@@ -184,6 +184,7 @@ return [
         'minimum_charge' => 'الحد الادنى',
         'initial_reading' => 'القراءة السابقة',
         'subscription_fee' => 'رسوم الاشتراك',
+        'user_type_id' => 'نوع المستخدم',
         'subscription_date' => 'تاريخ الاشتراك',
         'notes' => 'معلومات أخرى',
         'category' => 'الفئة',

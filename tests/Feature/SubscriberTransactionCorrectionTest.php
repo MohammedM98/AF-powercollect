@@ -140,6 +140,38 @@ class SubscriberTransactionCorrectionTest extends TestCase
                 ->where('summary.balance', '140.00'));
     }
 
+    public function test_correcting_a_transfer_preserves_the_original_bank_pair_and_prefills_the_replacement_pair(): void
+    {
+        $payment = $this->recordPayment([
+            ...$this->transfer('25'),
+            'sender_bank_name' => 'جوال باي',
+        ]);
+
+        $this->correct($payment, [
+            ...$this->transfer('30'),
+            'bank_name' => 'البنك الإسلامي الفلسطيني',
+            'sender_bank_name' => 'البنك الوطني الإسلامي',
+            'correction_reason' => 'wrong_amount',
+            'correction_notes' => 'تصحيح المبلغ والبنك',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('جوال باي', $payment->fresh()->sender_bank_name);
+        $this->assertSame('البنك الوطني الإسلامي', $payment->fresh()->correction->sender_bank_name);
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.1.bankName', 'بنك فلسطين')
+                ->where('entries.1.senderBankName', 'جوال باي')
+                ->where('entries.2.isReversal', true)
+                ->where('entries.2.bankName', 'بنك فلسطين')
+                ->where('entries.2.senderBankName', 'جوال باي')
+                ->where('entries.3.bankName', 'البنك الإسلامي الفلسطيني')
+                ->where('entries.3.senderBankName', 'البنك الوطني الإسلامي')
+                ->where('entries.3.recorded.bank_name', 'البنك الإسلامي الفلسطيني')
+                ->where('entries.3.recorded.sender_bank_name', 'البنك الوطني الإسلامي'));
+    }
+
     public function test_correcting_a_charge_a_discount_and_a_clearing_records_the_right_ones(): void
     {
         $charge = SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::Penalty, '50', 'تأخير');
@@ -157,6 +189,19 @@ class SubscriberTransactionCorrectionTest extends TestCase
         $this->assertSame(['discount', '-35.00'], [$discount->correction->type, $discount->correction->amount]);
         $this->assertSame(['clearing', '-70.00', 'صيانة المولد والكوابل'], [$clearing->correction->type, $clearing->correction->amount, $clearing->correction->notes]);
         $this->assertSame(135.0, $this->subscriber->balance());
+    }
+
+    public function test_a_subscription_fee_recorded_later_can_be_corrected_with_an_audit_trail(): void
+    {
+        $charge = SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::SubscriptionFee, '50', null);
+
+        $this->correct($charge, ['type' => 'subscription_fee', 'amount' => '40', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'الرسوم 40'])
+            ->assertSessionHasNoErrors()->assertSessionHas('status', 'transaction-corrected');
+
+        $this->assertTrue($charge->fresh()->isCancelled());
+        $this->assertDatabaseHas('subscriber_transactions', ['corrects_id' => $charge->id, 'type' => 'subscription_fee', 'amount' => '40.00']);
+        $this->assertDatabaseHas('subscriber_transactions', ['reverses_id' => $charge->id, 'type' => 'reversal', 'amount' => '-50.00']);
+        $this->assertSame(240.0, $this->subscriber->balance());
     }
 
     public function test_a_corrected_discount_is_checked_against_the_balance_without_the_one_it_replaces(): void

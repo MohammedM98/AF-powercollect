@@ -14,7 +14,7 @@ import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import UserModal from './UserModal';
 
-export default function Index({ users, canCreate, branches, canChooseBranch, createRoleOptions, filters, filterOptions }) {
+export default function Index({ users, canCreate, branches, canChooseBranch, createRoleOptions, filters, filterOptions, userTypeOptions }) {
     const [modalUser, setModalUser] = useState(null);
     const [creating, setCreating] = useState(false);
     const rowClick = useRowClick();
@@ -57,6 +57,7 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
                             <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
                             <SortableTh column="username" label="اسم المستخدم" sortState={filters} onSort={sort} />
                             <SortableTh column="role" label="الدور" sortState={filters} onSort={sort} />
+                            <th>نوع المستخدم</th>
                             <th>الفرع</th>
                             <SortableTh column="is_active" label="الحالة" sortState={filters} onSort={sort} />
                             <th></th>
@@ -65,7 +66,7 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
                     <tbody>
                         {users.data.length === 0 ? (
                             <tr>
-                                <td className="text-gray-500" colSpan={6}>
+                                <td className="text-gray-500" colSpan={7}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
@@ -79,6 +80,7 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
                                         {user.username}
                                     </td>
                                     <td className="text-gray-600">{user.roleLabel}</td>
+                                    <td className="text-gray-600">{user.userTypeName ?? '—'}</td>
                                     <td className="text-gray-600">{user.branchName ?? '—'}</td>
                                     <td>
                                         <StatusPill tone={user.is_active ? 'green' : 'gray'} label={user.is_active ? 'نشط' : 'متوقف'} />
@@ -107,6 +109,7 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
                 branches={branches}
                 canChooseBranch={canChooseBranch}
                 roleOptions={createRoleOptions}
+                userTypeOptions={userTypeOptions}
             />
 
             {/* Keyed by user id so switching who's being edited remounts the
@@ -122,6 +125,7 @@ export default function Index({ users, canCreate, branches, canChooseBranch, cre
                     branches={branches}
                     canChooseBranch={canChooseBranch}
                     roleOptions={modalUser.roleOptions}
+                    userTypeOptions={userTypeOptions}
                 />
             )}
 

@@ -156,6 +156,47 @@ class SubscriberStatementTest extends TestCase
         $this->assertSame('دفعة بتحويل بنكي من محمود سالم', $transfer->description());
     }
 
+    #[TestWith(['بنك فلسطين'])]
+    #[TestWith(['محفظة بالباي'])]
+    #[TestWith(['جوال باي'])]
+    #[TestWith(['البنك الإسلامي الفلسطيني'])]
+    #[TestWith(['البنك الوطني الإسلامي'])]
+    public function test_each_offered_bank_can_be_a_transfer_source_and_destination(string $bank): void
+    {
+        $this->recordPayment([
+            'payment_method' => 'bank_transfer',
+            'bank_name' => $bank,
+            'sender_bank_name' => $bank,
+            'sender_name' => 'Ahmad',
+            'reference_number' => 'TR-1',
+        ])->assertSessionHasNoErrors();
+
+        $transfer = SubscriberTransaction::sole();
+        $this->assertSame($bank, $transfer->bank_name);
+        $this->assertSame($bank, $transfer->sender_bank_name);
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('transferBanks', config('powercollect.transfer_banks'))
+                ->where('entries.0.bankName', $bank)
+                ->where('entries.0.senderBankName', $bank)
+                ->where('entries.0.recorded.sender_bank_name', $bank));
+    }
+
+    public function test_a_transfer_rejects_an_unlisted_source_bank(): void
+    {
+        $this->recordPayment([
+            'payment_method' => 'bank_transfer',
+            'bank_name' => 'بنك فلسطين',
+            'sender_bank_name' => 'بنك القاهرة',
+            'sender_name' => 'Ahmad',
+            'reference_number' => 'TR-1',
+        ])->assertSessionHasErrors('sender_bank_name');
+
+        $this->assertDatabaseCount('subscriber_transactions', 0);
+    }
+
     public function test_a_recorded_payment_hands_its_form_the_voucher_number_and_the_balance_it_left(): void
     {
         SubscriberTransaction::factory()->for($this->subscriber)->create(['amount' => '50.00', 'recorded_by' => $this->branchAdmin->id]);
@@ -171,10 +212,12 @@ class SubscriberStatementTest extends TestCase
 
     public function test_a_cash_payment_keeps_no_sender(): void
     {
-        $this->recordPayment(['payment_method' => 'cash', 'sender_name' => 'محمود سالم'])->assertSessionHasNoErrors();
+        $this->recordPayment(['payment_method' => 'cash', 'sender_name' => 'محمود سالم', 'bank_name' => 'بنك فلسطين', 'sender_bank_name' => 'جوال باي'])->assertSessionHasNoErrors();
 
         $payment = SubscriberTransaction::sole();
         $this->assertNull($payment->sender_name);
+        $this->assertNull($payment->bank_name);
+        $this->assertNull($payment->sender_bank_name);
         $this->assertSame('دفعة نقدية', $payment->description());
     }
 

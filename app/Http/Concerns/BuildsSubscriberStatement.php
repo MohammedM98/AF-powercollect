@@ -82,15 +82,16 @@ trait BuildsSubscriberStatement
         return [
             'subscriber' => [
                 'id' => $subscriber->id,
-                'fullName' => $subscriber->full_name,
+                'fullName' => $subscriber->displayName(),
                 'accountNumber' => $subscriber->account_number,
-                'phone' => $subscriber->phone,
+                'phone' => $subscriber->contactPhone(),
                 'branchName' => $subscriber->branch->name,
                 'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
                 'tariffSegmentName' => $subscriber->tariffSegment?->name,
                 'meterBoxNumber' => $subscriber->meterBox?->box_number,
                 'kiloPrice' => $subscriber->tariff->rate,
                 'minimumPayment' => $subscriber->weeklyMinimumPayment(),
+                'subscriptionFee' => $subscriber->subscription_fee,
                 // The discount form's worked example uses the last week read.
                 'lastConsumption' => $subscriber->latestMeterReading?->consumption,
                 // Giving or stopping a standing discount rebills this reading at once.
@@ -212,6 +213,7 @@ trait BuildsSubscriberStatement
             'paymentMethod' => $transaction->payment_method?->value,
             'paymentMethodLabel' => $transaction->payment_method ? __($transaction->payment_method->label()) : null,
             'bankName' => $receipt->bank_name,
+            'senderBankName' => $receipt->sender_bank_name,
             'referenceNumber' => $receipt->reference_number,
             'cashBox' => $receipt->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
@@ -261,6 +263,7 @@ trait BuildsSubscriberStatement
                 'exchange_rate' => $transaction->currency === Currency::Shekel ? '' : rtrim(rtrim($transaction->exchange_rate, '0'), '.'),
                 'payment_method' => $transaction->payment_method?->value,
                 'bank_name' => $transaction->bank_name ?? '',
+                'sender_bank_name' => $transaction->sender_bank_name ?? '',
                 'sender_name' => $transaction->sender_name ?? '',
                 'reference_number' => $transaction->reference_number ?? '',
                 'cash_box' => $transaction->cash_box ?? '',

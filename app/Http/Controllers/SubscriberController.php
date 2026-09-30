@@ -31,7 +31,7 @@ class SubscriberController extends Controller
 {
     use BuildsSubscriberStatement, DeletesRecords, FiltersDataTable;
 
-    private const SORTABLE = ['account_number', 'full_name', 'status', 'created_at'];
+    private const SORTABLE = ['account_number', 'full_name', 'display_name', 'status', 'created_at'];
 
     /**
      * Display a listing of the resource.
@@ -43,10 +43,13 @@ class SubscriberController extends Controller
         $actor = auth()->user();
 
         $query = Subscriber::query()
+            ->select('subscribers.*')
+            ->selectRaw("COALESCE(NULLIF(subscription_name, ''), full_name) as display_name")
             ->visibleTo($actor)
             ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'tariffSegment', 'circuitBreaker', 'standingDiscount', 'registeredBy', 'meterReadings.recordedBy'])
+            ->with(['profile' => fn ($query) => $query->withCount(['subscriptions' => fn ($subscriptions) => $subscriptions->visibleTo($actor)])])
             ->withSum('transactions as outstanding_balance', 'amount');
-        $this->applyDataTableFilters($query, $request, ['full_name', 'phone', 'account_number'], self::SORTABLE, 'full_name');
+        $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'phone', 'subscription_phone', 'account_number'], self::SORTABLE, 'display_name');
         $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'tariff_segment_id', 'meter_box_id']);
 
         $canRecordReadings = $actor->can('create', MeterReading::class);
@@ -59,7 +62,7 @@ class SubscriberController extends Controller
             'subscribers' => $subscribers,
             'canCreate' => $actor->can('create', Subscriber::class),
             'canRecordReadings' => $canRecordReadings,
-            'filters' => $this->dataTableState($request, 'full_name'),
+            'filters' => $this->dataTableState($request, 'display_name'),
             'filterOptions' => $this->filterOptions($actor),
             // Only the Super Admin may enter a reading for an earlier week.
             'readingWeekOptions' => MeterReading::recentWeekOptions($actor->isSuperAdmin() ? 8 : 1),
@@ -84,7 +87,9 @@ class SubscriberController extends Controller
     public function store(StoreSubscriberRequest $request): RedirectResponse
     {
         $actor = auth()->user();
-        $data = $request->validated();
+        $data = $request->safe()->except(['charge_subscription_fee', 'source_subscriber_id']);
+        $chargeSubscriptionFee = $request->boolean('charge_subscription_fee');
+        $sourceSubscriber = $request->sourceSubscriber();
 
         if (! $actor->isSuperAdmin()) {
             $data['branch_id'] = $actor->branch_id;
@@ -93,10 +98,17 @@ class SubscriberController extends Controller
         $data['registered_by'] = $actor->id;
         $data = $this->enforceMinimumChargePermission($actor, $data);
 
-        DB::transaction(function () use ($data, $actor): void {
-            $subscriber = Subscriber::create($data);
+        $subscriber = DB::transaction(function () use ($data, $actor, $chargeSubscriptionFee, $sourceSubscriber): Subscriber {
+            $subscriber = new Subscriber($data);
 
-            if ($subscriber->subscription_fee !== null && (float) $subscriber->subscription_fee > 0) {
+            if ($sourceSubscriber !== null) {
+                $profile = $sourceSubscriber->profile()->lockForUpdate()->firstOrFail();
+                $subscriber->profile()->associate($profile);
+            }
+
+            $subscriber->save();
+
+            if ($chargeSubscriptionFee && $subscriber->subscription_fee !== null && (float) $subscriber->subscription_fee > 0) {
                 $subscriber->transactions()->create([
                     'recorded_by' => $actor->id,
                     'type' => SubscriberTransaction::TYPE_SUBSCRIPTION_FEE,
@@ -105,9 +117,11 @@ class SubscriberController extends Controller
                     'currency_amount' => $subscriber->subscription_fee,
                 ]);
             }
+
+            return $subscriber;
         });
 
-        $actor->notify(new ActionCompleted('subscriber-created', $data['full_name']));
+        $actor->notify(new ActionCompleted('subscriber-created', $subscriber->displayName()));
 
         return redirect()->route('subscribers.index')->with('status', 'subscriber-created');
     }
@@ -120,7 +134,10 @@ class SubscriberController extends Controller
         $this->authorize('update', $subscriber);
 
         return Inertia::render('Subscribers/Edit', [
-            'subscriber' => $this->editableFields($subscriber),
+            'subscriber' => [
+                ...$this->editableFields($subscriber),
+                'subscriptionCount' => $subscriber->profile->subscriptions()->visibleTo(auth()->user())->count(),
+            ],
             ...$this->formOptions(),
         ]);
     }
@@ -133,8 +150,11 @@ class SubscriberController extends Controller
         $data = $request->validated();
         $data = $this->enforceMinimumChargePermission(auth()->user(), $data, $subscriber);
 
-        $subscriber->update($data);
-        $request->user()->notify(new ActionCompleted('subscriber-updated', $subscriber->full_name));
+        DB::transaction(function () use ($subscriber, $data): void {
+            $subscriber->profile()->lockForUpdate()->firstOrFail();
+            $subscriber->update($data);
+        });
+        $request->user()->notify(new ActionCompleted('subscriber-updated', $subscriber->displayName()));
 
         return redirect()->route('subscribers.index')->with('status', 'subscriber-updated');
     }
@@ -144,7 +164,7 @@ class SubscriberController extends Controller
      */
     public function destroy(Request $request, Subscriber $subscriber): RedirectResponse
     {
-        return $this->deleteRecord($request, $subscriber, 'subscriber-deleted', $subscriber->full_name, fn () => $subscriber->deleteWithSubscriptionFee());
+        return $this->deleteRecord($request, $subscriber, 'subscriber-deleted', $subscriber->displayName(), fn () => $subscriber->deleteWithSubscriptionFee());
     }
 
     /**
@@ -173,6 +193,8 @@ class SubscriberController extends Controller
             'statusLabel' => __($subscriber->status->label()),
             'registeredByName' => $subscriber->registeredBy?->name,
             'outstandingBalance' => $subscriber->outstanding_balance ?? '0.00',
+            'weeklyMinimumPayment' => $subscriber->weeklyMinimumPayment(),
+            'subscriptionCount' => $subscriber->profile?->subscriptions_count ?? 1,
             'meterReadings' => $readings->map(fn (MeterReading $reading) => $this->statementReading($reading, $actor)),
             'lastReading' => (float) ($latestReading?->current_reading ?? $subscriber->initial_reading ?? 0),
             'lastReadingWeekStart' => $latestReading?->week_start->format('Y-m-d'),
@@ -259,8 +281,12 @@ class SubscriberController extends Controller
             'id' => $subscriber->id,
             'account_number' => $subscriber->account_number,
             'full_name' => $subscriber->full_name,
+            'subscription_name' => $subscriber->subscription_name,
+            'display_name' => $subscriber->displayName(),
             'national_id' => $subscriber->national_id,
             'phone' => $subscriber->phone,
+            'subscription_phone' => $subscriber->subscription_phone,
+            'contact_phone' => $subscriber->contactPhone(),
             'address' => $subscriber->address,
             'meter_box_id' => $subscriber->meter_box_id,
             'tariff_id' => $subscriber->tariff_id,
@@ -301,6 +327,8 @@ class SubscriberController extends Controller
                 'id' => $box->id,
                 'name' => $box->name,
                 'box_number' => $box->box_number,
+                'name_suffix' => $box->name_suffix,
+                'label' => $box->label(),
                 'branchName' => $box->branch->name,
                 'branch_id' => $box->branch_id,
                 'sub_area_id' => $box->sub_area_id,
@@ -349,7 +377,7 @@ class SubscriberController extends Controller
             )),
             $this->filterGroup('meter_box_id', 'الطبلون', $this->modelOptions(
                 $meterBoxes,
-                fn (MeterBox $box) => $actor->isSuperAdmin() ? "{$box->box_number} — {$box->branch->name}" : $box->box_number,
+                fn (MeterBox $box) => $actor->isSuperAdmin() ? $box->label()." — {$box->branch->name}" : $box->label(),
             )),
         ];
 

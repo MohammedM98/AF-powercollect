@@ -25,6 +25,7 @@ use App\Http\Controllers\SubscriberTransactionController;
 use App\Http\Controllers\TariffController;
 use App\Http\Controllers\TariffSegmentController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserTypeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -43,6 +44,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/branch-performance/{branch}', [BranchPerformanceController::class, 'show'])->name('branch-performance.show');
 
     Route::resource('branches', BranchController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+    Route::resource('user-types', UserTypeController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('/subscribers/{subscriber}/statement', [SubscriberStatementController::class, 'show'])->name('subscribers.statement');

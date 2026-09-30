@@ -347,7 +347,12 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                             {entry.referenceNumber ? <span dir="ltr">{entry.referenceNumber}</span> : <Dash />}
                                         </td>
                                         <td data-label="البنك" className="text-gray-700">
-                                            {entry.bankName ?? <Dash />}
+                                            {entry.bankName ? (
+                                                <div className="grid gap-1">
+                                                    {entry.senderBankName && <span>من: {entry.senderBankName}</span>}
+                                                    <span>إلى: {entry.bankName}</span>
+                                                </div>
+                                            ) : <Dash />}
                                         </td>
                                         <td data-label="تاريخ الحركة" className="tabular-nums text-gray-600">
                                             <span dir="ltr">{entry.date}</span>

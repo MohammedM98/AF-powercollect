@@ -34,7 +34,7 @@ class SubscriberStandingDiscountController extends Controller
             return $discount;
         });
 
-        $request->user()->notify(new ActionCompleted('standing-discount-saved', $subscriber->full_name.' — '.$discount->summary()));
+        $request->user()->notify(new ActionCompleted('standing-discount-saved', $subscriber->displayName().' — '.$discount->summary()));
 
         return back()->with('status', 'standing-discount-saved');
     }
@@ -58,7 +58,7 @@ class SubscriberStandingDiscountController extends Controller
         });
 
         if ($stopped) {
-            $request->user()->notify(new ActionCompleted('standing-discount-stopped', $subscriber->full_name));
+            $request->user()->notify(new ActionCompleted('standing-discount-stopped', $subscriber->displayName()));
         }
 
         return back()->with('status', 'standing-discount-stopped');

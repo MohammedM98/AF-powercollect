@@ -20,7 +20,7 @@ class SubscriberClearingController extends Controller
 
         $request->user()->notify(new ActionCompleted(
             'clearing-recorded',
-            sprintf('%s — مقاصة %s شيكل', $subscriber->full_name, SubscriberTransaction::formatAmount(ltrim($clearing->amount, '-'))),
+            sprintf('%s — مقاصة %s شيكل', $subscriber->displayName(), SubscriberTransaction::formatAmount(ltrim($clearing->amount, '-'))),
         ));
 
         return back()->with('status', 'clearing-recorded');

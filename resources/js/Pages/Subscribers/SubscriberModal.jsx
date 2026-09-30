@@ -6,6 +6,7 @@ export default function SubscriberModal({
     show,
     onClose,
     subscriber,
+    sourceSubscriber = null,
     branches,
     meterBoxes,
     tariffs,
@@ -16,14 +17,14 @@ export default function SubscriberModal({
     currentBranchAreaName,
     canEditMinimumCharge,
 }) {
-    const form = useResourceForm('/subscribers', subscriber, subscriberFormData(subscriber));
+    const form = useResourceForm('/subscribers', subscriber, subscriberFormData(subscriber, sourceSubscriber));
 
     return (
         <FormModal
             show={show}
             onClose={onClose}
             form={form}
-            title={form.isEdit ? 'تعديل المشترك' : 'إنشاء مشترك'}
+            title={form.isEdit ? 'تعديل المشترك' : sourceSubscriber ? 'إضافة اشتراك' : 'إنشاء مشترك'}
             icon="user"
             maxWidth="5xl"
             bodyClassName="bg-gray-50"
@@ -42,6 +43,9 @@ export default function SubscriberModal({
                 currentBranchAreaId={currentBranchAreaId}
                 currentBranchAreaName={currentBranchAreaName}
                 canEditMinimumCharge={canEditMinimumCharge}
+                sharedPersonalDetails={Boolean(sourceSubscriber)}
+                isEdit={form.isEdit}
+                subscriptionCount={subscriber?.subscriptionCount ?? 1}
             />
         </FormModal>
     );

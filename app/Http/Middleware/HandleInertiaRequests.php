@@ -14,6 +14,7 @@ use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\Tariff;
 use App\Models\User;
+use App\Models\UserType;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
 use Inertia\Middleware;
@@ -67,6 +68,7 @@ class HandleInertiaRequests extends Middleware
                 'viewSubscribers' => $user->can('viewAny', Subscriber::class),
                 'viewLedger' => $user->can('viewAny', SubscriberTransaction::class),
                 'viewUsers' => $user->can('viewAny', User::class),
+                'viewUserTypes' => $user->can('viewAny', UserType::class),
                 'viewTariffs' => $user->can('viewAny', Tariff::class),
                 'viewCircuitBreakers' => $user->can('viewAny', CircuitBreaker::class),
                 'viewMeterBoxes' => $user->can('viewAny', MeterBox::class),

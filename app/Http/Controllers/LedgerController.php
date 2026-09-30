@@ -117,7 +117,9 @@ class LedgerController extends Controller
                 ->when($branchId, fn (Builder $query) => $query->where('branch_id', $branchId))
                 ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
                     ->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('subscription_name', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('subscription_phone', 'like', "%{$search}%")
                     ->orWhere('account_number', 'like', "%{$search}%"))))
             ->when($type === self::DEBIT, fn (Builder $query) => $query->charges())
             ->when($type === self::CREDIT, fn (Builder $query) => $query->credits())
@@ -256,9 +258,9 @@ class LedgerController extends Controller
             'day' => DailySeries::localDate($transaction->created_at),
             'time' => DailySeries::localTime($transaction->created_at),
             'subscriberId' => $transaction->subscriber_id,
-            'subscriberName' => $transaction->subscriber->full_name,
+            'subscriberName' => $transaction->subscriber->displayName(),
             'subscriberAccountNumber' => $transaction->subscriber->account_number,
-            'subscriberPhone' => $transaction->subscriber->phone,
+            'subscriberPhone' => $transaction->subscriber->contactPhone(),
             'subscriberStatus' => $transaction->subscriber->status->value,
             'subscriberStatusLabel' => __($transaction->subscriber->status->label()),
             'branchName' => $transaction->subscriber->branch->name,

@@ -6,7 +6,7 @@ use App\Enums\Concerns\HasOptions;
 
 /**
  * A charge (تحميل) recorded by hand on a subscriber's account. Weekly
- * readings and the subscription fee are charged on their own. A clearing
+ * readings are charged on their own. A clearing
  * (مقاصة) is in the subscriber's favour, so it is not a charge.
  */
 enum ChargeType: string
@@ -15,12 +15,14 @@ enum ChargeType: string
 
     case Penalty = 'penalty';
     case DisconnectionFee = 'disconnection_fee';
+    case SubscriptionFee = 'subscription_fee';
 
     public function label(): string
     {
         return match ($this) {
             self::Penalty => 'Financial Penalty',
             self::DisconnectionFee => 'Service Disconnection Fee',
+            self::SubscriptionFee => 'Subscription fee',
         };
     }
 

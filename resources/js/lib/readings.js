@@ -62,7 +62,7 @@ export function weeklyCharges(consumption, unitPrice, minimumPayment, discount =
 export function readingOptionFor(subscriber) {
     return {
         value: String(subscriber.id),
-        label: `${subscriber.account_number} — ${subscriber.full_name}`,
+        label: `${subscriber.account_number} — ${(subscriber.display_name ?? subscriber.full_name)}`,
         lastReading: subscriber.lastReading,
         lastWeekStart: subscriber.lastReadingWeekStart,
     };

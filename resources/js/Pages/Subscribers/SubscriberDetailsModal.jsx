@@ -71,7 +71,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, on
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                         <h3 id={`${tabsId}-title`} className="truncate text-lg font-bold text-gray-900">
-                                            {subscriber.full_name}
+                                            {subscriber.display_name}
                                         </h3>
                                         <StatusPill tone={STATUS_TONES[subscriber.status]} label={subscriber.statusLabel} />
                                     </div>
@@ -161,9 +161,10 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, on
                             >
                                 <Section title="بيانات المشترك">
                                     <Field label="رقم المشترك" value={subscriber.account_number} />
-                                    <Field label="الاسم" value={subscriber.full_name} />
+                                    <Field label="اسم الاشتراك" value={subscriber.display_name} />
+                                    <Field label="الاسم الشخصي" value={subscriber.full_name} />
                                     <Field label="رقم الهوية" value={subscriber.national_id} />
-                                    <Field label="رقم الجوال" value={subscriber.phone} />
+                                    <Field label="رقم الجوال" value={subscriber.contact_phone} />
                                     <Field label="الحالة" value={subscriber.statusLabel} />
                                 </Section>
 

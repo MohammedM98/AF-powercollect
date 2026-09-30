@@ -3,6 +3,9 @@
  * the `action` of the user's recent activity under the bell).
  */
 export const ACTION_MESSAGES = {
+    'user-type-created': 'تم إنشاء نوع المستخدم بنجاح.',
+    'user-type-updated': 'تم تحديث نوع المستخدم بنجاح.',
+    'user-type-deleted': 'تم حذف نوع المستخدم بنجاح.',
     'user-created': 'تم إنشاء المستخدم بنجاح.',
     'user-updated': 'تم تحديث المستخدم بنجاح.',
     'subscriber-created': 'تم إنشاء المشترك بنجاح.',

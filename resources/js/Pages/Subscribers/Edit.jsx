@@ -32,6 +32,8 @@ export default function Edit({
                 currentBranchAreaId={currentBranchAreaId}
                 currentBranchAreaName={currentBranchAreaName}
                 canEditMinimumCharge={canEditMinimumCharge}
+                subscriptionCount={subscriber.subscriptionCount}
+                isEdit
             />
         </FormPage>
     );

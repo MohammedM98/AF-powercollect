@@ -22,7 +22,7 @@ class SubscriberPaymentController extends Controller
 
         $request->user()->notify(new ActionCompleted(
             'payment-recorded',
-            sprintf('%s — %s شيكل', $subscriber->full_name, SubscriberTransaction::formatAmount(ltrim($payment->amount, '-'))),
+            sprintf('%s — %s شيكل', $subscriber->displayName(), SubscriberTransaction::formatAmount(ltrim($payment->amount, '-'))),
         ));
 
         Inertia::flash('recordedPayment', [

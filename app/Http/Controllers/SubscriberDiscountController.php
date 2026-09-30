@@ -27,7 +27,7 @@ class SubscriberDiscountController extends Controller
 
         $request->user()->notify(new ActionCompleted(
             'discount-recorded',
-            sprintf('%s — %s شيكل', $subscriber->full_name, SubscriberTransaction::formatAmount(ltrim($discount->amount, '-'))),
+            sprintf('%s — %s شيكل', $subscriber->displayName(), SubscriberTransaction::formatAmount(ltrim($discount->amount, '-'))),
         ));
 
         return back()->with('status', 'discount-recorded');

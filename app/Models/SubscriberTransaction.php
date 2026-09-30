@@ -47,6 +47,7 @@ use Illuminate\Validation\ValidationException;
     'exchange_rate',
     'payment_method',
     'bank_name',
+    'sender_bank_name',
     'sender_name',
     'reference_number',
     'voucher_number',
@@ -124,7 +125,7 @@ class SubscriberTransaction extends Model
      * number. A transfer keeps its bank, sender and reference; cash keeps
      * its cash box and paper voucher.
      *
-     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, sender_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string, mobile_operation_id?: ?string}  $payment
+     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, sender_bank_name?: ?string, sender_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string, mobile_operation_id?: ?string}  $payment
      */
     public static function recordPayment(Subscriber $subscriber, User $collector, array $payment): self
     {
@@ -147,6 +148,7 @@ class SubscriberTransaction extends Model
                 'exchange_rate' => $exchangeRate,
                 'payment_method' => $method,
                 'bank_name' => $method->throughBank() ? $payment['bank_name'] : null,
+                'sender_bank_name' => $method->throughBank() ? ($payment['sender_bank_name'] ?? null) : null,
                 'sender_name' => $method->throughBank() ? ($payment['sender_name'] ?? null) : null,
                 'reference_number' => $method === PaymentMethod::Cash ? null : ($payment['reference_number'] ?? null),
                 'voucher_number' => $voucherNumber,
@@ -158,7 +160,7 @@ class SubscriberTransaction extends Model
     }
 
     /**
-     * Charge the subscriber a penalty or disconnection fee.
+     * Charge the subscriber a penalty, disconnection fee or subscription fee.
      */
     public static function recordCharge(Subscriber $subscriber, User $recorder, ChargeType $type, float|string $amount, ?string $notes): self
     {
@@ -335,11 +337,15 @@ class SubscriberTransaction extends Model
     /**
      * Whether a line may be corrected or deleted: a payment, discount,
      * clearing or charge recorded by hand that still stands. Weekly
-     * readings, their standing discounts and the subscription fee are
+     * readings, their standing discounts and the registration fee are
      * billed by their own flows.
      */
     public function isCorrectable(): bool
     {
+        if ($this->type === self::TYPE_SUBSCRIPTION_FEE && ! str_starts_with($this->source_key, 'charge:')) {
+            return false;
+        }
+
         return ! $this->isCancelled() && in_array($this->type, self::correctableTypes(), true);
     }
 

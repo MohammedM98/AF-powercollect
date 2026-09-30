@@ -13,6 +13,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
+import { formatCurrency } from '@/lib/currency';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import SubscriberModal from './SubscriberModal';
@@ -30,7 +31,7 @@ const STATUS_TONES = {
 function statementHeader(subscriber) {
     return {
         id: subscriber.id,
-        fullName: subscriber.full_name,
+        fullName: subscriber.display_name,
         accountNumber: subscriber.account_number,
         status: subscriber.status,
         statusLabel: subscriber.statusLabel,
@@ -70,6 +71,7 @@ export default function Index({
     // statement refreshes after a reading is saved from inside it.
     const viewingSubscriber = subscribers.data.find((subscriber) => subscriber.id === viewingSubscriberId) ?? null;
     const [creating, setCreating] = useState(false);
+    const [subscriptionSource, setSubscriptionSource] = useState(null);
     const [readingSubscriber, setReadingSubscriber] = useState(null);
     const [historySubscriberId, setHistorySubscriberId] = useState(null);
     const historySubscriber = subscribers.data.find((subscriber) => subscriber.id === historySubscriberId) ?? null;
@@ -97,12 +99,15 @@ export default function Index({
         }
 
         return {
-            title: subscriber.full_name,
-            subtitle: subscriber.phone,
+            title: subscriber.display_name,
+            subtitle: subscriber.contact_phone,
             groups: [
                 {
                     label: 'المشترك',
-                    items: [{ label: 'بيانات المشترك', icon: 'user', shortcut: 'I', onSelect: () => setViewingSubscriberId(subscriber.id) }],
+                    items: [
+                        { label: 'بيانات المشترك', icon: 'user', shortcut: 'I', onSelect: () => setViewingSubscriberId(subscriber.id) },
+                        ...(canCreate ? [{ label: 'إضافة اشتراك', icon: 'document-plus', onSelect: () => setSubscriptionSource(subscriber) }] : []),
+                    ],
                 },
                 {
                     label: 'الحساب المالي',
@@ -197,10 +202,12 @@ export default function Index({
                     <thead>
                         <tr>
                             <SortableTh column="account_number" label="رقم المشترك" sortState={filters} onSort={sort} />
-                            <SortableTh column="full_name" label="الاسم الكامل" sortState={filters} onSort={sort} />
+                            <SortableTh column="display_name" label="اسم الاشتراك" sortState={filters} onSort={sort} />
                             <th>الطبلون</th>
                             <th>نوع الاشتراك</th>
-                            <th>الفرع</th>
+                            <th>منطقة 2</th>
+                            <th>الحد الأدنى</th>
+                            <th>الرصيد</th>
                             <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
                             <th></th>
                         </tr>
@@ -208,7 +215,7 @@ export default function Index({
                     <tbody>
                         {subscribers.data.length === 0 ? (
                             <tr>
-                                <td className="text-gray-500" colSpan={7}>
+                                <td className="text-gray-500" colSpan={9}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
@@ -220,11 +227,14 @@ export default function Index({
                                     </td>
                                     <td>
                                         <RowIdentity
-                                            name={subscriber.full_name}
-                                            subtitle={subscriber.phone}
+                                            name={subscriber.display_name}
+                                            subtitle={subscriber.contact_phone}
                                             subtitleDir="ltr"
                                             status={STATUS_TONES[subscriber.status]}
                                         />
+                                        {subscriber.subscriptionCount > 1 && (
+                                            <span className="mt-1 block text-xs text-gray-500">{subscriber.subscriptionCount} اشتراكات</span>
+                                        )}
                                     </td>
                                     <td className="text-gray-600">
                                         {subscriber.meterBoxNumber ? <span className="data-chip">{subscriber.meterBoxNumber}</span> : '—'}
@@ -233,7 +243,11 @@ export default function Index({
                                         {subscriber.tariffCategoryLabel}
                                         {subscriber.tariffSegmentName && <div className="text-xs text-gray-400">{subscriber.tariffSegmentName}</div>}
                                     </td>
-                                    <td className="text-gray-600">{subscriber.branchName}</td>
+                                    <td className="text-gray-600">{subscriber.subAreaName || '—'}</td>
+                                    <td className="whitespace-nowrap text-gray-600">{formatCurrency(subscriber.weeklyMinimumPayment)}</td>
+                                    <td className={`whitespace-nowrap font-semibold ${Number(subscriber.outstandingBalance) > 0 ? 'text-red-600' : Number(subscriber.outstandingBalance) < 0 ? 'text-emerald-600' : 'text-gray-600'}`}>
+                                        {formatCurrency(subscriber.outstandingBalance)}
+                                    </td>
                                     <td>
                                         <StatusPill tone={STATUS_TONES[subscriber.status]} label={subscriber.statusLabel} />
                                     </td>
@@ -243,7 +257,7 @@ export default function Index({
                                             onEdit={subscriber.canUpdate ? () => setModalSubscriber(subscriber) : undefined}
                                             onDelete={
                                                 subscriber.canDelete
-                                                    ? () => requestDelete(`/subscribers/${subscriber.id}`, subscriber.full_name)
+                                                    ? () => requestDelete(`/subscribers/${subscriber.id}`, subscriber.display_name)
                                                     : undefined
                                             }
                                             menu={rowMenu(subscriber)}
@@ -259,6 +273,17 @@ export default function Index({
             <Pagination meta={subscribers} filters={filters} baseUrl="/subscribers" />
 
             <SubscriberModal show={creating} onClose={() => setCreating(false)} subscriber={null} {...modalProps} />
+
+            {subscriptionSource && (
+                <SubscriberModal
+                    key={`subscription-${subscriptionSource.id}`}
+                    show
+                    onClose={() => setSubscriptionSource(null)}
+                    subscriber={null}
+                    sourceSubscriber={subscriptionSource}
+                    {...modalProps}
+                />
+            )}
 
             {/* Keyed by subscriber id so switching who's being edited remounts
                 the form with fresh initial values — useForm() only captures

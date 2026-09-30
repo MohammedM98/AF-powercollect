@@ -32,7 +32,7 @@ class UserController extends Controller
 
         $actor = auth()->user();
 
-        $query = User::query()->visibleTo($actor)->with('branch');
+        $query = User::query()->visibleTo($actor)->with(['branch', 'userType']);
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
         $this->applyDataTableFilterSelects($query, $request, ['role', 'is_active', 'branch_id']);
 
@@ -42,6 +42,7 @@ class UserController extends Controller
                 ...$this->editableFields($user),
                 'roleLabel' => __($user->role->label()),
                 'branchName' => $user->branch?->name,
+                'userTypeName' => $user->userType?->name,
                 'canUpdate' => $actor->can('update', $user),
                 'canDelete' => $actor->can('delete', $user),
             ]);
@@ -145,6 +146,7 @@ class UserController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'username' => $user->username,
+            'user_type_id' => $user->user_type_id,
             'role' => $user->role->value,
             'branch_id' => $user->branch_id,
             'is_active' => $user->is_active,

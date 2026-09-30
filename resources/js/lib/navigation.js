@@ -13,6 +13,7 @@ export const MAIN_LINKS = [
 ];
 
 export const SETTINGS_LINKS = [
+    { href: '/user-types', label: 'أنواع المستخدمين', icon: 'users', can: 'viewUserTypes' },
     { href: '/branches', label: 'الفروع', icon: 'pin', can: 'viewBranches' },
     { href: '/tariffs', label: 'التعرفات', icon: 'dollar', can: 'viewTariffs' },
     { href: '/circuit-breakers', label: 'القواطع', icon: 'bolt', can: 'viewCircuitBreakers' },

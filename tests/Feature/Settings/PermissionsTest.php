@@ -123,7 +123,7 @@ class PermissionsTest extends TestCase
         $response = $this->actingAs($superAdmin)->get(route('settings.permissions.edit'));
 
         $response->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
-            'branches', 'users', 'subscribers', 'tariffs', 'meter_boxes', 'circuit_breakers',
+            'branches', 'users', 'user_types', 'subscribers', 'tariffs', 'meter_boxes', 'circuit_breakers',
             'areas', 'sub_areas', 'governorates', 'meter_readings', 'collections',
         ]));
     }

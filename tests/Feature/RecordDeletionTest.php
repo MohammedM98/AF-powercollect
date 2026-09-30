@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ChargeType;
 use App\Enums\PermissionKey;
 use App\Models\Area;
 use App\Models\Branch;
@@ -60,6 +61,18 @@ class RecordDeletionTest extends TestCase
 
         $this->assertModelExists($subscriber);
         $this->assertDatabaseCount('subscriber_transactions', 2);
+    }
+
+    public function test_a_subscriber_with_a_subscription_fee_loaded_later_cannot_be_deleted(): void
+    {
+        $subscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id]);
+        SubscriberTransaction::recordCharge($subscriber, $this->superAdmin, ChargeType::SubscriptionFee, '50', null);
+
+        $this->deleteAs($this->superAdmin, route('subscribers.destroy', $subscriber))
+            ->assertSessionHasErrors(['delete' => 'لا يمكن حذف المشترك لوجود سجلات مرتبطة به — الحركات المالية: 1. يمكنك تغيير حالته إلى «مفصول» بدلًا من حذفه.']);
+
+        $this->assertModelExists($subscriber);
+        $this->assertDatabaseCount('subscriber_transactions', 1);
     }
 
     public function test_deleting_takes_the_delete_permission_within_the_users_own_branch(): void

@@ -25,13 +25,13 @@ return [
     | Bank Transfer Destinations
     |--------------------------------------------------------------------------
     |
-    | Where a subscriber can transfer a payment to: the company's bank
-    | account and e-wallets. A bank transfer is recorded against one of
-    | these, and it shows in the البنك column of the account statement.
+    | The banks and e-wallets offered for the source and destination of
+    | a subscriber's transfer. Both show in the البنك column of the
+    | account statement.
     |
     */
 
-    'transfer_banks' => ['بنك فلسطين', 'جوال باي', 'بال باي'],
+    'transfer_banks' => ['بنك فلسطين', 'محفظة بالباي', 'جوال باي', 'البنك الإسلامي الفلسطيني', 'البنك الوطني الإسلامي'],
 
     /*
     |--------------------------------------------------------------------------

@@ -7,6 +7,7 @@ use App\Models\Concerns\BelongsToBranch;
 use App\Support\DeletionBlocker;
 use Database\Factories\SubscriberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\DB;
 #[Fillable([
     'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'tariff_segment_id', 'branch_id',
     'registered_by', 'status', 'circuit_breaker_id', 'minimum_charge', 'initial_reading', 'subscription_fee',
-    'subscription_date', 'notes',
+    'subscription_date', 'subscription_name', 'subscription_phone', 'notes',
 ])]
 class Subscriber extends Model
 {
@@ -33,7 +34,44 @@ class Subscriber extends Model
     {
         static::creating(function (Subscriber $subscriber): void {
             $subscriber->account_number ??= static::nextAccountNumber();
+
+            if ($subscriber->subscriber_profile_id === null) {
+                $subscriber->profile()->associate(SubscriberProfile::create($subscriber->only(SubscriberProfile::PERSONAL_FIELDS)));
+            } else {
+                $subscriber->fill($subscriber->profile->only(SubscriberProfile::PERSONAL_FIELDS));
+            }
         });
+
+        static::saved(function (Subscriber $subscriber): void {
+            if ($subscriber->subscriber_profile_id !== null && $subscriber->wasChanged(SubscriberProfile::PERSONAL_FIELDS)) {
+                $subscriber->profile->update($subscriber->only(SubscriberProfile::PERSONAL_FIELDS));
+            }
+        });
+
+        static::deleted(function (Subscriber $subscriber): void {
+            $profile = $subscriber->profile;
+
+            if ($profile !== null && ! $profile->subscriptions()->exists()) {
+                $profile->delete();
+            }
+        });
+    }
+
+    /** The account's own name, falling back to its shared personal name. */
+    public function displayName(): string
+    {
+        return filled($this->subscription_name) ? $this->subscription_name : $this->full_name;
+    }
+
+    /** The subscription's contact number, falling back to the personal number. */
+    public function contactPhone(): ?string
+    {
+        return filled($this->subscription_phone) ? $this->subscription_phone : $this->phone;
+    }
+
+    public function profile(): BelongsTo
+    {
+        return $this->belongsTo(SubscriberProfile::class, 'subscriber_profile_id');
     }
 
     /**
@@ -168,7 +206,10 @@ class Subscriber extends Model
     {
         return DeletionBlocker::describe('المشترك', [
             'القراءات' => $this->meterReadings()->count(),
-            'الحركات المالية' => $this->transactions()->where('type', '!=', SubscriberTransaction::TYPE_SUBSCRIPTION_FEE)->count(),
+            'الحركات المالية' => $this->transactions()->where(function (Builder $query): void {
+                $query->where('type', '!=', SubscriberTransaction::TYPE_SUBSCRIPTION_FEE)
+                    ->orWhere('source_key', 'like', 'charge:%');
+            })->count(),
         ], 'يمكنك تغيير حالته إلى «مفصول» بدلًا من حذفه.');
     }
 

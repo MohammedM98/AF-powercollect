@@ -20,6 +20,14 @@ class StoreUserRequest extends FormRequest
     }
 
     /**
+     * Regular accounts start with no preset permissions when no system role is supplied.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->mergeIfMissing(['role' => UserRole::Collector->value]);
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * A Super Admin may assign any role and any branch. Anyone else who can
@@ -37,6 +45,7 @@ class StoreUserRequest extends FormRequest
 
         $rules = [
             'name' => ['required', 'string', 'max:255'],
+            'user_type_id' => ['nullable', 'integer', Rule::exists('user_types', 'id')],
             'username' => ['required', 'string', 'max:255', 'regex:/^[\w.-]+$/', Rule::unique('users', 'username')],
             'password' => ['required', 'confirmed', Password::defaults()],
         ];

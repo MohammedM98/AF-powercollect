@@ -45,7 +45,7 @@ class SubscriberTransactionController extends Controller
 
         $actor->notify(new ActionCompleted(
             'transaction-corrected',
-            sprintf('%s — %s %s شيكل', $subscriber->full_name, $replacement->typeLabel(), SubscriberTransaction::formatAmount(ltrim($replacement->amount, '-'))),
+            sprintf('%s — %s %s شيكل', $subscriber->displayName(), $replacement->typeLabel(), SubscriberTransaction::formatAmount(ltrim($replacement->amount, '-'))),
         ));
 
         if ($replacement->isPayment()) {
@@ -72,7 +72,7 @@ class SubscriberTransactionController extends Controller
 
         $request->user()->notify(new ActionCompleted(
             'transaction-deleted',
-            sprintf('%s — %s %s شيكل', $subscriber->full_name, $transaction->typeLabel(), SubscriberTransaction::formatAmount(ltrim($transaction->amount, '-'))),
+            sprintf('%s — %s %s شيكل', $subscriber->displayName(), $transaction->typeLabel(), SubscriberTransaction::formatAmount(ltrim($transaction->amount, '-'))),
         ));
 
         return back()->with('status', 'transaction-deleted');

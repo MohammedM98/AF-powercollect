@@ -39,6 +39,7 @@ export function filterStatementEntries(entries, { search = '', type = '', method
             entry.amount,
             entry.recordedByName,
             entry.bankName,
+            entry.senderBankName,
             entry.referenceNumber,
         ]
             .filter((value) => value !== undefined && value !== null)

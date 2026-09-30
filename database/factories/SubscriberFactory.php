@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\CircuitBreaker;
 use App\Models\MeterBox;
 use App\Models\Subscriber;
+use App\Models\SubscriberProfile;
 use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -24,6 +25,11 @@ class SubscriberFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (Subscriber $subscriber): void {
+            if ($subscriber->subscriber_profile_id === null) {
+                $subscriber->profile()->associate(SubscriberProfile::create($subscriber->only(SubscriberProfile::PERSONAL_FIELDS)));
+                $subscriber->saveQuietly();
+            }
+
             if ($subscriber->account_number === null) {
                 $subscriber->forceFill(['account_number' => Subscriber::nextAccountNumber()])->saveQuietly();
             }

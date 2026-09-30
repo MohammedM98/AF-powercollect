@@ -28,6 +28,7 @@ class MobileCollectionController extends Controller
             ->withSum('transactions as balance', 'amount')
             ->when($search !== '', fn ($query) => $query->where(fn ($matching) => $matching
                 ->where('full_name', 'like', '%'.$search.'%')
+                ->orWhere('subscription_name', 'like', '%'.$search.'%')
                 ->orWhere('account_number', 'like', '%'.$search.'%')
                 ->orWhereHas('meterBox', fn ($box) => $box->where('box_number', 'like', '%'.$search.'%'))))
             ->orderByDesc('balance')
@@ -37,7 +38,7 @@ class MobileCollectionController extends Controller
         return response()->json([
             'data' => $subscribers->getCollection()->map(fn (Subscriber $subscriber): array => [
                 'id' => $subscriber->id,
-                'full_name' => $subscriber->full_name,
+                'full_name' => $subscriber->displayName(),
                 'account_number' => $subscriber->account_number,
                 'meter_box_number' => $subscriber->meterBox?->box_number,
                 'balance' => $subscriber->balance ?? '0.00',
@@ -55,7 +56,7 @@ class MobileCollectionController extends Controller
             ->where('recorded_by', $request->user()->id)
             ->where('type', SubscriberTransaction::TYPE_PAYMENT)
             ->whereDate('created_at', today())
-            ->with('subscriber:id,full_name,account_number')
+            ->with('subscriber:id,full_name,subscription_name,account_number')
             ->latest()
             ->latest('id')
             ->get();
@@ -85,6 +86,7 @@ class MobileCollectionController extends Controller
                 'currency' => $validated['currency'],
                 'payment_method' => $validated['payment_method'],
                 'bank_name' => $validated['bank_name'] ?? null,
+                'sender_bank_name' => $validated['sender_bank_name'] ?? null,
                 'sender_name' => $validated['sender_name'] ?? null,
                 'reference_number' => $validated['reference_number'] ?? null,
                 'manual_voucher_number' => $validated['manual_voucher_number'] ?? null,
@@ -111,7 +113,7 @@ class MobileCollectionController extends Controller
     {
         return [
             'id' => $transaction->id,
-            'subscriber' => $transaction->subscriber->full_name,
+            'subscriber' => $transaction->subscriber->displayName(),
             'amount' => $transaction->currency_amount,
             'payment_method' => $transaction->payment_method->value,
             'status' => 'recorded',

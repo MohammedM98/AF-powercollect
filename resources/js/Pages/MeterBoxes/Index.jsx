@@ -88,7 +88,7 @@ export default function Index({
                             meterBoxes.data.map((meterBox) => (
                                 <tr key={meterBox.id} {...rowClick(meterBox.canUpdate ? () => setModalMeterBox(meterBox) : null)}>
                                     <td>
-                                        <RowIdentity icon="table" name={meterBox.name} subtitle={meterBox.subAreaName} />
+                                        <RowIdentity icon="table" name={meterBox.display_name} subtitle={meterBox.subAreaName} />
                                     </td>
                                     <td>
                                         <span className="data-chip">{meterBox.box_number}</span>
@@ -101,7 +101,7 @@ export default function Index({
                                         {(meterBox.canUpdate || meterBox.canDelete) && (
                                             <RowActionsMenu>
                                                 {meterBox.canDelete && (
-                                                    <button onClick={() => requestDelete(`/meter-boxes/${meterBox.id}`, meterBox.name)}>حذف</button>
+                                                    <button onClick={() => requestDelete(`/meter-boxes/${meterBox.id}`, meterBox.display_name)}>حذف</button>
                                                 )}
                                                 {meterBox.canUpdate && <button onClick={() => setModalMeterBox(meterBox)}>تعديل</button>}
                                             </RowActionsMenu>

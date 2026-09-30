@@ -37,6 +37,12 @@ class StoreMeterBoxRequest extends FormRequest
     {
         $rules = [
             'name' => ['required', 'string', 'max:255'],
+            'name_suffix' => [
+                'nullable', 'string', 'max:50',
+                Rule::unique('meter_boxes', 'name_suffix')
+                    ->where('name', is_string($this->input('name')) ? $this->input('name') : null)
+                    ->ignore($this->route('meter_box')),
+            ],
             'box_number' => ['required', 'string', 'max:255', Rule::unique('meter_boxes', 'box_number')->ignore($this->route('meter_box'))],
             'sub_area_id' => ['nullable', Rule::exists('sub_areas', 'id'), $this->subAreaBelongsToBranchArea()],
             'location' => ['nullable', 'string', 'max:255'],
@@ -47,6 +53,14 @@ class StoreMeterBoxRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return ['name_suffix.unique' => 'هذه اللاحقة مستخدمة مع اسم الطبلون نفسه.'];
     }
 
     /**

@@ -254,6 +254,34 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('data.0.status', 'recorded');
     }
 
+    public function test_mobile_bank_transfers_keep_both_source_and_destination_banks(): void
+    {
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $subscriber = Subscriber::factory()->create(['branch_id' => $collector->branch_id]);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
+            ->postJson(route('mobile.collections.store'), [
+                'mobile_operation_id' => Str::uuid()->toString(),
+                'subscriber_id' => $subscriber->id,
+                'amount' => '100',
+                'currency' => 'ILS',
+                'payment_method' => 'bank_transfer',
+                'bank_name' => 'محفظة بالباي',
+                'sender_bank_name' => 'البنك الوطني الإسلامي',
+                'sender_name' => 'Ahmad',
+                'reference_number' => 'TR-MOBILE-1',
+                'collector_confirmed' => true,
+            ])->assertCreated();
+
+        $this->assertDatabaseHas('subscriber_transactions', [
+            'subscriber_id' => $subscriber->id,
+            'bank_name' => 'محفظة بالباي',
+            'sender_bank_name' => 'البنك الوطني الإسلامي',
+            'amount' => '-100.00',
+        ]);
+    }
+
     public function test_mobile_payment_rejects_other_branch_and_other_collectors_retry(): void
     {
         $branch = Branch::factory()->create();

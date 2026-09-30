@@ -28,6 +28,7 @@ import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './Correc
 const TYPE_LOOKS = {
     penalty: { icon: 'warning', hint: 'مخالفة أو عبث بالعداد', quick: [50, 100, 200], example: 'اكتب سبب الغرامة، مثال: توصيل خط بدون عداد' },
     disconnection_fee: { icon: 'power', hint: 'قطع الكهرباء أو إعادتها', quick: [25, 50], example: 'مثال: فصل بسبب تراكم الدين' },
+    subscription_fee: { icon: 'document-plus', hint: 'تحميل رسوم الاشتراك على الحساب', quick: [50, 100, 200], example: 'مثال: رسوم اشتراك المشترك' },
 };
 
 /** A charge above this many shekels asks the user to double-check it. */
@@ -38,10 +39,10 @@ const notesClass =
 
 /**
  * Charge a subscriber by hand (تحميل): a financial penalty (which must say
- * why) or a service disconnection fee (with its usual amount suggested).
+ * why), a service disconnection fee or a subscription fee.
  * A dark panel beside the form shows what it does to the balance before
  * saving; once saved, the window shows what was recorded. Keys: Ctrl +
- * Enter saves, 1 · 2 pick the type.
+ * Enter saves, 1 · 2 · 3 pick the type.
  *
  * With `correcting` (a statement line), it corrects that charge instead:
  * the form starts from it, `balance` leaves it out, and saving cancels it
@@ -84,7 +85,7 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
 
     /** Picks a type, filling in its usual amount when none is typed yet. */
     function chooseType(value) {
-        const usual = chargeTypes.find((option) => option.value === value)?.usualAmount;
+        const usual = value === 'subscription_fee' ? subscriber.subscriptionFee : chargeTypes.find((option) => option.value === value)?.usualAmount;
 
         setData((current) => ({ ...current, type: value, amount: current.amount === '' && usual ? String(usual) : current.amount }));
         form.clearErrors('type', 'notes');
@@ -96,7 +97,7 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
         amountInput.current?.focus();
     }
 
-    /** 1 · 2 pick the type — unless a field is being typed in. */
+    /** Number keys pick the type — unless a field is being typed in. */
     function onKeyDown(event) {
         submitOnCtrlEnter(event);
 
@@ -178,7 +179,7 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
 
                                 <fieldset>
                                     <legend className="contents">
-                                        <FieldLabel required hint="اختر بالأرقام 1 · 2">
+                                        <FieldLabel required hint="اختر بالأرقام 1 · 2 · 3">
                                             نوع التحميل
                                         </FieldLabel>
                                     </legend>
@@ -277,7 +278,7 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
                             disabled={amount <= 0 || missingReason}
                             processing={form.processing}
                             submitLabel={correcting ? 'حفظ التعديل' : amount > 0 ? `تحميل ${formatMoney(amount)} ₪ على الحساب` : 'إضافة التحميل'}
-                            shortcuts="1 · 2 للنوع"
+                            shortcuts="1 · 2 · 3 للنوع"
                         />
                     </form>
                 )}

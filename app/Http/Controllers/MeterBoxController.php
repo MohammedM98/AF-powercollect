@@ -35,7 +35,8 @@ class MeterBoxController extends Controller
         $actor = auth()->user();
 
         $query = MeterBox::query()->visibleTo($actor)->with('branch.governorate', 'branch.area', 'subArea');
-        $this->applyDataTableFilters($query, $request, ['name', 'box_number'], self::SORTABLE, 'box_number');
+        $query->matchingLabel($this->searchTerm($request));
+        $this->applyDataTableFilters($query, $request, [], self::SORTABLE, 'box_number');
         $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'sub_area_id']);
 
         $meterBoxes = $query->paginate($this->dataTablePerPage($request))
@@ -82,7 +83,7 @@ class MeterBoxController extends Controller
         }
 
         $meterBox = MeterBox::create($data);
-        $request->user()->notify(new ActionCompleted('meter-box-created', $meterBox->name));
+        $request->user()->notify(new ActionCompleted('meter-box-created', $meterBox->displayName()));
 
         return redirect()->route('meter-boxes.index')->with('status', 'meter-box-created');
     }
@@ -106,7 +107,7 @@ class MeterBoxController extends Controller
     public function update(UpdateMeterBoxRequest $request, MeterBox $meterBox): RedirectResponse
     {
         $meterBox->update($request->validated());
-        $request->user()->notify(new ActionCompleted('meter-box-updated', $meterBox->name));
+        $request->user()->notify(new ActionCompleted('meter-box-updated', $meterBox->displayName()));
 
         return redirect()->route('meter-boxes.index')->with('status', 'meter-box-updated');
     }
@@ -116,7 +117,7 @@ class MeterBoxController extends Controller
      */
     public function destroy(Request $request, MeterBox $meterBox): RedirectResponse
     {
-        return $this->deleteRecord($request, $meterBox, 'meter-box-deleted', $meterBox->name);
+        return $this->deleteRecord($request, $meterBox, 'meter-box-deleted', $meterBox->displayName());
     }
 
     /**
@@ -130,6 +131,8 @@ class MeterBoxController extends Controller
         return [
             'id' => $meterBox->id,
             'name' => $meterBox->name,
+            'name_suffix' => $meterBox->name_suffix,
+            'display_name' => $meterBox->displayName(),
             'box_number' => $meterBox->box_number,
             'branch_id' => $meterBox->branch_id,
             'sub_area_id' => $meterBox->sub_area_id,

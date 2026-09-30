@@ -7,6 +7,7 @@ import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import SearchableSelect from '@/Components/SearchableSelect';
+import Switch from '@/Components/Switch';
 import TextInput from '@/Components/TextInput';
 import { formatAmount } from '@/lib/currency';
 import { initials } from '@/lib/format';
@@ -26,14 +27,15 @@ const STATUS_DOTS = {
 /** The fields the server requires of every subscriber; a Super Admin also picks the branch. */
 const REQUIRED_FIELDS = ['full_name', 'national_id', 'phone', 'status', 'tariff_id', 'minimum_charge', 'initial_reading'];
 
-function Field({ id, label, required, error, span = '', children }) {
+function Field({ id, label, required, error, hint, span = '', children }) {
     return (
         <div className={span}>
             <InputLabel htmlFor={id}>
                 {label}
                 {required && <span className="text-red-500"> *</span>}
             </InputLabel>
-            <div className="mt-1">{cloneElement(children, { id })}</div>
+            <div className="mt-1">{cloneElement(children, { id, ...(hint ? { 'aria-describedby': `${id}-hint` } : {}) })}</div>
+            {hint && <p id={`${id}-hint`} className="mt-1 text-xs text-gray-500">{hint}</p>}
             <InputError message={error} className="mt-1" />
         </div>
     );
@@ -67,8 +69,8 @@ function ReadOnlyField({ id, label, value, dir }) {
  * many of the required fields are filled.
  */
 function SubscriberPreview({ data, tariff, circuitBreaker, filled, total }) {
-    const name = data.full_name.trim();
-    const phone = String(data.phone ?? '').trim();
+    const name = data.subscription_name.trim() || data.full_name.trim();
+    const phone = String(data.subscription_phone || data.phone || '').trim();
 
     return (
         <div className="relative overflow-hidden rounded-card bg-graphite-gradient p-5 text-white shadow-lift sm:p-6">
@@ -123,11 +125,13 @@ function SubscriberPreview({ data, tariff, circuitBreaker, filled, total }) {
  * The form's starting values: the subscriber's own when editing,
  * otherwise blank. New subscribers start out suspended (مفصول).
  */
-export function subscriberFormData(subscriber) {
-    return {
+export function subscriberFormData(subscriber, sourceSubscriber = null) {
+    const data = {
         full_name: subscriber?.full_name ?? '',
+        subscription_name: subscriber?.subscription_name ?? subscriber?.full_name ?? '',
         national_id: subscriber?.national_id ?? '',
         phone: subscriber?.phone ?? '',
+        subscription_phone: subscriber?.subscription_phone ?? subscriber?.phone ?? '',
         address: subscriber?.address ?? '',
         meter_box_id: subscriber?.meter_box_id ?? '',
         tariff_id: subscriber?.tariff_id ?? '',
@@ -138,9 +142,25 @@ export function subscriberFormData(subscriber) {
         minimum_charge: subscriber?.minimum_charge != null ? Number(subscriber.minimum_charge) : '',
         initial_reading: subscriber?.initial_reading ?? '',
         subscription_fee: subscriber?.subscription_fee ?? '',
+        ...(subscriber ? {} : { charge_subscription_fee: false }),
         subscription_date: subscriber?.subscription_date ?? '',
         notes: subscriber?.notes ?? '',
     };
+
+    if (sourceSubscriber) {
+        Object.assign(data, {
+            source_subscriber_id: sourceSubscriber.id,
+            full_name: sourceSubscriber.full_name,
+            subscription_name: sourceSubscriber.display_name ?? sourceSubscriber.full_name,
+            national_id: sourceSubscriber.national_id,
+            phone: sourceSubscriber.phone ?? '',
+            subscription_phone: sourceSubscriber.contact_phone ?? sourceSubscriber.phone ?? '',
+            address: sourceSubscriber.address ?? '',
+            branch_id: sourceSubscriber.branch_id,
+        });
+    }
+
+    return data;
 }
 
 export default function SubscriberForm({
@@ -157,7 +177,13 @@ export default function SubscriberForm({
     currentBranchAreaId,
     currentBranchAreaName,
     canEditMinimumCharge,
+    sharedPersonalDetails = false,
+    isEdit = false,
+    subscriptionCount = 1,
 }) {
+    const independentContactDetails = sharedPersonalDetails || isEdit;
+    const nameField = independentContactDetails ? 'subscription_name' : 'full_name';
+    const phoneField = independentContactDetails ? 'subscription_phone' : 'phone';
     const [minimumChargeUnlocked, setMinimumChargeUnlocked] = useState(false);
     const [confirmingMinimumChargeUnlock, setConfirmingMinimumChargeUnlock] = useState(false);
 
@@ -192,15 +218,17 @@ export default function SubscriberForm({
         return subAreaId ? String(box.sub_area_id) === String(subAreaId) : String(box.id) === String(data.meter_box_id);
     });
 
-    const meterBoxOptions = meterBoxesInScope.map((box) => ({ value: box.id, label: `${box.box_number} — ${box.name}` }));
+    const meterBoxOptions = meterBoxesInScope.map((box) => ({ value: box.id, label: box.label ?? `${box.box_number} — ${box.name}` }));
 
     const showMeterBoxField = Boolean(subAreaId) || Boolean(data.meter_box_id);
 
     const selectedTariff = tariffs.find((tariff) => String(tariff.id) === String(data.tariff_id));
     const selectedCircuitBreaker = circuitBreakers.find((circuitBreaker) => String(circuitBreaker.id) === String(data.circuit_breaker_id));
     const minimumChargeLocked = !canEditMinimumCharge || !minimumChargeUnlocked;
+    const subscriptionFeeLocked = 'charge_subscription_fee' in data && !data.charge_subscription_fee;
 
-    const requiredFields = canChooseBranch ? [...REQUIRED_FIELDS, 'branch_id'] : REQUIRED_FIELDS;
+    const contactRequiredFields = REQUIRED_FIELDS.map((field) => field === 'full_name' ? nameField : field === 'phone' ? phoneField : field);
+    const requiredFields = canChooseBranch ? [...contactRequiredFields, 'branch_id'] : contactRequiredFields;
     const filledRequiredFields = requiredFields.filter((field) => String(data[field] ?? '').trim() !== '').length;
 
     /** A choice made with a chip: no input event fires, so clear its error here. */
@@ -245,15 +273,31 @@ export default function SubscriberForm({
                 total={requiredFields.length}
             />
 
+            {(sharedPersonalDetails || subscriptionCount > 1) && (
+                <div className="rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800">
+                    {sharedPersonalDetails
+                        ? 'سيُضاف اشتراك جديد بنفس الهوية. يمكنك إضافة وصف إلى الاسم وتغيير رقم الجوال لهذا الاشتراك.'
+                        : 'الاسم ورقم الجوال قابلان للتعديل لهذا الاشتراك فقط. الهوية والعنوان مشتركان بين الاشتراكات.'}
+                    <InputError message={errors.source_subscriber_id} className="mt-1" />
+                </div>
+            )}
+
             <FormSection icon="user" title="بيانات المشترك" description="الاسم والهوية ورقم الجوال">
-                <Field id="full_name" label="الاسم" required error={errors.full_name}>
+                <Field
+                    id={nameField}
+                    label="الاسم"
+                    required
+                    error={errors[nameField]}
+                    hint={independentContactDetails ? 'يمكنك إضافة وصف إلى الاسم مثل: محمد حمدان — المنزل.' : undefined}
+                >
                     <TextInput
                         required
                         className="block w-full"
                         placeholder="الاسم الرباعي"
-                        value={data.full_name}
+                        maxLength={255}
+                        value={data[nameField]}
                         autoFocus
-                        onChange={(e) => setData('full_name', e.target.value)}
+                        onChange={(e) => setData(nameField, e.target.value)}
                     />
                 </Field>
 
@@ -268,11 +312,12 @@ export default function SubscriberForm({
                         placeholder="9 أرقام"
                         className="block w-full"
                         value={data.national_id ?? ''}
+                        readOnly={sharedPersonalDetails}
                         onChange={(event) => setData('national_id', event.target.value)}
                     />
                 </Field>
 
-                <Field id="phone" label="رقم الجوال" required error={errors.phone}>
+                <Field id={phoneField} label="رقم الجوال" required error={errors[phoneField]}>
                     <TextInput
                         required
                         type="tel"
@@ -283,8 +328,8 @@ export default function SubscriberForm({
                         title="رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056"
                         placeholder="059XXXXXXX"
                         className="block w-full"
-                        value={data.phone}
-                        onChange={(e) => setData('phone', e.target.value)}
+                        value={data[phoneField]}
+                        onChange={(e) => setData(phoneField, e.target.value)}
                     />
                 </Field>
 
@@ -468,12 +513,16 @@ export default function SubscriberForm({
                     </Affix>
                 </Field>
 
-                <Field id="subscription_fee" label="رسوم الاشتراك" error={errors.subscription_fee}>
+                <Field id="subscription_fee" label="رسوم الاشتراك" required={data.charge_subscription_fee} error={errors.subscription_fee}>
                     <Affix unit="شيكل">
                         <TextInput
                             type="number"
                             step="0.01"
-                            className="block w-full"
+                            disabled={subscriptionFeeLocked}
+                            title={subscriptionFeeLocked ? 'فعّل تحميل رسوم اشتراك لإدخال المبلغ' : undefined}
+                            className={`block w-full disabled:opacity-100 ${subscriptionFeeLocked ? 'bg-gray-50 text-gray-600' : ''}`}
+                            required={data.charge_subscription_fee}
+                            min={data.charge_subscription_fee ? '0.01' : '0'}
                             value={data.subscription_fee}
                             onChange={(e) => setData('subscription_fee', e.target.value)}
                         />
@@ -488,11 +537,34 @@ export default function SubscriberForm({
                         onChange={(e) => setData('subscription_date', e.target.value)}
                     />
                 </Field>
+
+                {'charge_subscription_fee' in data && (
+                    <div className="sm:col-span-2 lg:col-span-3">
+                        <Switch
+                            checked={data.charge_subscription_fee}
+                            onChange={(checked) => choose('charge_subscription_fee', checked)}
+                            label="تحميل رسوم اشتراك"
+                            ariaLabel="تحميل رسوم اشتراك"
+                        />
+                        <p className="mt-2 text-sm text-gray-500">
+                            {data.charge_subscription_fee
+                                ? 'تُضاف رسوم الاشتراك إلى الرصيد وسجل المعاملات عند حفظ المشترك.'
+                                : 'لن تُضاف الرسوم إلى الرصيد أو سجل المعاملات. يمكنك تحميلها لاحقًا من سجل المعاملات.'}
+                        </p>
+                        <InputError message={errors.charge_subscription_fee} className="mt-1" />
+                    </div>
+                )}
             </FormSection>
 
             <FormSection icon="note" title="معلومات إضافية" description="العنوان وأي ملاحظات عن المشترك">
                 <Field id="address" label="العنوان" error={errors.address} span="sm:col-span-2 lg:col-span-3">
-                    <textarea rows={2} className="block w-full" value={data.address} onChange={(e) => setData('address', e.target.value)} />
+                    <textarea
+                        rows={2}
+                        className="block w-full"
+                        value={data.address}
+                        readOnly={sharedPersonalDetails}
+                        onChange={(e) => setData('address', e.target.value)}
+                    />
                 </Field>
 
                 <Field id="notes" label="معلومات أخرى" error={errors.notes} span="sm:col-span-2 lg:col-span-3">

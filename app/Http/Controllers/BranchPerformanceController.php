@@ -120,8 +120,8 @@ class BranchPerformanceController extends Controller
                 ->get()
                 ->map(fn (Subscriber $subscriber): array => [
                     'id' => $subscriber->id,
-                    'name' => $subscriber->full_name,
-                    'phone' => $subscriber->phone,
+                    'name' => $subscriber->displayName(),
+                    'phone' => $subscriber->contactPhone(),
                     'status' => $subscriber->status->value,
                     'registeredByName' => $subscriber->registeredBy?->name,
                     'createdAt' => $subscriber->created_at->toIso8601String(),

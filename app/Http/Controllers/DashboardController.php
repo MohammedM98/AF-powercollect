@@ -107,10 +107,10 @@ class DashboardController extends Controller
             'activePct' => $this->percentage($active, $total),
             'branchAdmins' => $users()->where('role', UserRole::BranchAdmin)->count(),
             'collectors' => $users()->where('role', UserRole::Collector)->count(),
-            'recent' => $users()->latest()->latest('id')->take(5)->get()->map(fn (User $user) => [
+            'recent' => $users()->with('userType')->latest()->latest('id')->take(5)->get()->map(fn (User $user) => [
                 'id' => $user->id,
                 'name' => $user->name,
-                'subtitle' => __($user->role->label()),
+                'subtitle' => $user->userType?->name ?? __($user->role->label()),
             ])->all(),
         ];
     }
@@ -130,8 +130,8 @@ class DashboardController extends Controller
             'activePct' => $this->percentage($active, $total),
             'recent' => $subscribers()->latest()->latest('id')->take(5)->get()->map(fn (Subscriber $subscriber) => [
                 'id' => $subscriber->id,
-                'name' => $subscriber->full_name,
-                'subtitle' => $subscriber->phone,
+                'name' => $subscriber->displayName(),
+                'subtitle' => $subscriber->contactPhone(),
             ])->all(),
         ];
     }
@@ -147,7 +147,7 @@ class DashboardController extends Controller
             'total' => $meterBoxes()->count(),
             'recent' => $meterBoxes()->with('branch')->latest()->latest('id')->take(5)->get()->map(fn (MeterBox $meterBox) => [
                 'id' => $meterBox->id,
-                'name' => $meterBox->name,
+                'name' => $meterBox->displayName(),
                 'subtitle' => $meterBox->branch->name,
             ])->all(),
         ];

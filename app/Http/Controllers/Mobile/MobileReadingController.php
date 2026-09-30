@@ -38,6 +38,7 @@ class MobileReadingController extends Controller
             ])
             ->when($search !== '', fn ($query) => $query->where(fn ($matching) => $matching
                 ->where('full_name', 'like', '%'.$search.'%')
+                ->orWhere('subscription_name', 'like', '%'.$search.'%')
                 ->orWhere('account_number', 'like', '%'.$search.'%')
                 ->orWhereHas('meterBox', fn ($box) => $box->where('box_number', 'like', '%'.$search.'%'))))
             ->orderBy('full_name')->orderBy('id')->paginate(25);
@@ -52,7 +53,7 @@ class MobileReadingController extends Controller
 
                 return [
                     'id' => $subscriber->id,
-                    'full_name' => $subscriber->full_name,
+                    'full_name' => $subscriber->displayName(),
                     'account_number' => $subscriber->account_number,
                     'meter_box_number' => $subscriber->meterBox?->box_number,
                     'previous_reading' => $reading?->previous_reading ?? $latest?->current_reading ?? $subscriber->initial_reading,

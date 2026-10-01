@@ -141,7 +141,9 @@ class _PaymentPageState extends State<PaymentPage> {
     if (!editable) return;
     final current = amount.text;
     var next = current;
-    if (key == 'delete') {
+    if (key == 'clear') {
+      next = '';
+    } else if (key == 'delete') {
       next = current.isEmpty ? '' : current.substring(0, current.length - 1);
     } else if (key == '.') {
       if (!current.contains('.')) next = '${current.isEmpty ? '0' : current}.';
@@ -388,6 +390,7 @@ class _PaymentPageState extends State<PaymentPage> {
                           AppKeypad(
                               decimal: true,
                               enabled: editable,
+                              onClose: () => setState(() => showKeypad = false),
                               onKey: enterAmount),
                       ]))),
       );

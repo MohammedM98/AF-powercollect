@@ -23,7 +23,11 @@ class MobileSubscriberController extends Controller
         $subscribers = Subscriber::query()
             ->visibleTo($actor)
             ->where('status', SubscriberStatus::Active)
-            ->with(['meterBox:id,box_number,name,name_suffix,location', 'latestMeterReading', 'meterReadings' => fn ($query) => $query->whereDate('week_start', $week)])
+            ->with([
+                'meterBox:id,box_number,name,name_suffix,location',
+                'latestMeterReading',
+                'meterReadings' => fn ($query) => $query->whereDate('week_start', '<=', $week)->orderByDesc('week_start')->limit(4),
+            ])
             ->orderBy('id')
             ->paginate(500);
 
@@ -31,8 +35,8 @@ class MobileSubscriberController extends Controller
             'week_start' => $week,
             'week_end' => MeterReading::weekEndFor($weekStart)->toDateString(),
             'can_record_readings_now' => $actor->can('create', [MeterReading::class, $weekStart]),
-            'data' => $subscribers->getCollection()->map(function (Subscriber $subscriber): array {
-                $currentWeekReading = $subscriber->meterReadings->first();
+            'data' => $subscribers->getCollection()->map(function (Subscriber $subscriber) use ($week): array {
+                $currentWeekReading = $subscriber->meterReadings->first(fn (MeterReading $reading): bool => $reading->week_start->toDateString() === $week);
 
                 return [
                     'id' => $subscriber->id,
@@ -47,6 +51,16 @@ class MobileSubscriberController extends Controller
                         ?? $subscriber->initial_reading,
                     'current_reading' => $currentWeekReading?->current_reading,
                     'reading_status' => $currentWeekReading?->status?->value,
+                    'recent_readings' => $subscriber->meterReadings
+                        ->reject(fn (MeterReading $reading): bool => $reading->week_start->toDateString() === $week)
+                        ->take(3)
+                        ->map(fn (MeterReading $reading): array => [
+                            'week_start' => $reading->week_start->toDateString(),
+                            'current_reading' => $reading->current_reading,
+                            'consumption' => $reading->consumption,
+                        ])
+                        ->values()
+                        ->all(),
                 ];
             })->all(),
             'current_page' => $subscribers->currentPage(),

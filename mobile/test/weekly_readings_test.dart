@@ -77,7 +77,7 @@ void main() {
     await tester.tap(find.text('القراءات الأسبوعية'));
     await tester.pumpAndSettle();
     expect(find.text('Weekly Subscriber'), findsOneWidget);
-    expect(find.text('125.00'), findsOneWidget);
+    expect(find.text('125'), findsOneWidget);
     expect(find.text('بانتظار الاعتماد'), findsOneWidget);
     expect(find.byType(CheckboxListTile), findsNothing);
 

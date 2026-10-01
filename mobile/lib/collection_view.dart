@@ -17,6 +17,7 @@ class CollectionView extends StatefulWidget {
       required this.onSearch,
       required this.onOpen,
       this.onWeeklyReadings,
+      this.onRefresh,
       super.key});
   final TextEditingController search;
   final List<Map<String, dynamic>> results;
@@ -30,6 +31,7 @@ class CollectionView extends StatefulWidget {
   final VoidCallback onSearch;
   final ValueChanged<Map<String, dynamic>> onOpen;
   final VoidCallback? onWeeklyReadings;
+  final Future<void> Function()? onRefresh;
   @override
   State<CollectionView> createState() => _CollectionViewState();
 }
@@ -43,7 +45,9 @@ class _CollectionViewState extends State<CollectionView> {
     final cash = widget.today
         .where((payment) => payment['payment_method'] == 'cash')
         .fold<double>(0, (sum, payment) => sum + inShekels(payment));
-    return ListView(
+    final list = ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
           Container(
@@ -160,6 +164,12 @@ class _CollectionViewState extends State<CollectionView> {
           const AppNotice(
               'تسجيل الدفعات يتطلب اتصالًا بالإنترنت. تُسجّل مباشرة في السجل المالي بعد تأكيد استلامها.'),
         ]);
+    return widget.onRefresh == null
+        ? list
+        : RefreshIndicator(
+            color: AppIdentity.brand,
+            onRefresh: widget.onRefresh!,
+            child: list);
   }
 
   Widget segment(String text, bool value) => Expanded(

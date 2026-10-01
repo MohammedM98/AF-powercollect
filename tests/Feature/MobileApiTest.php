@@ -151,6 +151,36 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('data.0.previous_reading', 1200);
     }
 
+    public function test_mobile_roster_carries_recent_weeks_to_compare_the_new_reading_against(): void
+    {
+        $this->travelTo('2026-09-24 10:00:00');
+        $user = User::factory()->dataEntry()->create();
+        $subscriber = Subscriber::factory()->create(['branch_id' => $user->branch_id, 'initial_reading' => 0]);
+        $week = MeterReading::latestEndedWeekStart();
+        foreach ([4 => [0, 100], 3 => [100, 130], 2 => [130, 170], 1 => [170, 195]] as $weeksAgo => [$previous, $current]) {
+            MeterReading::factory()->approved()->create([
+                'subscriber_id' => $subscriber->id, 'week_start' => $week->copy()->subWeeks($weeksAgo),
+                'previous_reading' => $previous, 'current_reading' => $current, 'consumption' => $current - $previous,
+            ]);
+        }
+        MeterReading::factory()->create([
+            'subscriber_id' => $subscriber->id, 'week_start' => $week,
+            'previous_reading' => 195, 'current_reading' => 230, 'consumption' => 35,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($user))
+            ->getJson(route('mobile.subscribers.index'))
+            ->assertOk()
+            ->assertJsonPath('data.0.previous_reading', 195)
+            ->assertJsonPath('data.0.current_reading', 230)
+            ->assertJsonPath('data.0.reading_status', 'pending')
+            ->assertJsonCount(3, 'data.0.recent_readings')
+            ->assertJsonPath('data.0.recent_readings.0.week_start', $week->copy()->subWeek()->toDateString())
+            ->assertJsonPath('data.0.recent_readings.0.current_reading', 195)
+            ->assertJsonPath('data.0.recent_readings.0.consumption', 25)
+            ->assertJsonPath('data.0.recent_readings.2.consumption', 30);
+    }
+
     public function test_collector_cannot_download_the_offline_reading_roster(): void
     {
         $collector = User::factory()->collector()->create();

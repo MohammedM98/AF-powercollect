@@ -122,6 +122,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('محفظة بالباي'), 150,
         scrollable: scrollable);
+    await tester.ensureVisible(find.text('محفظة بالباي'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('محفظة بالباي'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byType(CheckboxListTile), 150,

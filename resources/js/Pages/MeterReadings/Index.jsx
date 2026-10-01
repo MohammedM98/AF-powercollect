@@ -204,7 +204,7 @@ function EntryWindowNotice({ entryWindow, canRecord, canApprove, weekIsViewOnly,
             <div role="status" className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-300">
                 <p className="font-semibold">إدخال القراءات الجديدة مغلق حاليًا.</p>
                 <p className="mt-1">
-                    {days.length ? `يُفتح الإدخال يوم ${days.join(' و')}.` : 'سيُفتح عندما يفتحه المدير.'} حتى ذلك الحين يمكنك تعديل القراءات المُدخلة
+                    {days.length ? `يُفتح الإدخال يوم ${days.join(' و')} من ${entryWindow.opensAt} إلى ${entryWindow.closesAt} بتوقيت الشركة.` : 'سيُفتح عندما يفتحه المدير.'} حتى ذلك الحين يمكنك تعديل القراءات المُدخلة
                     للأسبوع الأخير فقط.
                 </p>
             </div>

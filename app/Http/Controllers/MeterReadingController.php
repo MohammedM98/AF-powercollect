@@ -252,7 +252,7 @@ class MeterReadingController extends Controller
      * restricts this actor at all: only people who enter readings are held to
      * it, and the Super Admin may enter them any time.
      *
-     * @return array{isOpen: bool, appliesToActor: bool, openDays: array<int, int>}
+     * @return array{isOpen: bool, appliesToActor: bool, openDays: array<int, int>, opensAt: string, closesAt: string}
      */
     private function entryWindow(User $actor): array
     {
@@ -262,6 +262,8 @@ class MeterReadingController extends Controller
             'isOpen' => $setting->isOpen(),
             'appliesToActor' => ! $actor->isSuperAdmin() && $actor->hasPermission(PermissionKey::RecordMeterReadings),
             'openDays' => $setting->mode === ReadingEntryMode::Automatic ? array_map('intval', $setting->open_days) : [],
+            'opensAt' => substr($setting->opens_at, 0, 5),
+            'closesAt' => substr($setting->closes_at, 0, 5),
         ];
     }
 

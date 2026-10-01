@@ -30,6 +30,8 @@ class UpdateReadingScheduleRequest extends FormRequest
             'reading_day' => ['required', 'integer', 'between:0,6'],
             'open_days' => ['required', 'array', 'min:1'],
             'open_days.*' => ['integer', 'between:0,6', 'distinct'],
+            'opens_at' => ['required_with:closes_at', 'filled', 'date_format:H:i'],
+            'closes_at' => ['required_with:opens_at', 'filled', 'date_format:H:i', 'after:opens_at'],
             'mode' => ['required', Rule::enum(ReadingEntryMode::class)],
         ];
     }
@@ -43,6 +45,13 @@ class UpdateReadingScheduleRequest extends FormRequest
             'reading_day.required' => 'اختر يوم القراءة الأسبوعي.',
             'open_days.required' => 'اختر يومًا واحدًا على الأقل لفتح الإدخال.',
             'open_days.min' => 'اختر يومًا واحدًا على الأقل لفتح الإدخال.',
+            'opens_at.required_with' => 'حدد ساعة بداية الإدخال.',
+            'opens_at.filled' => 'حدد ساعة بداية الإدخال.',
+            'opens_at.date_format' => 'أدخل ساعة بداية صحيحة.',
+            'closes_at.required_with' => 'حدد ساعة نهاية الإدخال.',
+            'closes_at.filled' => 'حدد ساعة نهاية الإدخال.',
+            'closes_at.date_format' => 'أدخل ساعة نهاية صحيحة.',
+            'closes_at.after' => 'يجب أن تكون ساعة النهاية بعد البداية في اليوم نفسه.',
         ];
     }
 }

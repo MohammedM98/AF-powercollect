@@ -356,6 +356,32 @@ class MeterReadingTest extends TestCase
         $this->assertDatabaseCount('meter_readings', 0);
     }
 
+    public function test_new_readings_obey_entry_hours_but_the_super_admin_can_record_outside_them(): void
+    {
+        config(['app.business_timezone' => 'Asia/Gaza']);
+        ReadingEntrySetting::factory()->create(['opens_at' => '08:30:00', 'closes_at' => '17:00:00']);
+        $this->travelTo(now()->parse('2026-09-24 05:29:00', 'UTC'));
+
+        $this->actingAs($this->dataEntry)->post(route('meter-readings.store'), $this->payload())->assertForbidden();
+        $this->get(route('meter-readings.index'))->assertInertia(fn ($page) => $page
+            ->where('canRecord', false)
+            ->where('entryWindow.opensAt', '08:30')
+            ->where('entryWindow.closesAt', '17:00'));
+        $this->assertDatabaseCount('meter_readings', 0);
+
+        $this->travelTo(now()->parse('2026-09-24 05:30:00', 'UTC'));
+        $this->post(route('meter-readings.store'), $this->payload())->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('meter_readings', 1);
+
+        $this->travelTo(now()->parse('2026-09-24 14:01:00', 'UTC'));
+        $anotherSubscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'initial_reading' => 1200]);
+        $this->post(route('meter-readings.store'), $this->payload(['subscriber_id' => $anotherSubscriber->id]))->assertForbidden();
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->post(route('meter-readings.store'), $this->payload(['subscriber_id' => $anotherSubscriber->id]))
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('meter_readings', 2);
+    }
+
     public function test_the_latest_weeks_readings_can_still_be_corrected_while_entry_is_closed_but_not_added(): void
     {
         $reading = $this->recordedReading('2026-09-18', 1200, 1250);
@@ -526,8 +552,10 @@ class MeterReadingTest extends TestCase
 
     public function test_the_subscriber_statement_includes_their_readings(): void
     {
-        $this->recordedReading('2026-09-11', 1200, 1250, MeterReadingStatus::Approved);
-        $this->recordedReading('2026-09-18', 1250, 1290);
+        $this->recordedReading('2026-09-11', 1200, 1250, MeterReadingStatus::Approved)
+            ->update(['reading_fee' => 150, 'minimum_payment' => 20]);
+        $this->recordedReading('2026-09-18', 1250, 1290)
+            ->update(['mobile_operation_id' => '12345678-1234-4123-8123-123456789012', 'reading_fee' => 10, 'minimum_payment' => 20]);
 
         $this->actingAs($this->dataEntry)
             ->get(route('subscribers.index'))
@@ -541,11 +569,33 @@ class MeterReadingTest extends TestCase
                 ->where('subscribers.data.0.meterReadings.0.weekStart', '2026-09-18')
                 ->where('subscribers.data.0.meterReadings.0.consumption', 40)
                 ->where('subscribers.data.0.meterReadings.0.discountAmount', '0.00')
+                ->where('subscribers.data.0.meterReadings.0.recordedSource', 'app')
+                ->where('subscribers.data.0.meterReadings.0.minimumApplied', true)
+                ->where('subscribers.data.0.meterReadings.1.recordedSource', 'web')
+                ->where('subscribers.data.0.meterReadings.1.minimumApplied', false)
                 ->where('subscribers.data.0.meterReadings.1.status', 'approved')
                 ->where('subscribers.data.0.meterReadings.0.canUpdate', true)
                 ->where('subscribers.data.0.meterReadings.1.canUpdate', false)
                 ->has('readingWeekOptions', 1)
                 ->where('readingWeekOptions.0.value', '2026-09-18'));
+    }
+
+    public function test_the_history_does_not_label_a_discounted_reading_as_a_minimum_charge(): void
+    {
+        $this->recordedReading('2026-09-18', 1200, 1201)->update([
+            'reading_fee' => 3,
+            'minimum_payment' => 20,
+            'discount_method' => 'percentage',
+            'discount_value' => 10,
+            'discount_amount' => 0.3,
+            'amount_due' => 2.7,
+        ]);
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('subscribers.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('subscribers.data.0.meterReadings.0.minimumApplied', false)
+                ->where('subscribers.data.0.meterReadings.0.amountDue', '2.70'));
     }
 
     public function test_a_collector_is_not_offered_reading_entry_on_the_statement(): void

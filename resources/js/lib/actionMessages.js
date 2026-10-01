@@ -61,6 +61,8 @@ export const ACTION_MESSAGES = {
     'cash-handed-over': 'تم تسجيل تسليم النقد، وهو قيد النقل حتى يُؤكَّد استلامه.',
     'cash-received': 'تم تأكيد استلام النقد في خزينة الشركة.',
     'period-approved': 'تم اعتماد الإغلاق.',
+    'closing-schedule-updated': 'تم حفظ مواعيد الإغلاق.',
+    'closings-opened': 'تم فتح كشوف اليوم لكل الفروع.',
 };
 
 /**

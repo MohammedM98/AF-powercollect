@@ -156,6 +156,18 @@ class PermissionsTest extends TestCase
         ));
     }
 
+    public function test_closings_are_prepared_per_branch_while_viewing_all_branches_and_reviewing_are_granted_by_the_super_admin(): void
+    {
+        $this->seedPermissions();
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $closingActions = fn ($groups): array => collect(collect($groups)->firstWhere('key', 'closings')['actions'])->pluck('action')->all();
+
+        $this->actingAs(User::factory()->superAdmin()->create())->get(route('settings.permissions.edit'))
+            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['prepare', 'view_all', 'audit']));
+        $this->actingAs($branchAdmin)->get(route('settings.permissions.edit'))
+            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['prepare']));
+    }
+
     public function test_branch_admin_does_not_see_company_wide_permissions_on_the_permissions_page(): void
     {
         $this->seedPermissions();

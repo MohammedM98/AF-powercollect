@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Branch;
 use App\Models\Closing;
+use App\Models\ClosingSetting;
 use App\Support\ClosingPeriods;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -11,25 +11,26 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Artisan::command('closings:open {--date= : The business day (Y-m-d); yesterday by default}', function () {
+Artisan::command('closings:open {--date= : The business day (Y-m-d); the latest closed day by default}', function () {
+    if (! $this->option('date') && ! ClosingSetting::current()->auto_open) {
+        $this->info('Closings open by hand: automatic opening is off on the closing schedule page.');
+
+        return 0;
+    }
+
     $day = $this->option('date') ? ClosingPeriods::date($this->option('date')) : ClosingPeriods::latestEndedDay();
 
     if (! ClosingPeriods::hasEnded($day)) {
-        $this->error('That day has not ended yet.');
+        $this->error('That day has not closed yet.');
 
         return 1;
     }
 
-    $branches = Branch::query()->where('is_active', true)->orderBy('id')->get();
-
-    foreach ($branches as $branch) {
-        Closing::dailyFor($branch, $day)->syncPayments();
-    }
-
-    $this->info("Opened the daily closings of {$day->toDateString()} for {$branches->count()} branches.");
+    $count = Closing::openForActiveBranches($day);
+    $this->info("Opened the daily closings of {$day->toDateString()} for {$count} branches.");
 
     return 0;
-})->purpose("Open every active branch's daily closing for a day that has ended, with its payments");
+})->purpose("Open every active branch's daily closing for a day that has closed, with its payments");
 
-// Every branch's closing is ready at the start of the next business day.
-Schedule::command('closings:open')->dailyAt('00:05')->timezone(config('app.business_timezone'));
+// Each branch's closing is ready soon after the day's cut-off, whatever time it is set to.
+Schedule::command('closings:open')->everyFifteenMinutes();

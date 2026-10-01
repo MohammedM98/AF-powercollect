@@ -69,7 +69,14 @@ class User extends Authenticatable
      */
     public function resetToRoleStarterPermissions(): void
     {
-        $this->permissions()->sync(Permission::idsFor($this->role->starterPermissions()));
+        // Company-wide starters only come with a Super Admin's (or the system's) say-so.
+        $actor = auth()->user();
+        $starters = array_filter(
+            $this->role->starterPermissions(),
+            fn (PermissionKey $key): bool => ! $key->isCompanyWide() || $actor === null || $actor->isSuperAdmin(),
+        );
+
+        $this->permissions()->sync(Permission::idsFor($starters));
         $this->unsetRelation('permissions');
     }
 

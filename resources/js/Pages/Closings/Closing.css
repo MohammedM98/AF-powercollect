@@ -2045,3 +2045,20 @@
 .closing-page .ctl select:focus {
     outline: none;
 }
+
+.closing-page a.btn {
+    text-decoration: none;
+}
+.closing-page .ctl input[type='date'] {
+    font-family: Alexandria, 'IBM Plex Sans Arabic', sans-serif;
+}
+@media print {
+    .closing-page .btn,
+    .closing-page .ctl {
+        display: none;
+    }
+    .closing-page .pn,
+    .closing-page .kp div {
+        box-shadow: none;
+    }
+}

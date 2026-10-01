@@ -90,6 +90,21 @@ class Closing extends Model
     }
 
     /**
+     * Open the day's closing of every active branch, with its payments.
+     * Returns how many branches.
+     */
+    public static function openForActiveBranches(CarbonInterface|string $day): int
+    {
+        $branches = Branch::query()->where('is_active', true)->orderBy('id')->get();
+
+        foreach ($branches as $branch) {
+            static::dailyFor($branch, $day)->syncPayments();
+        }
+
+        return $branches->count();
+    }
+
+    /**
      * Daily closings are numbered one after another from the configured
      * first number: 5001, 5002…
      */

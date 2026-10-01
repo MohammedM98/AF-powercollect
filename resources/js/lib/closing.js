@@ -81,3 +81,19 @@ export function addDays(isoDate, days) {
 export function paymentsCount(count) {
     return count === 1 ? '1 دفعة' : count === 2 ? 'دفعتان' : `${count} دفعات`;
 }
+
+/**
+ * Which hours a business day covers with the given cut-off: the whole day
+ * at midnight (00:00), otherwise from the cut-off the evening before.
+ */
+export function businessDayHours(cutoff) {
+    return cutoff === '00:00' ? 'من بداية اليوم حتى منتصف الليل' : `من الساعة ${cutoff} في اليوم السابق حتى الساعة ${cutoff}`;
+}
+
+/** The seven Y-m-d dates of the week containing `isoDate`, starting on weekday `startsOn` (0 = Sunday … 6 = Saturday). */
+export function weekOf(isoDate, startsOn) {
+    const weekday = new Date(`${isoDate}T00:00:00Z`).getUTCDay();
+    const first = addDays(isoDate, -((weekday - startsOn + 7) % 7));
+
+    return Array.from({ length: 7 }, (_, index) => addDays(first, index));
+}

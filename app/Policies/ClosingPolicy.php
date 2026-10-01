@@ -12,13 +12,23 @@ use App\Models\User;
  * Preparing a branch's closings takes "Prepare Closings", for the user's
  * own branch (any branch for the Super Admin). Reviewing them — returning
  * or approving a branch's daily closing, and approving the company's week
- * and month — takes "Audit Closings", which covers every branch.
+ * and month — takes "Audit Closings", which covers every branch. "View All
+ * Closings and Reports" opens every branch's closings and the reports, read
+ * only — a financial auditor's view.
  */
 class ClosingPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::PrepareClosings, PermissionKey::AuditClosings);
+        return $user->hasAnyPermission(PermissionKey::PrepareClosings, PermissionKey::AuditClosings, PermissionKey::ViewAllClosings);
+    }
+
+    /**
+     * Whether the user sees every branch's closings rather than their own.
+     */
+    public function viewAllBranches(User $user): bool
+    {
+        return $user->hasAnyPermission(PermissionKey::AuditClosings, PermissionKey::ViewAllClosings);
     }
 
     /**
@@ -26,7 +36,7 @@ class ClosingPolicy
      */
     public function viewBranch(User $user, Branch $branch): bool
     {
-        return $user->hasPermission(PermissionKey::AuditClosings)
+        return $this->viewAllBranches($user)
             || ($user->hasPermission(PermissionKey::PrepareClosings) && ($user->isSuperAdmin() || $branch->id === $user->branch_id));
     }
 

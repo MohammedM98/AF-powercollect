@@ -6,6 +6,7 @@ use App\Http\Controllers\BranchPerformanceController;
 use App\Http\Controllers\CashTransferController;
 use App\Http\Controllers\CircuitBreakerController;
 use App\Http\Controllers\ClosingController;
+use App\Http\Controllers\ClosingScheduleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GovernorateController;
 use App\Http\Controllers\LedgerController;
@@ -47,6 +48,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
 
     Route::get('/closings', [ClosingController::class, 'index'])->name('closings.index');
+    Route::get('/closings/register.csv', [ClosingController::class, 'export'])->name('closings.export');
+    Route::get('/settings/closing-schedule', [ClosingScheduleController::class, 'edit'])->name('settings.closing-schedule.edit');
+    Route::put('/settings/closing-schedule', [ClosingScheduleController::class, 'update'])->name('settings.closing-schedule.update');
+    Route::post('/settings/closing-schedule/open', [ClosingScheduleController::class, 'open'])->name('settings.closing-schedule.open');
     Route::put('/closings/{closing}/count', [ClosingController::class, 'count'])->name('closings.count');
     Route::put('/closings/{closing}/lines/{line}', [ClosingController::class, 'match'])->name('closings.lines.match');
     Route::post('/closings/{closing}/submit', [ClosingController::class, 'submit'])->name('closings.submit');

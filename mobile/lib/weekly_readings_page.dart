@@ -166,53 +166,83 @@ class _WeeklyReadingsPageState extends State<WeeklyReadingsPage> {
               if (busy) const LinearProgressIndicator(),
             ])),
         Expanded(
-            child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                children: [
-              if (error != null) ...[
-                AppNotice(error!, error: true),
-                TextButton(
-                    onPressed: busy ? null : () => unawaited(load()),
-                    child: const Text('إعادة المحاولة')),
-              ],
-              if (!busy && error == null && subscribers.isEmpty)
-                const AppPanel(child: Center(child: Text('لا توجد نتائج'))),
-              for (final subscriber in subscribers)
-                Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: readingCard(subscriber)),
-              if (page > 0 && page < lastPage)
-                AppAction(
-                    label: 'عرض المزيد',
-                    primary: false,
-                    busy: busy,
-                    onPressed: busy ? null : () => unawaited(load(more: true))),
-            ])),
+            child: RefreshIndicator(
+                color: AppIdentity.brand,
+                onRefresh: load,
+                child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    children: [
+                      if (error != null) ...[
+                        AppNotice(error!, error: true),
+                        TextButton(
+                            onPressed: busy ? null : () => unawaited(load()),
+                            child: const Text('إعادة المحاولة')),
+                      ],
+                      if (!busy && error == null && subscribers.isEmpty)
+                        const AppPanel(
+                            child: Center(child: Text('لا توجد نتائج'))),
+                      for (final subscriber in subscribers)
+                        Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: readingCard(subscriber)),
+                      if (page > 0 && page < lastPage)
+                        AppAction(
+                            label: 'عرض المزيد',
+                            primary: false,
+                            busy: busy,
+                            onPressed: busy
+                                ? null
+                                : () => unawaited(load(more: true))),
+                    ]))),
       ])));
 
   Widget readingCard(Map<String, dynamic> subscriber) {
     final status = subscriber['status'];
-    final statusLabel = switch (status) {
-      'approved' => 'معتمدة',
-      'pending' => 'بانتظار الاعتماد',
-      _ => 'لم تُدخل قراءة لهذا الأسبوع',
+    final (statusLabel, color, icon) = switch (status) {
+      'approved' => ('معتمدة', AppIdentity.good, Icons.verified_outlined),
+      'pending' => ('بانتظار الاعتماد', AppIdentity.warning, Icons.schedule),
+      _ => ('لم تُدخل قراءة', AppIdentity.muted, Icons.remove_circle_outline),
     };
-    final color = status == 'approved' ? AppIdentity.good : AppIdentity.warning;
     return AppPanel(
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('${subscriber['full_name']}', style: AppIdentity.heading(18)),
-      Text(
-          'حساب ${subscriber['account_number']} · طبلون ${subscriber['meter_box_number'] ?? '—'}',
-          style: AppIdentity.body(12, color: AppIdentity.faint)),
-      const SizedBox(height: 10),
-      Text(statusLabel,
-          style: AppIdentity.body(13, color: color, weight: FontWeight.w700)),
-      const Divider(height: 24),
-      readingValue('القراءة السابقة', subscriber['previous_reading']),
-      readingValue('القراءة الحالية', subscriber['current_reading']),
-      readingValue('الاستهلاك (ك.و.س)', subscriber['consumption']),
-      readingValue('قيمة الأسبوع (₪)', subscriber['amount_due']),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${subscriber['full_name']}', style: AppIdentity.heading(17)),
+          Text(
+              'حساب ${subscriber['account_number']} · طبلون ${subscriber['meter_box_number'] ?? '—'}',
+              style: AppIdentity.body(12, color: AppIdentity.faint)),
+        ])),
+        const SizedBox(width: 8),
+        Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+                color: color.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(99)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(statusLabel,
+                  style: AppIdentity.body(12,
+                      color: color, weight: FontWeight.w700)),
+            ])),
+      ]),
+      const SizedBox(height: 12),
+      AppReadingCompare(
+          previous: AppIdentity.reading(subscriber['previous_reading']),
+          current: subscriber['current_reading'] == null
+              ? null
+              : AppIdentity.reading(subscriber['current_reading']),
+          consumption: subscriber['consumption'] == null
+              ? null
+              : AppIdentity.reading(subscriber['consumption'])),
+      if (subscriber['amount_due'] != null) ...[
+        const SizedBox(height: 10),
+        readingValue('قيمة الأسبوع (₪)', subscriber['amount_due']),
+      ],
     ]));
   }
 

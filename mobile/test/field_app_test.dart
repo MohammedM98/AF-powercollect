@@ -175,7 +175,7 @@ void main() {
     await tester.pumpWidget(
         PowerCollectApp(apiClient: OfflineApi(), fieldStore: store));
     await tester.pumpAndSettle();
-    expect(find.textContaining('1 قراءات بانتظار المزامنة'), findsOneWidget);
+    expect(find.textContaining('قراءة واحدة بانتظار المزامنة'), findsOneWidget);
     expect(find.text('تسجيل الدفعات'), findsNothing);
     await tester.tap(find.text('إدخال القراءات').last);
     await tester.pumpAndSettle();

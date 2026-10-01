@@ -66,6 +66,8 @@ class FieldStore {
         'can_record_readings_now',
         'roster_updated_at',
         'queued_readings',
+        'reading_drafts',
+        'reading_drafts_week',
       ]) {
         state.remove(key);
       }
@@ -99,7 +101,54 @@ class FieldStore {
       final queue = queuedReadings;
       queue.addAll(readings);
       state['queued_readings'] = queue;
+      final drafts = readingDrafts;
+      for (final reading in readings) {
+        drafts.remove(reading['subscriber_id']);
+      }
+      _putDrafts(drafts);
     });
+  }
+
+  /// Readings typed for this week's roster but not saved yet, by subscriber
+  /// id, so leaving a box or closing the app loses none of them.
+  Map<int, String> get readingDrafts {
+    final drafts = state['reading_drafts'];
+    if (drafts is! Map || state['reading_drafts_week'] != state['week_start'])
+      return {};
+    return {
+      for (final entry in drafts.entries)
+        if (int.tryParse('${entry.key}') != null)
+          int.parse('${entry.key}'): '${entry.value}',
+    };
+  }
+
+  Future<void> saveReadingDrafts(Map<int, String> drafts) =>
+      _mutate(() => _putDrafts(drafts));
+
+  /// Take a reading that has not reached the server off the queue and put
+  /// its number back as a draft, to be corrected and saved again.
+  Future<void> reopenReading(String operationId) async {
+    await _mutate(() {
+      final queue = queuedReadings;
+      final reading = queue
+          .where((item) => item['mobile_operation_id'] == operationId)
+          .firstOrNull;
+      if (reading == null) return;
+      queue.remove(reading);
+      state['queued_readings'] = queue;
+      _putDrafts({
+        ...readingDrafts,
+        reading['subscriber_id'] as int: '${reading['current_reading']}',
+      });
+    });
+  }
+
+  void _putDrafts(Map<int, String> drafts) {
+    state['reading_drafts'] = {
+      for (final entry in drafts.entries)
+        if (entry.value.isNotEmpty) '${entry.key}': entry.value,
+    };
+    state['reading_drafts_week'] = state['week_start'];
   }
 
   Future<void> removeReading(String operationId) async {

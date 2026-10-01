@@ -40,6 +40,7 @@ abstract final class AppIdentity {
       color: color);
   static TextStyle number(double size, {Color color = ink}) => TextStyle(
       fontFamily: 'Alexandria',
+      fontFamilyFallback: const ['PlexArabic'],
       fontSize: size,
       height: 1.1,
       fontWeight: FontWeight.w700,
@@ -79,6 +80,34 @@ abstract final class AppIdentity {
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: brand, width: 1.5)),
         ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: surface,
+          surfaceTintColor: Colors.transparent,
+          indicatorColor: brand.withValues(alpha: .1),
+          height: 66,
+          labelTextStyle: WidgetStateProperty.resolveWith((states) => body(12,
+              weight: states.contains(WidgetState.selected)
+                  ? FontWeight.w700
+                  : FontWeight.w500,
+              color: states.contains(WidgetState.selected) ? brand : muted)),
+          iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(
+              size: 23,
+              color: states.contains(WidgetState.selected) ? brand : muted)),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: ink,
+          contentTextStyle: body(14, color: Colors.white),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: surface,
+          surfaceTintColor: Colors.transparent,
+          showDragHandle: true,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        ),
         dialogTheme: DialogThemeData(
             backgroundColor: surface,
             shape: RoundedRectangleBorder(
@@ -87,6 +116,121 @@ abstract final class AppIdentity {
 
   static String money(dynamic value) =>
       (double.tryParse('$value') ?? 0).toStringAsFixed(2);
+
+  /// A meter reading without trailing zeros: 1250, not 1250.00.
+  static String reading(dynamic value) {
+    final number = double.tryParse('$value');
+    if (number == null) return value == null ? '—' : '$value';
+    return number == number.roundToDouble()
+        ? number.toStringAsFixed(0)
+        : number.toString();
+  }
+
+  /// How many readings, worded as Arabic counts them.
+  static String readingsCount(int count) => switch (count) {
+        0 => 'لا قراءات',
+        1 => 'قراءة واحدة',
+        2 => 'قراءتان',
+        <= 10 => '$count قراءات',
+        _ => '$count قراءة',
+      };
+
+  /// A week's start date as day/month, the way the field staff say it.
+  static String shortDate(dynamic value) {
+    final date = DateTime.tryParse('$value');
+    return date == null ? '—' : '${date.day}/${date.month}';
+  }
+}
+
+/// Shows or hides [child] by sliding it open or closed.
+class AppReveal extends StatelessWidget {
+  const AppReveal({required this.visible, required this.child, super.key});
+  final bool visible;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => ClipRect(
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: visible ? child : const SizedBox(width: double.infinity),
+        ),
+      );
+}
+
+/// The previous reading, the new one and the consumption between them,
+/// side by side so a wrong number stands out before it is saved.
+class AppReadingCompare extends StatelessWidget {
+  const AppReadingCompare(
+      {required this.previous,
+      required this.current,
+      required this.consumption,
+      this.currentHint = '—',
+      this.alert,
+      this.highlightCurrent = false,
+      super.key});
+  final String previous;
+  final String? current;
+  final String? consumption;
+  final String currentHint;
+  final Color? alert;
+  final bool highlightCurrent;
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        Expanded(child: _cell('السابقة', previous, AppIdentity.muted)),
+        _operator(Icons.arrow_forward_rounded),
+        Expanded(
+            child: _cell('الجديدة', current ?? currentHint,
+                current == null ? AppIdentity.faint : AppIdentity.ink,
+                emphasised: highlightCurrent)),
+        _operator(Icons.drag_handle_rounded),
+        Expanded(
+            child: _cell(
+                'الاستهلاك',
+                consumption ?? '—',
+                alert ??
+                    (consumption == null
+                        ? AppIdentity.faint
+                        : AppIdentity.good),
+                unit: consumption == null ? null : 'ك.و.س')),
+      ]);
+
+  Widget _operator(IconData icon) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Icon(icon, size: 16, color: AppIdentity.faint),
+      );
+
+  Widget _cell(String label, String value, Color color,
+          {bool emphasised = false, String? unit}) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+        decoration: BoxDecoration(
+            color: emphasised ? AppIdentity.surface : AppIdentity.raised,
+            border: Border.all(
+                color: emphasised ? AppIdentity.brand : AppIdentity.lineSoft,
+                width: emphasised ? 1.5 : 1),
+            borderRadius: BorderRadius.circular(12)),
+        child: Column(children: [
+          Text(label, style: AppIdentity.body(11, color: AppIdentity.faint)),
+          const SizedBox(height: 3),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: value),
+                  if (unit != null)
+                    TextSpan(
+                        text: ' $unit',
+                        style: AppIdentity.body(10, color: AppIdentity.faint)),
+                ]),
+                maxLines: 1,
+                textDirection:
+                    unit == null ? TextDirection.ltr : TextDirection.rtl,
+                style: AppIdentity.number(17, color: color)),
+          ),
+        ]),
+      );
 }
 
 class AppPanel extends StatelessWidget {
@@ -130,7 +274,7 @@ class AppHeader extends StatelessWidget {
         child: Row(children: [
           if (onBack != null)
             AppIconButton(
-                icon: Icons.arrow_forward, label: 'رجوع', onPressed: onBack!)
+                icon: Icons.arrow_back, label: 'رجوع', onPressed: onBack!)
           else
             Image.asset('assets/images/brand-mark.webp',
                 width: 48, height: 42, fit: BoxFit.contain),
@@ -361,15 +505,22 @@ class AppServiceCard extends StatelessWidget {
       );
 }
 
+/// The number pad the readings and payments are typed on. With [onClose]
+/// it gets a handle to hide it (tap or swipe down); a long press on delete
+/// sends `clear`, and on 0 for readings it sends a decimal point.
 class AppKeypad extends StatelessWidget {
   const AppKeypad(
       {required this.onKey,
       this.decimal = false,
       this.enabled = true,
+      this.onClose,
+      this.nextLabel = 'التالي',
       super.key});
   final ValueChanged<String> onKey;
   final bool decimal;
   final bool enabled;
+  final VoidCallback? onClose;
+  final String nextLabel;
   @override
   Widget build(BuildContext context) {
     final keys = [
@@ -386,60 +537,92 @@ class AppKeypad extends StatelessWidget {
       '0',
       if (decimal) 'delete' else 'next'
     ];
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-        decoration: const BoxDecoration(
-            color: AppIdentity.sunken,
-            border: Border(top: BorderSide(color: AppIdentity.lineSoft))),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          for (var row = 0; row < 4; row++)
-            Padding(
-              padding: EdgeInsets.only(bottom: row == 3 ? 0 : 7),
-              child: Row(children: [
-                for (var column = 0; column < 3; column++) ...[
-                  if (column > 0) const SizedBox(width: 7),
-                  Expanded(
-                      child: SizedBox(
-                          height: 50,
-                          child: Material(
-                            color: keys[row * 3 + column] == 'next'
-                                ? AppIdentity.brand
-                                : AppIdentity.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            child: InkWell(
-                              key: ValueKey(
-                                  '${decimal ? 'payment' : 'reading'}-key-${keys[row * 3 + column]}'),
+    return GestureDetector(
+      onVerticalDragEnd: onClose == null
+          ? null
+          : (details) {
+              if ((details.primaryVelocity ?? 0) > 250) onClose!();
+            },
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Container(
+          padding: EdgeInsets.fromLTRB(10, onClose == null ? 10 : 0, 10, 12),
+          decoration: const BoxDecoration(
+              color: AppIdentity.sunken,
+              border: Border(top: BorderSide(color: AppIdentity.lineSoft))),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (onClose != null)
+              InkWell(
+                key:
+                    ValueKey('${decimal ? 'payment' : 'reading'}-keypad-close'),
+                onTap: onClose,
+                child: SizedBox(
+                  height: 34,
+                  child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.keyboard_arrow_down_rounded,
+                            size: 22, color: AppIdentity.muted),
+                        const SizedBox(width: 4),
+                        Directionality(
+                            textDirection: TextDirection.rtl,
+                            child: Text('إخفاء لوحة الأرقام',
+                                style: AppIdentity.body(12.5,
+                                    weight: FontWeight.w600,
+                                    color: AppIdentity.muted))),
+                      ]),
+                ),
+              ),
+            for (var row = 0; row < 4; row++)
+              Padding(
+                padding: EdgeInsets.only(bottom: row == 3 ? 0 : 7),
+                child: Row(children: [
+                  for (var column = 0; column < 3; column++) ...[
+                    if (column > 0) const SizedBox(width: 7),
+                    Expanded(
+                        child: SizedBox(
+                            height: 50,
+                            child: Material(
+                              color: keys[row * 3 + column] == 'next'
+                                  ? AppIdentity.brand
+                                  : AppIdentity.surface,
                               borderRadius: BorderRadius.circular(14),
-                              onTap: enabled
-                                  ? () => onKey(keys[row * 3 + column])
-                                  : null,
-                              onLongPress: enabled &&
-                                      !decimal &&
-                                      keys[row * 3 + column] == '0'
-                                  ? () => onKey('.')
-                                  : null,
-                              child: Center(
-                                  child: keys[row * 3 + column] == 'delete'
-                                      ? const Icon(Icons.backspace_outlined,
-                                          color: AppIdentity.muted, size: 22)
-                                      : Text(
-                                          keys[row * 3 + column] == 'next'
-                                              ? 'التالي'
-                                              : keys[row * 3 + column],
-                                          style:
-                                              keys[row * 3 + column] == 'next'
-                                                  ? AppIdentity.body(16,
-                                                      weight: FontWeight.w700,
-                                                      color: Colors.white)
-                                                  : AppIdentity.number(23))),
-                            ),
-                          ))),
-                ],
-              ]),
-            ),
-        ]),
+                              child: InkWell(
+                                key: ValueKey(
+                                    '${decimal ? 'payment' : 'reading'}-key-${keys[row * 3 + column]}'),
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: enabled
+                                    ? () => onKey(keys[row * 3 + column])
+                                    : null,
+                                onLongPress: !enabled
+                                    ? null
+                                    : keys[row * 3 + column] == 'delete'
+                                        ? () => onKey('clear')
+                                        : !decimal &&
+                                                keys[row * 3 + column] == '0'
+                                            ? () => onKey('.')
+                                            : null,
+                                child: Center(
+                                    child: keys[row * 3 + column] == 'delete'
+                                        ? const Icon(Icons.backspace_outlined,
+                                            color: AppIdentity.muted, size: 22)
+                                        : Text(
+                                            keys[row * 3 + column] == 'next'
+                                                ? nextLabel
+                                                : keys[row * 3 + column],
+                                            style:
+                                                keys[row * 3 + column] == 'next'
+                                                    ? AppIdentity.body(16,
+                                                        weight: FontWeight.w700,
+                                                        color: Colors.white)
+                                                    : AppIdentity.number(23))),
+                              ),
+                            ))),
+                  ],
+                ]),
+              ),
+          ]),
+        ),
       ),
     );
   }

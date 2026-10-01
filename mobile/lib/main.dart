@@ -8,6 +8,7 @@ import 'app_identity.dart';
 import 'collection_view.dart';
 import 'payment_page.dart';
 import 'field_store.dart';
+import 'queued_readings.dart';
 import 'reading_flow.dart';
 import 'weekly_readings_page.dart';
 
@@ -125,6 +126,7 @@ class _LoginPageState extends State<LoginPage> {
   final username = TextEditingController();
   final password = TextEditingController();
   bool busy = false;
+  bool showPassword = false;
   String? error;
 
   @override
@@ -183,12 +185,21 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 16),
                       TextField(
                           controller: password,
-                          obscureText: true,
+                          obscureText: !showPassword,
                           autofillHints: const [AutofillHints.password],
                           onSubmitted: (_) => submit(),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                               labelText: 'كلمة المرور',
-                              prefixIcon: Icon(Icons.lock_outline))),
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                  tooltip: showPassword
+                                      ? 'إخفاء كلمة المرور'
+                                      : 'إظهار كلمة المرور',
+                                  icon: Icon(showPassword
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined),
+                                  onPressed: () => setState(
+                                      () => showPassword = !showPassword)))),
                       if (error != null) ...[
                         const SizedBox(height: 12),
                         AppNotice(error!, error: true)
@@ -246,6 +257,8 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   int collectionLastPage = 1;
   String? collectionError;
   bool requiresLogin = false;
+  bool readingFocus = false;
+  int? focusSubscriberId;
 
   bool get canRead => currentUser['can_record_readings'] == true;
   bool get canCollect => currentUser['can_record_collections'] == true;
@@ -491,10 +504,32 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     setState(() {
       section = destination;
       message = null;
+      if (destination != FieldSection.readings) {
+        readingFocus = false;
+        focusSubscriberId = null;
+      }
     });
     if (destination == FieldSection.collections && canCollect) {
       unawaited(searchCollections());
     }
+  }
+
+  /// Take a saved reading back off the queue and open it on the keypad.
+  Future<void> reenterReading(Map<String, dynamic> reading) async {
+    if (syncing) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+            content: Text('جارٍ الإرسال الآن. أعد المحاولة بعد لحظات.')));
+      return;
+    }
+    await widget.store.reopenReading(reading['mobile_operation_id'] as String);
+    if (!mounted) return;
+    setState(() {
+      section = FieldSection.readings;
+      message = null;
+      focusSubscriberId = reading['subscriber_id'] as int;
+    });
   }
 
   void openWeeklyReadings() {
@@ -503,108 +538,286 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
         builder: (_) => WeeklyReadingsPage(api: widget.api)));
   }
 
+  List<(FieldSection, String, IconData, IconData)> get destinations => [
+        (
+          FieldSection.home,
+          'الرئيسية',
+          Icons.home_outlined,
+          Icons.home_rounded
+        ),
+        if (canRead)
+          (
+            FieldSection.readings,
+            'القراءات',
+            Icons.bolt_outlined,
+            Icons.bolt_rounded
+          ),
+        if (canCollect)
+          (
+            FieldSection.collections,
+            'التحصيل',
+            Icons.payments_outlined,
+            Icons.payments_rounded
+          ),
+        (
+          FieldSection.sync,
+          'الإرسال',
+          Icons.cloud_outlined,
+          Icons.cloud_rounded
+        ),
+        (
+          FieldSection.account,
+          'حسابي',
+          Icons.person_outline,
+          Icons.person_rounded
+        ),
+      ];
+
   @override
   Widget build(BuildContext context) {
-    if (section == FieldSection.readings && canRead) {
-      return Scaffold(
-          body: ReadingFlow(
-        store: widget.store,
-        online: online,
-        syncing: syncing,
-        message: message,
-        requiresLogin: requiresLogin,
-        onSync: () => unawaited(synchronize()),
-        onSave: saveReadings,
-        onExit: () => navigate(FieldSection.home),
-        onReauthenticate: widget.onReauthenticate,
-      ));
-    }
+    final inReadings = section == FieldSection.readings && canRead;
+    final pending = widget.store.queuedReadings.length;
+    final tabs = destinations;
+    final selectedTab =
+        tabs.indexWhere((destination) => destination.$1 == section);
+    return PopScope(
+      canPop: section == FieldSection.home,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !inReadings) navigate(FieldSection.home);
+      },
+      child: Scaffold(
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          switchInCurve: Curves.easeOutCubic,
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
+          child: KeyedSubtree(
+            key: ValueKey(inReadings ? FieldSection.readings : section),
+            child: inReadings
+                ? ReadingFlow(
+                    key: ValueKey('readings-$focusSubscriberId'),
+                    store: widget.store,
+                    online: online,
+                    syncing: syncing,
+                    message: message,
+                    requiresLogin: requiresLogin,
+                    focusSubscriberId: focusSubscriberId,
+                    onSync: () => unawaited(synchronize()),
+                    onRefresh: synchronize,
+                    onSave: saveReadings,
+                    onDiscard: discardRejectedReading,
+                    onFocusChanged: (focused) =>
+                        setState(() => readingFocus = focused),
+                    onExit: () => navigate(FieldSection.home),
+                    onReauthenticate: widget.onReauthenticate,
+                  )
+                : SafeArea(bottom: false, child: sectionBody()),
+          ),
+        ),
+        bottomNavigationBar: inReadings && readingFocus
+            ? null
+            : NavigationBar(
+                selectedIndex: selectedTab < 0 ? 0 : selectedTab,
+                onDestinationSelected: (index) => navigate(tabs[index].$1),
+                destinations: [
+                  for (final (destination, label, icon, selectedIcon) in tabs)
+                    NavigationDestination(
+                      icon: destination == FieldSection.sync && pending > 0
+                          ? Badge(label: Text('$pending'), child: Icon(icon))
+                          : Icon(icon),
+                      selectedIcon:
+                          destination == FieldSection.sync && pending > 0
+                              ? Badge(
+                                  label: Text('$pending'),
+                                  child: Icon(selectedIcon))
+                              : Icon(selectedIcon),
+                      label: label,
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget sectionBody() {
     final title = switch (section) {
       FieldSection.collections => 'التحصيل',
       FieldSection.sync => 'حالة الإرسال',
       FieldSection.account => 'حسابي',
       _ => 'مرحبًا، ${widget.user['name']}',
     };
-    return PopScope(
-      canPop: section == FieldSection.home,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) navigate(FieldSection.home);
-      },
-      child: Scaffold(
-          body: SafeArea(
-              child: Column(children: [
-        AppHeader(
-            title: title,
-            subtitle: section == FieldSection.home
-                ? '${widget.user['branch_name'] ?? 'جميع الفروع'}'
-                : null,
-            onBack: section == FieldSection.home
-                ? null
-                : () => navigate(FieldSection.home),
-            onSync: () => navigate(FieldSection.sync),
+    return Column(children: [
+      AppHeader(
+          title: title,
+          subtitle: switch (section) {
+            FieldSection.home =>
+              '${widget.user['branch_name'] ?? 'جميع الفروع'}',
+            FieldSection.collections => 'ابحث عن مشترك لتسجيل دفعة',
+            FieldSection.sync => 'القراءات المحفوظة على الجهاز',
+            _ => null,
+          },
+          onSync: section == FieldSection.sync
+              ? null
+              : () => navigate(FieldSection.sync),
+          online: online,
+          syncing: syncing,
+          pending: widget.store.queuedReadings.length),
+      if (!online && !syncing)
+        Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: AppNotice(canRead
+                ? 'لا يوجد اتصال. تُحفظ القراءات على الجهاز وتُرسل تلقائيًا. التحصيل يحتاج إلى الإنترنت.'
+                : 'لا يوجد اتصال. اتصل بالإنترنت لتسجيل الدفعات.')),
+      if (message != null && (online || requiresLogin))
+        Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: AppNotice(message!)),
+      if (requiresLogin)
+        TextButton(
+            onPressed: widget.onReauthenticate,
+            child: const Text('تسجيل الدخول مجددًا')),
+      Expanded(
+          child: switch (section) {
+        FieldSection.collections when canCollect => CollectionView(
+            search: collectionSearch,
+            results: collectionResults,
+            today: today,
+            busy: collectionBusy,
             online: online,
-            syncing: syncing,
-            pending: widget.store.queuedReadings.length),
-        if (!online && !syncing)
-          Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: AppNotice(canRead
-                  ? 'لا يوجد اتصال. تُحفظ القراءات على الجهاز وتُرسل تلقائيًا. التحصيل يحتاج إلى الإنترنت.'
-                  : 'لا يوجد اتصال. اتصل بالإنترنت لتسجيل الدفعات.')),
-        if (message != null && (online || requiresLogin))
-          Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: AppNotice(message!)),
-        if (requiresLogin)
-          TextButton(
-              onPressed: widget.onReauthenticate,
-              child: const Text('تسجيل الدخول مجددًا')),
-        Expanded(
-            child: switch (section) {
-          FieldSection.collections when canCollect => CollectionView(
-              search: collectionSearch,
-              results: collectionResults,
-              today: today,
-              busy: collectionBusy,
-              online: online,
-              error: collectionError,
-              hasMore:
-                  collectionPage > 0 && collectionPage < collectionLastPage,
-              onSearchChanged: collectionSearchChanged,
-              onLoadMore: () => unawaited(searchCollections(loadMore: true)),
-              onSearch: () => unawaited(searchCollections()),
-              onWeeklyReadings: canViewReadings ? openWeeklyReadings : null,
-              onOpen: openPayment),
-          FieldSection.sync => syncView(),
-          FieldSection.account => account(),
-          _ => home(),
-        }),
-      ]))),
-    );
+            error: collectionError,
+            hasMore: collectionPage > 0 && collectionPage < collectionLastPage,
+            onSearchChanged: collectionSearchChanged,
+            onLoadMore: () => unawaited(searchCollections(loadMore: true)),
+            onSearch: () => unawaited(searchCollections()),
+            onRefresh: () async {
+              await synchronize();
+              await searchCollections();
+            },
+            onWeeklyReadings: canViewReadings ? openWeeklyReadings : null,
+            onOpen: openPayment),
+        FieldSection.sync => syncView(),
+        FieldSection.account => account(),
+        _ => home(),
+      }),
+    ]);
   }
+
+  Widget refreshable(Widget list) => RefreshIndicator(
+      color: AppIdentity.brand, onRefresh: synchronize, child: list);
 
   Widget home() {
     final total = today.fold<double>(0,
         (sum, payment) => sum + (double.tryParse('${payment['amount']}') ?? 0));
-    final done = widget.store.subscribers
+    final subscribers = widget.store.subscribers;
+    final queued = widget.store.queuedReadings;
+    final done = subscribers
         .where((subscriber) =>
             subscriber['reading_status'] != null ||
-            widget.store.queuedReadings.any((reading) =>
+            queued.any((reading) =>
                 reading['subscriber_id'] == subscriber['id'] &&
                 reading['week_start'] == widget.store.state['week_start']))
         .length;
-    return ListView(
+    final drafts = widget.store.readingDrafts.length;
+    final weekStart = widget.store.state['week_start'];
+    return refreshable(ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+                gradient: AppIdentity.hero,
+                borderRadius: BorderRadius.circular(24)),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .1),
+                      borderRadius: BorderRadius.circular(99)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                            color: online
+                                ? const Color(0xFF6EE7B7)
+                                : const Color(0xFFFCD34D),
+                            shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    Text(
+                        syncing
+                            ? 'جارٍ المزامنة'
+                            : online
+                                ? 'متصل'
+                                : 'دون اتصال',
+                        style: AppIdentity.body(12,
+                            weight: FontWeight.w600, color: Colors.white)),
+                  ]),
+                ),
+                const Spacer(),
+                if (weekStart != null)
+                  Text(
+                      'أسبوع ${AppIdentity.shortDate(weekStart)} – ${AppIdentity.shortDate(widget.store.state['week_end'])}',
+                      style: AppIdentity.body(12.5,
+                          color: const Color(0xFFAEB6C1))),
+              ]),
+              const SizedBox(height: 16),
+              Row(children: [
+                if (canRead)
+                  Expanded(
+                      child: heroStat(
+                          'قراءات الأسبوع', '$done / ${subscribers.length}',
+                          progress: subscribers.isEmpty
+                              ? null
+                              : done / subscribers.length)),
+                if (canRead && canCollect) const SizedBox(width: 12),
+                if (canCollect)
+                  Expanded(
+                      child: heroStat(
+                          'تحصيل اليوم', '${AppIdentity.money(total)} ₪')),
+                if (!canRead && !canCollect)
+                  Expanded(
+                      child: heroStat('الفرع',
+                          '${widget.user['branch_name'] ?? 'جميع الفروع'}')),
+              ]),
+            ]),
+          ),
+          if (queued.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            statusStrip(
+                key: const ValueKey('home-pending'),
+                icon: queued.any((reading) => reading['sync_error'] != null)
+                    ? Icons.error_outline
+                    : Icons.schedule,
+                color: queued.any((reading) => reading['sync_error'] != null)
+                    ? AppIdentity.bad
+                    : AppIdentity.warning,
+                text:
+                    '${AppIdentity.readingsCount(queued.length)} بانتظار المزامنة',
+                action: 'عرض',
+                onTap: () => navigate(FieldSection.sync)),
+          ],
+          if (canRead && drafts > 0) ...[
+            const SizedBox(height: 8),
+            statusStrip(
+                icon: Icons.edit_note_rounded,
+                color: AppIdentity.brand,
+                text: '${AppIdentity.readingsCount(drafts)} مكتوبة ولم تُحفظ',
+                action: 'متابعة',
+                onTap: () => navigate(FieldSection.readings)),
+          ],
           Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
               child: Text('ماذا تريد أن تسجّل اليوم؟',
-                  style: AppIdentity.body(15, weight: FontWeight.w600))),
+                  style: AppIdentity.heading(16))),
           if (canRead)
             AppServiceCard(
                 title: 'إدخال القراءات',
                 subtitle: 'قراءات عدادات الطبلونات',
-                summary: 'قُرئت $done من ${widget.store.subscribers.length}',
+                summary: 'قُرئت $done من ${subscribers.length}',
                 icon: Icons.bolt_outlined,
                 onTap: () => navigate(FieldSection.readings)),
           if (canCollect)
@@ -624,142 +837,183 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           if (!canRead && !canCollect && !canViewReadings)
             const AppNotice(
                 'ليس لديك صلاحية لعرض القراءات أو إدخالها أو تسجيل الدفعات.'),
-          Row(children: [
-            Expanded(
-                child: utilityCard(
-                    'حالة الإرسال',
-                    '${widget.store.queuedReadings.length} قراءات بانتظار المزامنة',
-                    Icons.cloud_outlined,
-                    () => navigate(FieldSection.sync))),
-            const SizedBox(width: 10),
-            Expanded(
-                child: utilityCard(
-                    'حسابي',
-                    '${widget.user['username']}',
-                    Icons.person_outline,
-                    () => navigate(FieldSection.account))),
-          ]),
-        ]);
+        ]));
   }
 
-  Widget utilityCard(
-          String title, String subtitle, IconData icon, VoidCallback open) =>
-      InkWell(
-          onTap: open,
-          borderRadius: BorderRadius.circular(20),
-          child: AppPanel(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(icon, color: AppIdentity.muted),
-              const SizedBox(height: 8),
-              Text(title, style: AppIdentity.body(15, weight: FontWeight.w700)),
-              const SizedBox(height: 3),
-              Text(subtitle,
-                  style: AppIdentity.body(12, color: AppIdentity.faint)),
-            ]),
-          ));
-
-  Widget syncView() =>
-      ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
-        AppStat(
-            'قراءات بانتظار الإرسال', '${widget.store.queuedReadings.length}',
-            color: widget.store.queuedReadings.isEmpty
-                ? AppIdentity.good
-                : AppIdentity.warning),
-        const SizedBox(height: 16),
-        Text('القراءات المحفوظة على الجهاز', style: AppIdentity.heading(17)),
-        const SizedBox(height: 10),
-        if (widget.store.queuedReadings.isEmpty)
-          const AppPanel(
-              child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Column(children: [
-                    Icon(Icons.cloud_done_outlined,
-                        color: AppIdentity.good, size: 36),
-                    SizedBox(height: 10),
-                    Text('لا توجد قراءات بانتظار الإرسال')
-                  ]))),
-        for (final reading in widget.store.queuedReadings)
-          Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: AppPanel(
-                  padding: const EdgeInsets.all(4),
-                  child: ListTile(
-                    leading: Icon(
-                        reading['sync_error'] == null
-                            ? Icons.schedule
-                            : Icons.error_outline,
-                        color: reading['sync_error'] == null
-                            ? AppIdentity.warning
-                            : AppIdentity.bad),
-                    title: Text(
-                        'مشترك #${reading['subscriber_id']} · ${reading['current_reading']}'),
-                    subtitle:
-                        Text('${reading['sync_error'] ?? 'بانتظار الاتصال'}'),
-                    trailing: reading['sync_error'] == null
-                        ? null
-                        : IconButton(
-                            tooltip: 'حذف القراءة المرفوضة',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () => discardRejectedReading(reading)),
-                  ))),
-        const SizedBox(height: 16),
-        AppAction(
-            label: syncing ? 'جارٍ المزامنة...' : 'مزامنة الآن',
-            busy: syncing,
-            icon: Icons.sync,
-            onPressed: syncing ? null : () => unawaited(synchronize())),
-        const SizedBox(height: 12),
-        const AppNotice(
-            'المزامنة دون اتصال مخصصة لقراءات العدادات فقط. الدفعات تُسجّل أثناء الاتصال مباشرة.'),
+  Widget heroStat(String label, String value, {double? progress}) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label,
+            style: AppIdentity.body(12.5, color: const Color(0xFFAEB6C1))),
+        const SizedBox(height: 4),
+        FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(value,
+                textDirection: TextDirection.ltr,
+                style: AppIdentity.number(22, color: Colors.white))),
+        if (progress != null) ...[
+          const SizedBox(height: 8),
+          ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 5,
+                  backgroundColor: Colors.white.withValues(alpha: .12),
+                  color: const Color(0xFF6EE7B7))),
+        ],
       ]);
+
+  Widget statusStrip(
+          {required IconData icon,
+          required Color color,
+          required String text,
+          required String action,
+          required VoidCallback onTap,
+          Key? key}) =>
+      Material(
+        key: key,
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: Text(text,
+                      style: AppIdentity.body(14,
+                          weight: FontWeight.w600, color: color))),
+              Text(action,
+                  style: AppIdentity.body(13.5,
+                      weight: FontWeight.w700, color: color)),
+              Icon(Icons.chevron_left, color: color, size: 20),
+            ]),
+          ),
+        ),
+      );
+
+  Widget syncView() {
+    final queue = widget.store.queuedReadings;
+    final rejected = queue.where((reading) => reading['sync_error'] != null);
+    return refreshable(ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        children: [
+          Row(children: [
+            Expanded(
+                child: AppStat('بانتظار الإرسال', '${queue.length}',
+                    color: queue.isEmpty
+                        ? AppIdentity.good
+                        : AppIdentity.warning)),
+            const SizedBox(width: 8),
+            Expanded(
+                child: AppStat('رفضها الخادم', '${rejected.length}',
+                    color:
+                        rejected.isEmpty ? AppIdentity.ink : AppIdentity.bad)),
+          ]),
+          const SizedBox(height: 16),
+          Text('القراءات المحفوظة على الجهاز', style: AppIdentity.heading(17)),
+          const SizedBox(height: 4),
+          Text('يمكنك تعديل أي قراءة قبل إرسالها.',
+              style: AppIdentity.body(12.5, color: AppIdentity.faint)),
+          const SizedBox(height: 10),
+          QueuedReadingsList(
+              queue: queue,
+              subscribers: widget.store.subscribers,
+              onReenter: canRead &&
+                      widget.store.state['can_record_readings_now'] == true
+                  ? reenterReading
+                  : null,
+              onDiscard: discardRejectedReading),
+          const SizedBox(height: 16),
+          AppAction(
+              label: syncing ? 'جارٍ المزامنة...' : 'مزامنة الآن',
+              busy: syncing,
+              icon: Icons.sync,
+              onPressed: syncing ? null : () => unawaited(synchronize())),
+          const SizedBox(height: 12),
+          const AppNotice(
+              'المزامنة دون اتصال مخصصة لقراءات العدادات فقط. الدفعات تُسجّل أثناء الاتصال مباشرة.'),
+        ]));
+  }
 
   Widget account() =>
       ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
         AppPanel(
-            child: Column(children: [
+            child: Row(children: [
           Container(
-              width: 72,
-              height: 72,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
                   gradient: AppIdentity.hero,
-                  borderRadius: BorderRadius.circular(24)),
-              child: const Icon(Icons.person_outline,
-                  color: Colors.white, size: 36)),
-          const SizedBox(height: 14),
-          Text('${widget.user['name']}', style: AppIdentity.heading(22)),
-          Text('${widget.user['username']}',
-              style: AppIdentity.body(14, color: AppIdentity.faint)),
-          const SizedBox(height: 10),
-          Text('${widget.user['branch_name'] ?? 'جميع الفروع'}',
-              style: AppIdentity.body(14)),
+                  borderRadius: BorderRadius.circular(22)),
+              alignment: Alignment.center,
+              child: Text('${widget.user['name'] ?? '?'}'.characters.first,
+                  style: AppIdentity.heading(26, color: Colors.white))),
+          const SizedBox(width: 14),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text('${widget.user['name']}', style: AppIdentity.heading(20)),
+                Text('@${widget.user['username']}',
+                    textDirection: TextDirection.ltr,
+                    style: AppIdentity.body(13.5, color: AppIdentity.faint)),
+                const SizedBox(height: 4),
+                Row(children: [
+                  const Icon(Icons.location_on_outlined,
+                      size: 15, color: AppIdentity.muted),
+                  const SizedBox(width: 4),
+                  Expanded(
+                      child: Text(
+                          '${widget.user['branch_name'] ?? 'جميع الفروع'}',
+                          style: AppIdentity.body(13.5,
+                              color: AppIdentity.muted))),
+                ]),
+              ])),
         ])),
         const SizedBox(height: 16),
         Text('الصلاحيات المتاحة', style: AppIdentity.heading(17)),
         const SizedBox(height: 10),
         AppPanel(
+            padding: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-              if (canRead)
-                const ListTile(
-                    leading: Icon(Icons.bolt_outlined),
-                    title: Text('إدخال القراءات')),
-              if (canCollect)
-                const ListTile(
-                    leading: Icon(Icons.payments_outlined),
-                    title: Text('تسجيل الدفعات')),
-              if (canViewReadings)
-                const ListTile(
-                    leading: Icon(Icons.history_outlined),
-                    title: Text('عرض القراءات الأسبوعية')),
-              if (!canRead && !canCollect && !canViewReadings)
-                const Text('لا توجد صلاحيات ميدانية متاحة.'),
-            ])),
+                  for (final (allowed, label, icon) in [
+                    (canRead, 'إدخال القراءات', Icons.bolt_outlined),
+                    (canCollect, 'تسجيل الدفعات', Icons.payments_outlined),
+                    (
+                      canViewReadings,
+                      'عرض القراءات الأسبوعية',
+                      Icons.history_outlined
+                    ),
+                  ])
+                    ListTile(
+                        leading: Icon(icon,
+                            color:
+                                allowed ? AppIdentity.ink : AppIdentity.faint),
+                        title: Text(label,
+                            style: AppIdentity.body(14.5,
+                                weight: FontWeight.w600,
+                                color: allowed
+                                    ? AppIdentity.ink
+                                    : AppIdentity.faint)),
+                        trailing: Icon(
+                            allowed
+                                ? Icons.check_circle
+                                : Icons.remove_circle_outline,
+                            size: 20,
+                            color: allowed
+                                ? AppIdentity.good
+                                : AppIdentity.faint)),
+                ])),
         if (widget.store.queuedReadings.isNotEmpty) ...[
           const SizedBox(height: 16),
           AppNotice(
-              '${widget.store.queuedReadings.length} قراءات لم تُرسل بعد. زامنها قبل تسجيل الخروج.'),
+              '${AppIdentity.readingsCount(widget.store.queuedReadings.length)} لم تُرسل بعد. زامنها قبل تسجيل الخروج.'),
         ],
         const SizedBox(height: 20),
         AppAction(

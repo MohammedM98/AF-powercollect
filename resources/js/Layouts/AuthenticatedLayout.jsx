@@ -4,7 +4,7 @@ import Icon from '@/Components/Icon';
 import ThemeToggle from '@/Components/ThemeToggle';
 import ActivityBell from '@/Components/ActivityBell';
 import CommandPalette from '@/Components/CommandPalette';
-import { MAIN_LINKS, SETTINGS_LINKS, allowedLinks, isActiveLink, isInsideAnyLink, settingsEntryLink } from '@/lib/navigation';
+import { MAIN_LINKS, SETTINGS_LINKS, allowedLinks, isActiveLink, isInsideAnyLink } from '@/lib/navigation';
 import { useResponsiveTables } from '@/hooks/useResponsiveTables';
 
 const SIDEBAR_STORAGE_KEY = 'sidebar';
@@ -44,8 +44,9 @@ function shortAppName(appName) {
  * sidebar is collapsed (then `onHover` shows the label beside it). The
  * current page is a graphite pill with a burgundy edge. The page starts
  * loading when the pointer rests on the link, so it opens almost at once.
+ * `compact` makes it a little smaller, for the pages inside a group.
  */
-function NavLink({ link, active, collapsed, onHover }) {
+function NavLink({ link, active, collapsed, onHover, compact = false }) {
     const showLabel = collapsed ? (event) => onHover(link.label, event.currentTarget) : undefined;
     const hideLabel = collapsed ? () => onHover(null) : undefined;
 
@@ -58,21 +59,81 @@ function NavLink({ link, active, collapsed, onHover }) {
             onFocus={showLabel}
             onPointerLeave={hideLabel}
             onBlur={hideLabel}
-            className={`group flex items-center gap-3 rounded-2xl px-2.5 py-2 text-sm font-semibold transition ${
+            className={`group flex items-center gap-3 rounded-2xl px-2.5 text-sm font-semibold transition ${compact ? 'py-1.5' : 'py-2'} ${
                 active
                     ? 'nav-link-active bg-graphite-gradient text-white dark:ring-1 dark:ring-white/10'
                     : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
             }`}
         >
             <span
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition ${
+                className={`flex shrink-0 items-center justify-center rounded-xl border transition ${compact ? 'h-8 w-8' : 'h-9 w-9'} ${
                     active ? 'border-white/10 bg-white/10 text-white' : 'border-gray-100 bg-gray-50 text-gray-500 group-hover:text-gray-900'
                 }`}
             >
-                <Icon name={link.icon} className="h-[18px] w-[18px]" />
+                <Icon name={link.icon} className={compact ? 'h-4 w-4' : 'h-[18px] w-[18px]'} />
             </span>
             <span className={collapsed ? 'sr-only' : 'truncate'}>{link.label}</span>
         </Link>
+    );
+}
+
+/**
+ * «الإعدادات» in the sidebar: a button that opens the settings pages under
+ * it, open from the start on a settings page. In the collapsed sidebar the
+ * pages show as icons under the cog.
+ */
+function SettingsGroup({ links, url, collapsed, onHover }) {
+    const label = 'الإعدادات';
+    const isInside = isInsideAnyLink(links, url);
+    const [open, setOpen] = useState(isInside);
+    const showLabel = collapsed ? (event) => onHover(label, event.currentTarget) : undefined;
+    const hideLabel = collapsed ? () => onHover(null) : undefined;
+
+    return (
+        <div>
+            <button
+                type="button"
+                aria-expanded={open}
+                aria-controls="sidebar-settings"
+                onClick={() => setOpen(!open)}
+                onPointerEnter={showLabel}
+                onFocus={showLabel}
+                onPointerLeave={hideLabel}
+                onBlur={hideLabel}
+                className={`group flex w-full items-center gap-3 rounded-2xl px-2.5 py-2 text-start text-sm font-semibold transition hover:bg-gray-50 hover:text-gray-900 ${
+                    isInside ? 'text-gray-900' : 'text-gray-700'
+                }`}
+            >
+                <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition ${
+                        isInside
+                            ? 'border-brand-500/20 bg-brand-500/10 text-brand-600'
+                            : 'border-gray-100 bg-gray-50 text-gray-500 group-hover:text-gray-900'
+                    }`}
+                >
+                    <Icon name="cog" className="h-[18px] w-[18px]" />
+                </span>
+                <span className={collapsed ? 'sr-only' : 'flex-1 truncate'}>{label}</span>
+                {!collapsed && (
+                    <Icon name="chevron-down" className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+                )}
+            </button>
+
+            {open && (
+                <div id="sidebar-settings" className={`mt-1 space-y-1 ${collapsed ? '' : 'ms-7 border-s border-gray-100 ps-2'}`}>
+                    {links.map((link) => (
+                        <NavLink
+                            key={link.href}
+                            link={link}
+                            active={isActiveLink(link, url)}
+                            collapsed={collapsed}
+                            onHover={onHover}
+                            compact
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -82,7 +143,6 @@ function SidebarContent({ collapsed = false, onNavigate }) {
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     const mainLinks = allowedLinks(MAIN_LINKS, can);
     const settingsLinks = allowedLinks(SETTINGS_LINKS, can);
-    const settingsLink = settingsEntryLink(settingsLinks);
     const [hoveredLink, setHoveredLink] = useState(null);
 
     /** Shows a collapsed link's label beside it (or hides it when `label` is null). */
@@ -120,15 +180,10 @@ function SidebarContent({ collapsed = false, onNavigate }) {
                     <NavLink key={link.href} link={link} active={isActiveLink(link, url)} collapsed={collapsed} onHover={onLinkHover} />
                 ))}
 
-                {settingsLink && (
+                {settingsLinks.length > 0 && (
                     <>
                         <div className="mx-3 !my-4 h-px bg-gray-100" role="separator" />
-                        <NavLink
-                            link={settingsLink}
-                            active={isInsideAnyLink(settingsLinks, url)}
-                            collapsed={collapsed}
-                            onHover={onLinkHover}
-                        />
+                        <SettingsGroup links={settingsLinks} url={url} collapsed={collapsed} onHover={onLinkHover} />
                     </>
                 )}
             </nav>

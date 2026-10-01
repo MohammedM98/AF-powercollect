@@ -73,7 +73,7 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
                                 onChange={(value) => setData('subscriber_id', value)}
                                 options={subscriberOptions}
                                 placeholder="اختر مشتركًا"
-                                searchPlaceholder="بحث بالاسم أو رقم المشترك..."
+                                searchPlaceholder="بحث بالاسم أو رقم الاشتراك..."
                                 emptyLabel="لا يوجد مشتركون مطابقون"
                             />
                             <InputError message={errors.subscriber_id} className="mt-2" />

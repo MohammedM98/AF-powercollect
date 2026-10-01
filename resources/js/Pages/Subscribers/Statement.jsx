@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AccountStatement from './AccountStatement';
 import { StandingDiscountBadge } from './AccountSummary';
 import { StatementActions, StatementForms } from './StatementForms';
+import SubscriptionSwitcher from './SubscriptionSwitcher';
 
 /**
  * A subscriber's account statement: every charge (عليه), payment and
  * discount (له), oldest first, with the balance after each line.
  */
 export default function Statement(statement) {
-    const { subscriber, entries, summary, canRecordPayment, canAdjustBalance, paymentMethods, transactionTypes } = statement;
+    const { subscriber, subscriptions, entries, summary, canRecordPayment, canAdjustBalance, paymentMethods, transactionTypes } = statement;
     // The form open over the statement: 'payment', 'charge' or 'discount', or a line to correct or delete.
     const [openForm, setOpenForm] = useState(null);
 
@@ -39,6 +40,13 @@ export default function Statement(statement) {
             }
         >
             <Head title={`كشف حساب ${subscriber.fullName}`} />
+
+            <SubscriptionSwitcher
+                subscriberNumber={subscriber.subscriberNumber}
+                subscriptions={subscriptions}
+                currentId={subscriber.id}
+                onSelect={(subscription) => router.visit(`/subscribers/${subscription.id}/statement`)}
+            />
 
             <AccountStatement
                 entries={entries}

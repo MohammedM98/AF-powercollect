@@ -7,6 +7,7 @@ use App\Models\MeterBox;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Http\Request;
 
 /**
@@ -24,8 +25,10 @@ trait FiltersDataTable
     /**
      * Apply a `search` term (across the given columns) and a `sort` +
      * `direction` pair (restricted to the given allow-list) to the query.
+     * A searchable column may be an expression, such as a subquery for a
+     * related table's column.
      *
-     * @param  array<int, string>  $searchableColumns
+     * @param  array<int, string|Expression>  $searchableColumns
      * @param  array<int, string>  $sortableColumns
      */
     protected function applyDataTableFilters(

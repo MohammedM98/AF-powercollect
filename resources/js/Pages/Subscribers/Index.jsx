@@ -33,6 +33,7 @@ function statementHeader(subscriber) {
         id: subscriber.id,
         fullName: subscriber.display_name,
         accountNumber: subscriber.account_number,
+        subscriberNumber: subscriber.subscriber_number,
         status: subscriber.status,
         statusLabel: subscriber.statusLabel,
         branchName: subscriber.branchName,
@@ -182,7 +183,7 @@ export default function Index({
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
-                placeholder="بحث بالاسم أو رقم الهاتف أو رقم المشترك..."
+                placeholder="بحث بالاسم أو رقم الهاتف أو رقم المشترك أو الاشتراك..."
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={subscribers.total}
@@ -202,7 +203,7 @@ export default function Index({
                 <table className="data-table w-full text-sm text-start">
                     <thead>
                         <tr>
-                            <SortableTh column="account_number" label="رقم المشترك" sortState={filters} onSort={sort} />
+                            <SortableTh column="account_number" label="رقم الاشتراك" sortState={filters} onSort={sort} />
                             <SortableTh column="display_name" label="اسم الاشتراك" sortState={filters} onSort={sort} />
                             <th>الطبلون</th>
                             <th>نوع الاشتراك</th>
@@ -223,8 +224,13 @@ export default function Index({
                         ) : (
                             subscribers.data.map((subscriber) => (
                                 <tr key={subscriber.id} {...rowClick(() => openStatement(subscriber))}>
-                                    <td className="text-end text-gray-600" dir="ltr">
-                                        {subscriber.account_number}
+                                    <td className="text-gray-600">
+                                        <span dir="ltr">{subscriber.account_number}</span>
+                                        {subscriber.subscriber_number && (
+                                            <span className="mt-1 block text-xs text-gray-400">
+                                                رقم المشترك <bdi dir="ltr">{subscriber.subscriber_number}</bdi>
+                                            </span>
+                                        )}
                                     </td>
                                     <td>
                                         <RowIdentity
@@ -342,6 +348,7 @@ export default function Index({
                     subscriber={statementWindow.subscriber}
                     statement={statementWindow.statement}
                     initialForm={statementWindow.form}
+                    onSwitch={(header) => statementWindow.open(header)}
                     onClose={statementWindow.close}
                 />
             )}

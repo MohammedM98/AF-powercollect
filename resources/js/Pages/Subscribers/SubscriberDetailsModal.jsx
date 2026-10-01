@@ -160,7 +160,8 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, on
                                 className="space-y-8"
                             >
                                 <Section title="بيانات المشترك">
-                                    <Field label="رقم المشترك" value={subscriber.account_number} />
+                                    <Field label="رقم المشترك" value={subscriber.subscriber_number} />
+                                    <Field label="رقم الاشتراك" value={subscriber.account_number} />
                                     <Field label="اسم الاشتراك" value={subscriber.display_name} />
                                     <Field label="الاسم الشخصي" value={subscriber.full_name} />
                                     <Field label="رقم الهوية" value={subscriber.national_id} />

@@ -270,7 +270,7 @@ export default function Index({
                 <DataTableToolbar
                     search={search}
                     onSearchChange={setSearch}
-                    placeholder="بحث باسم المشترك أو رقم الهاتف أو رقم المشترك..."
+                    placeholder="بحث باسم المشترك أو رقم الهاتف أو رقم الاشتراك..."
                     perPage={filters.per_page}
                     onPerPageChange={setPerPage}
                     total={entries.total}
@@ -389,6 +389,7 @@ export default function Index({
                     subscriber={statementWindow.subscriber}
                     statement={statementWindow.statement}
                     initialForm={statementWindow.form}
+                    onSwitch={(header) => statementWindow.open(header)}
                     onClose={statementWindow.close}
                 />
             )}

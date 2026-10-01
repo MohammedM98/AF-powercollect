@@ -23,7 +23,7 @@ const SORT_OPTIONS = [
     { value: 'current_reading', label: 'القراءة الجديدة' },
     { value: 'consumption', label: 'الفرق (كيلو)' },
     { value: 'amount_due', label: 'المطلوب دفعه' },
-    { value: 'account_number', label: 'رقم المشترك' },
+    { value: 'account_number', label: 'رقم الاشتراك' },
 ];
 
 const STATUS_TABS = [
@@ -437,7 +437,7 @@ export default function Index({
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
-                placeholder="بحث بالاسم أو رقم المشترك أو الهاتف..."
+                placeholder="بحث بالاسم أو رقم الاشتراك أو الهاتف..."
                 perPage={filters.per_page}
                 onPerPageChange={setPerPage}
                 total={rows.total}

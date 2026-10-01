@@ -485,6 +485,82 @@ class SubscriberSubscriptionsTest extends TestCase
         $this->assertDatabaseCount('subscribers', 1);
     }
 
+    public function test_an_additional_subscription_keeps_the_persons_subscriber_number_while_a_new_person_gets_the_next_one(): void
+    {
+        $actor = User::factory()->branchAdmin()->create();
+        $source = Subscriber::factory()->create(['branch_id' => $actor->branch_id]);
+        $this->actingAs($actor);
+
+        $this->post(route('subscribers.store'), $this->subscriptionPayload($source))->assertSessionHasNoErrors();
+        $newPerson = Subscriber::factory()->create(['branch_id' => $actor->branch_id]);
+
+        $additional = Subscriber::whereKeyNot([$source->id, $newPerson->id])->sole();
+        $this->assertSame(1, $source->profile->subscriber_number);
+        $this->assertSame(1, $additional->profile->subscriber_number);
+        $this->assertSame(2, $newPerson->profile->subscriber_number);
+    }
+
+    public function test_searching_a_subscriber_number_lists_all_of_that_persons_subscriptions_in_the_users_branch(): void
+    {
+        $actor = User::factory()->branchAdmin()->create();
+        $source = Subscriber::factory()->create(['branch_id' => $actor->branch_id, 'account_number' => '202600011']);
+        $house = Subscriber::factory()->for($source->profile, 'profile')->create(['branch_id' => $actor->branch_id, 'account_number' => '202600012']);
+        Subscriber::factory()->for($source->profile, 'profile')->create();
+        Subscriber::factory()->create(['branch_id' => $actor->branch_id]);
+        $source->profile->forceFill(['subscriber_number' => 7350])->save();
+
+        $response = $this->actingAs($actor)->get(route('subscribers.index', ['search' => '7350']));
+
+        $response->assertInertia(fn ($page) => $page
+            ->has('subscribers.data', 2)
+            ->where('subscribers.data.0.id', $source->id)
+            ->where('subscribers.data.0.subscriber_number', 7350)
+            ->where('subscribers.data.1.id', $house->id)
+            ->where('subscribers.data.1.subscriber_number', 7350));
+    }
+
+    public function test_the_statement_lists_the_persons_other_subscriptions_with_their_balances_but_not_those_in_other_branches(): void
+    {
+        $actor = User::factory()->branchAdmin()->create();
+        $source = Subscriber::factory()->create(['branch_id' => $actor->branch_id, 'account_number' => '202600001', 'full_name' => 'Mohammed Hamdan']);
+        $house = Subscriber::factory()->for($source->profile, 'profile')->create([
+            'branch_id' => $actor->branch_id,
+            'account_number' => '202600002',
+            'subscription_name' => 'Mohammed Hamdan house',
+        ]);
+        Subscriber::factory()->for($source->profile, 'profile')->create();
+        SubscriberTransaction::factory()->for($source)->create(['amount' => '15.00']);
+        SubscriberTransaction::factory()->for($house)->create(['amount' => '-20.50']);
+
+        $response = $this->actingAs($actor)->get(route('subscribers.statement', $source));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('subscriber.subscriberNumber', $source->profile->subscriber_number)
+            ->has('entries', 1)
+            ->has('subscriptions', 2)
+            ->where('subscriptions.0.id', $source->id)
+            ->where('subscriptions.0.fullName', 'Mohammed Hamdan')
+            ->where('subscriptions.0.balance', '15.00')
+            ->where('subscriptions.1.id', $house->id)
+            ->where('subscriptions.1.fullName', 'Mohammed Hamdan house')
+            ->where('subscriptions.1.balance', '-20.50'));
+    }
+
+    public function test_the_subscriber_number_migration_numbers_existing_people_in_the_order_they_were_added(): void
+    {
+        $first = Subscriber::factory()->create();
+        $second = Subscriber::factory()->create();
+        Subscriber::factory()->for($first->profile, 'profile')->create();
+        $migration = require database_path('migrations/2026_10_01_131242_add_subscriber_number_to_subscriber_profiles_table.php');
+        $migration->down();
+
+        $migration->up();
+
+        $this->assertDatabaseHas('subscriber_profiles', ['id' => $first->subscriber_profile_id, 'subscriber_number' => 1]);
+        $this->assertDatabaseHas('subscriber_profiles', ['id' => $second->subscriber_profile_id, 'subscriber_number' => 2]);
+        $this->assertDatabaseCount('subscriber_profiles', 2);
+    }
+
     /** @return array<string, mixed> */
     private function editPayload(Subscriber $subscriber): array
     {

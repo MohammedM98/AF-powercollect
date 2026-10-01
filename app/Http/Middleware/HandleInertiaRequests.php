@@ -9,7 +9,6 @@ use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\Permission;
 use App\Models\ReadingEntrySetting;
-use App\Models\ReceiptExample;
 use App\Models\SubArea;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
@@ -77,7 +76,6 @@ class HandleInertiaRequests extends Middleware
                 'viewGovernorates' => $user->can('viewAny', Governorate::class) || $user->can('viewAny', SubArea::class),
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manage', ReadingEntrySetting::class),
-                'manageReceiptExamples' => $user->can('manage', ReceiptExample::class),
             ] : null,
             'activity' => fn () => $user ? $this->recentActivity($user) : null,
         ];

@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 enum ReceiptImageSource { gallery, camera }
 
@@ -99,4 +100,54 @@ String? receiptAmount(String input) {
   if (value == null || !value.isFinite || value <= 0 || value > 1000000)
     return null;
   return value.toStringAsFixed(2);
+}
+
+/// Reads the text on a receipt photo on the phone itself; nothing is uploaded.
+abstract class ReceiptTextReader {
+  const ReceiptTextReader();
+
+  /// The receipt's lines of text, top to bottom.
+  Future<List<String>> read(String imagePath);
+}
+
+/// Google ML Kit's on-device reader. It reads digits and Latin letters
+/// (amounts, transfer numbers, dates, IBANs) but not Arabic script.
+class DeviceReceiptTextReader extends ReceiptTextReader {
+  const DeviceReceiptTextReader();
+
+  @override
+  Future<List<String>> read(String imagePath) async {
+    final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    try {
+      final recognized =
+          await recognizer.processImage(InputImage.fromFilePath(imagePath));
+      final lines = [
+        for (final block in recognized.blocks)
+          for (final line in block.lines) line,
+      ]..sort((a, b) => a.boundingBox.top == b.boundingBox.top
+          ? a.boundingBox.left.compareTo(b.boundingBox.left)
+          : a.boundingBox.top.compareTo(b.boundingBox.top));
+      return [
+        for (final line in lines)
+          if (line.text.trim().isNotEmpty) line.text.trim(),
+      ];
+    } finally {
+      await recognizer.close();
+    }
+  }
+}
+
+/// What a collector can take from one line of a receipt: the whole line,
+/// then each number or code in it (an amount, a transfer or account number).
+List<String> receiptLinePieces(String line) {
+  final text = normalizeReceiptDigits(line).trim();
+  final pieces = <String>[text];
+  for (final match in RegExp(r'[A-Za-z0-9][A-Za-z0-9.,/\-]*[A-Za-z0-9]|\d')
+      .allMatches(text)) {
+    final piece = match.group(0)!;
+    if (RegExp(r'\d').hasMatch(piece) && !pieces.contains(piece)) {
+      pieces.add(piece);
+    }
+  }
+  return pieces;
 }

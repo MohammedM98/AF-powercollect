@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Mobile\MobileCollectionController;
-use App\Http\Controllers\Mobile\MobilePaymentReceiptController;
 use App\Http\Controllers\Mobile\MobileReadingController;
 use App\Http\Controllers\Mobile\MobileSessionController;
 use App\Http\Controllers\Mobile\MobileSubscriberController;
@@ -19,9 +18,5 @@ Route::prefix('mobile')->name('mobile.')->group(function (): void {
         Route::get('/collections/subscribers', [MobileCollectionController::class, 'subscribers'])->name('collections.subscribers');
         Route::get('/collections', [MobileCollectionController::class, 'index'])->name('collections.index');
         Route::post('/collections', [MobileCollectionController::class, 'store'])->name('collections.store');
-        Route::get('/payment-providers', [MobilePaymentReceiptController::class, 'providers'])->name('payment-providers.index');
-        Route::post('/payment-receipts/analyze', [MobilePaymentReceiptController::class, 'analyze'])->middleware('throttle:6,1')->name('payment-receipts.analyze');
-        Route::post('/payment-receipts/{receipt}/confirm', [MobilePaymentReceiptController::class, 'confirm'])->name('payment-receipts.confirm');
-        Route::get('/payment-receipts/{receipt}/image', [MobilePaymentReceiptController::class, 'image'])->name('payment-receipts.image');
     });
 });

@@ -287,8 +287,8 @@ void main() {
       await tester.tap(find.byKey(ValueKey('payment-key-$digit')));
       await tester.pump();
     }
-    final recordButton = tester
-        .widget<TextButton>(find.widgetWithText(TextButton, 'تسجيل الدفعة'));
+    final recordButton = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'تسجيل 25.00 شيكل'));
     expect(recordButton.onPressed, isNull);
     await tester.scrollUntilVisible(find.byType(CheckboxListTile), 200,
         scrollable: find
@@ -297,7 +297,7 @@ void main() {
             .first);
     await tester.tap(find.byType(CheckboxListTile));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('تسجيل الدفعة'));
+    await tester.tap(find.text('تسجيل 25.00 شيكل'));
     await tester.pumpAndSettle();
     expect(api.submitted, 1);
     expect(store.queuedReadings, isEmpty);

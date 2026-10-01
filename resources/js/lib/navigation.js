@@ -21,7 +21,6 @@ export const SETTINGS_LINKS = [
     { href: '/governorates', label: 'المحافظات', icon: 'map', can: 'viewGovernorates' },
     { href: '/settings/permissions', label: 'الصلاحيات', icon: 'shield', can: 'manageSettings' },
     { href: '/settings/reading-schedule', label: 'مواعيد القراءات', icon: 'calendar', can: 'manageReadingSchedule' },
-    { href: '/settings/receipt-examples', label: 'أمثلة الإيصالات', icon: 'receipt', can: 'manageReceiptExamples' },
 ];
 
 /** The links the current user may open. */

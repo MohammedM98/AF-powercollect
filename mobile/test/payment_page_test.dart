@@ -4,47 +4,38 @@ import 'package:power_collect/api_client.dart';
 import 'package:power_collect/app_identity.dart';
 import 'package:power_collect/payment_page.dart';
 
-class RetryTransferApi extends ApiClient {
+class RecordingApi extends ApiClient {
+  RecordingApi({this.failFirst = false});
+  final bool failFirst;
   final requests = <Map<String, dynamic>>[];
   @override
   Future<Map<String, dynamic>> sendCollection(
       Map<String, dynamic> collection) async {
     requests.add(Map<String, dynamic>.from(collection));
-    if (requests.length == 1) throw const ApiException('Timeout', 0);
+    if (failFirst && requests.length == 1) {
+      throw const ApiException('Timeout', 0);
+    }
     return {
       'id': 77,
       'status': 'recorded',
-      'amount': '25.00',
+      'amount': collection['amount'],
+      'currency': collection['currency'],
+      'amount_in_shekels': collection['currency'] == 'USD' ? '74.00' : null,
       'voucher_number': 'P-77'
     };
   }
 }
 
-class RecordingApi extends ApiClient {
-  final requests = <Map<String, dynamic>>[];
-  @override
-  Future<Map<String, dynamic>> sendCollection(
-      Map<String, dynamic> collection) async {
-    requests.add(Map<String, dynamic>.from(collection));
-    return {
-      'id': 78,
-      'status': 'recorded',
-      'amount': '25.00',
-      'voucher_number': 'P-78'
-    };
-  }
-}
-
 void main() {
-  testWidgets(
-      'wallet payment requires transfer details and retries the same operation',
-      (tester) async {
-    final api = RetryTransferApi();
+  Future<Finder> openPayment(WidgetTester tester, ApiClient api,
+      {String amount = '25'}) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(MaterialApp(
         theme: AppIdentity.theme,
         home: PaymentPage(
           api: api,
-          subscriber: {
+          subscriber: const {
             'id': 42,
             'full_name': 'Subscriber',
             'account_number': 'A42',
@@ -52,96 +43,107 @@ void main() {
           },
         )));
     await tester.pumpAndSettle();
-    for (final digit in ['2', '5']) {
+    for (final digit in amount.split('')) {
       await tester.tap(find.byKey(ValueKey('payment-key-$digit')));
       await tester.pump();
     }
-    final scrollable = find.byType(Scrollable).first;
-    await tester.scrollUntilVisible(find.text('محفظة'), 150,
-        scrollable: scrollable);
-    await tester.tap(find.text('محفظة'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byType(CheckboxListTile), 150,
-        scrollable: scrollable);
-    await tester.tap(find.byType(CheckboxListTile));
-    await tester.pump();
-    await tester.tap(find.text('تسجيل الدفعة'));
-    await tester.pumpAndSettle();
-    expect(api.requests, isEmpty);
+    return find.byType(Scrollable).first;
+  }
 
-    final sender = find.byWidgetPredicate((widget) =>
-        widget is TextField && widget.decoration?.hintText == 'اسم المرسل');
-    final reference = find.byWidgetPredicate((widget) =>
-        widget is TextField && widget.decoration?.hintText == 'رقم التحويل');
-    await tester.scrollUntilVisible(sender, -150, scrollable: scrollable);
-    await tester.enterText(sender, 'Account Holder');
-    await tester.scrollUntilVisible(reference, 150, scrollable: scrollable);
-    await tester.enterText(reference, 'TRANSFER-42');
-    await tester.tap(find.text('تسجيل الدفعة'));
+  /// Scroll the form from the top until [target] is in view.
+  Future<void> reveal(
+      WidgetTester tester, Finder scrollable, Finder target) async {
+    tester.state<ScrollableState>(scrollable).position.jumpTo(0);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(target, 150, scrollable: scrollable);
+    await tester.ensureVisible(target);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapInList(
+      WidgetTester tester, Finder scrollable, Finder target) async {
+    await reveal(tester, scrollable, target);
+    await tester.tap(target);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> enterInList(
+      WidgetTester tester, Finder scrollable, String key, String value) async {
+    final field = find.byKey(ValueKey(key));
+    await reveal(tester, scrollable, field);
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, value);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> confirmAndSubmit(WidgetTester tester, Finder scrollable) async {
+    await tapInList(tester, scrollable, find.byType(CheckboxListTile));
+    await tester.tap(find.byKey(const ValueKey('payment-submit')));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+      'a transfer goes to the chosen bank from the subscriber and retries the same operation',
+      (tester) async {
+    final api = RecordingApi(failFirst: true);
+    final scrollable = await openPayment(tester, api);
+    expect(find.text('تسجيل 25.00 شيكل'), findsOneWidget);
+
+    await tapInList(tester, scrollable,
+        find.byKey(const ValueKey('payment-method-bank_transfer')));
+    await enterInList(tester, scrollable, 'payment-reference', 'TRANSFER-42');
+    await confirmAndSubmit(tester, scrollable);
+    expect(api.requests, isEmpty);
+    expect(find.text('اختر البنك أو المحفظة التي حُوّل إليها المبلغ.'),
+        findsOneWidget);
+
+    await tapInList(tester, scrollable,
+        find.byKey(const ValueKey('payment-bank-البنك الوطني الإسلامي')));
+    await tester.tap(find.byKey(const ValueKey('payment-submit')));
     await tester.pumpAndSettle();
     expect(api.requests, hasLength(1));
     expect(find.text('تم تسجيل الدفعة'), findsNothing);
-    await tester.tap(find.text('تسجيل الدفعة'));
+    await tester.tap(find.byKey(const ValueKey('payment-submit')));
     await tester.pumpAndSettle();
 
     expect(api.requests, hasLength(2));
     expect(api.requests.last['mobile_operation_id'],
         api.requests.first['mobile_operation_id']);
     expect(api.requests.last, containsPair('payment_method', 'bank_transfer'));
-    expect(api.requests.last, containsPair('bank_name', 'جوال باي'));
-    expect(api.requests.last, containsPair('sender_name', 'Account Holder'));
+    expect(
+        api.requests.last, containsPair('bank_name', 'البنك الوطني الإسلامي'));
+    expect(api.requests.last, containsPair('sender_name', 'Subscriber'));
     expect(api.requests.last, containsPair('reference_number', 'TRANSFER-42'));
-    expect(api.requests.last, containsPair('collector_confirmed', true));
+    expect(api.requests.last, containsPair('currency', 'ILS'));
+    expect(api.requests.last.containsKey('exchange_rate'), isFalse);
+    expect(api.requests.last.containsKey('sender_bank_name'), isFalse);
     expect(find.text('تم تسجيل الدفعة'), findsOneWidget);
     expect(find.text('P-77'), findsOneWidget);
+    expect(find.text('تحويل إلى البنك الوطني الإسلامي'), findsOneWidget);
+    expect(find.text('75.00 ₪ عليه'), findsOneWidget);
   });
 
-  testWidgets('PalPay payments use the wallet name the server accepts',
+  testWidgets('a dollar payment needs an exchange rate and counts in shekels',
       (tester) async {
     final api = RecordingApi();
-    await tester.pumpWidget(MaterialApp(
-        theme: AppIdentity.theme,
-        home: PaymentPage(
-          api: api,
-          subscriber: {
-            'id': 42,
-            'full_name': 'Subscriber',
-            'account_number': 'A42',
-            'balance': '100.00'
-          },
-        )));
+    final scrollable = await openPayment(tester, api, amount: '20');
+    await tester.tap(find.text('\$ دولار'));
     await tester.pumpAndSettle();
-    for (final digit in ['2', '5']) {
-      await tester.tap(find.byKey(ValueKey('payment-key-$digit')));
-      await tester.pump();
-    }
-    final scrollable = find.byType(Scrollable).first;
-    await tester.scrollUntilVisible(find.text('محفظة'), 150,
-        scrollable: scrollable);
-    await tester.tap(find.text('محفظة'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('محفظة بالباي'), 150,
-        scrollable: scrollable);
-    await tester.ensureVisible(find.text('محفظة بالباي'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('محفظة بالباي'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byType(CheckboxListTile), 150,
-        scrollable: scrollable);
-    await tester.tap(find.byType(CheckboxListTile));
-    await tester.pump();
+    await confirmAndSubmit(tester, scrollable);
+    expect(api.requests, isEmpty);
+    expect(find.text('أدخل سعر الصرف لتحويل المبلغ إلى شيكل.'), findsOneWidget);
 
-    final sender = find.byWidgetPredicate((widget) =>
-        widget is TextField && widget.decoration?.hintText == 'اسم المرسل');
-    final reference = find.byWidgetPredicate((widget) =>
-        widget is TextField && widget.decoration?.hintText == 'رقم التحويل');
-    await tester.scrollUntilVisible(sender, -150, scrollable: scrollable);
-    await tester.enterText(sender, 'Account Holder');
-    await tester.scrollUntilVisible(reference, 150, scrollable: scrollable);
-    await tester.enterText(reference, 'TRANSFER-43');
-    await tester.tap(find.text('تسجيل الدفعة'));
+    await enterInList(tester, scrollable, 'payment-rate', '3.7');
+    expect(find.text('= 74.00 ₪'), findsOneWidget);
+    expect(find.text('26.00 ₪ عليه'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('payment-submit')));
     await tester.pumpAndSettle();
 
-    expect(api.requests.single, containsPair('bank_name', 'محفظة بالباي'));
+    expect(api.requests.single, containsPair('currency', 'USD'));
+    expect(api.requests.single, containsPair('exchange_rate', '3.7'));
+    expect(api.requests.single, containsPair('payment_method', 'cash'));
+    expect(find.text('بالشيكل'), findsOneWidget);
+    expect(find.text('74.00 ₪'), findsOneWidget);
   });
 }

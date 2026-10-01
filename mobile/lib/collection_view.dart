@@ -37,14 +37,11 @@ class _CollectionViewState extends State<CollectionView> {
   bool showingToday = false;
   @override
   Widget build(BuildContext context) {
-    final total = widget.today.fold<double>(0,
-        (sum, payment) => sum + (double.tryParse('${payment['amount']}') ?? 0));
+    final total = widget.today
+        .fold<double>(0, (sum, payment) => sum + inShekels(payment));
     final cash = widget.today
         .where((payment) => payment['payment_method'] == 'cash')
-        .fold<double>(
-            0,
-            (sum, payment) =>
-                sum + (double.tryParse('${payment['amount']}') ?? 0));
+        .fold<double>(0, (sum, payment) => sum + inShekels(payment));
     return ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
@@ -214,6 +211,11 @@ class _CollectionViewState extends State<CollectionView> {
             ])),
       );
 
+  /// What a payment took off the balance; older servers sent shekels only.
+  double inShekels(Map<String, dynamic> payment) =>
+      double.tryParse('${payment['amount_in_shekels'] ?? payment['amount']}') ??
+      0;
+
   Widget paymentRow(Map<String, dynamic> payment) => Container(
         padding: const EdgeInsets.all(14),
         decoration: const BoxDecoration(
@@ -232,12 +234,16 @@ class _CollectionViewState extends State<CollectionView> {
                 Text('${payment['subscriber']}',
                     style: AppIdentity.body(15, weight: FontWeight.w700)),
                 Text(
-                    '${payment['payment_method'] == 'cash' ? 'نقدًا' : 'تحويل بنكي / محفظة'} · وصل ${payment['voucher_number'] ?? '—'}',
+                    '${payment['payment_method'] == 'cash' ? 'نقد' : 'تحويل${payment['bank_name'] == null ? '' : ' إلى ${payment['bank_name']}'}'} · سند ${payment['voucher_number'] ?? '—'}',
                     style: AppIdentity.body(12, color: AppIdentity.faint)),
               ])),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('${AppIdentity.money(payment['amount'])} ₪',
+            Text(
+                '${AppIdentity.money(payment['amount'])} ${const {
+                      'USD': r'$',
+                      'JOD': 'JD'
+                    }[payment['currency']] ?? '₪'}',
                 style: AppIdentity.number(15, color: AppIdentity.good)),
             Text('مسجّلة',
                 style: AppIdentity.body(12, color: AppIdentity.good)),

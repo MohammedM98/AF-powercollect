@@ -15,7 +15,8 @@
         <!-- Theme and table density: apply the saved choices before the page paints, so there is no flash. -->
         <script>
             try {
-                if (localStorage.getItem('theme') === 'dark') {
+                const theme = localStorage.getItem('theme');
+                if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                     document.documentElement.classList.add('dark');
                 }
                 if (localStorage.getItem('table-density') === 'compact') {

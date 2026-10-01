@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useTheme } from '@/hooks/useTheme';
 import Icon from '@/Components/Icon';
 
 /**
@@ -7,23 +7,10 @@ import Icon from '@/Components/Icon';
  * paints so there is no flash.
  */
 export default function ThemeToggle({ className = '' }) {
-    const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
+    const { dark, changePreference } = useTheme();
 
     function toggle() {
-        const root = document.documentElement;
-        const next = !dark;
-
-        root.classList.add('theme-transition');
-        root.classList.toggle('dark', next);
-        window.setTimeout(() => root.classList.remove('theme-transition'), 400);
-
-        try {
-            localStorage.setItem('theme', next ? 'dark' : 'light');
-        } catch {
-            // Storage may be blocked (private mode); the switch still works for this visit.
-        }
-
-        setDark(next);
+        changePreference(dark ? 'light' : 'dark');
     }
 
     return (

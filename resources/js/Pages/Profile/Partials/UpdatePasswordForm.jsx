@@ -1,75 +1,54 @@
 import { useForm } from '@inertiajs/react';
-import InputLabel from '@/Components/InputLabel';
 import PasswordInput from '@/Components/PasswordInput';
 import InputError from '@/Components/InputError';
-import PrimaryButton from '@/Components/PrimaryButton';
+import Icon from '@/Components/Icon';
+import { passwordStrength } from '@/lib/profilePassword';
+
+const STRENGTH_LABELS = ['—', 'ضعيفة', 'متوسطة', 'جيدة', 'قوية'];
+const RULE_LABELS = ['8 أحرف على الأقل', 'حرف واحد على الأقل', 'رقم واحد على الأقل', 'مختلفة عن الحالية'];
 
 export default function UpdatePasswordForm() {
-    const { data, setData, put, processing, errors, reset } = useForm({
-        current_password: '',
-        password: '',
-        password_confirmation: '',
+    const { data, setData, put, processing, errors, reset, recentlySuccessful } = useForm({
+        current_password: '', password: '', password_confirmation: '',
     });
+    const bag = errors.updatePassword ?? errors;
+    const strength = passwordStrength(data.password, data.current_password);
+    const matching = Boolean(data.password_confirmation) && data.password_confirmation === data.password;
 
-    // The server validates this form under the "updatePassword" error bag
-    // (validateWithBag), since the profile page has two other forms on it —
-    // Inertia mirrors that bag structure into `errors` as-is.
-    const bag = errors.updatePassword ?? {};
-
-    function submit(e) {
-        e.preventDefault();
-        put('/password', {
-            preserveScroll: true,
-            onSuccess: () => reset(),
-        });
+    function submit(event) {
+        event.preventDefault();
+        put('/password', { preserveScroll: true, onSuccess: () => reset() });
     }
 
     return (
-        <section>
-            <header>
-                <h2 className="text-lg font-medium text-gray-900">تحديث كلمة المرور</h2>
-                <p className="mt-1 text-sm text-gray-600">تأكد من استخدام حسابك لكلمة مرور طويلة وعشوائية للحفاظ على الأمان.</p>
-            </header>
-
-            <form onSubmit={submit} className="mt-6 space-y-6">
-                <div>
-                    <InputLabel htmlFor="current_password" value="كلمة المرور الحالية" />
-                    <PasswordInput
-                        id="current_password"
-                        className="mt-1 block w-full"
-                        value={data.current_password}
-                        autoComplete="current-password"
-                        onChange={(e) => setData('current_password', e.target.value)}
-                    />
-                    <InputError message={bag.current_password} className="mt-2" />
+        <section className="pp-panel">
+            <h3><span className="pp-panel-icon"><Icon name="key" /></span>تغيير كلمة المرور</h3>
+            <p>استخدم كلمة مرور قوية لا تستخدمها في مكان آخر، ولا تشاركها مع أحد.</p>
+            <form onSubmit={submit}>
+                <div className={`pp-field ${bag.current_password ? 'bad' : ''}`}>
+                    <label className="l" htmlFor="current_password">كلمة المرور الحالية</label>
+                    <div className="pp-input"><PasswordInput id="current_password" dir="ltr" toggleTabIndex={0} value={data.current_password} autoComplete="current-password" onChange={(e) => setData('current_password', e.target.value)} required /></div>
+                    <InputError message={bag.current_password} />
                 </div>
-
-                <div>
-                    <InputLabel htmlFor="password" value="كلمة مرور جديدة" />
-                    <PasswordInput
-                        id="password"
-                        className="mt-1 block w-full"
-                        value={data.password}
-                        autoComplete="new-password"
-                        onChange={(e) => setData('password', e.target.value)}
-                    />
-                    <InputError message={bag.password} className="mt-2" />
+                <div className={`pp-field ${bag.password ? 'bad' : ''}`}>
+                    <label className="l" htmlFor="password">كلمة المرور الجديدة</label>
+                    <div className="pp-input"><PasswordInput id="password" dir="ltr" toggleTabIndex={0} value={data.password} autoComplete="new-password" onChange={(e) => setData('password', e.target.value)} required /></div>
+                    <div className={`pp-strength level-${strength.score}`} aria-live="polite">
+                        <div className="bars">{[1, 2, 3, 4].map((level) => <i key={level} className={level <= strength.score ? 'filled' : ''} />)}</div>
+                        <div className="lbl"><span>قوة كلمة المرور</span><b>{STRENGTH_LABELS[strength.score]}</b></div>
+                    </div>
+                    <ul className="pp-rules" aria-label="إرشادات كلمة مرور قوية">{RULE_LABELS.map((label, index) => <li key={label} className={strength.checks[index] ? 'on' : ''}><i><Icon name="check" /></i>{label}</li>)}</ul>
+                    <InputError message={bag.password} />
                 </div>
-
-                <div>
-                    <InputLabel htmlFor="password_confirmation" value="تأكيد كلمة المرور" />
-                    <PasswordInput
-                        id="password_confirmation"
-                        className="mt-1 block w-full"
-                        value={data.password_confirmation}
-                        autoComplete="new-password"
-                        onChange={(e) => setData('password_confirmation', e.target.value)}
-                    />
-                    <InputError message={bag.password_confirmation} className="mt-2" />
+                <div className={`pp-field ${bag.password_confirmation || (data.password_confirmation && !matching) ? 'bad' : ''}`}>
+                    <label className="l" htmlFor="password_confirmation">تأكيد كلمة المرور الجديدة</label>
+                    <div className="pp-input"><PasswordInput id="password_confirmation" dir="ltr" toggleTabIndex={0} value={data.password_confirmation} autoComplete="new-password" onChange={(e) => setData('password_confirmation', e.target.value)} required /></div>
+                    {data.password_confirmation && <p className={matching ? 'pp-match' : 'pp-error'}>{matching ? '✓ كلمتا المرور متطابقتان' : 'كلمتا المرور غير متطابقتين.'}</p>}
+                    <InputError message={bag.password_confirmation} />
                 </div>
-
-                <div className="flex items-center gap-4">
-                    <PrimaryButton disabled={processing}>حفظ</PrimaryButton>
+                <div className="pp-actions">
+                    <span className="pp-note" role="status">{recentlySuccessful ? 'تم تغيير كلمة المرور' : 'بعد التغيير يبقى هذا الجهاز مسجّل الدخول.'}</span>
+                    <button type="submit" className="pp-button primary" disabled={processing}><Icon name="key" />{processing ? 'جارٍ الحفظ…' : 'تغيير كلمة المرور'}</button>
                 </div>
             </form>
         </section>

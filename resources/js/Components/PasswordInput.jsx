@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import TextInput from '@/Components/TextInput';
 
-export default function PasswordInput({ className = '', ...props }) {
+export default function PasswordInput({ className = '', toggleTabIndex = -1, ...props }) {
     const [visible, setVisible] = useState(false);
 
     return (
@@ -9,7 +9,7 @@ export default function PasswordInput({ className = '', ...props }) {
             <TextInput {...props} type={visible ? 'text' : 'password'} className={`pe-10 ${className}`} />
             <button
                 type="button"
-                tabIndex={-1}
+                tabIndex={toggleTabIndex}
                 onClick={() => setVisible((v) => !v)}
                 className="absolute inset-y-0 end-0 flex items-center px-3.5 text-gray-400 transition hover:text-gray-900"
                 aria-label={visible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}

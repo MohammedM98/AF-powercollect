@@ -11,6 +11,7 @@ use App\Http\Controllers\MeterBoxController;
 use App\Http\Controllers\MeterReadingController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProfileDeviceController;
 use App\Http\Controllers\ReadingScheduleController;
 use App\Http\Controllers\ReadNotificationController;
 use App\Http\Controllers\SubAreaController;
@@ -37,6 +38,7 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('aut
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile/devices', [ProfileDeviceController::class, 'destroy'])->middleware('throttle:6,1')->name('profile.devices.destroy');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');

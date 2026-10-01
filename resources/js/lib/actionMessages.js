@@ -52,6 +52,7 @@ export const ACTION_MESSAGES = {
     'sub-area-deleted': 'تم حذف منطقة 2 بنجاح.',
     'permissions-updated': 'تم حفظ الصلاحيات بنجاح.',
     'profile-updated': 'تم حفظ الملف الشخصي بنجاح.',
+    'profile-devices-logged-out': 'تم تسجيل الخروج من الأجهزة المحددة.',
     'password-updated': 'تم تحديث كلمة المرور بنجاح.',
 };
 

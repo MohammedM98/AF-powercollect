@@ -115,7 +115,7 @@ export default function Dashboard({ greeting, sections, scopedToBranch, auth, ca
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
                         {can?.viewUserTypes && (
-                            <Link href="/user-types" className="text-sm font-semibold text-brand-600 hover:underline">أنواع المستخدمين</Link>
+                            <Link href="/users?tab=types" className="text-sm font-semibold text-brand-600 hover:underline">أنواع المستخدمين</Link>
                         )}
                         {canCreateBranch ? (
                             <AddButton onClick={() => openCreateForm('branch')}>فرع جديد</AddButton>

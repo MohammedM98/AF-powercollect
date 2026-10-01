@@ -21,20 +21,45 @@ class UserTypeTest extends TestCase
         $this->get(route('user-types.index'))->assertRedirect(route('login'));
     }
 
-    public function test_an_administrator_can_add_a_custom_type_and_search_the_list(): void
+    public function test_an_administrator_adds_a_type_and_returns_to_the_types_tab_on_the_users_page(): void
     {
         $actor = User::factory()->superAdmin()->create();
-        UserType::factory()->create(['name' => 'محصل']);
+        $collectorType = UserType::factory()->create(['name' => 'محصل']);
+        User::factory()->for($collectorType, 'userType')->count(2)->create();
 
         $this->actingAs($actor)->post(route('user-types.store'), ['name' => 'فني صيانة'])
             ->assertSessionHasNoErrors()->assertSessionHas('status', 'user-type-created')
-            ->assertRedirect(route('user-types.index'));
+            ->assertRedirect(route('users.index', ['tab' => 'types']));
 
         $this->assertDatabaseHas('user_types', ['name' => 'فني صيانة']);
         $this->assertSame(['action' => 'user-type-created', 'subject' => 'فني صيانة'], $actor->notifications()->sole()->data);
-        $this->get(route('user-types.index', ['search' => 'صيانة']))
-            ->assertInertia(fn ($page) => $page->component('UserTypes/Index')->has('userTypes.data', 1)
-                ->where('userTypes.data.0.name', 'فني صيانة')->where('canCreate', true));
+        $this->get(route('users.index', ['tab' => 'types']))
+            ->assertInertia(fn ($page) => $page->component('Users/Index')
+                ->where('tab', 'types')
+                ->where('canCreateUserType', true)
+                ->has('userTypes', 2)
+                ->where('userTypes.0.name', 'فني صيانة')
+                ->where('userTypes.0.usersCount', 0)
+                ->where('userTypes.1.name', 'محصل')
+                ->where('userTypes.1.usersCount', 2));
+    }
+
+    public function test_the_old_types_page_opens_the_types_tab(): void
+    {
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('user-types.index'))
+            ->assertRedirect(route('users.index', ['tab' => 'types']));
+    }
+
+    public function test_the_users_page_has_no_types_tab_without_the_permission(): void
+    {
+        $actor = User::factory()->collector()->create();
+        $actor->permissions()->sync(Permission::idsFor([PermissionKey::ViewUsers]));
+        UserType::factory()->create();
+
+        $this->actingAs($actor)->get(route('users.index', ['tab' => 'types']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('tab', 'users')->where('userTypes', null)->where('canCreateUserType', false));
     }
 
     #[TestWith(['', 'حقل اسم نوع المستخدم مطلوب.'])]
@@ -71,7 +96,8 @@ class UserTypeTest extends TestCase
         $employee = User::factory()->for($type, 'userType')->create();
 
         $this->actingAs($actor)->put(route('user-types.update', $type), ['name' => 'فني كهرباء'])
-            ->assertSessionHasNoErrors()->assertSessionHas('status', 'user-type-updated');
+            ->assertSessionHasNoErrors()->assertSessionHas('status', 'user-type-updated')
+            ->assertRedirect(route('users.index', ['tab' => 'types']));
 
         $this->assertDatabaseHas('user_types', ['id' => $type->id, 'name' => 'فني كهرباء']);
         $this->assertSame('فني كهرباء', $employee->fresh()->userType->name);
@@ -96,9 +122,9 @@ class UserTypeTest extends TestCase
         $actor = User::factory()->superAdmin()->create();
         $type = UserType::factory()->create();
 
-        $this->actingAs($actor)->from(route('user-types.index'))->delete(route('user-types.destroy', $type))
+        $this->actingAs($actor)->from(route('users.index', ['tab' => 'types']))->delete(route('user-types.destroy', $type))
             ->assertSessionHasNoErrors()->assertSessionHas('status', 'user-type-deleted')
-            ->assertRedirect(route('user-types.index'));
+            ->assertRedirect(route('users.index', ['tab' => 'types']));
 
         $this->assertModelMissing($type);
         $this->assertDatabaseCount('notifications', 1);
@@ -110,7 +136,7 @@ class UserTypeTest extends TestCase
         $type = UserType::factory()->create();
         $employee = User::factory()->for($type, 'userType')->create();
 
-        $this->actingAs($actor)->from(route('user-types.index'))->delete(route('user-types.destroy', $type))
+        $this->actingAs($actor)->from(route('users.index', ['tab' => 'types']))->delete(route('user-types.destroy', $type))
             ->assertSessionHasErrors(['delete' => 'لا يمكن حذف نوع المستخدم لوجود سجلات مرتبطة به — المستخدمون: 1.']);
 
         $this->assertModelExists($type);

@@ -13,6 +13,7 @@ use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -300,6 +301,64 @@ class MobileApiTest extends TestCase
             'sender_bank_name' => 'البنك الوطني الإسلامي',
             'amount' => '-100.00',
         ]);
+    }
+
+    public function test_mobile_payments_in_other_currencies_count_in_shekels_and_offer_the_website_banks(): void
+    {
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $subscriber = Subscriber::factory()->create(['branch_id' => $collector->branch_id]);
+        $startingBalance = $subscriber->balance();
+        $payment = [
+            'subscriber_id' => $subscriber->id,
+            'amount' => '20',
+            'currency' => 'USD',
+            'payment_method' => 'cash',
+            'collector_confirmed' => true,
+        ];
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
+        $this->getJson(route('mobile.me'))
+            ->assertJsonPath('user.transfer_banks', config('powercollect.transfer_banks'));
+        $this->postJson(route('mobile.collections.store'), [...$payment, 'mobile_operation_id' => Str::uuid()->toString()])
+            ->assertUnprocessable()->assertJsonValidationErrors('exchange_rate');
+        $this->postJson(route('mobile.collections.store'), [
+            ...$payment,
+            'mobile_operation_id' => Str::uuid()->toString(),
+            'exchange_rate' => '3.7',
+        ])->assertCreated()
+            ->assertJsonPath('amount', '20.00')
+            ->assertJsonPath('currency', 'USD')
+            ->assertJsonPath('amount_in_shekels', '74.00');
+        $this->postJson(route('mobile.collections.store'), [
+            'mobile_operation_id' => Str::uuid()->toString(),
+            'subscriber_id' => $subscriber->id,
+            'amount' => '30',
+            'currency' => 'ILS',
+            'payment_method' => 'bank_transfer',
+            'bank_name' => 'البنك الوطني الإسلامي',
+            'sender_name' => 'Ahmad',
+            'reference_number' => 'TR-30',
+            'collector_confirmed' => true,
+        ])->assertCreated()->assertJsonPath('bank_name', 'البنك الوطني الإسلامي');
+
+        $this->assertSame($startingBalance - 104, $subscriber->fresh()->balance());
+        $this->getJson(route('mobile.collections.index'))
+            ->assertJsonPath('total', 104)
+            ->assertJsonPath('cash_total', 74);
+    }
+
+    public function test_receipts_are_no_longer_read_or_stored_on_the_server(): void
+    {
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
+            ->postJson('/api/mobile/payment-receipts/analyze')->assertNotFound();
+
+        foreach (['payment_receipts', 'receipt_example_runs', 'receipt_examples', 'payment_providers'] as $table) {
+            $this->assertFalse(Schema::hasTable($table), "{$table} should be dropped");
+        }
     }
 
     public function test_mobile_payment_rejects_other_branch_and_other_collectors_retry(): void

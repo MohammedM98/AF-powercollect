@@ -439,7 +439,12 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
       return;
     }
     final submitted = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) => PaymentPage(api: widget.api, subscriber: subscriber),
+      builder: (_) => PaymentPage(
+          api: widget.api,
+          subscriber: subscriber,
+          transferBanks: currentUser['transfer_banks'] is List
+              ? List<String>.from(currentUser['transfer_banks'] as List)
+              : defaultTransferBanks),
     ));
     if (!mounted) return;
     if (submitted == true) {

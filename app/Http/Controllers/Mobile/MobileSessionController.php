@@ -60,7 +60,10 @@ class MobileSessionController extends Controller
     }
 
     /**
-     * @return array{id: int, name: string, username: string, branch_name: ?string, can_record_readings: bool, can_record_collections: bool, can_view_readings: bool}
+     * The banks and e-wallets are the same list the website's payment form
+     * offers, so the app records transfers under names the server accepts.
+     *
+     * @return array{id: int, name: string, username: string, branch_name: ?string, can_record_readings: bool, can_record_collections: bool, can_view_readings: bool, transfer_banks: array<int, string>}
      */
     private function userData(User $user): array
     {
@@ -74,6 +77,7 @@ class MobileSessionController extends Controller
             'can_record_readings' => $user->hasPermission(PermissionKey::RecordMeterReadings),
             'can_view_readings' => $user->can('viewAny', MeterReading::class),
             'can_record_collections' => $user->hasPermission(PermissionKey::RecordCollections),
+            'transfer_banks' => config('powercollect.transfer_banks'),
         ];
     }
 }

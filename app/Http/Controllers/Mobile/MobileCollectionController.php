@@ -61,10 +61,11 @@ class MobileCollectionController extends Controller
             ->latest('id')
             ->get();
 
+        // Totals are in shekels, as the account is, whatever currency each payment came in.
         return response()->json([
-            'total' => $collections->sum(fn (SubscriberTransaction $transaction): float => (float) $transaction->currency_amount),
+            'total' => $collections->sum(fn (SubscriberTransaction $transaction): float => -(float) $transaction->amount),
             'cash_total' => $collections->filter(fn (SubscriberTransaction $transaction): bool => $transaction->payment_method === PaymentMethod::Cash)
-                ->sum(fn (SubscriberTransaction $transaction): float => (float) $transaction->currency_amount),
+                ->sum(fn (SubscriberTransaction $transaction): float => -(float) $transaction->amount),
             'data' => $collections->map(fn (SubscriberTransaction $transaction): array => $this->collectionData($transaction))->all(),
         ]);
     }
@@ -84,6 +85,7 @@ class MobileCollectionController extends Controller
                 'mobile_operation_id' => $validated['mobile_operation_id'],
                 'amount' => $validated['amount'],
                 'currency' => $validated['currency'],
+                'exchange_rate' => $validated['exchange_rate'] ?? null,
                 'payment_method' => $validated['payment_method'],
                 'bank_name' => $validated['bank_name'] ?? null,
                 'sender_bank_name' => $validated['sender_bank_name'] ?? null,
@@ -107,7 +109,10 @@ class MobileCollectionController extends Controller
     }
 
     /**
-     * @return array{id: int, subscriber: string, amount: string, payment_method: string, status: string, recorded_at: string, voucher_number: ?string}
+     * The amount is in the currency it was paid in; `amount_in_shekels` is
+     * what it took off the balance.
+     *
+     * @return array{id: int, subscriber: string, amount: string, currency: string, exchange_rate: ?string, amount_in_shekels: string, payment_method: string, bank_name: ?string, sender_bank_name: ?string, status: string, recorded_at: string, voucher_number: ?string}
      */
     private function collectionData(SubscriberTransaction $transaction): array
     {
@@ -115,7 +120,12 @@ class MobileCollectionController extends Controller
             'id' => $transaction->id,
             'subscriber' => $transaction->subscriber->displayName(),
             'amount' => $transaction->currency_amount,
+            'currency' => $transaction->currency->value,
+            'exchange_rate' => $transaction->exchange_rate,
+            'amount_in_shekels' => number_format(-(float) $transaction->amount, 2, '.', ''),
             'payment_method' => $transaction->payment_method->value,
+            'bank_name' => $transaction->bank_name,
+            'sender_bank_name' => $transaction->sender_bank_name,
             'status' => 'recorded',
             'recorded_at' => $transaction->created_at->toIso8601String(),
             'voucher_number' => $transaction->printedVoucherNumber(),

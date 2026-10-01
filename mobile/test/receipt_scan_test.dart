@@ -6,14 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:power_collect/api_client.dart';
 import 'package:power_collect/app_identity.dart';
 import 'package:power_collect/payment_page.dart';
-import 'package:power_collect/receipt_review_page.dart';
 import 'package:power_collect/receipt_scan.dart';
 
 class TestReceiptScanner extends ReceiptScanner {
   TestReceiptScanner(this.path);
   final String path;
-  int prepared = 0;
   bool cancelled = false;
+  int discarded = 0;
   @override
   Future<ReceiptImage?> pick(ReceiptImageSource source) async => cancelled
       ? null
@@ -24,88 +23,31 @@ class TestReceiptScanner extends ReceiptScanner {
           height: 900,
           corners: [0, 0, 1, 0, 1, 1, 0, 1]);
   @override
-  Future<String> prepare(ReceiptImage image, {required bool contrast}) async {
-    prepared++;
-    return path;
-  }
+  Future<String> prepare(ReceiptImage image, {required bool contrast}) async =>
+      path;
 
   @override
-  Future<void> discard(ReceiptImage image) async {}
+  Future<void> discard(ReceiptImage image) async => discarded++;
 }
 
-class TestReceiptApi extends ApiClient {
-  bool offline = false;
-  bool failFirstConfirmation = false;
-  String? recognizedCurrency = 'ILS';
-  final confirmations = <Map<String, dynamic>>[];
-  final receiptIds = <int>[];
-  final manualUploads = <bool>[];
+class TestReceiptReader extends ReceiptTextReader {
+  TestReceiptReader(this.lines);
+  final List<String> lines;
+  final readPaths = <String>[];
   @override
-  Future<Map<String, dynamic>> receiptProviders() async {
-    if (offline) throw const ApiException('لا يوجد اتصال', 0);
-    return {
-      'data': [
-        {
-          'id': 1,
-          'code': 'bank_of_palestine',
-          'name_ar': 'بنك فلسطين',
-          'type': 'bank'
-        },
-        {
-          'id': 2,
-          'code': 'jawwal_pay',
-          'name_ar': 'جوال باي',
-          'type': 'wallet'
-        },
-      ]
-    };
+  Future<List<String>> read(String imagePath) async {
+    readPaths.add(imagePath);
+    return lines;
   }
+}
 
+class OfflineApi extends ApiClient {
+  int requests = 0;
   @override
-  Future<Map<String, dynamic>> analyzeReceipt(
-      String originalPath, String processedPath,
-      {int? providerId, bool manual = false}) async {
-    if (offline) throw const ApiException('لا يوجد اتصال', 0);
-    manualUploads.add(manual);
-    return {
-      'receipt_id': 44,
-      'ocr_status': manual ? 'failed' : 'processed',
-      'fields': {
-        'provider': 'bank_of_palestine',
-        'provider_id': 1,
-        'amount': '99.00',
-        'sender_name': 'OCR Sender',
-        'transaction_reference': '00123456',
-        'currency': recognizedCurrency,
-        'transferred_at': '2026-09-29T14:30:00+03:00',
-        'raw_text': 'Synthetic OCR result',
-      },
-      'warnings': [
-        {
-          'field': 'sender_name',
-          'code': 'low_confidence',
-          'message': 'راجع اسم المرسل'
-        }
-      ],
-    };
-  }
-
-  @override
-  Future<Map<String, dynamic>> confirmReceipt(
-      int receiptId, Map<String, dynamic> fields) async {
-    receiptIds.add(receiptId);
-    confirmations.add(Map<String, dynamic>.from(fields));
-    if (offline || (failFirstConfirmation && confirmations.length == 1)) {
-      throw const ApiException('Timeout', 0);
-    }
-    return {
-      'id': 77,
-      'receipt_id': receiptId,
-      'amount': fields['amount'],
-      'currency': fields['currency'],
-      'voucher_number': '000077',
-      'status': 'recorded'
-    };
+  Future<Map<String, dynamic>> sendCollection(
+      Map<String, dynamic> collection) async {
+    requests++;
+    throw const ApiException('offline', 0);
   }
 }
 
@@ -117,8 +59,6 @@ const subscriber = {
 };
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   String imageFile() {
     final directory = Directory.systemTemp.createTempSync('receipt-test-');
     addTearDown(() => directory.deleteSync(recursive: true));
@@ -128,223 +68,134 @@ void main() {
     return file.path;
   }
 
-  Future<void> showReview(WidgetTester tester, TestReceiptApi api,
-      TestReceiptScanner scanner) async {
-    tester.view.resetPhysicalSize();
+  Future<void> openReceipt(WidgetTester tester, OfflineApi api,
+      TestReceiptScanner scanner, TestReceiptReader reader) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    final image = (await scanner.pick(ReceiptImageSource.gallery))!;
     await tester.pumpWidget(MaterialApp(
         theme: AppIdentity.theme,
-        home: ReceiptReviewPage(
+        home: PaymentPage(
             api: api,
             subscriber: subscriber,
-            image: image,
-            scanner: scanner,
-            initialFields: const {'provider': 'bank_of_palestine'})));
+            receiptScanner: scanner,
+            receiptReader: reader)));
     await tester.pumpAndSettle();
-  }
-
-  Future<void> edit(WidgetTester tester, String key, String value) async {
-    final field = find.byKey(ValueKey(key));
-    tester
-        .state<ScrollableState>(find.byType(Scrollable).first)
-        .position
-        .jumpTo(0);
-    await tester.pump();
-    await tester.scrollUntilVisible(field, 150,
-        scrollable: find.byType(Scrollable).first);
-    await tester.pumpAndSettle();
-    await tester.enterText(field, value);
-    await tester.pump();
-  }
-
-  Future<void> acknowledge(WidgetTester tester) async {
-    for (final key in ['receipt-reviewed', 'receipt-received']) {
-      final box = find.byKey(ValueKey(key));
-      await tester.scrollUntilVisible(box, 150,
-          scrollable: find.byType(Scrollable).first);
-      await tester.pumpAndSettle();
-      await tester.tap(box);
-      await tester.pump();
-    }
-  }
-
-  testWidgets('analyzing fills editable fields and never records a payment',
-      (tester) async {
-    final api = TestReceiptApi();
-    final scanner = TestReceiptScanner(await imageFile());
-    await showReview(tester, api, scanner);
-
-    await tester.tap(find.byKey(const ValueKey('receipt-analyze')));
-    await tester.pumpAndSettle();
-
-    expect(scanner.prepared, 1);
-    expect(api.manualUploads, [false]);
-    expect(api.confirmations, isEmpty);
-    expect(find.text('مراجعة بيانات الإيصال'), findsOneWidget);
-    expect(find.text('راجع اسم المرسل'), findsOneWidget);
-    expect(
-        tester
-            .widget<TextField>(find.byKey(const ValueKey('receipt-reference')))
-            .controller!
-            .text,
-        '00123456');
-    await edit(tester, 'receipt-amount', '١٢٥٫٥٠');
-    await edit(tester, 'receipt-sender', 'Reviewed Sender');
-    await acknowledge(tester);
-    await tester.tap(find.byKey(const ValueKey('receipt-confirm')));
-    await tester.pumpAndSettle();
-
-    expect(api.receiptIds, [44]);
-    expect(api.confirmations.single, containsPair('amount', '125.50'));
-    expect(api.confirmations.single,
-        containsPair('sender_name', 'Reviewed Sender'));
-    expect(api.confirmations.single,
-        containsPair('transaction_reference', '00123456'));
-    expect(api.confirmations.single, containsPair('collector_confirmed', true));
-  });
-
-  testWidgets(
-      'editing after review clears confirmation and prevents submission',
-      (tester) async {
-    final api = TestReceiptApi();
-    await showReview(tester, api, TestReceiptScanner(await imageFile()));
-    await tester.tap(find.byKey(const ValueKey('receipt-analyze')));
-    await tester.pumpAndSettle();
-    await acknowledge(tester);
-
-    await edit(tester, 'receipt-reference', 'CORRECTED-42');
-    await tester.tap(find.byKey(const ValueKey('receipt-confirm')));
-    await tester.pumpAndSettle();
-
-    expect(api.confirmations, isEmpty);
-    expect(
-        tester
-            .widget<CheckboxListTile>(
-                find.byKey(const ValueKey('receipt-reviewed')))
-            .value,
-        false);
-    expect(
-        tester
-            .widget<CheckboxListTile>(
-                find.byKey(const ValueKey('receipt-received')))
-            .value,
-        false);
-  });
-
-  testWidgets(
-      'unknown currency requires an explicit choice before confirmation',
-      (tester) async {
-    final api = TestReceiptApi()..recognizedCurrency = null;
-    await showReview(tester, api, TestReceiptScanner(imageFile()));
-    await tester.tap(find.byKey(const ValueKey('receipt-analyze')));
-    await tester.pumpAndSettle();
-    await acknowledge(tester);
-    await tester.tap(find.byKey(const ValueKey('receipt-confirm')));
-    await tester.pumpAndSettle();
-
-    expect(api.confirmations, isEmpty);
-    expect(
-        find.text(
-            'أكمل المزود والمبلغ واسم المرسل ورقم التحويل والتاريخ وسعر الصرف المطلوب.'),
-        findsOneWidget);
-  });
-
-  testWidgets(
-      'a timed out confirmation retries the same receipt and reviewed values',
-      (tester) async {
-    final api = TestReceiptApi()..failFirstConfirmation = true;
-    await showReview(tester, api, TestReceiptScanner(await imageFile()));
-    await tester.tap(find.byKey(const ValueKey('receipt-analyze')));
-    await tester.pumpAndSettle();
-    await acknowledge(tester);
-    await tester.tap(find.byKey(const ValueKey('receipt-confirm')));
-    await tester.pumpAndSettle();
-
-    expect(api.confirmations, hasLength(1));
-    tester
-        .state<ScrollableState>(find.byType(Scrollable).first)
-        .position
-        .jumpTo(0);
+    final scrollable = find.byType(Scrollable).first;
+    final transfer = find.byKey(const ValueKey('payment-method-bank_transfer'));
+    await tester.scrollUntilVisible(transfer, 100, scrollable: scrollable);
+    await tester.tap(transfer);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('receipt-amount')), 100,
-        scrollable: find.byType(Scrollable).first);
-    expect(
-        tester
-            .widget<TextField>(find.byKey(const ValueKey('receipt-amount')))
-            .enabled,
-        false);
-    await tester.tap(find.byKey(const ValueKey('receipt-confirm')));
+        find.byKey(const ValueKey('receipt-gallery')), 100,
+        scrollable: scrollable);
+    await tester.tap(find.byKey(const ValueKey('receipt-gallery')));
     await tester.pumpAndSettle();
+  }
 
-    expect(api.receiptIds, [44, 44]);
-    expect(api.confirmations.last, api.confirmations.first);
-    expect(api.manualUploads, [false]);
+  Future<void> sendLine(
+      WidgetTester tester, int line, String piece, String field) async {
+    await tester.ensureVisible(find.byKey(ValueKey('receipt-line-$line')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('receipt-line-$line')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('receipt-piece-$piece')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('receipt-to-$field')));
+    await tester.pumpAndSettle();
+  }
+
+  test('a receipt line offers the whole line and each number in it', () {
+    expect(receiptLinePieces('Amount: 1,250.00 ILS'),
+        ['Amount: 1,250.00 ILS', '1,250.00']);
+    expect(receiptLinePieces('Ref No. TRX-48213 / 2026'),
+        ['Ref No. TRX-48213 / 2026', 'TRX-48213', '2026']);
+    expect(receiptLinePieces('المبلغ ١٥٠'), ['المبلغ 150', '150']);
+    expect(receiptLinePieces('Bank of Palestine'), ['Bank of Palestine']);
   });
 
   testWidgets(
-      'manual fields remain editable offline and require an image upload after reconnection',
+      'text read on the phone fills the chosen payment fields without uploading',
       (tester) async {
-    final api = TestReceiptApi()..offline = true;
-    await showReview(tester, api, TestReceiptScanner(await imageFile()));
-    await tester.tap(find.byKey(const ValueKey('receipt-manual')));
+    final api = OfflineApi();
+    final scanner = TestReceiptScanner(imageFile());
+    final reader = TestReceiptReader([
+      'Bank of Palestine',
+      'Amount: 1,250.00 ILS',
+      'Reference TRX-48213',
+      'From AHMAD SALEM',
+    ]);
+    await openReceipt(tester, api, scanner, reader);
+
+    expect(find.text('تجهيز صورة الإيصال'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('receipt-read')));
     await tester.pumpAndSettle();
-    await edit(tester, 'receipt-amount', '50');
-    await edit(tester, 'receipt-sender', 'Manual Sender');
-    await edit(tester, 'receipt-reference', 'MANUAL-42');
-    await edit(tester, 'receipt-date', '2026-09-29T10:00:00+03:00');
-    await acknowledge(tester);
-    await tester.tap(find.byKey(const ValueKey('receipt-confirm')));
+    expect(reader.readPaths, [scanner.path]);
+    expect(find.text('Reference TRX-48213'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('receipt-line-0')));
+    await tester.pumpAndSettle();
+    final amountButton = tester
+        .widget<FilledButton>(find.byKey(const ValueKey('receipt-to-amount')));
+    expect(amountButton.onPressed, isNull,
+        reason: 'a line with no amount cannot fill the amount');
+    await tester.tapAt(const Offset(195, 60));
     await tester.pumpAndSettle();
 
-    expect(api.confirmations, isEmpty);
-    expect(api.manualUploads, isEmpty);
+    await sendLine(tester, 1, '1,250.00', 'amount');
+    await sendLine(tester, 2, 'TRX-48213', 'reference_number');
+    await sendLine(tester, 3, 'From AHMAD SALEM', 'sender_name');
+    expect(find.byKey(const ValueKey('receipt-picked-amount')), findsOneWidget);
+    expect(find.text('1250.00'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('receipt-use')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('تسجيل 1250.00 شيكل'), findsOneWidget);
     expect(
         tester
-            .widget<TextField>(find.byKey(const ValueKey('receipt-sender')))
+            .widget<TextField>(find.byKey(const ValueKey('payment-reference')))
             .controller!
             .text,
-        'Manual Sender');
+        'TRX-48213');
+    expect(
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('payment-sender')))
+            .controller!
+            .text,
+        'From AHMAD SALEM');
+    expect(
+        tester
+            .widget<Switch>(
+                find.byKey(const ValueKey('payment-sender-is-subscriber')))
+            .value,
+        isFalse);
+    expect(api.requests, 0);
+    expect(scanner.discarded, 1);
+  });
 
-    api.offline = false;
-    await tester.tap(find.byKey(const ValueKey('receipt-confirm')));
+  testWidgets('a photo with no readable text says so and fills nothing',
+      (tester) async {
+    final api = OfflineApi();
+    final scanner = TestReceiptScanner(imageFile());
+    await openReceipt(tester, api, scanner, TestReceiptReader([]));
+    await tester.tap(find.byKey(const ValueKey('receipt-read')));
     await tester.pumpAndSettle();
 
-    expect(api.manualUploads, [true]);
-    expect(
-        api.confirmations.single, containsPair('sender_name', 'Manual Sender'));
-    expect(api.confirmations.single, containsPair('amount', '50.00'));
+    expect(find.textContaining('لم يُعثر على نص'), findsOneWidget);
+    final use = tester.widget<TextButton>(find.descendant(
+        of: find.byKey(const ValueKey('receipt-use')),
+        matching: find.byType(TextButton)));
+    expect(use.onPressed, isNull);
   });
 
   testWidgets('cancelling image selection keeps the existing payment form',
       (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final api = TestReceiptApi();
-    final scanner = TestReceiptScanner(await imageFile())..cancelled = true;
-    await tester.pumpWidget(MaterialApp(
-        theme: AppIdentity.theme,
-        home: PaymentPage(
-            api: api, subscriber: subscriber, receiptScanner: scanner)));
-    await tester.pumpAndSettle();
-    final transferTile = find
-        .ancestor(of: find.text('تحويل بنكي'), matching: find.byType(InkWell))
-        .first;
-    await tester.scrollUntilVisible(transferTile, 100,
-        scrollable: find.byType(Scrollable).first);
-    await tester.tap(transferTile);
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('receipt-gallery')), 100,
-        scrollable: find.byType(Scrollable).first);
-    await tester.tap(find.byKey(const ValueKey('receipt-gallery')));
-    await tester.pumpAndSettle();
+    final api = OfflineApi();
+    final scanner = TestReceiptScanner(imageFile())..cancelled = true;
+    await openReceipt(tester, api, scanner, TestReceiptReader(['unused']));
 
     expect(find.text('تجهيز صورة الإيصال'), findsNothing);
-    expect(find.text('تسجيل الدفعة'), findsOneWidget);
-    expect(api.manualUploads, isEmpty);
-    expect(api.confirmations, isEmpty);
+    expect(find.byKey(const ValueKey('payment-submit')), findsOneWidget);
+    expect(api.requests, 0);
   });
 }

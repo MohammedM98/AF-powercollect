@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\Currency;
 use App\Enums\PermissionKey;
 use App\Enums\SubscriberStatus;
 use App\Models\SubscriberTransaction;
@@ -33,7 +32,6 @@ class StoreMobileCollectionRequest extends FormRequest
                     ->where('status', SubscriberStatus::Active->value)
                     ->when(! $this->user()->isSuperAdmin(), fn ($rule) => $rule->where('branch_id', $this->user()->branch_id))],
                 ...StoreSubscriberPaymentRequest::paymentRules($this->input('payment_method')),
-                'currency' => ['required', Rule::in([Currency::Shekel->value])],
             ]),
         ];
     }

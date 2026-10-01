@@ -13,7 +13,6 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReadingScheduleController;
 use App\Http\Controllers\ReadNotificationController;
-use App\Http\Controllers\ReceiptExampleController;
 use App\Http\Controllers\SubAreaController;
 use App\Http\Controllers\SubscriberChargeController;
 use App\Http\Controllers\SubscriberClearingController;
@@ -39,14 +38,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-
-    Route::resource('/settings/receipt-examples', ReceiptExampleController::class)
-        ->parameters(['receipt-examples' => 'receiptExample'])
-        ->only(['index', 'store', 'show', 'update', 'destroy'])->names('settings.receipt-examples');
-    Route::post('/settings/receipt-examples/{receiptExample}/test', [ReceiptExampleController::class, 'test'])
-        ->middleware('throttle:6,1')->name('settings.receipt-examples.test');
-    Route::get('/settings/receipt-examples/{receiptExample}/image', [ReceiptExampleController::class, 'image'])
-        ->name('settings.receipt-examples.image');
 
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
     Route::get('/branch-performance', [BranchPerformanceController::class, 'index'])->name('branch-performance.index');

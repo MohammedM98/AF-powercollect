@@ -224,7 +224,7 @@ class _PaymentPageState extends State<PaymentPage> {
                                   Row(children: [
                                     for (final wallet in [
                                       'جوال باي',
-                                      'بال باي'
+                                      'محفظة بالباي'
                                     ])
                                       Expanded(
                                           child: Padding(

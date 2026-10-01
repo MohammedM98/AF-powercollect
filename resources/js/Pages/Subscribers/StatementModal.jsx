@@ -6,6 +6,7 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import AccountStatement from './AccountStatement';
 import { StandingDiscountBadge } from './AccountSummary';
 import { StatementActions, StatementForms } from './StatementForms';
+import SubscriptionSwitcher from './SubscriptionSwitcher';
 
 const STATUS_TONES = {
     active: 'green',
@@ -36,9 +37,10 @@ function StatementSkeleton() {
  * outside it. `subscriber` (from the list's row) fills the header at once;
  * `statement` (the statement's props) fills the rest when it arrives.
  * `initialForm` ('payment', 'charge' or 'discount') opens that form as
- * soon as the statement is there.
+ * soon as the statement is there. `onSwitch(header)` opens another of the
+ * same person's subscriptions in its place.
  */
-export default function StatementModal({ subscriber, statement, initialForm = null, onClose }) {
+export default function StatementModal({ subscriber, statement, initialForm = null, onSwitch, onClose }) {
     const titleId = useId();
     // The form open over the statement: 'payment', 'charge' or 'discount', or a line to correct or delete.
     const [openForm, setOpenForm] = useState(initialForm);
@@ -62,6 +64,11 @@ export default function StatementModal({ subscriber, statement, initialForm = nu
                                     {header.standingDiscount && <StandingDiscountBadge discount={header.standingDiscount} />}
                                 </div>
                                 <p className="mt-0.5 text-sm text-gray-500">
+                                    {header.subscriberNumber && (
+                                        <>
+                                            مشترك <span dir="ltr">{header.subscriberNumber}</span> ·{' '}
+                                        </>
+                                    )}
                                     {header.accountNumber && (
                                         <>
                                             حساب <span dir="ltr">{header.accountNumber}</span> ·{' '}
@@ -111,14 +118,22 @@ export default function StatementModal({ subscriber, statement, initialForm = nu
 
                     <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-5 sm:px-8 sm:py-6" aria-busy={!statement}>
                         {statement ? (
-                            <AccountStatement
-                                entries={statement.entries}
-                                summary={statement.summary}
-                                paymentMethods={statement.paymentMethods}
-                                transactionTypes={statement.transactionTypes}
-                                onCorrect={(entry) => setOpenForm({ action: 'correct', entry })}
-                                onDelete={(entry) => setOpenForm({ action: 'delete', entry })}
-                            />
+                            <>
+                                <SubscriptionSwitcher
+                                    subscriberNumber={statement.subscriber.subscriberNumber}
+                                    subscriptions={statement.subscriptions}
+                                    currentId={statement.subscriber.id}
+                                    onSelect={onSwitch}
+                                />
+                                <AccountStatement
+                                    entries={statement.entries}
+                                    summary={statement.summary}
+                                    paymentMethods={statement.paymentMethods}
+                                    transactionTypes={statement.transactionTypes}
+                                    onCorrect={(entry) => setOpenForm({ action: 'correct', entry })}
+                                    onDelete={(entry) => setOpenForm({ action: 'delete', entry })}
+                                />
+                            </>
                         ) : (
                             <StatementSkeleton />
                         )}

@@ -49,7 +49,7 @@ trait BuildsSubscriberStatement
      */
     protected function subscriberStatement(User $actor, Subscriber $subscriber): array
     {
-        $subscriber->loadMissing(['branch', 'tariff', 'tariffSegment', 'meterBox', 'circuitBreaker', 'standingDiscount.grantedBy', 'latestMeterReading']);
+        $subscriber->loadMissing(['profile', 'branch', 'tariff', 'tariffSegment', 'meterBox', 'circuitBreaker', 'standingDiscount.grantedBy', 'latestMeterReading']);
 
         $transactions = $subscriber->transactions()
             ->with(['recordedBy', 'meterReading', 'cancelledBy', 'reverses', 'corrects', 'correction'])
@@ -84,6 +84,7 @@ trait BuildsSubscriberStatement
                 'id' => $subscriber->id,
                 'fullName' => $subscriber->displayName(),
                 'accountNumber' => $subscriber->account_number,
+                'subscriberNumber' => $subscriber->profile?->subscriber_number,
                 'phone' => $subscriber->contactPhone(),
                 'branchName' => $subscriber->branch->name,
                 'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
@@ -105,6 +106,7 @@ trait BuildsSubscriberStatement
                 'status' => $subscriber->status->value,
                 'statusLabel' => __($subscriber->status->label()),
             ],
+            'subscriptions' => $this->profileSubscriptions($actor, $subscriber),
             'entries' => $entries,
             'summary' => [
                 'balance' => $this->money($balanceInCents),
@@ -134,6 +136,41 @@ trait BuildsSubscriberStatement
                 'deletion' => CorrectionReason::options(CorrectionReason::forDeletion()),
             ],
         ];
+    }
+
+    /**
+     * Every subscription of the same person that the actor may see, the
+     * open one among them, each with its balance and what the statement
+     * window's header shows, so the statement can switch between them.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function profileSubscriptions(User $actor, Subscriber $subscriber): array
+    {
+        if ($subscriber->subscriber_profile_id === null) {
+            return [];
+        }
+
+        return Subscriber::query()
+            ->visibleTo($actor)
+            ->where('subscriber_profile_id', $subscriber->subscriber_profile_id)
+            ->with(['branch', 'tariff', 'tariffSegment', 'meterBox'])
+            ->withSum('transactions as balance', 'amount')
+            ->orderBy('account_number')
+            ->get()
+            ->map(fn (Subscriber $subscription): array => [
+                'id' => $subscription->id,
+                'fullName' => $subscription->displayName(),
+                'accountNumber' => $subscription->account_number,
+                'branchName' => $subscription->branch->name,
+                'tariffCategoryLabel' => __($subscription->tariff->category->label()),
+                'tariffSegmentName' => $subscription->tariffSegment?->name,
+                'meterBoxNumber' => $subscription->meterBox?->box_number,
+                'status' => $subscription->status->value,
+                'statusLabel' => __($subscription->status->label()),
+                'balance' => $this->money($this->cents((string) ($subscription->balance ?? '0'))),
+            ])
+            ->all();
     }
 
     /**

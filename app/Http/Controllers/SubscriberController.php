@@ -49,7 +49,8 @@ class SubscriberController extends Controller
             ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'tariffSegment', 'circuitBreaker', 'standingDiscount', 'registeredBy', 'meterReadings.recordedBy'])
             ->with(['profile' => fn ($query) => $query->withCount(['subscriptions' => fn ($subscriptions) => $subscriptions->visibleTo($actor)])])
             ->withSum('transactions as outstanding_balance', 'amount');
-        $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'phone', 'subscription_phone', 'account_number'], self::SORTABLE, 'display_name');
+        $subscriberNumber = DB::raw('(select subscriber_number from subscriber_profiles where subscriber_profiles.id = subscribers.subscriber_profile_id)');
+        $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'phone', 'subscription_phone', 'account_number', $subscriberNumber], self::SORTABLE, 'display_name');
         $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'tariff_segment_id', 'meter_box_id']);
         $this->applyMeterBoxNameFilter($query, $request);
 
@@ -283,6 +284,7 @@ class SubscriberController extends Controller
         return [
             'id' => $subscriber->id,
             'account_number' => $subscriber->account_number,
+            'subscriber_number' => $subscriber->profile?->subscriber_number,
             'full_name' => $subscriber->full_name,
             'subscription_name' => $subscriber->subscription_name,
             'display_name' => $subscriber->displayName(),

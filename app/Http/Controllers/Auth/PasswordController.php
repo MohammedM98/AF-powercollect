@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\ProfileDeviceController;
 use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,7 +13,8 @@ use Illuminate\Validation\Rules\Password;
 class PasswordController extends Controller
 {
     /**
-     * Update the user's password.
+     * Update the user's password, and sign out the user's other devices
+     * and the mobile app: only this device stays signed in.
      */
     public function update(Request $request): RedirectResponse
     {
@@ -24,6 +26,7 @@ class PasswordController extends Controller
         $request->user()->update([
             'password' => Hash::make($validated['password']),
         ]);
+        ProfileDeviceController::signOutOtherDevices($request);
 
         $request->user()->notify(new ActionCompleted('password-updated'));
 

@@ -42,6 +42,31 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_a_stopped_account_cannot_sign_in_even_with_the_right_password(): void
+    {
+        $user = User::factory()->create(['is_active' => false]);
+
+        $response = $this->from('/login')->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ]);
+
+        $this->assertGuest();
+        $response->assertRedirect('/login')->assertSessionHasErrors(['username' => 'تم إيقاف هذا الحساب. تواصل مع المدير لإعادة تفعيله.']);
+    }
+
+    public function test_a_user_whose_account_is_stopped_while_signed_in_is_signed_out(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)->get('/dashboard')->assertOk();
+        $user->update(['is_active' => false]);
+
+        $response = $this->get('/dashboard');
+
+        $this->assertGuest();
+        $response->assertRedirect(route('login'))->assertSessionHasErrors('username');
+    }
+
     public function test_users_can_logout(): void
     {
         $user = User::factory()->create();

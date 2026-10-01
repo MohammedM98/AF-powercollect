@@ -166,6 +166,42 @@ class SubscriberAuthorizationTest extends TestCase
         $response->assertDontSee('Commercial Subscriber');
     }
 
+    public function test_subscribers_can_be_filtered_by_box_name_then_by_one_of_its_boxes(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $branch = Branch::factory()->create();
+        $campOne = MeterBox::factory()->create(['branch_id' => $branch->id, 'name' => 'camp', 'name_suffix' => '1', 'box_number' => '1234']);
+        $campTwo = MeterBox::factory()->create(['branch_id' => $branch->id, 'name' => 'camp', 'name_suffix' => '2', 'box_number' => '1243']);
+        $club = MeterBox::factory()->create(['branch_id' => $branch->id, 'name' => 'club', 'name_suffix' => null, 'box_number' => '5000']);
+        foreach (['Camp One Subscriber' => $campOne, 'Camp Two Subscriber' => $campTwo, 'Club Subscriber' => $club] as $name => $box) {
+            Subscriber::factory()->create(['branch_id' => $branch->id, 'meter_box_id' => $box->id, 'full_name' => $name]);
+        }
+
+        $this->actingAs($superAdmin)->get(route('subscribers.index', ['filter' => ['meter_box_name' => 'camp']]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('subscribers.data', 2)
+                ->where('filterOptions', function ($groups) use ($branch, $campOne, $campTwo, $club): bool {
+                    $groups = collect($groups);
+                    $numbers = $groups->firstWhere('key', 'meter_box_id');
+
+                    return $groups->firstWhere('key', 'meter_box_name')['options'] === [
+                        ['value' => 'camp', 'label' => 'camp'],
+                        ['value' => 'club', 'label' => 'club'],
+                    ] && $numbers['dependsOn'] === 'meter_box_name' && $numbers['options'] === [
+                        ['value' => (string) $club->id, 'label' => "(5000) — {$branch->name}", 'parent' => 'club'],
+                        ['value' => (string) $campOne->id, 'label' => "1 (1234) — {$branch->name}", 'parent' => 'camp'],
+                        ['value' => (string) $campTwo->id, 'label' => "2 (1243) — {$branch->name}", 'parent' => 'camp'],
+                    ];
+                }));
+
+        $this->actingAs($superAdmin)->get(route('subscribers.index', ['filter' => ['meter_box_name' => 'camp', 'meter_box_id' => $campTwo->id]]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('subscribers.data', 1)
+                ->where('subscribers.data.0.full_name', 'Camp Two Subscriber'));
+    }
+
     public function test_subscribers_index_carries_the_detail_fields_the_view_modal_needs(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();

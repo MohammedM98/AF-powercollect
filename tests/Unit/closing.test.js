@@ -1,6 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addDays, cashCheck, closingMoney, closingSteps, countedCash, hasCount, monthName, paymentsCount } from '../../resources/js/lib/closing.js';
+import {
+    addDays,
+    businessDayHours,
+    cashCheck,
+    closingMoney,
+    closingSteps,
+    countedCash,
+    hasCount,
+    monthName,
+    paymentsCount,
+    weekOf,
+} from '../../resources/js/lib/closing.js';
 
 test('the counted cash adds up the notes and coins', () => {
     assert.equal(countedCash({ 200: 4, 100: 1, 50: 1, 1: 3 }), 953);
@@ -36,4 +47,11 @@ test('dates, months, money and counts read as the design shows them', () => {
     assert.equal(monthName('2026-09-30'), 'أيلول 2026');
     assert.equal(addDays('2026-09-30', 1), '2026-10-01');
     assert.equal(paymentsCount(3), '3 دفعات');
+});
+
+test('the cut-off and week start shape the business day and week', () => {
+    assert.equal(businessDayHours('00:00'), 'من بداية اليوم حتى منتصف الليل');
+    assert.equal(businessDayHours('18:00'), 'من الساعة 18:00 في اليوم السابق حتى الساعة 18:00');
+    assert.deepEqual(weekOf('2026-09-30', 6), ['2026-09-26', '2026-09-27', '2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02']);
+    assert.equal(weekOf('2026-09-30', 0)[0], '2026-09-27');
 });

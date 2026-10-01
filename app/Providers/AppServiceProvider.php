@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\ClosingSetting;
 use App\Models\ReadingEntrySetting;
 use Illuminate\Support\ServiceProvider;
 
@@ -14,6 +15,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Read by every reading-week calculation, so loaded once per request or job.
         $this->app->scoped(ReadingEntrySetting::class, fn (): ReadingEntrySetting => ReadingEntrySetting::loadCurrent());
+        $this->app->scoped(ClosingSetting::class, fn (): ClosingSetting => ClosingSetting::loadCurrent());
     }
 
     /**

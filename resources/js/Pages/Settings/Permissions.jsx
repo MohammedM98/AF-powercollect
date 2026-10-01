@@ -9,7 +9,15 @@ import ConfirmDialog from '@/Components/ConfirmDialog';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 
-const ACTION_LABELS = { view: 'عرض', create: 'إضافة', update: 'تعديل', record: 'تسجيل', approve: 'اعتماد' };
+const ACTION_LABELS = {
+    view: 'عرض',
+    create: 'إضافة',
+    update: 'تعديل',
+    record: 'تسجيل',
+    approve: 'اعتماد',
+    prepare: 'إعداد كشوف الفرع',
+    view_all: 'عرض كل الفروع والتقارير',
+};
 
 /**
  * Permissions shown apart, in their own box, so nobody grants them by
@@ -24,6 +32,7 @@ const SENSITIVE_ACTIONS = {
     adjust: { label: 'إضافة تحميل وخصم', hint: 'غرامات وتسويات وخصومات على أرصدة المشتركين — تُمنح بحذر', danger: true },
     correct: { label: 'تعديل الحركات المالية', hint: 'تصحيح دفعة أو تحميل أو خصم مسجّل خطأً، مع ذكر السبب', danger: true },
     'collections.delete': { label: 'حذف الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف مع السبب', danger: true },
+    'closings.audit': { label: 'تدقيق واعتماد الكشوف', hint: 'يعيد كشوف كل الفروع أو يعتمدها، ويعتمد الأسبوع والشهر — تُمنح بحذر', danger: true },
 };
 
 /** The icon and one-line description of each permission group (keyed like PermissionKey::resourceGroups()). */
@@ -39,6 +48,7 @@ const GROUP_DETAILS = {
     governorates: { icon: 'map', description: 'إدارة المحافظات' },
     meter_readings: { icon: 'chart', description: 'إدارة قراءات العدادات' },
     collections: { icon: 'card', description: 'إدارة عمليات التحصيل' },
+    closings: { icon: 'scale', description: 'إغلاق التحصيل اليومي وتسليم النقد والتقارير' },
 };
 
 /** The first option of each filter dropdown. */

@@ -7,12 +7,14 @@ import DailyClosing from './DailyClosing';
 import CashHandover from './CashHandover';
 import PeriodClosings from './PeriodClosings';
 import BranchPicker from './BranchPicker';
+import ClosingRegister from './ClosingRegister';
 import './Closing.css';
 
 const TABS = [
     { key: 'daily', label: 'الإغلاق اليومي', icon: 'list' },
     { key: 'handover', label: 'تسليم النقد', icon: 'truck' },
     { key: 'period', label: 'الأسبوعي والشهري', icon: 'layers' },
+    { key: 'register', label: 'سجل الكشوف', icon: 'table' },
 ];
 
 /**
@@ -30,10 +32,12 @@ export default function Index({
     daily,
     handover,
     periodView,
+    register,
     differenceReasons,
     cashNotes,
     cashCoins,
     userId,
+    cutoff,
 }) {
     function visit(changes) {
         router.get('/closings', { tab, branch: branchId, date, period, ...changes }, { preserveScroll: true });
@@ -62,7 +66,7 @@ export default function Index({
                     ))}
                 </div>
 
-                {tab !== 'period' && (
+                {['daily', 'handover'].includes(tab) && (
                     <div className="ctl">
                         <BranchPicker branches={branches} branchId={branchId} onChange={(branch) => visit({ branch })} />
                         <span className="cb nav">
@@ -84,7 +88,7 @@ export default function Index({
                         <span className="cb">
                             <Icon name="clock" />
                             <small>وقت القطع</small>
-                            <b>23:59</b>
+                            <b>{cutoff === '00:00' ? 'منتصف الليل' : cutoff}</b>
                         </span>
                     </div>
                 )}
@@ -108,6 +112,14 @@ export default function Index({
                     />
                 )}
                 {tab === 'handover' && handover && <CashHandover key={handover.id} closing={handover} onOpenDaily={() => visit({ tab: 'daily' })} />}
+                {tab === 'register' && register && (
+                    <ClosingRegister
+                        register={register}
+                        branches={branches}
+                        onChange={(filters) => router.get('/closings', { tab: 'register', ...filters }, { preserveScroll: true })}
+                        onOpenDay={(branch, day) => visit({ tab: 'daily', branch, date: day })}
+                    />
+                )}
                 {tab === 'period' && periodView && (
                     <PeriodClosings
                         view={periodView}

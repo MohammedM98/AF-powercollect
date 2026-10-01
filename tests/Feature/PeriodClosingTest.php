@@ -26,7 +26,7 @@ class PeriodClosingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['app.business_timezone' => 'Asia/Gaza', 'powercollect.closing.week_starts_on' => Carbon::SATURDAY]);
+        config(['app.business_timezone' => 'Asia/Gaza']);
         $this->travelTo(Carbon::parse('2026-10-05 10:00', 'Asia/Gaza'));
         $this->branch = Branch::factory()->create();
         $this->reviewer = User::factory()->accountant()->create();

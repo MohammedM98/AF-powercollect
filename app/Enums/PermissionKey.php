@@ -66,6 +66,7 @@ enum PermissionKey: string
     case DeleteTransactions = 'collections.delete';
     case PrepareClosings = 'closings.prepare';
     case AuditClosings = 'closings.audit';
+    case ViewAllClosings = 'closings.view_all';
 
     public function label(): string
     {
@@ -122,6 +123,7 @@ enum PermissionKey: string
             self::DeleteTransactions => 'Delete Transactions',
             self::PrepareClosings => 'Prepare Closings',
             self::AuditClosings => 'Audit Closings',
+            self::ViewAllClosings => 'View All Closings and Reports',
         };
     }
 
@@ -139,8 +141,8 @@ enum PermissionKey: string
             self::ViewGovernorates, self::CreateGovernorates, self::UpdateGovernorates, self::DeleteGovernorates,
             self::ViewAreas, self::CreateAreas, self::UpdateAreas, self::DeleteAreas,
             self::ViewUserTypes, self::CreateUserTypes, self::UpdateUserTypes, self::DeleteUserTypes,
-            // Reviewing closings checks the branches' own figures, so the company grants it.
-            self::AuditClosings => true,
+            // Reviewing closings, or seeing every branch's, reaches past one branch, so the company grants it.
+            self::AuditClosings, self::ViewAllClosings => true,
             default => false,
         };
     }
@@ -220,7 +222,7 @@ enum PermissionKey: string
             ],
             'closings' => [
                 'label' => 'Closings',
-                'actions' => ['prepare' => self::PrepareClosings, 'audit' => self::AuditClosings],
+                'actions' => ['prepare' => self::PrepareClosings, 'view_all' => self::ViewAllClosings, 'audit' => self::AuditClosings],
             ],
         ];
     }

@@ -84,7 +84,9 @@ enum UserRole: string
                 PermissionKey::AdjustBalances,
                 PermissionKey::PrepareClosings,
             ],
-            self::SuperAdmin, self::Collector, self::FinancialAuditor => [],
+            // Sees every branch's closings and reports, read only.
+            self::FinancialAuditor => [PermissionKey::ViewAllClosings],
+            self::SuperAdmin, self::Collector => [],
         };
     }
 }

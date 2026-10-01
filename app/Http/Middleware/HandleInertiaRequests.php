@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
 use App\Models\Closing;
+use App\Models\ClosingSetting;
 use App\Models\Governorate;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
@@ -78,6 +79,7 @@ class HandleInertiaRequests extends Middleware
                 'viewGovernorates' => $user->can('viewAny', Governorate::class) || $user->can('viewAny', SubArea::class),
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manage', ReadingEntrySetting::class),
+                'manageClosingSchedule' => $user->can('manage', ClosingSetting::class),
             ] : null,
             'activity' => fn () => $user ? $this->recentActivity($user) : null,
         ];

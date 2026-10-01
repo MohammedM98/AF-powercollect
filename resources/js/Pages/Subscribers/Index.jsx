@@ -75,7 +75,7 @@ export default function Index({
     const [readingSubscriber, setReadingSubscriber] = useState(null);
     const [historySubscriberId, setHistorySubscriberId] = useState(null);
     const historySubscriber = subscribers.data.find((subscriber) => subscriber.id === historySubscriberId) ?? null;
-    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/subscribers', filters);
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/subscribers', filters);
     const rowClick = useRowClick();
     const { requestDelete, deleteDialog } = useDeleteRecord('المشترك');
 
@@ -192,6 +192,7 @@ export default function Index({
                         groups={filterOptions}
                         values={filterValues}
                         onChange={setFilter}
+                        onChangeMany={setFilters}
                         onClear={clearFilters}
                     />
                 }

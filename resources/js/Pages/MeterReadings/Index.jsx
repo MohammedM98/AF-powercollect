@@ -447,6 +447,7 @@ export default function Index({
                         groups={filterOptions}
                         values={filterValues}
                         onChange={setFilter}
+                        onChangeMany={setFilters}
                         onClear={clearFilters}
                     />
                 }

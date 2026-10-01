@@ -491,6 +491,29 @@ class MeterReadingTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('status', 'meter-reading-created'));
     }
 
+    public function test_the_reading_sheet_filters_by_box_name_and_lists_that_names_boxes_under_it(): void
+    {
+        $campOne = MeterBox::factory()->create(['branch_id' => $this->branch->id, 'name' => 'camp', 'name_suffix' => '1', 'box_number' => '1234']);
+        $campTwo = MeterBox::factory()->create(['branch_id' => $this->branch->id, 'name' => 'camp', 'name_suffix' => '2', 'box_number' => '1243']);
+        $inCampOne = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $campOne->id]);
+        $inCampTwo = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $campTwo->id]);
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index', ['filter' => ['meter_box_name' => 'camp']]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('rows.data', 2)
+                ->where('rows.data', fn ($rows) => collect($rows)->pluck('id')->sort()->values()->all() === [$inCampOne->id, $inCampTwo->id])
+                ->where('filterOptions', fn ($groups) => collect(collect($groups)->firstWhere('key', 'meter_box_id')['options'])
+                    ->where('parent', 'camp')->pluck('label')->all() === ['1 (1234)', '2 (1243)']));
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index', ['filter' => ['meter_box_name' => 'camp', 'meter_box_id' => $campOne->id]]))
+            ->assertInertia(fn ($page) => $page
+                ->has('rows.data', 1)
+                ->where('rows.data.0.id', $inCampOne->id));
+    }
+
     public function test_the_reading_sheet_can_show_only_subscribers_still_missing_this_weeks_reading(): void
     {
         $this->recordedReading('2026-09-18', 1200, 1250);

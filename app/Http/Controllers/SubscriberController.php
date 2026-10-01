@@ -51,6 +51,7 @@ class SubscriberController extends Controller
             ->withSum('transactions as outstanding_balance', 'amount');
         $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'phone', 'subscription_phone', 'account_number'], self::SORTABLE, 'display_name');
         $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'tariff_segment_id', 'meter_box_id']);
+        $this->applyMeterBoxNameFilter($query, $request);
 
         $canRecordReadings = $actor->can('create', MeterReading::class);
 
@@ -377,10 +378,10 @@ class SubscriberController extends Controller
                 TariffSegment::with('tariff')->orderBy('tariff_id')->orderBy('name')->get(),
                 fn (TariffSegment $segment) => $segment->label(),
             )),
-            $this->filterGroup('meter_box_id', 'الطبلون', $this->modelOptions(
+            ...$this->meterBoxFilterGroups(
                 $meterBoxes,
-                fn (MeterBox $box) => $actor->isSuperAdmin() ? $box->label()." — {$box->branch->name}" : $box->label(),
-            )),
+                $actor->isSuperAdmin() ? fn (MeterBox $box) => $box->branch->name : null,
+            ),
         ];
 
         if ($actor->isSuperAdmin()) {

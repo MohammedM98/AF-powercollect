@@ -3,6 +3,7 @@
 namespace App\Http\Concerns;
 
 use App\Models\Branch;
+use App\Models\MeterBox;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -141,6 +142,50 @@ trait FiltersDataTable
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * Apply `?filter[meter_box_name]=…`: every subscriber on a box with
+     * that name, whatever the box's suffix or number.
+     */
+    protected function applyMeterBoxNameFilter(Builder $query, Request $request): Builder
+    {
+        $name = ((array) $request->input('filter', []))['meter_box_name'] ?? null;
+
+        if (is_string($name) && $name !== '') {
+            $query->whereHas('meterBox', fn (Builder $box) => $box->where('name', $name));
+        }
+
+        return $query;
+    }
+
+    /**
+     * The meter box filter as two linked dropdowns: the box name, then —
+     * shown under it once a name is picked — that name's boxes by suffix
+     * and number, e.g. "1 (1234)". Each box option names its `parent`, so
+     * the page lists only the chosen name's boxes.
+     *
+     * @param  iterable<int, MeterBox>  $boxes
+     * @param  (Closure(MeterBox): string)|null  $context  extra text after a box, e.g. its branch
+     * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string, parent?: string}>, dependsOn?: string}>
+     */
+    protected function meterBoxFilterGroups(iterable $boxes, ?Closure $context = null): array
+    {
+        $boxes = collect($boxes);
+        $names = $boxes->pluck('name')->unique()->sort(SORT_NATURAL | SORT_FLAG_CASE)
+            ->map(fn (string $name) => ['value' => $name, 'label' => $name]);
+        $numbers = $boxes
+            ->sortBy([['name_suffix', 'asc'], ['box_number', 'asc']], SORT_NATURAL)
+            ->map(fn (MeterBox $box) => [
+                'value' => (string) $box->getKey(),
+                'label' => ltrim($box->name_suffix.' ('.$box->box_number.')').($context ? ' — '.$context($box) : ''),
+                'parent' => $box->name,
+            ]);
+
+        return [
+            $this->filterGroup('meter_box_name', 'الطبلون', $names),
+            [...$this->filterGroup('meter_box_id', 'رقم الطبلون', $numbers), 'dependsOn' => 'meter_box_name'],
+        ];
     }
 
     /**

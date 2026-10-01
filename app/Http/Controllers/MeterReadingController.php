@@ -68,6 +68,7 @@ class MeterReadingController extends Controller
         $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'account_number', 'phone', 'subscription_phone'], self::SORTABLE, 'full_name');
         $query->orderBy('subscribers.id');
         $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
+        $this->applyMeterBoxNameFilter($query, $request);
         $this->applySheetFilters($query, $request, $week, includeStatus: false);
         $statusSummary = $this->statusSummary($query, $week);
         $this->applySheetStatusFilters($query, $request, $week);
@@ -244,6 +245,7 @@ class MeterReadingController extends Controller
         $subscribers = $this->subscribersInScope($actor);
         $this->applyDataTableFilters($subscribers, $request, ['full_name', 'subscription_name', 'account_number', 'phone', 'subscription_phone'], [], 'full_name');
         $this->applyDataTableFilterSelects($subscribers, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
+        $this->applyMeterBoxNameFilter($subscribers, $request);
         $this->applySheetFilters($subscribers, $request, $week);
 
         return $this->pendingReadings($actor)
@@ -464,10 +466,7 @@ class MeterReadingController extends Controller
 
         $groups[] = $this->filterGroup('sub_area_id', 'منطقة 2', $this->modelOptions(SubArea::visibleTo($actor)->orderBy('name')->get()));
 
-        $groups[] = $this->filterGroup('meter_box_id', 'الطبلون', $this->modelOptions(
-            MeterBox::query()->visibleTo($actor)->orderBy('box_number')->get(),
-            fn (MeterBox $box) => $box->label(),
-        ));
+        array_push($groups, ...$this->meterBoxFilterGroups(MeterBox::query()->visibleTo($actor)->get()));
 
         $groups[] = $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(
             Tariff::orderBy('category')->get(),

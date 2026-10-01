@@ -2,12 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useFilterVisibility } from '@/hooks/useFilterVisibility';
 import SearchableSelect from '@/Components/SearchableSelect';
 import Icon from '@/Components/Icon';
+import { childOptions, nestFilterGroups, parentChange, parentValue } from '@/lib/filterGroups';
 
-export default function DataTableFilterMenu({ tableKey, groups, values, onChange, onClear }) {
+/**
+ * The table's filter dropdowns. A group with `dependsOn` (e.g. a meter
+ * box's numbers) shows under the group it depends on (the box name) once
+ * that has a value; `onChangeMany` sets both at once when the parent changes.
+ */
+export default function DataTableFilterMenu({ tableKey, groups, values, onChange, onChangeMany, onClear }) {
     const activeCount = Object.values(values ?? {}).filter(Boolean).length;
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
-    const groupKeys = (groups ?? []).map((group) => group.key);
+    const { topLevel, childOf } = nestFilterGroups(groups);
+    const groupKeys = topLevel.map((group) => group.key);
     const { visibleKeys, isVisible, toggle } = useFilterVisibility(tableKey, groupKeys);
 
     useEffect(() => {
@@ -29,34 +36,67 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
         return null;
     }
 
-    function toggleAndClear(key) {
-        toggle(key);
-        if (isVisible(key) && values?.[key]) {
-            onChange(key, '');
+    function changeMany(updates) {
+        if (onChangeMany) {
+            onChangeMany(updates);
+        } else {
+            Object.entries(updates).forEach(([key, value]) => onChange(key, value));
         }
     }
 
-    const visibleGroups = groups.filter((group) => visibleKeys.includes(group.key));
+    function toggleAndClear(key) {
+        toggle(key);
+        const child = childOf[key];
+        if (isVisible(key) && (values?.[key] || (child && values?.[child.key]))) {
+            changeMany(parentChange(key, child, ''));
+        }
+    }
+
+    const visibleGroups = topLevel.filter((group) => visibleKeys.includes(group.key));
 
     return (
         <div className="flex w-full flex-wrap items-end gap-3 border-t border-gray-100 pt-4">
-            {visibleGroups.map((group) => (
-                <div key={group.key} className="flex w-full min-w-0 flex-col gap-1.5 sm:w-44">
-                    <span className={`flex items-center gap-1.5 text-xs font-semibold ${values?.[group.key] ? 'text-gray-900' : 'text-gray-500'}`}>
-                        {group.label}
-                        {values?.[group.key] && <span className="h-1.5 w-1.5 rounded-full bg-brand-500" aria-hidden="true" />}
-                    </span>
-                    <SearchableSelect
-                        value={values?.[group.key] ?? ''}
-                        onChange={(value) => onChange(group.key, value)}
-                        options={group.options}
-                        placeholder="الكل"
-                        searchPlaceholder={`بحث في ${group.label}...`}
-                        emptyLabel="لا توجد نتائج"
-                        active={Boolean(values?.[group.key])}
-                    />
-                </div>
-            ))}
+            {visibleGroups.map((group) => {
+                const child = childOf[group.key];
+                const value = child ? parentValue(group.key, child, values) : (values?.[group.key] ?? '');
+
+                return (
+                    <div key={group.key} className="flex w-full min-w-0 flex-col gap-1.5 sm:w-44">
+                        <span className={`flex items-center gap-1.5 text-xs font-semibold ${value ? 'text-gray-900' : 'text-gray-500'}`}>
+                            {group.label}
+                            {value && <span className="h-1.5 w-1.5 rounded-full bg-brand-500" aria-hidden="true" />}
+                        </span>
+                        <SearchableSelect
+                            value={value}
+                            onChange={(next) => (child ? changeMany(parentChange(group.key, child, next)) : onChange(group.key, next))}
+                            options={group.options}
+                            placeholder="الكل"
+                            searchPlaceholder={`بحث في ${group.label}...`}
+                            emptyLabel="لا توجد نتائج"
+                            active={Boolean(value)}
+                        />
+                        {child && value && (
+                            <>
+                                <span
+                                    className={`mt-1 flex items-center gap-1.5 text-xs font-semibold ${values?.[child.key] ? 'text-gray-900' : 'text-gray-500'}`}
+                                >
+                                    {child.label}
+                                    {values?.[child.key] && <span className="h-1.5 w-1.5 rounded-full bg-brand-500" aria-hidden="true" />}
+                                </span>
+                                <SearchableSelect
+                                    value={values?.[child.key] ?? ''}
+                                    onChange={(next) => changeMany({ [group.key]: value, [child.key]: next })}
+                                    options={childOptions(child, value)}
+                                    placeholder={`كل ${value}`}
+                                    searchPlaceholder={`بحث في ${child.label}...`}
+                                    emptyLabel="لا توجد نتائج"
+                                    active={Boolean(values?.[child.key])}
+                                />
+                            </>
+                        )}
+                    </div>
+                );
+            })}
 
             <div className="relative" ref={menuRef}>
                 <button
@@ -68,13 +108,13 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
                     <Icon name="filter" className="h-4 w-4" />
                     الفلاتر الظاهرة
                     <span className="rounded-md bg-gray-100 px-1.5 py-0.5 font-display text-[13px] text-gray-500">
-                        {visibleKeys.length}/{groups.length}
+                        {visibleKeys.length}/{topLevel.length}
                     </span>
                 </button>
 
                 {open && (
                     <div className="absolute end-0 z-20 mt-2 w-60 rounded-2xl border border-gray-100 bg-surface p-2 shadow-lift">
-                        {groups.map((group) => (
+                        {topLevel.map((group) => (
                             <label
                                 key={group.key}
                                 className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"

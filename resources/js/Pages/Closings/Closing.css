@@ -1,63 +1,63 @@
 /* The closing page, as designed: its own palette, light and dark, kept to this page. */
 .closing-page {
-    --page: #eff1f4;
-    --surface: #fff;
-    --raised: #f7f8fa;
-    --sunken: #f2f3f5;
-    --line: #e2e5e9;
-    --line2: #eceef1;
-    --ink: #111820;
-    --ink2: #353c46;
-    --muted: #4c5460;
-    --faint: #5e6773;
-    --brand: #a51d26;
-    --brand-hi: #b8232c;
-    --brand-lo: #7d121b;
-    --success: #047857;
-    --success-t: #0478571a;
-    --info: #1d5bcc;
-    --info-t: #1d5bcc14;
-    --warn: #b45309;
-    --warn-t: #b453091a;
-    --danger: #c81e1e;
-    --danger-t: #c81e1e14;
-    --focus: #111820;
-    --shadow: 0 1px 2px #10182808, 0 14px 34px -18px #1018282e;
-    --pop: 0 30px 60px -24px #10182866, 0 2px 6px #1018280d;
-    --hero: linear-gradient(135deg, #262c34, #1c2127 55%, #111418);
+    --cl-page: #eff1f4;
+    --cl-surface: #fff;
+    --cl-raised: #f7f8fa;
+    --cl-sunken: #f2f3f5;
+    --cl-line: #e2e5e9;
+    --cl-line2: #eceef1;
+    --cl-ink: #111820;
+    --cl-ink2: #353c46;
+    --cl-muted: #4c5460;
+    --cl-faint: #5e6773;
+    --cl-brand: #a51d26;
+    --cl-brand-hi: #b8232c;
+    --cl-brand-lo: #7d121b;
+    --cl-success: #047857;
+    --cl-success-t: #0478571a;
+    --cl-info: #1d5bcc;
+    --cl-info-t: #1d5bcc14;
+    --cl-warn: #b45309;
+    --cl-warn-t: #b453091a;
+    --cl-danger: #c81e1e;
+    --cl-danger-t: #c81e1e14;
+    --cl-focus: #111820;
+    --cl-shadow: 0 1px 2px #10182808, 0 14px 34px -18px #1018282e;
+    --cl-pop: 0 30px 60px -24px #10182866, 0 2px 6px #1018280d;
+    --cl-hero: linear-gradient(135deg, #262c34, #1c2127 55%, #111418);
     container: closing / inline-size;
     max-width: 1320px;
     margin: 0 auto;
     padding-bottom: 40px;
-    color: var(--ink);
+    color: var(--cl-ink);
     font:
         16px/1.6 'IBM Plex Sans Arabic',
         system-ui,
         sans-serif;
 }
 .dark .closing-page {
-    --page: #0b0d10;
-    --surface: #14171c;
-    --raised: #1b1f25;
-    --sunken: #101317;
-    --line: #343a44;
-    --line2: #252a32;
-    --ink: #f4f5f7;
-    --ink2: #e0e3e7;
-    --muted: #9ea6b1;
-    --faint: #8b94a0;
-    --success: #34d399;
-    --success-t: #34d3991a;
-    --info: #7dafe8;
-    --info-t: #7dafe81a;
-    --warn: #fbbf24;
-    --warn-t: #fbbf241a;
-    --danger: #fc7d7d;
-    --danger-t: #fc7d7d1a;
-    --focus: #c9ced5;
-    --shadow: 0 20px 40px -24px #000;
-    --pop: 0 30px 60px -20px #000;
-    --hero: linear-gradient(135deg, #1c2127, #161a1f 55%, #0b0d10);
+    --cl-page: #0b0d10;
+    --cl-surface: #14171c;
+    --cl-raised: #1b1f25;
+    --cl-sunken: #101317;
+    --cl-line: #343a44;
+    --cl-line2: #252a32;
+    --cl-ink: #f4f5f7;
+    --cl-ink2: #e0e3e7;
+    --cl-muted: #9ea6b1;
+    --cl-faint: #8b94a0;
+    --cl-success: #34d399;
+    --cl-success-t: #34d3991a;
+    --cl-info: #7dafe8;
+    --cl-info-t: #7dafe81a;
+    --cl-warn: #fbbf24;
+    --cl-warn-t: #fbbf241a;
+    --cl-danger: #fc7d7d;
+    --cl-danger-t: #fc7d7d1a;
+    --cl-focus: #c9ced5;
+    --cl-shadow: 0 20px 40px -24px #000;
+    --cl-pop: 0 30px 60px -20px #000;
+    --cl-hero: linear-gradient(135deg, #1c2127, #161a1f 55%, #0b0d10);
 }
 .closing-page button,
 .closing-page input,
@@ -67,7 +67,7 @@
     color: inherit;
 }
 .closing-page :focus-visible {
-    outline: 2px solid var(--focus);
+    outline: 2px solid var(--cl-focus);
     outline-offset: 2px;
 }
 .closing-page .pt,
@@ -95,7 +95,7 @@
 }
 .closing-page .ph p {
     margin: 4px 0 0;
-    color: var(--faint);
+    color: var(--cl-faint);
     font-size: 14.5px;
 }
 .closing-page .btn {
@@ -108,18 +108,18 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--ink2);
+    border: 1px solid var(--cl-line);
+    background: var(--cl-surface);
+    color: var(--cl-ink2);
     transition: 0.18s;
 }
 .closing-page .btn:hover {
-    background: var(--sunken);
+    background: var(--cl-sunken);
 }
 .closing-page .btn.pr {
     border: 0;
     color: #fff;
-    background: linear-gradient(180deg, var(--brand-hi), var(--brand-lo));
+    background: linear-gradient(180deg, var(--cl-brand-hi), var(--cl-brand-lo));
     box-shadow:
         0 12px 26px -12px #a51d26,
         inset 0 1px 0 #ffffff33;
@@ -130,7 +130,7 @@
 .closing-page .empty {
     text-align: center;
     padding: 56px 20px;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .empty .e {
     width: 64px;
@@ -139,12 +139,12 @@
     border-radius: 20px;
     display: grid;
     place-items: center;
-    background: var(--sunken);
-    color: var(--muted);
+    background: var(--cl-sunken);
+    color: var(--cl-muted);
 }
 .closing-page .empty b {
     display: block;
-    color: var(--ink);
+    color: var(--cl-ink);
     font-size: 18px;
     font-family: 'El Messiri', serif;
 }
@@ -153,7 +153,7 @@
     font-variant-numeric: tabular-nums;
 }
 .closing-page .muted {
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 @keyframes cl-pop {
     from {
@@ -167,9 +167,9 @@
     margin-top: 18px;
     padding: 4px;
     border-radius: 15px;
-    background: var(--surface);
-    border: 1px solid var(--line2);
-    box-shadow: var(--shadow);
+    background: var(--cl-surface);
+    border: 1px solid var(--cl-line2);
+    box-shadow: var(--cl-shadow);
 }
 .closing-page .tabs button {
     border: 0;
@@ -180,7 +180,7 @@
     cursor: pointer;
     font-weight: 700;
     font-size: 15px;
-    color: var(--muted);
+    color: var(--cl-muted);
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -190,17 +190,17 @@
     height: 17px;
 }
 .closing-page .tabs button:hover {
-    color: var(--brand);
+    color: var(--cl-brand);
 }
 .closing-page .tabs button[aria-pressed='true'] {
-    background: var(--ink);
-    color: var(--surface);
+    background: var(--cl-ink);
+    color: var(--cl-surface);
 }
 .closing-page .tabs .n {
     font: 700 11.5px Alexandria;
     border-radius: 7px;
     padding: 0 7px;
-    background: var(--brand);
+    background: var(--cl-brand);
     color: #fff;
 }
 .closing-page .ctl {
@@ -215,21 +215,21 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--cl-line);
     border-radius: 13px;
-    background: var(--surface);
+    background: var(--cl-surface);
     padding: 0 12px;
     font-weight: 700;
     font-size: 14.5px;
 }
 .closing-page .ctl .cb small {
     font: 500 12.5px 'IBM Plex Sans Arabic';
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .ctl .cb svg {
     width: 16px;
     height: 16px;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .ctl .cb b {
     font-family: Alexandria;
@@ -248,11 +248,11 @@
     cursor: pointer;
     display: grid;
     place-items: center;
-    color: var(--ink2);
+    color: var(--cl-ink2);
 }
 .closing-page .ctl .nav button:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--brand) 8%, transparent);
-    color: var(--brand);
+    background: color-mix(in srgb, var(--cl-brand) 8%, transparent);
+    color: var(--cl-brand);
 }
 .closing-page .ctl .nav button:disabled {
     opacity: 0.3;
@@ -266,7 +266,7 @@
     position: relative;
     overflow: hidden;
     border-radius: 26px;
-    background: var(--hero);
+    background: var(--cl-hero);
     color: #fff;
     padding: 20px 24px;
     display: grid;
@@ -480,40 +480,40 @@
     font-size: 14.5px;
 }
 .closing-page .ban.inf {
-    background: var(--info-t);
-    border-color: color-mix(in srgb, var(--info) 25%, transparent);
-    color: var(--ink2);
+    background: var(--cl-info-t);
+    border-color: color-mix(in srgb, var(--cl-info) 25%, transparent);
+    color: var(--cl-ink2);
 }
 .closing-page .ban.inf svg,
 .closing-page .ban.inf b {
-    color: var(--info);
+    color: var(--cl-info);
 }
 .closing-page .ban.bad {
-    background: var(--danger-t);
-    border-color: color-mix(in srgb, var(--danger) 28%, transparent);
-    color: var(--ink2);
+    background: var(--cl-danger-t);
+    border-color: color-mix(in srgb, var(--cl-danger) 28%, transparent);
+    color: var(--cl-ink2);
 }
 .closing-page .ban.bad svg,
 .closing-page .ban.bad b {
-    color: var(--danger);
+    color: var(--cl-danger);
 }
 .closing-page .ban.ok {
-    background: var(--success-t);
-    border-color: color-mix(in srgb, var(--success) 28%, transparent);
-    color: var(--ink2);
+    background: var(--cl-success-t);
+    border-color: color-mix(in srgb, var(--cl-success) 28%, transparent);
+    color: var(--cl-ink2);
 }
 .closing-page .ban.ok svg,
 .closing-page .ban.ok b {
-    color: var(--success);
+    color: var(--cl-success);
 }
 .closing-page .ban.warn {
-    background: var(--warn-t);
-    border-color: color-mix(in srgb, var(--warn) 28%, transparent);
-    color: var(--ink2);
+    background: var(--cl-warn-t);
+    border-color: color-mix(in srgb, var(--cl-warn) 28%, transparent);
+    color: var(--cl-ink2);
 }
 .closing-page .ban.warn svg,
 .closing-page .ban.warn b {
-    color: var(--warn);
+    color: var(--cl-warn);
 }
 .closing-page .accs {
     display: grid;
@@ -522,11 +522,11 @@
     margin-top: 14px;
 }
 .closing-page .ac {
-    background: var(--surface);
-    border: 1px solid var(--line2);
+    background: var(--cl-surface);
+    border: 1px solid var(--cl-line2);
     border-radius: 20px;
     padding: 14px 16px;
-    box-shadow: var(--shadow);
+    box-shadow: var(--cl-shadow);
     position: relative;
 }
 .closing-page .ac .hd {
@@ -540,7 +540,7 @@
     border-radius: 11px;
     display: grid;
     place-items: center;
-    background: var(--sunken);
+    background: var(--cl-sunken);
     flex: none;
     overflow: hidden;
 }
@@ -554,7 +554,7 @@
 .closing-page .ac .lg svg {
     width: 19px;
     height: 19px;
-    color: var(--success);
+    color: var(--cl-success);
 }
 .closing-page .ac .hd b {
     font-size: 14.5px;
@@ -562,7 +562,7 @@
 .closing-page .ac .hd small {
     display: block;
     font-size: 12px;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .ac .am {
     font: 800 23px Alexandria;
@@ -573,7 +573,7 @@
 .closing-page .ac .am em {
     font-style: normal;
     font-size: 13px;
-    color: var(--faint);
+    color: var(--cl-faint);
     margin-inline-end: 4px;
 }
 .closing-page .ac .ms {
@@ -589,19 +589,19 @@
     height: 14px;
 }
 .closing-page .ms.ok {
-    color: var(--success);
+    color: var(--cl-success);
 }
 .closing-page .ms.no {
-    color: var(--warn);
+    color: var(--cl-warn);
 }
 .closing-page .ms.bad {
-    color: var(--danger);
+    color: var(--cl-danger);
 }
 .closing-page .ms.n {
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .ac.pend {
-    background: var(--raised);
+    background: var(--cl-raised);
     border-style: dashed;
 }
 .closing-page .g2 {
@@ -621,10 +621,10 @@
     min-width: 0;
 }
 .closing-page .pn {
-    background: var(--surface);
-    border: 1px solid var(--line2);
+    background: var(--cl-surface);
+    border: 1px solid var(--cl-line2);
     border-radius: 22px;
-    box-shadow: var(--shadow);
+    box-shadow: var(--cl-shadow);
     padding: 16px 18px;
 }
 .closing-page .pn h3 {
@@ -642,8 +642,8 @@
     border-radius: 10px;
     display: grid;
     place-items: center;
-    background: var(--sunken);
-    color: var(--ink2);
+    background: var(--cl-sunken);
+    color: var(--cl-ink2);
 }
 .closing-page .pn h3 .ix svg {
     width: 16px;
@@ -652,12 +652,12 @@
 .closing-page .pn h3 .r {
     margin-inline-start: auto;
     font: 600 12.5px 'IBM Plex Sans Arabic';
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .pn > p.s {
     margin: 3px 0 0;
     font-size: 13px;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .pt {
     width: 100%;
@@ -669,16 +669,16 @@
     position: static;
     text-align: start;
     font-size: 12.5px;
-    color: var(--faint);
+    color: var(--cl-faint);
     font-weight: 600;
     padding: 8px 8px;
-    border-bottom: 1px solid var(--line2);
+    border-bottom: 1px solid var(--cl-line2);
     white-space: nowrap;
 }
 .closing-page .pt td {
     background: transparent;
     border: 0;
-    border-bottom: 1px solid var(--line2);
+    border-bottom: 1px solid var(--cl-line2);
     border-radius: 0 !important;
     padding: 10px 8px;
     width: auto !important;
@@ -690,14 +690,14 @@
     cursor: default;
 }
 .closing-page .pt tbody tr:hover td {
-    background: color-mix(in srgb, var(--brand) 3%, var(--surface));
+    background: color-mix(in srgb, var(--cl-brand) 3%, var(--cl-surface));
 }
 .closing-page .pt tbody tr:hover td:first-child {
-    box-shadow: inset -3px 0 0 var(--brand);
+    box-shadow: inset -3px 0 0 var(--cl-brand);
 }
 .closing-page .pt tfoot td {
     border: 0;
-    border-top: 1.5px solid var(--line);
+    border-top: 1.5px solid var(--cl-line);
     font-weight: 700;
     padding-top: 10px;
 }
@@ -710,7 +710,7 @@
 .closing-page .pid small {
     display: block;
     font: 500 11.5px Alexandria;
-    color: var(--faint);
+    color: var(--cl-faint);
     direction: ltr;
     text-align: right;
 }
@@ -721,7 +721,7 @@
 .closing-page .psub small {
     display: block;
     font-size: 12px;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .pacc {
     display: inline-flex;
@@ -734,7 +734,7 @@
     border-radius: 7px;
     object-fit: contain;
     background: #fff;
-    border: 1px solid var(--line2);
+    border: 1px solid var(--cl-line2);
 }
 .closing-page .pacc .ci {
     width: 24px;
@@ -742,8 +742,8 @@
     border-radius: 7px;
     display: grid;
     place-items: center;
-    background: var(--success-t);
-    color: var(--success);
+    background: var(--cl-success-t);
+    color: var(--cl-success);
 }
 .closing-page .pacc .ci svg {
     width: 14px;
@@ -751,7 +751,7 @@
 }
 .closing-page .pref {
     font: 500 12.5px Alexandria;
-    color: var(--ink2);
+    color: var(--cl-ink2);
     direction: ltr;
     display: inline-block;
 }
@@ -764,8 +764,8 @@
 .closing-page .mt {
     height: 32px;
     border-radius: 10px;
-    border: 1.5px solid var(--line);
-    background: var(--surface);
+    border: 1.5px solid var(--cl-line);
+    background: var(--cl-surface);
     padding: 0 10px;
     font-weight: 700;
     font-size: 12.5px;
@@ -773,19 +773,19 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    color: var(--ink2);
+    color: var(--cl-ink2);
 }
 .closing-page .mt svg {
     width: 14px;
     height: 14px;
 }
 .closing-page .mt:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--success) 45%, var(--line));
-    color: var(--success);
+    border-color: color-mix(in srgb, var(--cl-success) 45%, var(--cl-line));
+    color: var(--cl-success);
 }
 .closing-page .mt[aria-pressed='true'] {
-    background: var(--success);
-    border-color: var(--success);
+    background: var(--cl-success);
+    border-color: var(--cl-success);
     color: #fff;
 }
 .closing-page .mt:disabled {
@@ -794,12 +794,12 @@
 }
 .closing-page .mt.cash {
     border-style: dashed;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .mv {
     border: 0;
     background: transparent;
-    color: var(--faint);
+    color: var(--cl-faint);
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
@@ -808,14 +808,14 @@
     text-underline-offset: 3px;
 }
 .closing-page .mv:hover {
-    color: var(--warn);
+    color: var(--cl-warn);
 }
 .closing-page .pendl {
     margin-top: 14px;
-    border: 1px dashed var(--line);
+    border: 1px dashed var(--cl-line);
     border-radius: 16px;
     padding: 10px 12px;
-    background: var(--raised);
+    background: var(--cl-raised);
 }
 .closing-page .pendl h4 {
     margin: 0;
@@ -823,7 +823,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--warn);
+    color: var(--cl-warn);
 }
 .closing-page .pendl h4 svg {
     width: 16px;
@@ -832,7 +832,7 @@
 .closing-page .pendl h4 span {
     margin-inline-start: auto;
     font: 600 12px 'IBM Plex Sans Arabic';
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .pendl .it {
     display: flex;
@@ -842,11 +842,11 @@
     font-size: 13.5px;
 }
 .closing-page .pendl .it + .it {
-    border-top: 1px solid var(--line2);
+    border-top: 1px solid var(--cl-line2);
 }
 .closing-page .pendl .it .why {
     font-size: 12px;
-    color: var(--faint);
+    color: var(--cl-faint);
     display: block;
 }
 .closing-page .pendl .it .pam {
@@ -855,8 +855,8 @@
 .closing-page .formula {
     margin-top: 10px;
     border-radius: 14px;
-    background: var(--raised);
-    border: 1px solid var(--line2);
+    background: var(--cl-raised);
+    border: 1px solid var(--cl-line2);
     padding: 10px 12px;
     font-size: 13.5px;
 }
@@ -867,19 +867,19 @@
     padding: 3px 0;
 }
 .closing-page .formula .row span {
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .formula .row b {
     font: 600 14px Alexandria;
     direction: ltr;
 }
 .closing-page .formula .row.t {
-    border-top: 1.5px solid var(--line);
+    border-top: 1.5px solid var(--cl-line);
     margin-top: 4px;
     padding-top: 7px;
 }
 .closing-page .formula .row.t span {
-    color: var(--ink);
+    color: var(--cl-ink);
     font-weight: 700;
 }
 .closing-page .formula .row.t b {
@@ -897,32 +897,32 @@
     flex-direction: column;
     gap: 4px;
     font-size: 12px;
-    color: var(--faint);
+    color: var(--cl-faint);
     font-weight: 600;
 }
 .closing-page .den label .v {
     display: flex;
     align-items: center;
-    border: 1.5px solid var(--line);
+    border: 1.5px solid var(--cl-line);
     border-radius: 11px;
-    background: var(--surface);
+    background: var(--cl-surface);
     overflow: hidden;
     transition: 0.15s;
 }
 .closing-page .den label .v:focus-within {
-    border-color: var(--brand);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 12%, transparent);
+    border-color: var(--cl-brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-brand) 12%, transparent);
 }
 .closing-page .den label .v em {
     font: 700 12.5px Alexandria;
     font-style: normal;
     padding: 0 8px;
-    color: var(--ink2);
-    background: var(--sunken);
+    color: var(--cl-ink2);
+    background: var(--cl-sunken);
     height: 36px;
     display: grid;
     place-items: center;
-    border-inline-end: 1px solid var(--line2);
+    border-inline-end: 1px solid var(--cl-line2);
     min-width: 40px;
 }
 .closing-page .den label .v input {
@@ -935,16 +935,16 @@
     font: 600 14px Alexandria;
     direction: ltr;
     text-align: left;
-    color: var(--ink);
+    color: var(--cl-ink);
 }
 .closing-page .den label .v input:focus {
     outline: none;
 }
 .closing-page .den label .v input:disabled {
-    color: var(--muted);
+    color: var(--cl-muted);
 }
 .closing-page .den .coin em {
-    background: color-mix(in srgb, var(--warn) 10%, var(--sunken));
+    background: color-mix(in srgb, var(--cl-warn) 10%, var(--cl-sunken));
 }
 .closing-page .cnt {
     display: flex;
@@ -953,11 +953,11 @@
     margin-top: 12px;
     padding: 12px 14px;
     border-radius: 14px;
-    border: 1.5px solid var(--line2);
+    border: 1.5px solid var(--cl-line2);
 }
 .closing-page .cnt span {
     font-size: 13.5px;
-    color: var(--faint);
+    color: var(--cl-faint);
     font-weight: 600;
 }
 .closing-page .cnt b {
@@ -965,20 +965,20 @@
     direction: ltr;
 }
 .closing-page .cnt.ok {
-    border-color: color-mix(in srgb, var(--success) 40%, transparent);
-    background: var(--success-t);
+    border-color: color-mix(in srgb, var(--cl-success) 40%, transparent);
+    background: var(--cl-success-t);
 }
 .closing-page .cnt.ok b,
 .closing-page .cnt.ok .d {
-    color: var(--success);
+    color: var(--cl-success);
 }
 .closing-page .cnt.bad {
-    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
-    background: var(--danger-t);
+    border-color: color-mix(in srgb, var(--cl-danger) 40%, transparent);
+    background: var(--cl-danger-t);
 }
 .closing-page .cnt.bad b,
 .closing-page .cnt.bad .d {
-    color: var(--danger);
+    color: var(--cl-danger);
 }
 .closing-page .cnt .d {
     display: block;
@@ -997,46 +997,46 @@
 .closing-page .reason .chips button {
     height: 32px;
     border-radius: 10px;
-    border: 1.5px solid var(--line);
-    background: var(--surface);
+    border: 1.5px solid var(--cl-line);
+    background: var(--cl-surface);
     padding: 0 10px;
     font-weight: 600;
     font-size: 12.5px;
     cursor: pointer;
-    color: var(--ink2);
+    color: var(--cl-ink2);
 }
 .closing-page .reason .chips button:hover {
-    border-color: color-mix(in srgb, var(--brand) 40%, var(--line));
-    color: var(--brand);
+    border-color: color-mix(in srgb, var(--cl-brand) 40%, var(--cl-line));
+    color: var(--cl-brand);
 }
 .closing-page .reason .chips button[aria-pressed='true'] {
-    border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand) 8%, var(--surface));
-    color: var(--brand);
+    border-color: var(--cl-brand);
+    background: color-mix(in srgb, var(--cl-brand) 8%, var(--cl-surface));
+    color: var(--cl-brand);
 }
 .closing-page .reason textarea {
     width: 100%;
     min-height: 64px;
-    border: 1.5px solid var(--line);
+    border: 1.5px solid var(--cl-line);
     border-radius: 12px;
-    background: var(--surface);
+    background: var(--cl-surface);
     padding: 9px 12px;
     font: 14px 'IBM Plex Sans Arabic';
-    color: var(--ink);
+    color: var(--cl-ink);
     resize: vertical;
 }
 .closing-page .reason textarea:focus {
     outline: none;
-    border-color: var(--brand);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 12%, transparent);
+    border-color: var(--cl-brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-brand) 12%, transparent);
 }
 .closing-page .reason.req textarea {
-    border-color: var(--danger);
+    border-color: var(--cl-danger);
 }
 .closing-page .reason .lab {
     font-size: 13px;
     font-weight: 700;
-    color: var(--danger);
+    color: var(--cl-danger);
     margin-bottom: 6px;
     display: block;
 }
@@ -1046,7 +1046,7 @@
     vertical-align: -2px;
 }
 .closing-page .reason:not(.ed) .lab {
-    color: var(--muted);
+    color: var(--cl-muted);
 }
 .closing-page .tml {
     list-style: none;
@@ -1066,8 +1066,8 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: var(--line);
-    box-shadow: 0 0 0 3px var(--surface);
+    background: var(--cl-line);
+    box-shadow: 0 0 0 3px var(--cl-surface);
 }
 .closing-page .tml li::after {
     content: '';
@@ -1076,22 +1076,22 @@
     top: 18px;
     bottom: -1px;
     width: 1px;
-    background: var(--line2);
+    background: var(--cl-line2);
 }
 .closing-page .tml li:last-child::after {
     display: none;
 }
 .closing-page .tml li.g::before {
-    background: var(--success);
+    background: var(--cl-success);
 }
 .closing-page .tml li.b::before {
-    background: var(--info);
+    background: var(--cl-info);
 }
 .closing-page .tml li.r::before {
-    background: var(--danger);
+    background: var(--cl-danger);
 }
 .closing-page .tml li.w::before {
-    background: var(--warn);
+    background: var(--cl-warn);
 }
 .closing-page .tml b {
     font-weight: 700;
@@ -1099,7 +1099,7 @@
 }
 .closing-page .tml small {
     display: block;
-    color: var(--faint);
+    color: var(--cl-faint);
     font-size: 12px;
 }
 .closing-page .tml .q {
@@ -1107,10 +1107,10 @@
     margin-top: 3px;
     padding: 6px 9px;
     border-radius: 9px;
-    background: var(--raised);
-    border: 1px solid var(--line2);
+    background: var(--cl-raised);
+    border: 1px solid var(--cl-line2);
     font-size: 12.5px;
-    color: var(--ink2);
+    color: var(--cl-ink2);
 }
 .closing-page .abar {
     position: sticky;
@@ -1121,19 +1121,19 @@
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
-    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    background: color-mix(in srgb, var(--cl-surface) 92%, transparent);
     backdrop-filter: blur(10px);
-    border: 1px solid var(--line);
+    border: 1px solid var(--cl-line);
     border-radius: 20px;
     padding: 10px 12px 10px 14px;
-    box-shadow: var(--pop);
+    box-shadow: var(--cl-pop);
 }
 .closing-page .chk {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
     font-size: 13px;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .chk span {
     display: inline-flex;
@@ -1144,7 +1144,7 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    border: 1.5px solid var(--line);
+    border: 1.5px solid var(--cl-line);
     display: grid;
     place-items: center;
 }
@@ -1155,11 +1155,11 @@
     opacity: 0;
 }
 .closing-page .chk .on {
-    color: var(--ink2);
+    color: var(--cl-ink2);
 }
 .closing-page .chk .on i {
-    background: var(--success);
-    border-color: var(--success);
+    background: var(--cl-success);
+    border-color: var(--cl-success);
     color: #fff;
 }
 .closing-page .chk .on i svg {
@@ -1182,9 +1182,9 @@
     box-shadow: none;
 }
 .closing-page .btn:not(.pr):not(.ok2):not(.dg):hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--brand) 40%, var(--line));
-    color: var(--brand);
-    background: color-mix(in srgb, var(--brand) 5%, var(--surface));
+    border-color: color-mix(in srgb, var(--cl-brand) 40%, var(--cl-line));
+    color: var(--cl-brand);
+    background: color-mix(in srgb, var(--cl-brand) 5%, var(--cl-surface));
 }
 .closing-page .btn.ok2 {
     border: 0;
@@ -1196,15 +1196,15 @@
     filter: brightness(1.07);
 }
 .closing-page .btn.dg {
-    color: var(--danger);
-    border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+    color: var(--cl-danger);
+    border-color: color-mix(in srgb, var(--cl-danger) 35%, var(--cl-line));
 }
 .closing-page .btn.dg:hover {
-    background: var(--danger-t);
+    background: var(--cl-danger-t);
 }
 .closing-page .wait {
     font-size: 13.5px;
-    color: var(--faint);
+    color: var(--cl-faint);
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -1221,18 +1221,18 @@
     margin-top: 14px;
 }
 .closing-page .node {
-    background: var(--surface);
-    border: 1.5px solid var(--line2);
+    background: var(--cl-surface);
+    border: 1.5px solid var(--cl-line2);
     border-radius: 20px;
     padding: 14px 16px;
-    box-shadow: var(--shadow);
+    box-shadow: var(--cl-shadow);
     text-align: center;
     transition: 0.3s;
 }
 .closing-page .node small {
     display: block;
     font-size: 12.5px;
-    color: var(--faint);
+    color: var(--cl-faint);
     font-weight: 600;
 }
 .closing-page .node b {
@@ -1244,25 +1244,25 @@
 .closing-page .node span {
     display: block;
     font-size: 12px;
-    color: var(--faint);
+    color: var(--cl-faint);
     margin-top: 2px;
 }
 .closing-page .node.hot {
-    border-color: var(--warn);
-    background: var(--warn-t);
+    border-color: var(--cl-warn);
+    background: var(--cl-warn-t);
 }
 .closing-page .node.hot b {
-    color: var(--warn);
+    color: var(--cl-warn);
 }
 .closing-page .node.got {
-    border-color: var(--success);
-    background: var(--success-t);
+    border-color: var(--cl-success);
+    background: var(--cl-success-t);
 }
 .closing-page .node.got b {
-    color: var(--success);
+    color: var(--cl-success);
 }
 .closing-page .arr {
-    color: var(--faint);
+    color: var(--cl-faint);
     display: grid;
     place-items: center;
 }
@@ -1283,13 +1283,13 @@
     font-weight: 700;
     font-size: 13px;
     margin-bottom: 5px;
-    color: var(--ink2);
+    color: var(--cl-ink2);
 }
 .closing-page .fld label.l small {
     margin-inline-start: auto;
     font-weight: 500;
     font-size: 12px;
-    color: var(--faint);
+    color: var(--cl-faint);
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -1306,12 +1306,12 @@
 .closing-page .fld textarea {
     width: 100%;
     height: 44px;
-    border: 1.5px solid var(--line);
+    border: 1.5px solid var(--cl-line);
     border-radius: 12px;
-    background: var(--surface);
+    background: var(--cl-surface);
     padding: 0 12px;
     font: 15px 'IBM Plex Sans Arabic';
-    color: var(--ink);
+    color: var(--cl-ink);
 }
 .closing-page .fld textarea {
     height: 64px;
@@ -1322,13 +1322,13 @@
 .closing-page .fld select:focus,
 .closing-page .fld textarea:focus {
     outline: none;
-    border-color: var(--brand);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 12%, transparent);
+    border-color: var(--cl-brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-brand) 12%, transparent);
 }
 .closing-page .fld input:disabled,
 .closing-page .fld select:disabled {
-    background: var(--sunken);
-    color: var(--muted);
+    background: var(--cl-sunken);
+    color: var(--cl-muted);
     border-style: dashed;
 }
 .closing-page .fld input.ltr {
@@ -1342,7 +1342,7 @@
     inset-inline-start: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--faint);
+    color: var(--cl-faint);
     font-size: 13px;
 }
 .closing-page .full {
@@ -1356,17 +1356,17 @@
     flex: 1;
     height: 44px;
     border-radius: 12px;
-    border: 1.5px solid var(--line);
-    background: var(--surface);
+    border: 1.5px solid var(--cl-line);
+    background: var(--cl-surface);
     font-weight: 700;
     font-size: 13.5px;
     cursor: pointer;
-    color: var(--ink2);
+    color: var(--cl-ink2);
 }
 .closing-page .seg2 button[aria-pressed='true'] {
-    border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand) 8%, var(--surface));
-    color: var(--brand);
+    border-color: var(--cl-brand);
+    background: color-mix(in srgb, var(--cl-brand) 8%, var(--cl-surface));
+    color: var(--cl-brand);
 }
 .closing-page .proof {
     display: flex;
@@ -1374,18 +1374,18 @@
     gap: 10px;
     padding: 10px 12px;
     border-radius: 12px;
-    border: 1.5px dashed var(--line);
-    background: var(--raised);
+    border: 1.5px dashed var(--cl-line);
+    background: var(--cl-raised);
     cursor: pointer;
     font-size: 13.5px;
-    color: var(--ink2);
+    color: var(--cl-ink2);
     width: 100%;
     font-family: inherit;
     text-align: start;
 }
 .closing-page .proof:hover {
-    border-color: color-mix(in srgb, var(--brand) 40%, var(--line));
-    color: var(--brand);
+    border-color: color-mix(in srgb, var(--cl-brand) 40%, var(--cl-line));
+    color: var(--cl-brand);
 }
 .closing-page .proof svg {
     width: 18px;
@@ -1393,9 +1393,9 @@
 }
 .closing-page .proof.has {
     border-style: solid;
-    border-color: color-mix(in srgb, var(--success) 40%, var(--line));
-    color: var(--success);
-    background: var(--success-t);
+    border-color: color-mix(in srgb, var(--cl-success) 40%, var(--cl-line));
+    color: var(--cl-success);
+    background: var(--cl-success-t);
 }
 .closing-page .rec {
     display: grid;
@@ -1404,15 +1404,15 @@
     margin-top: 12px;
 }
 .closing-page .rec div {
-    border: 1px solid var(--line2);
+    border: 1px solid var(--cl-line2);
     border-radius: 14px;
     padding: 9px 12px;
-    background: var(--raised);
+    background: var(--cl-raised);
 }
 .closing-page .rec small {
     display: block;
     font-size: 12px;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .rec b {
     display: block;
@@ -1427,8 +1427,8 @@
     gap: 2px;
     padding: 3px;
     border-radius: 12px;
-    background: var(--surface);
-    border: 1px solid var(--line2);
+    background: var(--cl-surface);
+    border: 1px solid var(--cl-line2);
 }
 .closing-page .segx button {
     border: 0;
@@ -1439,11 +1439,11 @@
     cursor: pointer;
     font-size: 14px;
     font-weight: 700;
-    color: var(--muted);
+    color: var(--cl-muted);
 }
 .closing-page .segx button[aria-pressed='true'] {
-    background: var(--ink);
-    color: var(--surface);
+    background: var(--cl-ink);
+    color: var(--cl-surface);
 }
 .closing-page .kp {
     display: grid;
@@ -1452,16 +1452,16 @@
     margin-top: 14px;
 }
 .closing-page .kp div {
-    background: var(--surface);
-    border: 1px solid var(--line2);
+    background: var(--cl-surface);
+    border: 1px solid var(--cl-line2);
     border-radius: 18px;
     padding: 12px 14px;
-    box-shadow: var(--shadow);
+    box-shadow: var(--cl-shadow);
 }
 .closing-page .kp small {
     display: block;
     font-size: 12.5px;
-    color: var(--faint);
+    color: var(--cl-faint);
     font-weight: 600;
 }
 .closing-page .kp b {
@@ -1473,13 +1473,13 @@
 }
 .closing-page .kp span {
     font-size: 12px;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .kp .w b {
-    color: var(--warn);
+    color: var(--cl-warn);
 }
 .closing-page .kp .r b {
-    color: var(--danger);
+    color: var(--cl-danger);
 }
 .closing-page .mx {
     width: 100%;
@@ -1491,11 +1491,11 @@
 .closing-page .mx th {
     position: static;
     font-size: 12.5px;
-    color: var(--faint);
+    color: var(--cl-faint);
     font-weight: 600;
     padding: 8px 6px;
     text-align: center;
-    border-bottom: 1px solid var(--line2);
+    border-bottom: 1px solid var(--cl-line2);
     white-space: nowrap;
 }
 .closing-page .mx th:first-child {
@@ -1506,12 +1506,12 @@
     font: 500 11.5px Alexandria;
 }
 .closing-page .mx th.today {
-    color: var(--brand);
+    color: var(--cl-brand);
 }
 .closing-page .mx td {
     background: transparent;
     border: 0;
-    border-bottom: 1px solid var(--line2);
+    border-bottom: 1px solid var(--cl-line2);
     border-radius: 0 !important;
     padding: 7px 6px;
     text-align: center;
@@ -1527,14 +1527,14 @@
     cursor: default;
 }
 .closing-page .mx tbody tr:hover td {
-    background: color-mix(in srgb, var(--brand) 3%, var(--surface));
+    background: color-mix(in srgb, var(--cl-brand) 3%, var(--cl-surface));
 }
 .closing-page .mx tbody tr:hover td:first-child {
     box-shadow: none;
 }
 .closing-page .mx tfoot td {
     font-weight: 800;
-    border-top: 1.5px solid var(--line);
+    border-top: 1.5px solid var(--cl-line);
     border-bottom: 0;
     font-family: Alexandria;
 }
@@ -1557,33 +1557,33 @@
     stroke-width: 2.4;
 }
 .closing-page .cell.approved {
-    background: var(--success-t);
-    color: var(--success);
+    background: var(--cl-success-t);
+    color: var(--cl-success);
 }
 .closing-page .cell.sent {
-    background: var(--info-t);
-    color: var(--info);
+    background: var(--cl-info-t);
+    color: var(--cl-info);
 }
 .closing-page .cell.returned {
-    background: var(--danger-t);
-    color: var(--danger);
+    background: var(--cl-danger-t);
+    color: var(--cl-danger);
 }
 .closing-page .cell.draft {
-    background: var(--sunken);
-    color: var(--muted);
+    background: var(--cl-sunken);
+    color: var(--cl-muted);
 }
 .closing-page .cell.open {
     background: transparent;
-    color: var(--warn);
-    box-shadow: inset 0 0 0 1.5px var(--warn);
+    color: var(--cl-warn);
+    box-shadow: inset 0 0 0 1.5px var(--cl-warn);
 }
 .closing-page .cell.future {
     background: transparent;
-    color: var(--line);
+    color: var(--cl-line);
 }
 .closing-page button.cell.link {
     cursor: pointer;
-    outline: 2px solid var(--brand);
+    outline: 2px solid var(--cl-brand);
     outline-offset: 2px;
 }
 .closing-page .mx .tv {
@@ -1591,7 +1591,7 @@
     direction: ltr;
 }
 .closing-page .mx .tv.w {
-    color: var(--warn);
+    color: var(--cl-warn);
 }
 .closing-page .lgd {
     display: flex;
@@ -1599,7 +1599,7 @@
     flex-wrap: wrap;
     margin-top: 10px;
     font-size: 12.5px;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .lgd span {
     display: inline-flex;
@@ -1629,7 +1629,7 @@
     font-size: 13.5px;
     padding: 9px 11px;
     border-radius: 13px;
-    border: 1px solid var(--line2);
+    border: 1px solid var(--cl-line2);
 }
 .closing-page .chl li .d {
     width: 22px;
@@ -1645,56 +1645,56 @@
     stroke-width: 2.6;
 }
 .closing-page .chl li.ok .d {
-    background: var(--success);
+    background: var(--cl-success);
     color: #fff;
 }
 .closing-page .chl li.no .d {
-    background: var(--warn-t);
-    color: var(--warn);
-    border: 1.5px solid var(--warn);
+    background: var(--cl-warn-t);
+    color: var(--cl-warn);
+    border: 1.5px solid var(--cl-warn);
 }
 .closing-page .chl li b {
     display: block;
 }
 .closing-page .chl li small {
     display: block;
-    color: var(--faint);
+    color: var(--cl-faint);
     font-size: 12.5px;
 }
 .closing-page .nest {
     margin-top: 12px;
     border-radius: 18px;
-    border: 1.5px solid color-mix(in srgb, var(--brand) 35%, var(--line));
+    border: 1.5px solid color-mix(in srgb, var(--cl-brand) 35%, var(--cl-line));
     padding: 12px;
-    background: color-mix(in srgb, var(--brand) 4%, var(--surface));
+    background: color-mix(in srgb, var(--cl-brand) 4%, var(--cl-surface));
 }
 .closing-page .nest .in {
     margin-top: 10px;
     border-radius: 14px;
-    border: 1.5px solid color-mix(in srgb, var(--info) 35%, var(--line));
+    border: 1.5px solid color-mix(in srgb, var(--cl-info) 35%, var(--cl-line));
     padding: 10px;
-    background: var(--surface);
+    background: var(--cl-surface);
 }
 .closing-page .nest .in .in {
-    border-color: color-mix(in srgb, var(--success) 40%, var(--line));
-    background: var(--success-t);
+    border-color: color-mix(in srgb, var(--cl-success) 40%, var(--cl-line));
+    background: var(--cl-success-t);
 }
 .closing-page .nest .h {
     display: flex;
     align-items: baseline;
     gap: 8px;
     font-size: 13px;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .nest .h b {
     font-size: 14px;
-    color: var(--ink);
+    color: var(--cl-ink);
 }
 .closing-page .nest .h em {
     margin-inline-start: auto;
     font: 800 17px Alexandria;
     font-style: normal;
-    color: var(--ink);
+    color: var(--cl-ink);
     direction: ltr;
 }
 .closing-page .msplit {
@@ -1703,7 +1703,7 @@
     grid-template-columns: 5fr 2fr;
     border-radius: 12px;
     overflow: hidden;
-    border: 1px solid var(--line2);
+    border: 1px solid var(--cl-line2);
     font-size: 12.5px;
     text-align: center;
 }
@@ -1711,18 +1711,18 @@
     padding: 8px 6px;
 }
 .closing-page .msplit .a {
-    background: color-mix(in srgb, var(--brand) 9%, var(--surface));
-    color: var(--ink2);
+    background: color-mix(in srgb, var(--cl-brand) 9%, var(--cl-surface));
+    color: var(--cl-ink2);
 }
 .closing-page .msplit .b {
-    background: var(--sunken);
-    color: var(--faint);
-    border-inline-start: 1px dashed var(--line);
+    background: var(--cl-sunken);
+    color: var(--cl-faint);
+    border-inline-start: 1px dashed var(--cl-line);
 }
 .closing-page .msplit b {
     display: block;
     font: 700 13px Alexandria;
-    color: var(--ink);
+    color: var(--cl-ink);
 }
 .closing-page .mdl {
     position: fixed;
@@ -1736,10 +1736,10 @@
 }
 .closing-page .mdl .bx {
     width: min(500px, 100%);
-    background: var(--surface);
-    border: 1px solid var(--line2);
+    background: var(--cl-surface);
+    border: 1px solid var(--cl-line2);
     border-radius: 22px;
-    box-shadow: var(--pop);
+    box-shadow: var(--cl-pop);
     padding: 22px;
     animation: cl-pop 0.16s ease;
     max-height: 90vh;
@@ -1765,7 +1765,7 @@
 }
 .closing-page .mdl p {
     margin: 0;
-    color: var(--faint);
+    color: var(--cl-faint);
     font-size: 14px;
     line-height: 1.7;
 }
@@ -1779,11 +1779,11 @@
     display: flex;
     justify-content: space-between;
     gap: 10px;
-    border-bottom: 1px dashed var(--line2);
+    border-bottom: 1px dashed var(--cl-line2);
     padding-bottom: 6px;
 }
 .closing-page .mdl dt {
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .mdl dd {
     margin: 0;
@@ -1801,7 +1801,7 @@
     flex-wrap: wrap;
 }
 .closing-page .mdl .err {
-    color: var(--danger);
+    color: var(--cl-danger);
     font-size: 13px;
     font-weight: 600;
     margin-top: 6px;
@@ -1812,7 +1812,7 @@
     gap: 8px;
     align-items: flex-start;
     font-size: 12.5px;
-    color: var(--faint);
+    color: var(--cl-faint);
     line-height: 1.7;
 }
 .closing-page .note2 svg {
@@ -1823,7 +1823,7 @@
 }
 .dark .closing-page .tabs button:hover,
 .dark .closing-page :root[data-theme='dark'] .tabs button[aria-pressed='true']:hover {
-    color: var(--surface);
+    color: var(--cl-surface);
 }
 .dark .closing-page .btn.ok2 {
     color: #fff;
@@ -1892,7 +1892,7 @@
         grid-template-columns: 1fr auto;
         gap: 4px 10px;
         padding: 10px 2px;
-        border-bottom: 1px solid var(--line2);
+        border-bottom: 1px solid var(--cl-line2);
     }
     .closing-page .pt td {
         border: 0 !important;
@@ -1986,18 +1986,18 @@
     .closing-page .mx th {
         display: table-cell !important;
         padding: 7px 5px !important;
-        border-bottom: 1px solid var(--line2) !important;
+        border-bottom: 1px solid var(--cl-line2) !important;
     }
     .closing-page .mx tfoot td {
         border-bottom: 0 !important;
-        border-top: 1.5px solid var(--line) !important;
+        border-top: 1.5px solid var(--cl-line) !important;
     }
     .closing-page .mx td:first-child,
     .closing-page .mx th:first-child {
         position: sticky;
         right: 0;
         z-index: 1;
-        background: var(--surface) !important;
+        background: var(--cl-surface) !important;
         padding-inline-end: 10px !important;
     }
     .closing-page .pn h3 {
@@ -2026,15 +2026,15 @@
 }
 
 .closing-page .cell.missing {
-    background: var(--warn-t);
-    color: var(--warn);
+    background: var(--cl-warn-t);
+    color: var(--cl-warn);
 }
 .closing-page .cell.empty {
     background: transparent;
-    color: var(--faint);
+    color: var(--cl-faint);
 }
 .closing-page .err {
-    color: var(--danger);
+    color: var(--cl-danger);
     font-size: 13px;
     font-weight: 600;
     margin-top: 6px;
@@ -2061,4 +2061,20 @@
     .closing-page .kp div {
         box-shadow: none;
     }
+}
+
+/* The filters and the branch picker sit inside the bar's chips. */
+.closing-page .ctl select,
+.closing-page .ctl input[type='date'] {
+    height: 36px;
+    border: 0;
+    border-radius: 9px;
+    background-color: transparent;
+    box-shadow: none;
+    color: var(--cl-ink);
+    padding-block: 0;
+}
+.closing-page .ctl select:focus,
+.closing-page .ctl input[type='date']:focus {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-ink) 12%, transparent);
 }

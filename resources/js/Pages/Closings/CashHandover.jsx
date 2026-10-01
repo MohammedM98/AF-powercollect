@@ -219,7 +219,7 @@ export default function CashHandover({ closing, onOpenDaily }) {
                         <span className="r">
                             <span
                                 className={`st ${transfer.status === 'received' ? 'approved' : 'sent'}`}
-                                style={{ color: transfer.status === 'received' ? 'var(--success)' : 'var(--warn)' }}
+                                style={{ color: transfer.status === 'received' ? 'var(--cl-success)' : 'var(--cl-warn)' }}
                             >
                                 <i />
                                 {transfer.statusLabel}
@@ -256,7 +256,12 @@ export default function CashHandover({ closing, onOpenDaily }) {
                         <div>
                             <small>الإثبات</small>
                             <b>
-                                <a href={`/cash-transfers/${transfer.id}/proof`} target="_blank" rel="noreferrer" style={{ color: 'var(--success)' }}>
+                                <a
+                                    href={`/cash-transfers/${transfer.id}/proof`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ color: 'var(--cl-success)' }}
+                                >
                                     ✓ عرض الصورة
                                 </a>
                             </b>

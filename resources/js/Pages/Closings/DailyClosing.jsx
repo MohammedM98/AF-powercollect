@@ -150,7 +150,7 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                                 <small>غير مؤكد، خارج الإجمالي</small>
                             </div>
                         </div>
-                        <div className="am" style={{ color: 'var(--warn)' }}>
+                        <div className="am" style={{ color: 'var(--cl-warn)' }}>
                             {closingMoney(closing.unconfirmedTotal)}
                             <em>₪</em>
                         </div>
@@ -444,13 +444,13 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                     </div>
                 )}
                 {closing.status === 'approved' && (
-                    <span className="wait" style={{ color: 'var(--success)' }}>
+                    <span className="wait" style={{ color: 'var(--cl-success)' }}>
                         <Icon name="lock" />
                         الكشف {closing.number} معتمد
                     </span>
                 )}
                 {errors.closing && (
-                    <span className="wait" role="alert" style={{ color: 'var(--danger)' }}>
+                    <span className="wait" role="alert" style={{ color: 'var(--cl-danger)' }}>
                         <Icon name="alert" />
                         {errors.closing}
                     </span>
@@ -523,7 +523,7 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                     onClick={(event) => event.target === event.currentTarget && setReturning(false)}
                 >
                     <form className="bx" onSubmit={sendBack}>
-                        <div className="ic" style={{ background: 'var(--danger-t)', color: 'var(--danger)' }}>
+                        <div className="ic" style={{ background: 'var(--cl-danger-t)', color: 'var(--cl-danger)' }}>
                             <Icon name="undo" />
                         </div>
                         <h4 id="return-title">إرجاع الكشف {closing.number} للتصحيح</h4>

@@ -8,6 +8,7 @@ export const MAIN_LINKS = [
     { href: '/dashboard', label: 'لوحة التحكم', icon: 'grid' },
     { href: '/ledger', label: 'السجل المالي', icon: 'ledger', can: 'viewLedger' },
     { href: '/branch-performance', label: 'أداء الفروع', icon: 'trend', can: 'viewLedger' },
+    { href: '/closings', label: 'الإغلاق', icon: 'scale', can: 'viewClosings' },
     { href: '/subscribers', label: 'المشتركون', icon: 'users', can: 'viewSubscribers' },
     { href: '/meter-readings', label: 'القراءات', icon: 'chart', can: 'viewMeterReadings' },
     { href: '/users', label: 'المستخدمون', icon: 'user', can: 'viewUsers' },

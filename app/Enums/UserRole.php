@@ -72,6 +72,7 @@ enum UserRole: string
                 PermissionKey::AdjustBalances, PermissionKey::CorrectTransactions, PermissionKey::DeleteTransactions,
                 PermissionKey::ViewTariffs,
                 PermissionKey::ViewCircuitBreakers,
+                PermissionKey::PrepareClosings,
             ],
             self::DataEntry => [
                 PermissionKey::ViewSubscribers, PermissionKey::CreateSubscribers, PermissionKey::UpdateSubscribers,
@@ -81,6 +82,7 @@ enum UserRole: string
                 PermissionKey::ViewSubscribers,
                 PermissionKey::ViewMeterReadings, PermissionKey::ApproveMeterReadings,
                 PermissionKey::AdjustBalances,
+                PermissionKey::PrepareClosings,
             ],
             self::SuperAdmin, self::Collector, self::FinancialAuditor => [],
         };

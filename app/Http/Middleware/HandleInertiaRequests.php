@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
+use App\Models\Closing;
 use App\Models\Governorate;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
@@ -67,6 +68,7 @@ class HandleInertiaRequests extends Middleware
                 'viewBranches' => $user->can('viewAny', Branch::class),
                 'viewSubscribers' => $user->can('viewAny', Subscriber::class),
                 'viewLedger' => $user->can('viewAny', SubscriberTransaction::class),
+                'viewClosings' => $user->can('viewAny', Closing::class),
                 'viewUsers' => $user->can('viewAny', User::class),
                 'viewUserTypes' => $user->can('viewAny', UserType::class),
                 'viewTariffs' => $user->can('viewAny', Tariff::class),

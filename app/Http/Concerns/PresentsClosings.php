@@ -303,6 +303,8 @@ trait PresentsClosings
         $differences = $closings->filter(fn (Closing $closing): bool => $closing->counted_cash !== null)
             ->map(fn (Closing $closing): array => ['branch' => $branches->firstWhere('id', $closing->branch_id)?->name, 'difference' => $closing->cashFigures()['difference']])
             ->filter(fn (array $difference): bool => $difference['difference'] !== 0)
+            ->groupBy('branch')
+            ->map(fn (Collection $branchDifferences, string $branch): array => ['branch' => $branch, 'difference' => $branchDifferences->sum('difference'), 'days' => $branchDifferences->count()])
             ->values();
         $pending = $closings->sum(fn (Closing $closing): int => $this->unconfirmedCents($closing));
         $pendingCount = $closings->sum(fn (Closing $closing): int => $closing->lines->where('match_status', ClosingMatchStatus::Unconfirmed)->count());

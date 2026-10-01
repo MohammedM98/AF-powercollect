@@ -96,7 +96,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                 <div className={Number(view.differenceTotal) !== 0 ? 'r' : ''}>
                     <small>الفروق الموثّقة</small>
                     <b>{closingMoney(view.differenceTotal)} ₪</b>
-                    <span>{view.differences.length === 0 ? 'لا فروق' : `${view.differences.length} كشف`}</span>
+                    <span>{view.differences.length === 0 ? 'لا فروق' : `${view.differences.length} فرع`}</span>
                 </div>
                 <div className={Number(view.pending) > 0 ? 'w' : ''}>
                     <small>إيصالات معلّقة</small>
@@ -207,7 +207,10 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                                 }
                                 hint={
                                     view.differences
-                                        .map((difference) => `${difference.branch}: ${closingMoney(difference.difference)} ₪`)
+                                        .map(
+                                            (difference) =>
+                                                `${difference.branch}: ${closingMoney(difference.difference)} ₪${difference.days > 1 ? ` (${difference.days} أيام)` : ''}`,
+                                        )
                                         .join('، ') || 'كل الصناديق مطابقة.'
                                 }
                             />

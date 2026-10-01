@@ -1,11 +1,15 @@
 /**
  * Linked dropdowns in a table's Filter menu: a group with `dependsOn` is
- * shown under the group it names and lists only the options whose
+ * shown beside the group it names and lists only the options whose
  * `parent` is that group's chosen value — e.g. a meter box's numbers
- * under its name.
+ * beside its name.
  */
 
-/** The top-level groups, and each child group keyed by its parent's key. */
+/**
+ * The top-level groups, each child group keyed by its parent's key, and
+ * the groups a user may hide: a parent with a child (the box name) always
+ * stays, with its child beside it.
+ */
 export function nestFilterGroups(groups) {
     const childOf = {};
 
@@ -15,7 +19,9 @@ export function nestFilterGroups(groups) {
         }
     }
 
-    return { topLevel: (groups ?? []).filter((group) => !group.dependsOn), childOf };
+    const topLevel = (groups ?? []).filter((group) => !group.dependsOn);
+
+    return { topLevel, childOf, hideable: topLevel.filter((group) => !childOf[group.key]) };
 }
 
 /**

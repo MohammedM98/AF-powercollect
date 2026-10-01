@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -34,7 +35,8 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Attempt to authenticate the request's credentials.
+     * Attempt to authenticate the request's credentials. A stopped
+     * account cannot sign in, even with the right password.
      *
      * @throws ValidationException
      */
@@ -42,11 +44,22 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('username', 'password'), $this->boolean('remember'))) {
+        $isStopped = false;
+        $signedIn = Auth::attemptWhen(
+            $this->only('username', 'password'),
+            function (User $user) use (&$isStopped): bool {
+                $isStopped = ! $user->is_active;
+
+                return ! $isStopped;
+            },
+            $this->boolean('remember'),
+        );
+
+        if (! $signedIn) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'username' => trans('auth.failed'),
+                'username' => trans($isStopped ? 'auth.inactive' : 'auth.failed'),
             ]);
         }
 

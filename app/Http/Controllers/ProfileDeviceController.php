@@ -73,18 +73,31 @@ class ProfileDeviceController extends Controller
                 abort_unless($session !== null, 404);
                 abort_if($session->id === $request->session()->getId(), 422, 'لا يمكن تسجيل خروج الجهاز الحالي من هنا.');
                 self::sessions()->where('user_id', $user->id)->where('id', $session->id)->delete();
+                // Retired sessions must not sign in again through an old remember-me cookie.
+                $user->forceFill(['remember_token' => Str::random(60)])->save();
             } else {
-                if (config('session.driver') === 'database') {
-                    self::sessions()->where('user_id', $user->id)->where('id', '!=', $request->session()->getId())->delete();
-                }
-                MobileAccessToken::query()->where('user_id', $user->id)->delete();
+                self::signOutOtherDevices($request);
             }
-
-            // Retired sessions must not sign in again through an old remember-me cookie.
-            $user->forceFill(['remember_token' => Str::random(60)])->save();
         }
 
         return to_route('profile.edit')->with('status', 'profile-devices-logged-out');
+    }
+
+    /**
+     * End every session of the user but this one, and every mobile app
+     * sign-in. Retired sessions must not sign in again through an old
+     * remember-me cookie either.
+     */
+    public static function signOutOtherDevices(Request $request): void
+    {
+        $user = $request->user();
+
+        if (config('session.driver') === 'database') {
+            self::sessions()->where('user_id', $user->id)->where('id', '!=', $request->session()->getId())->delete();
+        }
+
+        MobileAccessToken::query()->where('user_id', $user->id)->delete();
+        $user->forceFill(['remember_token' => Str::random(60)])->save();
     }
 
     private static function sessions(): Builder

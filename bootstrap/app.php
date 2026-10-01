@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AuthenticateMobileToken;
+use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'mobile.auth' => AuthenticateMobileToken::class,
         ]);
         $middleware->web(append: [
+            EnsureAccountIsActive::class,
             HandleInertiaRequests::class,
         ]);
     })

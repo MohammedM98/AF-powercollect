@@ -4,7 +4,7 @@ import Icon from '@/Components/Icon';
 import ThemeToggle from '@/Components/ThemeToggle';
 import ActivityBell from '@/Components/ActivityBell';
 import CommandPalette from '@/Components/CommandPalette';
-import { MAIN_LINKS, SETTINGS_LINKS, allowedLinks, isActiveLink } from '@/lib/navigation';
+import { MAIN_LINKS, SETTINGS_LINKS, allowedLinks, isActiveLink, isInsideAnyLink, settingsEntryLink } from '@/lib/navigation';
 import { useResponsiveTables } from '@/hooks/useResponsiveTables';
 
 const SIDEBAR_STORAGE_KEY = 'sidebar';
@@ -82,6 +82,7 @@ function SidebarContent({ collapsed = false, onNavigate }) {
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     const mainLinks = allowedLinks(MAIN_LINKS, can);
     const settingsLinks = allowedLinks(SETTINGS_LINKS, can);
+    const settingsLink = settingsEntryLink(settingsLinks);
     const [hoveredLink, setHoveredLink] = useState(null);
 
     /** Shows a collapsed link's label beside it (or hides it when `label` is null). */
@@ -119,16 +120,15 @@ function SidebarContent({ collapsed = false, onNavigate }) {
                     <NavLink key={link.href} link={link} active={isActiveLink(link, url)} collapsed={collapsed} onHover={onLinkHover} />
                 ))}
 
-                {settingsLinks.length > 0 && (
+                {settingsLink && (
                     <>
-                        {collapsed ? (
-                            <div className="mx-3 !my-4 h-px bg-gray-100" role="separator" aria-label="الإعدادات" />
-                        ) : (
-                            <p className="px-3 pb-2 pt-6 text-xs font-semibold text-gray-400">الإعدادات</p>
-                        )}
-                        {settingsLinks.map((link) => (
-                            <NavLink key={link.href} link={link} active={isActiveLink(link, url)} collapsed={collapsed} onHover={onLinkHover} />
-                        ))}
+                        <div className="mx-3 !my-4 h-px bg-gray-100" role="separator" />
+                        <NavLink
+                            link={settingsLink}
+                            active={isInsideAnyLink(settingsLinks, url)}
+                            collapsed={collapsed}
+                            onHover={onLinkHover}
+                        />
                     </>
                 )}
             </nav>

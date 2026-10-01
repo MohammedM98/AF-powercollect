@@ -1,7 +1,9 @@
 /**
  * Every page in the sidebar and the Ctrl+K search. `can` names the flag in
  * the shared `can` props (HandleInertiaRequests) that must be true for the
- * link to show; links without it are always shown.
+ * link to show; links without it are always shown. The settings pages share
+ * one "الإعدادات" link in the sidebar and are listed inside the settings
+ * area (SettingsLayout); the Ctrl+K search still lists each of them.
  */
 export const MAIN_LINKS = [
     { href: '/dashboard', label: 'لوحة التحكم', icon: 'grid' },
@@ -32,4 +34,17 @@ export function isActiveLink(link, url) {
     const path = url.split('?')[0];
 
     return path === link.href || path.startsWith(`${link.href}/`);
+}
+
+/**
+ * The sidebar's one link into the settings: it opens the first settings page
+ * in `links` (the ones the user may open), or is null when there are none.
+ */
+export function settingsEntryLink(links) {
+    return links.length > 0 ? { href: links[0].href, label: 'الإعدادات', icon: 'cog' } : null;
+}
+
+/** Whether `url` is inside any of the links' sections. */
+export function isInsideAnyLink(links, url) {
+    return links.some((link) => isActiveLink(link, url));
 }

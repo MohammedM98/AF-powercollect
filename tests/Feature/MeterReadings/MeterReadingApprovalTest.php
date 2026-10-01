@@ -263,6 +263,65 @@ class MeterReadingApprovalTest extends TestCase
         }
     }
 
+    public function test_status_counts_keep_the_search_and_location_filters_across_status_tabs(): void
+    {
+        $pending = $this->pendingReading('2026-09-18', '5.00', 'Ahmad Pending');
+        $approved = $this->pendingReading('2026-09-18', '6.00', 'Ahmad Approved');
+        $approved->subscriber->update(['meter_box_id' => $pending->subscriber->meter_box_id]);
+        $approved->approve($this->accountant);
+        Subscriber::factory()->create([
+            'branch_id' => $this->branch->id,
+            'meter_box_id' => $pending->subscriber->meter_box_id,
+            'full_name' => 'Ahmad Missing',
+        ]);
+        $this->pendingReading('2026-09-18', '7.00', 'Sara');
+        $this->pendingReading('2026-09-18', '8.00', 'Ahmad Another Box');
+        MeterReading::factory()->create([
+            'subscriber_id' => Subscriber::factory()->create(['full_name' => 'Ahmad Another Branch']),
+            'week_start' => '2026-09-18',
+        ]);
+        $this->actingAs($this->accountant);
+
+        foreach (['pending' => 'Ahmad Pending', 'approved' => 'Ahmad Approved', 'missing' => 'Ahmad Missing'] as $status => $name) {
+            $this->get(route('meter-readings.index', [
+                'week' => '2026-09-18',
+                'search' => 'Ahmad',
+                'per_page' => 15,
+                'filter' => [
+                    'meter_box_id' => $pending->subscriber->meter_box_id,
+                    'entry' => $status === 'missing' ? 'missing' : '',
+                    'approval' => $status === 'missing' ? '' : $status,
+                ],
+            ]))->assertInertia(fn ($page) => $page
+                ->where('statusSummary', ['total' => 3, 'pending' => 1, 'approved' => 1, 'missing' => 1])
+                ->has('rows.data', 1)
+                ->where('rows.data.0.fullName', $name)
+                ->where('pendingApproval.count', $status === 'pending' ? 1 : 0));
+        }
+    }
+
+    public function test_the_sheet_identifies_the_recorder_source_and_approver_in_business_time(): void
+    {
+        config(['app.business_timezone' => 'Asia/Gaza']);
+        $recorder = User::factory()->dataEntry()->create(['name' => 'Reading Recorder']);
+        $reading = $this->pendingReading('2026-09-18', '5.00');
+        $reading->update([
+            'recorded_by' => $recorder->id,
+            'mobile_operation_id' => fake()->uuid(),
+            'created_at' => '2026-09-24 10:00:00',
+        ]);
+        $reading->approve($this->accountant);
+
+        $this->actingAs($this->accountant)
+            ->get(route('meter-readings.index', ['week' => '2026-09-18']))
+            ->assertInertia(fn ($page) => $page
+                ->where('rows.data.0.reading.recordedByName', 'Reading Recorder')
+                ->where('rows.data.0.reading.recordedSource', 'app')
+                ->where('rows.data.0.reading.recordedAt', '24/09 13:00')
+                ->where('rows.data.0.reading.approvedByName', $this->accountant->name)
+                ->where('rows.data.0.reading.approvedAt', '24/09 13:00'));
+    }
+
     private function pendingReading(string $weekStart, string $amountDue, ?string $subscriberName = null): MeterReading
     {
         return MeterReading::factory()->create([

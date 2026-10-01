@@ -8,11 +8,12 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
-import StatusPill from '@/Components/DataTable/StatusPill';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatCurrency } from '@/lib/currency';
 import { consumptionBetween, weeklyCharges } from '@/lib/readings';
+import { activeReadingStatus, readingStatusFilters } from '@/lib/readingSheet';
+import './ReadingEntry.css';
 import { WEEK_DAYS, formatWeekDay } from '@/lib/weekDays';
 
 const SORT_OPTIONS = [
@@ -25,10 +26,13 @@ const SORT_OPTIONS = [
     { value: 'account_number', label: 'رقم المشترك' },
 ];
 
-const STATUS_TONES = {
-    pending: 'amber',
-    approved: 'green',
-};
+const STATUS_TABS = [
+    { value: 'all', label: 'الكل', count: 'total' },
+    { value: 'missing', label: 'لم تُدخل', count: 'missing' },
+    { value: 'pending', label: 'بانتظار الاعتماد', count: 'pending' },
+    { value: 'approved', label: 'معتمدة', count: 'approved' },
+];
+const shortDate = (date) => date.slice(5).split('-').reverse().join('/');
 
 /**
  * The week's cost for a typed reading: consumption × kilowatt price, less
@@ -46,7 +50,12 @@ function calculateCharges(currentReading, row) {
 
 function focusNextReadingInput(currentInput) {
     const inputs = [...document.querySelectorAll('[data-reading-input]:not([disabled])')];
-    inputs[inputs.indexOf(currentInput) + 1]?.focus();
+    const nextInput = inputs[inputs.indexOf(currentInput) + 1];
+    if (nextInput) {
+        nextInput.focus();
+    } else {
+        currentInput.blur();
+    }
 }
 
 /**
@@ -66,7 +75,8 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
         setValue(savedValue);
     }, [savedValue]);
 
-    const charges = calculateCharges(value, row);
+    const isDraft = value !== savedValue;
+    const charges = !isDraft && row.reading ? { ...row.reading, minimumApplies: Number(row.reading.readingFee) < Number(row.minimumPayment) && !row.discount } : calculateCharges(value, row);
     const belowMinimum = charges?.minimumApplies;
 
     function save({ confirmed = false } = {}) {
@@ -96,8 +106,8 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     }
 
     return (
-        <tr className={error ? 'bg-red-500/10' : row.reading ? '' : 'bg-amber-500/10/40'}>
-            <td className="px-4">
+        <tr className={`re-row ${selected ? 'is-selected' : ''} ${error ? 'has-error' : ''} ${isDraft ? 'is-draft' : ''}`}>
+            <td className="re-sub">
                 <div className="flex items-center gap-3">
                     {approvable && (
                         <input
@@ -110,9 +120,9 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                         />
                     )}
                     <div>
-                        <p className="font-medium text-gray-900">{row.fullName}</p>
+                        <b>{row.fullName}</b>
                         <p className="text-xs text-gray-500">
-                            {[row.meterBoxNumber && `طبلون ${row.meterBoxNumber}`, row.subAreaName].filter(Boolean).join(' · ') || '—'}
+                            {[row.accountNumber && `حساب ${row.accountNumber}`, row.meterBoxNumber && `طبلون ${row.meterBoxNumber}`, row.subAreaName].filter(Boolean).join(' · ') || '—'}
                         </p>
                         {row.discount && (
                             <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
@@ -123,9 +133,9 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     </div>
                 </div>
             </td>
-            <td className="px-4 tabular-nums text-gray-600">{row.previousReading}</td>
-            <td className="px-4">
-                <input
+            <td className="re-last re-number">{row.previousReading}</td>
+            <td className="re-input-cell">
+                <div className="re-input"><input
                     type="number"
                     inputMode="decimal"
                     step="0.01"
@@ -137,7 +147,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     disabled={!row.canEdit || saving}
                     value={value}
                     placeholder={row.canEdit ? 'أدخل القراءة' : '—'}
-                    onChange={(e) => setValue(e.target.value)}
+                    onInput={(e) => setValue(e.target.value)}
                     onBlur={() => save()}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -145,29 +155,29 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                             focusNextReadingInput(e.currentTarget);
                         }
                     }}
-                    className={`block w-32 text-sm tabular-nums ${error ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' : ''}`}
-                />
+                    className={error ? 'has-error' : ''}
+                /></div>
                 {error && <p className="mt-1 max-w-[16rem] text-xs text-red-600">{error}</p>}
                 {row.hasLaterWeek && <p className="mt-1 text-xs text-gray-400">توجد قراءة لأسبوع لاحق</p>}
             </td>
-            <td className={`px-4 py-3 tabular-nums font-semibold ${charges && charges.consumption < 0 ? 'text-red-600' : 'text-brand-700'}`}>
+            <td className={`re-diff re-number ${charges && charges.consumption < 0 ? 'text-red-600' : 'text-brand-700'}`}>
                 {charges ? charges.consumption : '—'}
             </td>
-            <td className="whitespace-nowrap px-4 tabular-nums text-gray-600">{formatCurrency(row.unitPrice)}</td>
-            <td className={`whitespace-nowrap px-4 py-3 tabular-nums ${belowMinimum ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+            <td className="re-rate re-number">{formatCurrency(row.unitPrice)}</td>
+            <td className={`re-fee re-number ${belowMinimum ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                 {charges ? formatCurrency(charges.readingFee) : '—'}
             </td>
-            <td className={`whitespace-nowrap px-4 py-3 tabular-nums ${belowMinimum ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
+            <td className={`re-min re-number ${belowMinimum ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
                 {formatCurrency(row.minimumPayment)}
             </td>
-            <td className="whitespace-nowrap px-4 font-bold tabular-nums text-gray-900">
+            <td className="re-due re-number">
                 {charges && charges.consumption >= 0 ? formatCurrency(charges.amountDue) : '—'}
                 {charges?.discountAmount > 0 && charges.consumption >= 0 && (
                     <p className="text-xs font-normal text-emerald-700 dark:text-emerald-400">بعد خصم {formatCurrency(charges.discountAmount)}</p>
                 )}
                 {belowMinimum && charges.consumption >= 0 && <p className="text-xs font-normal text-gray-500">الحد الأدنى</p>}
             </td>
-            <td className="px-4">
+            <td className="re-status">
                 <ConfirmDialog
                     show={confirmingApprovedEdit}
                     onConfirm={() => {
@@ -187,10 +197,17 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                 {saving ? (
                     <span className="text-xs text-gray-500">جارٍ الحفظ...</span>
                 ) : row.reading ? (
-                    <StatusPill tone={STATUS_TONES[row.reading.status]} label={row.reading.statusLabel} />
+                    <span className={`re-pill ${row.reading.status}`}><i />{row.reading.status === 'pending' ? 'بانتظار الاعتماد' : row.reading.statusLabel}</span>
                 ) : (
-                    <StatusPill tone="gray" label="لم تُدخل" />
+                    <span className="re-pill missing"><i />لم تُدخل</span>
                 )}
+            </td>
+            <td className="re-by">
+                {row.reading ? <>
+                    <b>{row.reading.recordedByName || '—'}</b>
+                    <small><Icon name="clock" />{row.reading.recordedAt} · {row.reading.recordedSource === 'app' ? 'التطبيق' : 'الموقع'}</small>
+                    {row.reading.approvedByName && <span className="re-approved-by">اعتمدها {row.reading.approvedByName}<small>{row.reading.approvedAt}</small></span>}
+                </> : <span>—</span>}
             </td>
         </tr>
     );
@@ -246,6 +263,7 @@ export default function Index({
     weekEnd,
     weekOptions,
     summary,
+    statusSummary,
     canRecord,
     canApprove,
     pendingApproval,
@@ -254,11 +272,21 @@ export default function Index({
     filters,
     filterOptions,
 }) {
-    const { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-readings', filters, { week });
+    const { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/meter-readings', filters, { week });
     // The readings ticked for approval, and which approval is waiting on "are you sure?" ('selected' or 'all').
     const [selectedIds, setSelectedIds] = useState(() => new Set());
     const [confirming, setConfirming] = useState(null);
     const [approving, setApproving] = useState(false);
+    const [showHint, setShowHint] = useState(true);
+    const activeStatus = activeReadingStatus(filters.filter ?? {});
+    const weekIndex = weekOptions.findIndex((option) => option.value === week);
+    const entered = statusSummary.pending + statusSummary.approved;
+    const percentage = statusSummary.total ? Math.round(entered / statusSummary.total * 100) : 0;
+
+    function changeStatus(status) {
+        setSelectedIds(new Set());
+        setFilters(readingStatusFilters(status));
+    }
 
     // Ticks only apply to rows on screen; drop any that left (approved, another page or week).
     useEffect(() => {
@@ -306,52 +334,35 @@ export default function Index({
     }
 
     return (
-        <AuthenticatedLayout
-            header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">القراءات الأسبوعية</h2>
-                        <p className="mt-1 text-sm text-gray-500">أدخل القراءة الجديدة لكل مشترك — تُحفظ تلقائيًا عند الخروج من الحقل.</p>
-                    </div>
-                    <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600">
-                        تغيير الأسبوع
-                        <select value={week} onChange={(e) => changeWeek(e.target.value)} className="rounded-md border-gray-300 text-sm shadow-sm">
-                            {weekOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                </>
-            }
-        >
+        <AuthenticatedLayout>
             <Head title="القراءات الأسبوعية" />
-
-            <div className="mb-4 rounded-xl border border-gray-200 bg-surface px-5 py-4">
-                <p className="text-lg font-bold text-gray-900">قراءة الأسبوع المنتهي في {formatWeekDay(weekEnd)}</p>
-                <p className="mt-1 text-sm text-gray-500">
-                    من {formatWeekDay(week)} إلى {formatWeekDay(weekEnd)}
-                </p>
-            </div>
-
-            <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-gray-200 bg-surface p-4">
-                    <p className="text-sm text-gray-500">تم الإدخال</p>
-                    <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">
-                        {summary.entered} <span className="text-base font-medium text-gray-400">/ {summary.total}</span>
-                    </p>
+            <div className="reading-entry" dir="rtl">
+                <div className="re-heading">
+                    <div><h1>القراءات</h1><p>أدخل القراءة الجديدة بجانب آخر قراءة، واضغط Enter للحفظ والانتقال للمشترك التالي.</p></div>
+                    <div className="re-actions">
+                        <span className={`re-open ${entryWindow.isOpen ? 'is-open' : ''}`}><i />الإدخال {entryWindow.isOpen ? 'مفتوح' : 'مغلق'}</span>
+                        <div className="re-week">
+                            <button type="button" aria-label="الأسبوع السابق" disabled={weekIndex < 0 || weekIndex === weekOptions.length - 1} onClick={() => changeWeek(weekOptions[weekIndex + 1].value)}><Icon name="chevron-right" /></button>
+                            <label>أسبوع القراءة <small dir="ltr">{shortDate(week)} – {shortDate(weekEnd)}</small>
+                                <select aria-label="تغيير الأسبوع" value={week} onChange={(e) => changeWeek(e.target.value)}>
+                                    {weekOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                </select>
+                            </label>
+                            <button type="button" aria-label="الأسبوع التالي" disabled={weekIndex <= 0} onClick={() => changeWeek(weekOptions[weekIndex - 1].value)}><Icon name="chevron-left" /></button>
+                        </div>
+                    </div>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-surface p-4">
-                    <p className="text-sm text-gray-500">المتبقي</p>
-                    <p className="mt-1 text-2xl font-bold tabular-nums text-amber-600">{summary.total - summary.entered}</p>
+                {showHint && <div className="re-hint"><Icon name="info" /><p><b>كل قراءات الأسبوع في مكان واحد.</b> بعد حفظ القراءة تظهر في «بانتظار الاعتماد» حتى يراجعها المسؤول ويعتمدها. ويمكنك عرض القراءات المعتمدة بشكل منفصل.</p><button type="button" aria-label="إخفاء التوضيح" onClick={() => setShowHint(false)}>×</button></div>}
+                <div className="re-top">
+                    <div className="re-tabs" role="group" aria-label="حالة القراءات">
+                        {STATUS_TABS.map((tab) => <button type="button" key={tab.value} aria-pressed={activeStatus === tab.value} onClick={() => changeStatus(tab.value)}>{tab.value !== 'all' && <i className={tab.value} />}{tab.label}<span>{statusSummary[tab.count].toLocaleString('en')}</span></button>)}
+                    </div>
+                    <div className="re-progress">
+                        <div><b>{entered.toLocaleString('en')}</b><span>من {statusSummary.total.toLocaleString('en')} قراءة</span><strong>{percentage}%</strong></div>
+                        <div className="re-progress-track" role="progressbar" aria-label="القراءات المدخلة" aria-valuenow={percentage} aria-valuemin={0} aria-valuemax={100}><i className="approved" style={{ width: `${statusSummary.total ? statusSummary.approved / statusSummary.total * 100 : 0}%` }} /><i className="pending" style={{ width: `${statusSummary.total ? statusSummary.pending / statusSummary.total * 100 : 0}%` }} /></div>
+                        <div className="re-legend"><span><i className="approved" />معتمدة {statusSummary.approved}</span><span><i className="pending" />بانتظار الاعتماد {statusSummary.pending}</span><span><i className="missing" />لم تُدخل {statusSummary.missing}</span></div>
+                    </div>
                 </div>
-                <div className="rounded-xl border border-brand-100 bg-brand-50 p-4">
-                    <p className="text-sm text-brand-700">مجموع المستحق لهذا الأسبوع</p>
-                    <p className="mt-1 text-2xl font-bold tabular-nums text-brand-700">{formatCurrency(summary.amountDue)}</p>
-                </div>
-            </div>
-
             <EntryWindowNotice
                 entryWindow={entryWindow}
                 canRecord={canRecord}
@@ -360,7 +371,7 @@ export default function Index({
                 onShowLatestWeek={() => changeWeek(weekOptions[0].value)}
             />
 
-            {canApprove && pendingApproval.count === 0 && (
+            {canApprove && pendingApproval.count === 0 && activeStatus === 'pending' && (
                 <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm">
                     <Icon name="check" className="h-5 w-5 shrink-0 text-emerald-600" strokeWidth={2} />
                     <p className="font-medium text-emerald-800 dark:text-emerald-300">
@@ -370,7 +381,7 @@ export default function Index({
             )}
 
             {canApprove && pendingApproval.count > 0 && (
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 bg-surface p-4">
+                <div className="re-approval">
                     <div className="flex items-center gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
                             <Icon name="check" strokeWidth={2} />
@@ -404,7 +415,8 @@ export default function Index({
                 </div>
             )}
 
-            <div className="mb-3 flex flex-wrap items-center justify-end gap-2 text-sm text-gray-600">
+            <section className="re-card">
+            <div className="re-sort">
                 <label htmlFor="sheet-sort">ترتيب حسب</label>
                 <select id="sheet-sort" value={filters.sort} onChange={(e) => sortBy(e.target.value, filters.direction)} className="py-1.5 text-sm">
                     {SORT_OPTIONS.map((option) => (
@@ -440,25 +452,25 @@ export default function Index({
                 }
             />
 
-            <div className="data-table-container">
-                <table className="data-table w-full text-sm text-start">
+            <div className="re-table-wrap">
+                <table className="re-table w-full text-sm text-start">
                     <thead>
                         <tr>
-                            <SortableTh column="full_name" label="المشترك" sortState={filters} onSort={sort} className="!px-4" />
-                            <SortableTh column="last_reading" label="آخر قراءة" sortState={filters} onSort={sort} className="!px-4" />
-                            <SortableTh column="current_reading" label="القراءة الجديدة" sortState={filters} onSort={sort} className="!px-4" />
-                            <SortableTh column="consumption" label="الفرق (كيلو)" sortState={filters} onSort={sort} className="!px-4" />
-                            <th className="px-4">سعر الكيلو</th>
-                            <th className="px-4">قيمة القراءة</th>
-                            <th className="px-4">الحد الأدنى</th>
-                            <SortableTh column="amount_due" label="المطلوب دفعه" sortState={filters} onSort={sort} className="!px-4" />
-                            <th className="px-4">الحالة</th>
+                            <SortableTh column="full_name" label="المشترك" sortState={filters} onSort={sort} className="re-sub" />
+                            <SortableTh column="last_reading" label="آخر قراءة" sortState={filters} onSort={sort} className="re-last" />
+                            <SortableTh column="current_reading" label="القراءة الجديدة" sortState={filters} onSort={sort} className="re-input-cell" />
+                            <SortableTh column="consumption" label="الفرق (كيلو)" sortState={filters} onSort={sort} className="re-diff" />
+                            <th className="re-rate">سعر الكيلو</th>
+                            <th className="re-fee">قيمة القراءة</th>
+                            <th className="re-min">الحد الأدنى</th>
+                            <SortableTh column="amount_due" label="المطلوب دفعه" sortState={filters} onSort={sort} className="re-due" />
+                            <th className="re-status">الحالة</th><th className="re-by">سجّلها</th>
                         </tr>
                     </thead>
                     <tbody>
                         {rows.data.length === 0 ? (
                             <tr>
-                                <td className="text-gray-500" colSpan={9}>
+                                <td className="text-gray-500" colSpan={10}>
                                     لا يوجد مشتركون مطابقون.
                                 </td>
                             </tr>
@@ -478,10 +490,12 @@ export default function Index({
                 </table>
             </div>
 
+            <div className="re-footer"><span>مجموع المستحق لهذا الأسبوع <b>{formatCurrency(summary.amountDue)}</b></span><span><Icon name="enter" /> Enter للحفظ والانتقال · Tab للتنقل</span></div>
             <Pagination meta={rows} filters={filters} baseUrl="/meter-readings" extraParams={{ week }} />
+            </section>
 
             {selectedRows.length > 0 && (
-                <div className="sticky bottom-4 z-20 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-card border border-gray-100 bg-surface/95 px-5 py-4 shadow-lift backdrop-blur">
+                <div className="re-bulk">
                     <p className="text-sm text-gray-600">
                         <b className="text-gray-900">{selectedRows.length.toLocaleString('en')}</b> قراءة محددة · المجموع{' '}
                         <b className="tabular-nums text-gray-900">{formatCurrency(selectedTotal)}</b>
@@ -511,6 +525,7 @@ export default function Index({
                 confirmLabel="نعم، اعتمد"
                 cancelLabel="مراجعة القراءات"
             />
+            </div>
         </AuthenticatedLayout>
     );
 }

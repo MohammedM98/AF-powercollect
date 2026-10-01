@@ -3,7 +3,7 @@ import Icon from '@/Components/Icon';
 import { weekDayName } from '@/lib/weekDays';
 import { closingMoney, shortDate, statusClass } from '@/lib/closing';
 
-const STATUS_COLORS = { approved: 'var(--success)', submitted: 'var(--info)', returned: 'var(--danger)', draft: 'var(--muted)' };
+const STATUS_COLORS = { approved: 'var(--cl-success)', submitted: 'var(--cl-info)', returned: 'var(--cl-danger)', draft: 'var(--cl-muted)' };
 
 /**
  * The closings register: every daily closing of the chosen branches and
@@ -40,7 +40,7 @@ export default function ClosingRegister({ register, branches, onChange, onOpenDa
                         value={register.from}
                         max={register.to}
                         onChange={(event) => event.target.value && filter({ from: event.target.value })}
-                        style={{ border: 0, background: 'transparent', fontWeight: 600 }}
+                        style={{ border: 0, fontWeight: 600 }}
                     />
                 </label>
                 <label className="cb">
@@ -50,7 +50,7 @@ export default function ClosingRegister({ register, branches, onChange, onOpenDa
                         value={register.to}
                         min={register.from}
                         onChange={(event) => event.target.value && filter({ to: event.target.value })}
-                        style={{ border: 0, background: 'transparent', fontWeight: 600 }}
+                        style={{ border: 0, fontWeight: 600 }}
                     />
                 </label>
                 <label className="cb">
@@ -60,7 +60,7 @@ export default function ClosingRegister({ register, branches, onChange, onOpenDa
                         aria-label="الفرع"
                         value={register.branchId ?? ''}
                         onChange={(event) => filter({ filter_branch: event.target.value || undefined })}
-                        style={{ border: 0, background: 'transparent', fontWeight: 700 }}
+                        style={{ border: 0, fontWeight: 700 }}
                     >
                         {branches.length > 1 && <option value="">كل الفروع</option>}
                         {branches.map((branch) => (
@@ -76,7 +76,7 @@ export default function ClosingRegister({ register, branches, onChange, onOpenDa
                         aria-label="الحالة"
                         value={register.status ?? ''}
                         onChange={(event) => filter({ status: event.target.value || undefined })}
-                        style={{ border: 0, background: 'transparent', fontWeight: 700 }}
+                        style={{ border: 0, fontWeight: 700 }}
                     >
                         <option value="">كل الحالات</option>
                         {register.statuses.map((status) => (

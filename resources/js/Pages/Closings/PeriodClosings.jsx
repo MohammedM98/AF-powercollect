@@ -70,7 +70,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                 <span className="cb">
                     <span
                         className={`st ${statusClass(view.status)}`}
-                        style={{ color: view.status === 'approved' ? 'var(--success)' : 'var(--muted)' }}
+                        style={{ color: view.status === 'approved' ? 'var(--cl-success)' : 'var(--cl-muted)' }}
                     >
                         <i />
                         {view.statusLabel}

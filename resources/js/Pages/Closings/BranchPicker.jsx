@@ -13,7 +13,7 @@ export default function BranchPicker({ branches, branchId, onChange }) {
                     value={branchId ?? ''}
                     onChange={(event) => onChange(Number(event.target.value))}
                     aria-label="الفرع"
-                    style={{ border: 0, background: 'transparent', fontWeight: 700 }}
+                    style={{ border: 0, fontWeight: 700 }}
                 >
                     {branches.map((option) => (
                         <option key={option.value} value={option.value}>

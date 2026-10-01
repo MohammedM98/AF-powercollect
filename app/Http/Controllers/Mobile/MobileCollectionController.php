@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Mobile;
 
 use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
-use App\Enums\SubscriberStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMobileCollectionRequest;
 use App\Models\Subscriber;
@@ -21,9 +20,10 @@ class MobileCollectionController extends Controller
 
         $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
         $search = trim($validated['search'] ?? '');
+        // Any subscriber of the branch can pay, as on the website: a
+        // suspended or disconnected one may still be settling their debt.
         $subscribers = Subscriber::query()
             ->visibleTo($request->user())
-            ->where('status', SubscriberStatus::Active)
             ->with('meterBox:id,box_number')
             ->withSum('transactions as balance', 'amount')
             ->when($search !== '', fn ($query) => $query->where(fn ($matching) => $matching
@@ -42,6 +42,8 @@ class MobileCollectionController extends Controller
                 'account_number' => $subscriber->account_number,
                 'meter_box_number' => $subscriber->meterBox?->box_number,
                 'balance' => $subscriber->balance ?? '0.00',
+                'status' => $subscriber->status->value,
+                'status_label' => __($subscriber->status->label()),
             ])->all(),
             'current_page' => $subscribers->currentPage(),
             'last_page' => $subscribers->lastPage(),
@@ -73,7 +75,7 @@ class MobileCollectionController extends Controller
     public function store(StoreMobileCollectionRequest $request): JsonResponse
     {
         if ($existingTransaction = $request->existingTransaction()) {
-            return response()->json($this->collectionData($existingTransaction->load('subscriber')), 201);
+            return response()->json($this->recordedCollectionData($existingTransaction), 201);
         }
 
         $subscriber = Subscriber::query()->visibleTo($request->user())->findOrFail($request->integer('subscriber_id'));
@@ -105,7 +107,23 @@ class MobileCollectionController extends Controller
             abort_unless($transaction->recorded_by === $request->user()->id, 403);
         }
 
-        return response()->json($this->collectionData($transaction->load('subscriber')), 201);
+        return response()->json($this->recordedCollectionData($transaction), 201);
+    }
+
+    /**
+     * A payment just recorded, with the subscriber's balance after it, as
+     * the website's receipt shows it.
+     *
+     * @return array<string, mixed>
+     */
+    private function recordedCollectionData(SubscriberTransaction $transaction): array
+    {
+        $transaction->load('subscriber');
+
+        return [
+            ...$this->collectionData($transaction),
+            'balance_after' => number_format($transaction->subscriber->balance(), 2, '.', ''),
+        ];
     }
 
     /**

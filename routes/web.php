@@ -3,12 +3,15 @@
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchPerformanceController;
+use App\Http\Controllers\CashTransferController;
 use App\Http\Controllers\CircuitBreakerController;
+use App\Http\Controllers\ClosingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GovernorateController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MeterBoxController;
 use App\Http\Controllers\MeterReadingController;
+use App\Http\Controllers\PeriodClosingController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileDeviceController;
@@ -42,6 +45,17 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
+
+    Route::get('/closings', [ClosingController::class, 'index'])->name('closings.index');
+    Route::put('/closings/{closing}/count', [ClosingController::class, 'count'])->name('closings.count');
+    Route::put('/closings/{closing}/lines/{line}', [ClosingController::class, 'match'])->name('closings.lines.match');
+    Route::post('/closings/{closing}/submit', [ClosingController::class, 'submit'])->name('closings.submit');
+    Route::post('/closings/{closing}/return', [ClosingController::class, 'returnForCorrection'])->name('closings.return');
+    Route::post('/closings/{closing}/approve', [ClosingController::class, 'approve'])->name('closings.approve');
+    Route::post('/closings/{closing}/transfers', [CashTransferController::class, 'store'])->name('closings.transfers.store');
+    Route::post('/cash-transfers/{transfer}/receive', [CashTransferController::class, 'receive'])->name('cash-transfers.receive');
+    Route::get('/cash-transfers/{transfer}/proof', [CashTransferController::class, 'proof'])->name('cash-transfers.proof');
+    Route::post('/period-closings', [PeriodClosingController::class, 'store'])->name('period-closings.store');
     Route::get('/branch-performance', [BranchPerformanceController::class, 'index'])->name('branch-performance.index');
     Route::get('/branch-performance/{branch}', [BranchPerformanceController::class, 'show'])->name('branch-performance.show');
 

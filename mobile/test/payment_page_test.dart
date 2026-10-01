@@ -5,8 +5,9 @@ import 'package:power_collect/app_identity.dart';
 import 'package:power_collect/payment_page.dart';
 
 class RecordingApi extends ApiClient {
-  RecordingApi({this.failFirst = false});
+  RecordingApi({this.failFirst = false, this.balanceAfter});
   final bool failFirst;
+  final String? balanceAfter;
   final requests = <Map<String, dynamic>>[];
   @override
   Future<Map<String, dynamic>> sendCollection(
@@ -21,7 +22,8 @@ class RecordingApi extends ApiClient {
       'amount': collection['amount'],
       'currency': collection['currency'],
       'amount_in_shekels': collection['currency'] == 'USD' ? '74.00' : null,
-      'voucher_number': 'P-77'
+      'voucher_number': 'P-77',
+      if (balanceAfter != null) 'balance_after': balanceAfter,
     };
   }
 }
@@ -130,6 +132,8 @@ void main() {
     final scrollable = await openPayment(tester, api, amount: '20');
     await tester.tap(find.text('\$ دولار'));
     await tester.pumpAndSettle();
+    await tapInList(
+        tester, scrollable, find.byKey(const ValueKey('payment-method-cash')));
     await confirmAndSubmit(tester, scrollable);
     expect(api.requests, isEmpty);
     expect(find.text('أدخل سعر الصرف لتحويل المبلغ إلى شيكل.'), findsOneWidget);
@@ -145,5 +149,54 @@ void main() {
     expect(api.requests.single, containsPair('payment_method', 'cash'));
     expect(find.text('بالشيكل'), findsOneWidget);
     expect(find.text('74.00 ₪'), findsOneWidget);
+  });
+
+  testWidgets(
+      'like the website, a payment starts on a transfer, shows the share of the debt it covers, and the receipt shows the balance the server reports',
+      (tester) async {
+    final api = RecordingApi(balanceAfter: '60.00');
+    final scrollable = await openPayment(tester, api);
+
+    await reveal(tester, scrollable, find.text('تغطية المبلغ المستحق'));
+    expect(find.text('25%'), findsOneWidget);
+    expect(find.text('تحويل بنكي'), findsOneWidget);
+
+    await tapInList(
+        tester, scrollable, find.byKey(const ValueKey('payment-method-cash')));
+    await confirmAndSubmit(tester, scrollable);
+
+    expect(api.requests.single, containsPair('payment_method', 'cash'));
+    expect(find.text('60.00 ₪ عليه'), findsOneWidget);
+  });
+
+  testWidgets(
+      'another payment from the same subscriber starts a fresh form from the new balance',
+      (tester) async {
+    final api = RecordingApi(balanceAfter: '75.00');
+    final scrollable = await openPayment(tester, api);
+    await tapInList(
+        tester, scrollable, find.byKey(const ValueKey('payment-method-cash')));
+    await confirmAndSubmit(tester, scrollable);
+    expect(find.text('تم تسجيل الدفعة'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('payment-another')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('تم تسجيل الدفعة'), findsNothing);
+    expect(find.text('تسجيل الدفعة'), findsOneWidget);
+    expect(find.text('75.00 ₪ عليه'), findsWidgets);
+    for (final digit in ['1', '0']) {
+      await tester.tap(find.byKey(ValueKey('payment-key-$digit')));
+      await tester.pump();
+    }
+    final again = find.byType(Scrollable).first;
+    await tapInList(
+        tester, again, find.byKey(const ValueKey('payment-method-cash')));
+    await confirmAndSubmit(tester, again);
+
+    expect(api.requests, hasLength(2));
+    expect(api.requests.last['amount'], '10');
+    expect(api.requests.last['mobile_operation_id'],
+        isNot(api.requests.first['mobile_operation_id']));
   });
 }

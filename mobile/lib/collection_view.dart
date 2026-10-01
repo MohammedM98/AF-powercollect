@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_identity.dart';
+import 'payment_page.dart' show balanceText;
 
 class CollectionView extends StatefulWidget {
   const CollectionView(
@@ -196,13 +197,23 @@ class _CollectionViewState extends State<CollectionView> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppIdentity.body(15, weight: FontWeight.w700)),
-                    Text('حساب ${subscriber['account_number']}',
+                    Text(
+                        [
+                          'حساب ${subscriber['account_number']}',
+                          // Suspended and disconnected subscribers can pay too; say which they are.
+                          if (subscriber['status'] != null &&
+                              subscriber['status'] != 'active')
+                            '${subscriber['status_label'] ?? subscriber['status']}',
+                        ].join(' · '),
                         style: AppIdentity.body(12, color: AppIdentity.faint)),
                   ])),
               const SizedBox(width: 8),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(AppIdentity.money(subscriber['balance']),
-                    style: AppIdentity.number(15, color: AppIdentity.bad)),
+                Text(balanceText(balanceOf(subscriber)),
+                    style: AppIdentity.number(15,
+                        color: balanceOf(subscriber) > 0
+                            ? AppIdentity.bad
+                            : AppIdentity.good)),
                 const SizedBox(height: 5),
                 Text('+ دفعة',
                     style: AppIdentity.body(13,
@@ -210,6 +221,9 @@ class _CollectionViewState extends State<CollectionView> {
               ]),
             ])),
       );
+
+  double balanceOf(Map<String, dynamic> subscriber) =>
+      double.tryParse('${subscriber['balance']}') ?? 0;
 
   /// What a payment took off the balance; older servers sent shekels only.
   double inShekels(Map<String, dynamic> payment) =>

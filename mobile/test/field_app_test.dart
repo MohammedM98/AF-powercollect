@@ -287,6 +287,15 @@ void main() {
       await tester.tap(find.byKey(ValueKey('payment-key-$digit')));
       await tester.pump();
     }
+    final cash = find.byKey(const ValueKey('payment-method-cash'));
+    await tester.scrollUntilVisible(cash, 200,
+        scrollable: find
+            .descendant(
+                of: find.byType(PaymentPage), matching: find.byType(Scrollable))
+            .first);
+    await tester.pumpAndSettle();
+    await tester.tap(cash);
+    await tester.pumpAndSettle();
     final recordButton = tester.widget<TextButton>(
         find.widgetWithText(TextButton, 'تسجيل 25.00 شيكل'));
     expect(recordButton.onPressed, isNull);

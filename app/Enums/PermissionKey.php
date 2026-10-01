@@ -64,6 +64,8 @@ enum PermissionKey: string
     case AdjustBalances = 'collections.adjust';
     case CorrectTransactions = 'collections.correct';
     case DeleteTransactions = 'collections.delete';
+    case PrepareClosings = 'closings.prepare';
+    case AuditClosings = 'closings.audit';
 
     public function label(): string
     {
@@ -118,6 +120,8 @@ enum PermissionKey: string
             self::AdjustBalances => 'Add Charges and Discounts',
             self::CorrectTransactions => 'Edit Transactions',
             self::DeleteTransactions => 'Delete Transactions',
+            self::PrepareClosings => 'Prepare Closings',
+            self::AuditClosings => 'Audit Closings',
         };
     }
 
@@ -134,7 +138,9 @@ enum PermissionKey: string
             self::ViewBranches, self::CreateBranches, self::UpdateBranches, self::DeleteBranches,
             self::ViewGovernorates, self::CreateGovernorates, self::UpdateGovernorates, self::DeleteGovernorates,
             self::ViewAreas, self::CreateAreas, self::UpdateAreas, self::DeleteAreas,
-            self::ViewUserTypes, self::CreateUserTypes, self::UpdateUserTypes, self::DeleteUserTypes => true,
+            self::ViewUserTypes, self::CreateUserTypes, self::UpdateUserTypes, self::DeleteUserTypes,
+            // Reviewing closings checks the branches' own figures, so the company grants it.
+            self::AuditClosings => true,
             default => false,
         };
     }
@@ -211,6 +217,10 @@ enum PermissionKey: string
                     'correct' => self::CorrectTransactions,
                     'delete' => self::DeleteTransactions,
                 ],
+            ],
+            'closings' => [
+                'label' => 'Closings',
+                'actions' => ['prepare' => self::PrepareClosings, 'audit' => self::AuditClosings],
             ],
         ];
     }

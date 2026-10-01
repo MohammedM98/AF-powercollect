@@ -20,6 +20,8 @@ class ReadingEntrySettingFactory extends Factory
     {
         return [
             'open_days' => ReadingEntrySetting::DEFAULT_OPEN_DAYS,
+            'opens_at' => ReadingEntrySetting::DEFAULT_OPENS_AT,
+            'closes_at' => ReadingEntrySetting::DEFAULT_CLOSES_AT,
             'reading_day' => ReadingEntrySetting::DEFAULT_READING_DAY,
             'mode' => ReadingEntryMode::Automatic,
         ];

@@ -227,6 +227,8 @@ class SubscriberController extends Controller
             'notes' => $reading->notes,
             'recordedByName' => $reading->recordedBy?->name,
             'recordedAt' => $reading->created_at->format('Y-m-d H:i'),
+            'recordedSource' => $reading->mobile_operation_id !== null ? 'app' : 'web',
+            'minimumApplied' => $reading->discount_method === null && (float) $reading->reading_fee < (float) $reading->minimum_payment,
             'canUpdate' => $actor->can('update', $reading),
         ];
     }

@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'api_client.dart';
 import 'app_identity.dart';
 import 'field_store.dart';
+import 'receipt_review_page.dart';
+import 'receipt_scan.dart';
 
 class PaymentPage extends StatefulWidget {
-  const PaymentPage({required this.api, required this.subscriber, super.key});
+  const PaymentPage(
+      {required this.api,
+      required this.subscriber,
+      this.receiptScanner = const ReceiptScanner(),
+      super.key});
   final ApiClient api;
   final Map<String, dynamic> subscriber;
+  final ReceiptScanner receiptScanner;
   @override
   State<PaymentPage> createState() => _PaymentPageState();
 }
@@ -21,13 +29,14 @@ class _PaymentPageState extends State<PaymentPage> {
   String method = 'cash';
   String bank = 'بنك فلسطين';
   bool busy = false;
+  bool scanning = false;
   bool collectorConfirmed = false;
   bool showKeypad = true;
   String? error;
   Map<String, dynamic>? submission;
   Map<String, dynamic>? receipt;
 
-  bool get editable => !busy && submission == null;
+  bool get editable => !busy && !scanning && submission == null;
   double get value => double.tryParse(amount.text) ?? 0;
 
   @override
@@ -53,8 +62,70 @@ class _PaymentPageState extends State<PaymentPage> {
     setState(() => amount.text = next);
   }
 
+  Future<void> scanReceipt(ReceiptImageSource source) async {
+    if (!editable) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      scanning = true;
+      showKeypad = false;
+      error = null;
+    });
+    ReceiptImage? image;
+    try {
+      image = await widget.receiptScanner.pick(source);
+      if (image == null || !mounted) return;
+      final result = await Navigator.push<Map<String, dynamic>>(
+          context,
+          MaterialPageRoute(
+              builder: (_) => ReceiptReviewPage(
+                    api: widget.api,
+                    subscriber: widget.subscriber,
+                    image: image!,
+                    scanner: widget.receiptScanner,
+                    initialFields: {
+                      'amount': amount.text,
+                      'sender_name': sender.text,
+                      'transaction_reference': reference.text,
+                      'notes': notes.text,
+                      'provider': receiptProviderNames.entries
+                          .where((entry) => entry.value == bank)
+                          .firstOrNull
+                          ?.key,
+                    },
+                  )));
+      if (result == null || !mounted) return;
+      setState(() {
+        receipt = result;
+        bank = '${result['bank_name'] ?? bank}';
+        amount.text = '${result['amount']}';
+      });
+    } on PlatformException catch (exception) {
+      if (mounted)
+        setState(() => error = exception.message ??
+            'تعذر قراءة الإيصال. جرّب صورة أخرى أو أدخل البيانات يدويًا.');
+    } on MissingPluginException {
+      if (mounted)
+        setState(() => error = 'مسح الإيصالات متاح في تطبيق Android.');
+    } catch (_) {
+      if (mounted)
+        setState(() => error =
+            'تعذر قراءة الإيصال. جرّب صورة أخرى أو أدخل البيانات يدويًا.');
+    } finally {
+      if (image != null) {
+        try {
+          await widget.receiptScanner.discard(image);
+        } on PlatformException {
+          // Temporary images are also cleared by the Android scanner on restart.
+        } on MissingPluginException {
+          // Tests and unsupported platforms have no native image cache.
+        }
+      }
+      if (mounted) setState(() => scanning = false);
+    }
+  }
+
   Future<void> submit() async {
-    if (busy || !collectorConfirmed) return;
+    if (busy || scanning || !collectorConfirmed) return;
     if (value <= 0 ||
         !value.isFinite ||
         (method != 'cash' &&
@@ -101,7 +172,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
   @override
   Widget build(BuildContext context) => PopScope(
-        canPop: !busy,
+        canPop: !busy && !scanning,
         child: Scaffold(
             body: SafeArea(
                 child: receipt != null
@@ -111,7 +182,7 @@ class _PaymentPageState extends State<PaymentPage> {
                             title: '${widget.subscriber['full_name']}',
                             subtitle:
                                 'حساب ${widget.subscriber['account_number']} · تسجيل دفعة',
-                            onBack: busy
+                            onBack: busy || scanning
                                 ? null
                                 : () => Navigator.pop(context, false)),
                         Expanded(
@@ -220,6 +291,57 @@ class _PaymentPageState extends State<PaymentPage> {
                               ]),
                               if (method != 'cash') ...[
                                 const SizedBox(height: 12),
+                                AppPanel(
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                      Text('تعبئة من صورة إيصال',
+                                          style: AppIdentity.body(14,
+                                              weight: FontWeight.w700)),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                          'اختر صورة أو صوّر الإيصال، ثم راجع البيانات المقروءة قبل تسجيل الدفعة. يتطلب الرفع اتصالًا بالإنترنت.',
+                                          style: AppIdentity.body(12.5,
+                                              color: AppIdentity.muted)),
+                                      const SizedBox(height: 8),
+                                      if (scanning)
+                                        const Row(children: [
+                                          SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2)),
+                                          SizedBox(width: 10),
+                                          Text('جارٍ قراءة الإيصال...')
+                                        ])
+                                      else
+                                        Wrap(spacing: 8, children: [
+                                          OutlinedButton.icon(
+                                              key: const ValueKey(
+                                                  'receipt-gallery'),
+                                              onPressed: editable
+                                                  ? () => scanReceipt(
+                                                      ReceiptImageSource
+                                                          .gallery)
+                                                  : null,
+                                              icon: const Icon(
+                                                  Icons.image_outlined),
+                                              label: const Text('اختيار صورة')),
+                                          OutlinedButton.icon(
+                                              key: const ValueKey(
+                                                  'receipt-camera'),
+                                              onPressed: editable
+                                                  ? () => scanReceipt(
+                                                      ReceiptImageSource.camera)
+                                                  : null,
+                                              icon: const Icon(Icons
+                                                  .document_scanner_outlined),
+                                              label:
+                                                  const Text('تصوير الإيصال')),
+                                        ]),
+                                    ])),
+                                const SizedBox(height: 12),
                                 if (method == 'wallet')
                                   Row(children: [
                                     for (final wallet in [
@@ -269,7 +391,7 @@ class _PaymentPageState extends State<PaymentPage> {
                                   padding: const EdgeInsets.all(4),
                                   child: CheckboxListTile(
                                     value: collectorConfirmed,
-                                    onChanged: busy
+                                    onChanged: busy || scanning
                                         ? null
                                         : (checked) => setState(() =>
                                             collectorConfirmed =
@@ -292,10 +414,12 @@ class _PaymentPageState extends State<PaymentPage> {
                                     busy ? 'جارٍ التسجيل...' : 'تسجيل الدفعة',
                                 icon: Icons.check,
                                 busy: busy,
-                                onPressed:
-                                    busy || !collectorConfirmed || value <= 0
-                                        ? null
-                                        : submit)),
+                                onPressed: busy ||
+                                        scanning ||
+                                        !collectorConfirmed ||
+                                        value <= 0
+                                    ? null
+                                    : submit)),
                         if (showKeypad &&
                             MediaQuery.viewInsetsOf(context).bottom == 0)
                           AppKeypad(
@@ -372,8 +496,9 @@ class _PaymentPageState extends State<PaymentPage> {
         AppPanel(
             child: Column(children: [
           receiptRow('المشترك', '${widget.subscriber['full_name']}'),
-          receiptRow('المبلغ',
-              '${AppIdentity.money(receipt?['amount'] ?? amount.text)} ₪'),
+          receiptRow(
+              'المبلغ',
+              '${AppIdentity.money(receipt?['amount'] ?? amount.text)} ${receipt?['currency'] == 'USD' ? '\$' : receipt?['currency'] == 'JOD' ? 'د.أ' : '₪'}'),
           receiptRow('طريقة الدفع', method == 'cash' ? 'نقدًا' : bank),
           receiptRow('رقم الوصل', '${receipt?['voucher_number'] ?? '—'}'),
           receiptRow('الحالة', 'مسجّلة في السجل المالي'),

@@ -10,7 +10,7 @@ const openModals = [];
  * from inside an animated card) still covers the whole screen. `centered`
  * puts the panel in the middle of the screen instead of near the top.
  */
-export default function Modal({ show, onClose, children, maxWidth = 'md', centered = false }) {
+export default function Modal({ show, onClose, children, maxWidth = 'md', centered = false, panelClassName = '' }) {
     const onCloseRef = useRef(onClose);
 
     useEffect(() => {
@@ -51,6 +51,7 @@ export default function Modal({ show, onClose, children, maxWidth = 'md', center
         '3xl': 'sm:max-w-3xl',
         '4xl': 'sm:max-w-4xl',
         '5xl': 'sm:max-w-5xl',
+        '6xl': 'sm:max-w-[1140px]',
         '7xl': 'sm:max-w-7xl',
         full: 'sm:max-w-none',
     }[maxWidth];
@@ -59,7 +60,7 @@ export default function Modal({ show, onClose, children, maxWidth = 'md', center
         <div className={`fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-6 ${centered ? 'flex items-center' : ''}`} onClick={onClose}>
             <div className="animate-modal-backdrop fixed inset-0 bg-graphite-900/60 backdrop-blur-sm" />
             <div
-                className={`animate-modal-panel relative mx-auto mb-6 mt-6 w-full transform overflow-hidden rounded-panel bg-surface shadow-2xl ring-1 ring-black/5 transition-all ${maxWidthClass}`}
+                className={`animate-modal-panel relative mx-auto mb-6 mt-6 w-full transform overflow-hidden rounded-panel bg-surface shadow-2xl ring-1 ring-black/5 transition-all ${maxWidthClass} ${panelClassName}`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <span aria-hidden="true" className="pointer-events-none absolute inset-x-16 top-0 z-10 h-[2px] rounded-full bg-spectrum opacity-80" />

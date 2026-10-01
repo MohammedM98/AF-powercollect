@@ -192,6 +192,26 @@ class MobileApiTest extends TestCase
         ])->assertUnprocessable()->assertJsonValidationErrors('current_reading');
     }
 
+    public function test_mobile_entry_returns_403_outside_the_saved_hours(): void
+    {
+        config(['app.business_timezone' => 'Asia/Gaza']);
+        $this->travelTo(now()->parse('2026-09-24 14:01:00', 'UTC'));
+        ReadingEntrySetting::factory()->create(['opens_at' => '08:30:00', 'closes_at' => '17:00:00']);
+        $user = User::factory()->dataEntry()->create();
+        $subscriber = Subscriber::factory()->create(['branch_id' => $user->branch_id]);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($user));
+        $this->getJson(route('mobile.subscribers.index'))->assertOk()->assertJsonPath('can_record_readings_now', false);
+        $this->postJson(route('mobile.readings.store'), [
+            'mobile_operation_id' => Str::uuid()->toString(),
+            'subscriber_id' => $subscriber->id,
+            'week_start' => '2026-09-18',
+            'current_reading' => 1250,
+        ])->assertForbidden();
+
+        $this->assertDatabaseCount('meter_readings', 0);
+    }
+
     public function test_staff_cannot_record_a_reading_for_another_branch(): void
     {
         ReadingEntrySetting::factory()->forcedOpen()->create();

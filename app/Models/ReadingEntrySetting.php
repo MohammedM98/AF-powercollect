@@ -19,7 +19,7 @@ use Illuminate\Support\Carbon;
  * the end of the last week read on it and the end of the first week on the
  * day that replaced it.
  */
-#[Fillable(['open_days', 'reading_day', 'reading_day_history', 'mode', 'updated_by'])]
+#[Fillable(['open_days', 'opens_at', 'closes_at', 'reading_day', 'reading_day_history', 'mode', 'updated_by'])]
 class ReadingEntrySetting extends Model
 {
     /** @use HasFactory<ReadingEntrySettingFactory> */
@@ -35,6 +35,10 @@ class ReadingEntrySetting extends Model
      * Reading entry opens on Thursday unless configured otherwise.
      */
     public const DEFAULT_OPEN_DAYS = [CarbonInterface::THURSDAY];
+
+    public const DEFAULT_OPENS_AT = '00:00:00';
+
+    public const DEFAULT_CLOSES_AT = '23:59:00';
 
     protected static function booted(): void
     {
@@ -69,6 +73,8 @@ class ReadingEntrySetting extends Model
         return static::query()->oldest('id')->first()
             ?? static::create([
                 'open_days' => self::DEFAULT_OPEN_DAYS,
+                'opens_at' => self::DEFAULT_OPENS_AT,
+                'closes_at' => self::DEFAULT_CLOSES_AT,
                 'reading_day' => self::DEFAULT_READING_DAY,
                 'mode' => ReadingEntryMode::Automatic,
             ]);
@@ -77,18 +83,22 @@ class ReadingEntrySetting extends Model
     /**
      * Whether data entry staff may record readings right now: forced open
      * or closed by the manual switch, otherwise open on the scheduled days
-     * in the business's local timezone.
+     * and hours in the business's local timezone. Both boundary minutes
+     * are included, so the default window covers the entire day.
      */
     public function isOpen(?CarbonInterface $at = null): bool
     {
+        $localTime = ($at ?? now())->copy()->setTimezone(config('app.business_timezone'));
+
         return match ($this->mode) {
             ReadingEntryMode::Open => true,
             ReadingEntryMode::Closed => false,
             ReadingEntryMode::Automatic => in_array(
-                ($at ?? now())->copy()->setTimezone(config('app.business_timezone'))->dayOfWeek,
+                $localTime->dayOfWeek,
                 array_map('intval', $this->open_days ?? []),
                 true,
-            ),
+            ) && $localTime->format('H:i') >= substr($this->opens_at ?? self::DEFAULT_OPENS_AT, 0, 5)
+                && $localTime->format('H:i') <= substr($this->closes_at ?? self::DEFAULT_CLOSES_AT, 0, 5),
         };
     }
 

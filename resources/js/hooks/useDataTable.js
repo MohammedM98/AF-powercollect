@@ -58,7 +58,11 @@ export function useDataTable(url, filters, extraParams = {}) {
     }
 
     function setFilter(key, value) {
-        const next = { ...filterValues, [key]: value };
+        setFilters({ [key]: value });
+    }
+
+    function setFilters(updates) {
+        const next = { ...filterValues, ...updates };
         setFilterValues(next);
         visit({ filter: next });
     }
@@ -68,5 +72,5 @@ export function useDataTable(url, filters, extraParams = {}) {
         visit({ filter: {} });
     }
 
-    return { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, clearFilters };
+    return { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, setFilters, clearFilters };
 }

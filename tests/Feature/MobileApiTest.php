@@ -15,6 +15,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class MobileApiTest extends TestCase
@@ -257,6 +258,7 @@ class MobileApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('status', 'recorded')
             ->assertJsonPath('amount', '100.00')
+            ->assertJsonPath('balance_after', number_format($startingBalance - 100, 2, '.', ''))
             ->assertJsonStructure(['voucher_number'])
             ->json('id');
         $this->postJson(route('mobile.collections.store'), $payload)
@@ -273,6 +275,34 @@ class MobileApiTest extends TestCase
         $this->getJson(route('mobile.collections.index'))
             ->assertOk()->assertJsonPath('data.0.id', $created)
             ->assertJsonPath('data.0.status', 'recorded');
+    }
+
+    #[TestWith(['suspended', 'Suspended'])]
+    #[TestWith(['disconnected', 'Disconnected'])]
+    public function test_a_suspended_or_disconnected_subscriber_can_pay_in_the_app_as_on_the_website(string $status, string $label): void
+    {
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $subscriber = Subscriber::factory()->create(['branch_id' => $collector->branch_id, 'status' => $status]);
+        SubscriberTransaction::factory()->for($subscriber)->create(['amount' => '80.00']);
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
+
+        $this->getJson(route('mobile.collections.subscribers'))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $subscriber->id)
+            ->assertJsonPath('data.0.status', $status)
+            ->assertJsonPath('data.0.status_label', __($label));
+        $response = $this->postJson(route('mobile.collections.store'), [
+            'mobile_operation_id' => Str::uuid()->toString(),
+            'collector_confirmed' => true,
+            'subscriber_id' => $subscriber->id,
+            'amount' => '30',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+        ]);
+
+        $response->assertCreated()->assertJsonPath('balance_after', '50.00');
+        $this->assertSame(50.0, $subscriber->fresh()->balance());
     }
 
     public function test_mobile_bank_transfers_keep_both_source_and_destination_banks(): void

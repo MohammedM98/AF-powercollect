@@ -83,7 +83,8 @@ class _PaymentPageState extends State<PaymentPage> {
   final notes = TextEditingController();
   final voucher = TextEditingController();
   String currency = 'ILS';
-  String method = 'cash';
+  // The website's payment form starts on a transfer too.
+  String method = 'bank_transfer';
   String? bank;
   String? senderBank;
   bool senderIsSubscriber = true;
@@ -91,6 +92,8 @@ class _PaymentPageState extends State<PaymentPage> {
   bool scanning = false;
   bool collectorConfirmed = false;
   bool showKeypad = true;
+  bool recordedAny = false;
+  late double balance = double.tryParse('${widget.subscriber['balance']}') ?? 0;
   String? error;
   Map<String, dynamic>? submission;
   Map<String, dynamic>? receipt;
@@ -104,7 +107,6 @@ class _PaymentPageState extends State<PaymentPage> {
   double? get inShekels => rateValue == null || rateValue! <= 0
       ? null
       : (value * rateValue! * 100).roundToDouble() / 100;
-  double get balance => double.tryParse('${widget.subscriber['balance']}') ?? 0;
   double get owed => max(balance, 0);
   (String, String, String) get currencyLook =>
       _currencies.firstWhere((look) => look.$1 == currency);
@@ -149,6 +151,33 @@ class _PaymentPageState extends State<PaymentPage> {
     }
     setState(() => amount.text = next);
   }
+
+  /// The balance the server reports after the payment; the app's own sum
+  /// when an older server sends none.
+  double balanceAfter(double recordedInShekels) =>
+      double.tryParse('${receipt?['balance_after']}') ??
+      balance - recordedInShekels;
+
+  /// Back to an empty form for another payment from the same subscriber,
+  /// starting from the balance the last one left, as the website's
+  /// «دفعة جديدة» does.
+  void startAnother(double newBalance) => setState(() {
+        for (final controller in [amount, rate, reference, notes, voucher]) {
+          controller.clear();
+        }
+        balance = newBalance;
+        currency = 'ILS';
+        method = 'bank_transfer';
+        bank = null;
+        senderBank = null;
+        senderIsSubscriber = true;
+        sender.text = subscriberName;
+        collectorConfirmed = false;
+        showKeypad = true;
+        submission = null;
+        receipt = null;
+        error = null;
+      });
 
   void toggleSender(bool isSubscriber) => setState(() {
         senderIsSubscriber = isSubscriber;
@@ -252,6 +281,7 @@ class _PaymentPageState extends State<PaymentPage> {
         'notes': notes.text.trim(),
       };
       final result = await widget.api.sendCollection(submission!);
+      recordedAny = true;
       if (mounted) setState(() => receipt = result);
     } on ApiException catch (exception) {
       if (exception.statusCode >= 400 && exception.statusCode < 500)
@@ -280,7 +310,7 @@ class _PaymentPageState extends State<PaymentPage> {
                                 'حساب ${widget.subscriber['account_number']} · تسجيل دفعة',
                             onBack: busy || scanning
                                 ? null
-                                : () => Navigator.pop(context, false)),
+                                : () => Navigator.pop(context, recordedAny)),
                         Expanded(
                             child: ListView(
                                 padding:
@@ -628,6 +658,9 @@ class _PaymentPageState extends State<PaymentPage> {
 
   Widget summary() {
     final after = inShekels == null ? null : balance - inShekels!;
+    final coverage = owed > 0 && inShekels != null
+        ? min(100, (inShekels! / owed * 100).round())
+        : null;
     return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -644,6 +677,8 @@ class _PaymentPageState extends State<PaymentPage> {
                   : after > 0
                       ? const Color(0xFFFCA5A5)
                       : const Color(0xFF6EE7B7)),
+          if (coverage != null)
+            summaryRow('تغطية المبلغ المستحق', '$coverage%'),
           summaryRow('الطريقة', methodText),
         ]));
   }
@@ -716,6 +751,7 @@ class _PaymentPageState extends State<PaymentPage> {
   Widget success() {
     final recordedInShekels =
         double.tryParse('${receipt?['amount_in_shekels']}') ?? inShekels ?? 0;
+    final newBalance = balanceAfter(recordedInShekels);
     return ListView(
         padding: const EdgeInsets.fromLTRB(20, 50, 20, 24),
         children: [
@@ -745,13 +781,19 @@ class _PaymentPageState extends State<PaymentPage> {
               receiptRow(
                   'بالشيكل', '${AppIdentity.money(recordedInShekels)} ₪'),
             receiptRow('الطريقة', methodText),
-            receiptRow(
-                'الرصيد بعد الدفعة', balanceText(balance - recordedInShekels)),
+            receiptRow('الرصيد بعد الدفعة', balanceText(newBalance)),
           ])),
           const SizedBox(height: 20),
           AppAction(
               label: 'العودة إلى التحصيل',
               onPressed: () => Navigator.pop(context, true)),
+          const SizedBox(height: 10),
+          AppAction(
+              key: const ValueKey('payment-another'),
+              label: 'دفعة جديدة',
+              icon: Icons.add,
+              primary: false,
+              onPressed: () => startAnother(newBalance)),
         ]);
   }
 

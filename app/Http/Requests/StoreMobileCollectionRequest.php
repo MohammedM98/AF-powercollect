@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use App\Enums\PermissionKey;
-use App\Enums\SubscriberStatus;
 use App\Models\SubscriberTransaction;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,7 +28,6 @@ class StoreMobileCollectionRequest extends FormRequest
             'collector_confirmed' => ['required', 'accepted'],
             ...($this->existingTransaction() ? [] : [
                 'subscriber_id' => ['required', Rule::exists('subscribers', 'id')
-                    ->where('status', SubscriberStatus::Active->value)
                     ->when(! $this->user()->isSuperAdmin(), fn ($rule) => $rule->where('branch_id', $this->user()->branch_id))],
                 ...StoreSubscriberPaymentRequest::paymentRules($this->input('payment_method')),
             ]),

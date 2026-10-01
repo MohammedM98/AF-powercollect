@@ -59,7 +59,8 @@ class MeterReadingController extends Controller
                 'circuitBreaker',
                 'standingDiscount',
                 'meterBox.subArea',
-                'meterReadings' => fn ($q) => $q->whereDate('week_start', '<=', $week)->orderByDesc('week_start'),
+                'meterReadings' => fn ($q) => $q->whereDate('week_start', '<=', $week)->orderByDesc('week_start')
+                    ->with(['recordedBy:id,name', 'approvedBy:id,name']),
             ])
             ->withExists(['meterReadings as has_later_week' => fn ($q) => $q->whereDate('week_start', '>', $week)]);
 
@@ -67,7 +68,9 @@ class MeterReadingController extends Controller
         $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'account_number', 'phone', 'subscription_phone'], self::SORTABLE, 'full_name');
         $query->orderBy('subscribers.id');
         $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
-        $this->applySheetFilters($query, $request, $week);
+        $this->applySheetFilters($query, $request, $week, includeStatus: false);
+        $statusSummary = $this->statusSummary($query, $week);
+        $this->applySheetStatusFilters($query, $request, $week);
 
         $enteredThisWeek = fn (Builder $q) => $q->whereDate('week_start', $week);
 
@@ -93,6 +96,7 @@ class MeterReadingController extends Controller
             ],
             'canRecord' => $actor->can('create', MeterReading::class),
             'canApprove' => $canApprove,
+            'statusSummary' => $statusSummary,
             'pendingApproval' => $canApprove ? $this->pendingApprovalSummary($request, $actor, $week) : null,
             // The actor could record now, just not in this earlier week.
             'weekIsViewOnly' => $actor->can('create', MeterReading::class) && ! $actor->can('create', [MeterReading::class, $weekStart]),
@@ -335,7 +339,7 @@ class MeterReadingController extends Controller
      * area/sub-area a subscriber's meter box sits in, whether this week's
      * reading has been entered yet, and whether it has been approved.
      */
-    private function applySheetFilters(Builder $query, Request $request, string $week): void
+    private function applySheetFilters(Builder $query, Request $request, string $week, bool $includeStatus = true): void
     {
         $filters = (array) $request->input('filter', []);
 
@@ -346,6 +350,15 @@ class MeterReadingController extends Controller
         if (filled($filters['sub_area_id'] ?? null)) {
             $query->whereHas('meterBox', fn (Builder $q) => $q->where('sub_area_id', $filters['sub_area_id']));
         }
+
+        if ($includeStatus) {
+            $this->applySheetStatusFilters($query, $request, $week);
+        }
+    }
+
+    private function applySheetStatusFilters(Builder $query, Request $request, string $week): void
+    {
+        $filters = (array) $request->input('filter', []);
 
         match ($filters['entry'] ?? null) {
             'entered' => $query->whereHas('meterReadings', fn (Builder $q) => $q->whereDate('week_start', $week)),
@@ -358,6 +371,27 @@ class MeterReadingController extends Controller
         if ($approval !== null) {
             $query->whereHas('meterReadings', fn (Builder $q) => $q->whereDate('week_start', $week)->where('status', $approval));
         }
+    }
+
+    /**
+     * Counts for the status tabs retain search and location filters, without
+     * narrowing the other tabs to the currently selected status or page.
+     *
+     * @return array{total: int, pending: int, approved: int, missing: int}
+     */
+    private function statusSummary(Builder $query, string $week): array
+    {
+        $counts = MeterReading::query()
+            ->whereIn('subscriber_id', (clone $query)->reorder()->select('subscribers.id'))
+            ->whereDate('week_start', $week)
+            ->selectRaw('status, COUNT(*) as reading_count')
+            ->groupBy('status')
+            ->toBase()->pluck('reading_count', 'status');
+        $total = (clone $query)->count();
+        $pending = (int) ($counts[MeterReadingStatus::Pending->value] ?? 0);
+        $approved = (int) ($counts[MeterReadingStatus::Approved->value] ?? 0);
+
+        return ['total' => $total, 'pending' => $pending, 'approved' => $approved, 'missing' => $total - $pending - $approved];
     }
 
     /**
@@ -400,6 +434,11 @@ class MeterReadingController extends Controller
                 'amountDue' => $reading->amount_due,
                 'status' => $reading->status->value,
                 'statusLabel' => __($reading->status->label()),
+                'recordedByName' => $reading->recordedBy?->name,
+                'recordedAt' => $reading->created_at?->timezone(config('app.business_timezone'))->format('d/m H:i'),
+                'recordedSource' => $reading->mobile_operation_id !== null ? 'app' : 'web',
+                'approvedByName' => $reading->approvedBy?->name,
+                'approvedAt' => $reading->approved_at?->timezone(config('app.business_timezone'))->format('d/m H:i'),
             ] : null,
             'hasLaterWeek' => (bool) $subscriber->has_later_week,
             'canApprove' => $reading !== null && $actor->can('approve', $reading),

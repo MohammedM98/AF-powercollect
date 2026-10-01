@@ -44,7 +44,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/branch-performance/{branch}', [BranchPerformanceController::class, 'show'])->name('branch-performance.show');
 
     Route::resource('branches', BranchController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
-    Route::resource('user-types', UserTypeController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+    Route::resource('user-types', UserTypeController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('/subscribers/{subscriber}/statement', [SubscriberStatementController::class, 'show'])->name('subscribers.statement');

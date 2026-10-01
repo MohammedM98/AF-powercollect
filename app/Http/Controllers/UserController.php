@@ -10,6 +10,7 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\Branch;
 use App\Models\User;
+use App\Models\UserType;
 use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,14 +48,38 @@ class UserController extends Controller
                 'canDelete' => $actor->can('delete', $user),
             ]);
 
+        $canViewUserTypes = $actor->can('viewAny', UserType::class);
+
         return Inertia::render('Users/Index', [
             'users' => $users,
             'canCreate' => $actor->can('create', User::class),
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => $this->filterOptions($actor),
             'createRoleOptions' => $this->userRoleOptions(null),
+            'tab' => $canViewUserTypes && $request->query('tab') === 'types' ? 'types' : 'users',
+            'userTypes' => $canViewUserTypes ? $this->userTypeRows($actor) : null,
+            'canCreateUserType' => $actor->can('create', UserType::class),
             ...$this->userBranchOptions(),
         ]);
+    }
+
+    /**
+     * The user types for the Users page's types tab, with how many users
+     * each one is given to.
+     *
+     * @return array<int, array{id: int, name: string, usersCount: int, canUpdate: bool, canDelete: bool}>
+     */
+    private function userTypeRows(User $actor): array
+    {
+        return UserType::query()->withCount('users')->orderBy('name')->get()
+            ->map(fn (UserType $userType): array => [
+                'id' => $userType->id,
+                'name' => $userType->name,
+                'usersCount' => $userType->users_count,
+                'canUpdate' => $actor->can('update', $userType),
+                'canDelete' => $actor->can('delete', $userType),
+            ])
+            ->all();
     }
 
     /**

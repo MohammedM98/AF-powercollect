@@ -15,9 +15,10 @@ const numbers = {
 };
 const tariff = { key: 'tariff_id', label: 'نوع الاشتراك', options: [] };
 
-test('a dependent group is nested under its parent instead of standing alone', () => {
-    const { topLevel, childOf } = nestFilterGroups([names, numbers, tariff]);
+test('a dependent group sits with its parent, which always stays shown', () => {
+    const { topLevel, childOf, hideable } = nestFilterGroups([names, numbers, tariff]);
     assert.deepEqual(topLevel.map((group) => group.key), ['meter_box_name', 'tariff_id']);
+    assert.deepEqual(hideable.map((group) => group.key), ['tariff_id']);
     assert.equal(childOf.meter_box_name, numbers);
     assert.equal(childOf.tariff_id, undefined);
 });

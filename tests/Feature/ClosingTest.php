@@ -188,6 +188,24 @@ class ClosingTest extends TestCase
             ->where('daily.cash.expected', '700.00'));
     }
 
+    public function test_every_active_branch_gets_its_daily_closing_with_its_own_payments_after_the_day_ends(): void
+    {
+        $secondBranch = Branch::factory()->create();
+        $stoppedBranch = Branch::factory()->create(['is_active' => false]);
+        $first = $this->payment('1000', 'cash', '2026-09-30 09:14');
+        $second = $this->payment('300', 'cash', '2026-09-30 11:00', subscriber: Subscriber::factory()->create(['branch_id' => $secondBranch->id]));
+        $activeBranches = Branch::where('is_active', true)->count();
+
+        $this->artisan('closings:open')->assertSuccessful();
+        $this->artisan('closings:open')->assertSuccessful();
+
+        $this->assertSame($activeBranches, Closing::count());
+        $this->assertDatabaseMissing('closings', ['branch_id' => $stoppedBranch->id]);
+        $this->assertSame([$first->id], Closing::where('branch_id', $this->branch->id)->sole()->lines()->pluck('subscriber_transaction_id')->all());
+        $this->assertSame([$second->id], Closing::where('branch_id', $secondBranch->id)->sole()->lines()->pluck('subscriber_transaction_id')->all());
+        $this->artisan('closings:open', ['--date' => '2026-10-01'])->assertFailed();
+    }
+
     private function closingFor(string $day, User $actor): Closing
     {
         $closing = Closing::dailyFor($this->branch, $day);

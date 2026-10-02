@@ -1,287 +1,235 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import Modal from '@/Components/Modal';
-import PrimaryButton from '@/Components/PrimaryButton';
-import SecondaryButton from '@/Components/SecondaryButton';
-import StatusPill from '@/Components/DataTable/StatusPill';
-import { formatCurrency } from '@/lib/currency';
 import Icon from '@/Components/Icon';
-import { describeBalance } from '@/lib/accountStatement';
+import { describeBalance, filterStatementEntries } from '@/lib/accountStatement';
+import { groupReadingsByMonth } from '@/lib/readingHistory';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
+import './SubscriberDetailsModal.css';
 
-const STATUS_TONES = {
-    active: 'green',
-    suspended: 'amber',
-    disconnected: 'gray',
-};
+const TABS = [['details', 'البيانات'], ['transactions', 'الحساب'], ['consumption', 'الاستهلاك']];
+const number = (value) => value == null || value === '' ? '—' : Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const money = (value) => value == null || value === '' ? '—' : `${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₪`;
+const monthLabel = (month) => new Intl.DateTimeFormat('ar', { month: 'long', timeZone: 'UTC' }).format(new Date(`${month}-01T00:00:00Z`));
 
-function Field({ label, value }) {
-    const display = value === null || value === undefined || value === '' ? '—' : value;
-
-    return (
-        <div>
-            <div className="text-xs font-semibold text-gray-500">{label}</div>
-            <div className="mt-1 text-sm text-gray-900">{display}</div>
-        </div>
-    );
+function ProfileIcon({ name }) {
+    const paths = {
+        copy: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></>,
+        expand: <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />,
+        previous: <path d="m18 15-6-6-6 6" />,
+        next: <path d="m6 9 6 6 6-6" />,
+    };
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-function Section({ title, children }) {
-    return (
-        <div>
-            <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
-            <div className="mt-2 border-b border-gray-100" />
-            <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
-        </div>
-    );
+function Field({ label, value, numeric = false, copy = false, wide = false }) {
+    const [copyStatus, setCopyStatus] = useState('');
+    const empty = value === null || value === undefined || value === '';
+    async function copyValue() {
+        try {
+            await navigator.clipboard.writeText(String(value));
+            setCopyStatus('تم النسخ');
+        } catch {
+            setCopyStatus('تعذر النسخ');
+        }
+    }
+    return <div className={wide ? 'sp-field sp-field-wide' : 'sp-field'}>
+        <dt>{label}</dt>
+        <dd className={empty ? 'sp-empty-value' : ''}>
+            <span className={numeric ? 'sp-number' : undefined}>{empty ? 'لا يوجد' : value}</span>
+            {copy && !empty && <button type="button" className="sp-copy" onClick={copyValue} aria-label={`نسخ ${label}`} title={copyStatus || 'نسخ'}><ProfileIcon name="copy" /></button>}
+            {copyStatus && <span className="sp-copy-status" role="status">{copyStatus}</span>}
+        </dd>
+    </div>;
 }
 
-export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, onOpenStatement, canUpdate, readingWeekOptions = [] }) {
+function Section({ title, icon, onEdit, children, trailing }) {
+    return <section className="sp-section">
+        <h3><span className="sp-section-icon"><Icon name={icon} /></span>{title}
+            {onEdit && <button type="button" onClick={onEdit}><Icon name="pencil" />تعديل</button>}{trailing}
+        </h3>{children}
+    </section>;
+}
+
+export function AccountTab({ statement, onOpenStatement, onLoadStatement, loading }) {
+    const [type, setType] = useState('');
+    if (!statement) {
+        return loading ? <div className="sp-loading" role="status" aria-label="جارٍ تحميل الحساب"><div /><div /><div /><div /></div>
+            : <div className="sp-empty"><p>تعذر تحميل الحساب.</p><button type="button" className="sp-button" onClick={onLoadStatement}>إعادة المحاولة</button></div>;
+    }
+    const entries = filterStatementEntries(statement.entries, { type }).toReversed();
+    const balance = describeBalance(statement.summary.balance);
+    return <>
+        <div className="sp-account-summary">
+            <div><small>الرصيد · {balance.label}</small><b className={`sp-${balance.tone}`}>{money(balance.amount)}</b></div>
+            <div><small>مجموع الفواتير والرسوم</small><b>{money(statement.summary.charged)}</b></div>
+            <div><small>مجموع الدفعات</small><b className="sp-credit">{money(statement.summary.paid)}</b></div>
+            <div><small>مجموع الخصومات</small><b>{money(statement.summary.discounted)}</b></div>
+        </div>
+        <div className="sp-account-toolbar">
+            <div className="sp-filters" role="group" aria-label="نوع المعاملة">{[['', 'الكل'], ['meter_reading', 'فواتير'], ['payment', 'دفعات'], ['debit', 'تحميلات'], ['credit', 'دفعات وخصومات']].map(([value, label]) => <button type="button" key={value} aria-pressed={type === value} onClick={() => setType(value)}>{label}</button>)}</div>
+            <button type="button" className="sp-button" onClick={() => onOpenStatement()}><Icon name="ledger" />كشف الحساب الكامل</button>
+        </div>
+        <div className="sp-table-wrap"><table className="sp-statement">
+            <thead><tr><th>التاريخ</th><th>المعاملة</th><th>الوصف</th><th className="sp-amount-column">المبلغ</th><th className="sp-amount-column">الرصيد بعدها</th></tr></thead>
+            <tbody>{entries.map((entry) => {
+                const running = describeBalance(entry.balance);
+                return <tr key={entry.id}>
+                    <td><span className="sp-date">{entry.date.slice(0, 10)}<small>{entry.date.slice(11)}</small></span></td>
+                    <td><span className={`sp-transaction-type ${entry.isCredit ? 'sp-credit' : 'sp-owes'}`}><Icon name={entry.isCredit ? 'arrow-down' : 'receipt'} />{entry.typeLabel}</span></td>
+                    <td>{entry.description}{entry.cancellation && <small className="sp-cancellation">{entry.cancellation.wasCorrected ? 'مصححة' : 'ملغاة'} · {entry.cancellation.reasonLabel}</small>}</td>
+                    <td className="sp-amount-column"><b className={`sp-number ${entry.isCredit ? 'sp-credit' : 'sp-owes'}`}>{entry.isCredit ? '+' : '−'}{number(entry.amount)} {entry.currencyLabel}</b></td>
+                    <td className="sp-amount-column"><span className="sp-number">{money(running.amount)}</span> <small>{running.label}</small></td>
+                </tr>;
+            })}</tbody>
+        </table>{entries.length === 0 && <p className="sp-empty">لا توجد حركات لهذا النوع.</p>}</div>
+    </>;
+}
+
+export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, onEditPersonal, onOpenStatement, onLoadStatement, statement, statementLoading, onSendMessage, onPrevious, onNext, onOpenReadings, canUpdate, readingWeekOptions = [] }) {
     const [activeTab, setActiveTab] = useState('details');
     const [expanded, setExpanded] = useState(false);
     const [enteringReading, setEnteringReading] = useState(false);
     const tabsId = useId();
-    const balance = describeBalance(subscriber?.outstandingBalance ?? 0);
-    const lastReading = subscriber?.meterReadings?.[0];
+    const dialogRef = useRef(null);
+    const bodyRef = useRef(null);
+    const balance = describeBalance(statement?.summary.balance ?? subscriber?.outstandingBalance ?? 0);
+    const readings = subscriber?.meterReadings ?? [];
+    const lastReading = readings[0];
+    const months = groupReadingsByMonth(readings).slice(0, 6).reverse();
+    const maximum = Math.max(1, ...months.map((month) => month.totals.consumption));
     const currentWeekRecorded = subscriber ? hasLatestWeekReading(subscriber, readingWeekOptions) : false;
-    const readingSubscriberOption = subscriber ? readingOptionFor(subscriber) : null;
+    const lastPayment = statement?.entries.findLast((entry) => entry.type === 'payment' && !entry.cancellation && !entry.isReversal);
 
-    return (
-        <>
-            <Modal show={Boolean(subscriber)} onClose={onClose} maxWidth={expanded ? 'full' : '7xl'}>
-                {subscriber && (
-                    <div
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby={`${tabsId}-title`}
-                        className="flex h-[calc(100dvh-8rem)] max-h-[960px] min-h-0 flex-col"
-                    >
-                        <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-5 sm:px-8">
-                            <div className="flex min-w-0 items-center gap-3">
-                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
-                                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="1.5"
-                                            d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                                        />
-                                    </svg>
-                                </span>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <h3 id={`${tabsId}-title`} className="truncate text-lg font-bold text-gray-900">
-                                            {subscriber.display_name}
-                                        </h3>
-                                        <StatusPill tone={STATUS_TONES[subscriber.status]} label={subscriber.statusLabel} />
-                                    </div>
-                                    <p className="mt-1 text-sm text-gray-500">
-                                        ملف المشترك · <span dir="ltr">{subscriber.account_number}</span> · {subscriber.branchName}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setExpanded(!expanded)}
-                                    aria-label={expanded ? 'تصغير النافذة' : 'توسيع النافذة'}
-                                    aria-pressed={expanded}
-                                    className="hidden rounded-lg p-2 text-gray-500 hover:bg-gray-100 sm:block"
-                                >
-                                    <svg
-                                        className="h-5 w-5"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth="1.5"
-                                        aria-hidden="true"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d={expanded ? 'M9 3v6H3m18 0h-6V3M3 15h6v6m6 0v-6h6' : 'M9 3H3v6m12-6h6v6M3 15v6h6m6 0h6v-6'}
-                                        />
-                                    </svg>
-                                </button>
-                                <button
-                                    type="button"
-                                    aria-label="إغلاق"
-                                    onClick={onClose}
-                                    className="rounded-full p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
-                                >
-                                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
+    useEffect(() => {
+        if (!subscriber) {
+            return;
+        }
+        const previousFocus = document.activeElement;
+        dialogRef.current?.focus();
+        return () => previousFocus?.focus();
+    }, [subscriber?.id]);
+
+    function selectTab(tab, focus = false) {
+        setActiveTab(tab);
+        bodyRef.current?.scrollTo({ top: 0 });
+        if (tab === 'transactions' && !statement && !statementLoading) {
+            onLoadStatement();
+        }
+        if (focus) {
+            document.getElementById(`${tabsId}-${tab}`)?.focus();
+        }
+    }
+
+    function handleKeyDown(event) {
+        if (enteringReading || event.altKey || event.ctrlKey || event.metaKey || event.target.closest('input, textarea, select, [contenteditable="true"]')) {
+            return;
+        }
+        if (event.key === 'Tab') {
+            const controls = [...dialogRef.current.querySelectorAll('button:not(:disabled), a[href], [tabindex="0"]')].filter((element) => element.getClientRects().length > 0);
+            const first = controls[0];
+            const last = controls.at(-1);
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+                event.preventDefault();
+                last?.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first?.focus();
+            }
+        } else if (['1', '2', '3'].includes(event.key)) {
+            event.preventDefault();
+            selectTab(TABS[Number(event.key) - 1][0], true);
+        } else if (!event.target.closest('[role="tablist"]') && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+            event.preventDefault();
+            (event.key === 'ArrowLeft' ? onNext : onPrevious)?.();
+        }
+    }
+
+    return <>
+        <Modal show={Boolean(subscriber)} onClose={onClose} maxWidth="full" centered panelClassName={`subscriber-profile-panel ${expanded ? 'is-expanded' : ''}`}>
+            {subscriber && <div className="subscriber-profile" role="dialog" aria-modal="true" aria-labelledby={`${tabsId}-title`} dir="rtl" tabIndex={-1} ref={dialogRef} onKeyDown={handleKeyDown}>
+                <header className="sp-header">
+                    <div className="sp-top">
+                        <span className="sp-avatar" aria-hidden="true">{subscriber.display_name?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('')}<i className={`sp-status-${subscriber.status}`} /></span>
+                        <div className="sp-identity">
+                            <h2 id={`${tabsId}-title`}>{subscriber.display_name}<span className={`sp-status sp-status-${subscriber.status}`}><i />{subscriber.statusLabel}</span></h2>
+                            <div className="sp-meta"><span>ملف المشترك</span><span className="sp-number">#{subscriber.subscriber_number ?? subscriber.account_number}</span><span><Icon name="pin" />{subscriber.branchName}</span><span><Icon name="bolt" />{subscriber.tariffCategoryLabel}{subscriber.circuitBreakerAmpere && ` · ${subscriber.circuitBreakerAmpere} أمبير`}</span></div>
+                            <div className="sp-facts">{lastPayment && <span>آخر دفعة <b>{number(lastPayment.amount)} {lastPayment.currencyLabel}</b></span>}<span>آخر قراءة <b>{number(subscriber.lastReading)}</b></span>{lastReading && <span>استهلاك آخر أسبوع <b>{number(lastReading.consumption)}</b> كيلوواط ساعة</span>}</div>
                         </div>
-
-                        <div role="tablist" aria-label="أقسام ملف المشترك" className="mx-4 flex shrink-0 gap-6 border-b border-gray-200 sm:mx-8">
-                            {[
-                                ['details', 'بيانات المشترك'],
-                                ['transactions', 'الحساب'],
-                            ].map(([tab, label]) => (
-                                <button
-                                    key={tab}
-                                    id={`${tabsId}-${tab}`}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={activeTab === tab}
-                                    aria-controls={`${tabsId}-${tab}-panel`}
-                                    tabIndex={activeTab === tab ? 0 : -1}
-                                    onClick={() => setActiveTab(tab)}
-                                    onKeyDown={(event) => {
-                                        if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-                                            event.preventDefault();
-                                            const nextTab =
-                                                event.key === 'Home'
-                                                    ? 'details'
-                                                    : event.key === 'End'
-                                                      ? 'transactions'
-                                                      : activeTab === 'details'
-                                                        ? 'transactions'
-                                                        : 'details';
-                                            setActiveTab(nextTab);
-                                            document.getElementById(`${tabsId}-${nextTab}`)?.focus();
-                                        }
-                                    }}
-                                    className={`border-b-2 px-1 py-4 text-sm font-semibold transition ${activeTab === tab ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
-                            <div
-                                id={`${tabsId}-details-panel`}
-                                role="tabpanel"
-                                aria-labelledby={`${tabsId}-details`}
-                                hidden={activeTab !== 'details'}
-                                className="space-y-8"
-                            >
-                                <Section title="بيانات المشترك">
-                                    <Field label="رقم المشترك" value={subscriber.subscriber_number} />
-                                    <Field label="رقم الاشتراك" value={subscriber.account_number} />
-                                    <Field label="اسم الاشتراك" value={subscriber.display_name} />
-                                    <Field label="الاسم الشخصي" value={subscriber.full_name} />
-                                    <Field label="رقم الهوية" value={subscriber.national_id} />
-                                    <Field label="رقم الجوال" value={subscriber.contact_phone} />
-                                    <Field label="الحالة" value={subscriber.statusLabel} />
-                                </Section>
-
-                                <Section title="نوع الاشتراك والقاطع">
-                                    <Field label="نوع الاشتراك" value={subscriber.tariffCategoryLabel} />
-                                    <Field label="تصنيف الزبائن" value={subscriber.tariffSegmentName ?? 'بدون تصنيف'} />
-                                    <Field label="سعر الكيلو" value={formatCurrency(subscriber.tariffRate)} />
-                                    <Field
-                                        label="القاطع"
-                                        value={subscriber.circuitBreakerAmpere ? `${subscriber.circuitBreakerAmpere} أمبير` : '—'}
-                                    />
-                                    <Field label="الحد الادنى" value={formatCurrency(subscriber.minimum_charge)} />
-                                    <Field label="الخصم الدائم على القراءات" value={subscriber.standingDiscountSummary ?? 'لا يوجد'} />
-                                </Section>
-
-                                <Section title="الموقع والعداد">
-                                    <Field label="الفرع" value={subscriber.branchName} />
-                                    <Field label="المحافظة" value={subscriber.governorateName} />
-                                    <Field label="المنطقة" value={subscriber.areaName} />
-                                    <Field label="منطقة 2" value={subscriber.subAreaName} />
-                                    <Field label="رقم الطبلون" value={subscriber.meterBoxNumber} />
-                                </Section>
-
-                                <Section title="معلومات الاشتراك">
-                                    <Field label="القراءة السابقة (كيلوواط ساعة)" value={subscriber.initial_reading} />
-                                    <Field label="رسوم الاشتراك" value={formatCurrency(subscriber.subscription_fee)} />
-                                    <Field label="تاريخ الاشتراك" value={subscriber.subscription_date} />
-                                    <Field label="سجّله" value={subscriber.registeredByName} />
-                                </Section>
-
-                                <Section title="معلومات إضافية">
-                                    <div className="sm:col-span-2 lg:col-span-3">
-                                        <Field label="العنوان" value={subscriber.address} />
-                                    </div>
-                                    <div className="sm:col-span-2 lg:col-span-3">
-                                        <Field label="معلومات أخرى" value={subscriber.notes} />
-                                    </div>
-                                </Section>
-                            </div>
-                            <div
-                                id={`${tabsId}-transactions-panel`}
-                                role="tabpanel"
-                                aria-labelledby={`${tabsId}-transactions`}
-                                hidden={activeTab !== 'transactions'}
-                                className="space-y-6"
-                            >
-                                <div className="grid gap-4 sm:grid-cols-3">
-                                    <div
-                                        className={`rounded-xl border p-5 ${balance.tone === 'credit' ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'border-brand-100 bg-brand-50 text-brand-700'}`}
-                                    >
-                                        <p className="text-sm font-medium">الرصيد الحالي</p>
-                                        <p className="mt-2 text-2xl font-bold tabular-nums">{formatCurrency(balance.amount)}</p>
-                                        <p className="mt-1 text-xs font-semibold">
-                                            {balance.tone === 'owes' ? 'عليه' : balance.tone === 'credit' ? 'له' : 'مسدّد'}
-                                        </p>
-                                    </div>
-                                    <div className="rounded-xl border border-gray-200 p-5">
-                                        <p className="text-sm text-gray-500">آخر قراءة للعداد</p>
-                                        <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{subscriber.lastReading}</p>
-                                    </div>
-                                    <div className="rounded-xl border border-gray-200 p-5">
-                                        <p className="text-sm text-gray-500">آخر أسبوع مسجل</p>
-                                        <p className="mt-3 text-base font-semibold text-gray-900">
-                                            {lastReading ? `${lastReading.weekStart} ← ${lastReading.weekEnd}` : 'لا توجد قراءات بعد'}
-                                        </p>
-                                    </div>
-                                </div>
-                                {subscriber.canRecordReading && (
-                                    <div className="flex items-center justify-end gap-3">
-                                        {currentWeekRecorded ? (
-                                            <p className="text-sm text-gray-500">تم إدخال قراءة هذا الأسبوع.</p>
-                                        ) : (
-                                            <PrimaryButton type="button" onClick={() => setEnteringReading(true)}>
-                                                + إدخال قراءة
-                                            </PrimaryButton>
-                                        )}
-                                    </div>
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={onOpenStatement}
-                                    className="flex w-full items-center justify-between gap-4 rounded-xl border border-gray-200 p-5 text-start transition hover:border-gray-300 hover:shadow-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
-                                >
-                                    <span className="flex items-center gap-3">
-                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
-                                            <Icon name="ledger" />
-                                        </span>
-                                        <span>
-                                            <span className="block font-semibold text-gray-900">كشف الحساب</span>
-                                            <span className="mt-0.5 block text-sm text-gray-500">
-                                                كل الحركات: رسوم الاشتراك، القراءات المعتمدة والدفعات، مع الرصيد بعد كل حركة وتسجيل الدفعات.
-                                            </span>
-                                        </span>
-                                    </span>
-                                    <span className="shrink-0 text-sm font-semibold text-brand-600">عرض ←</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
-                            <SecondaryButton onClick={onClose}>إغلاق</SecondaryButton>
-                            {canUpdate && <PrimaryButton onClick={onEdit}>تعديل</PrimaryButton>}
+                        <div className={`sp-balance sp-${balance.tone}`}><small>الرصيد الحالي</small><b><bdi>{money(balance.amount)}</bdi><em>{balance.label}</em></b></div>
+                        <div className="sp-tools">
+                            <button type="button" onClick={onPrevious} disabled={!onPrevious} aria-label="المشترك السابق" title="المشترك السابق"><ProfileIcon name="previous" /></button>
+                            <button type="button" onClick={onNext} disabled={!onNext} aria-label="المشترك التالي" title="المشترك التالي"><ProfileIcon name="next" /></button>
+                            <button type="button" onClick={() => setExpanded(!expanded)} aria-label={expanded ? 'تصغير' : 'توسيع'} title={expanded ? 'تصغير' : 'توسيع'} aria-pressed={expanded}><ProfileIcon name="expand" /></button>
+                            <button type="button" onClick={onClose} aria-label="إغلاق" title="إغلاق (Esc)"><Icon name="close" /></button>
                         </div>
                     </div>
-                )}
-            </Modal>
-
-            {enteringReading && readingSubscriberOption && (
-                <MeterReadingModal
-                    show
-                    onClose={() => setEnteringReading(false)}
-                    reading={null}
-                    fixedSubscriber={readingSubscriberOption}
-                    weekOptions={readingWeekOptions}
-                />
-            )}
-        </>
-    );
+                    <div className="sp-header-bottom">
+                        <div className="sp-tabs" role="tablist" aria-label="أقسام ملف المشترك">
+                            {TABS.map(([tab, label], index) => <button key={tab} type="button" id={`${tabsId}-${tab}`} role="tab" aria-selected={activeTab === tab} aria-controls={`${tabsId}-${tab}-panel`} tabIndex={activeTab === tab ? 0 : -1} onClick={() => selectTab(tab)} onKeyDown={(event) => {
+                                if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                                    event.preventDefault();
+                                    const next = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (index + (event.key === 'ArrowLeft' ? 1 : 2)) % 3;
+                                    selectTab(TABS[next][0], true);
+                                }
+                            }}>{label}{tab === 'transactions' && statement && <span>{statement.entries.length}</span>}</button>)}
+                        </div>
+                        <div className="sp-quick-actions">
+                            {subscriber.canRecordPayment && <button type="button" className="sp-pay" onClick={() => onOpenStatement('payment')}><Icon name="banknotes" /><span>تسجيل دفعة</span></button>}
+                            {onSendMessage && <button type="button" onClick={onSendMessage} aria-label="إرسال SMS" title="إرسال SMS"><Icon name="chat" /></button>}
+                            {subscriber.canRecordReading && <button type="button" onClick={() => setEnteringReading(true)} disabled={currentWeekRecorded} aria-label={currentWeekRecorded ? 'تم إدخال قراءة هذا الأسبوع' : 'تسجيل قراءة'} title={currentWeekRecorded ? 'تم إدخال قراءة هذا الأسبوع' : 'تسجيل قراءة'}><Icon name="gauge" /></button>}
+                            <button type="button" onClick={() => onOpenStatement()} aria-label="كشف حساب" title="كشف حساب"><Icon name="ledger" /></button>
+                            {canUpdate && <button type="button" onClick={onEdit} aria-label="تعديل حالة الاشتراك" title="تعديل حالة الاشتراك"><Icon name="power" /></button>}
+                        </div>
+                    </div>
+                </header>
+                <div className="sp-body" ref={bodyRef}>
+                    <div id={`${tabsId}-details-panel`} role="tabpanel" aria-labelledby={`${tabsId}-details`} hidden={activeTab !== 'details'}>
+                        <div className="sp-columns">
+                            {subscriber.status !== 'active' && <div className="sp-notice"><Icon name="warning" /><div><b>الاشتراك {subscriber.statusLabel}</b><span>{balance.tone === 'owes' ? `الرصيد المستحق ${money(balance.amount)}.` : `الرصيد ${balance.label}.`} راجع بيانات الاشتراك وحالته قبل تسجيل قراءة جديدة.</span></div></div>}
+                            <Section title="البيانات الشخصية" icon="user" onEdit={canUpdate ? onEditPersonal : undefined}><dl className="sp-fields">
+                                <Field label="الاسم" value={subscriber.full_name} /><Field label="رقم المشترك" value={subscriber.subscriber_number} numeric copy />
+                                <Field label="رقم الهوية" value={subscriber.national_id} numeric copy /><Field label="رقم الجوال" value={subscriber.phone ?? subscriber.contact_phone} numeric copy />
+                            </dl></Section>
+                            <Section title="الاشتراك والقاطع" icon="bolt" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
+                                <Field label="نوع الاشتراك" value={<span className="sp-chip"><Icon name="bolt" />{subscriber.tariffCategoryLabel}</span>} /><Field label="تصنيف الزبائن" value={subscriber.tariffSegmentName} />
+                                <Field label="القاطع" value={subscriber.circuitBreakerAmpere ? `${subscriber.circuitBreakerAmpere} أمبير` : null} /><Field label="سعر الكيلو" value={money(subscriber.tariffRate)} numeric />
+                                <Field label="الحد الأدنى" value={money(subscriber.minimum_charge)} numeric /><Field label="الخصم الدائم على القراءات" value={subscriber.standingDiscountSummary} />
+                            </dl></Section>
+                            <Section title="الموقع والعداد" icon="pin" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
+                                <Field label="الفرع" value={subscriber.branchName} /><Field label="المحافظة" value={subscriber.governorateName} />
+                                <Field label="المنطقة" value={subscriber.areaName} /><Field label="منطقة 2" value={subscriber.subAreaName} />
+                                <Field label="رقم الطبلون" value={subscriber.meterBoxNumber} numeric copy /><Field label="العنوان" value={subscriber.address} />
+                            </dl></Section>
+                            <Section title="الاشتراك" icon="calendar" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
+                                <Field label="اسم الاشتراك" value={subscriber.display_name} /><Field label="رقم الاشتراك" value={subscriber.account_number} numeric copy />
+                                <Field label="تاريخ الاشتراك" value={subscriber.subscription_date} numeric /><Field label="رسوم الاشتراك" value={money(subscriber.subscription_fee)} numeric />
+                                <Field label="القراءة الأولى" value={number(subscriber.initial_reading)} numeric /><Field label="سجّله" value={subscriber.registeredByName} />
+                                {subscriber.subscription_phone && subscriber.subscription_phone !== subscriber.phone && <Field label="جوال الاشتراك" value={subscriber.contact_phone} numeric copy />}
+                                <Field label="ملاحظات" value={subscriber.notes} wide />
+                            </dl></Section>
+                        </div>
+                    </div>
+                    <div id={`${tabsId}-transactions-panel`} role="tabpanel" aria-labelledby={`${tabsId}-transactions`} hidden={activeTab !== 'transactions'} aria-busy={statementLoading}>
+                        {activeTab === 'transactions' && <AccountTab statement={statement} loading={statementLoading} onLoadStatement={onLoadStatement} onOpenStatement={onOpenStatement} />}
+                    </div>
+                    <div id={`${tabsId}-consumption-panel`} role="tabpanel" aria-labelledby={`${tabsId}-consumption`} hidden={activeTab !== 'consumption'}>
+                        <div className="sp-columns">
+                            <Section title="الاستهلاك الشهري" icon="bolt" trailing={<small className="sp-section-unit">كيلوواط ساعة</small>}>
+                                {months.length ? <div className="sp-chart" role="img" aria-label={`الاستهلاك الشهري: ${months.map((month) => `${month.month}: ${number(month.totals.consumption)} كيلوواط ساعة`).join('، ')}`}>{months.map((month) => <div key={month.month} title={`${month.month}: ${number(month.totals.consumption)} كيلوواط ساعة`}><b>{number(month.totals.consumption)}</b><i style={{ height: `${month.totals.consumption / maximum * 80}px` }} /><small>{monthLabel(month.month)}</small><small>{month.month.slice(0, 4)}</small></div>)}</div> : <p className="sp-empty">لا توجد قراءات مسجلة بعد.</p>}
+                            </Section>
+                            <Section title="القراءات" icon="table"><dl className="sp-fields">
+                                <Field label="القراءة الحالية" value={number(subscriber.lastReading)} numeric /><Field label="القراءة السابقة" value={lastReading ? number(lastReading.previous_reading) : null} numeric />
+                                <Field label="استهلاك آخر أسبوع" value={lastReading ? `${number(lastReading.consumption)} كيلوواط ساعة` : null} /><Field label="نهاية أسبوع القراءة" value={lastReading?.weekEnd} numeric />
+                                <Field label="تاريخ التسجيل" value={lastReading?.recordedAt} numeric /><Field label="قرأها" value={lastReading?.recordedByName} />
+                            </dl></Section>
+                            <div className="sp-reading-footer"><span>يُجمع الاستهلاك حسب شهر نهاية أسبوع القراءة.</span><button type="button" className="sp-button" onClick={onOpenReadings}><Icon name="history" />سجل القراءات الكامل</button></div>
+                        </div>
+                    </div>
+                </div>
+                <footer className="sp-footer"><span className="sp-shortcuts"><kbd>←</kbd><kbd>→</kbd> المشترك التالي · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> التبويبات · <kbd>Esc</kbd> إغلاق</span><div className="sp-footer-actions"><button type="button" className="sp-button" onClick={onClose}>إغلاق</button>{canUpdate && <button type="button" className="sp-button sp-primary" onClick={onEdit}><Icon name="pencil" />تعديل البيانات</button>}</div></footer>
+            </div>}
+        </Modal>
+        {enteringReading && subscriber && <MeterReadingModal show onClose={() => setEnteringReading(false)} reading={null} fixedSubscriber={readingOptionFor(subscriber)} weekOptions={readingWeekOptions} />}
+    </>;
 }

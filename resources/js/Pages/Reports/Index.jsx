@@ -21,12 +21,19 @@ function cents(amount) {
     return Math.round(Number(amount ?? 0) * 100);
 }
 
+function periodLabel(mode, details) {
+    if (mode === 'daily') return 'تقرير يومي';
+    if (mode === 'weekly') return 'تقرير أسبوعي';
+    if (mode === 'monthly') return 'تقرير شهري';
+    return details?.isOpen ? 'تقرير جارٍ' : 'تقرير مخصص';
+}
+
 /**
  * The reports page: a branch's day (or a stretch of days, or every branch)
  * before it is closed — how what the subscribers owe moved, where the
  * payments came in, the readings, each day's closing, and every line.
  */
-export default function Index({ branches, filters, scopeLabel, presets, today, cutoff, kinds, flow, collections, readings, days, check, transactions }) {
+export default function Index({ branches, filters, scopeLabel, presets, today, cutoff, kinds, flow, collections, readings, days, check, transactions, period, branchSummary }) {
     const { errors } = usePage().props;
     const oneDay = filters.from === filters.to;
     const query = new URLSearchParams(
@@ -37,7 +44,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
         router.get('/reports', { ...filters, ...changes }, { preserveScroll: true });
     }
 
-    const period = oneDay ? `${weekDayName(filters.from)} ${shortDate(filters.from, true)}` : `${shortDate(filters.from, true)} – ${shortDate(filters.to, true)}`;
+    const periodText = oneDay ? `${weekDayName(filters.from)} ${shortDate(filters.from, true)}` : `${shortDate(filters.from, true)} – ${shortDate(filters.to, true)}`;
 
     return (
         <AuthenticatedLayout>
@@ -47,7 +54,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                     <div>
                         <h1>التقارير</h1>
                         <p>
-                            {scopeLabel} · {period}
+                            {scopeLabel} · {periodLabel(period?.mode, period)} · {periodText}
                             {oneDay && filters.from === today && ' · اليوم الجاري'}
                         </p>
                     </div>
@@ -75,6 +82,27 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                             <b style={{ fontFamily: 'inherit', fontWeight: 700 }}>{scopeLabel}</b>
                         )}
                     </label>
+                    <div className="segx report-period-tabs" role="group" aria-label="نوع التقرير">
+                        {[
+                            ['daily', 'يومي'],
+                            ['weekly', 'أسبوعي'],
+                            ['monthly', 'شهري'],
+                            ['custom', 'مخصص'],
+                        ].map(([key, label]) => {
+                            const preset = presets.find((item) => item.key === (key === 'daily' ? 'today' : key === 'weekly' ? 'week' : key === 'monthly' ? 'month' : 'today'));
+
+                            return (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    aria-pressed={period?.mode === key}
+                                    onClick={() => key !== 'custom' && preset && visit({ from: preset.from, to: preset.to, view: key, page: undefined })}
+                                >
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
                     <div className="segx" role="group" aria-label="الفترة">
                         {presets.map((preset) => (
                             <button
@@ -120,6 +148,16 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                     </button>
                 </div>
 
+                <div className="report-period-bar" aria-label="التنقل بين الفترات">
+                    <button type="button" className="btn ghost" onClick={() => visit(period?.previous ?? {})}>
+                        <Icon name="chevron-right" /> الفترة السابقة
+                    </button>
+                    <span><b>{periodLabel(period?.mode, period)}</b><small>{periodText}</small></span>
+                    <button type="button" className="btn ghost" disabled={!period?.next} onClick={() => period?.next && visit(period.next)}>
+                        الفترة التالية <Icon name="chevron-left" />
+                    </button>
+                </div>
+
                 {errors.from && (
                     <div className="ban bad" role="alert">
                         <Icon name="alert" />
@@ -139,7 +177,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                 {flow && collections && (
                     <div className="kp">
                         <div>
-                            <small>المستحق أول الفترة</small>
+                            <small>صافي رصيد المشتركين أول الفترة</small>
                             <b>{closingMoney(flow.opening)} ₪</b>
                             <span>على المشتركين</span>
                         </div>
@@ -159,7 +197,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                             <span>غير نقدي {closingMoney(collections.nonCash)} ₪</span>
                         </div>
                         <div className={cents(flow.change) > 0 ? 'w' : ''}>
-                            <small>المستحق آخر الفترة</small>
+                            <small>صافي رصيد المشتركين آخر الفترة</small>
                             <b>{closingMoney(flow.closing)} ₪</b>
                             <span>
                                 {cents(flow.change) > 0 ? 'زاد' : cents(flow.change) < 0 ? 'نقص' : 'لم يتغير'}{' '}
@@ -178,15 +216,46 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                         <div>
                             <Collections collections={collections} />
                             {readings && <Readings readings={readings} />}
+                            {readings && <FollowUp readings={readings} />}
                         </div>
                     </div>
                 )}
+
+                {branchSummary?.length > 0 && <BranchComparison rows={branchSummary} filters={filters} />}
 
                 {branches.length > 0 && (
                     <Transactions transactions={transactions} kinds={kinds} filters={filters} showDay={!oneDay} showBranch={filters.branch === 'all'} onKind={(kind) => visit({ kind, page: undefined })} />
                 )}
             </div>
         </AuthenticatedLayout>
+    );
+}
+
+function BranchComparison({ rows, filters }) {
+    return (
+        <section className="pn report-branch-comparison">
+            <h3>
+                <span className="ix"><Icon name="layers" /></span>
+                مقارنة الفروع
+                <span className="r">نفس الفترة · اضغط اسم الفرع للتفصيل</span>
+            </h3>
+            <div style={{ overflowX: 'auto' }}>
+                <table className="mx">
+                    <thead><tr><th>الفرع</th><th>صافي الرصيد آخر الفترة</th><th>التحصيل</th><th>نقدًا</th><th>الحركات</th></tr></thead>
+                    <tbody>
+                        {rows.map((row) => (
+                            <tr key={row.id}>
+                                <td><Link href={`/reports?${new URLSearchParams({ ...filters, branch: row.id }).toString()}`}><b>{row.name}</b></Link></td>
+                                <td className="tv">{closingMoney(row.flow.closing)} ₪</td>
+                                <td className="tv">{closingMoney(row.collections.total)} ₪</td>
+                                <td className="tv">{closingMoney(row.collections.cash)} ₪</td>
+                                <td>{row.collections.count}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </section>
     );
 }
 
@@ -517,6 +586,25 @@ function Readings({ readings }) {
                 </tbody>
             </table>
         </section>
+    );
+}
+
+function FollowUp({ readings }) {
+    if (readings.pending === 0) {
+        return (
+            <div className="report-followup ok">
+                <Icon name="check" />
+                <span><b>لا توجد متابعة معلّقة</b><small>القراءات الحالية المعروضة هنا معتمدة أو مكتملة.</small></span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="report-followup warn">
+            <Icon name="alert" />
+            <span><b>يحتاج متابعة الآن</b><small>{readings.pending} قراءة بانتظار الاعتماد. هذه حالة العمل الحالية وليست تغييرًا في أرقام الفترة المختارة.</small></span>
+            <Link className="btn ghost" href="/meter-readings">فتح القراءات</Link>
+        </div>
     );
 }
 

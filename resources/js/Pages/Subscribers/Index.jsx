@@ -151,6 +151,21 @@ export default function Index({
     const { requestDelete, deleteDialog } = useDeleteRecord('المشترك');
 
     const statementWindow = useStatementWindow(statement);
+    const viewingIndex = subscribers.data.findIndex((subscriber) => subscriber.id === viewingSubscriberId);
+
+    function closeProfile() {
+        setViewingSubscriberId(null);
+        if (statementWindow.subscriber) {
+            statementWindow.close();
+        }
+    }
+
+    function switchProfile(offset) {
+        if (statementWindow.subscriber) {
+            statementWindow.close();
+        }
+        setViewingSubscriberId(subscribers.data[viewingIndex + offset].id);
+    }
 
     /** Show a subscriber's financial history; `form` also opens its payment, charge or discount form. */
     function openStatement(subscriber, form = null) {
@@ -485,15 +500,29 @@ export default function Index({
                 subscriber={viewingSubscriber}
                 canUpdate={viewingSubscriber?.canUpdate}
                 readingWeekOptions={readingWeekOptions}
-                onClose={() => setViewingSubscriberId(null)}
+                statement={statementWindow.statement?.subscriber.id === viewingSubscriberId ? statementWindow.statement : null}
+                statementLoading={Boolean(statementWindow.subscriber && !statementWindow.statement)}
+                onLoadStatement={() => openStatement(viewingSubscriber)}
+                onPrevious={viewingIndex > 0 ? () => switchProfile(-1) : undefined}
+                onNext={viewingIndex >= 0 && viewingIndex < subscribers.data.length - 1 ? () => switchProfile(1) : undefined}
+                onClose={closeProfile}
+                onEditPersonal={() => {
+                    setPersonalDetailsSubscriber(viewingSubscriber);
+                    closeProfile();
+                }}
+                onOpenReadings={() => {
+                    setHistorySubscriberId(viewingSubscriberId);
+                    closeProfile();
+                }}
+                onSendMessage={can?.sendMessages ? () => router.visit(`/messages/create?${new URLSearchParams({ kind: 'custom', status: '', 'subscriber_ids[]': viewingSubscriberId })}`) : undefined}
                 onEdit={() => {
                     setModalSubscriber(viewingSubscriber);
-                    setViewingSubscriberId(null);
+                    closeProfile();
                 }}
-                onOpenStatement={() => {
+                onOpenStatement={(form = null) => {
                     // The statement takes the details' place rather than opening over them.
                     setViewingSubscriberId(null);
-                    openStatement(viewingSubscriber);
+                    openStatement(viewingSubscriber, form);
                 }}
             />
 
@@ -514,7 +543,7 @@ export default function Index({
             )}
 
             {/* Keyed by subscriber so each statement opens with its own filters and forms. */}
-            {statementWindow.subscriber && (
+            {statementWindow.subscriber && !viewingSubscriber && (
                 <StatementModal
                     key={`statement-${statementWindow.subscriber.id}`}
                     subscriber={statementWindow.subscriber}

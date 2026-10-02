@@ -65,6 +65,7 @@ class MeterReadingController extends Controller
             ->withExists(['meterReadings as has_later_week' => fn ($q) => $q->whereDate('week_start', '>', $week)]);
 
         $this->withSheetColumns($query, $week);
+        $this->applyMeterBoxSort($query, $request);
         $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'account_number', 'phone', 'subscription_phone'], self::SORTABLE, 'full_name');
         $query->orderBy('subscribers.id');
         $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
@@ -310,6 +311,8 @@ class MeterReadingController extends Controller
 
         $query->select('subscribers.*')
             ->selectSub(MeterBox::query()->select('box_number')->whereColumn('meter_boxes.id', 'subscribers.meter_box_id'), 'meter_box_number')
+            ->selectSub(MeterBox::query()->select('name')->whereColumn('meter_boxes.id', 'subscribers.meter_box_id'), 'meter_box_name')
+            ->selectSub(MeterBox::query()->select('name_suffix')->whereColumn('meter_boxes.id', 'subscribers.meter_box_id'), 'meter_box_suffix')
             ->selectRaw(
                 "COALESCE(({$thisWeekPrevious->toSql()}), ({$lastBefore->toSql()}), subscribers.initial_reading, 0) as last_reading",
                 [...$thisWeekPrevious->getBindings(), ...$lastBefore->getBindings()],
@@ -317,6 +320,28 @@ class MeterReadingController extends Controller
             ->selectSub($thisWeek('current_reading'), 'current_reading')
             ->selectSub($thisWeek('consumption'), 'consumption')
             ->selectSub($thisWeek('amount_due'), 'amount_due');
+    }
+
+    /**
+     * `?sort=meter_box`: by meter box — its name, then its suffix, then its
+     * number, numbers in numeric order (BOX-9 before BOX-10) — with
+     * subscribers without a box last. Applied before the table's own sort,
+     * which then only breaks ties (by name).
+     */
+    private function applyMeterBoxSort(Builder $query, Request $request): void
+    {
+        if ((string) $request->string('sort') !== 'meter_box') {
+            return;
+        }
+
+        $direction = $request->string('direction')->lower()->value() === 'desc' ? 'desc' : 'asc';
+
+        $query->orderByRaw('meter_box_name IS NULL')
+            ->orderBy('meter_box_name', $direction)
+            ->orderByRaw('LENGTH(COALESCE(meter_box_suffix, \'\')) '.$direction)
+            ->orderBy('meter_box_suffix', $direction)
+            ->orderByRaw('LENGTH(meter_box_number) '.$direction)
+            ->orderBy('meter_box_number', $direction);
     }
 
     /**
@@ -417,6 +442,8 @@ class MeterReadingController extends Controller
             'accountNumber' => $subscriber->account_number,
             'fullName' => $subscriber->displayName(),
             'meterBoxNumber' => $subscriber->meterBox?->box_number,
+            'meterBoxName' => $subscriber->meterBox?->displayName(),
+            'phone' => $subscriber->contactPhone(),
             'subAreaName' => $subscriber->meterBox?->subArea?->name,
             'previousReading' => $reading?->previous_reading ?? (float) ($lastBefore?->current_reading ?? $subscriber->initial_reading ?? 0),
             'unitPrice' => (string) ($reading?->unit_price ?? $subscriber->tariff->rate),

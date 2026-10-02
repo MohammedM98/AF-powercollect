@@ -26,6 +26,11 @@ const BORDERS = [
     { value: 'none', label: 'بدون خطوط', icon: 'close' },
 ];
 
+const DIRECTIONS = [
+    { value: 'asc', label: 'تصاعدي', icon: 'arrow-up' },
+    { value: 'desc', label: 'تنازلي', icon: 'arrow-down' },
+];
+
 const ALIGNMENTS = [
     { value: 'auto', label: 'تلقائي' },
     { value: 'start', label: 'يمين' },
@@ -103,7 +108,8 @@ function IconButton({ icon, label, onClick, disabled = false, tone = 'gray' }) {
 /**
  * Every setting of the printout, in folding sections: templates, which
  * rows, the paper, the heading, the columns (shown, named, ordered,
- * aligned, totalled), the table's look and the footer. Each change shows
+ * aligned, totalled), sorting and grouping, the table's look and the
+ * footer. Each change shows
  * in the preview at once.
  */
 export default function PrintSettingsPanel({ layout, onChange, scope, templates, onSaveTemplate, onApplyTemplate, onDeleteTemplate, onReset }) {
@@ -134,7 +140,19 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
         );
     }
 
+    function setSortLevel(index, changes) {
+        set(
+            'sort',
+            layout.sort.map((level, position) => (position === index ? { ...level, ...changes } : level)),
+        );
+    }
+
     const shownCount = layout.columns.filter((column) => column.visible).length;
+    const fieldOptions = layout.columns.map((column) => (
+        <option key={column.key} value={column.key}>
+            {column.label}
+        </option>
+    ));
 
     return (
         <div>
@@ -304,7 +322,9 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
             </Section>
 
             <Section icon="columns" title={`الأعمدة (${shownCount} من ${layout.columns.length})`} open>
-                <p className="text-xs text-gray-500">أظهر أو أخفِ، غيّر الاسم، رتّب بالأسهم، واختر المحاذاة أو المجموع.</p>
+                <p className="text-xs text-gray-500">
+                    أظهر أو أخفِ، غيّر الاسم، رتّب بالأسهم، واختر المحاذاة أو المجموع. «الحقول الإضافية» تفاصيل منفصلة (مثل رقم الجوال أو اسم الطبلون) مخفية في البداية — فعّلها لتبني طباعتك كما تريد.
+                </p>
                 <div className="flex gap-2">
                     <SecondaryButton onClick={() => set('columns', layout.columns.map((column) => ({ ...column, visible: true })))} className="flex-1 !px-2 !py-1.5 text-xs">
                         إظهار الكل
@@ -335,6 +355,9 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                                     aria-label={`اسم العمود «${column.key}» في الطباعة`}
                                     className={`block min-w-0 flex-1 !py-1 text-sm ${column.visible ? '' : 'text-gray-400'}`}
                                 />
+                                {column.extra && (
+                                    <span className="shrink-0 rounded-full bg-sky-500/10 px-2 py-0.5 text-[11px] font-semibold text-sky-800">حقل إضافي</span>
+                                )}
                                 <IconButton icon="arrow-up" label={`تحريك «${column.label}» قبل العمود السابق`} disabled={index === 0} onClick={() => set('columns', moveColumn(layout.columns, index, -1))} />
                                 <IconButton
                                     icon="arrow-down"
@@ -369,6 +392,70 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                         </li>
                     ))}
                 </ol>
+            </Section>
+
+            <Section icon="sort" title="الترتيب والتجميع" open>
+                <p className="text-xs text-gray-500">رتّب الصفوف بأي حقل ولو كان مخفيًا، وجمّعها مثلًا حسب الطبلون. بدون ترتيب تبقى بترتيب الجدول.</p>
+                <Field label="تجميع الصفوف حسب">
+                    {(id) => (
+                        <select id={id} value={layout.group.key} onChange={(e) => setIn('group', 'key', e.target.value)} className="block w-full text-sm">
+                            <option value="">بدون تجميع</option>
+                            {fieldOptions}
+                        </select>
+                    )}
+                </Field>
+                {layout.group.key !== '' && (
+                    <div className="grid grid-cols-1 gap-3">
+                        <Switch checked={layout.group.newPage} onChange={(value) => setIn('group', 'newPage', value)} label="كل مجموعة في صفحة جديدة" />
+                        <Switch
+                            checked={layout.group.subtotals}
+                            onChange={(value) => setIn('group', 'subtotals', value)}
+                            label="مجموع فرعي لكل مجموعة (للأعمدة ذات المجموع)"
+                        />
+                    </div>
+                )}
+                <Group label={layout.group.key !== '' ? 'ترتيب الصفوف داخل كل مجموعة' : 'ترتيب الصفوف'}>
+                    <ol className="space-y-2">
+                        {layout.sort.map((level, index) => (
+                            <li key={index} className="rounded-control border border-gray-200 p-2.5">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-14 shrink-0 text-xs font-semibold text-gray-600">{index === 0 ? 'حسب' : 'ثم حسب'}</span>
+                                    <select
+                                        value={level.key}
+                                        onChange={(e) => setSortLevel(index, { key: e.target.value })}
+                                        aria-label={`حقل الترتيب ${index + 1}`}
+                                        className="block min-w-0 flex-1 !py-1 text-sm"
+                                    >
+                                        {fieldOptions}
+                                    </select>
+                                    <IconButton
+                                        icon="trash"
+                                        tone="danger"
+                                        label={`حذف مستوى الترتيب ${index + 1}`}
+                                        onClick={() => set('sort', layout.sort.filter((_, position) => position !== index))}
+                                    />
+                                </div>
+                                <div className="mt-2 ps-16">
+                                    <ChoiceChips
+                                        options={DIRECTIONS}
+                                        value={level.direction}
+                                        onChange={(value) => setSortLevel(index, { direction: value })}
+                                        label={`اتجاه الترتيب ${index + 1}`}
+                                    />
+                                </div>
+                            </li>
+                        ))}
+                    </ol>
+                    {layout.sort.length < 3 && (
+                        <SecondaryButton
+                            onClick={() => set('sort', [...layout.sort, { key: layout.columns[0]?.key ?? '', direction: 'asc' }])}
+                            className="mt-2 w-full"
+                        >
+                            <Icon name="plus" className="h-4 w-4" />
+                            {layout.sort.length === 0 ? 'إضافة ترتيب' : 'إضافة مستوى ترتيب آخر'}
+                        </SecondaryButton>
+                    )}
+                </Group>
             </Section>
 
             <Section icon="swatch" title="شكل الجدول">

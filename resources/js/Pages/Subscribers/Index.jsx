@@ -14,6 +14,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
+import { printFieldsProps, printRowProps } from '@/lib/print';
 import { formatCurrency } from '@/lib/currency';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
@@ -45,6 +46,18 @@ function statementHeader(subscriber) {
 }
 
 /** Why a menu action is locked: the permission it needs and who grants it. */
+/** The details printing can show as columns of their own (see printFieldsProps). */
+const PRINT_FIELDS = [
+    { key: 'display_name', label: 'اسم المشترك' },
+    { key: 'contact_phone', label: 'رقم الجوال' },
+    { key: 'account_number', label: 'رقم الاشتراك' },
+    { key: 'subscriber_number', label: 'رقم المشترك' },
+    { key: 'meterBoxName', label: 'اسم الطبلون' },
+    { key: 'meterBoxNumber', label: 'رقم الطبلون' },
+    { key: 'subAreaName', label: 'منطقة 2' },
+    { key: 'branchName', label: 'الفرع' },
+];
+
 function needsPermission(permission) {
     return `تحتاج صلاحية «${permission}» — يمنحها مدير الفرع أو مدير النظام.`;
 }
@@ -208,7 +221,7 @@ export default function Index({
             />
 
             <div className="data-table-container">
-                <table className="data-table w-full text-sm text-start">
+                <table className="data-table w-full text-sm text-start" {...printFieldsProps(PRINT_FIELDS)}>
                     <thead>
                         <tr>
                             <SortableTh column="account_number" label="رقم الاشتراك" sortState={filters} onSort={sort} />
@@ -231,7 +244,11 @@ export default function Index({
                             </tr>
                         ) : (
                             subscribers.data.map((subscriber) => (
-                                <tr key={subscriber.id} {...rowClick(() => openStatement(subscriber))}>
+                                <tr
+                                    key={subscriber.id}
+                                    {...rowClick(() => openStatement(subscriber))}
+                                    {...printRowProps(Object.fromEntries(PRINT_FIELDS.map((field) => [field.key, subscriber[field.key]])))}
+                                >
                                     <td className="text-gray-600">
                                         <span dir="ltr">{subscriber.account_number}</span>
                                         {subscriber.subscriber_number && (

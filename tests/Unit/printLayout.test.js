@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cellNumber, columnTotal, cssString, defaultLayout, fitLayout, moveColumn, pageCss } from '../../resources/js/lib/printLayout.js';
+import { arrangeRows, cellNumber, columnTotal, compareCells, cssString, defaultLayout, fitLayout, moveColumn, pageCss } from '../../resources/js/lib/printLayout.js';
 
 const columns = [
     { key: 'name', label: 'الاسم' },
@@ -75,4 +75,75 @@ test('the printed page gets its paper, margins, page numbers, footer and repeate
 test('text placed in the page margin cannot close its CSS string', () => {
     assert.equal(cssString('a"} body { color: red'), '"a\\"} body { color: red"');
     assert.equal(cssString('back\\slash\nline'), '"back\\\\slash line"');
+});
+
+const row = (cells) => ({ type: 'row', cells });
+
+test('extra print fields start hidden while the table columns start shown', () => {
+    const layout = defaultLayout({ columns: [...columns, { key: 'field:phone', label: 'رقم الجوال', extra: true }] });
+
+    assert.deepEqual(
+        layout.columns.map((column) => column.visible),
+        [true, true, true, false],
+    );
+});
+
+test('cells sort by number, then text with numbers in numeric order, empty cells last', () => {
+    assert.ok(compareCells('942.80 شيكل', '1,421.80 شيكل') < 0);
+    assert.ok(compareCells('BOX-9', 'BOX-10') < 0);
+    assert.ok(compareCells('', 'أحمد') > 0);
+    assert.ok(compareCells('أحمد', 'باسم') < 0);
+});
+
+test('rows sort by several levels and keep the table order for ties', () => {
+    const layout = defaultLayout({ columns });
+    layout.sort = [
+        { key: 'box', direction: 'asc' },
+        { key: 'name', direction: 'desc' },
+    ];
+    const rows = [
+        row({ name: 'أ', box: 'BOX-10' }),
+        row({ name: 'ب', box: 'BOX-9' }),
+        row({ name: 'ج', box: 'BOX-10' }),
+        { type: 'group', text: 'يوم' },
+    ];
+
+    const [section] = arrangeRows(rows, layout);
+
+    assert.deepEqual(
+        section.rows.map((item) => item.cells.name),
+        ['ب', 'ج', 'أ'],
+    );
+});
+
+test('grouping splits sorted rows into a section per value', () => {
+    const layout = defaultLayout({ columns });
+    layout.group.key = 'box';
+    layout.sort = [{ key: 'name', direction: 'asc' }];
+    const rows = [row({ name: 'ج', box: 'BOX-2' }), row({ name: 'أ', box: 'BOX-1' }), row({ name: 'ب', box: 'BOX-2' }), row({ name: 'د', box: '' })];
+
+    const sections = arrangeRows(rows, layout);
+
+    assert.deepEqual(
+        sections.map((section) => [section.title, section.rows.map((item) => item.cells.name)]),
+        [
+            ['BOX-1', ['أ']],
+            ['BOX-2', ['ب', 'ج']],
+            ['—', ['د']],
+        ],
+    );
+});
+
+test('without sorting or grouping the table order and its heading rows stay', () => {
+    const rows = [{ type: 'group', text: 'يوم' }, row({ name: 'ب' }), row({ name: 'أ' })];
+
+    assert.deepEqual(arrangeRows(rows, defaultLayout({ columns })), [{ title: null, rows }]);
+});
+
+test('a saved sort or group on a column the table no longer has is dropped', () => {
+    const layout = fitLayout({ sort: [{ key: 'gone', direction: 'asc' }, { key: 'box', direction: 'desc' }], group: { key: 'gone', newPage: true } }, defaultLayout({ columns }));
+
+    assert.deepEqual(layout.sort, [{ key: 'box', direction: 'desc' }]);
+    assert.equal(layout.group.key, '');
+    assert.equal(layout.group.newPage, true);
 });

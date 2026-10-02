@@ -1097,6 +1097,31 @@
     font-weight: 700;
 }
 
+.pd-table tr.pd-group-title td {
+    border-bottom: 2px solid var(--pd-accent);
+    background: color-mix(in srgb, var(--pd-accent) 8%, #fff);
+}
+
+.pd-table tr.pd-subtotal td {
+    border-top: 1px solid var(--pd-accent);
+    font-weight: 600;
+}
+
+/* A group set to start on its own page: a dashed line on screen, a page break in print. */
+.pd-table tbody.pd-new-page tr:first-child td {
+    border-top: 2px dashed #9ca3af;
+}
+
+@media print {
+    .pd-table tbody.pd-new-page {
+        break-before: page;
+    }
+
+    .pd-table tbody.pd-new-page tr:first-child td {
+        border-top-style: solid;
+    }
+}
+
 .pd-table thead {
     display: table-header-group;
 }

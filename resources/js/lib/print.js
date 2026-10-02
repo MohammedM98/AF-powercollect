@@ -67,6 +67,30 @@ export function printScopeUrl(allRows) {
     return url.toString();
 }
 
+/**
+ * Extra fields a table offers the print designer besides its columns —
+ * e.g. the box name, the subscriber's name and phone, which the screen
+ * shows together in one cell. Spread on the <table>:
+ * `<table {...printFieldsProps(FIELDS)}>` with `[{ key, label }]`, and on
+ * each row `<tr {...printRowProps({ key: value })}>`. They start hidden in
+ * the designer, ready to be added, sorted or grouped by.
+ */
+export function printFieldsProps(fields) {
+    return { 'data-print-fields': JSON.stringify(fields) };
+}
+
+export function printRowProps(values) {
+    return { 'data-print-row': JSON.stringify(values) };
+}
+
+function parseJson(text, fallback) {
+    try {
+        return text ? JSON.parse(text) : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
 /** A column's printed title: none for the row buttons' column (ActionsTh). */
 function columnTitle(th) {
     return th.hasAttribute('data-actions') ? '' : th.textContent.trim();
@@ -100,7 +124,8 @@ function printedTable(root) {
 
 /**
  * The list's table inside `root` as plain data: its columns (`{ key, label }`,
- * leaving out the row buttons' column) and its rows — `{ type: 'row',
+ * leaving out the row buttons' column, then its extra print fields marked
+ * `extra`, see printFieldsProps) and its rows — `{ type: 'row',
  * cells }` with one text per column, or `{ type: 'group', text }` for a row
  * spanning the table (a day's heading, or the "no results" line). Column
  * keys are their titles, so a saved layout finds them again. `root` must
@@ -125,12 +150,24 @@ export function extractTable(root) {
         })
         .filter((column) => column.label !== '');
 
+    const fields = parseJson(table.dataset.printFields, [])
+        .filter((field) => field && field.key && field.label)
+        .map((field) => ({ key: `field:${field.key}`, label: field.label, field: field.key, extra: true }));
+
     const rows = [...table.querySelectorAll('tbody tr')]
         .map((row) => {
             const cells = [...row.children];
 
             if (cells.length === headers.length) {
-                return { type: 'row', cells: Object.fromEntries(columns.map((column) => [column.key, cellText(cells[column.index])])) };
+                const values = parseJson(row.dataset.printRow, {});
+
+                return {
+                    type: 'row',
+                    cells: {
+                        ...Object.fromEntries(columns.map((column) => [column.key, cellText(cells[column.index])])),
+                        ...Object.fromEntries(fields.map((field) => [field.key, values[field.field] == null ? '' : String(values[field.field])])),
+                    },
+                };
             }
 
             const text = row.innerText.trim();
@@ -139,7 +176,7 @@ export function extractTable(root) {
         })
         .filter(Boolean);
 
-    return { columns: columns.map(({ key, label }) => ({ key, label })), rows };
+    return { columns: [...columns.map(({ key, label }) => ({ key, label })), ...fields.map(({ key, label }) => ({ key, label, extra: true }))], rows };
 }
 
 /** The page's summary under its table (e.g. the financial log's totals), if it has one. */

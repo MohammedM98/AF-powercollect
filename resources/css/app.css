@@ -145,6 +145,28 @@
         @apply border-brand-500;
     }
 
+    /*
+     * A field with a format to fit (`data-feedback` and a `pattern`, e.g. an
+     * identity or mobile number) says so as soon as what was typed fits it:
+     * a green border and a ✓ at its end. Only once the user has typed in it.
+     */
+    input[data-feedback]:user-valid:not(:placeholder-shown) {
+        @apply border-emerald-600;
+        padding-inline-end: 2.5rem;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-size: 1.1rem;
+        background-position: left 0.85rem center;
+    }
+
+    input[data-feedback][dir='ltr']:user-valid:not(:placeholder-shown) {
+        background-position: right 0.85rem center;
+    }
+
+    input[data-feedback]:user-valid:not(:placeholder-shown):focus {
+        @apply ring-emerald-600/15;
+    }
+
     /* A read-only or disabled field gets a dashed border. */
     :read-only:where(input:not([type='checkbox'], [type='radio'])),
     :disabled:where(input, select, textarea) {

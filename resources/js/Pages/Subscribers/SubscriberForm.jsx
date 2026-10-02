@@ -11,6 +11,7 @@ import Switch from '@/Components/Switch';
 import TextInput from '@/Components/TextInput';
 import { formatAmount } from '@/lib/currency';
 import { initials } from '@/lib/format';
+import { plainDigits } from '@/lib/formValidation';
 
 const STATUS_OPTIONS = [
     { value: 'active', label: 'نشط', dot: 'green' },
@@ -24,8 +25,11 @@ const STATUS_DOTS = {
     disconnected: 'bg-gray-400',
 };
 
-/** The fields the server requires of every subscriber; a Super Admin also picks the branch. */
-const REQUIRED_FIELDS = ['full_name', 'national_id', 'phone', 'status', 'tariff_id', 'minimum_charge', 'initial_reading'];
+/**
+ * The fields the server requires of every subscriber; a Super Admin also
+ * picks the branch, and an active subscriber needs their starting reading.
+ */
+const REQUIRED_FIELDS = ['full_name', 'national_id', 'phone', 'status', 'tariff_id', 'minimum_charge'];
 
 function Field({ id, label, required, error, hint, span = '', children }) {
     return (
@@ -228,7 +232,8 @@ export default function SubscriberForm({
     const subscriptionFeeLocked = 'charge_subscription_fee' in data && !data.charge_subscription_fee;
 
     const contactRequiredFields = REQUIRED_FIELDS.map((field) => field === 'full_name' ? nameField : field === 'phone' ? phoneField : field);
-    const requiredFields = canChooseBranch ? [...contactRequiredFields, 'branch_id'] : contactRequiredFields;
+    const readingRequired = data.status === 'active';
+    const requiredFields = [...contactRequiredFields, ...(canChooseBranch ? ['branch_id'] : []), ...(readingRequired ? ['initial_reading'] : [])];
     const filledRequiredFields = requiredFields.filter((field) => String(data[field] ?? '').trim() !== '').length;
 
     /** A choice made with a chip: no input event fires, so clear its error here. */
@@ -308,12 +313,13 @@ export default function SubscriberForm({
                         inputMode="numeric"
                         maxLength={9}
                         pattern="[0-9]{9}"
+                        data-feedback
                         title="رقم الهوية يجب أن يتكون من 9 أرقام"
                         placeholder="9 أرقام"
                         className="block w-full"
                         value={data.national_id ?? ''}
                         readOnly={sharedPersonalDetails}
-                        onChange={(event) => setData('national_id', event.target.value)}
+                        onChange={(event) => setData('national_id', plainDigits(event.target.value))}
                     />
                 </Field>
 
@@ -325,11 +331,12 @@ export default function SubscriberForm({
                         inputMode="numeric"
                         maxLength={10}
                         pattern="05[69][0-9]{7}"
+                        data-feedback
                         title="رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056"
                         placeholder="059XXXXXXX"
                         className="block w-full"
                         value={data[phoneField]}
-                        onChange={(e) => setData(phoneField, e.target.value)}
+                        onChange={(e) => setData(phoneField, plainDigits(e.target.value))}
                     />
                 </Field>
 
@@ -499,11 +506,17 @@ export default function SubscriberForm({
             </FormSection>
 
             <FormSection icon="calendar" title="معلومات الاشتراك" description="القراءة التي يبدأ منها حسابه، ورسوم الاشتراك وتاريخه">
-                <Field id="initial_reading" label="القراءة السابقة" required error={errors.initial_reading}>
+                <Field
+                    id="initial_reading"
+                    label="القراءة السابقة"
+                    required={readingRequired}
+                    error={errors.initial_reading}
+                    hint={readingRequired ? 'منها يبدأ حساب الاستهلاك.' : 'اتركها فارغة إن لم يُوصَل بعد؛ وأدخلها قبل تفعيل المشترك.'}
+                >
                     <Affix unit="ك.و.س">
                         <TextInput
                             type="number"
-                            required
+                            required={readingRequired}
                             min={0}
                             step="0.01"
                             className="block w-full"

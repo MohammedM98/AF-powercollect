@@ -19,6 +19,23 @@ class SubscriberBulkChangeTest extends TestCase
         return Subscriber::factory()->create(['branch_id' => $user->branch_id, ...$attributes]);
     }
 
+    public function test_a_subscriber_without_an_initial_reading_is_not_activated(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $ready = $this->subscriberOf($branchAdmin, ['status' => SubscriberStatus::Suspended, 'initial_reading' => 0]);
+        $waiting = $this->subscriberOf($branchAdmin, ['status' => SubscriberStatus::Suspended, 'initial_reading' => null]);
+
+        $this->actingAs($branchAdmin)
+            ->post(route('subscribers.bulk-changes.store'), ['field' => 'status', 'value' => 'active', 'ids' => [$ready->id, $waiting->id]])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(SubscriberStatus::Active, $ready->fresh()->status);
+        $this->assertSame(SubscriberStatus::Suspended, $waiting->fresh()->status);
+
+        $this->post(route('subscribers.bulk-changes.store'), ['field' => 'status', 'value' => 'active', 'ids' => [$waiting->id]])
+            ->assertSessionHasErrors(['ids' => 'لا يمكن تفعيل مشترك قبل إدخال قراءته السابقة؛ أدخلها من «تعديل المشترك» أولًا.']);
+    }
+
     public function test_the_minimum_charge_is_set_for_the_ticked_subscribers_and_kept_for_undo(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();

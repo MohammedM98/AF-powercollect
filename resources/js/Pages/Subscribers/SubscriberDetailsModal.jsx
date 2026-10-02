@@ -204,7 +204,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, on
                             <Section title="الاشتراك" icon="calendar" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
                                 <Field label="اسم الاشتراك" value={subscriber.display_name} /><Field label="رقم الاشتراك" value={subscriber.account_number} numeric copy />
                                 <Field label="تاريخ الاشتراك" value={subscriber.subscription_date} numeric /><Field label="رسوم الاشتراك" value={money(subscriber.subscription_fee)} numeric />
-                                <Field label="القراءة الأولى" value={number(subscriber.initial_reading)} numeric /><Field label="سجّله" value={subscriber.registeredByName} />
+                                <Field label="القراءة الأولى" value={subscriber.initial_reading == null ? 'لم تُدخل بعد' : number(subscriber.initial_reading)} numeric={subscriber.initial_reading != null} /><Field label="سجّله" value={subscriber.registeredByName} />
                                 {subscriber.subscription_phone && subscriber.subscription_phone !== subscriber.phone && <Field label="جوال الاشتراك" value={subscriber.contact_phone} numeric copy />}
                                 <Field label="ملاحظات" value={subscriber.notes} wide />
                             </dl></Section>

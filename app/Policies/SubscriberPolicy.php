@@ -58,6 +58,22 @@ class SubscriberPolicy
     }
 
     /**
+     * Changing one field of many subscribers at once from the list (see
+     * SubscriberBulkChangeController): the status takes "Edit Subscribers",
+     * the minimum charge also its own permission. Which subscribers it
+     * reaches is limited to the user's branch by the query itself.
+     */
+    public function bulkUpdate(User $user, string $field): bool
+    {
+        return match ($field) {
+            'status' => $user->hasPermission(PermissionKey::UpdateSubscribers),
+            'minimum_charge' => $user->hasPermission(PermissionKey::UpdateSubscribers)
+                && $user->hasPermission(PermissionKey::UpdateSubscriberMinimumCharge),
+            default => false,
+        };
+    }
+
+    /**
      * Recording a payment takes the "Record Collections" permission, for a
      * subscriber of the user's own branch (any branch for the Super Admin).
      */

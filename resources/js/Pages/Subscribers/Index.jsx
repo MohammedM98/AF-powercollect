@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Head, router, usePage } from '@inertiajs/react';
+import { useEffect, useRef, useState } from 'react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
@@ -19,6 +19,10 @@ import { formatCurrency } from '@/lib/currency';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import SubscriberModal from './SubscriberModal';
+import BulkActionBar from './BulkActionBar';
+import BulkChangeModal from './BulkChangeModal';
+import PhoneQuickEdit from './PhoneQuickEdit';
+import Icon from '@/Components/Icon';
 import SubscriberDetailsModal from './SubscriberDetailsModal';
 import ReadingHistoryModal from './ReadingHistoryModal';
 import StatementModal from './StatementModal';
@@ -79,6 +83,8 @@ export default function Index({
     filterOptions,
     readingWeekOptions,
     statement,
+    bulkActions,
+    statusOptions,
 }) {
     const { can } = usePage().props;
     const [modalSubscriber, setModalSubscriber] = useState(null);
@@ -93,6 +99,53 @@ export default function Index({
     const historySubscriber = subscribers.data.find((subscriber) => subscriber.id === historySubscriberId) ?? null;
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/subscribers', filters);
     const rowClick = useRowClick();
+    // Subscribers ticked for a bulk action (kept across pages), or every match of the filters.
+    const [selectedIds, setSelectedIds] = useState(() => new Set());
+    const [allMatching, setAllMatching] = useState(false);
+    const [bulkField, setBulkField] = useState(null);
+    const pageIds = subscribers.data.map((subscriber) => subscriber.id);
+    const pageSelectedCount = pageIds.filter((id) => selectedIds.has(id)).length;
+    const selectionCount = allMatching ? subscribers.total : selectedIds.size;
+    const selection = allMatching ? { all: true, search: filters.search, filter: filters.filter } : { ids: [...selectedIds] };
+    const headerCheckbox = useRef(null);
+    const filtersKey = JSON.stringify([filters.search, filters.filter]);
+    const canSelect = bulkActions.minimumCharge || bulkActions.status || bulkActions.message;
+
+    // A new search or filter is a new list: start the choice over.
+    useEffect(() => {
+        setSelectedIds(new Set());
+        setAllMatching(false);
+    }, [filtersKey]);
+
+    useEffect(() => {
+        if (headerCheckbox.current) {
+            headerCheckbox.current.indeterminate = !allMatching && pageSelectedCount > 0 && pageSelectedCount < pageIds.length;
+        }
+    });
+
+    function toggleSubscriber(id) {
+        setAllMatching(false);
+        setSelectedIds((current) => {
+            const next = new Set(current);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    }
+
+    function togglePage() {
+        setAllMatching(false);
+        setSelectedIds((current) => {
+            const next = new Set(current);
+            const everyChosen = pageIds.every((id) => next.has(id));
+            pageIds.forEach((id) => (everyChosen ? next.delete(id) : next.add(id)));
+            return next;
+        });
+    }
+
+    function clearSelection() {
+        setSelectedIds(new Set());
+        setAllMatching(false);
+    }
     const { requestDelete, deleteDialog } = useDeleteRecord('المشترك');
 
     const statementWindow = useStatementWindow(statement);
@@ -191,11 +244,16 @@ export default function Index({
                     <div className="min-w-0">
                         <h2 className="text-3xl font-bold text-gray-900">المشتركون</h2>
                     </div>
-                    {canCreate && (
-                        <div className="shrink-0">
-                            <AddButton onClick={() => setCreating(true)}>مشترك جديد</AddButton>
-                        </div>
-                    )}
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <Link
+                            href="/subscribers/bulk-changes"
+                            className="inline-flex items-center gap-2 rounded-control border border-gray-200 bg-surface px-4 py-2.5 text-sm font-semibold text-gray-900 transition hover:border-gray-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+                        >
+                            <Icon name="history" className="h-4 w-4" />
+                            سجل التعديلات الجماعية
+                        </Link>
+                        {canCreate && <AddButton onClick={() => setCreating(true)}>مشترك جديد</AddButton>}
+                    </div>
                 </>
             }
         >
@@ -220,10 +278,36 @@ export default function Index({
                 }
             />
 
+            {canSelect && !allMatching && pageIds.length > 0 && pageSelectedCount === pageIds.length && subscribers.total > pageIds.length && (
+                <div role="status" className="flex flex-wrap items-center justify-center gap-2 border-x border-gray-100 bg-brand-500/5 px-4 py-2.5 text-sm text-gray-700">
+                    تم تحديد {pageIds.length.toLocaleString('en')} مشترك في هذه الصفحة.
+                    <button
+                        type="button"
+                        onClick={() => setAllMatching(true)}
+                        className="rounded font-semibold text-brand-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+                    >
+                        تحديد كل النتائج المطابقة ({subscribers.total.toLocaleString('en')})
+                    </button>
+                </div>
+            )}
+
             <div className="data-table-container">
                 <table className="data-table w-full text-sm text-start" {...printFieldsProps(PRINT_FIELDS)}>
                     <thead>
                         <tr>
+                            {canSelect && (
+                                <th data-actions="" className="w-10">
+                                    <input
+                                        ref={headerCheckbox}
+                                        type="checkbox"
+                                        checked={allMatching || (pageIds.length > 0 && pageSelectedCount === pageIds.length)}
+                                        onChange={togglePage}
+                                        aria-label="تحديد كل مشتركي هذه الصفحة"
+                                        title="تحديد كل مشتركي هذه الصفحة"
+                                        className="rounded border-gray-300 text-brand-600"
+                                    />
+                                </th>
+                            )}
                             <SortableTh column="account_number" label="رقم الاشتراك" sortState={filters} onSort={sort} />
                             <SortableTh column="display_name" label="اسم الاشتراك" sortState={filters} onSort={sort} />
                             <th>الطبلون</th>
@@ -238,7 +322,7 @@ export default function Index({
                     <tbody>
                         {subscribers.data.length === 0 ? (
                             <tr>
-                                <td className="text-gray-500" colSpan={9}>
+                                <td className="text-gray-500" colSpan={canSelect ? 10 : 9}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
@@ -248,7 +332,19 @@ export default function Index({
                                     key={subscriber.id}
                                     {...rowClick(() => openStatement(subscriber))}
                                     {...printRowProps(Object.fromEntries(PRINT_FIELDS.map((field) => [field.key, subscriber[field.key]])))}
+                                    className={allMatching || selectedIds.has(subscriber.id) ? 'bg-brand-50' : undefined}
                                 >
+                                    {canSelect && (
+                                        <td>
+                                            <input
+                                                type="checkbox"
+                                                checked={allMatching || selectedIds.has(subscriber.id)}
+                                                onChange={() => toggleSubscriber(subscriber.id)}
+                                                aria-label={`تحديد ${subscriber.display_name}`}
+                                                className="rounded border-gray-300 text-brand-600"
+                                            />
+                                        </td>
+                                    )}
                                     <td className="text-gray-600">
                                         <span dir="ltr">{subscriber.account_number}</span>
                                         {subscriber.subscriber_number && (
@@ -260,8 +356,7 @@ export default function Index({
                                     <td>
                                         <RowIdentity
                                             name={subscriber.display_name}
-                                            subtitle={subscriber.contact_phone}
-                                            subtitleDir="ltr"
+                                            subtitle={<PhoneQuickEdit subscriber={subscriber} />}
                                             status={STATUS_TONES[subscriber.status]}
                                         />
                                         {subscriber.subscriptionCount > 1 && (
@@ -303,6 +398,35 @@ export default function Index({
             </div>
 
             <Pagination meta={subscribers} filters={filters} baseUrl="/subscribers" />
+
+            {canSelect && selectionCount > 0 && (
+                <>
+                    {/* Room at the end of the page, so the bar never hides the last rows. */}
+                    <div className="h-24" aria-hidden="true" />
+                    <BulkActionBar
+                        count={selectionCount}
+                        selection={selection}
+                        filters={filters}
+                        abilities={bulkActions}
+                        onAction={setBulkField}
+                        onClear={clearSelection}
+                    />
+                </>
+            )}
+
+            {bulkField && (
+                <BulkChangeModal
+                    field={bulkField}
+                    selection={selection}
+                    count={selectionCount}
+                    statusOptions={statusOptions}
+                    onClose={() => setBulkField(null)}
+                    onDone={() => {
+                        setBulkField(null);
+                        clearSelection();
+                    }}
+                />
+            )}
 
             <SubscriberModal show={creating} onClose={() => setCreating(false)} subscriber={null} {...modalProps} />
 

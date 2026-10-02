@@ -40,6 +40,11 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                 <TextInput
                     id="username"
                     dir="ltr"
+                    required
+                    pattern="[A-Za-z0-9_.\-]+"
+                    data-feedback
+                    title="اسم المستخدم بالحروف الإنجليزية والأرقام والرموز . _ - فقط، بلا مسافات"
+                    autoComplete="off"
                     className="mt-1 block w-full"
                     value={data.username}
                     onChange={(e) => setData('username', e.target.value)}

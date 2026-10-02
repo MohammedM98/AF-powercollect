@@ -164,7 +164,7 @@ class SubscriberSubscriptionsTest extends TestCase
         $source = Subscriber::factory()->create(['branch_id' => $actor->branch_id]);
 
         $this->actingAs($actor)->post(route('subscribers.store'), ['source_subscriber_id' => $source->id])
-            ->assertSessionHasErrors(['tariff_id', 'status', 'minimum_charge', 'initial_reading']);
+            ->assertSessionHasErrors(['tariff_id', 'status', 'minimum_charge']);
 
         $this->assertDatabaseCount('subscribers', 1);
     }

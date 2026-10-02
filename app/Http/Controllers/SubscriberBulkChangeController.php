@@ -92,9 +92,13 @@ class SubscriberBulkChangeController extends Controller
             ])
             ->filter(fn (array $change) => $change['new'] !== null && $change['new'] !== $change['old'])
             ->values();
+        $missingReading = $changes->filter(fn (array $change) => $this->activatesWithoutReading($field, $change));
+        $changes = $changes->reject(fn (array $change) => $this->activatesWithoutReading($field, $change))->values();
 
         if ($changes->isEmpty()) {
-            return back()->withErrors(['ids' => 'لا يوجد بين المختارين من تتغير قيمته.']);
+            return back()->withErrors(['ids' => $missingReading->isNotEmpty()
+                ? 'لا يمكن تفعيل مشترك قبل إدخال قراءته السابقة؛ أدخلها من «تعديل المشترك» أولًا.'
+                : 'لا يوجد بين المختارين من تتغير قيمته.']);
         }
 
         $bulkChange = DB::transaction(function () use ($actor, $field, $byCircuitBreaker, $request, $changes): SubscriberBulkChange {
@@ -205,6 +209,17 @@ class SubscriberBulkChangeController extends Controller
     }
 
     /** The subscriber's stored value of the field, as a bulk change keeps it. */
+    /**
+     * Whether the change would make a subscriber active before their
+     * starting reading has been entered.
+     *
+     * @param  array{subscriber: Subscriber, old: ?string, new: ?string}  $change
+     */
+    private function activatesWithoutReading(string $field, array $change): bool
+    {
+        return $field === 'status' && $change['new'] === SubscriberStatus::Active->value && $change['subscriber']->initial_reading === null;
+    }
+
     private function currentValue(Subscriber $subscriber, string $field): ?string
     {
         return $this->normalize($field, $subscriber->getRawOriginal($field));

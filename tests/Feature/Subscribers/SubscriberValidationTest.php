@@ -75,15 +75,24 @@ class SubscriberValidationTest extends TestCase
         ]);
     }
 
-    public function test_initial_reading_is_required(): void
+    public function test_an_active_subscriber_needs_their_initial_reading(): void
     {
         $payload = $this->validPayload();
         unset($payload['initial_reading']);
 
         $this->post(route('subscribers.store'), $payload)
-            ->assertSessionHasErrors('initial_reading');
+            ->assertSessionHasErrors(['initial_reading' => 'أدخل القراءة السابقة قبل تفعيل المشترك؛ منها يبدأ حساب استهلاكه.']);
 
         $this->assertDatabaseCount('subscribers', 0);
+    }
+
+    public function test_a_subscriber_not_yet_active_can_be_registered_before_their_reading_is_known(): void
+    {
+        $payload = [...$this->validPayload(), 'status' => SubscriberStatus::Suspended->value, 'initial_reading' => ''];
+
+        $this->post(route('subscribers.store'), $payload)->assertSessionHasNoErrors();
+
+        $this->assertNull(Subscriber::sole()->initial_reading);
     }
 
     #[TestWith([-1])]

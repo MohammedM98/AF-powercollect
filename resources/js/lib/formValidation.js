@@ -84,3 +84,15 @@ export function clearErrorOnInput(event, form) {
         form.clearErrors(key);
     }
 }
+
+/**
+ * A typed number as the field's format expects it: Arabic-Indic digits
+ * (٠–٩, ۰–۹) as 0–9, and spaces and dashes dropped — so 056 ٢٢٢-٢٢٢٢ is
+ * 0562222222.
+ */
+export function plainDigits(value) {
+    return String(value ?? '')
+        .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+        .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0))
+        .replace(/[\s-]+/g, '');
+}

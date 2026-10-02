@@ -3,6 +3,7 @@ import FormModal from '@/Components/FormModal';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
+import { plainDigits } from '@/lib/formValidation';
 
 function Field({ id, label, required, error, children }) {
     return (
@@ -58,10 +59,14 @@ export default function PersonalDetailsModal({ subscriber, onClose }) {
                             required
                             dir="ltr"
                             inputMode="numeric"
+                            maxLength={9}
+                            pattern="[0-9]{9}"
+                            data-feedback
+                            title="رقم الهوية يجب أن يتكون من 9 أرقام"
                             placeholder="9 أرقام"
                             className="w-full"
                             value={form.data.national_id}
-                            onChange={(event) => form.setData('national_id', event.target.value)}
+                            onChange={(event) => form.setData('national_id', plainDigits(event.target.value))}
                         />
                     </Field>
 
@@ -71,11 +76,15 @@ export default function PersonalDetailsModal({ subscriber, onClose }) {
                             required
                             type="tel"
                             dir="ltr"
-                            inputMode="tel"
-                            placeholder="059xxxxxxx"
+                            inputMode="numeric"
+                            maxLength={10}
+                            pattern="05[69][0-9]{7}"
+                            data-feedback
+                            title="رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056"
+                            placeholder="059XXXXXXX"
                             className="w-full"
                             value={form.data.phone}
-                            onChange={(event) => form.setData('phone', event.target.value)}
+                            onChange={(event) => form.setData('phone', plainDigits(event.target.value))}
                         />
                     </Field>
                 </div>

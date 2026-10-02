@@ -58,7 +58,9 @@ class StoreSubscriberRequest extends FormRequest
             'status' => ['required', Rule::enum(SubscriberStatus::class)],
             'circuit_breaker_id' => ['nullable', Rule::exists('circuit_breakers', 'id')],
             'minimum_charge' => ['required', 'numeric', 'min:0'],
-            'initial_reading' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
+            // The meter's reading when the subscriber is connected: it may wait while they are not
+            // active yet, but billing counts from it, so an active subscriber must have it.
+            'initial_reading' => [Rule::requiredIf($this->input('status') === SubscriberStatus::Active->value), 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'subscription_fee' => ['nullable', 'numeric', 'min:0'],
             'subscription_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
@@ -91,6 +93,7 @@ class StoreSubscriberRequest extends FormRequest
     {
         return [
             'subscription_phone.regex' => 'رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056.',
+            'initial_reading.required' => 'أدخل القراءة السابقة قبل تفعيل المشترك؛ منها يبدأ حساب استهلاكه.',
             'national_id.unique' => 'رقم الهوية مسجل بالفعل. استخدم «إضافة اشتراك» من قائمة المشترك لإنشاء اشتراك آخر.',
             'charge_subscription_fee.boolean' => 'اختر تفعيل تحميل رسوم الاشتراك أو إلغاءه.',
             'subscription_fee.required' => 'أدخل مبلغ رسوم الاشتراك عند تفعيل تحميل الرسوم.',

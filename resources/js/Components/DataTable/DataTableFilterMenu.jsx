@@ -29,8 +29,9 @@ function FilterField({ group, value, onChange, placeholder = 'الكل', classNa
  * The table's filter dropdowns. A group with `dependsOn` (e.g. a meter
  * box's numbers) shows beside the group it depends on (the box name) once
  * that has a value, and that pair always stays shown; `onChangeMany` sets
- * both at once when the parent changes; the pair sits in one shared frame
- * so it reads as one filter. Each dropdown lists only the
+ * both at once when the parent changes; once both show, they sit in one
+ * shared frame (pulled out by its padding, so the fields stay in line with
+ * the rest) and read as one filter. Each dropdown lists only the
  * options that belong with the other filters picked (an option's `scope`):
  * pick a branch and the areas, sub-areas, meter boxes and staff narrow to
  * that branch's; changing it clears whichever of them no longer fit.
@@ -104,7 +105,9 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
                         key={group.key}
                         role="group"
                         aria-label={group.label}
-                        className="flex w-full min-w-0 flex-col gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-2.5 sm:w-auto sm:flex-row sm:items-end"
+                        className={`flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-end ${
+                            value ? '-my-2 rounded-2xl bg-gray-50 px-2.5 py-2 ring-1 ring-inset ring-gray-200/70' : ''
+                        }`}
                     >
                         <FilterField
                             group={{ ...group, options: scopedOptions(group, values) }}

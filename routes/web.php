@@ -29,6 +29,7 @@ use App\Http\Controllers\SubscriberClearingController;
 use App\Http\Controllers\SubscriberController;
 use App\Http\Controllers\SubscriberDiscountController;
 use App\Http\Controllers\SubscriberPaymentController;
+use App\Http\Controllers\SubscriberPersonalDetailsController;
 use App\Http\Controllers\SubscriberPhoneController;
 use App\Http\Controllers\SubscriberStandingDiscountController;
 use App\Http\Controllers\SubscriberStatementController;
@@ -79,6 +80,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/subscribers/bulk-changes', [SubscriberBulkChangeController::class, 'store'])->name('subscribers.bulk-changes.store');
     Route::post('/subscribers/bulk-changes/{change}/undo', [SubscriberBulkChangeController::class, 'undo'])->name('subscribers.bulk-changes.undo');
     Route::patch('/subscribers/{subscriber}/phone', [SubscriberPhoneController::class, 'update'])->name('subscribers.phone.update');
+    Route::patch('/subscribers/{subscriber}/personal-details', [SubscriberPersonalDetailsController::class, 'update'])->name('subscribers.personal-details.update');
     Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('/subscribers/{subscriber}/statement', [SubscriberStatementController::class, 'show'])->name('subscribers.statement');
     Route::post('/subscribers/{subscriber}/payments', [SubscriberPaymentController::class, 'store'])->name('subscribers.payments.store');

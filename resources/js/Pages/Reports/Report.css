@@ -132,3 +132,60 @@
         display: none;
     }
 }
+
+.closing-page .report-period-tabs {
+    border: 1px solid var(--cl-line);
+    background: var(--cl-raised);
+}
+.closing-page .report-period-tabs button[aria-pressed='true'] {
+    background: var(--cl-brand);
+    color: #fff;
+}
+.closing-page .report-period-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--cl-line);
+    border-radius: 14px;
+    background: var(--cl-surface);
+}
+.closing-page .report-period-bar > span {
+    display: grid;
+    gap: 1px;
+    text-align: center;
+}
+.closing-page .report-period-bar small {
+    color: var(--cl-faint);
+    font-size: 12px;
+}
+.closing-page .report-period-bar .ghost,
+.closing-page .report-followup .ghost {
+    border: 1px solid var(--cl-line);
+    background: transparent;
+    color: var(--cl-ink2);
+}
+.closing-page .report-followup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 11px 13px;
+    border: 1px solid var(--cl-line);
+    border-radius: 12px;
+    font-size: 13px;
+}
+.closing-page .report-followup > svg { flex: none; width: 18px; height: 18px; }
+.closing-page .report-followup > span { display: grid; flex: 1; }
+.closing-page .report-followup small { color: var(--cl-faint); }
+.closing-page .report-followup.ok { background: var(--cl-success-t); color: var(--cl-success); }
+.closing-page .report-followup.warn { background: var(--cl-warn-t); color: var(--cl-warn); }
+@media (max-width: 700px) {
+    .closing-page .report-period-bar { align-items: stretch; }
+    .closing-page .report-period-bar .btn { padding-inline: 8px; font-size: 12px; }
+    .closing-page .report-period-bar > span { min-width: 92px; }
+    .closing-page .report-followup { align-items: flex-start; flex-wrap: wrap; }
+    .closing-page .report-followup .btn { margin-inline-start: 28px; }
+}

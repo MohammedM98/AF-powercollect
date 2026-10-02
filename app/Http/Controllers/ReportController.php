@@ -10,6 +10,7 @@ use App\Models\SubscriberTransaction;
 use App\Support\BranchReport;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
+use App\Support\ReportPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -44,11 +45,26 @@ class ReportController extends Controller
         ['chosen' => $chosen, 'branch' => $branch, 'from' => $from, 'to' => $to, 'kind' => $kind] = $this->filters($request, $branches);
         $report = new BranchReport($chosen, $from, $to);
         $oneBranchDay = $chosen->count() === 1 && $from->equalTo($to);
+        $period = ReportPeriod::describe($from, $to, $request->query('view'));
+        $branchSummary = $chosen->count() > 1
+            ? $chosen->map(function (Branch $item) use ($from, $to): array {
+                $branchReport = new BranchReport(collect([$item]), $from, $to);
+
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'flow' => $branchReport->flow(),
+                    'collections' => $branchReport->collections(),
+                ];
+            })->values()
+            : collect();
 
         return Inertia::render('Reports/Index', [
             'branches' => $branches->map(fn (Branch $branch): array => ['value' => $branch->id, 'label' => $branch->name])->values(),
             'filters' => ['branch' => $branch, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'kind' => $kind],
             'scopeLabel' => $chosen->count() === 1 ? $chosen->first()->name : 'كل الفروع',
+            'period' => $period,
+            'branchSummary' => $branchSummary,
             'presets' => $this->presets(),
             'today' => ClosingPeriods::today()->toDateString(),
             'cutoff' => ClosingSetting::current()->cutoff(),

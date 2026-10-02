@@ -86,7 +86,7 @@ class MessageController extends Controller
         $this->authorize('create', MessageBatch::class);
 
         $actor = $request->user();
-        $meterBoxes = MeterBox::query()->visibleTo($actor)->with('branch')->orderBy('box_number')->get();
+        $meterBoxes = MeterBox::query()->visibleTo($actor)->with(['branch', 'subArea'])->orderBy('box_number')->get();
 
         return Inertia::render('Messages/Create', [
             'kinds' => MessageKind::options(),

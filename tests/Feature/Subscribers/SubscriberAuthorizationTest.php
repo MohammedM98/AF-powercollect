@@ -185,14 +185,16 @@ class SubscriberAuthorizationTest extends TestCase
                     $groups = collect($groups);
                     $numbers = $groups->firstWhere('key', 'meter_box_id');
 
-                    return $groups->firstWhere('key', 'meter_box_name')['options'] === [
+                    $withoutScope = fn (array $options): array => collect($options)->map(fn (array $option) => collect($option)->except('scope')->all())->all();
+
+                    return $withoutScope($groups->firstWhere('key', 'meter_box_name')['options']) === [
                         ['value' => 'camp', 'label' => 'camp'],
                         ['value' => 'club', 'label' => 'club'],
-                    ] && $numbers['dependsOn'] === 'meter_box_name' && $numbers['options'] === [
+                    ] && $numbers['dependsOn'] === 'meter_box_name' && $withoutScope($numbers['options']) === [
                         ['value' => (string) $club->id, 'label' => "(5000) — {$branch->name}", 'parent' => 'club'],
                         ['value' => (string) $campOne->id, 'label' => "1 (1234) — {$branch->name}", 'parent' => 'camp'],
                         ['value' => (string) $campTwo->id, 'label' => "2 (1243) — {$branch->name}", 'parent' => 'camp'],
-                    ];
+                    ] && collect($numbers['options'])->every(fn (array $option): bool => $option['scope']['branch_id'] === (string) $branch->id);
                 }));
 
         $this->actingAs($superAdmin)->get(route('subscribers.index', ['filter' => ['meter_box_name' => 'camp', 'meter_box_id' => $campTwo->id]]))

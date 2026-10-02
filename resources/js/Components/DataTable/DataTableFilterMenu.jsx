@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useFilterVisibility } from '@/hooks/useFilterVisibility';
 import SearchableSelect from '@/Components/SearchableSelect';
 import Icon from '@/Components/Icon';
-import { childOptions, nestFilterGroups, parentChange, parentValue } from '@/lib/filterGroups';
+import { childOptions, nestFilterGroups, parentChange, parentValue, scopedOptions, withStaleCleared } from '@/lib/filterGroups';
 
 /** One labelled dropdown in the filter row. */
 function FilterField({ group, value, onChange, placeholder = 'الكل', className = 'sm:w-44' }) {
@@ -29,7 +29,10 @@ function FilterField({ group, value, onChange, placeholder = 'الكل', classNa
  * The table's filter dropdowns. A group with `dependsOn` (e.g. a meter
  * box's numbers) shows beside the group it depends on (the box name) once
  * that has a value, and that pair always stays shown; `onChangeMany` sets
- * both at once when the parent changes.
+ * both at once when the parent changes. Each dropdown lists only the
+ * options that belong with the other filters picked (an option's `scope`):
+ * pick a branch and the areas, sub-areas, meter boxes and staff narrow to
+ * that branch's; changing it clears whichever of them no longer fit.
  */
 export default function DataTableFilterMenu({ tableKey, groups, values, onChange, onChangeMany, onClear }) {
     const activeCount = Object.values(values ?? {}).filter(Boolean).length;
@@ -58,7 +61,9 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
         return null;
     }
 
-    function changeMany(updates) {
+    function changeMany(changes) {
+        const updates = withStaleCleared(groups, values, changes);
+
         if (onChangeMany) {
             onChangeMany(updates);
         } else {
@@ -69,7 +74,7 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
     function toggleAndClear(key) {
         toggle(key);
         if (isVisible(key) && values?.[key]) {
-            onChange(key, '');
+            changeMany({ [key]: '' });
         }
     }
 
@@ -84,9 +89,9 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
                     return (
                         <FilterField
                             key={group.key}
-                            group={group}
+                            group={{ ...group, options: scopedOptions(group, values) }}
                             value={values?.[group.key] ?? ''}
-                            onChange={(next) => onChange(group.key, next)}
+                            onChange={(next) => changeMany({ [group.key]: next })}
                         />
                     );
                 }
@@ -95,10 +100,14 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
 
                 return (
                     <div key={group.key} className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
-                        <FilterField group={group} value={value} onChange={(next) => changeMany(parentChange(group.key, child, next))} />
+                        <FilterField
+                            group={{ ...group, options: scopedOptions(group, values) }}
+                            value={value}
+                            onChange={(next) => changeMany(parentChange(group.key, child, next))}
+                        />
                         {value && (
                             <FilterField
-                                group={{ ...child, options: childOptions(child, value) }}
+                                group={{ ...child, options: scopedOptions({ options: childOptions(child, value) }, values) }}
                                 value={values?.[child.key] ?? ''}
                                 placeholder={`كل ${value}`}
                                 className="sm:w-60"

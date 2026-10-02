@@ -9,6 +9,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import InputError from '@/Components/InputError';
 import { CHANNEL_ICONS, KIND_ICONS, MessageText, renderMessage, withIcons } from './MessageParts';
+import { scopedOptions, withStaleCleared } from '@/lib/filterGroups';
 
 /** Arabic text goes out as Unicode SMS: 70 letters in one message, 67 in each part of a longer one. */
 function smsParts(length) {
@@ -247,8 +248,11 @@ export default function Create({
     const previewRecipient = recipients?.find((recipient) => recipient.id === previewId) ?? null;
     const previewText = previewRecipient ? renderMessage(body, previewRecipient.variables) : body;
     const selectedTemplate = templates.find((template) => String(template.id) === String(templateId));
-    const meterBoxNames = meterBoxGroups[0]?.options ?? [];
-    const meterBoxNumbers = (meterBoxGroups[1]?.options ?? []).filter((option) => option.parent === criteria.meter_box_name);
+    // Only the chosen branch's boxes.
+    const meterBoxNames = meterBoxGroups[0] ? scopedOptions(meterBoxGroups[0], criteria) : [];
+    const meterBoxNumbers = meterBoxGroups[1]
+        ? scopedOptions(meterBoxGroups[1], criteria).filter((option) => option.parent === criteria.meter_box_name)
+        : [];
     const canSend = selected.size > 0 && body.trim() !== '' && !isStale && !sending;
     // Why the send button can't be used yet, said under it.
     const sendBlocker =
@@ -347,7 +351,9 @@ export default function Create({
                                     <select
                                         id="branch_id"
                                         value={criteria.branch_id}
-                                        onChange={(e) => setCriterion('branch_id', e.target.value)}
+                                        onChange={(e) =>
+                                            setCriteria((current) => ({ ...current, ...withStaleCleared(meterBoxGroups, current, { branch_id: e.target.value }) }))
+                                        }
                                         className="block w-full text-sm"
                                     >
                                         <option value="">كل الفروع</option>

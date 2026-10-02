@@ -20,7 +20,7 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
     const [creating, setCreating] = useState(false);
     const rowClick = useRowClick();
     const { requestDelete, deleteDialog } = useDeleteRecord('الفرع');
-    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/branches', filters);
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/branches', filters);
 
     return (
         <SettingsLayout
@@ -52,6 +52,7 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
                         groups={filterOptions}
                         values={filterValues}
                         onChange={setFilter}
+                        onChangeMany={setFilters}
                         onClear={clearFilters}
                     />
                 }

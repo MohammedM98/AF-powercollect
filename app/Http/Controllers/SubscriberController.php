@@ -372,7 +372,7 @@ class SubscriberController extends Controller
      */
     private function filterOptions(User $actor): array
     {
-        $meterBoxes = MeterBox::query()->visibleTo($actor)->with('branch')->orderBy('box_number')->get();
+        $meterBoxes = MeterBox::query()->visibleTo($actor)->with(['branch', 'subArea'])->orderBy('box_number')->get();
 
         $groups = [
             $this->filterGroup('status', 'الحالة', SubscriberStatus::options()),
@@ -380,10 +380,12 @@ class SubscriberController extends Controller
                 Tariff::orderBy('category')->get(),
                 fn (Tariff $tariff) => __($tariff->category->label()),
             )),
-            $this->filterGroup('tariff_segment_id', 'تصنيف الزبائن', $this->modelOptions(
-                TariffSegment::with('tariff')->orderBy('tariff_id')->orderBy('name')->get(),
-                fn (TariffSegment $segment) => $segment->label(),
-            )),
+            $this->filterGroup('tariff_segment_id', 'تصنيف الزبائن', TariffSegment::with('tariff')->orderBy('tariff_id')->orderBy('name')->get()
+                ->map(fn (TariffSegment $segment) => [
+                    'value' => (string) $segment->id,
+                    'label' => $segment->label(),
+                    'scope' => $this->filterScope(['tariff_id' => $segment->tariff_id]),
+                ])),
             ...$this->meterBoxFilterGroups(
                 $meterBoxes,
                 $actor->isSuperAdmin() ? fn (MeterBox $box) => $box->branch->name : null,

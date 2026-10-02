@@ -306,7 +306,7 @@ class LedgerController extends Controller
             ...collect(SubscriberTransaction::typeLabels())->map(fn (string $label, string $type): array => ['value' => $type, 'label' => $label])->values(),
         ]);
 
-        $groups[] = $this->filterGroup('recorded_by', 'سجّله', $this->modelOptions(
+        $groups[] = $this->filterGroup('recorded_by', 'سجّله', $this->staffOptions(
             User::query()
                 ->whereIn('id', SubscriberTransaction::query()
                     ->whereHas('subscriber', fn (Builder $subscribers) => $subscribers->visibleTo($actor))

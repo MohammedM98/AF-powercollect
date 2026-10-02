@@ -5,6 +5,7 @@ namespace Tests\Feature\MeterReadings;
 use App\Enums\MeterReadingStatus;
 use App\Enums\PermissionKey;
 use App\Enums\SubscriberStatus;
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
@@ -512,6 +513,28 @@ class MeterReadingTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->has('rows.data', 1)
                 ->where('rows.data.0.id', $inCampOne->id));
+    }
+
+    public function test_the_reading_sheets_filters_name_the_branch_area_and_sub_area_each_option_belongs_to(): void
+    {
+        $area = Area::factory()->create();
+        $otherArea = Area::factory()->create();
+        $north = Branch::factory()->create(['area_id' => $area->id]);
+        $south = Branch::factory()->create(['area_id' => $otherArea->id]);
+        $subArea = SubArea::factory()->create(['area_id' => $area->id]);
+        $box = MeterBox::factory()->create(['branch_id' => $north->id, 'sub_area_id' => $subArea->id, 'name' => 'camp']);
+
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page->where('filterOptions', function ($groups) use ($area, $north, $south, $subArea, $box): bool {
+                $option = fn (string $key, int|string $value): array => collect(collect($groups)->firstWhere('key', $key)['options'])->firstWhere('value', (string) $value);
+
+                return $option('area_id', $area->id)['scope']['branch_id'] === [(string) $north->id]
+                    && ! in_array((string) $south->id, $option('area_id', $area->id)['scope']['branch_id'], true)
+                    && $option('sub_area_id', $subArea->id)['scope'] === ['area_id' => (string) $area->id, 'branch_id' => [(string) $north->id]]
+                    && $option('meter_box_id', $box->id)['scope'] === ['branch_id' => (string) $north->id, 'sub_area_id' => (string) $subArea->id, 'area_id' => (string) $area->id]
+                    && $option('meter_box_name', 'camp')['scope']['branch_id'] === [(string) $north->id];
+            }));
     }
 
     public function test_the_reading_sheet_can_show_only_subscribers_still_missing_this_weeks_reading(): void

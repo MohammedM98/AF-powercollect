@@ -114,7 +114,7 @@ class BranchController extends Controller
         return [
             $this->activeStatusFilterGroup(),
             $this->filterGroup('governorate_id', 'المحافظة', $this->modelOptions(Governorate::orderBy('name')->get())),
-            $this->filterGroup('area_id', 'المنطقة', $this->modelOptions(Area::orderBy('name')->get())),
+            $this->areaFilterGroup(Area::orderBy('name')->get()),
         ];
     }
 }

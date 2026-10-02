@@ -49,7 +49,7 @@ export default function Index({
     }
     const rowClick = useRowClick();
     const { requestDelete, deleteDialog } = useDeleteRecord('المستخدم');
-    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/users', filters);
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/users', filters);
 
     return (
         <AuthenticatedLayout
@@ -109,7 +109,7 @@ export default function Index({
                         onPerPageChange={setPerPage}
                         total={users.total}
                         filterMenu={
-                            <DataTableFilterMenu tableKey="users" groups={filterOptions} values={filterValues} onChange={setFilter} onClear={clearFilters} />
+                            <DataTableFilterMenu tableKey="users" groups={filterOptions} values={filterValues} onChange={setFilter} onChangeMany={setFilters} onClear={clearFilters} />
                         }
                     />
 

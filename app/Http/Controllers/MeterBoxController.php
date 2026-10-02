@@ -177,7 +177,7 @@ class MeterBoxController extends Controller
     private function filterOptions(User $actor): array
     {
         $groups = [
-            $this->filterGroup('sub_area_id', 'منطقة 2', $this->modelOptions(SubArea::visibleTo($actor)->orderBy('name')->get())),
+            $this->subAreaFilterGroup(SubArea::visibleTo($actor)->orderBy('name')->get()),
         ];
 
         if ($actor->isSuperAdmin()) {

@@ -20,7 +20,7 @@ export default function Index({ circuitBreakers, canCreate, filters, filterOptio
     const [creating, setCreating] = useState(false);
     const rowClick = useRowClick();
     const { requestDelete, deleteDialog } = useDeleteRecord('القاطع');
-    const { setPerPage, sort, filterValues, setFilter, clearFilters } = useDataTable('/circuit-breakers', filters);
+    const { setPerPage, sort, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/circuit-breakers', filters);
 
     return (
         <SettingsLayout
@@ -50,6 +50,7 @@ export default function Index({ circuitBreakers, canCreate, filters, filterOptio
                         groups={filterOptions}
                         values={filterValues}
                         onChange={setFilter}
+                        onChangeMany={setFilters}
                         onClear={clearFilters}
                     />
                 }

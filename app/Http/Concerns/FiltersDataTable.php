@@ -2,11 +2,15 @@
 
 namespace App\Http\Concerns;
 
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
 use App\Models\MeterBox;
+use App\Models\SubArea;
+use App\Models\User;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Http\Request;
@@ -178,29 +182,127 @@ trait FiltersDataTable
      * The meter box filter as two linked dropdowns: the box name, then —
      * shown under it once a name is picked — that name's boxes by suffix
      * and number, e.g. "1 (1234)". Each box option names its `parent`, so
-     * the page lists only the chosen name's boxes.
+     * the page lists only the chosen name's boxes. Both carry the branch,
+     * sub-area and area their boxes are in (`scope`), so picking one of
+     * those lists only its boxes.
      *
      * @param  iterable<int, MeterBox>  $boxes
      * @param  (Closure(MeterBox): string)|null  $context  extra text after a box, e.g. its branch
-     * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string, parent?: string}>, dependsOn?: string}>
+     * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string, parent?: string, scope?: array<string, string|array<int, string>>}>, dependsOn?: string}>
      */
     protected function meterBoxFilterGroups(iterable $boxes, ?Closure $context = null): array
     {
-        $boxes = collect($boxes);
-        $names = $boxes->pluck('name')->unique()->sort(SORT_NATURAL | SORT_FLAG_CASE)
-            ->map(fn (string $name) => ['value' => $name, 'label' => $name]);
+        $boxes = (new EloquentCollection(collect($boxes)->all()))->loadMissing('subArea');
+        $boxScope = fn (MeterBox $box): array => [
+            'branch_id' => $box->branch_id,
+            'sub_area_id' => $box->sub_area_id,
+            'area_id' => $box->subArea?->area_id,
+        ];
+        $names = $boxes->groupBy('name')
+            ->sortKeys(SORT_NATURAL | SORT_FLAG_CASE)
+            ->map(fn (EloquentCollection $named, string $name) => [
+                'value' => $name,
+                'label' => $name,
+                'scope' => $this->filterScope([
+                    'branch_id' => $named->pluck('branch_id')->all(),
+                    'sub_area_id' => $named->pluck('sub_area_id')->all(),
+                    'area_id' => $named->map(fn (MeterBox $box) => $box->subArea?->area_id)->all(),
+                ]),
+            ]);
         $numbers = $boxes
             ->sortBy([['name_suffix', 'asc'], ['box_number', 'asc']], SORT_NATURAL)
             ->map(fn (MeterBox $box) => [
                 'value' => (string) $box->getKey(),
                 'label' => ltrim($box->name_suffix.' ('.$box->box_number.')').($context ? ' — '.$context($box) : ''),
                 'parent' => $box->name,
+                'scope' => $this->filterScope($boxScope($box)),
             ]);
 
         return [
             $this->filterGroup('meter_box_name', 'الطبلون', $names),
             [...$this->filterGroup('meter_box_id', 'رقم الطبلون', $numbers), 'dependsOn' => 'meter_box_name'],
         ];
+    }
+
+    /**
+     * The "Area" dropdown, each area tied to its governorate and to the
+     * branches in it, so picking a governorate or a branch lists only its
+     * areas.
+     *
+     * @param  iterable<int, Area>  $areas
+     * @return array{key: string, label: string, options: array<int, array{value: string, label: string, scope: array<string, string|array<int, string>>}>}
+     */
+    protected function areaFilterGroup(iterable $areas): array
+    {
+        $branchAreas = Branch::query()->pluck('area_id', 'id');
+
+        return $this->filterGroup('area_id', 'المنطقة', collect($areas)->map(fn (Area $area) => [
+            'value' => (string) $area->getKey(),
+            'label' => $area->name,
+            'scope' => $this->filterScope([
+                'governorate_id' => $area->governorate_id,
+                'branch_id' => $branchAreas->filter(fn ($areaId) => $areaId === $area->id)->keys()->all(),
+            ]),
+        ]));
+    }
+
+    /**
+     * The "Sub-area" dropdown (منطقة 2), each tied to its area and to the
+     * branches of that area, so picking an area or a branch lists only its
+     * sub-areas.
+     *
+     * @param  iterable<int, SubArea>  $subAreas
+     * @return array{key: string, label: string, options: array<int, array{value: string, label: string, scope: array<string, string|array<int, string>>}>}
+     */
+    protected function subAreaFilterGroup(iterable $subAreas): array
+    {
+        $branchAreas = Branch::query()->pluck('area_id', 'id');
+
+        return $this->filterGroup('sub_area_id', 'منطقة 2', collect($subAreas)->map(fn (SubArea $subArea) => [
+            'value' => (string) $subArea->getKey(),
+            'label' => $subArea->name,
+            'scope' => $this->filterScope([
+                'area_id' => $subArea->area_id,
+                'branch_id' => $branchAreas->filter(fn ($areaId) => $areaId === $subArea->area_id)->keys()->all(),
+            ]),
+        ]));
+    }
+
+    /**
+     * Staff as dropdown options, each tied to their branch, so picking a
+     * branch lists only its staff. Staff without a branch (the Super
+     * Admins) stay listed whatever the branch.
+     *
+     * @param  iterable<int, User>  $users
+     * @return array<int, array{value: string, label: string, scope?: array<string, string>}>
+     */
+    protected function staffOptions(iterable $users): array
+    {
+        return collect($users)->map(fn (User $user) => [
+            'value' => (string) $user->getKey(),
+            'label' => $user->name,
+            ...($user->branch_id ? ['scope' => $this->filterScope(['branch_id' => $user->branch_id])] : []),
+        ])->values()->all();
+    }
+
+    /**
+     * An option's `scope`: the other filters' values it belongs to — one
+     * id, or several — as strings, the way the Filter menu compares them.
+     * The menu lists an option only while every chosen filter it names
+     * matches. A missing one (null) is left out, so it never hides the
+     * option; an empty list means it belongs to none of them.
+     *
+     * @param  array<string, int|string|null|array<int, int|string|null>>  $scope
+     * @return array<string, string|array<int, string>>
+     */
+    protected function filterScope(array $scope): array
+    {
+        return collect($scope)
+            ->map(fn ($ids) => is_array($ids)
+                ? collect($ids)->filter(fn ($id) => $id !== null && $id !== '')->map(fn ($id) => (string) $id)->unique()->values()->all()
+                : ($ids === null || $ids === '' ? null : (string) $ids))
+            ->reject(fn ($ids) => $ids === null)
+            ->all();
     }
 
     /**

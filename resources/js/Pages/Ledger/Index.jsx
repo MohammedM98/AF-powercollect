@@ -169,7 +169,7 @@ export default function Index({
     statement,
 }) {
     const { can } = usePage().props;
-    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/ledger', filters, { period });
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/ledger', filters, { period });
     const rowClick = useRowClick();
     const statementWindow = useStatementWindow(statement);
     const caption = periodCaption(period);
@@ -280,6 +280,7 @@ export default function Index({
                             groups={filterOptions}
                             values={filterValues}
                             onChange={setFilter}
+                            onChangeMany={setFilters}
                             onClear={clearFilters}
                         />
                     }

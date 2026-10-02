@@ -22,7 +22,7 @@ export default function Index({ batches, canSend, filters, filterOptions }) {
     function openBatch(batch) {
         router.visit(`/messages/${batch.id}`);
     }
-    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/messages', filters);
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/messages', filters);
 
     return (
         <AuthenticatedLayout
@@ -55,6 +55,7 @@ export default function Index({ batches, canSend, filters, filterOptions }) {
                         groups={filterOptions}
                         values={filterValues}
                         onChange={setFilter}
+                        onChangeMany={setFilters}
                         onClear={clearFilters}
                     />
                 }

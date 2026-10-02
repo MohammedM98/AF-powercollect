@@ -47,3 +47,58 @@ export function childOptions(child, parent) {
 export function parentChange(parentKey, child, value) {
     return child ? { [parentKey]: value, [child.key]: '' } : { [parentKey]: value };
 }
+
+/**
+ * Whether an option belongs with the filters chosen so far: every chosen
+ * filter its `scope` names (a branch, an area, a tariff…) must be one it
+ * belongs to. An option that names none of them always shows.
+ */
+function inScope(option, values) {
+    return Object.entries(option.scope ?? {}).every(([key, belongsTo]) => {
+        const chosen = values?.[key];
+
+        if (!chosen) {
+            return true;
+        }
+
+        return Array.isArray(belongsTo) ? belongsTo.includes(String(chosen)) : belongsTo === String(chosen);
+    });
+}
+
+/** The group's options that belong with the filters chosen so far, e.g. only the chosen branch's meter boxes. */
+export function scopedOptions(group, values) {
+    return group.options.filter((option) => inScope(option, values));
+}
+
+/**
+ * The filter updates with every other filter that no longer fits cleared:
+ * picking another branch drops a meter box, area or employee of the old
+ * one — and whatever hung on those in turn.
+ */
+export function withStaleCleared(groups, values, updates) {
+    const next = { ...values, ...updates };
+    const cleared = {};
+    let changed = true;
+
+    while (changed) {
+        changed = false;
+
+        for (const group of groups ?? []) {
+            const value = next[group.key];
+
+            if (!value || group.key in updates) {
+                continue;
+            }
+
+            const option = group.options.find((candidate) => String(candidate.value) === String(value));
+
+            if (option && !inScope(option, next)) {
+                next[group.key] = '';
+                cleared[group.key] = '';
+                changed = true;
+            }
+        }
+    }
+
+    return { ...updates, ...cleared };
+}

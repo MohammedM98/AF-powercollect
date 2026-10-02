@@ -30,7 +30,7 @@ export default function Index({
     const [creating, setCreating] = useState(false);
     const rowClick = useRowClick();
     const { requestDelete, deleteDialog } = useDeleteRecord('الطبلون');
-    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/meter-boxes', filters);
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/meter-boxes', filters);
 
     return (
         <SettingsLayout
@@ -62,6 +62,7 @@ export default function Index({
                         groups={filterOptions}
                         values={filterValues}
                         onChange={setFilter}
+                        onChangeMany={setFilters}
                         onClear={clearFilters}
                     />
                 }

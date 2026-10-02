@@ -490,12 +490,12 @@ class MeterReadingController extends Controller
 
         if ($actor->isSuperAdmin()) {
             $groups[] = $this->branchFilterGroup();
-            $groups[] = $this->filterGroup('area_id', 'المنطقة', $this->modelOptions(Area::orderBy('name')->get()));
+            $groups[] = $this->areaFilterGroup(Area::orderBy('name')->get());
         }
 
-        $groups[] = $this->filterGroup('sub_area_id', 'منطقة 2', $this->modelOptions(SubArea::visibleTo($actor)->orderBy('name')->get()));
+        $groups[] = $this->subAreaFilterGroup(SubArea::visibleTo($actor)->orderBy('name')->get());
 
-        array_push($groups, ...$this->meterBoxFilterGroups(MeterBox::query()->visibleTo($actor)->get()));
+        array_push($groups, ...$this->meterBoxFilterGroups(MeterBox::query()->visibleTo($actor)->with('subArea')->get()));
         $groups[] = $this->circuitBreakerFilterGroup();
 
         $groups[] = $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(

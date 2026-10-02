@@ -3,6 +3,7 @@
 namespace App\Http\Concerns;
 
 use App\Models\Branch;
+use App\Models\CircuitBreaker;
 use App\Models\MeterBox;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
@@ -200,6 +201,38 @@ trait FiltersDataTable
             $this->filterGroup('meter_box_name', 'الطبلون', $names),
             [...$this->filterGroup('meter_box_id', 'رقم الطبلون', $numbers), 'dependsOn' => 'meter_box_name'],
         ];
+    }
+
+    /**
+     * Apply `?filter[circuit_breaker_id]=…` to a subscribers query: the
+     * subscribers on that circuit breaker, or with none for `none`.
+     */
+    protected function applyCircuitBreakerFilter(Builder $query, Request $request): Builder
+    {
+        $value = ((array) $request->input('filter', []))['circuit_breaker_id'] ?? null;
+        $column = $query->qualifyColumn('circuit_breaker_id');
+
+        if ($value === 'none') {
+            $query->whereNull($column);
+        } elseif (is_string($value) && ctype_digit($value)) {
+            $query->where($column, (int) $value);
+        }
+
+        return $query;
+    }
+
+    /**
+     * The "Circuit breaker" dropdown — every breaker by its size, smallest
+     * first, plus the subscribers without one.
+     *
+     * @return array{key: string, label: string, options: array<int, array{value: string, label: string}>}
+     */
+    protected function circuitBreakerFilterGroup(): array
+    {
+        return $this->filterGroup('circuit_breaker_id', 'القاطع', [
+            ['value' => 'none', 'label' => 'بدون قاطع'],
+            ...$this->modelOptions(CircuitBreaker::orderBy('ampere')->get(), fn (CircuitBreaker $breaker) => $breaker->ampere.' أمبير'),
+        ]);
     }
 
     /**

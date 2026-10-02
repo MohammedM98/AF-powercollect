@@ -40,6 +40,7 @@ class StoreMessageBatchRequest extends FormRequest
             'status' => ['nullable', Rule::enum(SubscriberStatus::class)],
             'meter_box_name' => ['nullable', 'string', 'max:255'],
             'meter_box_id' => ['nullable', 'integer'],
+            'circuit_breaker_id' => ['nullable', 'regex:/^(none|\d+)$/'],
             'subscriber_ids' => ['required', 'array', 'min:1'],
             'subscriber_ids.*' => ['integer'],
         ];

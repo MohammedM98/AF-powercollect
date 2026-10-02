@@ -6,7 +6,7 @@ import { printUrl } from '@/lib/print';
 export const MAX_LINKED_IDS = 400;
 
 /** The list filters the message page understands too. */
-const MESSAGE_FILTERS = ['status', 'branch_id', 'meter_box_id', 'meter_box_name'];
+const MESSAGE_FILTERS = ['status', 'branch_id', 'meter_box_id', 'meter_box_name', 'circuit_breaker_id'];
 
 const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white';
 

@@ -78,6 +78,7 @@ export default function Create({
     statusOptions,
     branchOptions,
     meterBoxGroups,
+    circuitBreakerOptions,
     maxRecipients,
     criteria: initialCriteria,
     recipients: loadedRecipients,
@@ -94,6 +95,7 @@ export default function Create({
         branch_id: initialCriteria.branch_id ?? '',
         meter_box_name: initialCriteria.meter_box_name ?? '',
         meter_box_id: initialCriteria.meter_box_id ?? '',
+        circuit_breaker_id: initialCriteria.circuit_breaker_id ?? '',
         search: initialCriteria.search ?? '',
         subscriber_ids: initialCriteria.subscriber_ids ?? [],
     });
@@ -114,7 +116,7 @@ export default function Create({
     const requestData = useMemo(() => {
         const data = { kind, status: criteria.status, search: criteria.search };
 
-        for (const key of ['branch_id', 'meter_box_name', 'meter_box_id']) {
+        for (const key of ['branch_id', 'meter_box_name', 'meter_box_id', 'circuit_breaker_id']) {
             if (criteria[key] !== '') {
                 data[key] = criteria[key];
             }
@@ -391,6 +393,22 @@ export default function Create({
                                     </select>
                                 </Field>
                             )}
+
+                            <Field label="القاطع" htmlFor="circuit_breaker_id">
+                                <select
+                                    id="circuit_breaker_id"
+                                    value={criteria.circuit_breaker_id}
+                                    onChange={(e) => setCriterion('circuit_breaker_id', e.target.value)}
+                                    className="block w-full text-sm"
+                                >
+                                    <option value="">كل القواطع</option>
+                                    {circuitBreakerOptions.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </Field>
 
                             <Field label="بحث" htmlFor="search">
                                 <input

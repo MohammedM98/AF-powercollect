@@ -102,6 +102,7 @@ class MessageController extends Controller
                 $meterBoxes,
                 $actor->isSuperAdmin() ? fn (MeterBox $box) => $box->branch->name : null,
             ),
+            'circuitBreakerOptions' => $this->circuitBreakerFilterGroup()['options'],
             'maxRecipients' => MessageComposer::MAX_RECIPIENTS,
             'criteria' => $this->criteria($request) + ['kind' => $this->requestedKind($request)->value],
             'recipients' => Inertia::optional(fn () => $this->recipientRows($request, $actor)),
@@ -287,7 +288,7 @@ class MessageController extends Controller
      * approved readings count, for a balance reminder the least balance,
      * and the subscriber filters — active subscribers by default.
      *
-     * @return array{week_start: string, approved_only: bool, min_balance: float, branch_id: ?string, status: ?string, meter_box_name: ?string, meter_box_id: ?string, search: string, subscriber_ids: array<int, int>}
+     * @return array{week_start: string, approved_only: bool, min_balance: float, branch_id: ?string, status: ?string, meter_box_name: ?string, meter_box_id: ?string, circuit_breaker_id: ?string, search: string, subscriber_ids: array<int, int>}
      */
     private function criteria(Request $request): array
     {
@@ -299,6 +300,7 @@ class MessageController extends Controller
             'status' => $request->has('status') ? ((string) $request->input('status') ?: null) : SubscriberStatus::Active->value,
             'meter_box_name' => $request->filled('meter_box_name') ? (string) $request->input('meter_box_name') : null,
             'meter_box_id' => $request->filled('meter_box_id') ? (string) $request->input('meter_box_id') : null,
+            'circuit_breaker_id' => $request->filled('circuit_breaker_id') ? (string) $request->input('circuit_breaker_id') : null,
             'search' => trim((string) $request->input('search')),
             'subscriber_ids' => array_map('intval', (array) $request->input('subscriber_ids', [])),
         ];

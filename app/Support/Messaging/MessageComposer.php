@@ -46,7 +46,7 @@ class MessageComposer
      * name: for a weekly reading those with a reading for the week, for a
      * balance reminder those who owe more than the minimum balance.
      *
-     * @param  array{week_start?: ?string, approved_only?: bool, min_balance?: float|string|null, branch_id?: int|string|null, status?: ?string, meter_box_name?: ?string, meter_box_id?: int|string|null, search?: ?string, subscriber_ids?: array<int, int|string>|null}  $criteria
+     * @param  array{week_start?: ?string, approved_only?: bool, min_balance?: float|string|null, branch_id?: int|string|null, status?: ?string, meter_box_name?: ?string, meter_box_id?: int|string|null, circuit_breaker_id?: int|string|null, search?: ?string, subscriber_ids?: array<int, int|string>|null}  $criteria
      * @return Collection<int, Subscriber>
      */
     public function recipients(MessageKind $kind, User $actor, array $criteria): Collection
@@ -150,6 +150,14 @@ class MessageComposer
             if ($value !== null && $value !== '') {
                 $query->where($column, $value);
             }
+        }
+
+        $breaker = $criteria['circuit_breaker_id'] ?? null;
+
+        if ($breaker === 'none') {
+            $query->whereNull('circuit_breaker_id');
+        } elseif ($breaker !== null && $breaker !== '') {
+            $query->where('circuit_breaker_id', (int) $breaker);
         }
 
         if (filled($criteria['meter_box_name'] ?? null)) {

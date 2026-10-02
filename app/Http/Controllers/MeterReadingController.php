@@ -378,6 +378,8 @@ class MeterReadingController extends Controller
             $query->whereHas('meterBox', fn (Builder $q) => $q->where('sub_area_id', $filters['sub_area_id']));
         }
 
+        $this->applyCircuitBreakerFilter($query, $request);
+
         if ($includeStatus) {
             $this->applySheetStatusFilters($query, $request, $week);
         }
@@ -494,6 +496,7 @@ class MeterReadingController extends Controller
         $groups[] = $this->filterGroup('sub_area_id', 'منطقة 2', $this->modelOptions(SubArea::visibleTo($actor)->orderBy('name')->get()));
 
         array_push($groups, ...$this->meterBoxFilterGroups(MeterBox::query()->visibleTo($actor)->get()));
+        $groups[] = $this->circuitBreakerFilterGroup();
 
         $groups[] = $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(
             Tariff::orderBy('category')->get(),

@@ -24,6 +24,7 @@ export const SETTINGS_LINKS = [
     { href: '/settings/permissions', label: 'الصلاحيات', icon: 'shield', can: 'manageSettings' },
     { href: '/settings/reading-schedule', label: 'مواعيد القراءات', icon: 'calendar', can: 'manageReadingSchedule' },
     { href: '/settings/closing-schedule', label: 'مواعيد الإغلاق', icon: 'clock', can: 'manageClosingSchedule' },
+    { href: '/settings/print-templates', label: 'قوالب الطباعة', icon: 'printer', can: 'managePrintTemplates' },
 ];
 
 /** The links the current user may open. */

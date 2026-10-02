@@ -18,7 +18,6 @@ export const PAPER_SIZES = {
 export const DENSITY_PADDING = { compact: 2, normal: 5, relaxed: 9 };
 
 const LAYOUT_PREFIX = 'print-layout:';
-const TEMPLATES_PREFIX = 'print-templates:';
 
 /**
  * A fresh layout for a page whose table has the given columns (`{ key,
@@ -66,9 +65,14 @@ export function defaultLayout({ columns, title = '', company = '' }) {
     };
 }
 
+/** An object's settings without the empty ones (null, as the server stores a cleared text), so they don't replace a default. */
+function present(object) {
+    return Object.fromEntries(Object.entries(object ?? {}).filter(([, value]) => value !== null && value !== undefined));
+}
+
 /**
  * A saved layout fitted to the table as it is now: settings missing from an
- * older save take their default, columns keep the saved order, names and
+ * older save (or emptied) take their default, columns keep the saved order, names and
  * choices, a column the table no longer has is dropped, and a new one is
  * added (shown) at the end.
  */
@@ -84,19 +88,19 @@ export function fitLayout(saved, fresh) {
         .map((column) => {
             const freshColumn = fresh.columns.find((item) => item.key === column.key);
 
-            return { ...freshColumn, ...column, extra: freshColumn.extra };
+            return { ...freshColumn, ...present(column), extra: freshColumn.extra };
         });
     const keptKeys = new Set(kept.map((column) => column.key));
 
     return {
         ...fresh,
-        ...pick(saved, ['paper', 'orientation', 'margin', 'fontSize', 'density']),
-        header: { ...fresh.header, ...(saved.header ?? {}) },
-        table: { ...fresh.table, ...(saved.table ?? {}) },
-        footer: { ...fresh.footer, ...(saved.footer ?? {}) },
+        ...pick(present(saved), ['paper', 'orientation', 'margin', 'fontSize', 'density']),
+        header: { ...fresh.header, ...present(saved.header) },
+        table: { ...fresh.table, ...present(saved.table) },
+        footer: { ...fresh.footer, ...present(saved.footer), signatures: (saved.footer?.signatures ?? fresh.footer.signatures).map((label) => label ?? '') },
         columns: [...kept, ...fresh.columns.filter((column) => !keptKeys.has(column.key))],
         sort: (Array.isArray(saved.sort) ? saved.sort : []).filter((level) => level && freshKeys.has(level.key)).slice(0, 3),
-        group: { ...fresh.group, ...(saved.group ?? {}), key: freshKeys.has(saved.group?.key) ? saved.group.key : '' },
+        group: { ...fresh.group, ...present(saved.group), key: freshKeys.has(saved.group?.key) ? saved.group.key : '' },
     };
 }
 
@@ -309,27 +313,4 @@ export function rememberedLayout(pageKey) {
 
 export function rememberLayout(pageKey, layout) {
     writeJson(LAYOUT_PREFIX + pageKey, layout);
-}
-
-/** This page's named print templates, `[{ name, layout }]`. */
-export function savedTemplates(pageKey) {
-    const templates = readJson(TEMPLATES_PREFIX + pageKey);
-
-    return Array.isArray(templates) ? templates : [];
-}
-
-/** Save a template under its name, replacing one of the same name. */
-export function saveTemplate(pageKey, name, layout) {
-    const templates = savedTemplates(pageKey).filter((template) => template.name !== name);
-    const next = [...templates, { name, layout }];
-    writeJson(TEMPLATES_PREFIX + pageKey, next);
-
-    return next;
-}
-
-export function deleteTemplate(pageKey, name) {
-    const next = savedTemplates(pageKey).filter((template) => template.name !== name);
-    writeJson(TEMPLATES_PREFIX + pageKey, next);
-
-    return next;
 }

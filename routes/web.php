@@ -16,6 +16,7 @@ use App\Http\Controllers\MeterBoxController;
 use App\Http\Controllers\MeterReadingController;
 use App\Http\Controllers\PeriodClosingController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\PrintTemplateController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileDeviceController;
 use App\Http\Controllers\ReadingScheduleController;
@@ -91,6 +92,11 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/settings/permissions', [PermissionController::class, 'edit'])->name('settings.permissions.edit');
     Route::put('/settings/permissions', [PermissionController::class, 'update'])->name('settings.permissions.update');
+    Route::get('/settings/print-templates', [PrintTemplateController::class, 'index'])->name('settings.print-templates.index');
+    Route::post('/print-templates', [PrintTemplateController::class, 'store'])->name('print-templates.store');
+    Route::put('/print-templates/{print_template}', [PrintTemplateController::class, 'update'])->name('print-templates.update');
+    Route::post('/print-templates/{print_template}/duplicate', [PrintTemplateController::class, 'duplicate'])->name('print-templates.duplicate');
+    Route::delete('/print-templates/{print_template}', [PrintTemplateController::class, 'destroy'])->name('print-templates.destroy');
     Route::get('/settings/reading-schedule', [ReadingScheduleController::class, 'edit'])->name('settings.reading-schedule.edit');
     Route::put('/settings/reading-schedule', [ReadingScheduleController::class, 'update'])->name('settings.reading-schedule.update');
 

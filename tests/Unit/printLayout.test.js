@@ -147,3 +147,23 @@ test('a saved sort or group on a column the table no longer has is dropped', () 
     assert.equal(layout.group.key, '');
     assert.equal(layout.group.newPage, true);
 });
+
+test('settings the server stored as empty fall back to their defaults', () => {
+    const layout = fitLayout(
+        {
+            paper: 'A3',
+            header: { subtitle: null, title: 'كشف' },
+            footer: { text: null, signatures: ['المحاسب', null] },
+            columns: [{ key: 'name', label: null, visible: false }],
+        },
+        defaultLayout({ columns }),
+    );
+
+    assert.equal(layout.paper, 'A3');
+    assert.equal(layout.header.subtitle, '');
+    assert.equal(layout.header.title, 'كشف');
+    assert.equal(layout.footer.text, '');
+    assert.deepEqual(layout.footer.signatures, ['المحاسب', '']);
+    assert.equal(layout.columns[0].label, 'الاسم');
+    assert.equal(layout.columns[0].visible, false);
+});

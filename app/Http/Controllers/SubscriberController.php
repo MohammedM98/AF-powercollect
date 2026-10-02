@@ -7,10 +7,12 @@ use App\Enums\SubscriberStatus;
 use App\Http\Concerns\BuildsSubscriberStatement;
 use App\Http\Concerns\DeletesRecords;
 use App\Http\Concerns\FiltersDataTable;
+use App\Http\Concerns\FiltersSubscriberList;
 use App\Http\Requests\StoreSubscriberRequest;
 use App\Http\Requests\UpdateSubscriberRequest;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
+use App\Models\MessageBatch;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\SubArea;
@@ -29,9 +31,7 @@ use Inertia\Response as InertiaResponse;
 
 class SubscriberController extends Controller
 {
-    use BuildsSubscriberStatement, DeletesRecords, FiltersDataTable;
-
-    private const SORTABLE = ['account_number', 'full_name', 'display_name', 'status', 'created_at'];
+    use BuildsSubscriberStatement, DeletesRecords, FiltersDataTable, FiltersSubscriberList;
 
     /**
      * Display a listing of the resource.
@@ -49,10 +49,7 @@ class SubscriberController extends Controller
             ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'tariffSegment', 'circuitBreaker', 'standingDiscount', 'registeredBy', 'meterReadings.recordedBy'])
             ->with(['profile' => fn ($query) => $query->withCount(['subscriptions' => fn ($subscriptions) => $subscriptions->visibleTo($actor)])])
             ->withSum('transactions as outstanding_balance', 'amount');
-        $subscriberNumber = DB::raw('(select subscriber_number from subscriber_profiles where subscriber_profiles.id = subscribers.subscriber_profile_id)');
-        $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'phone', 'subscription_phone', 'account_number', $subscriberNumber], self::SORTABLE, 'display_name');
-        $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'tariff_segment_id', 'meter_box_id']);
-        $this->applyMeterBoxNameFilter($query, $request);
+        $this->applySubscriberListFilters($query, $request);
 
         $canRecordReadings = $actor->can('create', MeterReading::class);
 
@@ -64,6 +61,12 @@ class SubscriberController extends Controller
             'subscribers' => $subscribers,
             'canCreate' => $actor->can('create', Subscriber::class),
             'canRecordReadings' => $canRecordReadings,
+            'bulkActions' => [
+                'minimumCharge' => $actor->can('bulkUpdate', [Subscriber::class, 'minimum_charge']),
+                'status' => $actor->can('bulkUpdate', [Subscriber::class, 'status']),
+                'message' => $actor->can('create', MessageBatch::class),
+            ],
+            'statusOptions' => SubscriberStatus::options(),
             'filters' => $this->dataTableState($request, 'display_name'),
             'filterOptions' => $this->filterOptions($actor),
             // Only the Super Admin may enter a reading for an earlier week.

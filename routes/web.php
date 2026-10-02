@@ -21,6 +21,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileDeviceController;
 use App\Http\Controllers\ReadingScheduleController;
 use App\Http\Controllers\ReadNotificationController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SubAreaController;
 use App\Http\Controllers\SubscriberBulkChangeController;
 use App\Http\Controllers\SubscriberChargeController;
@@ -66,6 +67,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/cash-transfers/{transfer}/receive', [CashTransferController::class, 'receive'])->name('cash-transfers.receive');
     Route::get('/cash-transfers/{transfer}/proof', [CashTransferController::class, 'proof'])->name('cash-transfers.proof');
     Route::post('/period-closings', [PeriodClosingController::class, 'store'])->name('period-closings.store');
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/lines.csv', [ReportController::class, 'export'])->name('reports.export');
     Route::get('/branch-performance', [BranchPerformanceController::class, 'index'])->name('branch-performance.index');
     Route::get('/branch-performance/{branch}', [BranchPerformanceController::class, 'show'])->name('branch-performance.show');
 

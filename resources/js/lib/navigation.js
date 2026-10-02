@@ -9,6 +9,7 @@ export const MAIN_LINKS = [
     { href: '/ledger', label: 'السجل المالي', icon: 'ledger', can: 'viewLedger' },
     { href: '/branch-performance', label: 'أداء الفروع', icon: 'trend', can: 'viewLedger' },
     { href: '/closings', label: 'الإغلاق', icon: 'scale', can: 'viewClosings' },
+    { href: '/reports', label: 'التقارير', icon: 'receipt', can: 'viewClosings' },
     { href: '/subscribers', label: 'المشتركون', icon: 'users', can: 'viewSubscribers' },
     { href: '/meter-readings', label: 'القراءات', icon: 'chart', can: 'viewMeterReadings' },
     { href: '/messages', label: 'الرسائل', icon: 'messages', can: 'viewMessages' },

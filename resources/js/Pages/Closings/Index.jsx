@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import { weekDayName } from '@/lib/weekDays';
@@ -54,6 +54,16 @@ export default function Index({
                         <h1>الإغلاق</h1>
                         <p>مطابقة تحصيل الفرع وتدقيقه، ثم تسليم النقد للشركة، ثم إغلاقات الأسبوع والشهر من نفس الدفعات.</p>
                     </div>
+                    {branchId && (
+                        <Link
+                            className="btn"
+                            href={`/reports?branch=${branchId}&from=${date}&to=${date}`}
+                            style={{ marginInlineStart: 'auto' }}
+                        >
+                            <Icon name="receipt" />
+                            تقرير اليوم
+                        </Link>
+                    )}
                 </div>
 
                 <div className="tabs" role="group" aria-label="أقسام الإغلاق">

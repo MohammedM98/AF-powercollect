@@ -10,6 +10,7 @@ import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { printFieldsProps, printRowProps } from '@/lib/print';
 import { formatCurrency } from '@/lib/currency';
 import { consumptionBetween, weeklyCharges } from '@/lib/readings';
 import { activeReadingStatus, readingStatusFilters } from '@/lib/readingSheet';
@@ -18,12 +19,23 @@ import { WEEK_DAYS, formatWeekDay } from '@/lib/weekDays';
 
 const SORT_OPTIONS = [
     { value: 'full_name', label: 'الاسم' },
-    { value: 'meter_box_number', label: 'الطبلون' },
+    { value: 'meter_box', label: 'الطبلون (الاسم ثم الرقم)' },
+    { value: 'meter_box_number', label: 'رقم الطبلون' },
     { value: 'last_reading', label: 'آخر قراءة' },
     { value: 'current_reading', label: 'القراءة الجديدة' },
     { value: 'consumption', label: 'الفرق (كيلو)' },
     { value: 'amount_due', label: 'المطلوب دفعه' },
     { value: 'account_number', label: 'رقم الاشتراك' },
+];
+
+/** The details printing can show as columns of their own (see printFieldsProps). */
+const PRINT_FIELDS = [
+    { key: 'meterBoxName', label: 'اسم الطبلون' },
+    { key: 'meterBoxNumber', label: 'رقم الطبلون' },
+    { key: 'fullName', label: 'اسم المشترك' },
+    { key: 'phone', label: 'رقم الجوال' },
+    { key: 'accountNumber', label: 'رقم الاشتراك' },
+    { key: 'subAreaName', label: 'منطقة 2' },
 ];
 
 const STATUS_TABS = [
@@ -106,7 +118,10 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     }
 
     return (
-        <tr className={`re-row ${selected ? 'is-selected' : ''} ${error ? 'has-error' : ''} ${isDraft ? 'is-draft' : ''}`}>
+        <tr
+            className={`re-row ${selected ? 'is-selected' : ''} ${error ? 'has-error' : ''} ${isDraft ? 'is-draft' : ''}`}
+            {...printRowProps(Object.fromEntries(PRINT_FIELDS.map((field) => [field.key, row[field.key]])))}
+        >
             <td className="re-sub">
                 <div className="flex items-center gap-3">
                     {approvable && (
@@ -454,7 +469,7 @@ export default function Index({
             />
 
             <div className="re-table-wrap">
-                <table className="re-table w-full text-sm text-start">
+                <table className="re-table w-full text-sm text-start" {...printFieldsProps(PRINT_FIELDS)}>
                     <thead>
                         <tr>
                             <SortableTh column="full_name" label="المشترك" sortState={filters} onSort={sort} className="re-sub" />

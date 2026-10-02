@@ -186,6 +186,7 @@ class SubscriberController extends Controller
             'governorateName' => $subscriber->branch->governorate?->name,
             'areaName' => $subscriber->branch->area?->name,
             'meterBoxNumber' => $subscriber->meterBox?->box_number,
+            'meterBoxName' => $subscriber->meterBox?->displayName(),
             'subAreaName' => $subscriber->meterBox?->subArea?->name,
             'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
             'tariffSegmentName' => $subscriber->tariffSegment?->name,

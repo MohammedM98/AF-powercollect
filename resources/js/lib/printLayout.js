@@ -22,7 +22,8 @@ const TEMPLATES_PREFIX = 'print-templates:';
 
 /**
  * A fresh layout for a page whose table has the given columns (`{ key,
- * label }`, in the table's order).
+ * label, extra? }`, in the table's order). The table's own columns start
+ * shown, its extra print fields hidden.
  */
 export function defaultLayout({ columns, title = '', company = '' }) {
     return {
@@ -43,7 +44,10 @@ export function defaultLayout({ columns, title = '', company = '' }) {
             centered: false,
             repeatTitle: false,
         },
-        columns: columns.map((column) => ({ key: column.key, label: column.label, visible: true, align: 'auto', total: false })),
+        columns: columns.map((column) => ({ key: column.key, label: column.label, extra: Boolean(column.extra), visible: !column.extra, align: 'auto', total: false })),
+        // Up to three levels, `{ key, direction }`; empty keeps the table's own order.
+        sort: [],
+        group: { key: '', newPage: false, subtotals: true },
         table: {
             borders: 'grid',
             zebra: true,
@@ -77,7 +81,11 @@ export function fitLayout(saved, fresh) {
     const freshKeys = new Set(fresh.columns.map((column) => column.key));
     const kept = savedColumns
         .filter((column) => column && freshKeys.has(column.key))
-        .map((column) => ({ ...fresh.columns.find((item) => item.key === column.key), ...column }));
+        .map((column) => {
+            const freshColumn = fresh.columns.find((item) => item.key === column.key);
+
+            return { ...freshColumn, ...column, extra: freshColumn.extra };
+        });
     const keptKeys = new Set(kept.map((column) => column.key));
 
     return {
@@ -87,7 +95,90 @@ export function fitLayout(saved, fresh) {
         table: { ...fresh.table, ...(saved.table ?? {}) },
         footer: { ...fresh.footer, ...(saved.footer ?? {}) },
         columns: [...kept, ...fresh.columns.filter((column) => !keptKeys.has(column.key))],
+        sort: (Array.isArray(saved.sort) ? saved.sort : []).filter((level) => level && freshKeys.has(level.key)).slice(0, 3),
+        group: { ...fresh.group, ...(saved.group ?? {}), key: freshKeys.has(saved.group?.key) ? saved.group.key : '' },
     };
+}
+
+/** Whether a cell starts with a number ("1,421.80 شيكل", "-45"), so it sorts as one. */
+function startsWithNumber(text) {
+    return /^\s*-?[\d\u0660-\u0669][\d\u0660-\u0669,]*([.\u066b][\d\u0660-\u0669]+)?(\s|$)/u.test(String(text ?? ''));
+}
+
+const TEXT_ORDER = new Intl.Collator('ar', { numeric: true, sensitivity: 'base' });
+
+/**
+ * Order two cells: numbers by value, other text alphabetically with the
+ * numbers in it in numeric order (BOX-9 before BOX-10); empty cells last.
+ */
+export function compareCells(first, second) {
+    const a = String(first ?? '').trim();
+    const b = String(second ?? '').trim();
+
+    if (a === '' || b === '') {
+        return a === b ? 0 : a === '' ? 1 : -1;
+    }
+
+    if (startsWithNumber(a) && startsWithNumber(b)) {
+        return cellNumber(a) - cellNumber(b);
+    }
+
+    return TEXT_ORDER.compare(a, b);
+}
+
+/**
+ * The rows as the printout lists them, in sections: one untitled section
+ * in the table's own order, or — once sorted or grouped — the data rows
+ * sorted (by the group's field first, then each sort level) and split
+ * into a section per group value. The table's own heading rows (e.g. a
+ * day's heading) only make sense in its own order, so they are dropped
+ * then.
+ *
+ * @return {Array<{ title: string|null, rows: Array }>}
+ */
+export function arrangeRows(rows, layout) {
+    const levels = (layout.sort ?? []).filter((level) => level.key);
+    const groupKey = layout.group?.key ?? '';
+
+    if (levels.length === 0 && groupKey === '') {
+        return [{ title: null, rows }];
+    }
+
+    const sortLevels = groupKey === '' ? levels : [{ key: groupKey, direction: 'asc' }, ...levels];
+    const sorted = rows
+        .filter((row) => row.type === 'row')
+        .map((row, index) => ({ row, index }))
+        .sort((a, b) => {
+            for (const level of sortLevels) {
+                const order = compareCells(a.row.cells[level.key], b.row.cells[level.key]);
+
+                if (order !== 0) {
+                    return level.direction === 'desc' ? -order : order;
+                }
+            }
+
+            return a.index - b.index;
+        })
+        .map(({ row }) => row);
+
+    if (groupKey === '') {
+        return [{ title: null, rows: sorted }];
+    }
+
+    const sections = [];
+
+    for (const row of sorted) {
+        const value = String(row.cells[groupKey] ?? '').trim() || '—';
+        const last = sections.at(-1);
+
+        if (last && last.title === value) {
+            last.rows.push(row);
+        } else {
+            sections.push({ title: value, rows: [row] });
+        }
+    }
+
+    return sections;
 }
 
 function pick(object, keys) {

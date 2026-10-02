@@ -557,6 +557,30 @@ class MeterReadingTest extends TestCase
         );
     }
 
+    public function test_the_reading_sheet_sorts_by_meter_box_name_then_suffix_then_number(): void
+    {
+        $box = fn (string $name, ?string $suffix, string $number) => MeterBox::factory()->create([
+            'branch_id' => $this->branch->id,
+            'name' => $name,
+            'name_suffix' => $suffix,
+            'box_number' => $number,
+        ])->id;
+        $this->subscriber->update(['meter_box_id' => $box('Camp', '2', 'BOX-1')]);
+        $campTen = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $box('Camp', null, 'BOX-10')]);
+        $campNine = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $box('Camp', null, 'BOX-9')]);
+        $alley = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $box('Alley', null, 'BOX-50')]);
+        $noBox = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => null]);
+
+        $rows = $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index', ['sort' => 'meter_box', 'direction' => 'asc']))
+            ->assertOk()
+            ->viewData('page')['props']['rows']['data'];
+
+        $this->assertSame([$alley->id, $campNine->id, $campTen->id, $this->subscriber->id, $noBox->id], array_column($rows, 'id'));
+        $this->assertSame('Camp 2', $rows[3]['meterBoxName']);
+        $this->assertSame($this->subscriber->contactPhone(), $rows[3]['phone']);
+    }
+
     public function test_the_reading_sheet_filters_by_the_meter_boxs_sub_area(): void
     {
         $subArea = SubArea::factory()->create();

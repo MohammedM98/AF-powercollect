@@ -129,8 +129,7 @@ export default function PrintDesigner({ settings, children }) {
         <div className="pd-root min-h-screen bg-gray-100 text-gray-900">
             {layout && <style>{pageCss(layout)}</style>}
 
-            <div
-                role="toolbar"
+            <header
                 aria-label="أدوات الطباعة"
                 className="pd-toolbar sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 sm:px-6"
             >
@@ -165,7 +164,7 @@ export default function PrintDesigner({ settings, children }) {
                         إغلاق
                     </SecondaryButton>
                 </div>
-            </div>
+            </header>
 
             <div className="pd-body lg:grid lg:grid-cols-[380px_minmax(0,1fr)]">
                 <aside

@@ -1,4 +1,4 @@
-import { columnTotal, DENSITY_PADDING, paperSize } from '@/lib/printLayout';
+import { arrangeRows, columnTotal, DENSITY_PADDING, paperSize } from '@/lib/printLayout';
 
 // The time printed under the heading, in the app's Arabic with Western digits.
 const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
@@ -8,8 +8,9 @@ const ALIGN_CLASSES = { auto: 'text-start', start: 'text-start', center: 'text-c
 /**
  * The printout itself, drawn from the page's table (`table`, see
  * lib/print.js extractTable) as the layout says: the heading, the chosen
- * columns in their order and names, totals, the page's summary, notes and
- * signature boxes. On screen it is a sheet of the chosen paper; printed,
+ * columns in their order and names, the rows sorted and grouped (each
+ * group titled, with its count and subtotals, on a new page if asked),
+ * totals, the page's summary, notes and signature boxes. On screen it is a sheet of the chosen paper; printed,
  * the paper and margins come from the @page rule (lib/printLayout.js
  * pageCss) instead.
  */
@@ -17,9 +18,11 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
     const { header, footer } = layout;
     const style = layout.table;
     const columns = layout.columns.filter((column) => column.visible);
-    const rows = table.rows;
-    const dataRows = rows.filter((row) => row.type === 'row');
-    const totals = columns.map((column) => (column.total ? columnTotal(dataRows.map((row) => row.cells[column.key] ?? '')) : null));
+    const dataRows = table.rows.filter((row) => row.type === 'row');
+    const sections = arrangeRows(table.rows, layout);
+    const groupColumn = layout.columns.find((column) => column.key === layout.group.key);
+    const totalsOf = (rows) => columns.map((column) => (column.total ? columnTotal(rows.map((row) => row.cells[column.key] ?? '')) : null));
+    const totals = totalsOf(dataRows);
     const hasTotals = totals.some((total) => total !== null);
     const size = paperSize(layout);
     const span = columns.length + (style.rowNumbers ? 1 : 0);
@@ -94,31 +97,51 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
                             ))}
                         </tr>
                     </thead>
-                    <tbody>
-                        {rows.map((row, index) =>
-                            row.type === 'group' ? (
-                                <tr key={index} className="pd-group">
-                                    <td colSpan={span}>{row.text}</td>
+                    {sections.map((section, sectionIndex) => (
+                        <tbody key={sectionIndex} className={layout.group.newPage && sectionIndex > 0 ? 'pd-new-page' : undefined}>
+                            {section.title !== null && (
+                                <tr className="pd-group pd-group-title">
+                                    <td colSpan={span}>
+                                        {groupColumn?.label}: {section.title}
+                                        <span className="ms-2 font-normal text-gray-600">({section.rows.length.toLocaleString('en')})</span>
+                                    </td>
                                 </tr>
-                            ) : (
-                                <tr key={index} className="pd-row">
-                                    {style.rowNumbers && <td className="pd-number">{++rowNumber}</td>}
-                                    {columns.map((column) => (
-                                        <td key={column.key} className={ALIGN_CLASSES[column.align]}>
-                                            {row.cells[column.key] ?? ''}
+                            )}
+                            {section.rows.map((row, index) =>
+                                row.type === 'group' ? (
+                                    <tr key={index} className="pd-group">
+                                        <td colSpan={span}>{row.text}</td>
+                                    </tr>
+                                ) : (
+                                    <tr key={index} className="pd-row">
+                                        {style.rowNumbers && <td className="pd-number">{++rowNumber}</td>}
+                                        {columns.map((column) => (
+                                            <td key={column.key} className={ALIGN_CLASSES[column.align]}>
+                                                {row.cells[column.key] ?? ''}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ),
+                            )}
+                            {section.title !== null && layout.group.subtotals && hasTotals && (
+                                <tr className="pd-subtotal">
+                                    {style.rowNumbers && <td className="pd-number" />}
+                                    {totalsOf(section.rows).map((total, index) => (
+                                        <td key={columns[index].key} className={ALIGN_CLASSES[columns[index].align]}>
+                                            {total ?? (index === 0 ? `مجموع ${section.title}` : '')}
                                         </td>
                                     ))}
                                 </tr>
-                            ),
-                        )}
-                    </tbody>
+                            )}
+                        </tbody>
+                    ))}
                     {hasTotals && (
                         <tfoot>
                             <tr>
                                 {style.rowNumbers && <td className="pd-number" />}
                                 {columns.map((column, index) => (
                                     <td key={column.key} className={ALIGN_CLASSES[column.align]}>
-                                        {totals[index] ?? (index === 0 ? 'المجموع' : '')}
+                                        {totals[index] ?? (index === 0 ? (sections.length > 1 ? 'المجموع الكلي' : 'المجموع') : '')}
                                     </td>
                                 ))}
                             </tr>

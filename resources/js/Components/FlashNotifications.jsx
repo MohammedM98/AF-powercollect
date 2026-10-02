@@ -78,6 +78,7 @@ export default function FlashNotifications({ initialStatus }) {
     return (
         <div
             dir="rtl"
+            role="region"
             aria-label="الإشعارات"
             className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3 sm:bottom-6 sm:right-6"
         >

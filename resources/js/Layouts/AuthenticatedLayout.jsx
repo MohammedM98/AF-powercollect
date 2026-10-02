@@ -4,7 +4,7 @@ import Icon from '@/Components/Icon';
 import ThemeToggle from '@/Components/ThemeToggle';
 import ActivityBell from '@/Components/ActivityBell';
 import CommandPalette from '@/Components/CommandPalette';
-import PrintSheet from '@/Components/PrintSheet';
+import PrintDesigner from '@/Components/Print/PrintDesigner';
 import { currentPrintSettings } from '@/lib/print';
 import { MAIN_LINKS, SETTINGS_LINKS, allowedLinks, isActiveLink, isInsideAnyLink } from '@/lib/navigation';
 import { useResponsiveTables } from '@/hooks/useResponsiveTables';
@@ -286,7 +286,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
     // Opened from a table's print button: the page without the menus (see lib/print.js).
     if (printSettings) {
-        return <PrintSheet settings={printSettings}>{children}</PrintSheet>;
+        return <PrintDesigner settings={printSettings}>{children}</PrintDesigner>;
     }
 
     return (

@@ -1000,118 +1000,148 @@
 }
 
 /*
- * A list page opened for printing (see resources/js/lib/print.js and
- * PrintSheet.jsx): only the tables, as plain ruled tables in black on
- * white, with the columns that weren't picked hidden.
+ * The print designer (Components/Print/PrintDesigner.jsx): a sheet of the
+ * chosen paper beside its settings. The page being printed is drawn out of
+ * sight, laid out (so its texts keep their line breaks) but without the
+ * parts that aren't data: icons, avatars and screen-reader-only text.
  */
-.print-sheet-content > :not(table):not(:has(table)):not(.data-table-totals),
-.print-sheet-content > * > :not(table):not(:has(table)):not(.data-table-totals),
-.print-sheet .data-table-toolbar,
-.print-sheet .data-table-pagination,
-.print-sheet .print-hidden {
-    display: none !important;
-}
-
-.print-sheet .data-table-container {
-    container-type: normal;
-    overflow: visible;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: none;
-}
-
-.print-sheet .data-table-totals {
-    padding: 8px 0;
-    border: 0;
-    border-radius: 0;
-    background: none;
-}
-
-.print-sheet table {
-    width: 100%;
-    border-collapse: collapse;
-    border-spacing: 0;
-    font-size: 12px;
-    line-height: 1.5;
-}
-
-.print-sheet table th,
-.print-sheet table td,
-.print-sheet table tbody tr:hover td {
-    padding: 5px 8px !important;
-    border: 1px solid #9ca3af !important;
-    border-radius: 0 !important;
-    background: none !important;
-    box-shadow: none !important;
-    color: #111827;
-    white-space: normal;
-    animation: none;
-}
-
-.print-sheet table th {
-    background: #f3f4f6 !important;
-    font-size: 12px;
-}
-
-.print-sheet table tbody tr {
-    animation: none;
-    break-inside: avoid;
-}
-
-.print-sheet table thead {
-    display: table-header-group;
-}
-
-.print-sheet table svg,
-.print-sheet table img,
-.print-sheet .row-identity-avatar {
-    display: none;
-}
-
-.print-sheet .row-identity-text span,
-.print-sheet table .truncate {
-    overflow: visible;
-    white-space: normal;
-}
-
-.print-sheet .data-chip {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: inherit;
-}
-
-.print-sheet table button,
-.print-sheet table input,
-.print-sheet table select {
-    margin: 0 !important;
-    padding: 0 !important;
-    border: 0 !important;
-    background: none !important;
-    box-shadow: none !important;
-    color: inherit !important;
-    font: inherit;
+.pd-source {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    width: 1400px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
     pointer-events: none;
 }
 
+.pd-source .data-table-container {
+    container-type: normal;
+}
+
+.pd-source [aria-hidden='true'],
+.pd-source .row-identity-avatar,
+.pd-source .sr-only {
+    display: none !important;
+}
+
+.pd-paper {
+    margin: 0 auto;
+    background: #fff;
+    color: #111827;
+    line-height: 1.5;
+    box-shadow: 0 18px 40px -18px rgb(16 24 40 / 0.45);
+}
+
+.pd-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.pd-table th,
+.pd-table td {
+    padding: var(--pd-pad) 6px;
+    vertical-align: top;
+    white-space: pre-line;
+}
+
+.pd-table th {
+    font-weight: 700;
+}
+
+.pd-nowrap th,
+.pd-nowrap td {
+    white-space: nowrap;
+}
+
+.pd-borders-grid th,
+.pd-borders-grid td {
+    border: 1px solid #9ca3af;
+}
+
+.pd-borders-rows th,
+.pd-borders-rows td {
+    border-bottom: 1px solid #d1d5db;
+}
+
+.pd-borders-rows thead th,
+.pd-borders-none thead th {
+    border-bottom: 2px solid var(--pd-accent);
+}
+
+.pd-shade thead th {
+    background: color-mix(in srgb, var(--pd-accent) 12%, #fff);
+}
+
+.pd-zebra tbody tr.pd-row:nth-child(even) td {
+    background: #f3f4f6;
+}
+
+.pd-table tfoot td {
+    border-top: 2px solid var(--pd-accent);
+    font-weight: 700;
+}
+
+.pd-table .pd-number {
+    width: 1%;
+    color: #6b7280;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.pd-table tr.pd-group td {
+    padding-top: calc(var(--pd-pad) + 6px);
+    background: #f9fafb;
+    font-weight: 700;
+}
+
+.pd-table thead {
+    display: table-header-group;
+}
+
+.pd-table tfoot {
+    display: table-footer-group;
+}
+
+.pd-table tr,
+.pd-signatures {
+    break-inside: avoid;
+}
+
 @media print {
-    @page {
-        margin: 12mm;
+    html.print-mode,
+    html.print-mode body {
+        background: #fff;
     }
 
-    .print-toolbar,
-    .print-mode [role='status'] {
+    .pd-toolbar,
+    .pd-panel,
+    .pd-source,
+    .pd-screen-only {
         display: none !important;
     }
 
-    .print-sheet {
-        max-width: none;
-        padding: 0;
+    .pd-root,
+    .pd-body,
+    .pd-stage {
+        display: block !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        background: none !important;
     }
 
-    .print-sheet,
-    .print-sheet * {
+    .pd-paper {
+        width: auto !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        zoom: 1 !important;
+    }
+
+    .pd-paper,
+    .pd-paper * {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }

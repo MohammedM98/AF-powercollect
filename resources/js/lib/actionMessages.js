@@ -40,6 +40,7 @@ export const ACTION_MESSAGES = {
     'subscribers-bulk-changed': 'تم تطبيق التعديل على المشتركين المختارين. يمكنك التراجع من «سجل التعديلات الجماعية».',
     'subscribers-bulk-undone': 'تم التراجع عن التعديل الجماعي.',
     'subscriber-phone-updated': 'تم تحديث رقم الجوال.',
+    'subscriber-personal-details-updated': 'تم تحديث البيانات الشخصية.',
     'reading-schedule-updated': 'تم حفظ مواعيد القراءات بنجاح.',
     'tariff-created': 'تم إنشاء التعرفة بنجاح.',
     'tariff-updated': 'تم تحديث التعرفة بنجاح.',

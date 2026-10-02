@@ -19,6 +19,7 @@ import { formatCurrency } from '@/lib/currency';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import SubscriberModal from './SubscriberModal';
+import PersonalDetailsModal from './PersonalDetailsModal';
 import BulkActionBar from './BulkActionBar';
 import BulkChangeModal from './BulkChangeModal';
 import PhoneQuickEdit from './PhoneQuickEdit';
@@ -94,6 +95,7 @@ export default function Index({
     const viewingSubscriber = subscribers.data.find((subscriber) => subscriber.id === viewingSubscriberId) ?? null;
     const [creating, setCreating] = useState(false);
     const [subscriptionSource, setSubscriptionSource] = useState(null);
+    const [personalDetailsSubscriber, setPersonalDetailsSubscriber] = useState(null);
     const [readingSubscriber, setReadingSubscriber] = useState(null);
     const [historySubscriberId, setHistorySubscriberId] = useState(null);
     const historySubscriber = subscribers.data.find((subscriber) => subscriber.id === historySubscriberId) ?? null;
@@ -157,7 +159,7 @@ export default function Index({
 
     /** The row's "more" menu: the subscriber's details, the account's forms, entering this week's reading and the past readings. */
     function rowMenu(subscriber) {
-        const readingItem = { label: 'إدخال قراءة', icon: 'gauge', shortcut: 'R', onSelect: () => setReadingSubscriber(subscriber) };
+        const readingItem = { label: 'إدخال قراءة', icon: 'gauge', tone: 'teal', shortcut: 'R', onSelect: () => setReadingSubscriber(subscriber) };
 
         if (!canRecordReadings) {
             readingItem.lockedReason = needsPermission('تسجيل القراءات');
@@ -174,11 +176,20 @@ export default function Index({
                 {
                     label: 'المشترك',
                     items: [
-                        { label: 'بيانات المشترك', icon: 'user', shortcut: 'I', onSelect: () => setViewingSubscriberId(subscriber.id) },
-                        ...(canCreate ? [{ label: 'إضافة اشتراك', icon: 'document-plus', onSelect: () => setSubscriptionSource(subscriber) }] : []),
+                        { label: 'بيانات المشترك', icon: 'user', tone: 'graphite', shortcut: 'I', onSelect: () => setViewingSubscriberId(subscriber.id) },
+                        {
+                            label: 'تعديل البيانات الشخصية',
+                            icon: 'pencil',
+                            tone: 'blue',
+                            shortcut: 'E',
+                            onSelect: () => setPersonalDetailsSubscriber(subscriber),
+                            lockedReason: subscriber.canUpdate ? null : needsPermission('تعديل المشتركين'),
+                        },
+                        ...(canCreate ? [{ label: 'إضافة اشتراك', icon: 'document-plus', tone: 'indigo', onSelect: () => setSubscriptionSource(subscriber) }] : []),
                         {
                             label: 'إرسال رسالة',
                             icon: 'send',
+                            tone: 'sky',
                             onSelect: () => router.visit(`/messages/create?${new URLSearchParams({ kind: 'custom', status: '', 'subscriber_ids[]': subscriber.id })}`),
                             lockedReason: can?.sendMessages ? null : needsPermission('إرسال الرسائل'),
                         },
@@ -190,6 +201,7 @@ export default function Index({
                         {
                             label: 'تسجيل دفعة',
                             icon: 'banknotes',
+                            tone: 'emerald',
                             shortcut: 'P',
                             onSelect: () => openStatement(subscriber, 'payment'),
                             lockedReason: subscriber.canRecordPayment ? null : needsPermission('تسجيل التحصيلات'),
@@ -197,12 +209,14 @@ export default function Index({
                         {
                             label: 'إضافة تحميل',
                             icon: 'document-plus',
+                            tone: 'amber',
                             onSelect: () => openStatement(subscriber, 'charge'),
                             lockedReason: subscriber.canAdjustBalance ? null : needsPermission('إضافة تحميل وخصم'),
                         },
                         {
                             label: 'إضافة خصم',
                             icon: 'discount',
+                            tone: 'violet',
                             onSelect: () => openStatement(subscriber, 'discount'),
                             lockedReason: subscriber.canAdjustBalance ? null : needsPermission('إضافة تحميل وخصم'),
                         },
@@ -215,6 +229,7 @@ export default function Index({
                         {
                             label: 'سجل القراءات',
                             icon: 'chart',
+                            tone: 'graphite',
                             shortcut: 'H',
                             hint: subscriber.meterReadings.length ? `${subscriber.meterReadings.length} قراءة` : 'لا توجد بعد',
                             onSelect: () => setHistorySubscriberId(subscriber.id),
@@ -438,6 +453,14 @@ export default function Index({
                     subscriber={null}
                     sourceSubscriber={subscriptionSource}
                     {...modalProps}
+                />
+            )}
+
+            {personalDetailsSubscriber && (
+                <PersonalDetailsModal
+                    key={`personal-${personalDetailsSubscriber.id}`}
+                    subscriber={personalDetailsSubscriber}
+                    onClose={() => setPersonalDetailsSubscriber(null)}
                 />
             )}
 

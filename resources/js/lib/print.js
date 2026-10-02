@@ -2,16 +2,15 @@
  * Printing a list page. The toolbar's print button opens the same page in
  * a new tab with `print=1` in its address, keeping the page's search, sort
  * and filters, so the printout lists the rows in the order the table shows
- * them. With `print_all=1` the server sends every matching row instead of
- * one page (see App\Http\Concerns\FiltersDataTable::dataTablePerPage), and the
- * layout shows only the table, without the menus, then opens the
- * browser's print window.
+ * them. There the layout swaps the page for the print designer
+ * (Components/Print/PrintDesigner.jsx), which reads the page's table and
+ * lets every part of the printout be set.
  *
- * `print_cols` lists the columns to print by their position, `print_title`
- * is the heading above the table.
+ * With `print_all=1` the server sends every matching row instead of one
+ * page (see App\Http\Concerns\FiltersDataTable::dataTablePerPage);
+ * `print_page` keeps the page that was on screen, to switch back to it.
+ * `print_title` is the heading to start from.
  */
-
-const STORAGE_PREFIX = 'print-columns:';
 
 /** The print settings in the current address, or null when the page isn't being printed. */
 export function currentPrintSettings() {
@@ -21,11 +20,9 @@ export function currentPrintSettings() {
         return null;
     }
 
-    const columns = params.get('print_cols');
-
     return {
         title: params.get('print_title') ?? '',
-        columns: columns === null || columns === '' ? null : columns.split(',').map(Number),
+        allRows: params.get('print_all') === '1',
     };
 }
 
@@ -35,11 +32,27 @@ export function isPrintMode() {
 }
 
 /**
- * The address of the printout: the current page with its search, sort and
- * filters. `allRows` prints every matching row from the first one; otherwise
- * only the page on screen.
+ * The address of the printout of the current page, with its search, sort
+ * and filters — every matching row from the first one.
  */
-export function printUrl({ allRows, columns, title }) {
+export function printUrl(title) {
+    const url = new URL(window.location.href);
+    const params = url.searchParams;
+
+    params.set('print_page', params.get('page') ?? '1');
+    params.delete('page');
+    params.set('print', '1');
+    params.set('print_all', '1');
+    params.set('print_title', title);
+
+    return url.toString();
+}
+
+/**
+ * The printout's address with every matching row (`allRows`) or only the
+ * page that was on screen.
+ */
+export function printScopeUrl(allRows) {
     const url = new URL(window.location.href);
     const params = url.searchParams;
 
@@ -47,31 +60,11 @@ export function printUrl({ allRows, columns, title }) {
         params.delete('page');
         params.set('print_all', '1');
     } else {
+        params.set('page', params.get('print_page') ?? '1');
         params.delete('print_all');
     }
 
-    params.set('print', '1');
-    params.set('print_cols', columns.join(','));
-    params.set('print_title', title);
-
     return url.toString();
-}
-
-/**
- * The columns of the table that follows `element` (the toolbar): each
- * header's position and title. A column without a title (the row
- * buttons) is left out, it has nothing to print.
- */
-export function tableColumnsAfter(element) {
-    const table = tableAfter(element);
-
-    if (!table) {
-        return [];
-    }
-
-    return [...table.querySelectorAll('thead tr:first-child > th')]
-        .map((th, index) => ({ index, label: columnTitle(th) }))
-        .filter((column) => column.label !== '');
 }
 
 /** A column's printed title: none for the row buttons' column (ActionsTh). */
@@ -79,65 +72,82 @@ function columnTitle(th) {
     return th.hasAttribute('data-actions') ? '' : th.textContent.trim();
 }
 
-/** The first table after `element` among its following siblings. */
-function tableAfter(element) {
-    for (let sibling = element?.nextElementSibling; sibling; sibling = sibling.nextElementSibling) {
-        const table = sibling.matches('table') ? sibling : sibling.querySelector('table');
+/**
+ * A cell's text as it reads on screen, line breaks included, plus the
+ * value typed in any field in it (e.g. a reading being entered).
+ */
+function cellText(cell) {
+    const fieldValues = [...cell.querySelectorAll('input:not([type=checkbox]):not([type=radio]), select, textarea')]
+        .map((field) => field.value)
+        .filter((value) => value !== '');
 
-        if (table) {
-            return table;
-        }
-    }
-
-    return null;
-}
-
-/** The columns picked last time on this page, or null when there's no saved choice. */
-export function rememberedColumns(pageKey) {
-    try {
-        const saved = localStorage.getItem(STORAGE_PREFIX + pageKey);
-
-        return saved ? JSON.parse(saved) : null;
-    } catch {
-        return null;
-    }
-}
-
-/** Remember the picked column titles for the next printout of this page. */
-export function rememberColumns(pageKey, labels) {
-    try {
-        localStorage.setItem(STORAGE_PREFIX + pageKey, JSON.stringify(labels));
-    } catch {
-        // Storage may be blocked (private mode); the choice still applies to this printout.
-    }
+    return [cell.innerText.trim(), ...fieldValues].filter(Boolean).join(' ').replace(/\n{2,}/g, '\n');
 }
 
 /**
- * Hide every column of the page's tables that isn't in `columns` (by
- * position), plus any column without a title. A row whose cells don't
- * line up with the header (an empty-state or group row spanning the
- * table) is left as it is.
+ * The list's own table: the one after the table toolbar, else the first
+ * table with column titles — not, say, a chart's hidden table of figures.
  */
-export function hideUnprintedColumns(root, columns) {
-    root.querySelectorAll('table').forEach((table) => {
-        const headers = [...table.querySelectorAll('thead tr:first-child > th')];
-        const hidden = new Set(
-            headers
-                .map((th, index) => ({ index, label: columnTitle(th) }))
-                .filter(({ index, label }) => label === '' || (columns !== null && !columns.includes(index)))
-                .map(({ index }) => index),
-        );
+function printedTable(root) {
+    const afterToolbar = root?.querySelector('.data-table-toolbar ~ table, .data-table-toolbar ~ * table');
 
-        table.querySelectorAll('tr').forEach((row) => {
+    if (afterToolbar) {
+        return afterToolbar;
+    }
+
+    return [...(root?.querySelectorAll('table') ?? [])].find((table) => table.querySelector('thead th')?.textContent.trim()) ?? null;
+}
+
+/**
+ * The list's table inside `root` as plain data: its columns (`{ key, label }`,
+ * leaving out the row buttons' column) and its rows — `{ type: 'row',
+ * cells }` with one text per column, or `{ type: 'group', text }` for a row
+ * spanning the table (a day's heading, or the "no results" line). Column
+ * keys are their titles, so a saved layout finds them again. `root` must
+ * be laid out (not display: none) for the texts to keep their line breaks.
+ */
+export function extractTable(root) {
+    const table = printedTable(root);
+
+    if (!table) {
+        return null;
+    }
+
+    const headers = [...table.querySelectorAll('thead tr:first-child > th')];
+    const seen = new Map();
+    const columns = headers
+        .map((th, index) => {
+            const label = columnTitle(th);
+            const count = (seen.get(label) ?? 0) + 1;
+            seen.set(label, count);
+
+            return { index, label, key: count > 1 ? `${label} (${count})` : label };
+        })
+        .filter((column) => column.label !== '');
+
+    const rows = [...table.querySelectorAll('tbody tr')]
+        .map((row) => {
             const cells = [...row.children];
 
-            if (cells.length !== headers.length) {
-                return;
+            if (cells.length === headers.length) {
+                return { type: 'row', cells: Object.fromEntries(columns.map((column) => [column.key, cellText(cells[column.index])])) };
             }
 
-            cells.forEach((cell, index) => cell.classList.toggle('print-hidden', hidden.has(index)));
-        });
-    });
+            const text = row.innerText.trim();
+
+            return text === '' ? null : { type: 'group', text };
+        })
+        .filter(Boolean);
+
+    return { columns: columns.map(({ key, label }) => ({ key, label })), rows };
+}
+
+/** The page's summary under its table (e.g. the financial log's totals), if it has one. */
+export function extractSummary(root) {
+    // The readings sheet's footer also holds keyboard hints; only its first part is the total.
+    const summary = root?.querySelector('.data-table-totals, .re-footer > :first-child');
+
+    return summary ? summary.innerText.trim().replace(/\s*\n\s*/g, ' · ') : '';
 }
 
 /**

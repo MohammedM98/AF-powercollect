@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import Icon from '@/Components/Icon';
-import { rememberedColumns, tableColumnsAfter } from '@/lib/print';
+import { printUrl } from '@/lib/print';
 import DensityToggle from './DensityToggle';
-import PrintDialog from './PrintDialog';
 
 const PAGE_SIZES = [15, 25, 50, 100];
 
 /**
  * The top of a table card: search (press / to jump to it, Esc to clear),
  * the result count, the print button, the row-density switch and the
- * page-size switch, with the filter row below. Printing uses the table
- * right after the toolbar; `printable={false}` hides the button.
+ * page-size switch, with the filter row below. Print opens the print
+ * designer in a new tab with the table's search, sort and filters;
+ * `printable={false}` hides the button.
  */
 export default function DataTableToolbar({
     search,
@@ -24,12 +24,9 @@ export default function DataTableToolbar({
     printable = true,
 }) {
     const searchRef = useRef(null);
-    const toolbarRef = useRef(null);
-    const [printColumns, setPrintColumns] = useState(null);
-    const printPageKey = window.location.pathname;
 
-    function openPrintDialog() {
-        setPrintColumns(tableColumnsAfter(toolbarRef.current));
+    function openPrintDesigner() {
+        window.open(printUrl(document.title), '_blank');
     }
 
     useEffect(() => {
@@ -51,7 +48,7 @@ export default function DataTableToolbar({
     }, [showSearch]);
 
     return (
-        <div ref={toolbarRef} className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
+        <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
             {showSearch ? (
                 <div className="relative w-full sm:max-w-sm">
                     <Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" />
@@ -85,10 +82,9 @@ export default function DataTableToolbar({
                 {printable && (
                     <button
                         type="button"
-                        onClick={openPrintDialog}
-                        aria-label="طباعة الجدول"
-                        title="طباعة الجدول: اختر الأعمدة والصفوف"
-                        aria-haspopup="dialog"
+                        onClick={openPrintDesigner}
+                        aria-label="طباعة الجدول (تُفتح في نافذة جديدة)"
+                        title="طباعة الجدول: صمّم الطباعة كما تريد في نافذة جديدة"
                         className="inline-flex h-[34px] items-center gap-1.5 rounded-control border border-gray-100 bg-gray-50 px-3 text-sm font-semibold text-gray-600 transition hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
                     >
                         <Icon name="printer" className="h-4 w-4" />
@@ -118,18 +114,6 @@ export default function DataTableToolbar({
             </div>
 
             {filterMenu}
-
-            {printColumns && (
-                <PrintDialog
-                    show
-                    onClose={() => setPrintColumns(null)}
-                    columns={printColumns}
-                    initialLabels={rememberedColumns(printPageKey)}
-                    defaultTitle={document.title}
-                    total={total}
-                    pageKey={printPageKey}
-                />
-            )}
         </div>
     );
 }

@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
+import PrimaryButton from '@/Components/PrimaryButton';
+import SecondaryButton from '@/Components/SecondaryButton';
 import { hideUnprintedColumns, paginatedProp } from '@/lib/print';
 
 // The time printed under the heading, in the app's Arabic with Western digits.
@@ -45,34 +47,37 @@ export default function PrintSheet({ settings, children }) {
 
     return (
         <div className="min-h-screen bg-white text-gray-900">
-            <div className="print-toolbar sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-white/90 px-6 py-3 backdrop-blur">
-                <span className="text-sm text-gray-500">
+            <div
+                role="toolbar"
+                aria-label="معاينة الطباعة"
+                className="print-toolbar sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-white/90 px-6 py-3 backdrop-blur"
+            >
+                <span className="flex items-center gap-2 text-sm text-gray-600">
+                    <Icon name="eye" className="h-4 w-4 shrink-0" />
                     معاينة الطباعة
-                    {isCut && <> — تُطبع أول {list.data.length.toLocaleString('en')} نتيجة من {list.total.toLocaleString('en')}</>}
+                    {isCut && (
+                        <span role="status" className="inline-flex items-center gap-1 font-semibold text-amber-700">
+                            <Icon name="warning" className="h-4 w-4 shrink-0" />
+                            تُطبع أول {list.data.length.toLocaleString('en')} نتيجة من {list.total.toLocaleString('en')}
+                        </span>
+                    )}
                 </span>
                 <div className="flex gap-2">
-                    <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="inline-flex items-center gap-2 rounded-control bg-brand-gradient px-4 py-2 text-sm font-semibold text-white"
-                    >
+                    <PrimaryButton type="button" onClick={() => window.print()} autoFocus>
                         <Icon name="printer" className="h-4 w-4" />
                         طباعة
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => window.close()}
-                        className="rounded-control border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700"
-                    >
-                        إغلاق
-                    </button>
+                    </PrimaryButton>
+                    <SecondaryButton onClick={() => window.close()}>
+                        <Icon name="close" className="h-4 w-4" />
+                        إغلاق المعاينة
+                    </SecondaryButton>
                 </div>
             </div>
 
             <div ref={sheetRef} className="print-sheet mx-auto max-w-screen-2xl px-6 py-6">
                 <header className="print-sheet-header mb-4 flex items-start justify-between gap-6 border-b-2 border-gray-900 pb-3">
                     <div className="flex items-center gap-3">
-                        <img src="/images/logo-af.webp" alt="" className="h-12 w-auto" />
+                        <img src="/images/logo-af.webp" alt={props.appName} className="h-12 w-auto" />
                         <div>
                             <div className="text-lg font-bold">{props.appName}</div>
                             {props.auth?.user?.branchName && <div className="text-sm text-gray-600">{props.auth.user.branchName}</div>}

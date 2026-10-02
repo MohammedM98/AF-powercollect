@@ -9,6 +9,7 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
@@ -218,7 +219,7 @@ export default function Index({
                             <th>الحد الأدنى</th>
                             <th>الرصيد</th>
                             <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
-                            <th></th>
+                            <ActionsTh />
                         </tr>
                     </thead>
                     <tbody>

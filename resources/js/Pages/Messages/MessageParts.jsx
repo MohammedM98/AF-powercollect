@@ -1,12 +1,38 @@
+import Icon from '@/Components/Icon';
 import StatusPill from '@/Components/DataTable/StatusPill';
+
+/** Each kind of message and each way of sending has its own icon, the same wherever it shows. */
+export const KIND_ICONS = { weekly_reading: 'gauge', balance_reminder: 'wallet', custom: 'megaphone' };
+
+export const CHANNEL_ICONS = { sms: 'phone', whatsapp: 'chat' };
+
+/** Select options with their icon added, for ChoiceChips. */
+export function withIcons(options, icons) {
+    return options.map((option) => ({ ...option, icon: icons[option.value] }));
+}
 
 const KIND_TONES = { weekly_reading: 'blue', balance_reminder: 'amber', custom: 'gray' };
 
 const STATUS_TONES = { pending: 'amber', sent: 'green', failed: 'red' };
 
-/** What a send is about, as a colored pill. */
+/** What a send is about: its icon and name, tinted by kind. */
 export function KindPill({ kind, label }) {
-    return <StatusPill tone={KIND_TONES[kind] ?? 'gray'} label={label} />;
+    return (
+        <span className="inline-flex items-center gap-1.5">
+            <Icon name={KIND_ICONS[kind] ?? 'note'} className="h-4 w-4 shrink-0 text-gray-500" />
+            <StatusPill tone={KIND_TONES[kind] ?? 'gray'} label={label} />
+        </span>
+    );
+}
+
+/** How a send went out: SMS or WhatsApp, with its icon. */
+export function ChannelLabel({ channel, label }) {
+    return (
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-gray-700">
+            <Icon name={CHANNEL_ICONS[channel] ?? 'send'} className="h-4 w-4 shrink-0 text-gray-500" />
+            {label}
+        </span>
+    );
 }
 
 /** How one message went: waiting, sent or failed. */
@@ -31,6 +57,23 @@ export function DeliveryCounts({ batch }) {
                 </span>
             ))}
         </span>
+    );
+}
+
+/**
+ * A message's text with each `{placeholder}` still in it shown as a
+ * highlighted tag, so it reads as "filled in for each subscriber" rather
+ * than as a typo.
+ */
+export function MessageText({ text }) {
+    return (text ?? '').split(/(\{[^{}]+\})/u).map((part, index) =>
+        /^\{[^{}]+\}$/u.test(part) ? (
+            <mark key={index} className="rounded-md bg-sky-500/15 px-1 font-semibold text-sky-800 dark:text-sky-300">
+                {part.slice(1, -1).replaceAll('_', ' ')}
+            </mark>
+        ) : (
+            part
+        ),
     );
 }
 

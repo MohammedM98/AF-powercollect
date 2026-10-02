@@ -50,7 +50,7 @@ const GROUP_DETAILS = {
     meter_readings: { icon: 'chart', description: 'إدارة قراءات العدادات' },
     collections: { icon: 'card', description: 'إدارة عمليات التحصيل' },
     closings: { icon: 'scale', description: 'إغلاق التحصيل اليومي وتسليم النقد والتقارير' },
-    messages: { icon: 'send', description: 'رسائل المشتركين: القراءات الأسبوعية وتذكير الدفع والإعلانات' },
+    messages: { icon: 'messages', description: 'رسائل المشتركين: القراءات الأسبوعية وتذكير الدفع والإعلانات' },
 };
 
 /** The first option of each filter dropdown. */

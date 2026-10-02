@@ -7,8 +7,8 @@ import ChoiceChips from '@/Components/ChoiceChips';
 import { printUrl, rememberColumns } from '@/lib/print';
 
 const SCOPES = [
-    { value: 'all', label: 'كل النتائج' },
-    { value: 'page', label: 'هذه الصفحة فقط' },
+    { value: 'all', label: 'كل النتائج', icon: 'list' },
+    { value: 'page', label: 'هذه الصفحة فقط', icon: 'table' },
 ];
 
 /**
@@ -88,15 +88,21 @@ export default function PrintDialog({ show, onClose, columns, initialLabels, def
                         />
                     </div>
 
-                    <fieldset>
-                        <div className="mb-1.5 flex items-center justify-between gap-3">
-                            <legend className="text-sm font-semibold text-gray-700">الأعمدة</legend>
+                    <fieldset aria-describedby={`${id}-columns-count`}>
+                        <legend className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                            <Icon name="columns" className="h-4 w-4 text-gray-500" />
+                            الأعمدة
+                        </legend>
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                            <span id={`${id}-columns-count`} className="text-xs text-gray-500" aria-live="polite">
+                                {selected.size} من {columns.length} أعمدة ستُطبع
+                            </span>
                             <button
                                 type="button"
                                 onClick={() => setSelected(new Set(allSelected ? [] : columns.map((column) => column.index)))}
-                                className="text-xs font-semibold text-brand-600 hover:underline"
+                                className="rounded text-xs font-semibold text-brand-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
                             >
-                                {allSelected ? 'إلغاء الكل' : 'تحديد الكل'}
+                                {allSelected ? 'إلغاء تحديد كل الأعمدة' : 'تحديد كل الأعمدة'}
                             </button>
                         </div>
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -123,8 +129,12 @@ export default function PrintDialog({ show, onClose, columns, initialLabels, def
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-7 py-4">
+                    <p id={`${id}-print-hint`} className="me-auto flex items-center gap-1.5 text-xs text-gray-500">
+                        <Icon name={selected.size === 0 ? 'warning' : 'external'} className="h-4 w-4 shrink-0" />
+                        {selected.size === 0 ? 'اختر عمودًا واحدًا على الأقل.' : 'تُفتح المعاينة في نافذة جديدة.'}
+                    </p>
                     <SecondaryButton onClick={onClose}>إلغاء</SecondaryButton>
-                    <PrimaryButton type="button" onClick={print} disabled={selected.size === 0}>
+                    <PrimaryButton type="button" onClick={print} disabled={selected.size === 0} aria-describedby={`${id}-print-hint`}>
                         <Icon name="printer" className="h-4 w-4" />
                         طباعة
                     </PrimaryButton>

@@ -4,6 +4,7 @@ import Icon from '@/Components/Icon';
 import InlineAddRow, { InlineField, inlineInputClass } from '@/Components/InlineAddRow';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
 import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 
 /**
@@ -89,7 +90,7 @@ export default function UserTypesTab({ userTypes, canCreate, addRequested, onAdd
                     <tr>
                         <th>نوع المستخدم</th>
                         <th>المستخدمون</th>
-                        <th></th>
+                        <ActionsTh />
                     </tr>
                 </thead>
                 <tbody>

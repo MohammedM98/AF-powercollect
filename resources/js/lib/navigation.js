@@ -11,7 +11,7 @@ export const MAIN_LINKS = [
     { href: '/closings', label: 'الإغلاق', icon: 'scale', can: 'viewClosings' },
     { href: '/subscribers', label: 'المشتركون', icon: 'users', can: 'viewSubscribers' },
     { href: '/meter-readings', label: 'القراءات', icon: 'chart', can: 'viewMeterReadings' },
-    { href: '/messages', label: 'الرسائل', icon: 'send', can: 'viewMessages' },
+    { href: '/messages', label: 'الرسائل', icon: 'messages', can: 'viewMessages' },
     { href: '/users', label: 'المستخدمون', icon: 'user', can: 'viewUsers' },
 ];
 

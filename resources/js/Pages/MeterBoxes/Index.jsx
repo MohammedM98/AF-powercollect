@@ -8,6 +8,7 @@ import SortableTh from '@/Components/DataTable/SortableTh';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
@@ -74,7 +75,7 @@ export default function Index({
                             <SortableTh column="box_number" label="رقم الطبلون" sortState={filters} onSort={sort} />
                             <th>الفرع</th>
                             <th>المحافظة / المنطقة</th>
-                            <th></th>
+                            <ActionsTh />
                         </tr>
                     </thead>
                     <tbody>

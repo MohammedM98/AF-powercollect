@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import Icon from '@/Components/Icon';
 
 const DOT_CLASSES = {
     green: 'bg-emerald-500',
@@ -8,9 +9,10 @@ const DOT_CLASSES = {
 
 /**
  * A few choices shown as pill buttons, picked with one click instead of a
- * drop-down (a radio group). Each option is `{ value, label, hint?, dot? }`:
+ * drop-down (a radio group). Each option is `{ value, label, hint?, dot?, icon? }`:
  * `hint` is a quiet second part beside the label (a price, say), `dot` a
- * status color. The arrow keys move the choice, like native radio buttons.
+ * status color, `icon` an icon before the label. The arrow keys move the
+ * choice, like native radio buttons.
  *
  * `required` adds a hidden radio named `name`, so the form's own check
  * (validateFormFields) reports a missing choice under the field.
@@ -55,6 +57,7 @@ export default function ChoiceChips({ id, name, value, onChange, options, label,
                                 : 'border-gray-200 bg-surface text-gray-700 hover:border-gray-300 hover:text-gray-900'
                         }`}
                     >
+                        {option.icon && <Icon name={option.icon} className="h-4 w-4 shrink-0" />}
                         {option.dot && <span className={`h-2 w-2 shrink-0 rounded-full ${DOT_CLASSES[option.dot]}`} aria-hidden="true" />}
                         {option.label}
                         {option.hint && (

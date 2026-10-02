@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
@@ -8,7 +8,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import InputError from '@/Components/InputError';
-import { renderMessage } from './MessageParts';
+import { CHANNEL_ICONS, KIND_ICONS, MessageText, renderMessage, withIcons } from './MessageParts';
 
 /** Arabic text goes out as Unicode SMS: 70 letters in one message, 67 in each part of a longer one. */
 function smsParts(length) {
@@ -36,15 +36,23 @@ function Field({ label, htmlFor, children, className = '' }) {
     );
 }
 
+/** The keyboard focus ring every custom button here uses, like the app's own buttons. */
+const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900';
+
+/** One step of the page as a card, named by its title for screen readers. */
 function Card({ icon, title, description, children, actions = null }) {
+    const titleId = useId();
+
     return (
-        <section className="rounded-card border border-gray-100 bg-surface p-5 shadow-card sm:p-6">
+        <section aria-labelledby={titleId} className="rounded-card border border-gray-100 bg-surface p-5 shadow-card sm:p-6">
             <div className="mb-5 flex items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-graphite-gradient text-white dark:ring-1 dark:ring-white/10">
                     <Icon name={icon} className="h-5 w-5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-gray-900">{title}</h4>
+                    <h3 id={titleId} className="font-bold text-gray-900">
+                        {title}
+                    </h3>
                     {description && <p className="text-xs text-gray-500">{description}</p>}
                 </div>
                 {actions}
@@ -100,6 +108,7 @@ export default function Create({
     const [confirming, setConfirming] = useState(false);
     const [sending, setSending] = useState(false);
     const [templateName, setTemplateName] = useState(null);
+    const [confirmingTemplateDelete, setConfirmingTemplateDelete] = useState(false);
 
     // What the recipient list is asked for with; the list is out of date once this changes.
     const requestData = useMemo(() => {
@@ -207,6 +216,7 @@ export default function Create({
     }
 
     function deleteTemplate() {
+        setConfirmingTemplateDelete(false);
         router.delete(`/message-templates/${templateId}`, {
             preserveScroll: true,
             preserveState: true,
@@ -238,14 +248,25 @@ export default function Create({
     const meterBoxNames = meterBoxGroups[0]?.options ?? [];
     const meterBoxNumbers = (meterBoxGroups[1]?.options ?? []).filter((option) => option.parent === criteria.meter_box_name);
     const canSend = selected.size > 0 && body.trim() !== '' && !isStale && !sending;
+    // Why the send button can't be used yet, said under it.
+    const sendBlocker =
+        recipients === null
+            ? 'اضغط «عرض المستلمين» أولًا لتختار من تصله الرسالة.'
+            : isStale
+              ? 'حدّث المستلمين بعد تغيير الشروط.'
+              : body.trim() === ''
+                ? 'اكتب نص الرسالة.'
+                : selected.size === 0
+                  ? 'حدّد مشتركًا واحدًا على الأقل.'
+                  : null;
 
     return (
         <AuthenticatedLayout
             header={
                 <div className="min-w-0">
-                    <Link href="/messages" className="mb-1 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900">
+                    <Link href="/messages" className={`mb-1 inline-flex items-center gap-1 rounded text-sm text-gray-500 hover:text-gray-900 ${FOCUS_RING}`}>
                         <Icon name="chevron-right" className="h-4 w-4" />
-                        الرسائل
+                        رجوع إلى الرسائل
                     </Link>
                     <h2 className="text-3xl font-bold text-gray-900">رسالة جديدة</h2>
                 </div>
@@ -255,11 +276,11 @@ export default function Create({
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                 <div className="space-y-6">
-                    <Card icon="note" title="نوع الرسالة" description={KIND_HINTS[kind]}>
-                        <ChoiceChips options={kinds} value={kind} onChange={changeKind} label="نوع الرسالة" />
+                    <Card icon="tag" title="نوع الرسالة" description={KIND_HINTS[kind]}>
+                        <ChoiceChips options={withIcons(kinds, KIND_ICONS)} value={kind} onChange={changeKind} label="نوع الرسالة" />
                     </Card>
 
-                    <Card icon="users" title="المستلمون" description="من تصله الرسالة من مشتركي فرعك.">
+                    <Card icon="filter" title="المستلمون" description="من تصله الرسالة من مشتركي فرعك.">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             {kind === 'weekly_reading' && (
                                 <>
@@ -389,7 +410,7 @@ export default function Create({
                                 <button
                                     type="button"
                                     onClick={() => setCriterion('subscriber_ids', [])}
-                                    className="font-semibold text-brand-600 hover:underline"
+                                    className={`rounded font-semibold text-brand-600 hover:underline ${FOCUS_RING}`}
                                 >
                                     إلغاء التحديد
                                 </button>
@@ -397,7 +418,7 @@ export default function Create({
                         )}
 
                         <div className="mt-5">
-                            <SecondaryButton onClick={loadRecipients} disabled={loading}>
+                            <SecondaryButton onClick={loadRecipients} disabled={loading} aria-busy={loading}>
                                 <Icon name="users" className="h-4 w-4" />
                                 {loading ? 'جارٍ التحميل...' : recipients === null ? 'عرض المستلمين' : 'تحديث المستلمين'}
                             </SecondaryButton>
@@ -421,15 +442,25 @@ export default function Create({
                                 </select>
                             </Field>
                             {selectedTemplate && selectedTemplate.body !== body && (
-                                <SecondaryButton onClick={updateTemplate}>حفظ التعديل على القالب</SecondaryButton>
+                                <SecondaryButton onClick={updateTemplate}>
+                                    <Icon name="check" className="h-4 w-4" />
+                                    حفظ التعديل على القالب
+                                </SecondaryButton>
                             )}
                             {selectedTemplate && (
-                                <SecondaryButton onClick={deleteTemplate} aria-label="حذف القالب" title="حذف القالب">
+                                <SecondaryButton
+                                    onClick={() => setConfirmingTemplateDelete(true)}
+                                    aria-label={`حذف القالب «${selectedTemplate.name}»`}
+                                    title="حذف القالب"
+                                    className="text-brand-600 hover:!border-brand-500/40"
+                                >
                                     <Icon name="trash" className="h-4 w-4" />
+                                    <span className="hidden sm:inline">حذف</span>
                                 </SecondaryButton>
                             )}
                             {templateName === null && (
                                 <SecondaryButton onClick={() => setTemplateName('')} disabled={body.trim() === ''}>
+                                    <Icon name="plus" className="h-4 w-4" />
                                     حفظ كقالب جديد
                                 </SecondaryButton>
                             )}
@@ -449,25 +480,35 @@ export default function Create({
                                     <InputError message={errors.name} className="mt-1" />
                                 </Field>
                                 <PrimaryButton type="button" onClick={saveTemplate} disabled={templateName.trim() === ''}>
-                                    حفظ
+                                    <Icon name="check" className="h-4 w-4" />
+                                    حفظ القالب
                                 </PrimaryButton>
                                 <SecondaryButton onClick={() => setTemplateName(null)}>إلغاء</SecondaryButton>
                             </div>
                         )}
 
-                        <div className="mb-2 flex flex-wrap gap-1.5">
+                        <p id="placeholders-hint" className="mb-1.5 text-xs font-semibold text-gray-600">
+                            أضف معلومة من بيانات المشترك إلى النص:
+                        </p>
+                        <div role="group" aria-labelledby="placeholders-hint" className="mb-3 flex flex-wrap gap-1.5">
                             {placeholders[kind].map((name) => (
                                 <button
                                     key={name}
                                     type="button"
                                     onClick={() => insertPlaceholder(name)}
-                                    className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-700 transition hover:border-brand-500/40 hover:text-brand-600"
+                                    aria-label={`أضف «${name.replaceAll('_', ' ')}» إلى نص الرسالة`}
+                                    title={`أضف ${name.replaceAll('_', ' ')} مكان المؤشر`}
+                                    className={`inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-700 transition hover:border-brand-500/40 hover:text-brand-600 ${FOCUS_RING}`}
                                 >
-                                    + {name.replaceAll('_', ' ')}
+                                    <Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2} />
+                                    {name.replaceAll('_', ' ')}
                                 </button>
                             ))}
                         </div>
 
+                        <label htmlFor="body" className="sr-only">
+                            نص الرسالة
+                        </label>
                         <textarea
                             ref={bodyRef}
                             id="body"
@@ -477,18 +518,21 @@ export default function Create({
                             maxLength={1000}
                             className="block w-full text-sm leading-7"
                             placeholder="اكتب الرسالة هنا..."
+                            aria-describedby="body-length"
+                            aria-invalid={errors.body ? true : undefined}
                         />
                         <InputError message={errors.body} className="mt-1" />
-                        <div className="mt-1 text-xs text-gray-500">
+                        <div id="body-length" className="mt-1 text-xs text-gray-500">
                             {previewText.length} حرفًا
                             {channel === 'sms' && <> — نحو {smsParts(previewText.length)} رسالة SMS لكل مشترك</>}
                         </div>
                     </Card>
 
                     <Card icon="send" title="طريقة الإرسال">
-                        <ChoiceChips options={channels} value={channel} onChange={setChannel} label="طريقة الإرسال" />
+                        <ChoiceChips options={withIcons(channels, CHANNEL_ICONS)} value={channel} onChange={setChannel} label="طريقة الإرسال" />
                         {channel === 'sms' && !smsDeliversMessages && (
-                            <p className="mt-3 rounded-control bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                            <p role="note" className="mt-3 flex items-start gap-2 rounded-control bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                                <Icon name="warning" className="mt-0.5 h-4 w-4 shrink-0" />
                                 لم تُضبط بوابة الرسائل النصية بعد، فتُسجَّل الرسائل في سجل النظام فقط ولا تصل للمشتركين. اطلب ضبط مزوّد SMS، أو أرسل عبر واتساب.
                             </p>
                         )}
@@ -503,7 +547,7 @@ export default function Create({
                 <div className="space-y-6">
                     <Card icon="eye" title="معاينة الرسالة" description={previewRecipient ? `كما تصل إلى ${previewRecipient.name}` : 'اعرض المستلمين لترى رسالة كل مشترك.'}>
                         <div className="whitespace-pre-line rounded-2xl rounded-tr-sm bg-emerald-500/10 px-4 py-3 leading-7 text-gray-900">
-                            {previewText || <span className="text-gray-400">نص الرسالة</span>}
+                            {previewText ? <MessageText text={previewText} /> : <span className="text-gray-500">نص الرسالة</span>}
                         </div>
                     </Card>
 
@@ -520,15 +564,19 @@ export default function Create({
                                 <button
                                     type="button"
                                     onClick={() => setSelected(new Set(allSelected ? [] : withPhone.map((recipient) => recipient.id)))}
-                                    className="text-xs font-semibold text-brand-600 hover:underline"
+                                    className={`rounded text-xs font-semibold text-brand-600 hover:underline ${FOCUS_RING}`}
                                 >
                                     {allSelected ? 'إلغاء الكل' : 'تحديد الكل'}
                                 </button>
                             )
                         }
                     >
+                        <p className="sr-only" aria-live="polite">
+                            {recipients === null ? '' : `${selected.size} مشترك محدد من ${recipients.length}`}
+                        </p>
                         {isStale && (
-                            <p className="mb-3 rounded-control bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                            <p role="status" className="mb-3 flex items-start gap-2 rounded-control bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                                <Icon name="warning" className="mt-0.5 h-4 w-4 shrink-0" />
                                 تغيّرت الشروط — اضغط «تحديث المستلمين» قبل الإرسال.
                             </p>
                         )}
@@ -553,10 +601,17 @@ export default function Create({
                                             checked={selected.has(recipient.id)}
                                             disabled={!recipient.phone}
                                             onChange={() => toggle(recipient.id)}
-                                            aria-label={recipient.name}
+                                            aria-label={`إرسال إلى ${recipient.name}`}
                                             className="rounded border-gray-300 text-brand-600 disabled:opacity-40"
                                         />
-                                        <button type="button" onClick={() => setPreviewId(recipient.id)} className="min-w-0 flex-1 text-start">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewId(recipient.id)}
+                                            aria-pressed={previewId === recipient.id}
+                                            aria-label={`معاينة رسالة ${recipient.name}`}
+                                            title="معاينة رسالته"
+                                            className={`group min-w-0 flex-1 rounded-lg text-start ${FOCUS_RING}`}
+                                        >
                                             <span className="block truncate font-semibold text-gray-900">{recipient.name}</span>
                                             <span className="block truncate text-xs text-gray-500">
                                                 {recipient.accountNumber}
@@ -568,15 +623,34 @@ export default function Create({
                                                 {recipient.phone}
                                             </span>
                                         ) : (
-                                            <span className="shrink-0 text-xs text-brand-600">لا يوجد رقم</span>
+                                            <span className="inline-flex shrink-0 items-center gap-1 text-xs text-brand-600">
+                                                <Icon name="warning" className="h-3.5 w-3.5" />
+                                                لا يوجد رقم
+                                            </span>
                                         )}
+                                        <Icon
+                                            name="eye"
+                                            className={`h-4 w-4 shrink-0 ${previewId === recipient.id ? 'text-brand-600' : 'text-gray-300'}`}
+                                        />
                                     </li>
                                 ))}
                             </ul>
                         )}
 
-                        <div className="mt-5 flex justify-end">
-                            <PrimaryButton type="button" onClick={() => setConfirming(true)} disabled={!canSend}>
+                        <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+                            {sendBlocker && (
+                                <p id="send-blocker" className="flex items-center gap-1.5 text-sm text-gray-500">
+                                    <Icon name="info" className="h-4 w-4 shrink-0" />
+                                    {sendBlocker}
+                                </p>
+                            )}
+                            <PrimaryButton
+                                type="button"
+                                onClick={() => setConfirming(true)}
+                                disabled={!canSend}
+                                aria-busy={sending}
+                                aria-describedby={sendBlocker ? 'send-blocker' : undefined}
+                            >
                                 <Icon name="send" className="h-4 w-4" />
                                 {sending ? 'جارٍ الإرسال...' : `إرسال إلى ${selected.size.toLocaleString('en')} مشترك`}
                             </PrimaryButton>
@@ -584,6 +658,17 @@ export default function Create({
                     </Card>
                 </div>
             </div>
+
+            <ConfirmDialog
+                show={confirmingTemplateDelete}
+                onConfirm={deleteTemplate}
+                onCancel={() => setConfirmingTemplateDelete(false)}
+                title="حذف القالب؟"
+                message={`سيُحذف القالب «${selectedTemplate?.name ?? ''}» نهائيًا. الرسائل التي أُرسلت به تبقى كما هي.`}
+                confirmLabel="نعم، احذف القالب"
+                icon="trash"
+                tone="danger"
+            />
 
             <ConfirmDialog
                 show={confirming}

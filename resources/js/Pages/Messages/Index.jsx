@@ -5,10 +5,12 @@ import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import Pagination from '@/Components/DataTable/Pagination';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
 import { timeAgo } from '@/lib/format';
-import { DeliveryCounts, KindPill } from './MessageParts';
+import { ChannelLabel, DeliveryCounts, KindPill, MessageText } from './MessageParts';
 
 /**
  * Every send of messages to subscribers, newest first; a send opens to
@@ -16,6 +18,10 @@ import { DeliveryCounts, KindPill } from './MessageParts';
  */
 export default function Index({ batches, canSend, filters, filterOptions }) {
     const rowClick = useRowClick();
+
+    function openBatch(batch) {
+        router.visit(`/messages/${batch.id}`);
+    }
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/messages', filters);
 
     return (
@@ -65,31 +71,39 @@ export default function Index({ batches, canSend, filters, filterOptions }) {
                             <th>الفرع</th>
                             <th>الحالة</th>
                             <th>أرسلها</th>
+                            <ActionsTh />
                         </tr>
                     </thead>
                     <tbody>
                         {batches.data.length === 0 ? (
                             <tr>
-                                <td className="text-gray-500" colSpan={7}>
+                                <td className="text-gray-500" colSpan={8}>
                                     لا توجد رسائل بعد.
                                 </td>
                             </tr>
                         ) : (
                             batches.data.map((batch) => (
-                                <tr key={batch.id} {...rowClick(() => router.visit(`/messages/${batch.id}`))}>
+                                <tr key={batch.id} {...rowClick(() => openBatch(batch))}>
                                     <td className="text-gray-600" title={new Date(batch.createdAt).toLocaleString('ar-SY-u-nu-latn')}>
                                         {timeAgo(batch.createdAt)}
                                     </td>
                                     <td>
                                         <KindPill kind={batch.kind} label={batch.kindLabel} />
                                     </td>
-                                    <td className="max-w-md !whitespace-normal text-gray-700">{batch.excerpt}</td>
-                                    <td className="text-gray-600">{batch.channelLabel}</td>
+                                    <td className="max-w-md !whitespace-normal text-gray-700">
+                                        <MessageText text={batch.excerpt} />
+                                    </td>
+                                    <td>
+                                        <ChannelLabel channel={batch.channel} label={batch.channelLabel} />
+                                    </td>
                                     <td className="text-gray-600">{batch.branchName}</td>
                                     <td>
                                         <DeliveryCounts batch={batch} />
                                     </td>
                                     <td className="text-gray-600">{batch.createdBy ?? '—'}</td>
+                                    <td className="text-end">
+                                        <RowActionsMenu onView={() => openBatch(batch)} />
+                                    </td>
                                 </tr>
                             ))
                         )}

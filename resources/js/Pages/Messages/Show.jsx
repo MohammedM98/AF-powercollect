@@ -5,8 +5,9 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import Pagination from '@/Components/DataTable/Pagination';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
 import { useDataTable } from '@/hooks/useDataTable';
-import { DeliveryCounts, KindPill, MessageStatusPill } from './MessageParts';
+import { ChannelLabel, DeliveryCounts, KIND_ICONS, MessageStatusPill, MessageText } from './MessageParts';
 
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -38,13 +39,19 @@ export default function Show({ batch, messages, canUpdate, filters, filterOption
             header={
                 <>
                     <div className="min-w-0">
-                        <Link href="/messages" className="mb-1 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900">
+                        <Link
+                            href="/messages"
+                            className="mb-1 inline-flex items-center gap-1 rounded text-sm text-gray-500 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+                        >
                             <Icon name="chevron-right" className="h-4 w-4" />
-                            الرسائل
+                            رجوع إلى الرسائل
                         </Link>
                         <h2 className="flex flex-wrap items-center gap-3 text-3xl font-bold text-gray-900">
+                            <Icon name={KIND_ICONS[batch.kind] ?? 'note'} className="h-7 w-7 shrink-0 text-gray-500" />
                             {batch.kindLabel}
-                            <KindPill kind={batch.kind} label={batch.channelLabel} />
+                            <span className="text-base font-semibold">
+                                <ChannelLabel channel={batch.channel} label={batch.channelLabel} />
+                            </span>
                         </h2>
                         <p className="mt-1 text-sm text-gray-500">
                             {DATE_TIME_FORMAT.format(new Date(batch.createdAt))} — {batch.createdBy ?? '—'} — {batch.branchName}
@@ -65,13 +72,16 @@ export default function Show({ batch, messages, canUpdate, filters, filterOption
 
             <section className="mb-6 rounded-card border border-gray-100 bg-surface p-5 shadow-card">
                 <div className="mb-2 text-sm font-semibold text-gray-700">نص الرسالة</div>
-                <p className="whitespace-pre-line leading-7 text-gray-900">{batch.body}</p>
+                <p className="whitespace-pre-line leading-7 text-gray-900">
+                    <MessageText text={batch.body} />
+                </p>
                 <div className="mt-4 border-t border-gray-100 pt-3">
                     <DeliveryCounts batch={batch} />
                 </div>
                 {isWhatsApp && batch.pending > 0 && (
-                    <p className="mt-3 rounded-control bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
-                        اضغط «واتساب» بجانب كل مشترك ليفتح المحادثة والرسالة مكتوبة، ثم اضغط إرسال في واتساب. تُسجَّل الرسالة مرسلة عند فتحها.
+                    <p role="note" className="mt-3 flex items-start gap-2 rounded-control bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                        <Icon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
+                        اضغط «إرسال واتساب» بجانب كل مشترك ليفتح المحادثة والرسالة مكتوبة، ثم اضغط إرسال في واتساب. تُسجَّل الرسالة مرسلة عند فتحها.
                     </p>
                 )}
             </section>
@@ -103,7 +113,7 @@ export default function Show({ batch, messages, canUpdate, filters, filterOption
                             <th>الرسالة</th>
                             <th>الحالة</th>
                             <th>وقت الإرسال</th>
-                            {isWhatsApp && <th></th>}
+                            {isWhatsApp && <ActionsTh />}
                         </tr>
                     </thead>
                     <tbody>
@@ -137,14 +147,16 @@ export default function Show({ batch, messages, canUpdate, filters, filterOption
                                             <button
                                                 type="button"
                                                 onClick={() => openWhatsApp(message)}
-                                                className={`inline-flex items-center gap-1.5 rounded-control px-3 py-1.5 text-xs font-semibold transition ${
+                                                aria-label={`${message.status === 'sent' ? 'فتح المحادثة مجددًا مع' : 'إرسال عبر واتساب إلى'} ${message.subscriberName ?? message.phone}`}
+                                                title={message.status === 'sent' ? 'أُرسلت — افتح المحادثة مجددًا' : 'افتح واتساب والرسالة مكتوبة'}
+                                                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-control px-3 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 ${
                                                     message.status === 'sent'
                                                         ? 'border border-gray-200 text-gray-600 hover:text-gray-900'
                                                         : 'bg-emerald-600 text-white hover:bg-emerald-700'
                                                 }`}
                                             >
-                                                <Icon name="send" className="h-3.5 w-3.5" />
-                                                {message.status === 'sent' ? 'فتح مجددًا' : 'واتساب'}
+                                                <Icon name={message.status === 'sent' ? 'repeat' : 'chat'} className="h-3.5 w-3.5" />
+                                                {message.status === 'sent' ? 'فتح مجددًا' : 'إرسال واتساب'}
                                             </button>
                                         </td>
                                     )}

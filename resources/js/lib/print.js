@@ -59,8 +59,8 @@ export function printUrl({ allRows, columns, title }) {
 
 /**
  * The columns of the table that follows `element` (the toolbar): each
- * header's position and title. A column without a title (the row menu)
- * is left out, it has nothing to print.
+ * header's position and title. A column without a title (the row
+ * buttons) is left out, it has nothing to print.
  */
 export function tableColumnsAfter(element) {
     const table = tableAfter(element);
@@ -70,8 +70,13 @@ export function tableColumnsAfter(element) {
     }
 
     return [...table.querySelectorAll('thead tr:first-child > th')]
-        .map((th, index) => ({ index, label: th.textContent.trim() }))
+        .map((th, index) => ({ index, label: columnTitle(th) }))
         .filter((column) => column.label !== '');
+}
+
+/** A column's printed title: none for the row buttons' column (ActionsTh). */
+function columnTitle(th) {
+    return th.hasAttribute('data-actions') ? '' : th.textContent.trim();
 }
 
 /** The first table after `element` among its following siblings. */
@@ -118,7 +123,7 @@ export function hideUnprintedColumns(root, columns) {
         const headers = [...table.querySelectorAll('thead tr:first-child > th')];
         const hidden = new Set(
             headers
-                .map((th, index) => ({ index, label: th.textContent.trim() }))
+                .map((th, index) => ({ index, label: columnTitle(th) }))
                 .filter(({ index, label }) => label === '' || (columns !== null && !columns.includes(index)))
                 .map(({ index }) => index),
         );

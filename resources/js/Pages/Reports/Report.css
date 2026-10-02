@@ -1,0 +1,134 @@
+/* The reports page sits on the closing page's palette and parts; these are its own. */
+.closing-page .rp-flow {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 14px;
+}
+.closing-page .rp-flow th,
+.closing-page .rp-flow td {
+    padding: 7px 4px;
+    border-bottom: 1px solid var(--cl-line2);
+    text-align: start;
+    font-weight: 500;
+}
+.closing-page .rp-flow thead th {
+    font-size: 12.5px;
+    color: var(--cl-faint);
+    font-weight: 600;
+}
+.closing-page .rp-flow td {
+    text-align: end;
+    white-space: nowrap;
+}
+.closing-page .rp-flow .tv {
+    font: 700 14px Alexandria;
+    direction: ltr;
+    text-align: end;
+}
+.closing-page .rp-flow .tv.w {
+    color: var(--cl-warn);
+}
+.closing-page .rp-flow tr.sub th,
+.closing-page .rp-flow tr.sub td {
+    font-weight: 700;
+    background: var(--cl-raised);
+}
+.closing-page .rp-flow tr.sum th,
+.closing-page .rp-flow tr.sum td {
+    font-weight: 800;
+    border-bottom: 1.5px solid var(--cl-line);
+}
+.closing-page .rp-flow tr.sum .tv {
+    font-size: 16px;
+}
+.closing-page .rp-h {
+    margin: 16px 0 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--cl-faint);
+}
+.closing-page .rp-bars {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+.closing-page .rp-bars li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 10px;
+    font-size: 14px;
+}
+.closing-page .rp-bars li span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.closing-page .rp-bars li svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--cl-muted);
+}
+.closing-page .rp-bars li .tv {
+    font: 700 14px Alexandria;
+    direction: ltr;
+}
+.closing-page .rp-bars li i {
+    grid-column: 1 / -1;
+    display: block;
+    height: 6px;
+    border-radius: 6px;
+    background: var(--cl-brand);
+    opacity: 0.75;
+}
+.closing-page .rp-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--cl-muted);
+}
+.closing-page .rp-state svg {
+    width: 14px;
+    height: 14px;
+}
+.closing-page .rp-state.approved {
+    color: var(--cl-success);
+}
+.closing-page .rp-state.sent {
+    color: var(--cl-info);
+}
+.closing-page .rp-state.returned,
+.closing-page .rp-state.none {
+    color: var(--cl-danger);
+}
+.closing-page .rp-state.open {
+    color: var(--cl-warn);
+}
+.closing-page .rp-lines td.rp-desc {
+    white-space: normal;
+    min-width: 200px;
+    text-align: start;
+}
+.closing-page .rp-lines tr.off td {
+    color: var(--cl-faint);
+}
+.closing-page .rp-lines tr.off .tv,
+.closing-page .rp-lines tr.off b {
+    text-decoration: line-through;
+}
+@media print {
+    .closing-page .rp-lines + div,
+    .closing-page .segx {
+        display: none;
+    }
+}

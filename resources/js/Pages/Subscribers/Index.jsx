@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
@@ -9,6 +9,7 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
@@ -66,6 +67,7 @@ export default function Index({
     readingWeekOptions,
     statement,
 }) {
+    const { can } = usePage().props;
     const [modalSubscriber, setModalSubscriber] = useState(null);
     const [viewingSubscriberId, setViewingSubscriberId] = useState(null);
     // Looked up from the current page props (not kept as a copy) so the
@@ -108,6 +110,12 @@ export default function Index({
                     items: [
                         { label: 'بيانات المشترك', icon: 'user', shortcut: 'I', onSelect: () => setViewingSubscriberId(subscriber.id) },
                         ...(canCreate ? [{ label: 'إضافة اشتراك', icon: 'document-plus', onSelect: () => setSubscriptionSource(subscriber) }] : []),
+                        {
+                            label: 'إرسال رسالة',
+                            icon: 'send',
+                            onSelect: () => router.visit(`/messages/create?${new URLSearchParams({ kind: 'custom', status: '', 'subscriber_ids[]': subscriber.id })}`),
+                            lockedReason: can?.sendMessages ? null : needsPermission('إرسال الرسائل'),
+                        },
                     ],
                 },
                 {
@@ -211,7 +219,7 @@ export default function Index({
                             <th>الحد الأدنى</th>
                             <th>الرصيد</th>
                             <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
-                            <th></th>
+                            <ActionsTh />
                         </tr>
                     </thead>
                     <tbody>

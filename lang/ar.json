@@ -257,5 +257,16 @@
     "Received": "تم الاستلام",
     "Other": "أخرى",
     "Closing approved": "معتمد",
-    "View All Closings and Reports": "عرض كل الكشوف والتقارير"
+    "View All Closings and Reports": "عرض كل الكشوف والتقارير",
+    "View Messages": "عرض الرسائل",
+    "Send Messages": "إرسال الرسائل",
+    "Messages": "الرسائل",
+    "Weekly Reading": "قراءة الأسبوع",
+    "Balance Reminder": "تذكير بالرصيد",
+    "Custom Message": "رسالة مخصصة",
+    "SMS": "رسالة نصية SMS",
+    "WhatsApp": "واتساب",
+    "Waiting to Send": "بانتظار الإرسال",
+    "Sent": "أُرسلت",
+    "Failed": "فشلت"
 }

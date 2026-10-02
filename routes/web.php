@@ -10,6 +10,8 @@ use App\Http\Controllers\ClosingScheduleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GovernorateController;
 use App\Http\Controllers\LedgerController;
+use App\Http\Controllers\MessageController;
+use App\Http\Controllers\MessageTemplateController;
 use App\Http\Controllers\MeterBoxController;
 use App\Http\Controllers\MeterReadingController;
 use App\Http\Controllers\PeriodClosingController;
@@ -91,6 +93,14 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings/permissions', [PermissionController::class, 'update'])->name('settings.permissions.update');
     Route::get('/settings/reading-schedule', [ReadingScheduleController::class, 'edit'])->name('settings.reading-schedule.edit');
     Route::put('/settings/reading-schedule', [ReadingScheduleController::class, 'update'])->name('settings.reading-schedule.update');
+
+    Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::get('/messages/create', [MessageController::class, 'create'])->name('messages.create');
+    Route::post('/messages', [MessageController::class, 'store'])->middleware('throttle:20,1')->name('messages.store');
+    Route::get('/messages/{batch}', [MessageController::class, 'show'])->name('messages.show');
+    Route::post('/messages/{batch}/retry', [MessageController::class, 'retry'])->name('messages.retry');
+    Route::put('/messages/{batch}/messages/{message}/sent', [MessageController::class, 'markSent'])->scopeBindings()->name('messages.sent');
+    Route::resource('message-templates', MessageTemplateController::class)->only(['store', 'update', 'destroy']);
 
     Route::post('/notifications/read', [ReadNotificationController::class, 'store'])->name('notifications.read');
 });

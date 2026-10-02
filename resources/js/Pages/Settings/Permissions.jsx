@@ -17,6 +17,7 @@ const ACTION_LABELS = {
     approve: 'اعتماد',
     prepare: 'إعداد كشوف الفرع',
     view_all: 'عرض كل الفروع والتقارير',
+    send: 'إرسال',
 };
 
 /**
@@ -49,6 +50,7 @@ const GROUP_DETAILS = {
     meter_readings: { icon: 'chart', description: 'إدارة قراءات العدادات' },
     collections: { icon: 'card', description: 'إدارة عمليات التحصيل' },
     closings: { icon: 'scale', description: 'إغلاق التحصيل اليومي وتسليم النقد والتقارير' },
+    messages: { icon: 'messages', description: 'رسائل المشتركين: القراءات الأسبوعية وتذكير الدفع والإعلانات' },
 };
 
 /** The first option of each filter dropdown. */

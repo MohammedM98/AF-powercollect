@@ -73,6 +73,7 @@ enum UserRole: string
                 PermissionKey::ViewTariffs,
                 PermissionKey::ViewCircuitBreakers,
                 PermissionKey::PrepareClosings,
+                PermissionKey::ViewMessages, PermissionKey::SendMessages,
             ],
             self::DataEntry => [
                 PermissionKey::ViewSubscribers, PermissionKey::CreateSubscribers, PermissionKey::UpdateSubscribers,

@@ -8,6 +8,7 @@ import SortableTh from '@/Components/DataTable/SortableTh';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
@@ -60,7 +61,7 @@ export default function Index({ circuitBreakers, canCreate, filters, filterOptio
                         <tr>
                             <SortableTh column="ampere" label="الأمبير" sortState={filters} onSort={sort} />
                             <SortableTh column="minimum_payment" label="الحد الأدنى للدفع (شيكل)" sortState={filters} onSort={sort} />
-                            <th></th>
+                            <ActionsTh />
                         </tr>
                     </thead>
                     <tbody>

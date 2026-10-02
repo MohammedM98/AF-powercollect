@@ -27,6 +27,7 @@ trait FiltersSubscriberList
         $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'phone', 'subscription_phone', 'account_number', $subscriberNumber], self::SUBSCRIBER_SORTABLE, 'display_name');
         $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'tariff_segment_id', 'meter_box_id']);
         $this->applyMeterBoxNameFilter($query, $request);
+        $this->applyCircuitBreakerFilter($query, $request);
 
         $ids = ((array) $request->input('filter', []))['ids'] ?? null;
 

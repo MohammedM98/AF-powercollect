@@ -388,6 +388,7 @@ class SubscriberController extends Controller
                 $meterBoxes,
                 $actor->isSuperAdmin() ? fn (MeterBox $box) => $box->branch->name : null,
             ),
+            $this->circuitBreakerFilterGroup(),
         ];
 
         if ($actor->isSuperAdmin()) {

@@ -11,6 +11,7 @@ use App\Models\MessageBatch;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\Permission;
+use App\Models\PrintTemplate;
 use App\Models\ReadingEntrySetting;
 use App\Models\SubArea;
 use App\Models\Subscriber;
@@ -83,9 +84,36 @@ class HandleInertiaRequests extends Middleware
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manage', ReadingEntrySetting::class),
                 'manageClosingSchedule' => $user->can('manage', ClosingSetting::class),
+                'managePrintTemplates' => $user->can('viewAny', PrintTemplate::class),
             ] : null,
+            // A list opened for printing gets the company's print templates for it.
+            'printTemplates' => fn () => $user && $request->boolean('print') ? $this->printTemplates($request) : null,
             'activity' => fn () => $user ? $this->recentActivity($user) : null,
         ];
+    }
+
+    /**
+     * The print templates of the list being printed, its default first, or
+     * null for a page that can't keep templates.
+     *
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function printTemplates(Request $request): ?array
+    {
+        $page = '/'.trim($request->path(), '/');
+
+        if (! array_key_exists($page, PrintTemplate::PAGES)) {
+            return null;
+        }
+
+        return PrintTemplate::query()
+            ->where('page', $page)
+            ->with('updatedBy')
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (PrintTemplate $template) => $template->toDesigner())
+            ->all();
     }
 
     /**

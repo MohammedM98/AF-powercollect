@@ -18,6 +18,7 @@ const ACTION_LABELS = {
     prepare: 'إعداد كشوف الفرع',
     view_all: 'عرض كل الفروع والتقارير',
     send: 'إرسال',
+    manage: 'إدارة',
 };
 
 /**
@@ -50,6 +51,7 @@ const GROUP_DETAILS = {
     meter_readings: { icon: 'chart', description: 'إدارة قراءات العدادات' },
     collections: { icon: 'card', description: 'إدارة عمليات التحصيل' },
     closings: { icon: 'scale', description: 'إغلاق التحصيل اليومي وتسليم النقد والتقارير' },
+    print_templates: { icon: 'printer', description: 'قوالب الطباعة المشتركة لكل الشركة' },
     messages: { icon: 'messages', description: 'رسائل المشتركين: القراءات الأسبوعية وتذكير الدفع والإعلانات' },
 };
 

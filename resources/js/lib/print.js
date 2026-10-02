@@ -9,7 +9,8 @@
  * With `print_all=1` the server sends every matching row instead of one
  * page (see App\Http\Concerns\FiltersDataTable::dataTablePerPage);
  * `print_page` keeps the page that was on screen, to switch back to it.
- * `print_title` is the heading to start from.
+ * `print_title` is the heading to start from, `print_template` the
+ * company print template to open (or "new").
  */
 
 /** The print settings in the current address, or null when the page isn't being printed. */
@@ -23,6 +24,8 @@ export function currentPrintSettings() {
     return {
         title: params.get('print_title') ?? '',
         allRows: params.get('print_all') === '1',
+        // A template to open (its id), or "new" to start a new one (see the templates page).
+        template: params.get('print_template'),
     };
 }
 
@@ -32,11 +35,12 @@ export function isPrintMode() {
 }
 
 /**
- * The address of the printout of the current page, with its search, sort
- * and filters — every matching row from the first one.
+ * The address of the printout of the current page (or of `base`, another
+ * list's address), with its search, sort and filters — every matching row
+ * from the first one.
  */
-export function printUrl(title) {
-    const url = new URL(window.location.href);
+export function printUrl(title, base = window.location.href) {
+    const url = new URL(base, window.location.origin);
     const params = url.searchParams;
 
     params.set('print_page', params.get('page') ?? '1');

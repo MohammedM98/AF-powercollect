@@ -106,15 +106,156 @@ function IconButton({ icon, label, onClick, disabled = false, tone = 'gray' }) {
 }
 
 /**
+ * The company's print templates for this list: open one, save the design
+ * into the one in use or as a new one, make one the list's default, or
+ * delete it. Without the permission to manage them they can only be
+ * opened. A list that can't keep templates says so.
+ */
+function TemplatesSection({ templates, onReset }) {
+    const { list, active, isChanged, supported, canManage, errors, actions } = templates;
+    const [selected, setSelected] = useState('');
+    const [newName, setNewName] = useState('');
+    const [newIsDefault, setNewIsDefault] = useState(false);
+    const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+    return (
+        <Section icon="folder" title="قوالب الطباعة" open>
+            {!supported ? (
+                <p className="text-xs text-gray-500">هذه الصفحة لا تحفظ قوالب. يُحفظ آخر تصميم لها في هذا المتصفح.</p>
+            ) : (
+                <>
+                    <div className="rounded-control border border-gray-200 bg-gray-50 px-3 py-2 text-sm" aria-live="polite">
+                        {active ? (
+                            <span className="flex flex-wrap items-center gap-2">
+                                <Icon name="folder" className="h-4 w-4 text-gray-500" />
+                                القالب: <b>{active.name}</b>
+                                {active.isDefault && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">افتراضي</span>}
+                                {isChanged && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-800">تعديلات غير محفوظة</span>}
+                            </span>
+                        ) : (
+                            <span className="text-gray-600">تصميم غير محفوظ في قالب</span>
+                        )}
+                    </div>
+
+                    {active && canManage && isChanged && (
+                        <PrimaryButton type="button" onClick={actions.saveChanges} className="w-full">
+                            <Icon name="check" className="h-4 w-4" />
+                            حفظ التعديلات في «{active.name}»
+                        </PrimaryButton>
+                    )}
+
+                    {list.length > 0 ? (
+                        <Field label="فتح قالب">
+                            {(id) => (
+                                <div className="flex gap-2">
+                                    <select id={id} value={selected} onChange={(e) => setSelected(e.target.value)} className="block min-w-0 flex-1 text-sm">
+                                        <option value="">— اختر قالبًا —</option>
+                                        {list.map((template) => (
+                                            <option key={template.id} value={template.id}>
+                                                {template.name}
+                                                {template.isDefault ? ' (افتراضي)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <SecondaryButton onClick={() => actions.apply(selected)} disabled={selected === ''}>
+                                        <Icon name="check" className="h-4 w-4" />
+                                        فتح
+                                    </SecondaryButton>
+                                </div>
+                            )}
+                        </Field>
+                    ) : (
+                        <p className="text-xs text-gray-500">لا توجد قوالب محفوظة لهذه القائمة بعد.</p>
+                    )}
+
+                    {canManage && (
+                        <>
+                            {active && (
+                                <div className="flex gap-2">
+                                    <SecondaryButton onClick={() => actions.setDefault(active.id, !active.isDefault)} className="flex-1 !px-2 text-xs">
+                                        <Icon name={active.isDefault ? 'close' : 'check'} className="h-4 w-4" />
+                                        {active.isDefault ? 'إلغاء كونه الافتراضي' : 'جعله الافتراضي لهذه القائمة'}
+                                    </SecondaryButton>
+                                    <IconButton icon="trash" tone="danger" label={`حذف القالب «${active.name}»`} onClick={() => setConfirmingDelete(true)} />
+                                </div>
+                            )}
+                            <Field label="حفظ التصميم كقالب جديد">
+                                {(id) => (
+                                    <form
+                                        className="space-y-2"
+                                        onSubmit={(e) => {
+                                            e.preventDefault();
+                                            actions.saveNew(newName.trim(), newIsDefault, () => {
+                                                setNewName('');
+                                                setNewIsDefault(false);
+                                            });
+                                        }}
+                                    >
+                                        <div className="flex gap-2">
+                                            <input
+                                                id={id}
+                                                type="text"
+                                                value={newName}
+                                                onChange={(e) => setNewName(e.target.value)}
+                                                placeholder="مثلًا: قراءات حسب الطبلون"
+                                                aria-invalid={errors.name ? true : undefined}
+                                                className="block min-w-0 flex-1 text-sm"
+                                            />
+                                            <PrimaryButton type="submit" disabled={newName.trim() === ''}>
+                                                <Icon name="plus" className="h-4 w-4" />
+                                                حفظ
+                                            </PrimaryButton>
+                                        </div>
+                                        {errors.name && <p className="text-xs text-brand-600">{errors.name}</p>}
+                                        <Switch checked={newIsDefault} onChange={setNewIsDefault} label="اجعله الافتراضي لهذه القائمة" />
+                                    </form>
+                                )}
+                            </Field>
+                            <a
+                                href="/settings/print-templates"
+                                target="_blank"
+                                rel="noopener"
+                                className={`flex items-center gap-1.5 rounded text-xs font-semibold text-brand-600 hover:underline ${FOCUS_RING}`}
+                            >
+                                <Icon name="external" className="h-4 w-4" />
+                                كل قوالب الطباعة (صفحة القوالب)
+                            </a>
+                        </>
+                    )}
+                    {!canManage && <p className="text-xs text-gray-500">حفظ القوالب يحتاج صلاحية «إدارة قوالب الطباعة».</p>}
+                </>
+            )}
+
+            <SecondaryButton onClick={onReset} className="w-full">
+                <Icon name="undo" className="h-4 w-4" />
+                إرجاع كل الإعدادات إلى الأصل
+            </SecondaryButton>
+
+            <ConfirmDialog
+                show={confirmingDelete}
+                onConfirm={() => {
+                    actions.remove(active.id);
+                    setConfirmingDelete(false);
+                }}
+                onCancel={() => setConfirmingDelete(false)}
+                title="حذف القالب؟"
+                message={`سيُحذف القالب «${active?.name ?? ''}» من قوالب الشركة، لكل المستخدمين.`}
+                confirmLabel="نعم، احذف"
+                icon="trash"
+                tone="danger"
+            />
+        </Section>
+    );
+}
+
+/**
  * Every setting of the printout, in folding sections: templates, which
  * rows, the paper, the heading, the columns (shown, named, ordered,
  * aligned, totalled), sorting and grouping, the table's look and the
  * footer. Each change shows
  * in the preview at once.
  */
-export default function PrintSettingsPanel({ layout, onChange, scope, templates, onSaveTemplate, onApplyTemplate, onDeleteTemplate, onReset }) {
-    const [templateName, setTemplateName] = useState('');
-    const [selectedTemplate, setSelectedTemplate] = useState('');
+export default function PrintSettingsPanel({ layout, onChange, scope, templates, onReset }) {
     const [confirming, setConfirming] = useState(null);
 
     function set(key, value) {
@@ -156,71 +297,7 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
 
     return (
         <div>
-            <Section icon="folder" title="القوالب المحفوظة" open>
-                <p className="text-xs text-gray-500">يُحفظ آخر تصميم لهذه الصفحة تلقائيًا. احفظه باسم لتعود إليه متى شئت.</p>
-                {templates.length > 0 && (
-                    <Field label="قالب محفوظ">
-                        {(id) => (
-                            <div className="flex gap-2">
-                                <select
-                                    id={id}
-                                    value={selectedTemplate}
-                                    onChange={(e) => setSelectedTemplate(e.target.value)}
-                                    className="block min-w-0 flex-1 text-sm"
-                                >
-                                    <option value="">— اختر قالبًا —</option>
-                                    {templates.map((template) => (
-                                        <option key={template.name} value={template.name}>
-                                            {template.name}
-                                        </option>
-                                    ))}
-                                </select>
-                                <SecondaryButton onClick={() => onApplyTemplate(selectedTemplate)} disabled={selectedTemplate === ''}>
-                                    <Icon name="check" className="h-4 w-4" />
-                                    تطبيق
-                                </SecondaryButton>
-                                <IconButton
-                                    icon="trash"
-                                    tone="danger"
-                                    label={selectedTemplate ? `حذف القالب «${selectedTemplate}»` : 'حذف القالب'}
-                                    disabled={selectedTemplate === ''}
-                                    onClick={() => setConfirming('delete')}
-                                />
-                            </div>
-                        )}
-                    </Field>
-                )}
-                <Field label="حفظ التصميم الحالي كقالب">
-                    {(id) => (
-                        <form
-                            className="flex gap-2"
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                onSaveTemplate(templateName.trim());
-                                setSelectedTemplate(templateName.trim());
-                                setTemplateName('');
-                            }}
-                        >
-                            <input
-                                id={id}
-                                type="text"
-                                value={templateName}
-                                onChange={(e) => setTemplateName(e.target.value)}
-                                placeholder="مثلًا: كشف شهري للإدارة"
-                                className="block min-w-0 flex-1 text-sm"
-                            />
-                            <PrimaryButton type="submit" disabled={templateName.trim() === ''}>
-                                <Icon name="plus" className="h-4 w-4" />
-                                حفظ
-                            </PrimaryButton>
-                        </form>
-                    )}
-                </Field>
-                <SecondaryButton onClick={() => setConfirming('reset')} className="w-full">
-                    <Icon name="undo" className="h-4 w-4" />
-                    إرجاع كل الإعدادات إلى الأصل
-                </SecondaryButton>
-            </Section>
+            <TemplatesSection templates={templates} onReset={() => setConfirming('reset')} />
 
             <Section icon="list" title="الصفوف" open>
                 <ChoiceChips
@@ -556,20 +633,6 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                 </Group>
             </Section>
 
-            <ConfirmDialog
-                show={confirming === 'delete'}
-                onConfirm={() => {
-                    onDeleteTemplate(selectedTemplate);
-                    setSelectedTemplate('');
-                    setConfirming(null);
-                }}
-                onCancel={() => setConfirming(null)}
-                title="حذف القالب؟"
-                message={`سيُحذف القالب «${selectedTemplate}» من هذا المتصفح.`}
-                confirmLabel="نعم، احذف"
-                icon="trash"
-                tone="danger"
-            />
             <ConfirmDialog
                 show={confirming === 'reset'}
                 onConfirm={() => {

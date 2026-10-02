@@ -1,20 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import { extractSummary, extractTable, paginatedProp, printScopeUrl } from '@/lib/print';
-import {
-    defaultLayout,
-    deleteTemplate,
-    fitLayout,
-    pageCss,
-    paperSize,
-    rememberedLayout,
-    rememberLayout,
-    savedTemplates,
-    saveTemplate,
-} from '@/lib/printLayout';
+import { defaultLayout, fitLayout, pageCss, paperSize, rememberedLayout, rememberLayout } from '@/lib/printLayout';
 import PrintPaper from './PrintPaper';
 import PrintSettingsPanel from './PrintSettingsPanel';
 
@@ -33,8 +23,13 @@ const ZOOMS = [
  * side and the sheet as it will print on the other, changing as the
  * settings change. The page itself is drawn out of sight and its table
  * read from it, so the printout lists the same rows in the same order,
- * then laid out however the user likes. The layout is remembered for the
- * page, and can be kept as named templates.
+ * then laid out however the user likes.
+ *
+ * It starts from the template named in the address (`print_template`, as
+ * the templates page opens it), else the list's default template, else the
+ * layout last used in this browser. Templates are the company's, shared by
+ * everyone (PrintTemplateController); whoever may manage them saves the
+ * design into one from here.
  */
 export default function PrintDesigner({ settings, children }) {
     const { props } = usePage();
@@ -44,7 +39,21 @@ export default function PrintDesigner({ settings, children }) {
     const [table, setTable] = useState(null);
     const [summary, setSummary] = useState('');
     const [layout, setLayout] = useState(null);
-    const [templates, setTemplates] = useState(() => savedTemplates(pageKey));
+    const templates = props.printTemplates ?? [];
+    const supportsTemplates = Array.isArray(props.printTemplates);
+    const canManageTemplates = Boolean(props.can?.managePrintTemplates) && supportsTemplates;
+    const [start] = useState(() => {
+        const requested = templates.find((template) => String(template.id) === settings.template);
+        const chosen = requested ?? (settings.template === 'new' ? null : templates.find((template) => template.isDefault));
+
+        if (chosen) {
+            return { layout: chosen.layout, templateId: chosen.id };
+        }
+
+        return { layout: settings.template === 'new' ? null : rememberedLayout(pageKey), templateId: null };
+    });
+    const [activeTemplateId, setActiveTemplateId] = useState(start.templateId);
+    const pendingTemplateName = useRef(null);
     const [zoom, setZoom] = useState('fit');
     const [fitZoom, setFitZoom] = useState(1);
     const list = paginatedProp(props);
@@ -78,7 +87,7 @@ export default function PrintDesigner({ settings, children }) {
                 setLayout((current) => {
                     const fresh = freshLayout(extracted.columns);
 
-                    return fitLayout(current ?? rememberedLayout(pageKey), fresh);
+                    return fitLayout(current ?? start.layout, fresh);
                 });
             }
         }
@@ -117,13 +126,45 @@ export default function PrintDesigner({ settings, children }) {
         return () => observer.disconnect();
     }, [layout]);
 
-    function applyTemplate(name) {
-        const template = templates.find((item) => item.name === name);
+    // A template just saved under a new name becomes the one in use.
+    useEffect(() => {
+        const saved = templates.find((template) => template.name === pendingTemplateName.current);
+
+        if (saved) {
+            pendingTemplateName.current = null;
+            setActiveTemplateId(saved.id);
+        }
+    }, [templates]);
+
+    const activeTemplate = templates.find((template) => template.id === activeTemplateId) ?? null;
+    const isChanged = Boolean(activeTemplate && layout && table) && JSON.stringify(fitLayout(activeTemplate.layout, freshLayout(table.columns))) !== JSON.stringify(layout);
+
+    /** Save to the server, then reload only the templates (the rows stay as they are). */
+    const templateVisit = { preserveState: true, preserveScroll: true, only: ['printTemplates', 'status', 'activity', 'errors'] };
+
+    function applyTemplate(id) {
+        const template = templates.find((item) => String(item.id) === String(id));
 
         if (template && table) {
             setLayout(fitLayout(template.layout, freshLayout(table.columns)));
+            setActiveTemplateId(template.id);
         }
     }
+
+    const templateActions = {
+        apply: applyTemplate,
+        saveNew: (name, isDefault, onSuccess) => {
+            pendingTemplateName.current = name;
+            router.post('/print-templates', { page: pageKey, name, layout, is_default: isDefault }, { ...templateVisit, onSuccess });
+        },
+        saveChanges: () => router.put(`/print-templates/${activeTemplateId}`, { layout }, templateVisit),
+        setDefault: (id, isDefault) => router.put(`/print-templates/${id}`, { is_default: isDefault }, templateVisit),
+        remove: (id) =>
+            router.delete(`/print-templates/${id}`, {
+                ...templateVisit,
+                onSuccess: () => id === activeTemplateId && setActiveTemplateId(null),
+            }),
+    };
 
     return (
         <div className="pd-root min-h-screen bg-gray-100 text-gray-900">
@@ -180,11 +221,21 @@ export default function PrintDesigner({ settings, children }) {
                                 total: list?.total,
                                 onChange: (allRows) => window.location.assign(printScopeUrl(allRows)),
                             }}
-                            templates={templates}
-                            onSaveTemplate={(name) => setTemplates(saveTemplate(pageKey, name, layout))}
-                            onApplyTemplate={applyTemplate}
-                            onDeleteTemplate={(name) => setTemplates(deleteTemplate(pageKey, name))}
-                            onReset={() => table && setLayout(freshLayout(table.columns))}
+                            templates={{
+                                list: templates,
+                                active: activeTemplate,
+                                isChanged,
+                                supported: supportsTemplates,
+                                canManage: canManageTemplates,
+                                errors: props.errors ?? {},
+                                actions: templateActions,
+                            }}
+                            onReset={() => {
+                                if (table) {
+                                    setLayout(freshLayout(table.columns));
+                                    setActiveTemplateId(null);
+                                }
+                            }}
                         />
                     ) : (
                         <p className="p-6 text-sm text-gray-500">جارٍ تجهيز الجدول...</p>

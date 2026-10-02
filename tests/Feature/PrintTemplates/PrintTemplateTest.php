@@ -1,0 +1,182 @@
+<?php
+
+namespace Tests\Feature\PrintTemplates;
+
+use App\Enums\PermissionKey;
+use App\Models\Permission;
+use App\Models\PrintTemplate;
+use App\Models\User;
+use Database\Seeders\PermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class PrintTemplateTest extends TestCase
+{
+    use RefreshDatabase;
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function layout(array $overrides = []): array
+    {
+        return [
+            'paper' => 'A4',
+            'orientation' => 'landscape',
+            'margin' => 10,
+            'fontSize' => 12,
+            'columns' => [
+                ['key' => 'field:meterBoxName', 'label' => 'اسم الطبلون', 'visible' => true],
+                ['key' => 'field:phone', 'label' => 'رقم الجوال', 'visible' => true],
+            ],
+            'table' => ['accent' => '#A51D26', 'zebra' => false],
+            'header' => ['title' => 'القراءات حسب الطبلون', 'logo' => false],
+            'group' => ['key' => 'field:meterBoxName', 'newPage' => true],
+            'sort' => [['key' => 'field:phone', 'direction' => 'desc']],
+            ...$overrides,
+        ];
+    }
+
+    private function manager(): User
+    {
+        $this->seed(PermissionSeeder::class);
+        $user = User::factory()->branchAdmin()->create();
+        $user->permissions()->attach(Permission::where('key', PermissionKey::ManagePrintTemplates->value)->firstOrFail());
+
+        return $user;
+    }
+
+    public function test_guest_is_redirected_to_login(): void
+    {
+        $this->get(route('settings.print-templates.index'))->assertRedirect(route('login'));
+    }
+
+    public function test_a_user_without_the_permission_cannot_open_or_change_templates(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $template = PrintTemplate::factory()->create();
+
+        $this->actingAs($branchAdmin)->get(route('settings.print-templates.index'))->assertForbidden();
+        $this->actingAs($branchAdmin)
+            ->post(route('print-templates.store'), ['page' => '/meter-readings', 'name' => 'x', 'layout' => $this->layout()])
+            ->assertForbidden();
+        $this->actingAs($branchAdmin)->delete(route('print-templates.destroy', $template))->assertForbidden();
+
+        $this->assertModelExists($template);
+    }
+
+    public function test_the_page_lists_every_template_under_its_list(): void
+    {
+        PrintTemplate::factory()->create(['page' => '/meter-readings', 'name' => 'حسب الطبلون', 'layout' => $this->layout()]);
+        PrintTemplate::factory()->create(['page' => '/subscribers', 'name' => 'أرقام الجوال']);
+
+        $this->actingAs($this->manager())->get(route('settings.print-templates.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Settings/PrintTemplates')
+                ->where('pages.0.path', '/meter-readings')
+                ->where('pages.0.templates.0.name', 'حسب الطبلون')
+                ->where('pages.0.templates.0.columnCount', 2)
+                ->where('pages.0.templates.0.orientation', 'landscape')
+                ->where('pages.1.path', '/subscribers')
+                ->where('pages.1.templates.0.name', 'أرقام الجوال'));
+    }
+
+    public function test_a_template_saved_as_default_replaces_the_lists_previous_default(): void
+    {
+        $manager = $this->manager();
+        $previous = PrintTemplate::factory()->create(['page' => '/meter-readings', 'is_default' => true]);
+        $otherList = PrintTemplate::factory()->create(['page' => '/subscribers', 'is_default' => true]);
+
+        $this->actingAs($manager)
+            ->post(route('print-templates.store'), ['page' => '/meter-readings', 'name' => 'حسب الطبلون', 'layout' => $this->layout(), 'is_default' => true])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'print-template-created');
+
+        $template = PrintTemplate::where('name', 'حسب الطبلون')->sole();
+        $this->assertTrue($template->is_default);
+        $this->assertSame($this->layout(), $template->layout);
+        $this->assertSame($manager->id, $template->updated_by);
+        $this->assertFalse($previous->fresh()->is_default);
+        $this->assertTrue($otherList->fresh()->is_default);
+    }
+
+    public function test_a_name_may_repeat_across_lists_but_not_within_one(): void
+    {
+        $manager = $this->manager();
+        PrintTemplate::factory()->create(['page' => '/meter-readings', 'name' => 'شهري']);
+
+        $this->actingAs($manager)
+            ->post(route('print-templates.store'), ['page' => '/meter-readings', 'name' => 'شهري', 'layout' => $this->layout()])
+            ->assertSessionHasErrors(['name' => 'يوجد قالب بهذا الاسم لهذه القائمة، اختر اسمًا آخر.']);
+        $this->actingAs($manager)
+            ->post(route('print-templates.store'), ['page' => '/subscribers', 'name' => 'شهري', 'layout' => $this->layout()])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseCount('print_templates', 2);
+    }
+
+    public function test_a_template_is_refused_for_an_unknown_list_or_an_unsafe_colour(): void
+    {
+        $manager = $this->manager();
+
+        $this->actingAs($manager)
+            ->post(route('print-templates.store'), ['page' => '/admin', 'name' => 'x', 'layout' => $this->layout()])
+            ->assertSessionHasErrors(['page' => 'هذه الصفحة لا تدعم قوالب الطباعة.']);
+        $this->actingAs($manager)
+            ->post(route('print-templates.store'), ['page' => '/meter-readings', 'name' => 'x', 'layout' => $this->layout(['table' => ['accent' => 'red;background:url(x)']])])
+            ->assertSessionHasErrors('layout.table.accent');
+
+        $this->assertDatabaseCount('print_templates', 0);
+    }
+
+    public function test_a_template_is_renamed_redesigned_and_unset_as_default(): void
+    {
+        $template = PrintTemplate::factory()->create(['is_default' => true]);
+
+        $this->actingAs($this->manager())
+            ->put(route('print-templates.update', $template), ['name' => 'جديد', 'layout' => $this->layout(['paper' => 'A3']), 'is_default' => false])
+            ->assertSessionHasNoErrors();
+
+        $template->refresh();
+        $this->assertSame('جديد', $template->name);
+        $this->assertSame('A3', $template->layout['paper']);
+        $this->assertFalse($template->is_default);
+    }
+
+    public function test_a_copy_takes_the_next_free_name_and_is_never_the_default(): void
+    {
+        $template = PrintTemplate::factory()->create(['name' => 'شهري', 'is_default' => true]);
+        PrintTemplate::factory()->create(['name' => 'شهري (نسخة)']);
+
+        $this->actingAs($this->manager())->post(route('print-templates.duplicate', $template))->assertSessionHas('status', 'print-template-created');
+
+        $copy = PrintTemplate::where('name', 'شهري (نسخة 2)')->sole();
+        $this->assertFalse($copy->is_default);
+        $this->assertSame($template->layout, $copy->layout);
+    }
+
+    public function test_a_template_is_deleted(): void
+    {
+        $template = PrintTemplate::factory()->create();
+
+        $this->actingAs($this->manager())->delete(route('print-templates.destroy', $template))->assertSessionHas('status', 'print-template-deleted');
+
+        $this->assertModelMissing($template);
+    }
+
+    public function test_a_list_opened_for_printing_gets_its_templates_default_first(): void
+    {
+        $dataEntry = User::factory()->dataEntry()->create();
+        PrintTemplate::factory()->create(['page' => '/meter-readings', 'name' => 'أ']);
+        PrintTemplate::factory()->create(['page' => '/meter-readings', 'name' => 'ي', 'is_default' => true]);
+        PrintTemplate::factory()->create(['page' => '/subscribers', 'name' => 'مشتركون']);
+
+        $this->actingAs($dataEntry)->get(route('meter-readings.index', ['print' => 1]))
+            ->assertInertia(fn ($page) => $page
+                ->has('printTemplates', 2)
+                ->where('printTemplates.0.name', 'ي')
+                ->where('printTemplates.0.isDefault', true));
+        $this->actingAs($dataEntry)->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page->where('printTemplates', null));
+    }
+}

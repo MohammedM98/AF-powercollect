@@ -124,7 +124,7 @@ class PermissionsTest extends TestCase
 
         $response->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
             'branches', 'users', 'user_types', 'subscribers', 'tariffs', 'meter_boxes', 'circuit_breakers',
-            'areas', 'sub_areas', 'governorates', 'meter_readings', 'collections', 'closings', 'messages',
+            'areas', 'sub_areas', 'governorates', 'meter_readings', 'collections', 'closings', 'messages', 'print_templates',
         ]));
     }
 
@@ -137,7 +137,7 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect($groups)
-                ->reject(fn (array $group): bool => in_array($group['key'], ['meter_readings', 'collections', 'closings', 'messages'], true))
+                ->reject(fn (array $group): bool => in_array($group['key'], ['meter_readings', 'collections', 'closings', 'messages', 'print_templates'], true))
                 ->every(fn (array $group): bool => collect($group['actions'])->contains('action', 'delete')),
         ));
     }

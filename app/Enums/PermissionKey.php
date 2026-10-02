@@ -71,6 +71,8 @@ enum PermissionKey: string
     case ViewMessages = 'messages.view';
     case SendMessages = 'messages.send';
 
+    case ManagePrintTemplates = 'print_templates.manage';
+
     public function label(): string
     {
         return match ($this) {
@@ -129,6 +131,7 @@ enum PermissionKey: string
             self::ViewAllClosings => 'View All Closings and Reports',
             self::ViewMessages => 'View Messages',
             self::SendMessages => 'Send Messages',
+            self::ManagePrintTemplates => 'Manage Print Templates',
         };
     }
 
@@ -148,6 +151,8 @@ enum PermissionKey: string
             self::ViewUserTypes, self::CreateUserTypes, self::UpdateUserTypes, self::DeleteUserTypes,
             // Reviewing closings, or seeing every branch's, reaches past one branch, so the company grants it.
             self::AuditClosings, self::ViewAllClosings => true,
+            // Print templates are shared by every branch.
+            self::ManagePrintTemplates => true,
             default => false,
         };
     }
@@ -232,6 +237,10 @@ enum PermissionKey: string
             'messages' => [
                 'label' => 'Messages',
                 'actions' => ['view' => self::ViewMessages, 'send' => self::SendMessages],
+            ],
+            'print_templates' => [
+                'label' => 'Print Templates',
+                'actions' => ['manage' => self::ManagePrintTemplates],
             ],
         ];
     }

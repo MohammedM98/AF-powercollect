@@ -174,6 +174,21 @@ class BranchReportTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('filters.to', '2026-10-01'));
     }
 
+    public function test_report_presents_weekly_and_monthly_periods_without_changing_the_filter_shape(): void
+    {
+        $this->actingAs($this->preparer());
+
+        $this->get(route('reports.index', [
+            'from' => '2026-09-26', 'to' => '2026-10-01', 'view' => 'weekly',
+        ]))->assertInertia(fn ($page) => $page
+            ->where('period.mode', 'weekly')
+            ->where('filters', ['branch' => $this->north->id, 'from' => '2026-09-26', 'to' => '2026-10-01', 'kind' => 'all']));
+
+        $this->get(route('reports.index', [
+            'from' => '2026-10-01', 'to' => '2026-10-01', 'view' => 'monthly',
+        ]))->assertInertia(fn ($page) => $page->where('period.mode', 'monthly'));
+    }
+
     private function preparer(): User
     {
         $user = User::factory()->accountant()->create(['branch_id' => $this->north->id]);

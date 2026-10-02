@@ -68,6 +68,9 @@ enum PermissionKey: string
     case AuditClosings = 'closings.audit';
     case ViewAllClosings = 'closings.view_all';
 
+    case ViewMessages = 'messages.view';
+    case SendMessages = 'messages.send';
+
     public function label(): string
     {
         return match ($this) {
@@ -124,6 +127,8 @@ enum PermissionKey: string
             self::PrepareClosings => 'Prepare Closings',
             self::AuditClosings => 'Audit Closings',
             self::ViewAllClosings => 'View All Closings and Reports',
+            self::ViewMessages => 'View Messages',
+            self::SendMessages => 'Send Messages',
         };
     }
 
@@ -223,6 +228,10 @@ enum PermissionKey: string
             'closings' => [
                 'label' => 'Closings',
                 'actions' => ['prepare' => self::PrepareClosings, 'view_all' => self::ViewAllClosings, 'audit' => self::AuditClosings],
+            ],
+            'messages' => [
+                'label' => 'Messages',
+                'actions' => ['view' => self::ViewMessages, 'send' => self::SendMessages],
             ],
         ];
     }

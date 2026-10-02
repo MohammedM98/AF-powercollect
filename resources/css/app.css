@@ -998,3 +998,121 @@
 [x-cloak] {
     display: none !important;
 }
+
+/*
+ * A list page opened for printing (see resources/js/lib/print.js and
+ * PrintSheet.jsx): only the tables, as plain ruled tables in black on
+ * white, with the columns that weren't picked hidden.
+ */
+.print-sheet-content > :not(table):not(:has(table)):not(.data-table-totals),
+.print-sheet-content > * > :not(table):not(:has(table)):not(.data-table-totals),
+.print-sheet .data-table-toolbar,
+.print-sheet .data-table-pagination,
+.print-sheet .print-hidden {
+    display: none !important;
+}
+
+.print-sheet .data-table-container {
+    container-type: normal;
+    overflow: visible;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+}
+
+.print-sheet .data-table-totals {
+    padding: 8px 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+}
+
+.print-sheet table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.print-sheet table th,
+.print-sheet table td,
+.print-sheet table tbody tr:hover td {
+    padding: 5px 8px !important;
+    border: 1px solid #9ca3af !important;
+    border-radius: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    color: #111827;
+    white-space: normal;
+    animation: none;
+}
+
+.print-sheet table th {
+    background: #f3f4f6 !important;
+    font-size: 12px;
+}
+
+.print-sheet table tbody tr {
+    animation: none;
+    break-inside: avoid;
+}
+
+.print-sheet table thead {
+    display: table-header-group;
+}
+
+.print-sheet table svg,
+.print-sheet table img,
+.print-sheet .row-identity-avatar {
+    display: none;
+}
+
+.print-sheet .row-identity-text span,
+.print-sheet table .truncate {
+    overflow: visible;
+    white-space: normal;
+}
+
+.print-sheet .data-chip {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+}
+
+.print-sheet table button,
+.print-sheet table input,
+.print-sheet table select {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    color: inherit !important;
+    font: inherit;
+    pointer-events: none;
+}
+
+@media print {
+    @page {
+        margin: 12mm;
+    }
+
+    .print-toolbar,
+    .print-mode [role='status'] {
+        display: none !important;
+    }
+
+    .print-sheet {
+        max-width: none;
+        padding: 0;
+    }
+
+    .print-sheet,
+    .print-sheet * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

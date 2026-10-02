@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use App\Models\ClosingSetting;
 use App\Models\ReadingEntrySetting;
+use App\Support\Messaging\HttpSmsGateway;
+use App\Support\Messaging\LogSmsGateway;
+use App\Support\Messaging\SmsGateway;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -16,6 +19,12 @@ class AppServiceProvider extends ServiceProvider
         // Read by every reading-week calculation, so loaded once per request or job.
         $this->app->scoped(ReadingEntrySetting::class, fn (): ReadingEntrySetting => ReadingEntrySetting::loadCurrent());
         $this->app->scoped(ClosingSetting::class, fn (): ClosingSetting => ClosingSetting::loadCurrent());
+
+        // SMS go out through the gateway named in services.sms.driver; until one is set up they're only logged.
+        $this->app->bind(SmsGateway::class, fn (): SmsGateway => match (config('services.sms.driver')) {
+            'http' => new HttpSmsGateway(config('services.sms.http'), (string) config('services.sms.country_code')),
+            default => new LogSmsGateway,
+        });
     }
 
     /**

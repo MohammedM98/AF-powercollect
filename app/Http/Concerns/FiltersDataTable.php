@@ -23,6 +23,11 @@ trait FiltersDataTable
     private const PAGE_SIZES = [15, 25, 50, 100];
 
     /**
+     * The most rows a printout of every matching row holds.
+     */
+    public const PRINT_PAGE_SIZE = 2000;
+
+    /**
      * Apply a `search` term (across the given columns) and a `sort` +
      * `direction` pair (restricted to the given allow-list) to the query.
      * A searchable column may be an expression, such as a subquery for a
@@ -84,10 +89,16 @@ trait FiltersDataTable
     }
 
     /**
-     * The validated page size, restricted to a fixed allow-list.
+     * The validated page size, restricted to a fixed allow-list. A printout
+     * of every matching row (`?print_all=1`, see resources/js/lib/print.js)
+     * gets them all on one page, up to PRINT_PAGE_SIZE.
      */
     protected function dataTablePerPage(Request $request, int $default = 15): int
     {
+        if ($request->boolean('print_all')) {
+            return self::PRINT_PAGE_SIZE;
+        }
+
         $perPage = (int) $request->input('per_page', $default);
 
         return in_array($perPage, self::PAGE_SIZES, true) ? $perPage : $default;

@@ -7,6 +7,7 @@ use App\Models\CircuitBreaker;
 use App\Models\Closing;
 use App\Models\ClosingSetting;
 use App\Models\Governorate;
+use App\Models\MessageBatch;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\Permission;
@@ -76,6 +77,8 @@ class HandleInertiaRequests extends Middleware
                 'viewCircuitBreakers' => $user->can('viewAny', CircuitBreaker::class),
                 'viewMeterBoxes' => $user->can('viewAny', MeterBox::class),
                 'viewMeterReadings' => $user->can('viewAny', MeterReading::class),
+                'viewMessages' => $user->can('viewAny', MessageBatch::class),
+                'sendMessages' => $user->can('create', MessageBatch::class),
                 'viewGovernorates' => $user->can('viewAny', Governorate::class) || $user->can('viewAny', SubArea::class),
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manage', ReadingEntrySetting::class),

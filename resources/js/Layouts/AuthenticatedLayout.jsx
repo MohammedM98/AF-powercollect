@@ -4,6 +4,8 @@ import Icon from '@/Components/Icon';
 import ThemeToggle from '@/Components/ThemeToggle';
 import ActivityBell from '@/Components/ActivityBell';
 import CommandPalette from '@/Components/CommandPalette';
+import PrintSheet from '@/Components/PrintSheet';
+import { currentPrintSettings } from '@/lib/print';
 import { MAIN_LINKS, SETTINGS_LINKS, allowedLinks, isActiveLink, isInsideAnyLink } from '@/lib/navigation';
 import { useResponsiveTables } from '@/hooks/useResponsiveTables';
 
@@ -237,6 +239,7 @@ export default function AuthenticatedLayout({ header, children }) {
     const [paletteOpen, setPaletteOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
     const isDesktop = useIsDesktop();
+    const [printSettings] = useState(currentPrintSettings);
     useResponsiveTables();
 
     /**
@@ -280,6 +283,11 @@ export default function AuthenticatedLayout({ header, children }) {
         document.addEventListener('keydown', onKeyDown);
         return () => document.removeEventListener('keydown', onKeyDown);
     }, [drawerOpen]);
+
+    // Opened from a table's print button: the page without the menus (see lib/print.js).
+    if (printSettings) {
+        return <PrintSheet settings={printSettings}>{children}</PrintSheet>;
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900">

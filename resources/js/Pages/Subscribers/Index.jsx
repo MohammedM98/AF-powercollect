@@ -222,7 +222,7 @@ export default function Index({
                             lockedReason: subscriber.canRecordPayment ? null : needsPermission('تسجيل التحصيلات'),
                         },
                         {
-                            label: 'إضافة تحميل',
+                            label: 'تحميل حركة',
                             icon: 'document-plus',
                             tone: 'amber',
                             onSelect: () => openStatement(subscriber, 'charge'),
@@ -233,6 +233,13 @@ export default function Index({
                             icon: 'discount',
                             tone: 'violet',
                             onSelect: () => openStatement(subscriber, 'discount'),
+                            lockedReason: subscriber.canAdjustBalance ? null : needsPermission('إضافة تحميل وخصم'),
+                        },
+                        {
+                            label: 'مقاصة',
+                            icon: 'scale',
+                            tone: 'teal',
+                            onSelect: () => openStatement(subscriber, 'clearing'),
                             lockedReason: subscriber.canAdjustBalance ? null : needsPermission('إضافة تحميل وخصم'),
                         },
                     ],

@@ -161,7 +161,7 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
                             titleId={titleId}
                             icon={correcting ? 'pencil' : 'arrow-down-tray'}
                             tone="red"
-                            title={correcting ? 'تعديل تحميل' : 'إضافة تحميل'}
+                            title={correcting ? 'تعديل تحميل' : 'تحميل حركة'}
                             subtitle={correcting ? 'صحّح التحميل؛ يبقى الأصلي في الكشف ملغى مع سبب التعديل.' : 'مبلغ يُضاف على حساب المشترك.'}
                             onClose={requestClose}
                         />

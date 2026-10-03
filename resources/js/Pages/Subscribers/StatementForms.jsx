@@ -3,6 +3,7 @@ import Icon from '@/Components/Icon';
 import ChargeModal from './ChargeModal';
 import ClearingModal from './ClearingModal';
 import DeleteTransactionModal from './DeleteTransactionModal';
+import ForceDeleteTransactionModal from './ForceDeleteTransactionModal';
 import DiscountModal from './DiscountModal';
 import PaymentModal from './PaymentModal';
 
@@ -128,13 +129,14 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
 /**
  * The payment, charge, discount and clearing forms of a statement;
  * `openForm` names the one showing ('payment', 'charge', 'discount',
- * 'clearing' or null), or is `{ action: 'correct' | 'delete', entry }` to
+ * 'clearing' or null), or is `{ action: 'correct' | 'delete' | 'erase', entry }` to
  * correct or delete a line. `statement` is the statement's page props.
  */
 export function StatementForms({ statement, openForm, onClose }) {
     const { subscriber, summary, canRecordPayment, canAdjustBalance, correctionReasons } = statement;
     const correcting = openForm?.action === 'correct' ? openForm.entry : null;
     const deleting = openForm?.action === 'delete' ? openForm.entry : null;
+    const erasing = openForm?.action === 'erase' ? openForm.entry : null;
     // A correction's form works from the balance without the line it replaces.
     const balanceWithout = (entry) => (Number(summary.balance) - Number(entry.recorded.effect)).toFixed(2);
 
@@ -202,6 +204,10 @@ export function StatementForms({ statement, openForm, onClose }) {
                     entry={deleting}
                     reasons={deleting.deletionReasons}
                 />
+            )}
+
+            {erasing && (
+                <ForceDeleteTransactionModal key={`erase-${erasing.id}`} onClose={onClose} subscriber={subscriber} balance={summary.balance} entry={erasing} />
             )}
 
             {canRecordPayment && (

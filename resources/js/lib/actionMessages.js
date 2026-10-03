@@ -24,6 +24,7 @@ export const ACTION_MESSAGES = {
     'discount-recorded': 'تم تسجيل الخصم بنجاح.',
     'clearing-recorded': 'تم تسجيل المقاصة بنجاح.',
     'transaction-corrected': 'تم تعديل الحركة، وأُضيف التصحيح تحتها في كشف الحساب.',
+    'transaction-erased': 'تم حذف الحركة نهائيًا ولم يبقَ لها أثر في الكشف.',
     'transaction-deleted': 'تم حذف الحركة، وأُضيف تحتها قيد عكسي يلغي أثرها.',
     'standing-discount-saved': 'تم حفظ الخصم الدائم، ويُطبَّق من قراءة الأسبوع الأخير فصاعدًا.',
     'standing-discount-stopped': 'تم إيقاف الخصم الدائم.',

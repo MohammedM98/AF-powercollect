@@ -7,6 +7,7 @@ use App\Enums\CorrectionReason;
 use App\Enums\DiscountMethod;
 use App\Http\Requests\CorrectSubscriberTransactionRequest;
 use App\Http\Requests\DeleteSubscriberTransactionRequest;
+use App\Http\Requests\ForceDeleteSubscriberTransactionRequest;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Notifications\ActionCompleted;
@@ -14,10 +15,10 @@ use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 
 /**
- * Correcting or deleting a payment, charge, discount or clearing on a
- * subscriber's account. Neither edits nor removes the line: it is
- * cancelled, with the reason, and a reversal is added under it; a
- * correction then records the right line in its place.
+ * Correcting, deleting or permanently erasing a payment, charge, discount
+ * or clearing on a subscriber's account. A normal deletion cancels the
+ * line with a reason and reversal; permanent deletion is separately
+ * authorized and can remove only the final statement line.
  */
 class SubscriberTransactionController extends Controller
 {
@@ -76,5 +77,20 @@ class SubscriberTransactionController extends Controller
         ));
 
         return back()->with('status', 'transaction-deleted');
+    }
+
+    /**
+     * Erase the line for good: nothing is kept on the statement, and the
+     * balance is as if it was never recorded.
+     */
+    public function forceDestroy(ForceDeleteSubscriberTransactionRequest $request, Subscriber $subscriber, SubscriberTransaction $transaction): RedirectResponse
+    {
+        $summary = sprintf('%s — %s %s شيكل', $subscriber->displayName(), $transaction->typeLabel(), SubscriberTransaction::formatAmount(ltrim($transaction->amount, '-')));
+
+        $transaction->erase($request->user(), $request->validated('correction_notes'));
+
+        $request->user()->notify(new ActionCompleted('transaction-erased', $summary));
+
+        return back()->with('status', 'transaction-erased');
     }
 }

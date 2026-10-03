@@ -132,6 +132,7 @@ export default function StatementModal({ subscriber, statement, initialForm = nu
                                     transactionTypes={statement.transactionTypes}
                                     onCorrect={(entry) => setOpenForm({ action: 'correct', entry })}
                                     onDelete={(entry) => setOpenForm({ action: 'delete', entry })}
+                                    onErase={(entry) => setOpenForm({ action: 'erase', entry })}
                                 />
                             </>
                         ) : (

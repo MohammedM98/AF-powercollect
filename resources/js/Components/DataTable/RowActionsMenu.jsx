@@ -7,6 +7,7 @@ const ICONS = {
     عرض: 'eye',
     تعديل: 'pencil',
     حذف: 'trash',
+    'حذف نهائي': 'close',
     'إدارة الصلاحيات': 'shield',
     'كشف الحساب': 'ledger',
 };
@@ -15,6 +16,7 @@ const ICONS = {
 const TONES = {
     تعديل: 'row-action-edit',
     حذف: 'row-action-delete',
+    'حذف نهائي': 'row-action-delete',
 };
 
 /**

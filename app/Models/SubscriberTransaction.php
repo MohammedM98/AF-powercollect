@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -26,11 +27,11 @@ use Illuminate\Validation\ValidationException;
  * and clearings negative, so the balance is the sum of `amount`. A charge
  * recorded by hand stores its ChargeType as its `type`.
  *
- * A line is never edited or removed. Deleting it cancels it — marked with
- * who, when and why — and adds a reversal line under it that takes its
- * amount back off the balance; correcting it does the same, then records
- * the right line in its place (`corrects_id`). The cancelled line and its
- * reversal cancel each other out, so the totals leave both out.
+ * A line is normally never edited or removed. Deleting it cancels it —
+ * marked with who, when and why — and adds a reversal line under it that
+ * takes its amount back off the balance; correcting it does the same, then
+ * records the right line in its place (`corrects_id`). A separate sensitive
+ * permission may permanently erase only the final line of the statement.
  */
 #[Fillable([
     'subscriber_id',
@@ -135,7 +136,7 @@ class SubscriberTransaction extends Model
         $inShekels = round((float) $payment['amount'] * $exchangeRate, 2);
 
         return DB::transaction(function () use ($subscriber, $collector, $payment, $currency, $method, $exchangeRate, $inShekels): self {
-            $voucherNumber = (int) self::query()->lockForUpdate()->max('voucher_number') + 1;
+            $voucherNumber = self::claimNextVoucherNumber();
 
             return $subscriber->transactions()->create([
                 'recorded_by' => $collector->id,
@@ -157,6 +158,20 @@ class SubscriberTransaction extends Model
                 'notes' => $payment['notes'] ?? null,
             ]);
         });
+    }
+
+    /**
+     * Reserve the next global voucher number. The counter survives permanent
+     * payment deletion, leaving the deliberate gap in the voucher sequence.
+     */
+    private static function claimNextVoucherNumber(): int
+    {
+        $counter = DB::table('payment_voucher_sequences')->where('id', 1);
+        $voucherNumber = (int) $counter->lockForUpdate()->value('last_number') + 1;
+
+        $counter->update(['last_number' => $voucherNumber]);
+
+        return $voucherNumber;
     }
 
     /**
@@ -362,6 +377,87 @@ class SubscriberTransaction extends Model
         }
 
         return $this->isCorrectable() || in_array($this->type, [self::TYPE_METER_READING, self::TYPE_READING_DISCOUNT, self::TYPE_SUBSCRIPTION_FEE], true);
+    }
+
+    /**
+     * Whether the line is the last one on the subscriber's statement, the
+     * one at the bottom of the table (the statement lists oldest first).
+     */
+    public function isLastOnStatement(bool $lockForUpdate = false): bool
+    {
+        $lastGroupId = self::query()
+            ->where('subscriber_id', $this->subscriber_id)
+            ->whereNull('reverses_id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+            ->value('id');
+
+        if ($lastGroupId === null) {
+            return false;
+        }
+
+        return self::query()
+            ->where('subscriber_id', $this->subscriber_id)
+            ->where(fn (Builder $query): Builder => $query
+                ->whereKey($lastGroupId)
+                ->orWhere('reverses_id', $lastGroupId))
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+            ->value('id') === $this->id;
+    }
+
+    /**
+     * Whether a line may be erased for good: only the last line of the
+     * statement, and not one a closing has counted. When that is a
+     * reversal, the cancelled line it reverses goes with it.
+     */
+    public function isErasable(bool $lockForUpdate = false): bool
+    {
+        $erased = $this->isReversal() ? $this->reverses : $this;
+
+        return $this->isLastOnStatement($lockForUpdate)
+            && ! ClosingPayment::query()
+                ->where('subscriber_transaction_id', $erased?->id)
+                ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+                ->exists();
+    }
+
+    /**
+     * Erase the last line of the statement for good, leaving no trace on
+     * the account. If it is a reversal, the line it reverses goes with it,
+     * and if it was cancelled, so does its reversal, so the balance stays
+     * consistent. The only record is a log entry.
+     *
+     * @throws ValidationException when it may not be erased (any more)
+     */
+    public function erase(User $actor, string $reason): void
+    {
+        DB::transaction(function () use ($actor, $reason): void {
+            $line = self::query()->lockForUpdate()->findOrFail($this->id);
+
+            if (! $line->isErasable(lockForUpdate: true)) {
+                throw ValidationException::withMessages(['reason' => 'لا يمكن حذف هذه الحركة نهائيًا.']);
+            }
+
+            $target = $line->isReversal() ? $line->reverses : $line;
+            $reversals = self::query()->where('reverses_id', $target->id)->get();
+            $erasedTransactions = collect([$target])
+                ->concat($reversals)
+                ->map(fn (self $transaction): array => $transaction->getAttributes())
+                ->all();
+
+            self::query()->where('corrects_id', $target->id)->update(['corrects_id' => null]);
+            $reversals->each->delete();
+            $target->delete();
+
+            Log::warning('Transaction erased for good', [
+                'transactions' => $erasedTransactions,
+                'erased_by' => $actor->only(['id', 'name', 'username']),
+                'reason' => $reason,
+            ]);
+        });
     }
 
     /**

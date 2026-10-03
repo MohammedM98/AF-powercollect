@@ -64,6 +64,7 @@ enum PermissionKey: string
     case AdjustBalances = 'collections.adjust';
     case CorrectTransactions = 'collections.correct';
     case DeleteTransactions = 'collections.delete';
+    case ForceDeleteTransactions = 'collections.force_delete';
     case PrepareClosings = 'closings.prepare';
     case AuditClosings = 'closings.audit';
     case ViewAllClosings = 'closings.view_all';
@@ -126,6 +127,7 @@ enum PermissionKey: string
             self::AdjustBalances => 'Add Charges and Discounts',
             self::CorrectTransactions => 'Edit Transactions',
             self::DeleteTransactions => 'Delete Transactions',
+            self::ForceDeleteTransactions => 'Permanently Delete Transactions',
             self::PrepareClosings => 'Prepare Closings',
             self::AuditClosings => 'Audit Closings',
             self::ViewAllClosings => 'View All Closings and Reports',
@@ -228,6 +230,7 @@ enum PermissionKey: string
                     'adjust' => self::AdjustBalances,
                     'correct' => self::CorrectTransactions,
                     'delete' => self::DeleteTransactions,
+                    'force_delete' => self::ForceDeleteTransactions,
                 ],
             ],
             'closings' => [

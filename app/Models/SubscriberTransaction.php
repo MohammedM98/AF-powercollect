@@ -27,11 +27,11 @@ use Illuminate\Validation\ValidationException;
  * and clearings negative, so the balance is the sum of `amount`. A charge
  * recorded by hand stores its ChargeType as its `type`.
  *
- * A line is never edited or removed. Deleting it cancels it — marked with
- * who, when and why — and adds a reversal line under it that takes its
- * amount back off the balance; correcting it does the same, then records
- * the right line in its place (`corrects_id`). The cancelled line and its
- * reversal cancel each other out, so the totals leave both out.
+ * A line is normally never edited or removed. Deleting it cancels it —
+ * marked with who, when and why — and adds a reversal line under it that
+ * takes its amount back off the balance; correcting it does the same, then
+ * records the right line in its place (`corrects_id`). A separate sensitive
+ * permission may permanently erase only the final line of the statement.
  */
 #[Fillable([
     'subscriber_id',
@@ -136,7 +136,7 @@ class SubscriberTransaction extends Model
         $inShekels = round((float) $payment['amount'] * $exchangeRate, 2);
 
         return DB::transaction(function () use ($subscriber, $collector, $payment, $currency, $method, $exchangeRate, $inShekels): self {
-            $voucherNumber = (int) self::query()->lockForUpdate()->max('voucher_number') + 1;
+            $voucherNumber = self::claimNextVoucherNumber();
 
             return $subscriber->transactions()->create([
                 'recorded_by' => $collector->id,
@@ -158,6 +158,20 @@ class SubscriberTransaction extends Model
                 'notes' => $payment['notes'] ?? null,
             ]);
         });
+    }
+
+    /**
+     * Reserve the next global voucher number. The counter survives permanent
+     * payment deletion, leaving the deliberate gap in the voucher sequence.
+     */
+    private static function claimNextVoucherNumber(): int
+    {
+        $counter = DB::table('payment_voucher_sequences')->where('id', 1);
+        $voucherNumber = (int) $counter->lockForUpdate()->value('last_number') + 1;
+
+        $counter->update(['last_number' => $voucherNumber]);
+
+        return $voucherNumber;
     }
 
     /**
@@ -369,12 +383,28 @@ class SubscriberTransaction extends Model
      * Whether the line is the last one on the subscriber's statement, the
      * one at the bottom of the table (the statement lists oldest first).
      */
-    public function isLastOnStatement(): bool
+    public function isLastOnStatement(bool $lockForUpdate = false): bool
     {
-        return self::query()
+        $lastGroupId = self::query()
             ->where('subscriber_id', $this->subscriber_id)
+            ->whereNull('reverses_id')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+            ->value('id');
+
+        if ($lastGroupId === null) {
+            return false;
+        }
+
+        return self::query()
+            ->where('subscriber_id', $this->subscriber_id)
+            ->where(fn (Builder $query): Builder => $query
+                ->whereKey($lastGroupId)
+                ->orWhere('reverses_id', $lastGroupId))
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
             ->value('id') === $this->id;
     }
 
@@ -383,12 +413,15 @@ class SubscriberTransaction extends Model
      * statement, and not one a closing has counted. When that is a
      * reversal, the cancelled line it reverses goes with it.
      */
-    public function isErasable(): bool
+    public function isErasable(bool $lockForUpdate = false): bool
     {
         $erased = $this->isReversal() ? $this->reverses : $this;
 
-        return $this->isLastOnStatement()
-            && ! ClosingPayment::query()->where('subscriber_transaction_id', $erased?->id)->exists();
+        return $this->isLastOnStatement($lockForUpdate)
+            && ! ClosingPayment::query()
+                ->where('subscriber_transaction_id', $erased?->id)
+                ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+                ->exists();
     }
 
     /**
@@ -404,19 +437,24 @@ class SubscriberTransaction extends Model
         DB::transaction(function () use ($actor, $reason): void {
             $line = self::query()->lockForUpdate()->findOrFail($this->id);
 
-            if (! $line->isErasable()) {
+            if (! $line->isErasable(lockForUpdate: true)) {
                 throw ValidationException::withMessages(['reason' => 'لا يمكن حذف هذه الحركة نهائيًا.']);
             }
 
             $target = $line->isReversal() ? $line->reverses : $line;
+            $reversals = self::query()->where('reverses_id', $target->id)->get();
+            $erasedTransactions = collect([$target])
+                ->concat($reversals)
+                ->map(fn (self $transaction): array => $transaction->getAttributes())
+                ->all();
 
             self::query()->where('corrects_id', $target->id)->update(['corrects_id' => null]);
-            self::query()->where('reverses_id', $target->id)->delete();
+            $reversals->each->delete();
             $target->delete();
 
             Log::warning('Transaction erased for good', [
-                'transaction' => $target->only(['id', 'subscriber_id', 'type', 'amount', 'source_key', 'voucher_number', 'created_at']),
-                'erased_by' => $actor->id,
+                'transactions' => $erasedTransactions,
+                'erased_by' => $actor->only(['id', 'name', 'username']),
                 'reason' => $reason,
             ]);
         });

@@ -15,10 +15,10 @@ use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 
 /**
- * Correcting, deleting or erasing a payment, charge, discount or clearing on a
- * subscriber's account. Neither edits nor removes the line: it is
- * cancelled, with the reason, and a reversal is added under it; a
- * correction then records the right line in its place.
+ * Correcting, deleting or permanently erasing a payment, charge, discount
+ * or clearing on a subscriber's account. A normal deletion cancels the
+ * line with a reason and reversal; permanent deletion is separately
+ * authorized and can remove only the final statement line.
  */
 class SubscriberTransactionController extends Controller
 {

@@ -60,13 +60,15 @@ trait BuildsSubscriberStatement
 
         $firstLineIds = $this->firstLineIds($transactions);
         $balanceInCents = 0;
-        $entries = $transactions
+        $orderedTransactions = $transactions
             ->groupBy(fn (SubscriberTransaction $transaction): int => $firstLineIds[$transaction->id])
-            ->flatten(1)
-            ->map(function (SubscriberTransaction $transaction) use (&$balanceInCents, $actor, $firstLineIds): array {
+            ->flatten(1);
+        $lastLineId = $orderedTransactions->last()?->id;
+        $entries = $orderedTransactions
+            ->map(function (SubscriberTransaction $transaction) use (&$balanceInCents, $actor, $firstLineIds, $lastLineId): array {
                 $balanceInCents += $this->cents($transaction->amount);
 
-                return $this->statementEntry($transaction, $balanceInCents, $actor, $firstLineIds[$transaction->id]);
+                return $this->statementEntry($transaction, $balanceInCents, $actor, $firstLineIds[$transaction->id], $transaction->id === $lastLineId);
             })
             ->values();
 
@@ -228,7 +230,7 @@ trait BuildsSubscriberStatement
      *
      * @return array<string, mixed>
      */
-    private function statementEntry(SubscriberTransaction $transaction, int $balanceInCents, User $actor, int $groupId): array
+    private function statementEntry(SubscriberTransaction $transaction, int $balanceInCents, User $actor, int $groupId, bool $isLastOnStatement): array
     {
         $receipt = $transaction->isReversal() && $transaction->reverses ? $transaction->reverses : $transaction;
 
@@ -277,7 +279,7 @@ trait BuildsSubscriberStatement
             ] : null,
             'canCorrect' => $actor->can('update', $transaction),
             'canDelete' => $actor->can('delete', $transaction),
-            'canForceDelete' => $actor->can('forceDelete', $transaction),
+            'canForceDelete' => $isLastOnStatement && $actor->can('forceDelete', $transaction),
             // What erasing it takes off the balance: nothing for a reversal or a cancelled line, which go together.
             'eraseEffect' => $transaction->isCancelled() || $transaction->isReversal() ? '0.00' : $transaction->amount,
             'deletionReasons' => $transaction->isCancellable() ? CorrectionReason::options(CorrectionReason::forDeletionOf($transaction)) : [],

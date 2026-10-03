@@ -1,8 +1,7 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
-import { useRowClick } from '@/hooks/useRowClick';
 import { describeBalance, filterStatementEntries, foldCorrections } from '@/lib/accountStatement';
 import { formatAmount } from '@/lib/currency';
 
@@ -14,7 +13,6 @@ const BALANCE_PILLS = {
 
 const COLUMNS = [
     'رقم الصندوق',
-    'السند اليدوي',
     'رقم السند',
     'الرقم المرجعي',
     'البنك',
@@ -49,14 +47,17 @@ function Dash() {
 }
 
 /** Under a corrected or cancelled line: why, who did it and when. */
-function CancellationNote({ cancellation }) {
+function CancellationNote({ cancellation, onJump }) {
     return (
         <p className="ledger-description mt-1.5 flex items-start gap-1.5 text-xs font-normal text-gray-600">
             <Icon name={cancellation.wasCorrected ? 'repeat' : 'close'} className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
             <span>
-                <b className="font-semibold text-gray-700">
-                    {cancellation.wasCorrected ? 'صُحّحت' : 'أُلغيت'}: {cancellation.reasonLabel}
-                </b>
+                {cancellation.wasCorrected ? (
+                    <button type="button" onClick={() => onJump(cancellation.correctionId)} className="font-semibold text-amber-700 hover:underline">
+                        ⟲ صُحّحت ← #{cancellation.correctionLineNumber}
+                    </button>
+                ) : <b className="font-semibold text-gray-700">أُلغيت</b>}
+                <>: {cancellation.reasonLabel}</>
                 {cancellation.notes && <> — {cancellation.notes}</>}
                 <span className="text-gray-500">
                     {' '}
@@ -68,13 +69,24 @@ function CancellationNote({ cancellation }) {
 }
 
 /** Under a line that replaces a corrected one: which line it corrects, further up the statement. */
-function CorrectsNote({ corrects }) {
+function CorrectsNote({ corrects, onJump }) {
     return (
         <p className="ledger-description mt-1.5 flex items-center gap-1.5 text-xs font-normal text-amber-700 dark:text-amber-400">
             <Icon name="repeat" className="h-3.5 w-3.5 shrink-0" />
-            <span>
-                تصحيح لحركة <bdi dir="ltr">{corrects.date}</bdi>
-            </span>
+            <button type="button" onClick={() => onJump(corrects.id)} className="font-semibold hover:underline">
+                تصحيح لـ #{corrects.lineNumber} ↑
+            </button>
+        </p>
+    );
+}
+
+function ReversalNote({ reverses, onJump }) {
+    return (
+        <p className="ledger-description mt-1.5 flex items-center gap-1.5 text-xs font-normal text-blue-700">
+            <Icon name="repeat" className="h-3.5 w-3.5 shrink-0" />
+            <button type="button" onClick={() => onJump(reverses.id)} className="font-semibold hover:underline">
+                قيد عكسي لـ #{reverses.lineNumber}
+            </button>
         </p>
     );
 }
@@ -185,8 +197,7 @@ function lineActionsMenu(entry, { onAmend, onCorrect, onDelete, onErase }) {
  * line it cancels.
  */
 function HistoryToggle({ entry, onToggle }) {
-    const { hiddenCount, expanded, wasCorrected } = entry.history;
-    const label = hiddenCount === 1 ? (wasCorrected ? 'الحركة المصحّحة' : 'الحركة الملغاة') : `الحركات السابقة (${hiddenCount})`;
+    const { hiddenCount, expanded } = entry.history;
 
     return (
         <button
@@ -196,7 +207,7 @@ function HistoryToggle({ entry, onToggle }) {
             className="mt-1.5 inline-flex items-center gap-1 rounded-md text-xs font-semibold text-blue-600 transition hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
             <Icon name="chevron-down" className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} strokeWidth={2} />
-            {expanded ? `إخفاء ${label}` : `إظهار ${label}`}
+            {expanded ? 'طي السجل' : `عرض السجل (${hiddenCount + 1})`}
         </button>
     );
 }
@@ -216,12 +227,14 @@ function scrollingBoxOf(element) {
 
 /** Whether a reversal or replacement shows under the line it follows: not when its group is folded, and it stands alone. */
 function followsLineAbove(entry) {
-    return entry.isFollowUp && (!entry.history?.isHead || entry.history.expanded);
+    return entry.isFollowUp && entry.reverses?.lineNumber === entry.lineNumber - 1 && (!entry.history?.isHead || entry.history.expanded);
 }
 
 /** The row's look: a cancelled line greyed, a reversal or replacement marked as following the line above. */
-function rowClass(entry) {
-    return [entry.cancellation && 'ledger-cancelled', followsLineAbove(entry) && 'ledger-follow-up'].filter(Boolean).join(' ') || undefined;
+function rowClass(entry, highlighted) {
+    return [entry.cancellation && 'ledger-cancelled', followsLineAbove(entry) && 'ledger-follow-up', highlighted && 'outline outline-2 outline-offset-[-2px] outline-amber-400']
+        .filter(Boolean)
+        .join(' ') || undefined;
 }
 
 function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
@@ -244,24 +257,22 @@ function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
 /**
  * The body of a subscriber's account statement: the balance and totals,
  * the search and filters, and every line (charges عليه, payments and
- * discounts له) oldest first with the balance after each. A corrected or
- * deleted line folds away under its reversal, which sits right under it;
- * it can be opened again to show the line struck through with its
- * reversal under it — by pressing the reversal, anywhere on its row, or
- * its button. The line that corrects it is a new line, listed where it
- * falls in time (the newest when just made) and naming the line it
- * corrects. The folded line opens above the reversal, and the statement
- * scrolls so the pressed line stays where it is. `onCorrect` and
+ * discounts له) oldest first with the balance after each. Corrected and
+ * deleted lines, their reversals and any replacements stay visible in
+ * chronological order by default. A reversal's button can manually fold
+ * its audit pair, while the correction badges jump between related lines.
+ * `onCorrect` and
  * `onDelete` (and `onErase`, to erase it for good) get the line to change, for users allowed to. Used by the
  * statement page and by the statement window on the subscribers list.
  */
 export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes, onAmend, onCorrect, onDelete, onErase }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
-    const [expandedGroups, setExpandedGroups] = useState(() => new Set());
+    const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
+    const [highlightedLineId, setHighlightedLineId] = useState(null);
     // The line (or its button) last pressed to fold or open a group, and where it was on screen.
     const pressedLine = useRef(null);
-    const rowClick = useRowClick();
-    const visibleEntries = foldCorrections(entries, filterStatementEntries(entries, filters), expandedGroups);
+    const highlightTimer = useRef(null);
+    const visibleEntries = foldCorrections(entries, filterStatementEntries(entries, filters), collapsedGroups);
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
     const balance = describeBalance(summary.balance);
@@ -287,12 +298,12 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
         if (moved !== 0) {
             scrollingBoxOf(pressed.element).scrollBy({ top: moved, behavior: 'instant' });
         }
-    }, [expandedGroups]);
+    }, [collapsedGroups]);
 
     /** Opens or folds a group; `element` (the line or its button) is kept where it is on screen. */
     function toggleGroup(groupId, element) {
         pressedLine.current = element ? { element, top: element.getBoundingClientRect().top } : null;
-        setExpandedGroups((current) => {
+        setCollapsedGroups((current) => {
             const next = new Set(current);
 
             if (!next.delete(groupId)) {
@@ -302,6 +313,21 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
             return next;
         });
     }
+
+    function jumpToLine(lineId) {
+        const line = document.getElementById(`statement-line-${lineId}`);
+
+        if (!line) {
+            return;
+        }
+
+        line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedLineId(lineId);
+        clearTimeout(highlightTimer.current);
+        highlightTimer.current = setTimeout(() => setHighlightedLineId(null), 1800);
+    }
+
+    useEffect(() => () => clearTimeout(highlightTimer.current), []);
 
     return (
         <>
@@ -428,18 +454,10 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                     <tr
                                         key={entry.id}
                                         id={`statement-line-${entry.id}`}
-                                        className={rowClass(entry)}
-                                        {...rowClick(
-                                            entry.history?.isHead
-                                                ? () => toggleGroup(entry.groupId, document.getElementById(`statement-line-${entry.id}`))
-                                                : null,
-                                        )}
+                                        className={rowClass(entry, highlightedLineId === entry.id)}
                                     >
                                         <td data-label="رقم الصندوق" className="tabular-nums text-gray-700">
                                             {entry.cashBox ?? <Dash />}
-                                        </td>
-                                        <td data-label="السند اليدوي" className="tabular-nums text-gray-600">
-                                            {entry.manualVoucherNumber ?? <Dash />}
                                         </td>
                                         <td data-label="رقم السند" className="font-semibold tabular-nums text-gray-900">
                                             {entry.voucherNumber ?? <Dash />}
@@ -468,8 +486,9 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                                     {withLtrDates(entry.details)}
                                                 </p>
                                             )}
-                                            {entry.cancellation && <CancellationNote cancellation={entry.cancellation} />}
-                                            {entry.corrects && <CorrectsNote corrects={entry.corrects} />}
+                                            {entry.cancellation && <CancellationNote cancellation={entry.cancellation} onJump={jumpToLine} />}
+                                            {entry.reverses && <ReversalNote reverses={entry.reverses} onJump={jumpToLine} />}
+                                            {entry.corrects && <CorrectsNote corrects={entry.corrects} onJump={jumpToLine} />}
                                             {entry.history?.isHead && <HistoryToggle entry={entry} onToggle={toggleGroup} />}
                                         </td>
                                         <td

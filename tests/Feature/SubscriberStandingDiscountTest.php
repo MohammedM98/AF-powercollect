@@ -385,8 +385,9 @@ class SubscriberStandingDiscountTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('entries.0.cancellation.wasCorrected', true)
                 ->where('entries.0.cancellation.reasonLabel', 'تغيير الخصم الدائم')
-                ->where('entries.1.type', 'reversal')
-                ->where('entries.1.groupId', $charge->corrects_id)
+                ->where('entries.1.type', 'reading_discount')
+                ->where('entries.2.type', 'reversal')
+                ->where('entries.2.groupId', $charge->corrects_id)
                 ->where("entries.{$lastEntry}.id", $charge->id)
                 ->where('summary.balance', '50.00'));
     }

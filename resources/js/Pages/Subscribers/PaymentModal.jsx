@@ -1,5 +1,5 @@
-import { useId, useRef, useState } from 'react';
-import { usePage } from '@inertiajs/react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { useHttp, usePage } from '@inertiajs/react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
@@ -298,6 +298,8 @@ export default function PaymentModal({
     const [detailsOpen, setDetailsOpen] = useState(Boolean(recorded?.notes));
     const [discarding, setDiscarding] = useState(false);
     const [receipt, setReceipt] = useState(null);
+    const [referenceStatus, setReferenceStatus] = useState(null);
+    const referenceCheck = useHttp();
 
     const isShekel = data.currency === 'ILS';
     const throughBank = data.payment_method === 'bank_transfer';
@@ -314,6 +316,40 @@ export default function PaymentModal({
     const sortedCurrencies = [...currencies].sort((a, b) => rank(a.value) - rank(b.value));
     const methods = ['bank_transfer', 'cash'].filter((method) => paymentMethods.some((option) => option.value === method));
     const detailErrors = Boolean(errors.notes);
+
+    useEffect(() => {
+        const reference = data.reference_number.trim();
+
+        if (!show || !throughBank || reference === '') {
+            referenceCheck.cancel();
+            setReferenceStatus(null);
+
+            return undefined;
+        }
+
+        const timer = setTimeout(() => {
+            const query = new URLSearchParams({
+                reference_number: reference,
+                amount: data.amount,
+                currency: data.currency,
+                sender_name: data.sender_name,
+            });
+
+            if (correcting?.id) {
+                query.set('ignore_transaction_id', correcting.id);
+            }
+
+            referenceCheck
+                .get(`/subscribers/${subscriber.id}/payments/reference-status?${query}`)
+                .then((status) => setReferenceStatus(status ?? null))
+                .catch(() => setReferenceStatus(null));
+        }, 400);
+
+        return () => {
+            clearTimeout(timer);
+            referenceCheck.cancel();
+        };
+    }, [show, throughBank, data.reference_number, data.amount, data.currency, data.sender_name, correcting?.id, subscriber.id]);
 
     function rank(currency) {
         const index = CURRENCY_ORDER.indexOf(currency);
@@ -703,6 +739,26 @@ export default function PaymentModal({
                                                         className={`${inputClass} text-end font-display`}
                                                     />
                                                     <InputError message={errors.reference_number} className="mt-2" />
+                                                    {referenceCheck.processing && <p className="mt-2 text-xs text-gray-500">جارٍ التحقق من الرقم المرجعي...</p>}
+                                                    {referenceStatus?.conflict && (
+                                                        <p className="mt-2 text-xs font-medium text-red-600">
+                                                            هذا الرقم المرجعي مستخدم في السند{' '}
+                                                            <a href={referenceStatus.conflict.url} className="underline">
+                                                                {referenceStatus.conflict.voucherNumber ?? '—'} — {referenceStatus.conflict.subscriberName}
+                                                            </a>
+                                                        </p>
+                                                    )}
+                                                    {referenceStatus?.available && !referenceStatus.warning && (
+                                                        <p className="mt-2 text-xs font-medium text-emerald-600">الرقم المرجعي متاح.</p>
+                                                    )}
+                                                    {referenceStatus?.warning && (
+                                                        <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-800">
+                                                            تنبيه فقط: توجد دفعة اليوم بالمبلغ واسم المحوِّل نفسيهما —{' '}
+                                                            <a href={referenceStatus.warning.url} className="underline">
+                                                                السند {referenceStatus.warning.voucherNumber ?? '—'}
+                                                            </a>
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -796,7 +852,7 @@ export default function PaymentModal({
                             </span>
                             <PrimaryButton
                                 type="submit"
-                                disabled={!(Number(data.amount) > 0) || form.processing}
+                                disabled={!(Number(data.amount) > 0) || form.processing || Boolean(referenceStatus?.conflict)}
                                 className={`ms-auto h-12 min-w-0 flex-1 rounded-[14px] px-5 text-[15.5px] font-bold sm:min-w-[230px] sm:flex-none ${
                                     correcting ? '!bg-none !bg-amber-600 !shadow-[0_12px_26px_-12px_rgb(180_83_9)]' : ''
                                 }`}

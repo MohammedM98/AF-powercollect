@@ -20,7 +20,8 @@ use Illuminate\Support\Collection;
  * oldest first, each with the balance it left — with what the payment,
  * charge and discount forms need. A corrected or deleted line is followed
  * by its reversal and the line that replaced it. Shared by the statement
- * page and the statement window on the subscribers list.
+ * page and the statement window on the subscribers list. Transactions stay
+ * in their original chronological order, including reversals and corrections.
  */
 trait BuildsSubscriberStatement
 {
@@ -69,16 +70,24 @@ trait BuildsSubscriberStatement
             ->each(fn (SubscriberTransaction $transaction) => $transaction->setRelation('subscriber', $subscriber));
 
         $firstLineIds = $this->firstLineIds($transactions);
+        $lineNumbers = $transactions->values()->mapWithKeys(fn (SubscriberTransaction $transaction, int $index): array => [$transaction->id => $index + 1])->all();
         $balanceInCents = 0;
-        $orderedTransactions = $transactions
-            ->groupBy(fn (SubscriberTransaction $transaction): int => $firstLineIds[$transaction->id])
-            ->flatten(1);
-        $lastLineId = $orderedTransactions->last()?->id;
-        $entries = $orderedTransactions
-            ->map(function (SubscriberTransaction $transaction) use (&$balanceInCents, $actor, $firstLineIds, $lastLineId): array {
+        $lastGroupId = $transactions->whereNull('reverses_id')->last()?->id;
+        $lastLineId = $transactions
+            ->filter(fn (SubscriberTransaction $transaction): bool => $transaction->id === $lastGroupId || $transaction->reverses_id === $lastGroupId)
+            ->last()?->id;
+        $entries = $transactions
+            ->map(function (SubscriberTransaction $transaction) use (&$balanceInCents, $actor, $firstLineIds, $lineNumbers, $lastLineId): array {
                 $balanceInCents += $this->cents($transaction->amount);
 
-                return $this->statementEntry($transaction, $balanceInCents, $actor, $firstLineIds[$transaction->id], $transaction->id === $lastLineId);
+                return $this->statementEntry(
+                    $transaction,
+                    $balanceInCents,
+                    $actor,
+                    $firstLineIds[$transaction->id],
+                    $lineNumbers,
+                    $transaction->id === $lastLineId,
+                );
             })
             ->values();
 
@@ -185,12 +194,9 @@ trait BuildsSubscriberStatement
     }
 
     /**
-     * Each line's group: the line itself, or for a reversal the line it
-     * cancels. Grouping the lines oldest first by it puts the reversal of
-     * a corrected or deleted line straight under it, and lets the
-     * statement fold the pair away. The line that replaces a corrected one
-     * is a new line of its own, so it stays where it falls in time — the
-     * newest on the statement when it was just made.
+     * Each line's foldable group: the line itself, or for a reversal the
+     * line it cancels. This relation does not change chronological display
+     * order; it only lets the user manually fold an audit pair.
      *
      * @param  Collection<int, SubscriberTransaction>  $transactions  oldest first
      * @return array<int, int>
@@ -240,8 +246,14 @@ trait BuildsSubscriberStatement
      *
      * @return array<string, mixed>
      */
-    private function statementEntry(SubscriberTransaction $transaction, int $balanceInCents, User $actor, int $groupId, bool $isLastOnStatement): array
-    {
+    private function statementEntry(
+        SubscriberTransaction $transaction,
+        int $balanceInCents,
+        User $actor,
+        int $groupId,
+        array $lineNumbers,
+        bool $isLastOnStatement,
+    ): array {
         $receipt = $transaction->isReversal() && $transaction->reverses ? $transaction->reverses : $transaction;
         $hasEditPermission = $actor->hasPermission(PermissionKey::CorrectTransactions);
         $hasDeletePermission = $actor->hasPermission(PermissionKey::DeleteTransactions);
@@ -255,9 +267,11 @@ trait BuildsSubscriberStatement
 
         return [
             'id' => $transaction->id,
+            'lineNumber' => $lineNumbers[$transaction->id],
             'groupId' => $groupId,
             'date' => $transaction->created_at->format('Y-m-d H:i'),
-            'voucherNumber' => $receipt->printedVoucherNumber(),
+            'voucherNumber' => $receipt->displayVoucherNumber(),
+            'systemVoucherNumber' => $receipt->printedVoucherNumber(),
             'manualVoucherNumber' => $receipt->manual_voucher_number,
             'description' => $transaction->description(),
             'type' => $transaction->type,
@@ -284,13 +298,20 @@ trait BuildsSubscriberStatement
             'isFollowUp' => $transaction->reverses_id !== null,
             'isReversal' => $transaction->isReversal(),
             'isCorrection' => $transaction->corrects_id !== null,
+            'reverses' => $transaction->reverses ? [
+                'id' => $transaction->reverses->id,
+                'lineNumber' => $lineNumbers[$transaction->reverses->id] ?? null,
+            ] : null,
             // The line a replacement corrects, which stays further up the statement.
             'corrects' => $transaction->corrects ? [
                 'id' => $transaction->corrects->id,
+                'lineNumber' => $lineNumbers[$transaction->corrects->id] ?? null,
                 'date' => $transaction->corrects->created_at->format('Y-m-d H:i'),
             ] : null,
             'cancellation' => $transaction->isCancelled() ? [
                 'wasCorrected' => $transaction->correction !== null,
+                'correctionId' => $transaction->correction?->id,
+                'correctionLineNumber' => $transaction->correction ? ($lineNumbers[$transaction->correction->id] ?? null) : null,
                 'reasonLabel' => __($transaction->cancellation_reason->label()),
                 'notes' => $transaction->cancellation_notes,
                 'byName' => $transaction->cancelledBy?->name,

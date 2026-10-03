@@ -210,13 +210,19 @@ class MeterReading extends Model
 
             if (! $reading->isPending()) {
                 $charge = $reading->currentLine(SubscriberTransaction::TYPE_METER_READING);
+                $discountLine = $reading->currentLine(SubscriberTransaction::TYPE_READING_DISCOUNT);
+                $chargeNeedsRebilling = $charge && $charge->amount !== $reading->amountBeforeDiscount();
 
-                if ($charge && $charge->amount !== $reading->amountBeforeDiscount()) {
+                if ($chargeNeedsRebilling) {
                     $charge->cancelForReading($recorder, CorrectionReason::StandingDiscountChanged);
+                }
+
+                $discountLine?->cancelForReading($recorder, CorrectionReason::StandingDiscountChanged);
+
+                if ($chargeNeedsRebilling) {
                     $reading->recordChargeLine($recorder);
                 }
 
-                $reading->currentLine(SubscriberTransaction::TYPE_READING_DISCOUNT)?->cancelForReading($recorder, CorrectionReason::StandingDiscountChanged);
                 $reading->recordDiscountLine($recorder);
             }
 

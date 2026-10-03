@@ -83,6 +83,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/subscribers/{subscriber}/personal-details', [SubscriberPersonalDetailsController::class, 'update'])->name('subscribers.personal-details.update');
     Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('/subscribers/{subscriber}/statement', [SubscriberStatementController::class, 'show'])->name('subscribers.statement');
+    Route::get('/subscribers/{subscriber}/payments/reference-status', [SubscriberPaymentController::class, 'referenceStatus'])->name('subscribers.payments.reference-status');
     Route::post('/subscribers/{subscriber}/payments', [SubscriberPaymentController::class, 'store'])->name('subscribers.payments.store');
     Route::post('/subscribers/{subscriber}/charges', [SubscriberChargeController::class, 'store'])->name('subscribers.charges.store');
     Route::post('/subscribers/{subscriber}/discounts', [SubscriberDiscountController::class, 'store'])->name('subscribers.discounts.store');

@@ -9,6 +9,13 @@ use Illuminate\Validation\Rule;
 
 class StoreMobileCollectionRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('reference_number')) {
+            $this->merge(['reference_number' => trim((string) $this->input('reference_number'))]);
+        }
+    }
+
     public function authorize(): bool
     {
         $existingTransaction = $this->existingTransaction();

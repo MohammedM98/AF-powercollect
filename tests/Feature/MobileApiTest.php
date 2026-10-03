@@ -363,6 +363,38 @@ class MobileApiTest extends TestCase
         ]);
     }
 
+    public function test_mobile_bank_transfer_rejects_a_reference_already_used_on_the_web(): void
+    {
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $subscriber = Subscriber::factory()->create(['branch_id' => $collector->branch_id]);
+        SubscriberTransaction::recordPayment($subscriber, $collector, [
+            'amount' => '10',
+            'currency' => 'ILS',
+            'payment_method' => 'bank_transfer',
+            'bank_name' => 'بنك فلسطين',
+            'sender_name' => 'Ahmad',
+            'reference_number' => 'WEB-100',
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
+            ->postJson(route('mobile.collections.store'), [
+                'mobile_operation_id' => Str::uuid()->toString(),
+                'subscriber_id' => $subscriber->id,
+                'amount' => '10',
+                'currency' => 'ILS',
+                'payment_method' => 'bank_transfer',
+                'bank_name' => 'بنك فلسطين',
+                'sender_name' => 'Ahmad',
+                'reference_number' => ' web  -100 ',
+                'collector_confirmed' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('reference_number');
+
+        $this->assertDatabaseCount('subscriber_transactions', 1);
+    }
+
     public function test_mobile_payments_in_other_currencies_count_in_shekels_and_offer_the_website_banks(): void
     {
         $collector = User::factory()->collector()->create();

@@ -27,7 +27,9 @@ const entries = [
         typeLabel: 'دفعة',
         isCredit: true,
         paymentMethod: 'cash',
-        voucherNumber: '000118',
+        voucherNumber: '4471',
+        systemVoucherNumber: '000118',
+        manualVoucherNumber: '4471',
         amount: '20.00',
         recordedByName: 'Mohammed',
     },
@@ -69,6 +71,7 @@ test('filters by every charge, every payment and discount, one type, or payment 
 
 test('search matches voucher numbers, banks, references and employee names', () => {
     assert.deepEqual(ids(filterStatementEntries(entries, { search: '000118' })), [2]);
+    assert.deepEqual(ids(filterStatementEntries(entries, { search: '4471' })), [2]);
     assert.deepEqual(ids(filterStatementEntries(entries, { search: 'بنك فلسطين' })), [3]);
     assert.deepEqual(ids(filterStatementEntries(entries, { search: 'البنك الإسلامي الفلسطيني' })), [3]);
     assert.deepEqual(ids(filterStatementEntries(entries, { search: ' trx-88214 ' })), [3]);
@@ -116,30 +119,30 @@ const corrections = [
     { id: 6, groupId: 5, type: 'reversal', isReversal: true, isFollowUp: true },
 ];
 
-test('a corrected or deleted line folds under its reversal, and a replacement stands on its own', () => {
-    const folded = foldCorrections(corrections, corrections, new Set());
+test('corrected and deleted lines are unfolded by default', () => {
+    const unfolded = foldCorrections(corrections, corrections, new Set());
 
     assert.deepEqual(
-        folded.map((entry) => entry.id),
-        [1, 3, 4, 6],
+        unfolded.map((entry) => entry.id),
+        [1, 2, 3, 4, 5, 6],
     );
-    assert.equal(folded[0].history, null);
-    assert.deepEqual(folded[1].history, { hiddenCount: 1, wasCorrected: true, expanded: false, isHead: true });
-    assert.equal(folded[2].history, null);
-    assert.deepEqual(folded[3].history, { hiddenCount: 1, wasCorrected: false, expanded: false, isHead: true });
+    assert.equal(unfolded[0].history, null);
+    assert.deepEqual(unfolded[1].history, { hiddenCount: 1, wasCorrected: true, expanded: true, isHead: false });
+    assert.deepEqual(unfolded[2].history, { hiddenCount: 1, wasCorrected: true, expanded: true, isHead: true });
+    assert.deepEqual(unfolded[5].history, { hiddenCount: 1, wasCorrected: false, expanded: true, isHead: true });
 });
 
-test('an opened group shows all its lines, and the others stay folded', () => {
-    const opened = foldCorrections(corrections, corrections, new Set([2]));
+test('a manually collapsed group hides its old line and leaves the others unfolded', () => {
+    const collapsed = foldCorrections(corrections, corrections, new Set([2]));
 
     assert.deepEqual(
-        opened.map((entry) => entry.id),
-        [1, 2, 3, 4, 6],
+        collapsed.map((entry) => entry.id),
+        [1, 3, 4, 5, 6],
     );
-    assert.deepEqual(opened[1].history, { hiddenCount: 1, wasCorrected: true, expanded: true, isHead: false });
+    assert.deepEqual(collapsed[1].history, { hiddenCount: 1, wasCorrected: true, expanded: false, isHead: true });
     assert.deepEqual(
         foldCorrections(corrections, corrections, new Set([5])).map((entry) => entry.id),
-        [1, 3, 4, 5, 6],
+        [1, 2, 3, 4, 6],
     );
 });
 
@@ -147,7 +150,7 @@ test('a folded line shows when the filters hide the line that stands for it', ()
     const cancelledOnly = corrections.filter((entry) => entry.id === 2);
 
     assert.deepEqual(
-        foldCorrections(corrections, cancelledOnly, new Set()).map((entry) => entry.id),
+        foldCorrections(corrections, cancelledOnly, new Set([2])).map((entry) => entry.id),
         [2],
     );
 });

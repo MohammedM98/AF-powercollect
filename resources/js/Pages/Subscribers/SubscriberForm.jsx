@@ -1,4 +1,4 @@
-import { cloneElement, useState } from 'react';
+import { cloneElement, useEffect, useState } from 'react';
 import Affix from '@/Components/Affix';
 import ChoiceChips from '@/Components/ChoiceChips';
 import ConfirmDialog from '@/Components/ConfirmDialog';
@@ -219,12 +219,18 @@ export default function SubscriberForm({
             return false;
         }
 
-        return subAreaId ? String(box.sub_area_id) === String(subAreaId) : String(box.id) === String(data.meter_box_id);
+        return !subAreaId || String(box.sub_area_id) === String(subAreaId);
     });
 
     const meterBoxOptions = meterBoxesInScope.map((box) => ({ value: box.id, label: box.label ?? `${box.box_number} — ${box.name}` }));
 
-    const showMeterBoxField = Boolean(subAreaId) || Boolean(data.meter_box_id);
+    const showMeterBoxField = !canChooseBranch || Boolean(data.branch_id);
+
+    useEffect(() => {
+        if (!isEdit && !subAreaId && subAreasInArea.length === 1) {
+            setSubAreaId(String(subAreasInArea[0].id));
+        }
+    }, [isEdit, resolvedAreaId, subAreaId, subAreasInArea]);
 
     const selectedTariff = tariffs.find((tariff) => String(tariff.id) === String(data.tariff_id));
     const selectedCircuitBreaker = circuitBreakers.find((circuitBreaker) => String(circuitBreaker.id) === String(data.circuit_breaker_id));
@@ -249,7 +255,21 @@ export default function SubscriberForm({
 
     function onSubAreaChange(value) {
         setSubAreaId(value);
-        setData('meter_box_id', '');
+        const selectedBox = meterBoxes.find((box) => String(box.id) === String(data.meter_box_id));
+
+        if (selectedBox && value && String(selectedBox.sub_area_id) !== String(value)) {
+            setData('meter_box_id', '');
+        }
+    }
+
+    function onMeterBoxChange(value) {
+        const selectedBox = meterBoxes.find((box) => String(box.id) === String(value));
+
+        setData('meter_box_id', value);
+
+        if (selectedBox?.sub_area_id) {
+            setSubAreaId(String(selectedBox.sub_area_id));
+        }
     }
 
     // A segment belongs to one tariff, so picking another tariff clears it.
@@ -477,7 +497,7 @@ export default function SubscriberForm({
                             <p className="text-sm text-gray-500">لا توجد منطقة 2 في هذه المنطقة بعد.</p>
                         ) : (
                             <select className="block w-full" value={subAreaId} onChange={(e) => onSubAreaChange(e.target.value)}>
-                                <option value="">— بلا منطقة 2 —</option>
+                                <option value="">{isEdit ? '— بلا منطقة 2 —' : '— اختر منطقة 2 —'}</option>
                                 {subAreasInArea.map((subArea) => (
                                     <option key={subArea.id} value={subArea.id}>
                                         {subArea.name}
@@ -491,11 +511,11 @@ export default function SubscriberForm({
                 {showMeterBoxField && (
                     <Field id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
                         {meterBoxesInScope.length === 0 ? (
-                            <p className="text-sm text-gray-500">لا توجد طبلونات في منطقة 2 هذه بعد.</p>
+                            <p className="text-sm text-gray-500">لا توجد طبلونات في النطاق المحدد بعد.</p>
                         ) : (
                             <SearchableSelect
                                 value={data.meter_box_id}
-                                onChange={(value) => setData('meter_box_id', value)}
+                                onChange={onMeterBoxChange}
                                 options={meterBoxOptions}
                                 searchPlaceholder="بحث عن طبلون..."
                                 emptyLabel="لا توجد طبلونات مطابقة"

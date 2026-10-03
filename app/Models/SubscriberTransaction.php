@@ -221,7 +221,7 @@ class SubscriberTransaction extends Model
      */
     public function cancel(User $actor, CorrectionReason $reason, ?string $notes): self
     {
-        return $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCorrectable());
+        return $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCancellable());
     }
 
     /**
@@ -347,6 +347,21 @@ class SubscriberTransaction extends Model
         }
 
         return ! $this->isCancelled() && in_array($this->type, self::correctableTypes(), true);
+    }
+
+    /**
+     * Whether a line may be deleted (cancelled with a reversal): anything
+     * that may be corrected, and also a weekly reading, its standing
+     * discount or the registration fee, billed wrongly. Its source key is
+     * kept, so the flow that billed it does not bill it again.
+     */
+    public function isCancellable(): bool
+    {
+        if ($this->isCancelled()) {
+            return false;
+        }
+
+        return $this->isCorrectable() || in_array($this->type, [self::TYPE_METER_READING, self::TYPE_READING_DISCOUNT, self::TYPE_SUBSCRIPTION_FEE], true);
     }
 
     /**

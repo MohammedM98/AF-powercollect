@@ -7,14 +7,15 @@ import DiscountModal from './DiscountModal';
 import PaymentModal from './PaymentModal';
 
 /**
- * The actions of the dropdown, each in its own colour (written out whole so
- * Tailwind keeps every class). All share one size.
+ * The actions of the dropdown. Each is laid out like an item of the table's
+ * row menu (RowMenu) — one size, an icon chip — and takes its own colour
+ * (written out whole so Tailwind keeps every class): payment green.
  */
 const ACTIONS = [
-    { form: 'payment', label: 'تسجيل دفعة', icon: 'banknotes', paymentOnly: true, tone: 'bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:bg-emerald-700' },
-    { form: 'charge', label: 'تحميل حركة', icon: 'document-plus', tone: 'bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 focus-visible:bg-amber-500/25' },
-    { form: 'discount', label: 'إضافة خصم', icon: 'discount', tone: 'bg-violet-500/15 text-violet-700 hover:bg-violet-500/25 focus-visible:bg-violet-500/25' },
-    { form: 'clearing', label: 'مقاصة', icon: 'repeat', tone: 'bg-teal-500/15 text-teal-700 hover:bg-teal-500/25 focus-visible:bg-teal-500/25' },
+    { form: 'payment', label: 'تسجيل دفعة', icon: 'banknotes', paymentOnly: true, tone: 'bg-emerald-600' },
+    { form: 'charge', label: 'تحميل حركة', icon: 'document-plus', tone: 'bg-amber-600' },
+    { form: 'discount', label: 'إضافة خصم', icon: 'discount', tone: 'bg-violet-600' },
+    { form: 'clearing', label: 'مقاصة', icon: 'repeat', tone: 'bg-teal-600' },
 ];
 
 /**
@@ -72,7 +73,7 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
                 <Icon name="chevron-down" className="h-4 w-4" strokeWidth={2} />
             </button>
             {open && (
-                <div role="menu" className="absolute end-0 top-full z-30 mt-2 flex w-52 flex-col gap-1.5 rounded-2xl border border-gray-200 bg-surface p-2 shadow-lift">
+                <div role="menu" className="animate-menu absolute end-0 top-full z-30 mt-2 w-[250px] rounded-[20px] border border-gray-200 bg-surface p-2 shadow-lift">
                     {actions.map((action) => (
                         <button
                             key={action.form}
@@ -82,10 +83,12 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
                                 setOpen(false);
                                 onOpen(action.form);
                             }}
-                            className={`flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-sm font-semibold outline-none transition ${action.tone}`}
+                            className="group/item flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-start text-sm font-medium text-gray-900 outline-none transition hover:bg-gray-100 focus-visible:bg-gray-100"
                         >
-                            <Icon name={action.icon} className="h-[18px] w-[18px] shrink-0" />
-                            {action.label}
+                            <span className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] text-white ${action.tone}`}>
+                                <Icon name={action.icon} className="h-[17px] w-[17px]" />
+                            </span>
+                            <span className="flex-1 truncate">{action.label}</span>
                         </button>
                     ))}
                 </div>
@@ -169,7 +172,7 @@ export function StatementForms({ statement, openForm, onClose }) {
                     subscriber={subscriber}
                     balance={summary.balance}
                     entry={deleting}
-                    reasons={correctionReasons.deletion}
+                    reasons={deleting.deletionReasons}
                 />
             )}
 

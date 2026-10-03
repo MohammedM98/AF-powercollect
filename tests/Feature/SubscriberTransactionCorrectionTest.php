@@ -275,13 +275,40 @@ class SubscriberTransactionCorrectionTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('entries.1.canCorrect', true)->where('entries.1.canDelete', false));
     }
 
-    public function test_readings_fees_reversals_and_cancelled_lines_cannot_be_changed(): void
+    public function test_a_registration_fee_can_be_deleted_with_a_reason_but_not_corrected(): void
     {
         $fee = $this->subscriber->transactions()->sole();
+
+        $this->actingAs($this->branchAdmin)
+            ->put(route('subscribers.transactions.update', [$this->subscriber, $fee]), ['correction_reason' => 'wrong_amount', 'correction_notes' => 'x'])
+            ->assertForbidden();
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $fee]), ['correction_reason' => 'payment_refunded', 'correction_notes' => 'x'])
+            ->assertSessionHasErrors('correction_reason');
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $fee]), ['correction_reason' => 'fee_cancelled', 'correction_notes' => 'الرسوم أُعفي منها'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(['fee_cancelled', 'الرسوم أُعفي منها'], [$fee->refresh()->cancellation_reason->value, $fee->cancellation_notes]);
+        $this->assertSame(0.0, $this->subscriber->balance());
+    }
+
+    public function test_a_payment_can_be_deleted_as_refunded(): void
+    {
+        $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $payment]), ['correction_reason' => 'payment_refunded', 'correction_notes' => 'استرجع المبلغ'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('payment_refunded', $payment->refresh()->cancellation_reason->value);
+    }
+
+    public function test_readings_reversals_and_cancelled_lines_cannot_be_changed(): void
+    {
         $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
         $deletion = ['correction_reason' => 'duplicate', 'correction_notes' => 'x'];
 
-        $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.destroy', [$this->subscriber, $fee]), $deletion)->assertForbidden();
         $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.destroy', [$this->subscriber, $payment]), $deletion)->assertSessionHasNoErrors();
         $reversal = SubscriberTransaction::where('reverses_id', $payment->id)->sole();
 

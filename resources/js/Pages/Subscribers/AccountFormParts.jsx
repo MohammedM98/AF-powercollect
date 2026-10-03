@@ -31,6 +31,11 @@ const TONES = {
         icon: 'bg-gradient-to-br from-emerald-600 to-emerald-800 text-white',
         dot: 'border-emerald-600 bg-emerald-600',
     },
+    amber: {
+        tile: 'border-amber-600 shadow-[0_0_0_4px_rgb(217_119_6/0.12)]',
+        icon: 'bg-gradient-to-br from-amber-500 to-amber-700 text-white',
+        dot: 'border-amber-600 bg-amber-600',
+    },
     graphite: {
         tile: 'border-gray-900 shadow-[0_0_0_4px_rgb(var(--gray-900)/0.07)]',
         icon: 'bg-graphite-gradient text-white',
@@ -315,7 +320,11 @@ export function DoneScreen({ tone = 'green', title, text, rows, anotherLabel, on
         <div role="dialog" aria-modal="true" aria-label={title} className="px-6 pb-8 pt-10 text-center sm:px-8">
             <span
                 className={`mx-auto mb-3.5 flex h-[76px] w-[76px] items-center justify-center rounded-3xl ${
-                    tone === 'red' ? 'bg-brand-500/10 text-brand-600' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    tone === 'red'
+                        ? 'bg-brand-500/10 text-brand-600'
+                        : tone === 'amber'
+                          ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                 }`}
             >
                 <Icon name="check" className="h-10 w-10" strokeWidth={2.2} />
@@ -389,6 +398,8 @@ export function FormFooter({ onCancel, submitLabel, disabled, processing, tone =
                 className={`ms-auto inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-[14px] px-5 text-[15.5px] font-bold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 disabled:cursor-not-allowed disabled:opacity-55 disabled:shadow-none disabled:grayscale-[0.6] sm:min-w-[230px] sm:flex-none ${
                     tone === 'green'
                         ? 'bg-gradient-to-b from-emerald-600 to-emerald-800 shadow-[0_12px_26px_-12px_rgb(4_120_87)]'
+                        : tone === 'amber'
+                          ? 'bg-gradient-to-b from-amber-500 to-amber-700 shadow-[0_12px_26px_-12px_rgb(180_83_9)]'
                         : 'bg-brand-gradient shadow-[0_12px_26px_-12px_rgb(165_29_38)]'
                 }`}
             >

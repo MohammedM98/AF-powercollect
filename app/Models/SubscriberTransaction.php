@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ChargeType;
+use App\Enums\ClosingStatus;
 use App\Enums\CorrectionReason;
 use App\Enums\Currency;
 use App\Enums\DiscountMethod;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -103,6 +105,9 @@ class SubscriberTransaction extends Model
      * charge (عليه).
      */
     public const CREDIT_TYPES = [self::TYPE_PAYMENT, self::TYPE_DISCOUNT, self::TYPE_READING_DISCOUNT, self::TYPE_CLEARING];
+
+    /** Payment details that may change without touching its financial meaning. */
+    public const AMENDABLE_FIELDS = ['bank_name', 'sender_bank_name', 'sender_name', 'reference_number', 'notes'];
 
     protected function casts(): array
     {
@@ -309,6 +314,58 @@ class SubscriberTransaction extends Model
     }
 
     /**
+     * Change only descriptive payment details and record every old/new value.
+     * Amount, currency, method, date, type and subscriber never pass this boundary.
+     *
+     * @param  array<string, mixed>  $fields
+     */
+    public function amend(User $actor, array $fields, string $reason): TransactionAmendment
+    {
+        $unexpectedFields = array_diff(array_keys($fields), self::AMENDABLE_FIELDS);
+
+        if ($unexpectedFields !== []) {
+            throw ValidationException::withMessages(['details' => 'لا يمكن تعديل الحقول المالية أو هوية الحركة.']);
+        }
+
+        return DB::transaction(function () use ($actor, $fields, $reason): TransactionAmendment {
+            $line = self::query()->lockForUpdate()->findOrFail($this->id);
+
+            if (! $line->isAmendable(lockForUpdate: true)) {
+                throw ValidationException::withMessages(['details' => 'لا يمكن تعديل بيانات هذه الحركة.']);
+            }
+
+            $changes = [];
+            $updates = [];
+
+            foreach ($fields as $field => $value) {
+                $oldValue = $line->getAttribute($field);
+                $newValue = filled($value) ? trim((string) $value) : null;
+
+                if ((string) ($oldValue ?? '') === (string) ($newValue ?? '')) {
+                    continue;
+                }
+
+                $changes[$field] = [$oldValue, $newValue];
+                $updates[$field] = $newValue;
+            }
+
+            if ($changes === []) {
+                throw ValidationException::withMessages(['details' => 'غيّر بيانًا واحدًا على الأقل قبل الحفظ.']);
+            }
+
+            $line->update($updates);
+            $amendment = $line->amendments()->create([
+                'user_id' => $actor->id,
+                'changes' => $changes,
+                'reason' => $reason,
+            ]);
+            $this->setRawAttributes($line->getAttributes(), true);
+
+            return $amendment;
+        });
+    }
+
+    /**
      * What a discount takes off, in shekels: a percentage of the balance
      * owed, kilowatts at the kilo price, or the shekels given.
      */
@@ -377,6 +434,44 @@ class SubscriberTransaction extends Model
         }
 
         return $this->isCorrectable() || in_array($this->type, [self::TYPE_METER_READING, self::TYPE_READING_DISCOUNT, self::TYPE_SUBSCRIPTION_FEE], true);
+    }
+
+    /** A standing payment whose descriptive details may still be amended. */
+    public function isAmendable(bool $lockForUpdate = false): bool
+    {
+        return $this->isPayment()
+            && ! $this->isCancelled()
+            && ! $this->isInClosedDay($lockForUpdate);
+    }
+
+    /** Why a permitted user cannot amend this line right now. */
+    public function amendmentUnavailableReason(): ?string
+    {
+        return match (true) {
+            ! $this->isPayment() => 'متاح للدفعات فقط',
+            $this->isCancelled() => 'الحركة ملغاة',
+            $this->isInClosedDay() => 'بعد إغلاق اليوم',
+            default => null,
+        };
+    }
+
+    /** Whether this payment belongs to a submitted or approved daily closing. */
+    public function isInClosedDay(bool $lockForUpdate = false): bool
+    {
+        if (! $lockForUpdate && $this->relationLoaded('closingLine')) {
+            return $this->closingLine !== null
+                && $this->closingLine->closing !== null
+                && ! $this->closingLine->closing->status->isEditable();
+        }
+
+        return ClosingPayment::query()
+            ->where('subscriber_transaction_id', $this->id)
+            ->whereHas('closing', fn (Builder $query): Builder => $query->whereIn('status', [
+                ClosingStatus::Submitted->value,
+                ClosingStatus::Approved->value,
+            ]))
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+            ->exists();
     }
 
     /**
@@ -660,5 +755,15 @@ class SubscriberTransaction extends Model
     public function correction(): HasOne
     {
         return $this->hasOne(self::class, 'corrects_id');
+    }
+
+    public function amendments(): HasMany
+    {
+        return $this->hasMany(TransactionAmendment::class, 'transaction_id')->oldest('created_at')->orderBy('id');
+    }
+
+    public function closingLine(): HasOne
+    {
+        return $this->hasOne(ClosingPayment::class, 'subscriber_transaction_id');
     }
 }

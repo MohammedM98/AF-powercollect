@@ -6,6 +6,13 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/formValidation';
 
+const HEADER_TONES = {
+    brand: 'bg-brand-500/10 text-brand-600',
+    blue: 'bg-blue-500/10 text-blue-600',
+    amber: 'bg-amber-500/10 text-amber-700',
+    danger: 'bg-red-900/10 text-red-800',
+};
+
 /**
  * The create/edit modal every resource uses: a header with an icon and
  * title, the form fields as children, and Cancel/Save buttons.
@@ -27,6 +34,7 @@ export default function FormModal({
     form,
     title,
     icon,
+    headerTone = 'brand',
     maxWidth = 'lg',
     visitOptions = {},
     bodyClassName = '',
@@ -83,7 +91,7 @@ export default function FormModal({
                 >
                     <div className="flex items-center justify-between border-b border-gray-100 px-7 py-5">
                         <div className="flex items-center gap-3">
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
+                            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${HEADER_TONES[headerTone] ?? HEADER_TONES.brand}`}>
                                 <Icon name={icon} />
                             </span>
                             <h3 className="text-lg font-bold text-gray-900">{title}</h3>

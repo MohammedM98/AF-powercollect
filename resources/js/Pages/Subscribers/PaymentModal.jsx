@@ -407,11 +407,11 @@ export default function PaymentModal({
         <>
             <Modal show={show} onClose={requestClose} maxWidth="5xl">
                 {receipt ? (
-                    <div role="dialog" aria-modal="true" aria-label="سُجّلت الدفعة">
+                    <div role="dialog" aria-modal="true" aria-label={correcting ? 'صُحّحت الدفعة' : 'سُجّلت الدفعة'}>
                         <PaymentReceipt
                             receipt={receipt}
                             subscriberName={subscriber.fullName}
-                            title={correcting ? 'عُدّلت الدفعة' : 'سُجّلت الدفعة'}
+                            title={correcting ? 'صُحّحت الدفعة' : 'سُجّلت الدفعة'}
                             onAnother={correcting ? null : () => setReceipt(null)}
                             onDone={close}
                         />
@@ -428,16 +428,20 @@ export default function PaymentModal({
                         className="flex max-h-[calc(100dvh-6rem)] flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_minmax(0,1fr)_auto]"
                     >
                         <div className="flex shrink-0 items-center gap-3.5 border-b border-gray-100 px-5 py-4 sm:px-6 sm:py-5 lg:col-start-1 lg:row-start-1">
-                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-graphite-gradient text-white shadow-sm">
-                                <Icon name={correcting ? 'pencil' : 'card'} className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                            <span
+                                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-white shadow-sm ${
+                                    correcting ? 'bg-gradient-to-br from-amber-500 to-amber-700' : 'bg-graphite-gradient'
+                                }`}
+                            >
+                                <Icon name={correcting ? 'repeat' : 'card'} className="h-[18px] w-[18px]" strokeWidth={1.8} />
                             </span>
                             <div className="min-w-0">
                                 <h3 id={titleId} className="font-luxe text-[22px] font-bold leading-tight text-gray-900">
-                                    {correcting ? 'تعديل دفعة' : 'تسجيل دفعة'}
+                                    {correcting ? 'تصحيح دفعة' : 'تسجيل دفعة'}
                                 </h3>
                                 <p className="mt-0.5 text-[13.5px] text-gray-500">
                                     {correcting
-                                        ? 'صحّح بيانات الدفعة؛ تبقى الأصلية في الكشف ملغاة مع سبب التعديل.'
+                                        ? 'صحّح الدفعة؛ تبقى الأصلية في الكشف ملغاة مع سبب التصحيح.'
                                         : 'سجّل المبلغ المستلم، ويُحدَّث الرصيد تلقائيًا.'}
                                 </p>
                             </div>
@@ -793,13 +797,15 @@ export default function PaymentModal({
                             <PrimaryButton
                                 type="submit"
                                 disabled={!(Number(data.amount) > 0) || form.processing}
-                                className="ms-auto h-12 min-w-0 flex-1 rounded-[14px] px-5 text-[15.5px] font-bold sm:min-w-[230px] sm:flex-none"
+                                className={`ms-auto h-12 min-w-0 flex-1 rounded-[14px] px-5 text-[15.5px] font-bold sm:min-w-[230px] sm:flex-none ${
+                                    correcting ? '!bg-none !bg-amber-600 !shadow-[0_12px_26px_-12px_rgb(180_83_9)]' : ''
+                                }`}
                             >
                                 <Icon name="check" className="h-[18px] w-[18px]" strokeWidth={2.2} />
                                 {form.processing
                                     ? 'جارٍ الحفظ...'
                                     : correcting
-                                      ? 'حفظ التعديل'
+                                      ? 'حفظ التصحيح'
                                       : Number(data.amount) > 0
                                         ? `تسجيل ${formatMoney(data.amount)} ${currencyLabel}`
                                         : 'تسجيل الدفعة'}

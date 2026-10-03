@@ -24,15 +24,16 @@ export default function ForceDeleteTransactionModal({ onClose, subscriber, balan
             form={eraseForm}
             title="حذف نهائي للحركة"
             icon="trash"
+            headerTone="danger"
             maxWidth="xl"
             bodyClassName="space-y-5"
             action={{ submitLabel: 'حذف نهائي', title: 'حذف الحركة نهائيًا؟', confirmLabel: 'نعم، احذفها نهائيًا', icon: 'trash', tone: 'danger' }}
             saveConfirmMessage={`ستُمحى «${entry.description}» من السجل نهائيًا دون أي أثر، ويصبح الرصيد ${balanceText}. لا يمكن التراجع. هل تريد المتابعة؟`}
         >
-            <OriginalLine entry={entry} tone="delete" />
+            <OriginalLine entry={entry} tone="erase" />
 
             <p className="rounded-xl bg-brand-500/5 px-4 py-3 text-sm text-brand-700">
-                تحذير: تُمحى الحركة من كشف الحساب كأنها لم تُسجَّل، ولا يبقى لها قيد عكسي ولا سبب ظاهر. لا يمكن التراجع. إن أردت إبقاء أثرها فاستعمل «حذف» العادي.
+                تحذير: تُمحى الحركة من كشف الحساب كأنها لم تُسجَّل، ولا يبقى لها قيد عكسي ولا سبب ظاهر. لا يمكن التراجع. إن أردت إبقاء أثرها فاستعمل «إلغاء الحركة».
             </p>
 
             <div>

@@ -48,14 +48,14 @@ function Dash() {
     return <span className="text-gray-300">—</span>;
 }
 
-/** Under a corrected or deleted line: why, who did it and when. */
+/** Under a corrected or cancelled line: why, who did it and when. */
 function CancellationNote({ cancellation }) {
     return (
         <p className="ledger-description mt-1.5 flex items-start gap-1.5 text-xs font-normal text-gray-600">
-            <Icon name={cancellation.wasCorrected ? 'pencil' : 'trash'} className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+            <Icon name={cancellation.wasCorrected ? 'repeat' : 'close'} className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
             <span>
                 <b className="font-semibold text-gray-700">
-                    {cancellation.wasCorrected ? 'عُدّلت' : 'حُذفت'}: {cancellation.reasonLabel}
+                    {cancellation.wasCorrected ? 'صُحّحت' : 'أُلغيت'}: {cancellation.reasonLabel}
                 </b>
                 {cancellation.notes && <> — {cancellation.notes}</>}
                 <span className="text-gray-500">
@@ -70,13 +70,114 @@ function CancellationNote({ cancellation }) {
 /** Under a line that replaces a corrected one: which line it corrects, further up the statement. */
 function CorrectsNote({ corrects }) {
     return (
-        <p className="ledger-description mt-1.5 flex items-center gap-1.5 text-xs font-normal text-blue-700 dark:text-blue-400">
-            <Icon name="pencil" className="h-3.5 w-3.5 shrink-0" />
+        <p className="ledger-description mt-1.5 flex items-center gap-1.5 text-xs font-normal text-amber-700 dark:text-amber-400">
+            <Icon name="repeat" className="h-3.5 w-3.5 shrink-0" />
             <span>
                 تصحيح لحركة <bdi dir="ltr">{corrects.date}</bdi>
             </span>
         </p>
     );
+}
+
+function amendmentValue(value) {
+    return value === null || value === '' ? '—' : value;
+}
+
+/** The payment's in-place edit badge and its complete old-to-new history. */
+function AmendmentBadge({ amendments }) {
+    return (
+        <span className="group/amend relative inline-flex">
+            <button
+                type="button"
+                aria-label={`سجل تعديلات البيانات، ${amendments.length}`}
+                className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            >
+                <Icon name="history" className="h-3.5 w-3.5" />
+                معدّلة
+            </button>
+            <span
+                role="tooltip"
+                className="pointer-events-none invisible absolute end-0 top-full z-40 mt-2 grid w-[min(360px,calc(100vw-2rem))] gap-3 rounded-2xl border border-gray-200 bg-surface p-4 text-start opacity-0 shadow-lift transition group-hover/amend:visible group-hover/amend:opacity-100 group-focus-within/amend:visible group-focus-within/amend:opacity-100"
+            >
+                {amendments.map((amendment) => (
+                    <span key={amendment.id} className="grid gap-1.5 border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+                        {amendment.changes.map((change) => (
+                            <span key={change.field} className="text-xs text-gray-700">
+                                <b className="font-semibold text-gray-900">{change.label}:</b>{' '}
+                                <bdi>{amendmentValue(change.from)}</bdi> <span dir="ltr">→</span> <bdi>{amendmentValue(change.to)}</bdi>
+                            </span>
+                        ))}
+                        <span className="text-[11px] text-gray-500">
+                            عدّلها {amendment.userName ?? 'مستخدم محذوف'} · <bdi dir="ltr">{amendment.at}</bdi> · السبب: {amendment.reason}
+                        </span>
+                    </span>
+                ))}
+            </span>
+        </span>
+    );
+}
+
+function hasLineActions(entry) {
+    return [
+        entry.canAmend,
+        entry.amendUnavailableReason,
+        entry.canCorrect,
+        entry.correctUnavailableReason,
+        entry.canDelete,
+        entry.deleteUnavailableReason,
+        entry.canForceDelete,
+        entry.forceDeleteUnavailableReason,
+    ].some(Boolean);
+}
+
+function lineActionsMenu(entry, { onAmend, onCorrect, onDelete, onErase }) {
+    const items = [
+        (entry.canAmend || entry.amendUnavailableReason) && {
+            label: 'تعديل البيانات',
+            description: 'البنك والمرجع والمرسل — الرصيد لا يتغيّر',
+            icon: 'pencil',
+            tone: 'blue',
+            disabled: !entry.canAmend,
+            hint: entry.amendUnavailableReason,
+            onSelect: () => onAmend(entry),
+        },
+        (entry.canCorrect || entry.correctUnavailableReason) && {
+            label: 'تصحيح الحركة',
+            description: 'المبلغ أو الطريقة — يُلغى القديم ويُسجّل الصحيح',
+            icon: 'repeat',
+            tone: 'amber',
+            disabled: !entry.canCorrect,
+            hint: entry.correctUnavailableReason,
+            onSelect: () => onCorrect(entry),
+        },
+        (entry.canDelete || entry.deleteUnavailableReason) && {
+            label: 'إلغاء الحركة',
+            description: 'تبقى ظاهرة مشطوبة مع السبب والقيد العكسي',
+            icon: 'close',
+            tone: 'brand',
+            disabled: !entry.canDelete,
+            hint: entry.deleteUnavailableReason,
+            onSelect: () => onDelete(entry),
+        },
+        (entry.canForceDelete || entry.forceDeleteUnavailableReason) && {
+            label: 'حذف نهائي',
+            description: 'آخر حركة فقط — تختفي بلا أي أثر',
+            icon: 'trash',
+            tone: 'red',
+            disabled: !entry.canForceDelete,
+            hint: entry.forceDeleteUnavailableReason,
+            onSelect: () => onErase(entry),
+        },
+    ].filter(Boolean);
+
+    return items.length
+        ? {
+              title: entry.description,
+              subtitle: entry.date,
+              width: 410,
+              groups: [{ label: 'إجراءات الحركة', items }],
+          }
+        : null;
 }
 
 /**
@@ -85,7 +186,7 @@ function CorrectsNote({ corrects }) {
  */
 function HistoryToggle({ entry, onToggle }) {
     const { hiddenCount, expanded, wasCorrected } = entry.history;
-    const label = hiddenCount === 1 ? (wasCorrected ? 'الحركة المعدّلة' : 'الحركة المحذوفة') : `الحركات السابقة (${hiddenCount})`;
+    const label = hiddenCount === 1 ? (wasCorrected ? 'الحركة المصحّحة' : 'الحركة الملغاة') : `الحركات السابقة (${hiddenCount})`;
 
     return (
         <button
@@ -154,7 +255,7 @@ function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
  * `onDelete` (and `onErase`, to erase it for good) get the line to change, for users allowed to. Used by the
  * statement page and by the statement window on the subscribers list.
  */
-export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes, onCorrect, onDelete, onErase }) {
+export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes, onAmend, onCorrect, onDelete, onErase }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
     const [expandedGroups, setExpandedGroups] = useState(() => new Set());
     // The line (or its button) last pressed to fold or open a group, and where it was on screen.
@@ -164,7 +265,7 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
     const balance = describeBalance(summary.balance);
-    const canChangeLines = entries.some((entry) => entry.canCorrect || entry.canDelete || entry.canForceDelete);
+    const canChangeLines = entries.some(hasLineActions);
     const columns = canChangeLines ? [...COLUMNS, ''] : COLUMNS;
 
     function setFilter(key, value) {
@@ -385,13 +486,14 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                                 <StatusPill tone={entry.isCredit ? 'green' : 'red'} label={entry.isCredit ? 'له' : 'عليه'} />
                                                 <span className="font-medium text-gray-900">{entry.typeLabel}</span>
                                                 {entry.cancellation && (
-                                                    <StatusPill tone="gray" label={entry.cancellation.wasCorrected ? 'مُعدّلة' : 'محذوفة'} />
+                                                    <StatusPill tone={entry.cancellation.wasCorrected ? 'amber' : 'gray'} label={entry.cancellation.wasCorrected ? 'مُصحّحة' : 'ملغاة'} />
                                                 )}
                                                 {entry.isCorrection && (
-                                                    <span className="inline-flex items-center whitespace-nowrap rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-600">
+                                                    <span className="inline-flex items-center whitespace-nowrap rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
                                                         تصحيح
                                                     </span>
                                                 )}
+                                                {entry.isAmended && <AmendmentBadge amendments={entry.amendments} />}
                                             </span>
                                         </td>
                                         <td data-label="طريقة الدفع" className="text-gray-700">
@@ -411,13 +513,8 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                         </td>
                                         {canChangeLines && (
                                             <td className="text-end">
-                                                {(entry.canCorrect || entry.canDelete || entry.canForceDelete) && (
-                                                    <RowActionsMenu
-                                                        onEdit={entry.canCorrect ? () => onCorrect(entry) : undefined}
-                                                        onDelete={entry.canDelete ? () => onDelete(entry) : undefined}
-                                                    >
-                                                        {entry.canForceDelete && <button onClick={() => onErase(entry)}>حذف نهائي</button>}
-                                                    </RowActionsMenu>
+                                                {hasLineActions(entry) && (
+                                                    <RowActionsMenu menu={lineActionsMenu(entry, { onAmend, onCorrect, onDelete, onErase })} />
                                                 )}
                                             </td>
                                         )}

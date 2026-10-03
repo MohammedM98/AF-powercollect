@@ -130,6 +130,7 @@ export default function StatementModal({ subscriber, statement, initialForm = nu
                                     summary={statement.summary}
                                     paymentMethods={statement.paymentMethods}
                                     transactionTypes={statement.transactionTypes}
+                                    onAmend={(entry) => setOpenForm({ action: 'amend', entry })}
                                     onCorrect={(entry) => setOpenForm({ action: 'correct', entry })}
                                     onDelete={(entry) => setOpenForm({ action: 'delete', entry })}
                                     onErase={(entry) => setOpenForm({ action: 'erase', entry })}

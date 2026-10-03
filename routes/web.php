@@ -87,6 +87,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/subscribers/{subscriber}/charges', [SubscriberChargeController::class, 'store'])->name('subscribers.charges.store');
     Route::post('/subscribers/{subscriber}/discounts', [SubscriberDiscountController::class, 'store'])->name('subscribers.discounts.store');
     Route::post('/subscribers/{subscriber}/clearings', [SubscriberClearingController::class, 'store'])->name('subscribers.clearings.store');
+    Route::patch('/subscribers/{subscriber}/transactions/{transaction}/details', [SubscriberTransactionController::class, 'amend'])->scopeBindings()->name('subscribers.transactions.amend');
     Route::put('/subscribers/{subscriber}/transactions/{transaction}', [SubscriberTransactionController::class, 'update'])->scopeBindings()->name('subscribers.transactions.update');
     Route::delete('/subscribers/{subscriber}/transactions/{transaction}', [SubscriberTransactionController::class, 'destroy'])->scopeBindings()->name('subscribers.transactions.destroy');
     Route::delete('/subscribers/{subscriber}/transactions/{transaction}/permanent', [SubscriberTransactionController::class, 'forceDestroy'])->scopeBindings()->name('subscribers.transactions.force-destroy');

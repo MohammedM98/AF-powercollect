@@ -321,7 +321,8 @@ export default function DiscountModal({
             <Modal show={show} onClose={requestClose} maxWidth="5xl">
                 {receipt ? (
                     <DoneScreen
-                        title={receipt.standing ? 'فُعّل الخصم الدائم' : correcting ? 'عُدّل الخصم' : 'أُضيف الخصم'}
+                        tone={correcting ? 'amber' : 'green'}
+                        title={receipt.standing ? 'فُعّل الخصم الدائم' : correcting ? 'صُحّح الخصم' : 'أُضيف الخصم'}
                         text={
                             receipt.standing
                                 ? 'يُخصم تلقائيًا من قراءة الأسبوع الأخير وكل قراءة بعدها.'
@@ -345,12 +346,12 @@ export default function DiscountModal({
                     >
                         <FormHeader
                             titleId={titleId}
-                            icon={correcting ? 'pencil' : 'tag'}
-                            tone="green"
-                            title={correcting ? 'تعديل خصم' : 'إضافة خصم'}
+                            icon={correcting ? 'repeat' : 'tag'}
+                            tone={correcting ? 'amber' : 'green'}
+                            title={correcting ? 'تصحيح خصم' : 'إضافة خصم'}
                             subtitle={
                                 correcting
-                                    ? 'صحّح الخصم؛ يبقى الأصلي في الكشف ملغى مع سبب التعديل.'
+                                    ? 'صحّح الخصم؛ يبقى الأصلي في الكشف ملغى مع سبب التصحيح.'
                                     : 'يُنزَّل مما على المشترك، مرة واحدة أو كل أسبوع.'
                             }
                             onClose={requestClose}
@@ -620,12 +621,12 @@ export default function DiscountModal({
 
                         <FormFooter
                             onCancel={requestClose}
-                            tone="green"
+                            tone={correcting ? 'amber' : 'green'}
                             disabled={value <= 0 || Boolean(invalid)}
                             processing={form.processing}
                             submitLabel={
                                 correcting
-                                    ? 'حفظ التعديل'
+                                    ? 'حفظ التصحيح'
                                     : isStanding
                                       ? standingDiscount
                                           ? 'استبدال الخصم الدائم'

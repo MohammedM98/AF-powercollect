@@ -7,6 +7,7 @@ use App\Enums\CorrectionReason;
 use App\Enums\Currency;
 use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
+use App\Enums\PermissionKey;
 use App\Models\StandingDiscount;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
@@ -52,7 +53,16 @@ trait BuildsSubscriberStatement
         $subscriber->loadMissing(['profile', 'branch', 'tariff', 'tariffSegment', 'meterBox', 'circuitBreaker', 'standingDiscount.grantedBy', 'latestMeterReading']);
 
         $transactions = $subscriber->transactions()
-            ->with(['recordedBy', 'meterReading', 'cancelledBy', 'reverses', 'corrects', 'correction'])
+            ->with([
+                'recordedBy',
+                'meterReading',
+                'cancelledBy',
+                'reverses.closingLine',
+                'corrects',
+                'correction',
+                'amendments.user',
+                'closingLine.closing',
+            ])
             ->oldest()
             ->orderBy('id')
             ->get()
@@ -233,6 +243,15 @@ trait BuildsSubscriberStatement
     private function statementEntry(SubscriberTransaction $transaction, int $balanceInCents, User $actor, int $groupId, bool $isLastOnStatement): array
     {
         $receipt = $transaction->isReversal() && $transaction->reverses ? $transaction->reverses : $transaction;
+        $hasEditPermission = $actor->hasPermission(PermissionKey::CorrectTransactions);
+        $hasDeletePermission = $actor->hasPermission(PermissionKey::DeleteTransactions);
+        $hasForceDeletePermission = $actor->hasPermission(PermissionKey::ForceDeleteTransactions);
+        $canAmend = $actor->can('amend', $transaction);
+        $canCorrect = $actor->can('update', $transaction);
+        $canDelete = $actor->can('delete', $transaction);
+        $canForceDelete = $isLastOnStatement && $actor->can('forceDelete', $transaction);
+        $mayCancel = $hasDeletePermission || ($hasForceDeletePermission && $isLastOnStatement);
+        $eraseTarget = $transaction->isReversal() ? $transaction->reverses : $transaction;
 
         return [
             'id' => $transaction->id,
@@ -277,9 +296,37 @@ trait BuildsSubscriberStatement
                 'byName' => $transaction->cancelledBy?->name,
                 'at' => $transaction->cancelled_at->format('Y-m-d H:i'),
             ] : null,
-            'canCorrect' => $actor->can('update', $transaction),
-            'canDelete' => $actor->can('delete', $transaction),
-            'canForceDelete' => $isLastOnStatement && $actor->can('forceDelete', $transaction),
+            'isAmended' => $transaction->amendments->isNotEmpty(),
+            'amendments' => $transaction->amendments->map(fn ($amendment): array => [
+                'id' => $amendment->id,
+                'userName' => $amendment->user?->name,
+                'at' => $amendment->created_at->format('Y-m-d H:i'),
+                'reason' => $amendment->reason,
+                'changes' => collect($amendment->changes)->map(fn (array $values, string $field): array => [
+                    'field' => $field,
+                    'label' => $this->amendmentFieldLabel($field),
+                    'from' => $values[0] ?? null,
+                    'to' => $values[1] ?? null,
+                ])->values()->all(),
+            ])->values()->all(),
+            'canAmend' => $canAmend,
+            'canCorrect' => $canCorrect,
+            'canDelete' => $canDelete,
+            'canForceDelete' => $canForceDelete,
+            'amendUnavailableReason' => $hasEditPermission && ! $canAmend ? ($transaction->amendmentUnavailableReason() ?? 'غير متاح الآن') : null,
+            'correctUnavailableReason' => $hasEditPermission && ! $canCorrect
+                ? ($transaction->isCancelled() || $transaction->isReversal() ? 'الحركة ملغاة' : 'لا ينطبق على هذه الحركة')
+                : null,
+            'deleteUnavailableReason' => $mayCancel && ! $canDelete
+                ? ($transaction->isCancelled() || $transaction->isReversal() ? 'الحركة ملغاة' : 'لا يمكن إلغاؤها الآن')
+                : null,
+            'forceDeleteUnavailableReason' => $hasForceDeletePermission && ! $canForceDelete
+                ? match (true) {
+                    ! $isLastOnStatement => 'ليست آخر حركة',
+                    $eraseTarget?->closingLine !== null => 'ضمن إغلاق مالي',
+                    default => 'لا يمكن حذفها نهائيًا',
+                }
+                : null,
             // What erasing it takes off the balance: nothing for a reversal or a cancelled line, which go together.
             'eraseEffect' => $transaction->isCancelled() || $transaction->isReversal() ? '0.00' : $transaction->amount,
             'deletionReasons' => $transaction->isCancellable() ? CorrectionReason::options(CorrectionReason::forDeletionOf($transaction)) : [],
@@ -288,6 +335,18 @@ trait BuildsSubscriberStatement
                 ? $this->recordedFields($transaction)
                 : ($transaction->isCancellable() ? ['kind' => $transaction->type, 'effect' => $transaction->amount] : null),
         ];
+    }
+
+    private function amendmentFieldLabel(string $field): string
+    {
+        return match ($field) {
+            'bank_name' => 'البنك المحوّل له',
+            'sender_bank_name' => 'البنك المحوّل منه',
+            'sender_name' => 'اسم المرسل',
+            'reference_number' => 'الرقم المرجعي',
+            'notes' => 'الملاحظات',
+            default => $field,
+        };
     }
 
     /**

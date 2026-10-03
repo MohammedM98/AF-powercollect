@@ -6,20 +6,21 @@ import { initials } from '@/lib/format';
 const MENU_WIDTH = 290;
 
 /**
- * The colour an item's icon takes when it is hovered or focused, by its
- * `tone` — each action its own, rather than all of them red. Written out
- * whole so Tailwind keeps every class.
+ * The colour an item's icon takes at rest and when hovered or focused, by
+ * its `tone` — each action its own, rather than all of them red. Written
+ * out whole so Tailwind keeps every class.
  */
 const TONES = {
-    graphite: 'group-hover/item:bg-graphite-gradient group-focus-visible/item:bg-graphite-gradient',
-    blue: 'group-hover/item:bg-blue-600 group-focus-visible/item:bg-blue-600',
-    indigo: 'group-hover/item:bg-indigo-600 group-focus-visible/item:bg-indigo-600',
-    sky: 'group-hover/item:bg-sky-600 group-focus-visible/item:bg-sky-600',
-    emerald: 'group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
-    amber: 'group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
-    violet: 'group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
-    teal: 'group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
-    brand: 'group-hover/item:bg-brand-gradient group-focus-visible/item:bg-brand-gradient',
+    graphite: 'bg-gray-100 text-gray-700 group-hover/item:bg-graphite-gradient group-focus-visible/item:bg-graphite-gradient',
+    blue: 'bg-blue-50 text-blue-600 group-hover/item:bg-blue-600 group-focus-visible/item:bg-blue-600',
+    indigo: 'bg-indigo-50 text-indigo-600 group-hover/item:bg-indigo-600 group-focus-visible/item:bg-indigo-600',
+    sky: 'bg-sky-50 text-sky-600 group-hover/item:bg-sky-600 group-focus-visible/item:bg-sky-600',
+    emerald: 'bg-emerald-50 text-emerald-600 group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
+    amber: 'bg-amber-50 text-amber-700 group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
+    red: 'bg-red-50 text-red-800 group-hover/item:bg-red-800 group-focus-visible/item:bg-red-800',
+    violet: 'bg-violet-50 text-violet-600 group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
+    teal: 'bg-teal-50 text-teal-600 group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
+    brand: 'bg-brand-500/10 text-brand-600 group-hover/item:bg-brand-gradient group-focus-visible/item:bg-brand-gradient',
 };
 const GAP = 6;
 
@@ -33,12 +34,12 @@ function isPhone() {
  * is no room below, with its left edge on the button's (the row's end in
  * right-to-left), kept on screen.
  */
-function placeBeside(anchor, menu) {
+function placeBeside(anchor, menuElement, width) {
     const rect = anchor.getBoundingClientRect();
-    const height = menu.offsetHeight;
+    const height = menuElement.offsetHeight;
     const below = window.innerHeight - rect.bottom - GAP;
     const top = below >= height || below >= rect.top ? rect.bottom + GAP : Math.max(GAP, rect.top - GAP - height);
-    const left = Math.min(Math.max(GAP, rect.left), window.innerWidth - MENU_WIDTH - GAP);
+    const left = Math.min(Math.max(GAP, rect.left), window.innerWidth - width - GAP);
 
     return { top, left, maxHeight: below >= height || below >= rect.top ? below : rect.top - GAP * 2 };
 }
@@ -46,8 +47,8 @@ function placeBeside(anchor, menu) {
 /**
  * A row's "more" menu: a header naming the record, then its actions in
  * titled groups, each with its own icon. `menu` is
- * { title, subtitle, groups: [{ label, items: [{ label, icon, onSelect, tone?, shortcut?, hint?, disabled?, lockedReason? }] }] }.
- * `tone` (see TONES) colours the item's icon on hover; dark by default.
+ * { title, subtitle, width?, groups: [{ label, items: [{ label, description?, icon, onSelect, tone?, shortcut?, hint?, disabled?, lockedReason? }] }] }.
+ * `tone` (see TONES) colours the item's icon and strengthens it on hover.
  * An item with `lockedReason` is shown faded with a lock ("بدون صلاحية")
  * and the reason as its tooltip; `disabled` with `hint` explains why it
  * can't be used now. Arrow keys move, Enter runs, a shortcut letter runs
@@ -58,15 +59,16 @@ export default function RowMenu({ anchor, menu, onClose }) {
     const [phone] = useState(isPhone);
     const [position, setPosition] = useState(null);
     const items = menu.groups.flatMap((group) => group.items);
+    const width = menu.width ?? MENU_WIDTH;
 
     // Hidden until placed, and a hidden item can't take focus: focus the first one once it shows.
     const placed = phone || position !== null;
 
     useLayoutEffect(() => {
         if (!phone) {
-            setPosition(placeBeside(anchor, menuRef.current));
+            setPosition(placeBeside(anchor, menuRef.current, width));
         }
-    }, [anchor, phone]);
+    }, [anchor, phone, width]);
 
     useEffect(() => {
         if (placed) {
@@ -150,13 +152,14 @@ export default function RowMenu({ anchor, menu, onClose }) {
                           top: position?.top ?? 0,
                           left: position?.left ?? 0,
                           maxHeight: position?.maxHeight,
+                          width,
                           visibility: position ? 'visible' : 'hidden',
                       }
             }
             className={
                 phone
                     ? 'animate-sheet fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-[24px] border-t border-gray-200 bg-surface p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-lift'
-                    : 'animate-menu fixed z-50 w-[290px] overflow-y-auto rounded-[20px] border border-gray-200 bg-surface p-2 shadow-lift'
+                    : 'animate-menu fixed z-50 overflow-y-auto rounded-[20px] border border-gray-200 bg-surface p-2 shadow-lift'
             }
         >
             {phone && <div className="mx-auto mb-1 mt-1 h-1 w-10 rounded-full bg-gray-200" aria-hidden="true" />}
@@ -201,12 +204,15 @@ export default function RowMenu({ anchor, menu, onClose }) {
                                     className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] transition ${
                                         unavailable
                                             ? 'bg-gray-100 text-gray-500'
-                                            : `bg-gray-100 text-gray-700 group-hover/item:text-white group-focus-visible/item:text-white ${TONES[item.tone] ?? TONES.graphite}`
+                                            : `group-hover/item:text-white group-focus-visible/item:text-white ${TONES[item.tone] ?? TONES.graphite}`
                                     }`}
                                 >
                                     <Icon name={item.icon} className="h-[17px] w-[17px]" />
                                 </span>
-                                <span className="flex-1 truncate">{item.label}</span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate">{item.label}</span>
+                                    {item.description && <span className="block text-[12px] font-normal leading-tight text-gray-500">{item.description}</span>}
+                                </span>
                                 {item.lockedReason ? (
                                     <span className="inline-flex shrink-0 items-center gap-1 text-[12px] text-gray-500">
                                         <Icon name="lock" className="h-3.5 w-3.5" />

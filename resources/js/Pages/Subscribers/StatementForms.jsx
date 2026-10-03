@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Icon from '@/Components/Icon';
 import ChargeModal from './ChargeModal';
 import ClearingModal from './ClearingModal';
+import AmendTransactionModal from './AmendTransactionModal';
 import DeleteTransactionModal from './DeleteTransactionModal';
 import ForceDeleteTransactionModal from './ForceDeleteTransactionModal';
 import DiscountModal from './DiscountModal';
@@ -129,11 +130,12 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
 /**
  * The payment, charge, discount and clearing forms of a statement;
  * `openForm` names the one showing ('payment', 'charge', 'discount',
- * 'clearing' or null), or is `{ action: 'correct' | 'delete' | 'erase', entry }` to
- * correct or delete a line. `statement` is the statement's page props.
+ * 'clearing' or null), or is `{ action: 'amend' | 'correct' | 'delete' | 'erase', entry }`
+ * for one of a line's audit-safe actions. `statement` is the statement's page props.
  */
 export function StatementForms({ statement, openForm, onClose }) {
     const { subscriber, summary, canRecordPayment, canAdjustBalance, correctionReasons } = statement;
+    const amending = openForm?.action === 'amend' ? openForm.entry : null;
     const correcting = openForm?.action === 'correct' ? openForm.entry : null;
     const deleting = openForm?.action === 'delete' ? openForm.entry : null;
     const erasing = openForm?.action === 'erase' ? openForm.entry : null;
@@ -142,6 +144,17 @@ export function StatementForms({ statement, openForm, onClose }) {
 
     return (
         <>
+            {amending && (
+                <AmendTransactionModal
+                    key={`amend-${amending.id}`}
+                    onClose={onClose}
+                    subscriber={subscriber}
+                    balance={summary.balance}
+                    entry={amending}
+                    transferBanks={statement.transferBanks}
+                />
+            )}
+
             {correcting?.recorded.kind === 'payment' && (
                 <PaymentModal
                     key={`correct-${correcting.id}`}

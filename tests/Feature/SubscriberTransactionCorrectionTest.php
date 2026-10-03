@@ -177,6 +177,151 @@ class SubscriberTransactionCorrectionTest extends TestCase
                 ->where('entries.3.recorded.sender_bank_name', 'البنك الوطني الإسلامي'));
     }
 
+    public function test_amending_payment_details_keeps_the_financial_line_and_records_every_change(): void
+    {
+        $payment = $this->recordPayment([
+            ...$this->transfer('25'),
+            'sender_bank_name' => 'جوال باي',
+            'notes' => 'البيان الأول',
+        ]);
+        $balance = $this->subscriber->balance();
+        $recordedAt = $payment->created_at->toJSON();
+        $financialFields = $payment->only([
+            'subscriber_id',
+            'type',
+            'amount',
+            'currency',
+            'currency_amount',
+            'exchange_rate',
+            'payment_method',
+            'voucher_number',
+        ]);
+
+        $this->amend($payment, [
+            'bank_name' => 'البنك الإسلامي الفلسطيني',
+            'sender_bank_name' => 'البنك الوطني الإسلامي',
+            'sender_name' => 'أحمد محمد',
+            'reference_number' => 'TR-200',
+            'notes' => 'تم تدقيق الحوالة',
+            'amendment_reason' => 'اختير البنك الخطأ عند التسجيل',
+        ])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'transaction-amended');
+
+        $payment->refresh();
+        $this->assertSame($financialFields, $payment->only(array_keys($financialFields)));
+        $this->assertSame($recordedAt, $payment->created_at->toJSON());
+        $this->assertSame($balance, $this->subscriber->balance());
+        $this->assertSame(
+            ['البنك الإسلامي الفلسطيني', 'البنك الوطني الإسلامي', 'أحمد محمد', 'TR-200', 'تم تدقيق الحوالة'],
+            [$payment->bank_name, $payment->sender_bank_name, $payment->sender_name, $payment->reference_number, $payment->notes],
+        );
+
+        $firstAmendment = $payment->amendments()->sole();
+        $this->assertSame($this->branchAdmin->id, $firstAmendment->user_id);
+        $this->assertSame('اختير البنك الخطأ عند التسجيل', $firstAmendment->reason);
+        $this->assertSame(['بنك فلسطين', 'البنك الإسلامي الفلسطيني'], $firstAmendment->changes['bank_name']);
+        $this->assertSame(['TR-1', 'TR-200'], $firstAmendment->changes['reference_number']);
+
+        $this->amend($payment, [
+            'bank_name' => 'البنك الإسلامي الفلسطيني',
+            'sender_bank_name' => 'البنك الوطني الإسلامي',
+            'sender_name' => 'أحمد محمد',
+            'reference_number' => 'TR-201',
+            'notes' => 'تم تدقيق الحوالة',
+            'amendment_reason' => 'تصحيح الرقم المرجعي',
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.1.id', $payment->id)
+                ->where('entries.1.isAmended', true)
+                ->where('entries.1.canAmend', true)
+                ->where('entries.1.amendUnavailableReason', null)
+                ->has('entries.1.amendments', 2)
+                ->where('entries.1.amendments.0.userName', 'Sami')
+                ->where('entries.1.amendments.0.reason', 'اختير البنك الخطأ عند التسجيل')
+                ->where('entries.1.amendments.0.changes.0.label', 'البنك المحوّل له')
+                ->where('entries.1.amendments.0.changes.0.from', 'بنك فلسطين')
+                ->where('entries.1.amendments.0.changes.0.to', 'البنك الإسلامي الفلسطيني')
+                ->where('entries.1.amendments.1.reason', 'تصحيح الرقم المرجعي')
+                ->where('entries.1.amendments.1.changes.0.label', 'الرقم المرجعي')
+                ->where('entries.1.amendments.1.changes.0.from', 'TR-200')
+                ->where('entries.1.amendments.1.changes.0.to', 'TR-201')
+                ->where('entries.1.recorded.reference_number', 'TR-201')
+                ->where('entries.1.balance', '175.00')
+                ->where('summary.balance', '175.00'));
+    }
+
+    public function test_amending_details_rejects_financial_fields_and_a_no_op(): void
+    {
+        $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash', 'notes' => 'نقد']);
+
+        $this->amend($payment, [
+            'notes' => 'نقد مصحح',
+            'amount' => '100',
+            'payment_method' => 'bank_transfer',
+            'amendment_reason' => 'محاولة تغيير مالي',
+        ])->assertSessionHasErrors(['amount', 'payment_method']);
+
+        $this->assertSame(['-80.00', 'cash', 'نقد'], [$payment->fresh()->amount, $payment->payment_method->value, $payment->notes]);
+        $this->assertDatabaseCount('transaction_amendments', 0);
+
+        $this->amend($payment, ['notes' => 'نقد', 'amendment_reason' => 'لا يوجد تغيير'])
+            ->assertSessionHasErrors('details');
+        $this->assertDatabaseCount('transaction_amendments', 0);
+    }
+
+    public function test_payments_in_submitted_or_approved_closings_cannot_be_amended(): void
+    {
+        $submittedPayment = $this->recordPayment(['amount' => '40', 'payment_method' => 'cash']);
+        $approvedPayment = $this->recordPayment(['amount' => '60', 'payment_method' => 'cash']);
+        $submitted = Closing::factory()->submitted()->forDay('2026-10-01')->create(['branch_id' => $this->branch->id]);
+        $approved = Closing::factory()->approved()->forDay('2026-10-02')->create(['branch_id' => $this->branch->id]);
+        ClosingPayment::create(['closing_id' => $submitted->id, 'subscriber_transaction_id' => $submittedPayment->id]);
+        ClosingPayment::create(['closing_id' => $approved->id, 'subscriber_transaction_id' => $approvedPayment->id]);
+
+        $this->amend($submittedPayment, ['notes' => 'بعد الإغلاق', 'amendment_reason' => 'x'])->assertForbidden();
+        $this->amend($approvedPayment, ['notes' => 'بعد الاعتماد', 'amendment_reason' => 'x'])->assertForbidden();
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.1.canAmend', false)
+                ->where('entries.1.amendUnavailableReason', 'بعد إغلاق اليوم')
+                ->where('entries.2.canAmend', false)
+                ->where('entries.2.amendUnavailableReason', 'بعد إغلاق اليوم'));
+        $this->assertDatabaseCount('transaction_amendments', 0);
+    }
+
+    public function test_amending_payment_details_requires_the_correction_permission_and_only_applies_to_payments(): void
+    {
+        $fee = $this->subscriber->transactions()->sole();
+        $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
+        $collector = User::factory()->collector()->create(['branch_id' => $this->branch->id]);
+        $collector->permissions()->sync(Permission::idsFor([PermissionKey::ViewSubscribers, PermissionKey::RecordCollections]));
+
+        $this->actingAs($collector)
+            ->patch(route('subscribers.transactions.amend', [$this->subscriber, $payment]), ['notes' => 'x', 'amendment_reason' => 'x'])
+            ->assertForbidden();
+        $this->actingAs($this->branchAdmin)
+            ->patch(route('subscribers.transactions.amend', [$this->subscriber, $fee]), ['notes' => 'x', 'amendment_reason' => 'x'])
+            ->assertForbidden();
+
+        $this->actingAs($collector)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.1.canAmend', false)
+                ->where('entries.1.amendUnavailableReason', null));
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.0.canAmend', false)
+                ->where('entries.0.amendUnavailableReason', 'متاح للدفعات فقط'));
+        $this->assertDatabaseCount('transaction_amendments', 0);
+    }
+
     public function test_correcting_a_charge_a_discount_and_a_clearing_records_the_right_ones(): void
     {
         $charge = SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::Penalty, '50', 'تأخير');
@@ -648,6 +793,16 @@ class SubscriberTransactionCorrectionTest extends TestCase
         return $this->actingAs($this->branchAdmin)
             ->from(route('subscribers.statement', $this->subscriber))
             ->put(route('subscribers.transactions.update', [$this->subscriber, $line]), $data);
+    }
+
+    /**
+     * @param  array<string, string>  $data
+     */
+    private function amend(SubscriberTransaction $line, array $data): TestResponse
+    {
+        return $this->actingAs($this->branchAdmin)
+            ->from(route('subscribers.statement', $this->subscriber))
+            ->patch(route('subscribers.transactions.amend', [$this->subscriber, $line]), $data);
     }
 
     private function grantPermanentDeletionTo(User $user): void

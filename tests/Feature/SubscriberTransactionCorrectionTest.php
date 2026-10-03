@@ -7,12 +7,15 @@ use App\Enums\DiscountMethod;
 use App\Enums\MeterReadingStatus;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
+use App\Models\Closing;
+use App\Models\ClosingPayment;
 use App\Models\MeterReading;
 use App\Models\Permission;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -330,10 +333,11 @@ class SubscriberTransactionCorrectionTest extends TestCase
             ->get(route('subscribers.statement', $this->subscriber))
             ->assertInertia(fn ($page) => $page->where('entries.0.canDelete', true)->where('entries.0.canForceDelete', false));
 
-        $this->branchAdmin->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ForceDeleteTransactions]));
-        $this->branchAdmin->unsetRelation('permissions');
+        $this->grantPermanentDeletionTo($this->branchAdmin);
 
         $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $fee]), ['correction_notes' => ''])->assertSessionHasErrors('correction_notes');
+        Log::spy();
+
         $this->actingAs($this->branchAdmin)
             ->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $fee]), $erasure)
             ->assertSessionHasNoErrors()
@@ -341,11 +345,42 @@ class SubscriberTransactionCorrectionTest extends TestCase
 
         $this->assertDatabaseMissing('subscriber_transactions', ['id' => $fee->id]);
         $this->assertSame(0.0, $this->subscriber->balance());
+        Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context): bool => $message === 'Transaction erased for good'
+            && $context['transactions'][0]['id'] === $fee->id
+            && $context['transactions'][0]['source_key'] === $fee->source_key
+            && $context['erased_by']['id'] === $this->branchAdmin->id
+            && $context['reason'] === 'سُجّلت بالخطأ');
+    }
+
+    public function test_permanent_deletion_permission_also_offers_normal_deletion_for_the_last_line(): void
+    {
+        $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
+        $this->branchAdmin->permissions()->detach(Permission::idsFor([PermissionKey::DeleteTransactions]));
+        $this->grantPermanentDeletionTo($this->branchAdmin);
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.0.canDelete', false)
+                ->where('entries.0.canForceDelete', false)
+                ->where('entries.1.canDelete', true)
+                ->where('entries.1.canForceDelete', true));
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $payment]), [
+                'correction_reason' => 'payment_refunded',
+                'correction_notes' => 'استرجع المبلغ',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'transaction-deleted');
+
+        $this->assertTrue($payment->refresh()->isCancelled());
+        $this->assertDatabaseHas('subscriber_transactions', ['reverses_id' => $payment->id]);
     }
 
     public function test_only_the_last_line_of_the_statement_can_be_erased(): void
     {
-        $this->branchAdmin->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ForceDeleteTransactions]));
+        $this->grantPermanentDeletionTo($this->branchAdmin);
         $fee = $this->subscriber->transactions()->sole();
         $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
 
@@ -362,16 +397,121 @@ class SubscriberTransactionCorrectionTest extends TestCase
 
     public function test_erasing_a_last_reversal_takes_the_cancelled_line_with_it_and_keeps_the_balance(): void
     {
-        $this->branchAdmin->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ForceDeleteTransactions]));
+        $this->grantPermanentDeletionTo($this->branchAdmin);
         $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
         $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.destroy', [$this->subscriber, $payment]), ['correction_reason' => 'duplicate', 'correction_notes' => 'x']);
         $reversal = SubscriberTransaction::where('reverses_id', $payment->id)->sole();
 
         $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $payment]), ['correction_notes' => 'x'])->assertForbidden();
+        Log::spy();
         $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $reversal]), ['correction_notes' => 'x'])->assertSessionHasNoErrors();
 
         $this->assertDatabaseMissing('subscriber_transactions', ['id' => $payment->id]);
         $this->assertDatabaseMissing('subscriber_transactions', ['id' => $reversal->id]);
+        $this->assertSame(200.0, $this->subscriber->balance());
+        Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context): bool => $message === 'Transaction erased for good'
+            && collect($context['transactions'])->pluck('id')->all() === [$payment->id, $reversal->id]);
+    }
+
+    public function test_a_reversal_grouped_above_a_newer_line_is_not_the_last_line_of_the_statement(): void
+    {
+        $this->grantPermanentDeletionTo($this->branchAdmin);
+        $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
+        $charge = SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::Penalty, '20', null);
+        $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.destroy', [$this->subscriber, $payment]), [
+            'correction_reason' => 'duplicate',
+            'correction_notes' => 'x',
+        ]);
+        $reversal = SubscriberTransaction::where('reverses_id', $payment->id)->sole();
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.2.id', $reversal->id)
+                ->where('entries.2.canForceDelete', false)
+                ->where('entries.3.id', $charge->id)
+                ->where('entries.3.canForceDelete', true));
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $reversal]), ['correction_notes' => 'x'])
+            ->assertForbidden();
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $charge]), ['correction_notes' => 'x'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('subscriber_transactions', ['id' => $reversal->id]);
+        $this->assertDatabaseMissing('subscriber_transactions', ['id' => $charge->id]);
+        $this->assertSame(200.0, $this->subscriber->balance());
+    }
+
+    public function test_a_permanently_erased_payment_voucher_number_is_never_reused(): void
+    {
+        $this->grantPermanentDeletionTo($this->branchAdmin);
+        $erased = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $erased]), ['correction_notes' => 'سند ملغى'])
+            ->assertSessionHasNoErrors();
+        $next = $this->recordPayment(['amount' => '90', 'payment_method' => 'cash']);
+
+        $this->assertSame($erased->voucher_number + 1, $next->voucher_number);
+        $this->assertDatabaseMissing('subscriber_transactions', ['id' => $erased->id]);
+    }
+
+    public function test_a_payment_counted_in_a_closing_cannot_be_permanently_erased(): void
+    {
+        $this->grantPermanentDeletionTo($this->branchAdmin);
+        $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
+        $closing = Closing::factory()->create(['branch_id' => $this->branch->id]);
+        ClosingPayment::create(['closing_id' => $closing->id, 'subscriber_transaction_id' => $payment->id]);
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $payment]), ['correction_notes' => 'x'])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('subscriber_transactions', ['id' => $payment->id]);
+    }
+
+    public function test_permanent_deletion_is_limited_to_the_users_branch_but_a_super_admin_can_use_it_in_any_branch(): void
+    {
+        $this->grantPermanentDeletionTo($this->branchAdmin);
+        $otherBranch = Branch::factory()->create();
+        $otherSubscriber = Subscriber::factory()->create(['branch_id' => $otherBranch->id]);
+        $fee = SubscriberTransaction::factory()->for($otherSubscriber)->create();
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.force-destroy', [$otherSubscriber, $fee]), ['correction_notes' => 'x'])
+            ->assertForbidden();
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->delete(route('subscribers.transactions.force-destroy', [$otherSubscriber, $fee]), ['correction_notes' => 'x'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseMissing('subscriber_transactions', ['id' => $fee->id]);
+    }
+
+    public function test_erasing_a_weekly_reading_charge_leaves_its_reading_approved(): void
+    {
+        $this->grantPermanentDeletionTo($this->branchAdmin);
+        $reading = MeterReading::factory()->for($this->subscriber)->create([
+            'branch_id' => $this->branch->id,
+            'recorded_by' => $this->branchAdmin->id,
+            'previous_reading' => 1000,
+            'current_reading' => 1010,
+            'consumption' => 10,
+            'unit_price' => '3.00',
+            'reading_fee' => '30.00',
+            'minimum_payment' => '0.00',
+            'discount_amount' => '0.00',
+            'amount_due' => '30.00',
+        ]);
+        $reading->approve($this->branchAdmin);
+        $charge = SubscriberTransaction::where('meter_reading_id', $reading->id)->where('type', 'meter_reading')->sole();
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $charge]), ['correction_notes' => 'قراءة أضيفت بالخطأ'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(MeterReadingStatus::Approved, $reading->fresh()->status);
+        $this->assertDatabaseMissing('subscriber_transactions', ['id' => $charge->id]);
         $this->assertSame(200.0, $this->subscriber->balance());
     }
 
@@ -508,5 +648,11 @@ class SubscriberTransactionCorrectionTest extends TestCase
         return $this->actingAs($this->branchAdmin)
             ->from(route('subscribers.statement', $this->subscriber))
             ->put(route('subscribers.transactions.update', [$this->subscriber, $line]), $data);
+    }
+
+    private function grantPermanentDeletionTo(User $user): void
+    {
+        $user->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ForceDeleteTransactions]));
+        $user->unsetRelation('permissions');
     }
 }

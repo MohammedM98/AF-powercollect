@@ -61,13 +61,16 @@ class SubscriberTransactionPolicy
 
     /**
      * Deleting (cancelling) a line takes the "Delete Transactions"
-     * permission, in the user's own branch. Besides what may be corrected,
-     * a weekly reading, its standing discount and the registration fee
-     * may be deleted.
+     * permission, in the user's own branch. The permanent-delete permission
+     * also offers normal deletion for the same eligible final line, so its
+     * holder can choose whether to keep a reversal or erase it completely.
      */
     public function delete(User $user, SubscriberTransaction $subscriberTransaction): bool
     {
-        return $user->hasPermission(PermissionKey::DeleteTransactions)
+        $canDelete = $user->hasPermission(PermissionKey::DeleteTransactions)
+            || ($user->hasPermission(PermissionKey::ForceDeleteTransactions) && $subscriberTransaction->isErasable());
+
+        return $canDelete
             && $subscriberTransaction->isCancellable()
             && $this->inBranchOf($user, $subscriberTransaction);
     }

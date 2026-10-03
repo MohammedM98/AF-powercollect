@@ -74,7 +74,7 @@ export function CorrectionReasonFields({ form, reasons, action = 'التعديل
                     required
                     maxLength={1000}
                     className="mt-1 block w-full"
-                    placeholder={action === 'الحذف' ? 'مثال: الدفعة سُجّلت مرتين بالخطأ' : 'مثال: المشترك دفع 100 شيكل وليس 80'}
+                    placeholder={action === 'الحذف' ? 'مثال: الدفعة سُجّلت مرتين بالخطأ، أو استرجع المشترك المبلغ' : 'مثال: المشترك دفع 100 شيكل وليس 80'}
                     value={data.correction_notes}
                     onChange={(e) => setData('correction_notes', e.target.value)}
                 />

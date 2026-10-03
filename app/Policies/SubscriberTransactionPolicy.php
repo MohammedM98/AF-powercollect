@@ -61,17 +61,25 @@ class SubscriberTransactionPolicy
 
     /**
      * Deleting (cancelling) a line takes the "Delete Transactions"
-     * permission, on the same terms as correcting one.
+     * permission, in the user's own branch. Besides what may be corrected,
+     * a weekly reading, its standing discount and the registration fee
+     * may be deleted.
      */
     public function delete(User $user, SubscriberTransaction $subscriberTransaction): bool
     {
-        return $user->hasPermission(PermissionKey::DeleteTransactions) && $this->mayChange($user, $subscriberTransaction);
+        return $user->hasPermission(PermissionKey::DeleteTransactions)
+            && $subscriberTransaction->isCancellable()
+            && $this->inBranchOf($user, $subscriberTransaction);
     }
 
     private function mayChange(User $user, SubscriberTransaction $subscriberTransaction): bool
     {
-        return $subscriberTransaction->isCorrectable()
-            && ($user->isSuperAdmin() || $subscriberTransaction->subscriber->branch_id === $user->branch_id);
+        return $subscriberTransaction->isCorrectable() && $this->inBranchOf($user, $subscriberTransaction);
+    }
+
+    private function inBranchOf(User $user, SubscriberTransaction $subscriberTransaction): bool
+    {
+        return $user->isSuperAdmin() || $subscriberTransaction->subscriber->branch_id === $user->branch_id;
     }
 
     /**

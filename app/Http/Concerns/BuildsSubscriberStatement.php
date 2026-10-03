@@ -133,7 +133,6 @@ trait BuildsSubscriberStatement
             'correctionReasons' => [
                 'payment' => CorrectionReason::options(CorrectionReason::forPaymentCorrection()),
                 'adjustment' => CorrectionReason::options(CorrectionReason::forAdjustmentCorrection()),
-                'deletion' => CorrectionReason::options(CorrectionReason::forDeletion()),
             ],
         ];
     }
@@ -278,8 +277,11 @@ trait BuildsSubscriberStatement
             ] : null,
             'canCorrect' => $actor->can('update', $transaction),
             'canDelete' => $actor->can('delete', $transaction),
+            'deletionReasons' => $transaction->isCancellable() ? CorrectionReason::options(CorrectionReason::forDeletionOf($transaction)) : [],
             // What the correction form starts from: the line as it was recorded.
-            'recorded' => $transaction->isCorrectable() ? $this->recordedFields($transaction) : null,
+            'recorded' => $transaction->isCorrectable()
+                ? $this->recordedFields($transaction)
+                : ($transaction->isCancellable() ? ['kind' => $transaction->type, 'effect' => $transaction->amount] : null),
         ];
     }
 

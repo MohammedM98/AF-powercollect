@@ -6,34 +6,57 @@ import DeleteTransactionModal from './DeleteTransactionModal';
 import DiscountModal from './DiscountModal';
 import PaymentModal from './PaymentModal';
 
-const ACTION_TONES = {
-    payment:
-        'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 hover:border-emerald-600 hover:bg-emerald-600 hover:text-white focus-visible:border-emerald-600 focus-visible:bg-emerald-600 focus-visible:text-white dark:text-emerald-400 dark:hover:text-white dark:focus-visible:text-white',
-    charge:
-        'border-amber-500/25 bg-amber-500/10 text-amber-700 hover:border-amber-600 hover:bg-amber-600 hover:text-white focus-visible:border-amber-600 focus-visible:bg-amber-600 focus-visible:text-white dark:text-amber-400 dark:hover:text-white dark:focus-visible:text-white',
-    discount:
-        'border-violet-500/25 bg-violet-500/10 text-violet-700 hover:border-violet-600 hover:bg-violet-600 hover:text-white focus-visible:border-violet-600 focus-visible:bg-violet-600 focus-visible:text-white dark:text-violet-400 dark:hover:text-white dark:focus-visible:text-white',
-    clearing:
-        'border-teal-500/25 bg-teal-500/10 text-teal-700 hover:border-teal-600 hover:bg-teal-600 hover:text-white focus-visible:border-teal-600 focus-visible:bg-teal-600 focus-visible:text-white dark:text-teal-400 dark:hover:text-white dark:focus-visible:text-white',
-};
+/**
+ * The actions of the dropdown. Each is laid out like an item of the table's
+ * row menu (RowMenu) — one size, an icon chip — and takes its own colour
+ * (written out whole so Tailwind keeps every class): payment green.
+ */
+const ACTIONS = [
+    {
+        form: 'payment',
+        label: 'تسجيل دفعة',
+        icon: 'banknotes',
+        paymentOnly: true,
+        tone: 'text-emerald-600 group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
+    },
+    {
+        form: 'charge',
+        label: 'تحميل حركة',
+        icon: 'document-plus',
+        tone: 'text-amber-600 group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
+    },
+    {
+        form: 'discount',
+        label: 'إضافة خصم',
+        icon: 'discount',
+        tone: 'text-violet-600 group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
+    },
+    {
+        form: 'clearing',
+        label: 'مقاصة',
+        icon: 'repeat',
+        tone: 'text-teal-600 group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
+    },
+];
 
 /**
- * The statement's actions, grouped into one coloured menu. Each action is
- * shown only to users allowed to use it. `onOpen` gets 'charge', 'discount',
- * 'clearing' or 'payment'.
+ * The statement's actions in one dropdown: record a payment (green), add a
+ * charge, a discount or a clearing — each shown only to users allowed to.
+ * `onOpen` gets 'payment', 'charge', 'discount' or 'clearing'.
  */
 export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen }) {
     const [open, setOpen] = useState(false);
-    const menuRef = useRef(null);
+    const rootRef = useRef(null);
     const triggerRef = useRef(null);
+    const actions = ACTIONS.filter((action) => (action.paymentOnly ? canRecordPayment : canAdjustBalance));
 
     useEffect(() => {
         if (!open) {
-            return;
+            return undefined;
         }
 
         function onPointerDown(event) {
-            if (!menuRef.current?.contains(event.target)) {
+            if (!rootRef.current?.contains(event.target)) {
                 setOpen(false);
             }
         }
@@ -41,6 +64,7 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
         function onKeyDown(event) {
             if (event.key === 'Escape') {
                 event.preventDefault();
+                event.stopPropagation();
                 event.stopImmediatePropagation();
                 setOpen(false);
                 triggerRef.current?.focus();
@@ -56,53 +80,43 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
         };
     }, [open]);
 
-    if (!canRecordPayment && !canAdjustBalance) {
+    if (actions.length === 0) {
         return null;
     }
 
-    const actions = [
-        ...(canRecordPayment ? [{ action: 'payment', label: 'تسجيل دفعة', icon: 'banknotes' }] : []),
-        ...(canAdjustBalance
-            ? [
-                  { action: 'charge', label: 'تحميل حركة', icon: 'document-plus' },
-                  { action: 'discount', label: 'إضافة خصم', icon: 'discount' },
-                  { action: 'clearing', label: 'مقاصة', icon: 'scale' },
-              ]
-            : []),
-    ];
-
-    function choose(action) {
-        setOpen(false);
-        onOpen(action);
-    }
-
     return (
-        <div ref={menuRef} className="relative shrink-0">
+        <div ref={rootRef} className="relative shrink-0">
             <button
                 ref={triggerRef}
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={open}
-                onClick={() => setOpen((current) => !current)}
-                className="inline-flex h-10 items-center gap-2 rounded-control bg-graphite-gradient px-4 text-sm font-semibold text-white shadow-card transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+                onClick={() => setOpen(!open)}
+                className="inline-flex h-10 items-center gap-2 rounded-control bg-brand-gradient px-4 text-sm font-semibold text-white shadow-glow transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
             >
                 <Icon name="plus" className="h-4 w-4" strokeWidth={2} />
                 إضافة حركة
-                <Icon name="chevron-down" className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+                <Icon name="chevron-down" className="h-4 w-4" strokeWidth={2} />
             </button>
-
             {open && (
-                <div role="menu" aria-label="إضافة حركة" className="animate-dropdown absolute end-0 top-full z-40 mt-2 flex w-56 flex-col gap-1 rounded-2xl border border-gray-100 bg-surface p-2 shadow-lift">
-                    {actions.map((item) => (
+                <div role="menu" className="animate-menu absolute end-0 top-full z-30 mt-2 w-[250px] rounded-[20px] border border-gray-200 bg-surface p-2 shadow-lift">
+                    {actions.map((action) => (
                         <button
-                            key={item.action}
+                            key={action.form}
                             type="button"
                             role="menuitem"
-                            onClick={() => choose(item.action)}
-                            className={`flex h-11 w-full items-center gap-2.5 rounded-xl border px-3 text-start text-sm font-semibold transition focus-visible:outline-none ${ACTION_TONES[item.action]}`}
+                            onClick={() => {
+                                setOpen(false);
+                                onOpen(action.form);
+                            }}
+                            className="group/item flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-start text-sm font-medium text-gray-900 outline-none transition hover:bg-gray-100 focus-visible:bg-gray-100"
                         >
-                            <Icon name={item.icon} className="h-[18px] w-[18px] shrink-0" />
-                            <span>{item.label}</span>
+                            <span
+                                className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] bg-gray-100 transition group-hover/item:text-white group-focus-visible/item:text-white ${action.tone}`}
+                            >
+                                <Icon name={action.icon} className="h-[17px] w-[17px]" />
+                            </span>
+                            <span className="flex-1 truncate">{action.label}</span>
                         </button>
                     ))}
                 </div>
@@ -186,7 +200,7 @@ export function StatementForms({ statement, openForm, onClose }) {
                     subscriber={subscriber}
                     balance={summary.balance}
                     entry={deleting}
-                    reasons={correctionReasons.deletion}
+                    reasons={deleting.deletionReasons}
                 />
             )}
 

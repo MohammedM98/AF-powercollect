@@ -1,140 +1,94 @@
-# PLAN: Registration area pick, unique transfer reference, one voucher column, corrections at the end
+# الخطة: اختيار الطبلون عند التسجيل، رقم مرجعي فريد، عمود سند واحد، وتصحيح الحركات
 
-Four changes. Each says what is wrong today (checked in the code), what to
-build, and what to test. Section 6 lists the points I need you to confirm.
-
----
-
-## 1. New subscriber: show "منطقة 2" at once, then just pick the طبلون
-
-**Today** (`resources/js/Pages/Subscribers/SubscriberForm.jsx`)
-- The branch's "المنطقة" is shown read-only, and "منطقة 2" is a dropdown whose
-  first choice is "— بلا منطقة 2 —".
-- The "رقم الطبلون" field stays **hidden until a منطقة 2 is chosen**
-  (`showMeterBoxField`). So the user needs two steps before the real choice.
-
-**Build**
-1. Show "منطقة 2" as soon as the branch is known (own branch for branch users;
-   after picking a branch for the Super Admin). If the branch's area has
-   **one** منطقة 2, select it automatically.
-2. Show "رقم الطبلون" immediately, listing the طبلونات of the selected
-   منطقة 2, or of **all** the branch's منطقة 2 when none is selected.
-3. Picking a طبلون sets its منطقة 2 by itself, so the user can do only that one
-   pick. Changing منطقة 2 afterwards clears a طبلون that is not in it.
-4. Remove "— بلا منطقة 2 —" from new-subscriber registration (keep it only when
-   editing a subscriber who has none).
-
-**Test:** a branch user opens the form and sees منطقة 2 and the طبلون list
-without clicking; picking a طبلون fills منطقة 2; one-area branch is preselected.
+أربعة تعديلات. لكل واحد: ما هو الوضع الحالي (بعد فحص الكود)، وما سيُبنى، وما سيُختبر.
+في النهاية (القسم 6) نقاط أحتاج تأكيدها منك.
 
 ---
 
-## 2. Transfer reference number must be unique
+## 1) تسجيل مشترك جديد: عرض «منطقة 2» الخاصة بالفرع مباشرة، ثم يختار المستخدم الطبلون فقط
 
-**Today:** `reference_number` is only `required` (bank/wallet payments) and
-`max:100`, in `StoreSubscriberPaymentRequest`. Nothing stops the same transfer
-being recorded twice. The mobile app records payments too
-(`MobileCollectionController`), and corrections have their own request.
+**الوضع الحالي** (`resources/js/Pages/Subscribers/SubscriberForm.jsx`)
+- تُعرض «المنطقة» للقراءة فقط، و«منطقة 2» قائمة منسدلة أول خيار فيها «— بلا منطقة 2 —».
+- حقل «رقم الطبلون» **مخفي حتى يختار المستخدم منطقة 2** (`showMeterBoxField`)، فيحتاج خطوتين قبل الاختيار الحقيقي.
 
-**Build**
-- A reference may be used by **one standing payment only**. Compared after
-  cleaning: trimmed, spaces removed, upper-cased (`TR 1042` = `tr1042`).
-- A **cancelled or erased** payment no longer holds its reference, so a wrong
-  line can be corrected with the same reference.
-- Applies to: the web payment form, the mobile payment API, and the correction
-  form (a corrected line may keep its own reference).
-- Message (Arabic): «هذا الرقم المرجعي مسجَّل مسبقًا على دفعة أخرى» with the
-  existing payment's voucher number and subscriber, so the user can find it.
-- Safe against two users saving at the same moment: check inside the
-  transaction, backed by a database unique index on a cleaned
-  `active_reference` column that is emptied when the line is cancelled.
-- Scope question → section 6, point A.
+**المطلوب بناؤه**
+1. تظهر «منطقة 2» الخاصة بفرع المستخدم فور فتح النموذج (للمدير العام: بعد اختيار الفرع). إذا كان للفرع منطقة 2 واحدة فقط تُختار تلقائيًا.
+2. يظهر حقل «رقم الطبلون» مباشرة، ويعرض **فقط الطبلونات ضمن فرع المستخدم** (ضمن منطقة 2 المختارة، أو كل مناطق 2 للفرع إن لم تُختر واحدة).
+3. اختيار الطبلون يحدّد منطقة 2 تلقائيًا، فلا يحتاج المستخدم سوى هذا الاختيار الواحد. وتغيير منطقة 2 لاحقًا يمسح الطبلون إن لم يكن ضمنها.
+4. إزالة «— بلا منطقة 2 —» من تسجيل مشترك جديد (تبقى فقط عند تعديل مشترك لا منطقة 2 له).
 
-**Tests:** duplicate refused (web and mobile); different case/spaces refused;
-reuse allowed after cancel; correction keeping its own reference works.
+**الاختبار:** مستخدم فرع يفتح النموذج فيرى منطقة 2 وقائمة الطبلونات دون نقرات إضافية؛ لا تظهر طبلونات فرع آخر؛ اختيار الطبلون يملأ منطقة 2؛ فرع بمنطقة 2 واحدة تُختار تلقائيًا.
 
 ---
 
-## 3. Statement table: one voucher column
+## 2) الرقم المرجعي للحوالة يجب أن يكون فريدًا (unique)
 
-**Today** (`AccountStatement.jsx`): two columns, «السند اليدوي» and «رقم السند».
+**الوضع الحالي:** `reference_number` مطلوب فقط (للدفع عبر البنك/المحفظة) وبحد أقصى 100 حرف في `StoreSubscriberPaymentRequest`. لا شيء يمنع تسجيل الحوالة نفسها مرتين. تطبيق الموبايل يسجّل الدفعات أيضًا (`MobileCollectionController`)، وللتصحيح طلب خاص به.
 
-**Build**
-- Delete the «السند اليدوي» column; keep one column **«رقم السند»**.
-- Nothing is lost: when a line has a manual voucher number, it shows small
-  under the system number (`يدوي: 1234`). Search still finds both
-  (`accountStatement.js`).
-- Same change in the printed/exported statement if it lists the column.
+**المطلوب بناؤه**
+- الرقم المرجعي يُستعمل في **دفعة واحدة قائمة فقط**. تتم المقارنة بعد التنظيف: إزالة الفراغات وتوحيد حالة الأحرف (`TR 1042` = `tr1042`).
+- الدفعة **الملغاة أو المحذوفة نهائيًا** تحرّر رقمها المرجعي، فيمكن تصحيح الدفعة بالرقم نفسه.
+- يسري على: نموذج الدفع في الموقع، واجهة الموبايل، ونموذج التصحيح (الدفعة المصحَّحة يمكنها الاحتفاظ برقمها).
+- رسالة الخطأ: «هذا الرقم المرجعي مسجَّل مسبقًا على دفعة أخرى» مع رقم سند الدفعة الموجودة والمشترك، ليتمكن المستخدم من إيجادها.
+- حماية من الحفظ المتزامن: فحص داخل المعاملة (transaction)، يسنده فهرس فريد في قاعدة البيانات على عمود منظَّف `active_reference` يُفرَّغ عند إلغاء الحركة.
 
-**Tests:** header has a single voucher column; a manual number still appears
-and is searchable.
+**الاختبار:** رفض التكرار (موقع وموبايل)؛ رفض الاختلاف في حالة الأحرف أو الفراغات؛ السماح بإعادة الاستعمال بعد الإلغاء؛ التصحيح بنفس الرقم يعمل.
 
 ---
 
-## 4. Corrections: the new line goes to the end, linked to the old one
+## 3) جدول سجل الحركات: عمود سند واحد
 
-The principle: the history is never rearranged. Old lines stay where they
-were; the right line is added **at the bottom**, and the two point at each
-other until the subscriber's money matters are closed.
+**الوضع الحالي** (`AccountStatement.jsx`): عمودان «السند اليدوي» و«رقم السند».
+
+**المطلوب بناؤه**
+- حذف عمود «السند اليدوي» وإبقاء عمود واحد **«رقم السند»**.
+- لا يضيع شيء: إن كان للحركة سند يدوي يظهر صغيرًا تحت رقم السند (`يدوي: 1234`)، ويبقى البحث يجد الاثنين (`accountStatement.js`).
+- التعديل نفسه في كشف الحساب المطبوع إن كان يعرض العمود.
+
+**الاختبار:** رأس الجدول فيه عمود سند واحد؛ السند اليدوي يظهر ويمكن البحث عنه.
+
+---
+
+## 4) تصحيح الحركة: الحركة الجديدة في آخر الجدول، وتُظهر أي حركة عدّلَتها
+
+المبدأ: السجل لا يُعاد ترتيبه أبدًا. الحركات القديمة تبقى في مكانها بالأعلى، والحركة الصحيحة تُضاف **في آخر الجدول**، ويشير كل طرف إلى الآخر حتى تنتهي الأمور المالية الخاصة بالمشترك.
 
 ```
-  #   التاريخ   البيان                      مدين   دائن   الرصيد
-  1   10/10    رسوم اشتراك                  50            50
-  2   11/10    دفعة · بنك فلسطين            ·    80       −30   ⟲ صُحّحت ← #4
-  3   12/10    قيد عكسي لـ #2               80            50    (مشطوبة)
-  4   12/10    دفعة · جوال باي  [تصحيح لـ #2 ↑]   100    −50   ← new line, at the bottom
+  #   التاريخ   البيان                          مدين   دائن   الرصيد
+  1   10/10    رسوم اشتراك                      50            50
+  2   11/10    دفعة · بنك فلسطين                ·     80      −30   ⟲ صُحّحت ← #4
+  3   12/10    قيد عكسي (عكس الحوالة) لـ #2     80            50    (مشطوبة مع القديمة)
+  4   12/10    دفعة · جوال باي [تصحيح لـ #2 ↑]  ·     100     −50   ← الجديدة في الآخر
 ```
 
-**Today:** the replacement is already added at the end (newest), but the old
-line and its reversal are **folded away** by default (`foldCorrections`), so the
-user sees only the new line and the link to the old one is hidden.
+**الوضع الحالي:** الحركة البديلة تُضاف فعلًا في الآخر، لكن الحركة القديمة وقيدها العكسي **مطويّان افتراضيًا** (`foldCorrections`)، فيرى المستخدم الحركة الجديدة فقط ويختفي الرابط بينهما.
 
-**Build**
-1. While the subscriber's lines are **not yet finalised** (the day of those
-   lines is not closed), show the old line, its reversal and the new line,
-   all unfolded, in time order. Nothing moves; the balance column stays right.
-2. Old line: crossed out, badge «⟲ صُحّحت ← #4». Reversal: «قيد عكسي لـ #2».
-   New line at the bottom: badge «تصحيح لـ #2 ↑». Clicking a badge scrolls to
-   and highlights the other line.
-3. Amounts of the old line and its reversal stay as recorded; only the
-   new line carries the corrected amount.
-4. After the lines are finalised by a closing, they fold by default (the
-   «عرض السجل» button still opens them), as today.
-5. The «حذف نهائي» of the last line is unchanged.
+**المطلوب بناؤه**
+1. ما دامت الأمور المالية للمشترك **لم تُنهَ** (لم يُغلق اليوم الذي تنتمي إليه الحركات) تُعرض الحركة القديمة وقيدها العكسي والحركة الجديدة كلها مفتوحة بترتيب الزمن. لا شيء يتحرك، وعمود الرصيد يبقى صحيحًا.
+2. الحركة القديمة: مشطوبة مع شارة «⟲ صُحّحت ← #4». القيد العكسي: «قيد عكسي لـ #2». الحركة الجديدة في الآخر: شارة «تصحيح لـ #2 ↑». الضغط على أي شارة ينتقل إلى الحركة الأخرى ويظللها.
+3. مبلغ الحركة القديمة وقيدها العكسي يبقيان كما سُجّلا؛ فقط الحركة الجديدة تحمل المبلغ الصحيح.
+4. بعد إنهاء الأمور المالية (الإغلاق) تُطوى افتراضيًا ويبقى زر «عرض السجل» يفتحها، كما هو الآن.
+5. «حذف نهائي» لآخر حركة كما هو دون تغيير.
 
-**Tests:** after a correction the statement order is old, reversal, new; the
-new line is last; links exist both ways; folded only after closing.
+**الاختبار:** بعد التصحيح يكون الترتيب: القديمة، القيد العكسي، الجديدة؛ الجديدة هي الأخيرة؛ الروابط في الاتجاهين؛ الطيّ فقط بعد الإغلاق.
 
 ---
 
-## 5. Order of work and files
+## 5) ترتيب العمل والملفات
 
-1. Reference uniqueness (backend + migration + tests).
-2. Voucher column (small, front end).
-3. Registration form flow.
-4. Corrections display and links.
+1. تفرّد الرقم المرجعي (الخلفية + migration + اختبارات).
+2. عمود السند (تعديل صغير في الواجهة).
+3. تدفق التسجيل (منطقة 2 والطبلون).
+4. عرض التصحيحات والروابط.
 
-Files: `SubscriberForm.jsx`, `StoreSubscriberPaymentRequest.php`,
-`CorrectSubscriberTransactionRequest.php`, `MobileCollectionController.php`,
-`SubscriberTransaction.php`, a new migration for `active_reference`,
-`AccountStatement.jsx`, `resources/js/lib/accountStatement.js`,
-`BuildsSubscriberStatement.php`.
+الملفات: `SubscriberForm.jsx`، `StoreSubscriberPaymentRequest.php`، `CorrectSubscriberTransactionRequest.php`، `MobileCollectionController.php`، `SubscriberTransaction.php`، migration جديد لعمود `active_reference`، `AccountStatement.jsx`، `resources/js/lib/accountStatement.js`، `BuildsSubscriberStatement.php`.
 
 ---
 
-## 6. Please confirm (my questions and additions)
+## 6) أرجو تأكيدك (أسئلتي وإضافاتي)
 
-- **A. How strict is "unique"?** One reference per payment across the whole
-  company (my proposal), or unique per bank/wallet (two banks may reuse
-  numbers)? Per bank is more correct if different banks can issue the same
-  number; the company-wide rule is safer against duplicates.
-- **B. "Template" in point 1:** I read it as the **طبلون** (meter box). Correct?
-- **C. "Finalised":** I take it to mean the closing of the day those lines
-  belong to. Or do you mean when the subscriber's balance reaches zero?
-- **D. Manual voucher:** is it right to keep it as a small line under the
-  voucher number, rather than removing it completely?
-- **E. Addition:** also warn (not block) when the same amount and sender name
-  are saved twice on the same day, since that is often a duplicate with a
-  mistyped reference.
-- **F. Addition:** show the same reference check live while the collector
-  types it, before pressing save.
+- **أ. مدى «التفرّد»:** رقم مرجعي واحد لكل دفعة على مستوى الشركة كلها (اقتراحي)، أم فريد لكل بنك/محفظة؟ (قد تصدر بنوك مختلفة الرقم نفسه؛ القاعدة العامة أضمن ضد التكرار.)
+- **ب. «متى تنتهي الأمور المالية للمشترك؟»** افترضت أنها إغلاق اليوم الذي تنتمي إليه الحركات. أم تقصد حين يصل رصيد المشترك إلى صفر؟
+- **ج. السند اليدوي:** هل يناسبك إبقاؤه سطرًا صغيرًا تحت رقم السند بدل حذفه كليًا؟
+- **د. إضافة مقترحة:** تحذير (دون منع) عند حفظ المبلغ واسم المرسل نفسيهما مرتين في اليوم نفسه، لأنه غالبًا تكرار برقم مرجعي مكتوب خطأ.
+- **هـ. إضافة مقترحة:** فحص الرقم المرجعي لحظة الكتابة، قبل ضغط «حفظ».

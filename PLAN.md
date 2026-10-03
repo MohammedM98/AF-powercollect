@@ -1,106 +1,140 @@
-# PLAN: Edit, correct, cancel and erase a transaction — four clear actions
+# PLAN: Registration area pick, unique transfer reference, one voucher column, corrections at the end
 
-## 1. The idea in one sentence
+Four changes. Each says what is wrong today (checked in the code), what to
+build, and what to test. Section 6 lists the points I need you to confirm.
 
-Ask **"does the change touch the money?"**
+---
 
-- No → **amend the details in place** and keep a visible history.
-- Yes → **cancel with a reversal** (and enter the right line if needed).
-- Never should have existed → **cancel**. Just made, and last → **erase**.
+## 1. New subscriber: show "منطقة 2" at once, then just pick the طبلون
 
-## 2. The four actions
+**Today** (`resources/js/Pages/Subscribers/SubscriberForm.jsx`)
+- The branch's "المنطقة" is shown read-only, and "منطقة 2" is a dropdown whose
+  first choice is "— بلا منطقة 2 —".
+- The "رقم الطبلون" field stays **hidden until a منطقة 2 is chosen**
+  (`showMeterBoxField`). So the user needs two steps before the real choice.
 
-| | Action (Arabic) | Icon (`Icon name`) | Colour | Use it when | What happens to the statement | Balance |
-|---|---|---|---|---|---|---|
-| ✏️ | **تعديل البيانات** | `pencil` | blue | Wrong bank / wallet, reference number, sender name, notes | Same line, marked «معدّلة»; old → new values kept in its history | unchanged |
-| 🔁 | **تصحيح الحركة** | `repeat` | amber | Wrong amount, currency, cash vs transfer, type | Old line cancelled + reversal, right line entered under it | follows the new line |
-| ⊘ | **إلغاء الحركة** | `close` | burgundy | Duplicate, money not received, refunded, wrong subscriber | Line stays, struck through, with reason + a reversal (قيد عكسي) | reversed |
-| 🗑 | **حذف نهائي** | `trash` | dark red | A mistake just made, **last line only** | Line disappears, no trace on the statement | as if never recorded |
+**Build**
+1. Show "منطقة 2" as soon as the branch is known (own branch for branch users;
+   after picking a branch for the Super Admin). If the branch's area has
+   **one** منطقة 2, select it automatically.
+2. Show "رقم الطبلون" immediately, listing the طبلونات of the selected
+   منطقة 2, or of **all** the branch's منطقة 2 when none is selected.
+3. Picking a طبلون sets its منطقة 2 by itself, so the user can do only that one
+   pick. Changing منطقة 2 afterwards clears a طبلون that is not in it.
+4. Remove "— بلا منطقة 2 —" from new-subscriber registration (keep it only when
+   editing a subscriber who has none).
 
-"إلغاء الحركة" is the current "حذف حركة", renamed so nobody thinks it erases.
-"حذف نهائي" already exists (permission `collections.force_delete`).
+**Test:** a branch user opens the form and sees منطقة 2 and the طبلون list
+without clicking; picking a طبلون fills منطقة 2; one-area branch is preselected.
 
-## 3. What the user sees
+---
 
-The row's ⋯ menu, each item with its icon, colour and a one-line hint so the
-user knows what pressing it does:
+## 2. Transfer reference number must be unique
+
+**Today:** `reference_number` is only `required` (bank/wallet payments) and
+`max:100`, in `StoreSubscriberPaymentRequest`. Nothing stops the same transfer
+being recorded twice. The mobile app records payments too
+(`MobileCollectionController`), and corrections have their own request.
+
+**Build**
+- A reference may be used by **one standing payment only**. Compared after
+  cleaning: trimmed, spaces removed, upper-cased (`TR 1042` = `tr1042`).
+- A **cancelled or erased** payment no longer holds its reference, so a wrong
+  line can be corrected with the same reference.
+- Applies to: the web payment form, the mobile payment API, and the correction
+  form (a corrected line may keep its own reference).
+- Message (Arabic): «هذا الرقم المرجعي مسجَّل مسبقًا على دفعة أخرى» with the
+  existing payment's voucher number and subscriber, so the user can find it.
+- Safe against two users saving at the same moment: check inside the
+  transaction, backed by a database unique index on a cleaned
+  `active_reference` column that is emptied when the line is cancelled.
+- Scope question → section 6, point A.
+
+**Tests:** duplicate refused (web and mobile); different case/spaces refused;
+reuse allowed after cancel; correction keeping its own reference works.
+
+---
+
+## 3. Statement table: one voucher column
+
+**Today** (`AccountStatement.jsx`): two columns, «السند اليدوي» and «رقم السند».
+
+**Build**
+- Delete the «السند اليدوي» column; keep one column **«رقم السند»**.
+- Nothing is lost: when a line has a manual voucher number, it shows small
+  under the system number (`يدوي: 1234`). Search still finds both
+  (`accountStatement.js`).
+- Same change in the printed/exported statement if it lists the column.
+
+**Tests:** header has a single voucher column; a manual number still appears
+and is searchable.
+
+---
+
+## 4. Corrections: the new line goes to the end, linked to the old one
+
+The principle: the history is never rearranged. Old lines stay where they
+were; the right line is added **at the bottom**, and the two point at each
+other until the subscriber's money matters are closed.
 
 ```
- 12/10  دفعة · تحويل بنكي · 80 ₪ · جوال باي  [✏️ معدّلة]        ⋯
-                                                              │
-  ┌─────────────────────────────────────────────────────────┐ │
-  │ ✏️  تعديل البيانات     البنك، المرجع، المرسل — الرصيد لا يتغيّر │◄┘
-  │ 🔁  تصحيح الحركة      المبلغ أو الطريقة — يُلغى القديم ويُسجَّل الصحيح │
-  │ ⊘  إلغاء الحركة       تبقى ظاهرة مشطوبة مع السبب          │
-  │ 🗑  حذف نهائي          آخر حركة فقط — بلا أي أثر          │
-  └─────────────────────────────────────────────────────────┘
+  #   التاريخ   البيان                      مدين   دائن   الرصيد
+  1   10/10    رسوم اشتراك                  50            50
+  2   11/10    دفعة · بنك فلسطين            ·    80       −30   ⟲ صُحّحت ← #4
+  3   12/10    قيد عكسي لـ #2               80            50    (مشطوبة)
+  4   12/10    دفعة · جوال باي  [تصحيح لـ #2 ↑]   100    −50   ← new line, at the bottom
 ```
 
-- Items the user may not use are hidden; ones that don't apply now are shown
-  faded with the reason (e.g. «بعد إغلاق اليوم», «ليست آخر حركة»).
-- Each form's header repeats the action's icon and colour, and its confirm
-  button says the same word (e.g. «حفظ التعديل», «نعم، ألغِ الحركة»).
+**Today:** the replacement is already added at the end (newest), but the old
+line and its reversal are **folded away** by default (`foldCorrections`), so the
+user sees only the new line and the link to the old one is hidden.
 
-### Amend form (تعديل البيانات)
+**Build**
+1. While the subscriber's lines are **not yet finalised** (the day of those
+   lines is not closed), show the old line, its reversal and the new line,
+   all unfolded, in time order. Nothing moves; the balance column stays right.
+2. Old line: crossed out, badge «⟲ صُحّحت ← #4». Reversal: «قيد عكسي لـ #2».
+   New line at the bottom: badge «تصحيح لـ #2 ↑». Clicking a badge scrolls to
+   and highlights the other line.
+3. Amounts of the old line and its reversal stay as recorded; only the
+   new line carries the corrected amount.
+4. After the lines are finalised by a closing, they fold by default (the
+   «عرض السجل» button still opens them), as today.
+5. The «حذف نهائي» of the last line is unchanged.
 
-```
- ✏️ تعديل بيانات الدفعة                         [ لا يغيّر الرصيد ]
- ───────────────────────────────────────────────────────────
-  المبلغ        80 ₪        🔒 (للقراءة فقط)
-  الطريقة       تحويل بنكي   🔒 (للقراءة فقط)
-  ───────────────────────────────────────────────────────
-  البنك المحوَّل له   [ بنك فلسطين ▾ ]   ← عُدّل
-  رقم مرجعي         [ TR-1042        ]
-  اسم المرسل         [ Ahmad          ]
-  ملاحظات            [                ]
-  سبب التعديل *       [ خطأ في اختيار البنك ]
-  ───────────────────────────────────────────────────────
-  الرصيد قبل: 120 ₪ مدين   →   بعد: 120 ₪ مدين (بدون تغيير)
-                                   [ حفظ التعديل ]  [ إلغاء ]
-```
+**Tests:** after a correction the statement order is old, reversal, new; the
+new line is last; links exist both ways; folded only after closing.
 
-On the statement, hovering «معدّلة ⓘ» (icon `history`) shows:
+---
 
-```
- البنك:   جوال باي ← بنك فلسطين
- عدّلها سامي · 12/10 14:20 · السبب: خطأ في اختيار البنك
-```
+## 5. Order of work and files
 
-## 4. Rules
+1. Reference uniqueness (backend + migration + tests).
+2. Voucher column (small, front end).
+3. Registration form flow.
+4. Corrections display and links.
 
-1. **Amend** may change only: destination bank, sender bank, sender name,
-   reference number, notes. Never amount, currency, method, date, type,
-   subscriber.
-2. **Cash ↔ transfer and currency are not amend.** Closings count cash and
-   transfers separately, so those changes use **تصحيح** (reversal + new line).
-3. Amend needs a **reason** (free text) and keeps who / when / old → new.
-4. Amend is **blocked once the line is in a closed day**; the menu item shows
-   «بعد إغلاق اليوم». Cancel (reversal) still works, as it adds a line today.
-5. A line may be amended several times; the history lists all of them.
-6. Permissions: amend uses the existing **Edit Transactions**
-   (`collections.correct`); correct = same; cancel = **Delete Transactions**
-   (`collections.delete`); erase = **Permanently Delete Transactions**
-   (`collections.force_delete`, last line only).
+Files: `SubscriberForm.jsx`, `StoreSubscriberPaymentRequest.php`,
+`CorrectSubscriberTransactionRequest.php`, `MobileCollectionController.php`,
+`SubscriberTransaction.php`, a new migration for `active_reference`,
+`AccountStatement.jsx`, `resources/js/lib/accountStatement.js`,
+`BuildsSubscriberStatement.php`.
 
-## 5. Work to do
+---
 
-1. Migration: `transaction_amendments` (transaction_id, user_id, changes JSON
-   `{field: [old, new]}`, reason, created_at).
-2. `SubscriberTransaction::amend(User, array $fields, string $reason)`; allowed
-   fields and "not in a closed day" checked there; model policy `amend`.
-3. Route `PATCH /subscribers/{subscriber}/transactions/{transaction}/details`,
-   `AmendSubscriberTransactionRequest`, controller action.
-4. Statement entries gain `canAmend`, `amendments` (history) and
-   `isAmended`; show the «معدّلة ⓘ» badge and its popover.
-5. `AmendTransactionModal.jsx`: money fields read-only with 🔒, editable
-   details, required reason, "balance unchanged" panel.
-6. Row menu: the four items above with icons, colours and hints; rename
-   «حذف» to «إلغاء الحركة» in the cancel form and messages.
-7. Tests: amend changes details but not balance; refused for amount / method;
-   refused in a closed day; history recorded; permission required.
+## 6. Please confirm (my questions and additions)
 
-## 6. Not decided yet
-
-- Whether amend should also apply to charges, discounts and clearings (they
-  have only a note to amend) — proposal: payments only.
-- Whether closed-day amendments may be allowed for a higher permission.
+- **A. How strict is "unique"?** One reference per payment across the whole
+  company (my proposal), or unique per bank/wallet (two banks may reuse
+  numbers)? Per bank is more correct if different banks can issue the same
+  number; the company-wide rule is safer against duplicates.
+- **B. "Template" in point 1:** I read it as the **طبلون** (meter box). Correct?
+- **C. "Finalised":** I take it to mean the closing of the day those lines
+  belong to. Or do you mean when the subscriber's balance reaches zero?
+- **D. Manual voucher:** is it right to keep it as a small line under the
+  voucher number, rather than removing it completely?
+- **E. Addition:** also warn (not block) when the same amount and sender name
+  are saved twice on the same day, since that is often a duplicate with a
+  mistyped reference.
+- **F. Addition:** show the same reference check live while the collector
+  types it, before pressing save.

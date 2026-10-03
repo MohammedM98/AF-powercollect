@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -362,6 +363,44 @@ class SubscriberTransaction extends Model
         }
 
         return $this->isCorrectable() || in_array($this->type, [self::TYPE_METER_READING, self::TYPE_READING_DISCOUNT, self::TYPE_SUBSCRIPTION_FEE], true);
+    }
+
+    /**
+     * Whether a line may be erased for good: not a reversal (it goes with
+     * the line it reverses), and not one a closing has counted.
+     */
+    public function isErasable(): bool
+    {
+        return ! $this->isReversal() && ! ClosingPayment::query()->where('subscriber_transaction_id', $this->id)->exists();
+    }
+
+    /**
+     * Erase the line for good, leaving no trace on the account: its
+     * reversal goes with it, so the balance stays consistent, and a line
+     * that corrected it stays, no longer pointing back. The only record
+     * is a log entry.
+     *
+     * @throws ValidationException when it may not be erased (any more)
+     */
+    public function erase(User $actor, string $reason): void
+    {
+        DB::transaction(function () use ($actor, $reason): void {
+            $line = self::query()->lockForUpdate()->findOrFail($this->id);
+
+            if (! $line->isErasable()) {
+                throw ValidationException::withMessages(['reason' => 'لا يمكن حذف هذه الحركة نهائيًا.']);
+            }
+
+            self::query()->where('corrects_id', $line->id)->update(['corrects_id' => null]);
+            self::query()->where('reverses_id', $line->id)->delete();
+            $line->delete();
+
+            Log::warning('Transaction erased for good', [
+                'transaction' => $line->only(['id', 'subscriber_id', 'type', 'amount', 'source_key', 'voucher_number', 'created_at']),
+                'erased_by' => $actor->id,
+                'reason' => $reason,
+            ]);
+        });
     }
 
     /**

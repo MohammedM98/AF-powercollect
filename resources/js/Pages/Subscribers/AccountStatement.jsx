@@ -151,10 +151,10 @@ function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
  * falls in time (the newest when just made) and naming the line it
  * corrects. The folded line opens above the reversal, and the statement
  * scrolls so the pressed line stays where it is. `onCorrect` and
- * `onDelete` get the line to change, for users allowed to. Used by the
+ * `onDelete` (and `onErase`, to erase it for good) get the line to change, for users allowed to. Used by the
  * statement page and by the statement window on the subscribers list.
  */
-export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes, onCorrect, onDelete }) {
+export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes, onCorrect, onDelete, onErase }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
     const [expandedGroups, setExpandedGroups] = useState(() => new Set());
     // The line (or its button) last pressed to fold or open a group, and where it was on screen.
@@ -164,7 +164,7 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
     const balance = describeBalance(summary.balance);
-    const canChangeLines = entries.some((entry) => entry.canCorrect || entry.canDelete);
+    const canChangeLines = entries.some((entry) => entry.canCorrect || entry.canDelete || entry.canForceDelete);
     const columns = canChangeLines ? [...COLUMNS, ''] : COLUMNS;
 
     function setFilter(key, value) {
@@ -411,11 +411,13 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                         </td>
                                         {canChangeLines && (
                                             <td className="text-end">
-                                                {(entry.canCorrect || entry.canDelete) && (
+                                                {(entry.canCorrect || entry.canDelete || entry.canForceDelete) && (
                                                     <RowActionsMenu
                                                         onEdit={entry.canCorrect ? () => onCorrect(entry) : undefined}
                                                         onDelete={entry.canDelete ? () => onDelete(entry) : undefined}
-                                                    />
+                                                    >
+                                                        {entry.canForceDelete && <button onClick={() => onErase(entry)}>حذف نهائي</button>}
+                                                    </RowActionsMenu>
                                                 )}
                                             </td>
                                         )}

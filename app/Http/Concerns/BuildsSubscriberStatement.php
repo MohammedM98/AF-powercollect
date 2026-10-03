@@ -277,6 +277,9 @@ trait BuildsSubscriberStatement
             ] : null,
             'canCorrect' => $actor->can('update', $transaction),
             'canDelete' => $actor->can('delete', $transaction),
+            'canForceDelete' => $actor->can('forceDelete', $transaction),
+            // What erasing it takes off the balance: nothing for a cancelled line, whose reversal goes with it.
+            'eraseEffect' => $transaction->isCancelled() ? '0.00' : $transaction->amount,
             'deletionReasons' => $transaction->isCancellable() ? CorrectionReason::options(CorrectionReason::forDeletionOf($transaction)) : [],
             // What the correction form starts from: the line as it was recorded.
             'recorded' => $transaction->isCorrectable()

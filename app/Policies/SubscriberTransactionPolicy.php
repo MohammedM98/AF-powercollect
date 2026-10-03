@@ -91,10 +91,14 @@ class SubscriberTransactionPolicy
     }
 
     /**
-     * Determine whether the user can permanently delete the model.
+     * Erasing one line for good, with no trace, takes its own
+     * "Permanently Delete Transactions" permission, in the user's own
+     * branch. Not a reversal, and not a line a closing has counted.
      */
     public function forceDelete(User $user, SubscriberTransaction $subscriberTransaction): bool
     {
-        return false;
+        return $user->hasPermission(PermissionKey::ForceDeleteTransactions)
+            && $subscriberTransaction->isErasable()
+            && $this->inBranchOf($user, $subscriberTransaction);
     }
 }

@@ -92,7 +92,7 @@ enum CorrectionReason: string
         return match (true) {
             $line->isPayment() => [self::WrongSubscriber, self::Duplicate, self::NotReceived, self::PaymentRefunded, self::Other],
             in_array($line->type, [SubscriberTransaction::TYPE_METER_READING, SubscriberTransaction::TYPE_READING_DISCOUNT], true) => [self::WrongReading, self::WrongSubscriber, self::Duplicate, self::Other],
-            $line->type === SubscriberTransaction::TYPE_SUBSCRIPTION_FEE => [self::FeeCancelled, self::WrongAmount, self::WrongSubscriber, self::Duplicate, self::Other],
+            $line->isRegistrationFee() => [self::FeeCancelled, self::WrongAmount, self::WrongSubscriber, self::Duplicate, self::Other],
             default => [self::WrongSubscriber, self::Duplicate, self::Other],
         };
     }

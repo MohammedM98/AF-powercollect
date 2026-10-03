@@ -12,10 +12,31 @@ import PaymentModal from './PaymentModal';
  * (written out whole so Tailwind keeps every class): payment green.
  */
 const ACTIONS = [
-    { form: 'payment', label: 'تسجيل دفعة', icon: 'banknotes', paymentOnly: true, tone: 'bg-emerald-600' },
-    { form: 'charge', label: 'تحميل حركة', icon: 'document-plus', tone: 'bg-amber-600' },
-    { form: 'discount', label: 'إضافة خصم', icon: 'discount', tone: 'bg-violet-600' },
-    { form: 'clearing', label: 'مقاصة', icon: 'repeat', tone: 'bg-teal-600' },
+    {
+        form: 'payment',
+        label: 'تسجيل دفعة',
+        icon: 'banknotes',
+        paymentOnly: true,
+        tone: 'group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
+    },
+    {
+        form: 'charge',
+        label: 'تحميل حركة',
+        icon: 'document-plus',
+        tone: 'group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
+    },
+    {
+        form: 'discount',
+        label: 'إضافة خصم',
+        icon: 'discount',
+        tone: 'group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
+    },
+    {
+        form: 'clearing',
+        label: 'مقاصة',
+        icon: 'repeat',
+        tone: 'group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
+    },
 ];
 
 /**
@@ -26,6 +47,7 @@ const ACTIONS = [
 export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen }) {
     const [open, setOpen] = useState(false);
     const rootRef = useRef(null);
+    const triggerRef = useRef(null);
     const actions = ACTIONS.filter((action) => (action.paymentOnly ? canRecordPayment : canAdjustBalance));
 
     useEffect(() => {
@@ -41,8 +63,11 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
 
         function onKeyDown(event) {
             if (event.key === 'Escape') {
+                event.preventDefault();
                 event.stopPropagation();
+                event.stopImmediatePropagation();
                 setOpen(false);
+                triggerRef.current?.focus();
             }
         }
 
@@ -62,6 +87,7 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
     return (
         <div ref={rootRef} className="relative shrink-0">
             <button
+                ref={triggerRef}
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={open}
@@ -85,7 +111,9 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
                             }}
                             className="group/item flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-start text-sm font-medium text-gray-900 outline-none transition hover:bg-gray-100 focus-visible:bg-gray-100"
                         >
-                            <span className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] text-white ${action.tone}`}>
+                            <span
+                                className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] bg-gray-100 text-gray-700 transition group-hover/item:text-white group-focus-visible/item:text-white ${action.tone}`}
+                            >
                                 <Icon name={action.icon} className="h-[17px] w-[17px]" />
                             </span>
                             <span className="flex-1 truncate">{action.label}</span>

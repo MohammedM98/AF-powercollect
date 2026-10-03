@@ -342,7 +342,7 @@ class SubscriberTransaction extends Model
      */
     public function isCorrectable(): bool
     {
-        if ($this->type === self::TYPE_SUBSCRIPTION_FEE && ! str_starts_with($this->source_key, 'charge:')) {
+        if ($this->isRegistrationFee()) {
             return false;
         }
 
@@ -362,6 +362,15 @@ class SubscriberTransaction extends Model
         }
 
         return $this->isCorrectable() || in_array($this->type, [self::TYPE_METER_READING, self::TYPE_READING_DISCOUNT, self::TYPE_SUBSCRIPTION_FEE], true);
+    }
+
+    /**
+     * Whether this is the registration fee created by the subscriber flow,
+     * rather than a subscription-fee charge entered by hand.
+     */
+    public function isRegistrationFee(): bool
+    {
+        return $this->type === self::TYPE_SUBSCRIPTION_FEE && ! str_starts_with($this->source_key, 'charge:');
     }
 
     /**

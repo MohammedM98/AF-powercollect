@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\ChargeType;
 use App\Enums\DiscountMethod;
+use App\Enums\MeterReadingStatus;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
+use App\Models\MeterReading;
 use App\Models\Permission;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
@@ -204,6 +206,20 @@ class SubscriberTransactionCorrectionTest extends TestCase
         $this->assertSame(240.0, $this->subscriber->balance());
     }
 
+    public function test_a_subscription_fee_recorded_by_hand_uses_the_regular_charge_deletion_reasons(): void
+    {
+        $charge = SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::SubscriptionFee, '50', null);
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $charge]), ['correction_reason' => 'fee_cancelled', 'correction_notes' => 'x'])
+            ->assertSessionHasErrors('correction_reason');
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $charge]), ['correction_reason' => 'duplicate', 'correction_notes' => 'سُجّلت مرتين'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('duplicate', $charge->refresh()->cancellation_reason->value);
+    }
+
     public function test_a_corrected_discount_is_checked_against_the_balance_without_the_one_it_replaces(): void
     {
         $this->subscriber->transactions()->delete();
@@ -304,7 +320,55 @@ class SubscriberTransactionCorrectionTest extends TestCase
         $this->assertSame('payment_refunded', $payment->refresh()->cancellation_reason->value);
     }
 
-    public function test_readings_reversals_and_cancelled_lines_cannot_be_changed(): void
+    public function test_a_weekly_reading_charge_and_standing_discount_can_be_deleted_without_reopening_or_rebilling_the_reading(): void
+    {
+        $reading = MeterReading::factory()->for($this->subscriber)->create([
+            'branch_id' => $this->branch->id,
+            'recorded_by' => $this->branchAdmin->id,
+            'previous_reading' => 1000,
+            'current_reading' => 1010,
+            'consumption' => 10,
+            'unit_price' => '3.00',
+            'reading_fee' => '30.00',
+            'minimum_payment' => '0.00',
+            'discount_method' => DiscountMethod::Shekel,
+            'discount_value' => '0.50',
+            'discount_segment' => 'عائلات محتاجة',
+            'discount_amount' => '5.00',
+            'amount_due' => '25.00',
+        ]);
+        $reading->approve($this->branchAdmin);
+
+        $charge = SubscriberTransaction::where('meter_reading_id', $reading->id)->where('type', 'meter_reading')->sole();
+        $discount = SubscriberTransaction::where('meter_reading_id', $reading->id)->where('type', 'reading_discount')->sole();
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $charge]), ['correction_reason' => 'wrong_reading', 'correction_notes' => 'تم تحميل قراءة غير صحيحة'])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $discount]), ['correction_reason' => 'wrong_subscriber', 'correction_notes' => 'الخصم لمشترك آخر'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(MeterReadingStatus::Approved, $reading->fresh()->status);
+        $this->assertSame($reading->chargeSourceKey(), $charge->refresh()->source_key);
+        $this->assertSame($reading->discountSourceKey(), $discount->refresh()->source_key);
+        $this->assertDatabaseHas('subscriber_transactions', ['reverses_id' => $charge->id, 'amount' => '-30.00']);
+        $this->assertDatabaseHas('subscriber_transactions', ['reverses_id' => $discount->id, 'amount' => '5.00']);
+        $this->assertSame(200.0, $this->subscriber->balance());
+
+        $this->assertTrue($reading->correct(1012, 'تصحيح لاحق', $this->branchAdmin));
+        $reading->approve($this->branchAdmin);
+
+        $this->assertSame(MeterReadingStatus::Approved, $reading->fresh()->status);
+        $this->assertSame(0, SubscriberTransaction::query()
+            ->where('meter_reading_id', $reading->id)
+            ->whereIn('type', ['meter_reading', 'reading_discount'])
+            ->whereNull('cancelled_at')
+            ->count());
+        $this->assertSame(200.0, $this->subscriber->balance());
+    }
+
+    public function test_reversals_and_cancelled_lines_cannot_be_deleted_again(): void
     {
         $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
         $deletion = ['correction_reason' => 'duplicate', 'correction_notes' => 'x'];
@@ -315,6 +379,24 @@ class SubscriberTransactionCorrectionTest extends TestCase
         $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.destroy', [$this->subscriber, $payment]), $deletion)->assertForbidden();
         $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.destroy', [$this->subscriber, $reversal]), $deletion)->assertForbidden();
         $this->assertSame(200.0, $this->subscriber->balance());
+    }
+
+    public function test_deletion_is_limited_to_the_users_branch_but_a_super_admin_can_delete_in_any_branch(): void
+    {
+        $otherBranch = Branch::factory()->create();
+        $otherSubscriber = Subscriber::factory()->create(['branch_id' => $otherBranch->id]);
+        $fee = SubscriberTransaction::factory()->for($otherSubscriber)->create();
+        $deletion = ['correction_reason' => 'fee_cancelled', 'correction_notes' => 'أُلغيت الرسوم'];
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.destroy', [$otherSubscriber, $fee]), $deletion)
+            ->assertForbidden();
+        $this->assertFalse($fee->refresh()->isCancelled());
+
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->delete(route('subscribers.transactions.destroy', [$otherSubscriber, $fee]), $deletion)
+            ->assertSessionHasNoErrors();
+        $this->assertTrue($fee->refresh()->isCancelled());
     }
 
     public function test_a_line_of_another_subscriber_is_not_found(): void

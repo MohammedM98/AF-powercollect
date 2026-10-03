@@ -36,7 +36,7 @@ function StatementSkeleton() {
  * window over the list, closed with its "إخفاء" button, Esc, or a click
  * outside it. `subscriber` (from the list's row) fills the header at once;
  * `statement` (the statement's props) fills the rest when it arrives.
- * `initialForm` ('payment', 'charge' or 'discount') opens that form as
+ * `initialForm` ('payment', 'charge', 'discount' or 'clearing') opens that form as
  * soon as the statement is there. `onSwitch(header)` opens another of the
  * same person's subscriptions in its place.
  */

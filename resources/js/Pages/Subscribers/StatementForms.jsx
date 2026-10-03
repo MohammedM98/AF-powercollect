@@ -17,25 +17,25 @@ const ACTIONS = [
         label: 'تسجيل دفعة',
         icon: 'banknotes',
         paymentOnly: true,
-        tone: 'group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
+        tone: 'text-emerald-600 group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
     },
     {
         form: 'charge',
         label: 'تحميل حركة',
         icon: 'document-plus',
-        tone: 'group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
+        tone: 'text-amber-600 group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
     },
     {
         form: 'discount',
         label: 'إضافة خصم',
         icon: 'discount',
-        tone: 'group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
+        tone: 'text-violet-600 group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
     },
     {
         form: 'clearing',
         label: 'مقاصة',
         icon: 'repeat',
-        tone: 'group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
+        tone: 'text-teal-600 group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
     },
 ];
 
@@ -112,7 +112,7 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
                             className="group/item flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-start text-sm font-medium text-gray-900 outline-none transition hover:bg-gray-100 focus-visible:bg-gray-100"
                         >
                             <span
-                                className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] bg-gray-100 text-gray-700 transition group-hover/item:text-white group-focus-visible/item:text-white ${action.tone}`}
+                                className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] bg-gray-100 transition group-hover/item:text-white group-focus-visible/item:text-white ${action.tone}`}
                             >
                                 <Icon name={action.icon} className="h-[17px] w-[17px]" />
                             </span>

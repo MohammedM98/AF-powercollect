@@ -5,8 +5,8 @@ import { BalanceAfter } from './AccountSummary';
 import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './CorrectionFields';
 
 /**
- * Delete a payment, charge or discount (a statement line) and say why.
- * Nothing is erased: the line stays in the statement marked deleted, with
+ * Cancel a payment, charge or discount (a statement line) and say why.
+ * Nothing is erased: the line stays in the statement marked cancelled, with
  * the reason, and a reversal under it takes its amount back off the
  * balance.
  */
@@ -22,22 +22,22 @@ export default function DeleteTransactionModal({ onClose, subscriber, balance, e
             show
             onClose={onClose}
             form={deleteForm}
-            title="حذف حركة"
-            icon="trash"
+            title="إلغاء الحركة"
+            icon="close"
             maxWidth="xl"
             bodyClassName="space-y-5"
-            action={{ submitLabel: 'حذف الحركة', title: 'حذف الحركة؟', confirmLabel: 'نعم، احذف الحركة', icon: 'trash', tone: 'danger' }}
+            action={{ submitLabel: 'إلغاء الحركة', title: 'إلغاء الحركة؟', confirmLabel: 'نعم، ألغِ الحركة', icon: 'close', tone: 'danger' }}
             saveConfirmMessage={`ستُلغى «${entry.description}» ويُضاف تحتها قيد عكسي، ويصبح الرصيد ${balanceText}. هل تريد المتابعة؟`}
         >
-            <OriginalLine entry={entry} tone="delete" />
+            <OriginalLine entry={entry} tone="cancel" />
 
             <p className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                لا تُمسح الحركة من السجل: تبقى في كشف الحساب مشطوبة مع سبب الحذف، ويُضاف تحتها قيد عكسي يلغي أثرها على الرصيد.
+                لا تُمسح الحركة من السجل: تبقى في كشف الحساب مشطوبة مع سبب الإلغاء، ويُضاف تحتها قيد عكسي يلغي أثرها على الرصيد.
             </p>
 
-            <CorrectionReasonFields form={form} reasons={reasons} action="الحذف" />
+            <CorrectionReasonFields form={form} reasons={reasons} action="الإلغاء" />
 
-            <BalanceAfter label="الرصيد بعد الحذف" balanceAfter={balanceAfter} />
+            <BalanceAfter label="الرصيد بعد الإلغاء" balanceAfter={balanceAfter} />
         </FormModal>
     );
 }

@@ -25,6 +25,18 @@ class PermissionsTest extends TestCase
         }
     }
 
+    public function test_permanent_transaction_deletion_permission_is_installed_without_a_default_grant(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+
+        $this->assertDatabaseHas('permissions', [
+            'key' => PermissionKey::ForceDeleteTransactions->value,
+            'label' => PermissionKey::ForceDeleteTransactions->label(),
+        ]);
+        $this->assertFalse($branchAdmin->hasPermission(PermissionKey::ForceDeleteTransactions));
+        $this->assertTrue(User::factory()->superAdmin()->create()->hasPermission(PermissionKey::ForceDeleteTransactions));
+    }
+
     public function test_super_admin_can_view_the_permissions_settings_page(): void
     {
         $this->seedPermissions();
@@ -151,7 +163,7 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect(collect($groups)->firstWhere('key', 'collections')['actions'])->pluck('action')->all() === [
-                'view', 'record', 'confirm', 'adjust', 'correct', 'delete',
+                'view', 'record', 'confirm', 'adjust', 'correct', 'delete', 'force_delete',
             ],
         ));
     }

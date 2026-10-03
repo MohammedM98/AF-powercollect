@@ -83,12 +83,15 @@ Route::middleware('auth')->group(function () {
     Route::patch('/subscribers/{subscriber}/personal-details', [SubscriberPersonalDetailsController::class, 'update'])->name('subscribers.personal-details.update');
     Route::resource('subscribers', SubscriberController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('/subscribers/{subscriber}/statement', [SubscriberStatementController::class, 'show'])->name('subscribers.statement');
+    Route::get('/subscribers/{subscriber}/payments/reference-status', [SubscriberPaymentController::class, 'referenceStatus'])->name('subscribers.payments.reference-status');
     Route::post('/subscribers/{subscriber}/payments', [SubscriberPaymentController::class, 'store'])->name('subscribers.payments.store');
     Route::post('/subscribers/{subscriber}/charges', [SubscriberChargeController::class, 'store'])->name('subscribers.charges.store');
     Route::post('/subscribers/{subscriber}/discounts', [SubscriberDiscountController::class, 'store'])->name('subscribers.discounts.store');
     Route::post('/subscribers/{subscriber}/clearings', [SubscriberClearingController::class, 'store'])->name('subscribers.clearings.store');
+    Route::patch('/subscribers/{subscriber}/transactions/{transaction}/details', [SubscriberTransactionController::class, 'amend'])->scopeBindings()->name('subscribers.transactions.amend');
     Route::put('/subscribers/{subscriber}/transactions/{transaction}', [SubscriberTransactionController::class, 'update'])->scopeBindings()->name('subscribers.transactions.update');
     Route::delete('/subscribers/{subscriber}/transactions/{transaction}', [SubscriberTransactionController::class, 'destroy'])->scopeBindings()->name('subscribers.transactions.destroy');
+    Route::delete('/subscribers/{subscriber}/transactions/{transaction}/permanent', [SubscriberTransactionController::class, 'forceDestroy'])->scopeBindings()->name('subscribers.transactions.force-destroy');
     Route::put('/subscribers/{subscriber}/standing-discount', [SubscriberStandingDiscountController::class, 'update'])->name('subscribers.standing-discount.update');
     Route::delete('/subscribers/{subscriber}/standing-discount', [SubscriberStandingDiscountController::class, 'destroy'])->name('subscribers.standing-discount.destroy');
     Route::resource('tariffs', TariffController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);

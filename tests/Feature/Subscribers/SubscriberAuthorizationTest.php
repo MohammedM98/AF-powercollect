@@ -3,9 +3,11 @@
 namespace Tests\Feature\Subscribers;
 
 use App\Enums\SubscriberStatus;
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Governorate;
 use App\Models\MeterBox;
+use App\Models\SubArea;
 use App\Models\Subscriber;
 use App\Models\Tariff;
 use App\Models\User;
@@ -77,6 +79,30 @@ class SubscriberAuthorizationTest extends TestCase
             'branch_id' => $branch->id,
             'registered_by' => $dataEntry->id,
         ]);
+    }
+
+    public function test_create_form_exposes_the_own_branch_area_subarea_and_meter_boxes_only(): void
+    {
+        $area = Area::factory()->create();
+        $branch = Branch::factory()->inArea($area)->create();
+        $otherBranch = Branch::factory()->inArea($area)->create();
+        $subArea = SubArea::factory()->create(['area_id' => $area->id]);
+        $ownBox = MeterBox::factory()->create(['branch_id' => $branch->id, 'sub_area_id' => $subArea->id]);
+        $otherBox = MeterBox::factory()->create(['branch_id' => $otherBranch->id, 'sub_area_id' => $subArea->id]);
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $branch->id]);
+
+        $this->actingAs($dataEntry)
+            ->get(route('subscribers.create'))
+            ->assertInertia(fn ($page) => $page
+                ->where('currentBranchAreaId', $area->id)
+                ->where('currentBranchAreaName', $area->name)
+                ->has('subAreas', 1)
+                ->where('subAreas.0.id', $subArea->id)
+                ->has('meterBoxes', 1)
+                ->where('meterBoxes.0.id', $ownBox->id)
+                ->where('meterBoxes.0.sub_area_id', $subArea->id)
+                ->missing('meterBoxes.1')
+                ->where('meterBoxes.0.id', fn ($id): bool => $id !== $otherBox->id));
     }
 
     public function test_data_entry_can_register_a_subscriber_without_a_meter_box_yet(): void

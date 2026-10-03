@@ -8,7 +8,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Deleting a payment, charge or discount, and why.
+ * Deleting a line of a subscriber's account — a payment, charge, discount, clearing, weekly reading or fee — and why.
  */
 class DeleteSubscriberTransactionRequest extends FormRequest
 {
@@ -26,7 +26,7 @@ class DeleteSubscriberTransactionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'correction_reason' => ['required', Rule::enum(CorrectionReason::class)->only(CorrectionReason::forDeletion())],
+            'correction_reason' => ['required', Rule::enum(CorrectionReason::class)->only(CorrectionReason::forDeletionOf($this->route('transaction')))],
             'correction_notes' => ['required', 'string', 'max:1000'],
         ];
     }
@@ -36,6 +36,6 @@ class DeleteSubscriberTransactionRequest extends FormRequest
      */
     public function attributes(): array
     {
-        return ['correction_reason' => 'سبب الحذف', 'correction_notes' => 'شرح الحذف'];
+        return ['correction_reason' => 'سبب الإلغاء', 'correction_notes' => 'شرح الإلغاء'];
     }
 }

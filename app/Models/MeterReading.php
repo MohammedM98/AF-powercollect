@@ -210,13 +210,19 @@ class MeterReading extends Model
 
             if (! $reading->isPending()) {
                 $charge = $reading->currentLine(SubscriberTransaction::TYPE_METER_READING);
+                $discountLine = $reading->currentLine(SubscriberTransaction::TYPE_READING_DISCOUNT);
+                $chargeNeedsRebilling = $charge && $charge->amount !== $reading->amountBeforeDiscount();
 
-                if ($charge && $charge->amount !== $reading->amountBeforeDiscount()) {
+                if ($chargeNeedsRebilling) {
                     $charge->cancelForReading($recorder, CorrectionReason::StandingDiscountChanged);
+                }
+
+                $discountLine?->cancelForReading($recorder, CorrectionReason::StandingDiscountChanged);
+
+                if ($chargeNeedsRebilling) {
                     $reading->recordChargeLine($recorder);
                 }
 
-                $reading->currentLine(SubscriberTransaction::TYPE_READING_DISCOUNT)?->cancelForReading($recorder, CorrectionReason::StandingDiscountChanged);
                 $reading->recordDiscountLine($recorder);
             }
 
@@ -230,6 +236,10 @@ class MeterReading extends Model
      */
     private function recordChargeLine(User $recorder): void
     {
+        if ($this->sourceWasBilled($this->chargeSourceKey())) {
+            return;
+        }
+
         $this->subscriber->transactions()->create([
             'recorded_by' => $recorder->id,
             'meter_reading_id' => $this->id,
@@ -249,7 +259,7 @@ class MeterReading extends Model
      */
     private function recordDiscountLine(User $recorder): void
     {
-        if ((float) $this->discount_amount <= 0) {
+        if ((float) $this->discount_amount <= 0 || $this->sourceWasBilled($this->discountSourceKey())) {
             return;
         }
 
@@ -265,6 +275,16 @@ class MeterReading extends Model
             'discount_value' => $this->discount_value,
             'notes' => $this->discount_segment,
         ]);
+    }
+
+    /**
+     * A line deleted by hand keeps its source key so this reading can never
+     * bill that component again. Automatic reading corrections free the key
+     * before recording their replacement.
+     */
+    private function sourceWasBilled(string $sourceKey): bool
+    {
+        return SubscriberTransaction::query()->where('source_key', $sourceKey)->exists();
     }
 
     /**

@@ -133,8 +133,8 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
             <Modal show={show} onClose={requestClose} maxWidth="5xl">
                 {receipt ? (
                     <DoneScreen
-                        tone="red"
-                        title={correcting ? 'عُدّل التحميل' : 'أُضيف التحميل'}
+                        tone={correcting ? 'amber' : 'red'}
+                        title={correcting ? 'صُحّح التحميل' : 'أُضيف التحميل'}
                         text={`${formatMoney(receipt.amount)} ₪ ${receipt.typeLabel} على حساب ${subscriber.fullName}.`}
                         rows={[
                             ['النوع', receipt.typeLabel],
@@ -159,10 +159,10 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
                     >
                         <FormHeader
                             titleId={titleId}
-                            icon={correcting ? 'pencil' : 'arrow-down-tray'}
-                            tone="red"
-                            title={correcting ? 'تعديل تحميل' : 'تحميل حركة'}
-                            subtitle={correcting ? 'صحّح التحميل؛ يبقى الأصلي في الكشف ملغى مع سبب التعديل.' : 'مبلغ يُضاف على حساب المشترك.'}
+                            icon={correcting ? 'repeat' : 'arrow-down-tray'}
+                            tone={correcting ? 'amber' : 'red'}
+                            title={correcting ? 'تصحيح تحميل' : 'تحميل حركة'}
+                            subtitle={correcting ? 'صحّح التحميل؛ يبقى الأصلي في الكشف ملغى مع سبب التصحيح.' : 'مبلغ يُضاف على حساب المشترك.'}
                             onClose={requestClose}
                         />
 
@@ -274,10 +274,10 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
 
                         <FormFooter
                             onCancel={requestClose}
-                            tone="red"
+                            tone={correcting ? 'amber' : 'red'}
                             disabled={amount <= 0 || missingReason}
                             processing={form.processing}
-                            submitLabel={correcting ? 'حفظ التعديل' : amount > 0 ? `تحميل ${formatMoney(amount)} ₪ على الحساب` : 'إضافة التحميل'}
+                            submitLabel={correcting ? 'حفظ التصحيح' : amount > 0 ? `تحميل ${formatMoney(amount)} ₪ على الحساب` : 'إضافة التحميل'}
                             shortcuts="1 · 2 · 3 للنوع"
                         />
                     </form>

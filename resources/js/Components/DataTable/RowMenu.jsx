@@ -35,6 +35,10 @@ const TONES = {
         rest: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
         active: 'group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
     },
+    red: {
+        rest: 'bg-red-500/10 text-red-700 dark:text-red-400',
+        active: 'group-hover/item:bg-red-700 group-focus-visible/item:bg-red-700',
+    },
     violet: {
         rest: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
         active: 'group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
@@ -60,12 +64,12 @@ function isPhone() {
  * is no room below, with its left edge on the button's (the row's end in
  * right-to-left), kept on screen.
  */
-function placeBeside(anchor, menu) {
+function placeBeside(anchor, menuElement, width) {
     const rect = anchor.getBoundingClientRect();
-    const height = menu.offsetHeight;
+    const height = menuElement.offsetHeight;
     const below = window.innerHeight - rect.bottom - GAP;
     const top = below >= height || below >= rect.top ? rect.bottom + GAP : Math.max(GAP, rect.top - GAP - height);
-    const left = Math.min(Math.max(GAP, rect.left), window.innerWidth - MENU_WIDTH - GAP);
+    const left = Math.min(Math.max(GAP, rect.left), window.innerWidth - width - GAP);
 
     return { top, left, maxHeight: below >= height || below >= rect.top ? below : rect.top - GAP * 2 };
 }
@@ -73,7 +77,7 @@ function placeBeside(anchor, menu) {
 /**
  * A row's "more" menu: a header naming the record, then its actions in
  * titled groups, each with its own icon. `menu` is
- * { title, subtitle, groups: [{ label, items: [{ label, icon, onSelect, tone?, shortcut?, hint?, disabled?, lockedReason? }] }] }.
+ * { title, subtitle, width?, groups: [{ label, items: [{ label, description?, icon, onSelect, tone?, shortcut?, hint?, disabled?, lockedReason? }] }] }.
  * `tone` (see TONES) tints the icon tile at rest, filling it solid on hover/focus; graphite by default.
  * An item with `lockedReason` is shown faded with a lock ("بدون صلاحية")
  * and the reason as its tooltip; `disabled` with `hint` explains why it
@@ -85,15 +89,16 @@ export default function RowMenu({ anchor, menu, onClose }) {
     const [phone] = useState(isPhone);
     const [position, setPosition] = useState(null);
     const items = menu.groups.flatMap((group) => group.items);
+    const width = menu.width ?? MENU_WIDTH;
 
     // Hidden until placed, and a hidden item can't take focus: focus the first one once it shows.
     const placed = phone || position !== null;
 
     useLayoutEffect(() => {
         if (!phone) {
-            setPosition(placeBeside(anchor, menuRef.current));
+            setPosition(placeBeside(anchor, menuRef.current, width));
         }
-    }, [anchor, phone]);
+    }, [anchor, phone, width]);
 
     useEffect(() => {
         if (placed) {
@@ -177,13 +182,14 @@ export default function RowMenu({ anchor, menu, onClose }) {
                           top: position?.top ?? 0,
                           left: position?.left ?? 0,
                           maxHeight: position?.maxHeight,
+                          width,
                           visibility: position ? 'visible' : 'hidden',
                       }
             }
             className={
                 phone
                     ? 'animate-sheet fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-[24px] border-t border-gray-200 bg-surface p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-lift'
-                    : 'animate-menu fixed z-50 w-[290px] overflow-y-auto rounded-[20px] border border-gray-200 bg-surface p-2 shadow-lift'
+                    : 'animate-menu fixed z-50 overflow-y-auto rounded-[20px] border border-gray-200 bg-surface p-2 shadow-lift'
             }
         >
             {phone && <div className="mx-auto mb-1 mt-1 h-1 w-10 rounded-full bg-gray-200" aria-hidden="true" />}
@@ -234,7 +240,10 @@ export default function RowMenu({ anchor, menu, onClose }) {
                                 >
                                     <Icon name={item.icon} className="h-[17px] w-[17px]" />
                                 </span>
-                                <span className="flex-1 truncate">{item.label}</span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate">{item.label}</span>
+                                    {item.description && <span className="block text-[12px] font-normal leading-tight text-gray-500">{item.description}</span>}
+                                </span>
                                 {item.lockedReason ? (
                                     <span className="inline-flex shrink-0 items-center gap-1 text-[12px] text-gray-500">
                                         <Icon name="lock" className="h-3.5 w-3.5" />

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ChargeType;
+use App\Enums\ClosingStatus;
 use App\Enums\CorrectionReason;
 use App\Enums\Currency;
 use App\Enums\DiscountMethod;
@@ -15,8 +16,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -26,11 +30,11 @@ use Illuminate\Validation\ValidationException;
  * and clearings negative, so the balance is the sum of `amount`. A charge
  * recorded by hand stores its ChargeType as its `type`.
  *
- * A line is never edited or removed. Deleting it cancels it — marked with
- * who, when and why — and adds a reversal line under it that takes its
- * amount back off the balance; correcting it does the same, then records
- * the right line in its place (`corrects_id`). The cancelled line and its
- * reversal cancel each other out, so the totals leave both out.
+ * A line is normally never edited or removed. Deleting it cancels it —
+ * marked with who, when and why — and adds a later reversal line that
+ * takes its amount back off the balance; correcting it does the same, then
+ * records the right line in its place (`corrects_id`). A separate sensitive
+ * permission may permanently erase only the final line of the statement.
  */
 #[Fillable([
     'subscriber_id',
@@ -50,6 +54,7 @@ use Illuminate\Validation\ValidationException;
     'sender_bank_name',
     'sender_name',
     'reference_number',
+    'active_reference',
     'voucher_number',
     'manual_voucher_number',
     'cash_box',
@@ -103,6 +108,9 @@ class SubscriberTransaction extends Model
      */
     public const CREDIT_TYPES = [self::TYPE_PAYMENT, self::TYPE_DISCOUNT, self::TYPE_READING_DISCOUNT, self::TYPE_CLEARING];
 
+    /** Payment details that may change without touching its financial meaning. */
+    public const AMENDABLE_FIELDS = ['bank_name', 'sender_bank_name', 'sender_name', 'reference_number', 'notes'];
+
     protected function casts(): array
     {
         return [
@@ -133,30 +141,56 @@ class SubscriberTransaction extends Model
         $method = PaymentMethod::from($payment['payment_method']);
         $exchangeRate = $currency === Currency::Shekel ? 1.0 : (float) $payment['exchange_rate'];
         $inShekels = round((float) $payment['amount'] * $exchangeRate, 2);
+        $referenceNumber = $method === PaymentMethod::Cash ? null : trim((string) ($payment['reference_number'] ?? ''));
+        $activeReference = self::normalizeReference($referenceNumber);
 
-        return DB::transaction(function () use ($subscriber, $collector, $payment, $currency, $method, $exchangeRate, $inShekels): self {
-            $voucherNumber = (int) self::query()->lockForUpdate()->max('voucher_number') + 1;
+        try {
+            return DB::transaction(function () use ($subscriber, $collector, $payment, $currency, $method, $exchangeRate, $inShekels, $referenceNumber, $activeReference): self {
+                self::ensureReferenceIsAvailable($activeReference);
+                $voucherNumber = self::claimNextVoucherNumber();
 
-            return $subscriber->transactions()->create([
-                'recorded_by' => $collector->id,
-                'type' => self::TYPE_PAYMENT,
-                'source_key' => 'payment:'.$voucherNumber,
-                'mobile_operation_id' => $payment['mobile_operation_id'] ?? null,
-                'amount' => number_format(-$inShekels, 2, '.', ''),
-                'currency' => $currency,
-                'currency_amount' => $payment['amount'],
-                'exchange_rate' => $exchangeRate,
-                'payment_method' => $method,
-                'bank_name' => $method->throughBank() ? $payment['bank_name'] : null,
-                'sender_bank_name' => $method->throughBank() ? ($payment['sender_bank_name'] ?? null) : null,
-                'sender_name' => $method->throughBank() ? ($payment['sender_name'] ?? null) : null,
-                'reference_number' => $method === PaymentMethod::Cash ? null : ($payment['reference_number'] ?? null),
-                'voucher_number' => $voucherNumber,
-                'manual_voucher_number' => $method === PaymentMethod::Cash ? ($payment['manual_voucher_number'] ?? null) : null,
-                'cash_box' => $method === PaymentMethod::Cash ? ($payment['cash_box'] ?? null) : null,
-                'notes' => $payment['notes'] ?? null,
-            ]);
-        });
+                return $subscriber->transactions()->create([
+                    'recorded_by' => $collector->id,
+                    'type' => self::TYPE_PAYMENT,
+                    'source_key' => 'payment:'.$voucherNumber,
+                    'mobile_operation_id' => $payment['mobile_operation_id'] ?? null,
+                    'amount' => number_format(-$inShekels, 2, '.', ''),
+                    'currency' => $currency,
+                    'currency_amount' => $payment['amount'],
+                    'exchange_rate' => $exchangeRate,
+                    'payment_method' => $method,
+                    'bank_name' => $method->throughBank() ? $payment['bank_name'] : null,
+                    'sender_bank_name' => $method->throughBank() ? ($payment['sender_bank_name'] ?? null) : null,
+                    'sender_name' => $method->throughBank() ? ($payment['sender_name'] ?? null) : null,
+                    'reference_number' => $referenceNumber ?: null,
+                    'active_reference' => $activeReference,
+                    'voucher_number' => $voucherNumber,
+                    'manual_voucher_number' => $method === PaymentMethod::Cash ? ($payment['manual_voucher_number'] ?? null) : null,
+                    'cash_box' => $method === PaymentMethod::Cash ? ($payment['cash_box'] ?? null) : null,
+                    'notes' => $payment['notes'] ?? null,
+                ]);
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            if (isset($payment['mobile_operation_id']) && self::query()->where('mobile_operation_id', $payment['mobile_operation_id'])->exists()) {
+                throw $exception;
+            }
+
+            self::throwReferenceConflictAfterUniqueViolation($activeReference, $exception);
+        }
+    }
+
+    /**
+     * Reserve the next global voucher number. The counter survives permanent
+     * payment deletion, leaving the deliberate gap in the voucher sequence.
+     */
+    private static function claimNextVoucherNumber(): int
+    {
+        $counter = DB::table('payment_voucher_sequences')->where('id', 1);
+        $voucherNumber = (int) $counter->lockForUpdate()->value('last_number') + 1;
+
+        $counter->update(['last_number' => $voucherNumber]);
+
+        return $voucherNumber;
     }
 
     /**
@@ -214,14 +248,14 @@ class SubscriberTransaction extends Model
 
     /**
      * Delete the line: mark it cancelled — by whom, when and why — and add
-     * the reversal under it that takes its amount back off the balance.
+     * a reversal that takes its amount back off the balance.
      * Returns the reversal.
      *
      * @throws ValidationException when the line was cancelled meanwhile
      */
     public function cancel(User $actor, CorrectionReason $reason, ?string $notes): self
     {
-        return $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCorrectable());
+        return $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCancellable());
     }
 
     /**
@@ -256,6 +290,7 @@ class SubscriberTransaction extends Model
                 'cancelled_by' => $actor->id,
                 'cancellation_reason' => $reason,
                 'cancellation_notes' => $notes,
+                'active_reference' => null,
                 ...($freeSourceKey ? ['source_key' => $line->source_key.':cancelled:'.$line->id] : []),
             ]);
             $this->setRawAttributes($line->getAttributes(), true);
@@ -294,6 +329,128 @@ class SubscriberTransaction extends Model
     }
 
     /**
+     * Change only descriptive payment details and record every old/new value.
+     * Amount, currency, method, date, type and subscriber never pass this boundary.
+     *
+     * @param  array<string, mixed>  $fields
+     */
+    public function amend(User $actor, array $fields, string $reason): TransactionAmendment
+    {
+        $unexpectedFields = array_diff(array_keys($fields), self::AMENDABLE_FIELDS);
+
+        if ($unexpectedFields !== []) {
+            throw ValidationException::withMessages(['details' => 'لا يمكن تعديل الحقول المالية أو هوية الحركة.']);
+        }
+
+        $activeReference = array_key_exists('reference_number', $fields)
+            ? self::normalizeReference($fields['reference_number'])
+            : $this->active_reference;
+
+        try {
+            return DB::transaction(function () use ($actor, $fields, $reason, $activeReference): TransactionAmendment {
+                $line = self::query()->lockForUpdate()->findOrFail($this->id);
+
+                if (! $line->isAmendable(lockForUpdate: true)) {
+                    throw ValidationException::withMessages(['details' => 'لا يمكن تعديل بيانات هذه الحركة.']);
+                }
+
+                self::ensureReferenceIsAvailable($activeReference, $line->id);
+
+                $changes = [];
+                $updates = [];
+
+                foreach ($fields as $field => $value) {
+                    $oldValue = $line->getAttribute($field);
+                    $newValue = filled($value) ? trim((string) $value) : null;
+
+                    if ((string) ($oldValue ?? '') === (string) ($newValue ?? '')) {
+                        continue;
+                    }
+
+                    $changes[$field] = [$oldValue, $newValue];
+                    $updates[$field] = $newValue;
+                }
+
+                if ($changes === []) {
+                    throw ValidationException::withMessages(['details' => 'غيّر بيانًا واحدًا على الأقل قبل الحفظ.']);
+                }
+
+                if (array_key_exists('reference_number', $updates)) {
+                    $updates['active_reference'] = $activeReference;
+                }
+
+                $line->update($updates);
+                $amendment = $line->amendments()->create([
+                    'user_id' => $actor->id,
+                    'changes' => $changes,
+                    'reason' => $reason,
+                ]);
+                $this->setRawAttributes($line->getAttributes(), true);
+
+                return $amendment;
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            self::throwReferenceConflictAfterUniqueViolation($activeReference, $exception, $this->id);
+        }
+    }
+
+    public static function normalizeReference(mixed $reference): ?string
+    {
+        $normalized = Str::upper((string) preg_replace('/\s+/u', '', trim((string) $reference)));
+
+        return $normalized !== '' ? $normalized : null;
+    }
+
+    public static function activeReferenceConflict(mixed $reference, ?int $ignoreTransactionId = null): ?self
+    {
+        $normalized = self::normalizeReference($reference);
+
+        if ($normalized === null) {
+            return null;
+        }
+
+        return self::query()
+            ->where('active_reference', $normalized)
+            ->when($ignoreTransactionId, fn (Builder $query): Builder => $query->whereKeyNot($ignoreTransactionId))
+            ->with('subscriber')
+            ->first();
+    }
+
+    private static function ensureReferenceIsAvailable(?string $activeReference, ?int $ignoreTransactionId = null): void
+    {
+        $conflict = self::activeReferenceConflict($activeReference, $ignoreTransactionId);
+
+        if ($conflict) {
+            throw self::referenceConflictException($conflict);
+        }
+    }
+
+    private static function throwReferenceConflictAfterUniqueViolation(
+        ?string $activeReference,
+        UniqueConstraintViolationException $exception,
+        ?int $ignoreTransactionId = null,
+    ): never {
+        $conflict = self::activeReferenceConflict($activeReference, $ignoreTransactionId);
+
+        if ($conflict) {
+            throw self::referenceConflictException($conflict);
+        }
+
+        throw $exception;
+    }
+
+    private static function referenceConflictException(self $conflict): ValidationException
+    {
+        return ValidationException::withMessages([
+            'reference_number' => sprintf(
+                'هذا الرقم المرجعي مسجَّل مسبقًا على دفعة أخرى — السند %s للمشترك %s.',
+                $conflict->displayVoucherNumber() ?? '—',
+                $conflict->subscriber->displayName(),
+            ),
+        ]);
+    }
+
+    /**
      * What a discount takes off, in shekels: a percentage of the balance
      * owed, kilowatts at the kilo price, or the shekels given.
      */
@@ -324,6 +481,12 @@ class SubscriberTransaction extends Model
         return $this->voucher_number ? str_pad((string) $this->voucher_number, 6, '0', STR_PAD_LEFT) : null;
     }
 
+    /** The one voucher shown to users: paper/manual first, otherwise system-generated. */
+    public function displayVoucherNumber(): ?string
+    {
+        return $this->manual_voucher_number ?: $this->printedVoucherNumber();
+    }
+
     public function isCancelled(): bool
     {
         return $this->cancelled_at !== null;
@@ -342,11 +505,154 @@ class SubscriberTransaction extends Model
      */
     public function isCorrectable(): bool
     {
-        if ($this->type === self::TYPE_SUBSCRIPTION_FEE && ! str_starts_with($this->source_key, 'charge:')) {
+        if ($this->isRegistrationFee()) {
             return false;
         }
 
         return ! $this->isCancelled() && in_array($this->type, self::correctableTypes(), true);
+    }
+
+    /**
+     * Whether a line may be deleted (cancelled with a reversal): anything
+     * that may be corrected, and also a weekly reading, its standing
+     * discount or the registration fee, billed wrongly. Its source key is
+     * kept, so the flow that billed it does not bill it again.
+     */
+    public function isCancellable(): bool
+    {
+        if ($this->isCancelled()) {
+            return false;
+        }
+
+        return $this->isCorrectable() || in_array($this->type, [self::TYPE_METER_READING, self::TYPE_READING_DISCOUNT, self::TYPE_SUBSCRIPTION_FEE], true);
+    }
+
+    /** A standing payment whose descriptive details may still be amended. */
+    public function isAmendable(bool $lockForUpdate = false): bool
+    {
+        return $this->isPayment()
+            && ! $this->isCancelled()
+            && ! $this->isInClosedDay($lockForUpdate);
+    }
+
+    /** Why a permitted user cannot amend this line right now. */
+    public function amendmentUnavailableReason(): ?string
+    {
+        return match (true) {
+            ! $this->isPayment() => 'متاح للدفعات فقط',
+            $this->isCancelled() => 'الحركة ملغاة',
+            $this->isInClosedDay() => 'بعد إغلاق اليوم',
+            default => null,
+        };
+    }
+
+    /** Whether this payment belongs to a submitted or approved daily closing. */
+    public function isInClosedDay(bool $lockForUpdate = false): bool
+    {
+        if (! $lockForUpdate && $this->relationLoaded('closingLine')) {
+            return $this->closingLine !== null
+                && $this->closingLine->closing !== null
+                && ! $this->closingLine->closing->status->isEditable();
+        }
+
+        return ClosingPayment::query()
+            ->where('subscriber_transaction_id', $this->id)
+            ->whereHas('closing', fn (Builder $query): Builder => $query->whereIn('status', [
+                ClosingStatus::Submitted->value,
+                ClosingStatus::Approved->value,
+            ]))
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+            ->exists();
+    }
+
+    /**
+     * Whether the line is the last one on the subscriber's statement, the
+     * one at the bottom of the table (the statement lists oldest first).
+     */
+    public function isLastOnStatement(bool $lockForUpdate = false): bool
+    {
+        $lastGroupId = self::query()
+            ->where('subscriber_id', $this->subscriber_id)
+            ->whereNull('reverses_id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+            ->value('id');
+
+        if ($lastGroupId === null) {
+            return false;
+        }
+
+        return self::query()
+            ->where('subscriber_id', $this->subscriber_id)
+            ->where(fn (Builder $query): Builder => $query
+                ->whereKey($lastGroupId)
+                ->orWhere('reverses_id', $lastGroupId))
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+            ->value('id') === $this->id;
+    }
+
+    /**
+     * Whether a line may be erased for good: only the last line of the
+     * statement, and not one a closing has counted. When that is a
+     * reversal, the cancelled line it reverses goes with it.
+     */
+    public function isErasable(bool $lockForUpdate = false): bool
+    {
+        $erased = $this->isReversal() ? $this->reverses : $this;
+
+        return $this->isLastOnStatement($lockForUpdate)
+            && ! ClosingPayment::query()
+                ->where('subscriber_transaction_id', $erased?->id)
+                ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+                ->exists();
+    }
+
+    /**
+     * Erase the last line of the statement for good, leaving no trace on
+     * the account. If it is a reversal, the line it reverses goes with it,
+     * and if it was cancelled, so does its reversal, so the balance stays
+     * consistent. The only record is a log entry.
+     *
+     * @throws ValidationException when it may not be erased (any more)
+     */
+    public function erase(User $actor, string $reason): void
+    {
+        DB::transaction(function () use ($actor, $reason): void {
+            $line = self::query()->lockForUpdate()->findOrFail($this->id);
+
+            if (! $line->isErasable(lockForUpdate: true)) {
+                throw ValidationException::withMessages(['reason' => 'لا يمكن حذف هذه الحركة نهائيًا.']);
+            }
+
+            $target = $line->isReversal() ? $line->reverses : $line;
+            $reversals = self::query()->where('reverses_id', $target->id)->get();
+            $erasedTransactions = collect([$target])
+                ->concat($reversals)
+                ->map(fn (self $transaction): array => $transaction->getAttributes())
+                ->all();
+
+            self::query()->where('corrects_id', $target->id)->update(['corrects_id' => null]);
+            $reversals->each->delete();
+            $target->delete();
+
+            Log::warning('Transaction erased for good', [
+                'transactions' => $erasedTransactions,
+                'erased_by' => $actor->only(['id', 'name', 'username']),
+                'reason' => $reason,
+            ]);
+        });
+    }
+
+    /**
+     * Whether this is the registration fee created by the subscriber flow,
+     * rather than a subscription-fee charge entered by hand.
+     */
+    public function isRegistrationFee(): bool
+    {
+        return $this->type === self::TYPE_SUBSCRIPTION_FEE && ! str_starts_with($this->source_key, 'charge:');
     }
 
     /**
@@ -540,5 +846,15 @@ class SubscriberTransaction extends Model
     public function correction(): HasOne
     {
         return $this->hasOne(self::class, 'corrects_id');
+    }
+
+    public function amendments(): HasMany
+    {
+        return $this->hasMany(TransactionAmendment::class, 'transaction_id')->oldest('created_at')->orderBy('id');
+    }
+
+    public function closingLine(): HasOne
+    {
+        return $this->hasOne(ClosingPayment::class, 'subscriber_transaction_id');
     }
 }

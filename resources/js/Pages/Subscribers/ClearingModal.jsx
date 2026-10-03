@@ -105,7 +105,8 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
             <Modal show={show} onClose={requestClose} maxWidth="5xl">
                 {receipt ? (
                     <DoneScreen
-                        title={correcting ? 'عُدّلت المقاصة' : 'سُجّلت المقاصة'}
+                        tone={correcting ? 'amber' : 'green'}
+                        title={correcting ? 'صُحّحت المقاصة' : 'سُجّلت المقاصة'}
                         text={`نزل ${formatMoney(receipt.amount)} ₪ من حساب ${subscriber.fullName} مقابل خدمته للشركة.`}
                         rows={[
                             ['الخدمة', receipt.service],
@@ -129,12 +130,12 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
                     >
                         <FormHeader
                             titleId={titleId}
-                            icon={correcting ? 'pencil' : 'scale'}
-                            tone="green"
-                            title={correcting ? 'تعديل مقاصة' : 'مقاصة'}
+                            icon={correcting ? 'repeat' : 'scale'}
+                            tone={correcting ? 'amber' : 'green'}
+                            title={correcting ? 'تصحيح مقاصة' : 'مقاصة'}
                             subtitle={
                                 correcting
-                                    ? 'صحّح المقاصة؛ تبقى الأصلية في الكشف ملغاة مع سبب التعديل.'
+                                    ? 'صحّح المقاصة؛ تبقى الأصلية في الكشف ملغاة مع سبب التصحيح.'
                                     : 'خدمة مقابل خدمة: المشترك يأخذ الكهرباء ويقدّم للشركة خدمة، فتُنزَّل قيمتها من حسابه.'
                             }
                             onClose={requestClose}
@@ -223,10 +224,10 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
 
                         <FormFooter
                             onCancel={requestClose}
-                            tone="green"
+                            tone={correcting ? 'amber' : 'green'}
                             disabled={amount <= 0 || missingService}
                             processing={form.processing}
-                            submitLabel={correcting ? 'حفظ التعديل' : amount > 0 ? `مقاصة ${formatMoney(amount)} ₪ من الحساب` : 'تسجيل المقاصة'}
+                            submitLabel={correcting ? 'حفظ التصحيح' : amount > 0 ? `مقاصة ${formatMoney(amount)} ₪ من الحساب` : 'تسجيل المقاصة'}
                         />
                     </form>
                 )}

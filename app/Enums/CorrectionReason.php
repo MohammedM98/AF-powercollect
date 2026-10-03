@@ -21,6 +21,9 @@ enum CorrectionReason: string
     case WrongSubscriber = 'wrong_subscriber';
     case Duplicate = 'duplicate';
     case NotReceived = 'not_received';
+    case PaymentRefunded = 'payment_refunded';
+    case WrongReading = 'wrong_reading';
+    case FeeCancelled = 'fee_cancelled';
     case Other = 'other';
 
     /** Its weekly reading was corrected, so it goes back for approval. */
@@ -40,6 +43,9 @@ enum CorrectionReason: string
             self::WrongSubscriber => 'Recorded on the wrong subscriber',
             self::Duplicate => 'Duplicate entry',
             self::NotReceived => 'Money not received',
+            self::PaymentRefunded => 'Payment refunded to the subscriber',
+            self::WrongReading => 'Reading entered wrongly',
+            self::FeeCancelled => 'Fee cancelled',
             self::Other => 'Other reason',
             self::ReadingCorrected => 'Reading corrected',
             self::StandingDiscountChanged => 'Standing discount changed',
@@ -77,12 +83,17 @@ enum CorrectionReason: string
     }
 
     /**
-     * The reasons offered when deleting a line.
+     * The reasons offered when deleting the given line.
      *
      * @return array<int, self>
      */
-    public static function forDeletion(): array
+    public static function forDeletionOf(SubscriberTransaction $line): array
     {
-        return [self::WrongSubscriber, self::Duplicate, self::NotReceived, self::Other];
+        return match (true) {
+            $line->isPayment() => [self::WrongSubscriber, self::Duplicate, self::NotReceived, self::PaymentRefunded, self::Other],
+            in_array($line->type, [SubscriberTransaction::TYPE_METER_READING, SubscriberTransaction::TYPE_READING_DISCOUNT], true) => [self::WrongReading, self::WrongSubscriber, self::Duplicate, self::Other],
+            $line->isRegistrationFee() => [self::FeeCancelled, self::WrongAmount, self::WrongSubscriber, self::Duplicate, self::Other],
+            default => [self::WrongSubscriber, self::Duplicate, self::Other],
+        };
     }
 }

@@ -59,19 +59,38 @@ class SubscriberTransactionPolicy
         return $user->hasPermission(PermissionKey::CorrectTransactions) && $this->mayChange($user, $subscriberTransaction);
     }
 
+    /** Amend payment details without changing its financial meaning. */
+    public function amend(User $user, SubscriberTransaction $subscriberTransaction): bool
+    {
+        return $user->hasPermission(PermissionKey::CorrectTransactions)
+            && $subscriberTransaction->isAmendable()
+            && $this->inBranchOf($user, $subscriberTransaction);
+    }
+
     /**
      * Deleting (cancelling) a line takes the "Delete Transactions"
-     * permission, on the same terms as correcting one.
+     * permission, in the user's own branch. The permanent-delete permission
+     * also offers normal deletion for the same eligible final line, so its
+     * holder can choose whether to keep a reversal or erase it completely.
      */
     public function delete(User $user, SubscriberTransaction $subscriberTransaction): bool
     {
-        return $user->hasPermission(PermissionKey::DeleteTransactions) && $this->mayChange($user, $subscriberTransaction);
+        $canDelete = $user->hasPermission(PermissionKey::DeleteTransactions)
+            || ($user->hasPermission(PermissionKey::ForceDeleteTransactions) && $subscriberTransaction->isErasable());
+
+        return $canDelete
+            && $subscriberTransaction->isCancellable()
+            && $this->inBranchOf($user, $subscriberTransaction);
     }
 
     private function mayChange(User $user, SubscriberTransaction $subscriberTransaction): bool
     {
-        return $subscriberTransaction->isCorrectable()
-            && ($user->isSuperAdmin() || $subscriberTransaction->subscriber->branch_id === $user->branch_id);
+        return $subscriberTransaction->isCorrectable() && $this->inBranchOf($user, $subscriberTransaction);
+    }
+
+    private function inBranchOf(User $user, SubscriberTransaction $subscriberTransaction): bool
+    {
+        return $user->isSuperAdmin() || $subscriberTransaction->subscriber->branch_id === $user->branch_id;
     }
 
     /**
@@ -83,10 +102,15 @@ class SubscriberTransactionPolicy
     }
 
     /**
-     * Determine whether the user can permanently delete the model.
+     * Erasing one line for good, with no trace, takes its own
+     * "Permanently Delete Transactions" permission, in the user's own
+     * branch. Only the last line of the statement, and not one a closing
+     * has counted.
      */
     public function forceDelete(User $user, SubscriberTransaction $subscriberTransaction): bool
     {
-        return false;
+        return $user->hasPermission(PermissionKey::ForceDeleteTransactions)
+            && $subscriberTransaction->isErasable()
+            && $this->inBranchOf($user, $subscriberTransaction);
     }
 }

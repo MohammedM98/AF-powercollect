@@ -19,17 +19,18 @@ is as if it was never recorded.
 
 ## What it does
 
-- Button "حذف نهائي" on a statement line (only shown with the permission).
+- Button "حذف نهائي" on the **last line only** — the one at the bottom of the
+  statement table — and only for users with the permission.
 - Opens a confirmation form with a red warning, the line, the balance after,
   and a **required reason**. The reason is not shown on the statement; it is
   written to the application log with the line's details and who erased it.
-- Erases the line. If the line was cancelled, its reversal goes with it, so the
-  balance stays right. A line that was made to correct it stays, and no longer
-  points back.
+- Erases that line. If the last line is a reversal (قيد عكسي), the cancelled
+  line it reverses goes with it, so the balance stays right.
 
 ## Limits
 
-- A reversal cannot be erased on its own: erase the line it reverses.
+- Older lines can never be erased this way; once a newer line exists, the
+  older ones are only cancelled with a reversal.
 - A payment already counted in a financial closing cannot be erased.
 - A payment's voucher number is not reused, so a gap remains in the numbering.
 - Erasing a weekly reading's charge line leaves the reading itself approved.

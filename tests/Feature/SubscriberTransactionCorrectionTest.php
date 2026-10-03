@@ -343,24 +343,36 @@ class SubscriberTransactionCorrectionTest extends TestCase
         $this->assertSame(0.0, $this->subscriber->balance());
     }
 
-    public function test_erasing_a_cancelled_line_takes_its_reversal_and_keeps_the_balance(): void
+    public function test_only_the_last_line_of_the_statement_can_be_erased(): void
+    {
+        $this->branchAdmin->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ForceDeleteTransactions]));
+        $fee = $this->subscriber->transactions()->sole();
+        $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
+
+        $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $fee]), ['correction_notes' => 'x'])->assertForbidden();
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page->where('entries.0.canForceDelete', false)->where('entries.1.canForceDelete', true));
+
+        $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $payment]), ['correction_notes' => 'x'])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseMissing('subscriber_transactions', ['id' => $payment->id]);
+        $this->assertDatabaseHas('subscriber_transactions', ['id' => $fee->id]);
+    }
+
+    public function test_erasing_a_last_reversal_takes_the_cancelled_line_with_it_and_keeps_the_balance(): void
     {
         $this->branchAdmin->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ForceDeleteTransactions]));
         $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
-        $this->correct($payment, [...$this->transfer('100'), 'correction_reason' => 'wrong_amount', 'correction_notes' => 'x']);
+        $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.destroy', [$this->subscriber, $payment]), ['correction_reason' => 'duplicate', 'correction_notes' => 'x']);
         $reversal = SubscriberTransaction::where('reverses_id', $payment->id)->sole();
-        $replacement = SubscriberTransaction::where('corrects_id', $payment->id)->sole();
-        $balance = $this->subscriber->balance();
 
-        $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $reversal]), ['correction_notes' => 'x'])->assertForbidden();
-        $this->actingAs($this->branchAdmin)
-            ->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $payment]), ['correction_notes' => 'x'])
-            ->assertSessionHasNoErrors();
+        $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $payment]), ['correction_notes' => 'x'])->assertForbidden();
+        $this->actingAs($this->branchAdmin)->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $reversal]), ['correction_notes' => 'x'])->assertSessionHasNoErrors();
 
         $this->assertDatabaseMissing('subscriber_transactions', ['id' => $payment->id]);
         $this->assertDatabaseMissing('subscriber_transactions', ['id' => $reversal->id]);
-        $this->assertNull($replacement->refresh()->corrects_id);
-        $this->assertSame($balance, $this->subscriber->balance());
+        $this->assertSame(200.0, $this->subscriber->balance());
     }
 
     public function test_a_weekly_reading_charge_and_standing_discount_can_be_deleted_without_reopening_or_rebilling_the_reading(): void

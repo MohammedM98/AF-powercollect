@@ -366,19 +366,36 @@ class SubscriberTransaction extends Model
     }
 
     /**
-     * Whether a line may be erased for good: not a reversal (it goes with
-     * the line it reverses), and not one a closing has counted.
+     * Whether the line is the last one on the subscriber's statement, the
+     * one at the bottom of the table (the statement lists oldest first).
      */
-    public function isErasable(): bool
+    public function isLastOnStatement(): bool
     {
-        return ! $this->isReversal() && ! ClosingPayment::query()->where('subscriber_transaction_id', $this->id)->exists();
+        return self::query()
+            ->where('subscriber_id', $this->subscriber_id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->value('id') === $this->id;
     }
 
     /**
-     * Erase the line for good, leaving no trace on the account: its
-     * reversal goes with it, so the balance stays consistent, and a line
-     * that corrected it stays, no longer pointing back. The only record
-     * is a log entry.
+     * Whether a line may be erased for good: only the last line of the
+     * statement, and not one a closing has counted. When that is a
+     * reversal, the cancelled line it reverses goes with it.
+     */
+    public function isErasable(): bool
+    {
+        $erased = $this->isReversal() ? $this->reverses : $this;
+
+        return $this->isLastOnStatement()
+            && ! ClosingPayment::query()->where('subscriber_transaction_id', $erased?->id)->exists();
+    }
+
+    /**
+     * Erase the last line of the statement for good, leaving no trace on
+     * the account. If it is a reversal, the line it reverses goes with it,
+     * and if it was cancelled, so does its reversal, so the balance stays
+     * consistent. The only record is a log entry.
      *
      * @throws ValidationException when it may not be erased (any more)
      */
@@ -391,12 +408,14 @@ class SubscriberTransaction extends Model
                 throw ValidationException::withMessages(['reason' => 'لا يمكن حذف هذه الحركة نهائيًا.']);
             }
 
-            self::query()->where('corrects_id', $line->id)->update(['corrects_id' => null]);
-            self::query()->where('reverses_id', $line->id)->delete();
-            $line->delete();
+            $target = $line->isReversal() ? $line->reverses : $line;
+
+            self::query()->where('corrects_id', $target->id)->update(['corrects_id' => null]);
+            self::query()->where('reverses_id', $target->id)->delete();
+            $target->delete();
 
             Log::warning('Transaction erased for good', [
-                'transaction' => $line->only(['id', 'subscriber_id', 'type', 'amount', 'source_key', 'voucher_number', 'created_at']),
+                'transaction' => $target->only(['id', 'subscriber_id', 'type', 'amount', 'source_key', 'voucher_number', 'created_at']),
                 'erased_by' => $actor->id,
                 'reason' => $reason,
             ]);

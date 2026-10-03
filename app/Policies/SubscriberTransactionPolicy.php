@@ -93,7 +93,8 @@ class SubscriberTransactionPolicy
     /**
      * Erasing one line for good, with no trace, takes its own
      * "Permanently Delete Transactions" permission, in the user's own
-     * branch. Not a reversal, and not a line a closing has counted.
+     * branch. Only the last line of the statement, and not one a closing
+     * has counted.
      */
     public function forceDelete(User $user, SubscriberTransaction $subscriberTransaction): bool
     {

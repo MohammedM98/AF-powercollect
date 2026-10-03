@@ -352,6 +352,32 @@ class SubscriberTransactionCorrectionTest extends TestCase
             && $context['reason'] === 'سُجّلت بالخطأ');
     }
 
+    public function test_permanent_deletion_permission_also_offers_normal_deletion_for_the_last_line(): void
+    {
+        $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);
+        $this->branchAdmin->permissions()->detach(Permission::idsFor([PermissionKey::DeleteTransactions]));
+        $this->grantPermanentDeletionTo($this->branchAdmin);
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.0.canDelete', false)
+                ->where('entries.0.canForceDelete', false)
+                ->where('entries.1.canDelete', true)
+                ->where('entries.1.canForceDelete', true));
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $payment]), [
+                'correction_reason' => 'payment_refunded',
+                'correction_notes' => 'استرجع المبلغ',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'transaction-deleted');
+
+        $this->assertTrue($payment->refresh()->isCancelled());
+        $this->assertDatabaseHas('subscriber_transactions', ['reverses_id' => $payment->id]);
+    }
+
     public function test_only_the_last_line_of_the_statement_can_be_erased(): void
     {
         $this->grantPermanentDeletionTo($this->branchAdmin);

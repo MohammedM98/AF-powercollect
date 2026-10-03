@@ -6,20 +6,47 @@ import { initials } from '@/lib/format';
 const MENU_WIDTH = 290;
 
 /**
- * The colour an item's icon takes when it is hovered or focused, by its
- * `tone` — each action its own, rather than all of them red. Written out
- * whole so Tailwind keeps every class.
+ * The colours of an item's icon tile, by its `tone`: a soft tint of the
+ * tone at rest, filled solid when the item is hovered or focused. Written
+ * out whole so Tailwind keeps every class.
  */
 const TONES = {
-    graphite: 'group-hover/item:bg-graphite-gradient group-focus-visible/item:bg-graphite-gradient',
-    blue: 'group-hover/item:bg-blue-600 group-focus-visible/item:bg-blue-600',
-    indigo: 'group-hover/item:bg-indigo-600 group-focus-visible/item:bg-indigo-600',
-    sky: 'group-hover/item:bg-sky-600 group-focus-visible/item:bg-sky-600',
-    emerald: 'group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
-    amber: 'group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
-    violet: 'group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
-    teal: 'group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
-    brand: 'group-hover/item:bg-brand-gradient group-focus-visible/item:bg-brand-gradient',
+    graphite: {
+        rest: 'bg-gray-100 text-gray-700',
+        active: 'group-hover/item:bg-graphite-gradient group-focus-visible/item:bg-graphite-gradient',
+    },
+    blue: {
+        rest: 'bg-blue-500/10 text-blue-600',
+        active: 'group-hover/item:bg-blue-600 group-focus-visible/item:bg-blue-600',
+    },
+    indigo: {
+        rest: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+        active: 'group-hover/item:bg-indigo-600 group-focus-visible/item:bg-indigo-600',
+    },
+    sky: {
+        rest: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+        active: 'group-hover/item:bg-sky-600 group-focus-visible/item:bg-sky-600',
+    },
+    emerald: {
+        rest: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+        active: 'group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
+    },
+    amber: {
+        rest: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+        active: 'group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
+    },
+    violet: {
+        rest: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+        active: 'group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
+    },
+    teal: {
+        rest: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+        active: 'group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
+    },
+    brand: {
+        rest: 'bg-brand-500/10 text-brand-600',
+        active: 'group-hover/item:bg-brand-gradient group-focus-visible/item:bg-brand-gradient',
+    },
 };
 const GAP = 6;
 
@@ -47,7 +74,7 @@ function placeBeside(anchor, menu) {
  * A row's "more" menu: a header naming the record, then its actions in
  * titled groups, each with its own icon. `menu` is
  * { title, subtitle, groups: [{ label, items: [{ label, icon, onSelect, tone?, shortcut?, hint?, disabled?, lockedReason? }] }] }.
- * `tone` (see TONES) colours the item's icon on hover; dark by default.
+ * `tone` (see TONES) tints the icon tile at rest, filling it solid on hover/focus; graphite by default.
  * An item with `lockedReason` is shown faded with a lock ("بدون صلاحية")
  * and the reason as its tooltip; `disabled` with `hint` explains why it
  * can't be used now. Arrow keys move, Enter runs, a shortcut letter runs
@@ -182,6 +209,7 @@ export default function RowMenu({ anchor, menu, onClose }) {
                     </p>
                     {group.items.map((item) => {
                         const unavailable = Boolean(item.disabled || item.lockedReason);
+                        const tone = TONES[item.tone] ?? TONES.graphite;
 
                         return (
                             <button
@@ -201,7 +229,7 @@ export default function RowMenu({ anchor, menu, onClose }) {
                                     className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] transition ${
                                         unavailable
                                             ? 'bg-gray-100 text-gray-500'
-                                            : `bg-gray-100 text-gray-700 group-hover/item:text-white group-focus-visible/item:text-white ${TONES[item.tone] ?? TONES.graphite}`
+                                            : `${tone.rest} ${tone.active} group-hover/item:text-white group-focus-visible/item:text-white`
                                     }`}
                                 >
                                     <Icon name={item.icon} className="h-[17px] w-[17px]" />

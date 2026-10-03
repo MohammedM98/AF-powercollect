@@ -202,6 +202,34 @@ class SubscriberValidationTest extends TestCase
         ]);
     }
 
+    public function test_registering_a_subscriber_with_a_circuit_breaker_snapshots_its_minimum_payment(): void
+    {
+        $circuitBreaker = CircuitBreaker::factory()->create(['ampere' => 4, 'minimum_payment' => 20]);
+        $payload = $this->validPayload();
+        $payload['circuit_breaker_id'] = $circuitBreaker->id;
+        $payload['minimum_charge'] = 20;
+        auth()->user()->permissions()->attach(Permission::idsFor([PermissionKey::UpdateCircuitBreakers]));
+
+        $this->post(route('subscribers.store'), $payload)
+            ->assertSessionHasNoErrors();
+
+        $this->put(route('circuit-breakers.update', $circuitBreaker), [
+            'ampere' => 4,
+            'minimum_payment' => 35,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('circuit_breakers', [
+            'id' => $circuitBreaker->id,
+            'minimum_payment' => 35,
+        ]);
+
+        $this->assertDatabaseHas('subscribers', [
+            'national_id' => $payload['national_id'],
+            'circuit_breaker_id' => $circuitBreaker->id,
+            'minimum_charge' => 20,
+        ]);
+    }
+
     public function test_registering_a_subscriber_with_a_segment_of_its_tariff_stores_it(): void
     {
         $payload = $this->validPayload();

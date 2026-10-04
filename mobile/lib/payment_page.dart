@@ -1013,7 +1013,7 @@ class _PaymentPageState extends State<PaymentPage> {
       ],
       actions: [
         AppAction(
-            label: 'العودة إلى التحصيل',
+            label: 'العودة إلى صفحة المشترك',
             onPressed: () => Navigator.pop(context, true)),
         AppAction(
             key: const ValueKey('payment-another'),

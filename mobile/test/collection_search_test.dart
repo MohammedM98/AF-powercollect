@@ -90,6 +90,8 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'A');
     await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Initial Subscriber'), findsOneWidget,
+        reason: 'the current results stay until the new ones arrive');
     await tester.enterText(find.byType(TextField), 'Ali');
     await tester.pump(const Duration(milliseconds: 300));
     expect(api.requests, hasLength(2));

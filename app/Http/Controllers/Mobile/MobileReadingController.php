@@ -36,11 +36,7 @@ class MobileReadingController extends Controller
                 'meterReadings' => fn ($query) => $query->visibleTo($request->user())
                     ->whereDate('week_start', '<=', $week)->orderByDesc('week_start')->limit(1),
             ])
-            ->when($search !== '', fn ($query) => $query->where(fn ($matching) => $matching
-                ->where('full_name', 'like', '%'.$search.'%')
-                ->orWhere('subscription_name', 'like', '%'.$search.'%')
-                ->orWhere('account_number', 'like', '%'.$search.'%')
-                ->orWhereHas('meterBox', fn ($box) => $box->where('box_number', 'like', '%'.$search.'%'))))
+            ->matchingSearch($search)
             ->orderBy('full_name')->orderBy('id')->paginate(25);
 
         return response()->json([

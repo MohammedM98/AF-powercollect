@@ -6,14 +6,19 @@ use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMobileCollectionRequest;
+use App\Models\Closing;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
+use App\Support\ArabicSearch;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class MobileCollectionController extends Controller
 {
+    /** How many of the latest statement lines the subscriber page shows. */
+    private const RECENT_TRANSACTIONS = 10;
+
     public function subscribers(Request $request): JsonResponse
     {
         abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
@@ -26,11 +31,9 @@ class MobileCollectionController extends Controller
             ->visibleTo($request->user())
             ->with('meterBox:id,box_number')
             ->withSum('transactions as balance', 'amount')
-            ->when($search !== '', fn ($query) => $query->where(fn ($matching) => $matching
-                ->where('full_name', 'like', '%'.$search.'%')
-                ->orWhere('subscription_name', 'like', '%'.$search.'%')
-                ->orWhere('account_number', 'like', '%'.$search.'%')
-                ->orWhereHas('meterBox', fn ($box) => $box->where('box_number', 'like', '%'.$search.'%'))))
+            ->matchingSearch($search)
+            // The account typed in full comes first, ahead of longer numbers containing it.
+            ->when($search !== '', fn ($query) => $query->orderByRaw('case when account_number = ? then 0 else 1 end', [ArabicSearch::normalize($search)]))
             ->orderByDesc('balance')
             ->orderBy('id')
             ->paginate(25);
@@ -47,6 +50,71 @@ class MobileCollectionController extends Controller
             ])->all(),
             'current_page' => $subscribers->currentPage(),
             'last_page' => $subscribers->lastPage(),
+        ]);
+    }
+
+    /**
+     * One subscriber's account as the collector sees it before taking a
+     * payment: who they are, what they owe, their last payment and the
+     * latest lines of their statement, newest first.
+     */
+    public function show(Request $request, string $subscriber): JsonResponse
+    {
+        abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
+
+        $subscriber = Subscriber::query()
+            ->visibleTo($request->user())
+            ->with('meterBox:id,box_number,name,name_suffix,location')
+            ->findOrFail($subscriber);
+        $balanceInCents = Closing::cents($subscriber->balance());
+        $lastPayment = $subscriber->transactions()
+            ->where('type', SubscriberTransaction::TYPE_PAYMENT)
+            ->whereNull('cancelled_at')
+            ->latest()
+            ->latest('id')
+            ->first();
+        $recentTransactions = $subscriber->transactions()
+            ->with(['meterReading', 'referenceTransaction'])
+            ->latest()
+            ->latest('id')
+            ->limit(self::RECENT_TRANSACTIONS)
+            ->get();
+
+        // Walk back from the current balance, so each line shows the balance it left.
+        $balanceAfterInCents = $balanceInCents;
+        $transactions = $recentTransactions->map(function (SubscriberTransaction $transaction) use (&$balanceAfterInCents): array {
+            $entry = [
+                'id' => $transaction->id,
+                'date' => $transaction->created_at->toDateString(),
+                'type' => $transaction->type,
+                'type_label' => $transaction->typeLabel(),
+                'description' => $transaction->description(),
+                'amount' => Closing::money(abs(Closing::cents($transaction->amount))),
+                'is_credit' => (float) $transaction->amount < 0,
+                'is_cancelled' => $transaction->isCancelled(),
+                'balance_after' => Closing::money($balanceAfterInCents),
+            ];
+            $balanceAfterInCents -= Closing::cents($transaction->amount);
+
+            return $entry;
+        });
+
+        return response()->json([
+            'subscriber' => [
+                'id' => $subscriber->id,
+                'full_name' => $subscriber->displayName(),
+                'account_number' => $subscriber->account_number,
+                'meter_box_number' => $subscriber->meterBox?->box_number,
+                'meter_box_name' => $subscriber->meterBox?->displayName(),
+                'meter_box_location' => $subscriber->meterBox?->location,
+                'phone' => $subscriber->contactPhone(),
+                'address' => $subscriber->address,
+                'balance' => Closing::money($balanceInCents),
+                'status' => $subscriber->status->value,
+                'status_label' => __($subscriber->status->label()),
+            ],
+            'last_payment' => $lastPayment ? $this->collectionData($lastPayment->setRelation('subscriber', $subscriber)) : null,
+            'transactions' => $transactions->all(),
         ]);
     }
 

@@ -7,6 +7,7 @@ import 'api_client.dart';
 import 'app_identity.dart';
 import 'collection_view.dart';
 import 'payment_page.dart';
+import 'subscriber_page.dart';
 import 'field_store.dart';
 import 'queued_readings.dart';
 import 'reading_flow.dart';
@@ -433,10 +434,9 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   void collectionSearchChanged() {
     collectionDebounce?.cancel();
     collectionRequest++;
+    // The current results stay on screen, dimmed, until the new ones arrive.
     setState(() {
       collectionBusy = true;
-      collectionResults = [];
-      collectionPage = 0;
       collectionError = null;
     });
     collectionDebounce = Timer(const Duration(milliseconds: 300),
@@ -455,10 +455,6 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     setState(() {
       collectionBusy = true;
       collectionError = null;
-      if (!loadMore) {
-        collectionResults = [];
-        collectionPage = 0;
-      }
     });
     try {
       final result =
@@ -478,6 +474,10 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     } on ApiException catch (error) {
       if (mounted && request == collectionRequest)
         setState(() {
+          if (!loadMore) {
+            collectionResults = [];
+            collectionPage = 0;
+          }
           if (error.isNetwork || error.statusCode == 401) online = false;
           if (error.statusCode == 401) requiresLogin = true;
           collectionError = error.message;
@@ -496,23 +496,21 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     unawaited(synchronize());
   }
 
-  Future<void> openPayment(Map<String, dynamic> subscriber) async {
+  /// Open the subscriber's page, where the payment is recorded from.
+  Future<void> openSubscriber(Map<String, dynamic> subscriber) async {
     if (!online) {
       showAppToast(context, 'التحصيل يتطلب اتصالًا بالخادم.', icon: 'cloudoff');
       return;
     }
-    final submitted = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) => PaymentPage(
+    final recorded = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => SubscriberPage(
           api: widget.api,
           subscriber: subscriber,
           transferBanks: currentUser['transfer_banks'] is List
               ? List<String>.from(currentUser['transfer_banks'] as List)
               : defaultTransferBanks),
     ));
-    if (!mounted) return;
-    if (submitted == true) {
-      showAppToast(context, 'سُجلت الدفعة مباشرة في السجل المالي.');
-    }
+    if (!mounted || recorded != true) return;
     try {
       await refreshCollections();
       if (mounted) await searchCollections();
@@ -722,7 +720,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
               await searchCollections();
             },
             onWeeklyReadings: canViewReadings ? openWeeklyReadings : null,
-            onOpen: openPayment),
+            onOpen: openSubscriber),
         FieldSection.sync => syncView(),
         FieldSection.account => account(),
         _ => home(),

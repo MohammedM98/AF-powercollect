@@ -502,6 +502,13 @@ class SubscriberTransactionCorrectionTest extends TestCase
             && $context['transactions'][0]['source_key'] === $fee->source_key
             && $context['erased_by']['id'] === $this->branchAdmin->id
             && $context['reason'] === 'سُجّلت بالخطأ');
+
+        $this->assertDatabaseHas('transaction_deletions', [
+            'subscriber_id' => $this->subscriber->id,
+            'user_id' => $this->branchAdmin->id,
+            'action' => 'erase',
+            'reason' => 'سُجّلت بالخطأ',
+        ]);
     }
 
     public function test_permanent_deletion_permission_also_offers_normal_deletion_for_the_last_line(): void

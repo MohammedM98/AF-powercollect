@@ -324,6 +324,10 @@ trait BuildsSubscriberStatement
             'referenceNumber' => $receipt->reference_number,
             'cashBox' => $receipt->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
+            // The weekly reading a standing line was billed from, to correct from the line's menu.
+            'reading' => $this->correctableReading($transaction, $actor),
+            // A payment's receipt, to print or reprint from the line's menu.
+            'receiptUrl' => $transaction->isPayment() ? route('subscribers.payments.receipt', [$transaction->subscriber_id, $transaction->id]) : null,
             'details' => match ($transaction->type) {
                 SubscriberTransaction::TYPE_METER_READING => $transaction->notes ?? $transaction->meterReading?->notes,
                 // Its customer segment is already in the description.
@@ -404,6 +408,47 @@ trait BuildsSubscriberStatement
             'recorded' => $transaction->isCorrectable()
                 ? $this->recordedFields($transaction)
                 : ($transaction->isCancellable() ? ['kind' => $transaction->type, 'effect' => $transaction->amount] : null),
+        ];
+    }
+
+    /**
+     * The weekly reading a standing reading or standing-discount line was
+     * billed from, as the reading form edits it, for users who record
+     * readings. Correcting it is how such a line's amount changes: the line
+     * is cancelled with a reversal, and the reading goes back for approval
+     * and is billed again (MeterReading::correct). Only the subscriber's
+     * latest reading, in a week still open to the user, can be corrected.
+     *
+     * @return array{id: int, weekStart: string, weekEnd: string, previous_reading: float, current_reading: float, consumption: float, notes: ?string, status: string, subscriberName: string, accountNumber: ?string, canCorrect: bool, correctUnavailableReason: ?string}|null
+     */
+    private function correctableReading(SubscriberTransaction $transaction, User $actor): ?array
+    {
+        $reading = $transaction->meterReading;
+
+        if ($reading === null || $transaction->isCancelled() || ! $actor->hasPermission(PermissionKey::RecordMeterReadings)) {
+            return null;
+        }
+
+        $isLatest = $transaction->subscriber->latestMeterReading?->is($reading) ?? false;
+        $canCorrect = $isLatest && $actor->can('update', $reading);
+
+        return [
+            'id' => $reading->id,
+            'weekStart' => $reading->week_start->toDateString(),
+            'weekEnd' => $reading->week_end->toDateString(),
+            'previous_reading' => $reading->previous_reading,
+            'current_reading' => $reading->current_reading,
+            'consumption' => $reading->consumption,
+            'notes' => $reading->notes,
+            'status' => $reading->status->value,
+            'subscriberName' => $transaction->subscriber->displayName(),
+            'accountNumber' => $transaction->subscriber->account_number,
+            'canCorrect' => $canCorrect,
+            'correctUnavailableReason' => match (true) {
+                $canCorrect => null,
+                ! $isLatest => 'توجد قراءة لأسبوع لاحق',
+                default => 'انتهت فترة تعديل قراءة هذا الأسبوع',
+            },
         ];
     }
 

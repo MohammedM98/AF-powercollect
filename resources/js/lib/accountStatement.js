@@ -1,3 +1,4 @@
+import { csvText } from './csv.js';
 import { formatAmount, roundToCents } from './currency.js';
 
 /**
@@ -73,6 +74,42 @@ export function describeBalance(balance) {
     }
 
     return { amount: '0', label: 'مسدّد', tone: 'settled' };
+}
+
+/** A line's state as the statement marks it: corrected, cancelled, a correction, or nothing. */
+function entryState(entry) {
+    if (entry.cancellation) {
+        return entry.cancellation.wasCorrected ? 'مُصحّحة' : 'ملغاة';
+    }
+
+    return entry.isCorrection ? 'تصحيح' : '';
+}
+
+/**
+ * The statement's lines (the ones shown, oldest first) as a CSV file for
+ * Excel: every column of the statement, with each line's side (عليه or
+ * له) and the balance it left, in shekels.
+ */
+export function statementCsv(entries) {
+    const rows = [
+        [
+            '#', 'تاريخ الحركة', 'رقم السند', 'البيان', 'التفاصيل', 'نوع الحركة', 'عليه / له', 'المبلغ', 'العملة', 'سعر الصرف',
+            'طريقة الدفع', 'البنك المحوّل منه', 'البنك المحوّل له', 'الرقم المرجعي', 'رقم الصندوق', 'الرصيد (شيكل)', 'حالة الرصيد',
+            'الحالة', 'اسم المستخدم',
+        ],
+        ...entries.map((entry) => {
+            const balance = describeBalance(entry.balance);
+
+            return [
+                entry.lineNumber, entry.date, entry.voucherNumber ?? '', entry.description, entry.details ?? '', entry.typeLabel,
+                entry.isCredit ? 'له' : 'عليه', Number(entry.amount), entry.currencyLabel, entry.exchangeRate ?? '',
+                entry.paymentMethodLabel ?? '', entry.senderBankName ?? '', entry.bankName ?? '', entry.referenceNumber ?? '', entry.cashBox ?? '',
+                Number(balance.amount), balance.label, entryState(entry), entry.recordedByName ?? '',
+            ];
+        }),
+    ];
+
+    return csvText(rows);
 }
 
 /**

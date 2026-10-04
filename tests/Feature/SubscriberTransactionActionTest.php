@@ -11,6 +11,7 @@ use App\Models\ClosingPayment;
 use App\Models\MeterReading;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
+use App\Models\TransactionDeletion;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -138,6 +139,9 @@ class SubscriberTransactionActionTest extends TestCase
         $response->assertSessionHasNoErrors();
         $this->assertModelMissing($payment);
         $this->assertSame(0.0, $subscriber->balance());
+        $deletion = TransactionDeletion::sole();
+        $this->assertSame([$subscriber->id, $actor->id, 'delete', 'دفعة مكررة'], [$deletion->subscriber_id, $deletion->user_id, $deletion->action, $deletion->reason]);
+        $this->assertSame([$payment->id], array_column($deletion->transactions, 'id'));
     }
 
     public function test_statement_does_not_offer_edit_metadata_for_a_discount_without_payment_details(): void
@@ -305,6 +309,9 @@ class SubscriberTransactionActionTest extends TestCase
         $this->assertSame('10.00', $firstCharge->refresh()->balance_after);
         $this->assertSame('30.00', $lastCharge->refresh()->balance_after);
         $this->assertSame(30.0, $subscriber->balance());
+        $deletion = TransactionDeletion::sole();
+        $this->assertSame(['delete_tree', 'الدفعة والإرجاع مكرران'], [$deletion->action, $deletion->reason]);
+        $this->assertSame([$payment->id, $refund->id], array_column($deletion->transactions, 'id'));
     }
 
     public function test_partial_refund_cannot_delete_the_original_and_linked_tree(): void

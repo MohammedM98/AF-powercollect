@@ -630,8 +630,11 @@ class SubscriberTransaction extends Model
         }
 
         if (in_array($this->type, self::INVOICE_LIKE_TYPES, true)) {
+            // A weekly reading's charge changes only by correcting the reading, so the two always agree.
+            $amountEdit = $this->isBilledByReading() ? [] : [TransactionAction::Edit];
+
             return $isLast && ! $hasPayment
-                ? [TransactionAction::Edit, ...$metadataActions, TransactionAction::Delete]
+                ? [...$amountEdit, ...$metadataActions, TransactionAction::Delete]
                 : [...$metadataActions, TransactionAction::Cancel];
         }
 
@@ -844,12 +847,15 @@ class SubscriberTransaction extends Model
             $original->update($updates);
         }
 
+        $action = $this->isReversal() ? TransactionAction::DeleteReversal->value : TransactionAction::Delete->value;
+
         self::releaseEditableClosingLines([$this->id]);
         $this->delete();
         self::recalculateBalances($this->subscriber_id);
+        TransactionDeletion::record($actor, $action, $data['correction_notes'] ?? null, [$this->getAttributes()]);
 
         Log::warning('Transaction hard deleted under ledger golden rule', [
-            'action' => $this->isReversal() ? TransactionAction::DeleteReversal->value : TransactionAction::Delete->value,
+            'action' => $action,
             'transaction' => $this->getAttributes(),
             'deleted_by' => $actor->only(['id', 'name', 'username']),
             'reason' => $data['correction_notes'] ?? null,
@@ -879,6 +885,7 @@ class SubscriberTransaction extends Model
         $reversals->each->delete();
         $this->delete();
         self::recalculateBalances($this->subscriber_id);
+        TransactionDeletion::record($actor, TransactionAction::DeleteTree->value, $data['correction_notes'] ?? null, $deletedTransactions);
 
         Log::warning('Transaction tree hard deleted under ledger golden rule', [
             'action' => TransactionAction::DeleteTree->value,
@@ -1123,7 +1130,8 @@ class SubscriberTransaction extends Model
      * Erase the last line of the statement for good, leaving no trace on
      * the account. If it is a reversal, the line it reverses goes with it,
      * and if it was cancelled, so does its reversal, so the balance stays
-     * consistent. The only record is a log entry.
+     * consistent. The only record is the audit log's (TransactionDeletion)
+     * and a log entry.
      *
      * @throws ValidationException when it may not be erased (any more)
      */
@@ -1146,6 +1154,7 @@ class SubscriberTransaction extends Model
             self::query()->where('corrects_id', $target->id)->update(['corrects_id' => null]);
             $reversals->each->delete();
             $target->delete();
+            TransactionDeletion::record($actor, TransactionDeletion::ACTION_ERASE, $reason, $erasedTransactions);
 
             Log::warning('Transaction erased for good', [
                 'transactions' => $erasedTransactions,

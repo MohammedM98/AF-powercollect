@@ -328,7 +328,7 @@ function PaymentSummary({ amount, symbol, currencyLabel, isShekel, rate, inSheke
     );
 }
 
-/** After saving: what was recorded, the voucher it got and the balance it left. */
+/** After saving: what was recorded, the voucher it got and the balance it left, with its receipt to print. */
 function PaymentReceipt({ receipt, subscriberName, title, onAnother, onDone }) {
     const after = describeBalance(receipt.balanceAfter);
     const rows = [
@@ -357,6 +357,16 @@ function PaymentReceipt({ receipt, subscriberName, title, onAnother, onDone }) {
                 ))}
             </dl>
             <div className="mt-6 flex flex-wrap justify-center gap-2.5">
+                {receipt.receiptUrl && (
+                    <SecondaryButton
+                        onClick={() => window.open(receipt.receiptUrl, '_blank')}
+                        title="يُفتح سند القبض في نافذة جديدة جاهزًا للطباعة"
+                        className="h-12 rounded-[14px] px-5 text-[15.5px]"
+                    >
+                        <Icon name="printer" className="h-[18px] w-[18px]" />
+                        طباعة السند
+                    </SecondaryButton>
+                )}
                 {onAnother && (
                     <SecondaryButton onClick={onAnother} className="h-12 rounded-[14px] px-5 text-[15.5px]">
                         <Icon name="plus" className="h-[18px] w-[18px]" strokeWidth={2} />
@@ -571,6 +581,7 @@ export default function PaymentModal({
                 setReceipt({
                     ...recorded,
                     voucherNumber: flashed.voucherNumber ?? null,
+                    receiptUrl: flashed.receiptUrl ?? null,
                     balanceAfter: flashed.balance ?? Number(balance) - (inShekels ?? 0),
                 });
                 form.resetAndClearErrors();

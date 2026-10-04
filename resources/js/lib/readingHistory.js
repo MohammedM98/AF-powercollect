@@ -1,3 +1,4 @@
+import { csvText } from './csv.js';
 import { roundToCents } from './currency.js';
 
 /** Periods are measured back from the subscriber's latest recorded week. */
@@ -47,9 +48,5 @@ export function readingHistoryCsv(readings) {
         ]),
     ];
 
-    return '\uFEFF' + rows.map((row) => row.map((value) => {
-        const text = String(value);
-        const safeText = typeof value === 'string' && /^[\s]*[=+@\-\t\r]/.test(text) ? `'${text}` : text;
-        return `"${safeText.replaceAll('"', '""')}"`;
-    }).join(',')).join('\r\n');
+    return csvText(rows);
 }

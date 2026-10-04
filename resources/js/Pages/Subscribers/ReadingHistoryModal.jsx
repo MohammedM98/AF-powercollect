@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import Icon from '@/Components/Icon';
 import Modal from '@/Components/Modal';
+import { downloadCsv } from '@/lib/csv';
 import { formatMoney, formatNumber } from '@/lib/format';
 import { groupReadingsByMonth, readingHistoryCsv, readingTotals, readingsInPeriod } from '@/lib/readingHistory';
 import './ReadingHistoryModal.css';
@@ -92,12 +93,7 @@ export default function ReadingHistoryModal({ subscriber, onClose }) {
     const maximum = Math.max(1, ...visibleReadings.map((reading) => Number(reading.consumption)));
 
     function exportReadings() {
-        const url = URL.createObjectURL(new Blob([readingHistoryCsv(visibleReadings)], { type: 'text/csv;charset=utf-8;' }));
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `readings-${subscriber.account_number}.csv`;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        downloadCsv(readingHistoryCsv(visibleReadings), `readings-${subscriber.account_number}.csv`);
     }
 
     return (

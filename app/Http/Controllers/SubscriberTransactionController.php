@@ -87,6 +87,7 @@ class SubscriberTransactionController extends Controller
             Inertia::flash('recordedPayment', [
                 'voucherNumber' => $replacement->printedVoucherNumber(),
                 'balance' => number_format($subscriber->balance(), 2, '.', ''),
+                'receiptUrl' => route('subscribers.payments.receipt', [$subscriber, $replacement]),
             ]);
         }
 

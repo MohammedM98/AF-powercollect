@@ -126,6 +126,7 @@ export default function StatementModal({ subscriber, statement, initialForm = nu
                                     onSelect={onSwitch}
                                 />
                                 <AccountStatement
+                                    subscriber={statement.subscriber}
                                     entries={statement.entries}
                                     summary={statement.summary}
                                     paymentMethods={statement.paymentMethods}

@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { usePage } from '@inertiajs/react';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
-import { describeBalance, filterStatementEntries } from '@/lib/accountStatement';
+import { COMPANY_NAME } from '@/Layouts/GuestLayout';
+import { describeBalance, filterStatementEntries, statementCsv } from '@/lib/accountStatement';
+import { downloadCsv } from '@/lib/csv';
 import { formatAmount } from '@/lib/currency';
 
 const BALANCE_PILLS = {
@@ -28,6 +31,13 @@ const COLUMNS = [
 ];
 
 const EMPTY_FILTERS = { search: '', type: '', method: '', dateFrom: '', dateTo: '' };
+
+// The time printed on the statement, in the app's Arabic with Western digits.
+const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
+
+/** The toolbar's quiet buttons, as the table toolbar's print button looks. */
+const TOOL_BUTTON =
+    'inline-flex h-[34px] items-center gap-1.5 rounded-control border border-gray-100 bg-gray-50 px-3 text-sm font-semibold text-gray-600 transition hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 disabled:cursor-not-allowed disabled:opacity-50';
 
 /** Keeps dates like 2026-09-18 reading left to right inside Arabic text. */
 function withLtrDates(text) {
@@ -140,8 +150,9 @@ function AmendmentBadge({ amendments }) {
     );
 }
 
-function hasLineActions(entry) {
-    return entry.available_actions?.length > 0;
+/** Whether a line has a menu: actions the user may take on it, its reading to correct, or a receipt to print. */
+function hasLineMenu(entry) {
+    return entry.available_actions?.length > 0 || Boolean(entry.reading) || Boolean(entry.receiptUrl);
 }
 
 function transactionNoun(entry) {
@@ -208,15 +219,104 @@ function lineActionsMenu(entry, onAction) {
         ...actionItem(entry, action),
         onSelect: () => onAction(action, entry),
     }));
+    const groups = [
+        ...(items.length ? [{ label: 'إجراءات الحركة', items }] : []),
+        ...(entry.reading
+            ? [
+                  {
+                      label: 'القراءة الأسبوعية',
+                      items: [
+                          {
+                              label: 'تصحيح القراءة',
+                              description: 'أدخل القراءة الصحيحة: تُلغى الحركة بقيد عكسي، وتعود القراءة للاعتماد ثم تُحمَّل من جديد',
+                              icon: 'bolt',
+                              tone: 'amber',
+                              disabled: !entry.reading.canCorrect,
+                              hint: entry.reading.correctUnavailableReason ?? undefined,
+                              onSelect: () => onAction('correct_reading', entry),
+                          },
+                      ],
+                  },
+              ]
+            : []),
+        ...(entry.receiptUrl
+            ? [
+                  {
+                      label: 'طباعة',
+                      items: [
+                          {
+                              label: 'طباعة سند القبض',
+                              description: 'يُفتح السند في نافذة جديدة جاهزًا للطباعة',
+                              icon: 'printer',
+                              onSelect: () => window.open(entry.receiptUrl, '_blank'),
+                          },
+                      ],
+                  },
+              ]
+            : []),
+    ];
 
-    return items.length
+    return groups.length
         ? {
               title: entry.description,
               subtitle: entry.date,
               width: 410,
-              groups: [{ label: 'إجراءات الحركة', items }],
+              groups,
           }
         : null;
+}
+
+/** What the printed statement says about the filters it was printed with, or '' when none is set. */
+function filtersCaption(filters, transactionTypes, paymentMethods) {
+    const typeLabel =
+        { debit: 'كل ما عليه (تحميل)', credit: 'كل ما له (تسديد وخصم)' }[filters.type] ??
+        transactionTypes.find((type) => type.value === filters.type)?.label;
+    const methodLabel = paymentMethods.find((method) => method.value === filters.method)?.label;
+
+    return [
+        filters.type && `نوع الحركة: ${typeLabel ?? filters.type}`,
+        filters.method && `طريقة الدفع: ${methodLabel ?? filters.method}`,
+        filters.dateFrom && `من ${filters.dateFrom}`,
+        filters.dateTo && `إلى ${filters.dateTo}`,
+        filters.search.trim() && `بحث: «${filters.search.trim()}»`,
+    ]
+        .filter(Boolean)
+        .join(' · ');
+}
+
+/** The statement's heading on paper: the company, the subscriber, and when it was printed. */
+function PrintHeading({ subscriber, caption }) {
+    const { appName } = usePage().props;
+
+    return (
+        <header className="statement-print-only mb-3 border-b-2 border-brand-600 pb-2">
+            <div className="flex items-start justify-between gap-6">
+                <div className="flex items-center gap-3">
+                    <img src="/images/logo-af.webp" alt={appName} className="h-12 w-auto" />
+                    <div>
+                        <div className="text-base font-bold">{COMPANY_NAME}</div>
+                        <div className="text-sm text-gray-600">{subscriber.branchName}</div>
+                    </div>
+                </div>
+                <div className="text-end">
+                    <h1 className="text-xl font-bold text-brand-600">كشف حساب {subscriber.fullName}</h1>
+                    <p className="text-sm text-gray-700">
+                        {subscriber.subscriberNumber && (
+                            <>
+                                مشترك <bdi dir="ltr">{subscriber.subscriberNumber}</bdi> ·{' '}
+                            </>
+                        )}
+                        حساب <bdi dir="ltr">{subscriber.accountNumber}</bdi>
+                        {subscriber.tariffCategoryLabel && ` · ${subscriber.tariffCategoryLabel}`}
+                        {subscriber.tariffSegmentName && ` (${subscriber.tariffSegmentName})`}
+                        {subscriber.meterBoxNumber && ` · طبلون ${subscriber.meterBoxNumber}`}
+                    </p>
+                    <p className="text-xs text-gray-600">طُبع في {PRINTED_AT_FORMAT.format(new Date())}</p>
+                </div>
+            </div>
+            {caption && <p className="mt-2 text-xs text-gray-700">مطبوع حسب التصفية: {caption}</p>}
+        </header>
+    );
 }
 
 /** Whether a reversal immediately follows the original line in chronological order. */
@@ -257,8 +357,12 @@ function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
  * hiding a balance-changing ledger entry.
  * `onAction` receives one of the server-provided canonical actions and the
  * line to change. Used by the statement page and the subscribers-list window.
+ *
+ * The lines shown can be saved for Excel or printed — on landscape paper,
+ * with the company and `subscriber` (the statement's header) above them
+ * and only the statement on the page, light whatever the app's theme.
  */
-export default function AccountStatement({ entries, summary, paymentMethods, transactionTypes, onAction }) {
+export default function AccountStatement({ subscriber, entries, summary, paymentMethods, transactionTypes, onAction }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
     const [highlightedLineId, setHighlightedLineId] = useState(null);
     const highlightTimer = useRef(null);
@@ -266,8 +370,8 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
     const balance = describeBalance(summary.balance);
-    const canChangeLines = entries.some(hasLineActions);
-    const columns = canChangeLines ? [...COLUMNS, ''] : COLUMNS;
+    const hasLineMenus = entries.some(hasLineMenu);
+    const columns = hasLineMenus ? [...COLUMNS, ''] : COLUMNS;
 
     function setFilter(key, value) {
         setFilters((current) => ({ ...current, [key]: value }));
@@ -288,9 +392,40 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
 
     useEffect(() => () => clearTimeout(highlightTimer.current), []);
 
+    // The printout is light whatever the app's theme, from the print button or the browser's own print.
+    useEffect(() => {
+        const root = document.documentElement;
+        let wasDark = false;
+
+        function beforePrint() {
+            wasDark = root.classList.contains('dark');
+            root.classList.remove('dark');
+        }
+
+        function afterPrint() {
+            if (wasDark) {
+                root.classList.add('dark');
+            }
+        }
+
+        window.addEventListener('beforeprint', beforePrint);
+        window.addEventListener('afterprint', afterPrint);
+
+        return () => {
+            window.removeEventListener('beforeprint', beforePrint);
+            window.removeEventListener('afterprint', afterPrint);
+        };
+    }, []);
+
+    function exportEntries() {
+        downloadCsv(statementCsv(visibleEntries), `statement-${subscriber.accountNumber}.csv`);
+    }
+
     return (
-        <>
-            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="account-statement">
+            <PrintHeading subscriber={subscriber} caption={filtersCaption(filters, transactionTypes, paymentMethods)} />
+
+            <div className="statement-summary mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <SummaryCard
                     label="الرصيد الحالي"
                     value={`${balance.amount} شيكل`}
@@ -326,6 +461,28 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
             </div>
 
             <div className="data-table-toolbar">
+                <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+                    <button
+                        type="button"
+                        onClick={exportEntries}
+                        disabled={visibleEntries.length === 0}
+                        title="تنزيل الحركات المعروضة بصيغة CSV المتوافقة مع Excel"
+                        className={TOOL_BUTTON}
+                    >
+                        <Icon name="arrow-down-tray" className="h-4 w-4" />
+                        تصدير Excel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => window.print()}
+                        disabled={visibleEntries.length === 0}
+                        title="طباعة الحركات المعروضة مع رأس الكشف وملخّصه"
+                        className={TOOL_BUTTON}
+                    >
+                        <Icon name="printer" className="h-4 w-4" />
+                        طباعة
+                    </button>
+                </div>
                 <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-6">
                     <label className="block text-sm text-gray-600 sm:col-span-2">
                         بحث
@@ -394,7 +551,9 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                     <thead>
                         <tr>
                             {columns.map((column) => (
-                                <th key={column}>{column}</th>
+                                <th key={column} className={column === '' ? 'statement-screen-only' : undefined}>
+                                    {column}
+                                </th>
                             ))}
                         </tr>
                     </thead>
@@ -489,11 +648,9 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                                         <td data-label="اسم المستخدم" className="text-gray-700">
                                             {entry.recordedByName ?? <Dash />}
                                         </td>
-                                        {canChangeLines && (
-                                            <td className="text-end">
-                                                {hasLineActions(entry) && (
-                                                    <RowActionsMenu menu={lineActionsMenu(entry, onAction)} />
-                                                )}
+                                        {hasLineMenus && (
+                                            <td className="statement-screen-only text-end">
+                                                {hasLineMenu(entry) && <RowActionsMenu menu={lineActionsMenu(entry, onAction)} />}
                                             </td>
                                         )}
                                     </tr>
@@ -509,11 +666,15 @@ export default function AccountStatement({ entries, summary, paymentMethods, tra
                     الحركات المعروضة: {visibleEntries.length} من {entries.length} · الأقدم أولًا، والرصيد بعد كل حركة
                 </p>
                 {isFiltered && (
-                    <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="font-medium text-brand-600 hover:underline">
+                    <button
+                        type="button"
+                        onClick={() => setFilters(EMPTY_FILTERS)}
+                        className="statement-screen-only font-medium text-brand-600 hover:underline"
+                    >
                         مسح عوامل التصفية
                     </button>
                 )}
             </div>
-        </>
+        </div>
     );
 }

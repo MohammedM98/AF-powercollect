@@ -49,6 +49,7 @@ export default function Statement(statement) {
             />
 
             <AccountStatement
+                subscriber={subscriber}
                 entries={entries}
                 summary={summary}
                 paymentMethods={paymentMethods}

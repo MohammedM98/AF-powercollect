@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_identity.dart';
-import 'payment_page.dart' show balanceText;
+import 'payment_page.dart' show balanceText, bankLogoAsset;
 
 class CollectionView extends StatefulWidget {
   const CollectionView(
@@ -48,86 +48,87 @@ class _CollectionViewState extends State<CollectionView> {
     final list = ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
         children: [
-          Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                  color: AppIdentity.sunken,
-                  borderRadius: BorderRadius.circular(15)),
-              child: Row(children: [
-                segment('المشتركون', false),
-                segment('دفعاتي اليوم', true),
-              ])),
-          const SizedBox(height: 12),
+          AppSegment(
+              selected: showingToday ? 1 : 0,
+              onChanged: (index) => setState(() => showingToday = index == 1),
+              labels: [
+                (color) => Text('المشتركون',
+                    style: AppIdentity.body(14.5,
+                        weight: FontWeight.w700, color: color)),
+                (color) => Text.rich(
+                    TextSpan(children: [
+                      const TextSpan(text: 'دفعاتي اليوم '),
+                      TextSpan(
+                          text: '${widget.today.length}',
+                          style: AppIdentity.number(12,
+                              color: color.withValues(alpha: .7))),
+                    ]),
+                    style: AppIdentity.body(14.5,
+                        weight: FontWeight.w700, color: color)),
+              ]),
           if (widget.onWeeklyReadings != null)
-            Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: TextButton.icon(
-                    onPressed: widget.onWeeklyReadings,
-                    icon: const Icon(Icons.history_outlined),
-                    label: const Text('القراءات الأسبوعية'))),
+            InkWell(
+              onTap: widget.onWeeklyReadings,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
+                child: Row(children: [
+                  AppIcon('hist', color: AppIdentity.info),
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: Text('القراءات الأسبوعية',
+                          style: AppIdentity.body(14,
+                              weight: FontWeight.w600,
+                              color: AppIdentity.info))),
+                  AppIcon('chev', size: 18, color: AppIdentity.info),
+                ]),
+              ),
+            ),
           if (!showingToday) ...[
-            TextField(
+            const SizedBox(height: 10),
+            AppSearchField(
                 controller: widget.search,
+                hint: 'اسم المشترك أو رقم الحساب',
                 maxLength: 100,
                 onChanged: (_) => widget.onSearchChanged(),
                 onSubmitted: (_) => widget.onSearch(),
-                decoration: InputDecoration(
-                    counterText: '',
-                    hintText: 'اسم المشترك أو رقم الحساب',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: widget.search.text.isEmpty
-                        ? null
-                        : IconButton(
-                            tooltip: 'مسح البحث',
-                            icon: const Icon(Icons.close),
-                            onPressed: () {
-                              widget.search.clear();
-                              widget.onSearch();
-                            }))),
-            const SizedBox(height: 10),
-            if (widget.busy) const LinearProgressIndicator(),
+                onClear: () {
+                  widget.search.clear();
+                  widget.onSearch();
+                }),
+            AppSection('المشتركون في منطقتك',
+                note:
+                    '${widget.results.length}${widget.hasMore ? '+' : ''} مشترك'),
+            if (widget.busy)
+              Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                          minHeight: 3,
+                          color: AppIdentity.brand,
+                          backgroundColor: AppIdentity.sunken))),
             if (widget.error != null) ...[
               AppNotice(widget.error!, error: true),
               TextButton(
                   onPressed: widget.busy ? null : widget.onSearch,
                   child: const Text('إعادة المحاولة')),
             ],
-            Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Row(children: [
-                  Text('المشتركون في منطقتك', style: AppIdentity.heading(16)),
-                  const Spacer(),
-                  Text(
-                      '${widget.results.length}${widget.hasMore ? '+' : ''} مشترك',
-                      style: AppIdentity.body(12, color: AppIdentity.faint)),
-                ])),
             if (widget.results.isEmpty && !widget.busy && widget.error == null)
-              AppPanel(
-                  child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      child: Column(children: [
-                        const Icon(Icons.person_search_outlined,
-                            size: 36, color: AppIdentity.faint),
-                        const SizedBox(height: 10),
-                        Text(
-                            widget.search.text.trim().isNotEmpty
-                                ? 'لا توجد نتائج'
-                                : 'لا يوجد مشتركون متاحون',
-                            style: AppIdentity.heading(17)),
-                        Text('اكتب الاسم أو رقم الحساب لتسجيل دفعة.',
-                            textAlign: TextAlign.center,
-                            style:
-                                AppIdentity.body(13, color: AppIdentity.faint)),
-                      ]))),
+              AppRows(children: [
+                AppEmpty(
+                    'search',
+                    widget.search.text.trim().isNotEmpty
+                        ? 'لا توجد نتائج'
+                        : 'لا يوجد مشتركون متاحون',
+                    'اكتب الاسم أو رقم الحساب لتسجيل دفعة.'),
+              ]),
             if (widget.results.isNotEmpty)
-              AppPanel(
-                  padding: EdgeInsets.zero,
-                  child: Column(children: [
-                    for (final subscriber in widget.results)
-                      subscriberRow(subscriber),
-                  ])),
+              AppRows(children: [
+                for (final subscriber in widget.results)
+                  subscriberRow(subscriber),
+              ]),
             if (widget.hasMore)
               Padding(
                   padding: const EdgeInsets.only(top: 12),
@@ -137,30 +138,32 @@ class _CollectionViewState extends State<CollectionView> {
                       busy: widget.busy,
                       onPressed: widget.busy ? null : widget.onLoadMore)),
           ] else ...[
+            const SizedBox(height: 12),
             Row(children: [
               Expanded(
-                  child:
-                      AppStat('حُصّل اليوم', '${AppIdentity.money(total)} ₪')),
+                  child: AppStat(
+                      'حُصّل اليوم', '${AppIdentity.grouped(total)} ₪')),
               const SizedBox(width: 8),
               Expanded(
-                  child: AppStat('نقدًا اليوم', '${AppIdentity.money(cash)} ₪',
+                  child: AppStat(
+                      'نقدًا اليوم', '${AppIdentity.grouped(cash)} ₪',
                       color: AppIdentity.brand)),
             ]),
-            Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child:
-                    Text('الدفعات المسجّلة', style: AppIdentity.heading(16))),
-            if (widget.today.isEmpty)
-              const AppPanel(
-                  child: Center(child: Text('لم تُسجّل دفعات اليوم بعد.'))),
-            if (widget.today.isNotEmpty)
-              AppPanel(
-                  padding: EdgeInsets.zero,
-                  child: Column(children: [
-                    for (final payment in widget.today) paymentRow(payment)
-                  ])),
+            const AppSection('الدفعات المسجّلة'),
+            AppRows(children: [
+              if (widget.today.isEmpty)
+                Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 28),
+                    child: Text('لم تُسجّل دفعات اليوم بعد.',
+                        textAlign: TextAlign.center,
+                        style: AppIdentity.body(13, color: AppIdentity.faint)))
+              else
+                for (final payment in widget.today.reversed)
+                  paymentRow(payment),
+            ]),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           const AppNotice(
               'تسجيل الدفعات يتطلب اتصالًا بالإنترنت. تُسجّل مباشرة في السجل المالي بعد تأكيد استلامها.'),
         ]);
@@ -172,65 +175,40 @@ class _CollectionViewState extends State<CollectionView> {
             child: list);
   }
 
-  Widget segment(String text, bool value) => Expanded(
-          child: Container(
-        decoration: BoxDecoration(
-            color: showingToday == value
-                ? AppIdentity.surface
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(11)),
-        child: TextButton(
-            onPressed: () => setState(() => showingToday = value),
-            child: Text(text,
-                style: AppIdentity.body(14.5,
-                    weight: FontWeight.w700,
-                    color: showingToday == value
-                        ? AppIdentity.ink
-                        : AppIdentity.muted))),
-      ));
-
-  Widget subscriberRow(Map<String, dynamic> subscriber) => InkWell(
+  Widget subscriberRow(Map<String, dynamic> subscriber) {
+    final balance = balanceOf(subscriber);
+    final unusual =
+        subscriber['status'] != null && subscriber['status'] != 'active';
+    return Opacity(
+      opacity: widget.online ? 1 : .6,
+      child: AppRow(
         onTap: widget.online ? () => widget.onOpen(subscriber) : null,
-        child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            decoration: const BoxDecoration(
-                border:
-                    Border(bottom: BorderSide(color: AppIdentity.lineSoft))),
-            child: Row(children: [
-              const Icon(Icons.person_outline, color: AppIdentity.muted),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Text('${subscriber['full_name']}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppIdentity.body(15, weight: FontWeight.w700)),
-                    Text(
-                        [
-                          'حساب ${subscriber['account_number']}',
-                          // Suspended and disconnected subscribers can pay too; say which they are.
-                          if (subscriber['status'] != null &&
-                              subscriber['status'] != 'active')
-                            '${subscriber['status_label'] ?? subscriber['status']}',
-                        ].join(' · '),
-                        style: AppIdentity.body(12, color: AppIdentity.faint)),
-                  ])),
-              const SizedBox(width: 8),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(balanceText(balanceOf(subscriber)),
-                    style: AppIdentity.number(15,
-                        color: balanceOf(subscriber) > 0
-                            ? AppIdentity.bad
-                            : AppIdentity.good)),
-                const SizedBox(height: 5),
-                Text('+ دفعة',
-                    style: AppIdentity.body(13,
-                        weight: FontWeight.w700, color: AppIdentity.brand)),
-              ]),
-            ])),
-      );
+        leading: AppAvatar('${subscriber['full_name']}'),
+        title: AppRowTitle('${subscriber['full_name']}'),
+        // Suspended and disconnected subscribers can pay too; say which they are.
+        subtitle: Text.rich(
+            TextSpan(children: [
+              TextSpan(text: 'حساب ${subscriber['account_number']}'),
+              if (unusual)
+                TextSpan(
+                    text:
+                        ' · ${subscriber['status_label'] ?? subscriber['status']}',
+                    style: TextStyle(color: AppIdentity.warning)),
+            ]),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppIdentity.body(12.5, color: AppIdentity.faint)),
+        trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text(balanceText(balance),
+              style: AppIdentity.number(14,
+                  color: balance > 0 ? AppIdentity.bad : AppIdentity.good)),
+          Text('+ دفعة',
+              style: AppIdentity.body(13,
+                  weight: FontWeight.w700, color: AppIdentity.brand)),
+        ]),
+      ),
+    );
+  }
 
   double balanceOf(Map<String, dynamic> subscriber) =>
       double.tryParse('${subscriber['balance']}') ?? 0;
@@ -240,38 +218,33 @@ class _CollectionViewState extends State<CollectionView> {
       double.tryParse('${payment['amount_in_shekels'] ?? payment['amount']}') ??
       0;
 
-  Widget paymentRow(Map<String, dynamic> payment) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppIdentity.lineSoft))),
-        child: Row(children: [
-          Icon(
+  Widget paymentRow(Map<String, dynamic> payment) {
+    final logo = bankLogoAsset('${payment['bank_name']}');
+    return AppRow(
+      leading: payment['payment_method'] != 'cash' && logo != null
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child:
+                  Image.asset(logo, width: 44, height: 44, fit: BoxFit.cover))
+          : AppIconTile(
+              payment['payment_method'] == 'cash' ? 'cash' : 'bank',
               payment['payment_method'] == 'cash'
-                  ? Icons.payments_outlined
-                  : Icons.account_balance_outlined,
-              color: AppIdentity.muted),
-          const SizedBox(width: 12),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text('${payment['subscriber']}',
-                    style: AppIdentity.body(15, weight: FontWeight.w700)),
-                Text(
-                    '${payment['payment_method'] == 'cash' ? 'نقد' : 'تحويل${payment['bank_name'] == null ? '' : ' إلى ${payment['bank_name']}'}'} · سند ${payment['voucher_number'] ?? '—'}',
-                    style: AppIdentity.body(12, color: AppIdentity.faint)),
-              ])),
-          const SizedBox(width: 8),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(
-                '${AppIdentity.money(payment['amount'])} ${const {
-                      'USD': r'$',
-                      'JOD': 'JD'
-                    }[payment['currency']] ?? '₪'}',
-                style: AppIdentity.number(15, color: AppIdentity.good)),
-            Text('مسجّلة',
-                style: AppIdentity.body(12, color: AppIdentity.good)),
-          ]),
-        ]),
-      );
+                  ? AppIdentity.good
+                  : AppIdentity.muted,
+              AppIdentity.sunken,
+              size: 44),
+      title: AppRowTitle('${payment['subscriber']}'),
+      subtitle: AppRowNote(
+          '${payment['payment_method'] == 'cash' ? 'نقد' : 'تحويل${payment['bank_name'] == null ? '' : ' إلى ${payment['bank_name']}'}'} · سند ${payment['voucher_number'] ?? '—'}'),
+      trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Text(
+            '${AppIdentity.grouped(payment['amount'])} ${const {
+                  'USD': r'$',
+                  'JOD': 'JD'
+                }[payment['currency']] ?? '₪'}',
+            style: AppIdentity.number(14.5, color: AppIdentity.good)),
+        Text('مسجّلة', style: AppIdentity.body(12, color: AppIdentity.good)),
+      ]),
+    );
+  }
 }

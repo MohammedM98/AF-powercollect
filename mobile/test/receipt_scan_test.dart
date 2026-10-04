@@ -83,11 +83,15 @@ void main() {
     final scrollable = find.byType(Scrollable).first;
     final transfer = find.byKey(const ValueKey('payment-method-bank_transfer'));
     await tester.scrollUntilVisible(transfer, 100, scrollable: scrollable);
+    await tester.ensureVisible(transfer);
+    await tester.pumpAndSettle();
     await tester.tap(transfer);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
         find.byKey(const ValueKey('receipt-gallery')), 100,
         scrollable: scrollable);
+    await tester.ensureVisible(find.byKey(const ValueKey('receipt-gallery')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('receipt-gallery')));
     await tester.pumpAndSettle();
   }
@@ -126,7 +130,7 @@ void main() {
     ]);
     await openReceipt(tester, api, scanner, reader);
 
-    expect(find.text('تجهيز صورة الإيصال'), findsOneWidget);
+    expect(find.text('قراءة الإيصال'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('receipt-read')));
     await tester.pumpAndSettle();
     expect(reader.readPaths, [scanner.path]);
@@ -135,7 +139,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('receipt-line-0')));
     await tester.pumpAndSettle();
     final amountButton = tester
-        .widget<FilledButton>(find.byKey(const ValueKey('receipt-to-amount')));
+        .widget<AppAction>(find.byKey(const ValueKey('receipt-to-amount')));
     expect(amountButton.onPressed, isNull,
         reason: 'a line with no amount cannot fill the amount');
     await tester.tapAt(const Offset(195, 60));
@@ -165,7 +169,7 @@ void main() {
         'From AHMAD SALEM');
     expect(
         tester
-            .widget<Switch>(
+            .widget<AppToggle>(
                 find.byKey(const ValueKey('payment-sender-is-subscriber')))
             .value,
         isFalse);
@@ -182,9 +186,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('لم يُعثر على نص'), findsOneWidget);
-    final use = tester.widget<TextButton>(find.descendant(
-        of: find.byKey(const ValueKey('receipt-use')),
-        matching: find.byType(TextButton)));
+    final use =
+        tester.widget<AppAction>(find.byKey(const ValueKey('receipt-use')));
     expect(use.onPressed, isNull);
   });
 
@@ -194,7 +197,7 @@ void main() {
     final scanner = TestReceiptScanner(imageFile())..cancelled = true;
     await openReceipt(tester, api, scanner, TestReceiptReader(['unused']));
 
-    expect(find.text('تجهيز صورة الإيصال'), findsNothing);
+    expect(find.text('قراءة الإيصال'), findsNothing);
     expect(find.byKey(const ValueKey('payment-submit')), findsOneWidget);
     expect(api.requests, 0);
   });

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Enums\ChargeType;
 use App\Enums\CorrectionReason;
 use App\Enums\DiscountMethod;
+use App\Http\Requests\AmendSubscriberTransactionRequest;
+use App\Http\Requests\ApplySubscriberTransactionActionRequest;
 use App\Http\Requests\CorrectSubscriberTransactionRequest;
 use App\Http\Requests\DeleteSubscriberTransactionRequest;
 use App\Http\Requests\ForceDeleteSubscriberTransactionRequest;
@@ -15,13 +17,45 @@ use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 
 /**
- * Correcting, deleting or permanently erasing a payment, charge, discount
- * or clearing on a subscriber's account. A normal deletion cancels the
- * line with a reason and reversal; permanent deletion is separately
- * authorized and can remove only the final statement line.
+ * Amending details, correcting money, cancelling or permanently erasing a
+ * subscriber transaction. Each action preserves the financial audit trail
+ * appropriate to what changed.
  */
 class SubscriberTransactionController extends Controller
 {
+    /** Apply one of the five canonical ledger actions. */
+    public function apply(
+        ApplySubscriberTransactionActionRequest $request,
+        Subscriber $subscriber,
+        SubscriberTransaction $transaction,
+    ): RedirectResponse {
+        $action = $request->action();
+        $summary = sprintf('%s — %s', $subscriber->displayName(), $transaction->description());
+
+        $transaction->applyAction($request->user(), $action, $request->validated());
+
+        $request->user()->notify(new ActionCompleted('transaction-'.$action->value, $summary));
+
+        return back()->with('status', 'transaction-'.$action->value);
+    }
+
+    /** Amend non-financial payment details in place and keep their history. */
+    public function amend(AmendSubscriberTransactionRequest $request, Subscriber $subscriber, SubscriberTransaction $transaction): RedirectResponse
+    {
+        $transaction->amend(
+            $request->user(),
+            $request->safe()->except(['amendment_reason']),
+            $request->validated('amendment_reason'),
+        );
+
+        $request->user()->notify(new ActionCompleted(
+            'transaction-amended',
+            sprintf('%s — دفعة · السند %s', $subscriber->displayName(), $transaction->printedVoucherNumber()),
+        ));
+
+        return back()->with('status', 'transaction-amended');
+    }
+
     /**
      * Correct the line: cancel it and record the right one. A corrected
      * payment gets a new voucher number, shown on its receipt with the
@@ -60,7 +94,7 @@ class SubscriberTransactionController extends Controller
     }
 
     /**
-     * Delete the line: cancel it, and add the reversal that takes its
+     * Cancel the line, and add the reversal that takes its
      * amount back off the balance.
      */
     public function destroy(DeleteSubscriberTransactionRequest $request, Subscriber $subscriber, SubscriberTransaction $transaction): RedirectResponse

@@ -2,62 +2,37 @@ import { useEffect, useRef, useState } from 'react';
 import Icon from '@/Components/Icon';
 import ChargeModal from './ChargeModal';
 import ClearingModal from './ClearingModal';
+import AmendTransactionModal from './AmendTransactionModal';
 import DeleteTransactionModal from './DeleteTransactionModal';
+import EditTransactionAmountModal from './EditTransactionAmountModal';
 import ForceDeleteTransactionModal from './ForceDeleteTransactionModal';
 import DiscountModal from './DiscountModal';
 import PaymentModal from './PaymentModal';
 
-/**
- * The actions of the dropdown. Each is laid out like an item of the table's
- * row menu (RowMenu) — one size, an icon chip — and takes its own colour
- * (written out whole so Tailwind keeps every class): payment green.
- */
-const ACTIONS = [
-    {
-        form: 'payment',
-        label: 'تسجيل دفعة',
-        icon: 'banknotes',
-        paymentOnly: true,
-        tone: 'text-emerald-600 group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
-    },
-    {
-        form: 'charge',
-        label: 'تحميل حركة',
-        icon: 'document-plus',
-        tone: 'text-amber-600 group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
-    },
-    {
-        form: 'discount',
-        label: 'إضافة خصم',
-        icon: 'discount',
-        tone: 'text-violet-600 group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
-    },
-    {
-        form: 'clearing',
-        label: 'مقاصة',
-        icon: 'repeat',
-        tone: 'text-teal-600 group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
-    },
-];
+const ACTION_ICON_TONES = {
+    payment: 'text-emerald-600 group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
+    charge: 'text-amber-600 group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
+    discount: 'text-violet-600 group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
+    clearing: 'text-teal-600 group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
+};
 
 /**
- * The statement's actions in one dropdown: record a payment (green), add a
- * charge, a discount or a clearing — each shown only to users allowed to.
- * `onOpen` gets 'payment', 'charge', 'discount' or 'clearing'.
+ * The statement's actions, grouped into one coloured menu. Each action is
+ * shown only to users allowed to use it. `onOpen` gets 'charge', 'discount',
+ * 'clearing' or 'payment'.
  */
 export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen }) {
     const [open, setOpen] = useState(false);
-    const rootRef = useRef(null);
+    const menuRef = useRef(null);
     const triggerRef = useRef(null);
-    const actions = ACTIONS.filter((action) => (action.paymentOnly ? canRecordPayment : canAdjustBalance));
 
     useEffect(() => {
         if (!open) {
-            return undefined;
+            return;
         }
 
         function onPointerDown(event) {
-            if (!rootRef.current?.contains(event.target)) {
+            if (!menuRef.current?.contains(event.target)) {
                 setOpen(false);
             }
         }
@@ -65,7 +40,6 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
         function onKeyDown(event) {
             if (event.key === 'Escape') {
                 event.preventDefault();
-                event.stopPropagation();
                 event.stopImmediatePropagation();
                 setOpen(false);
                 triggerRef.current?.focus();
@@ -81,43 +55,41 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
         };
     }, [open]);
 
-    if (actions.length === 0) {
+    if (!canRecordPayment && !canAdjustBalance) {
         return null;
     }
 
     return (
-        <div ref={rootRef} className="relative shrink-0">
+        <div ref={menuRef} className="relative shrink-0">
             <button
                 ref={triggerRef}
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={open}
-                onClick={() => setOpen(!open)}
-                className="inline-flex h-10 items-center gap-2 rounded-control bg-brand-gradient px-4 text-sm font-semibold text-white shadow-glow transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+                onClick={() => setOpen((current) => !current)}
+                className="inline-flex h-10 items-center gap-2 rounded-control bg-graphite-gradient px-4 text-sm font-semibold text-white shadow-card transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
             >
                 <Icon name="plus" className="h-4 w-4" strokeWidth={2} />
                 إضافة حركة
-                <Icon name="chevron-down" className="h-4 w-4" strokeWidth={2} />
+                <Icon name="chevron-down" className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
             </button>
+
             {open && (
-                <div role="menu" className="animate-menu absolute end-0 top-full z-30 mt-2 w-[250px] rounded-[20px] border border-gray-200 bg-surface p-2 shadow-lift">
-                    {actions.map((action) => (
+                <div role="menu" aria-label="إضافة حركة" className="animate-dropdown absolute end-0 top-full z-40 mt-2 flex w-56 flex-col gap-1 rounded-2xl border border-gray-100 bg-surface p-2 shadow-lift">
+                    {actions.map((item) => (
                         <button
-                            key={action.form}
+                            key={item.action}
                             type="button"
                             role="menuitem"
-                            onClick={() => {
-                                setOpen(false);
-                                onOpen(action.form);
-                            }}
+                            onClick={() => choose(item.action)}
                             className="group/item flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-start text-sm font-medium text-gray-900 outline-none transition hover:bg-gray-100 focus-visible:bg-gray-100"
                         >
                             <span
-                                className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] bg-gray-100 transition group-hover/item:text-white group-focus-visible/item:text-white ${action.tone}`}
+                                className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] bg-gray-100 transition group-hover/item:text-white group-focus-visible/item:text-white ${ACTION_ICON_TONES[item.action]}`}
                             >
-                                <Icon name={action.icon} className="h-[17px] w-[17px]" />
+                                <Icon name={item.icon} className="h-[17px] w-[17px]" />
                             </span>
-                            <span className="flex-1 truncate">{action.label}</span>
+                            <span className="flex-1 truncate">{item.label}</span>
                         </button>
                     ))}
                 </div>
@@ -129,85 +101,67 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
 /**
  * The payment, charge, discount and clearing forms of a statement;
  * `openForm` names the one showing ('payment', 'charge', 'discount',
- * 'clearing' or null), or is `{ action: 'correct' | 'delete' | 'erase', entry }` to
- * correct or delete a line. `statement` is the statement's page props.
+ * 'clearing' or null), or is `{ action: 'edit' | 'edit_metadata' | 'delete' | 'cancel' | 'refund', entry }`
+ * for one of a line's audit-safe actions. `statement` is the statement's page props.
  */
 export function StatementForms({ statement, openForm, onClose }) {
-    const { subscriber, summary, canRecordPayment, canAdjustBalance, correctionReasons } = statement;
-    const correcting = openForm?.action === 'correct' ? openForm.entry : null;
+    const { subscriber, summary, canRecordPayment, canAdjustBalance } = statement;
+    const amending = openForm?.action === 'edit_metadata' ? openForm.entry : null;
+    const editing = openForm?.action === 'edit' ? openForm.entry : null;
     const deleting = openForm?.action === 'delete' ? openForm.entry : null;
-    const erasing = openForm?.action === 'erase' ? openForm.entry : null;
-    // A correction's form works from the balance without the line it replaces.
-    const balanceWithout = (entry) => (Number(summary.balance) - Number(entry.recorded.effect)).toFixed(2);
+    const cancelling = openForm?.action === 'cancel' ? openForm.entry : null;
+    const refunding = openForm?.action === 'refund' ? openForm.entry : null;
 
     return (
         <>
-            {correcting?.recorded.kind === 'payment' && (
-                <PaymentModal
-                    key={`correct-${correcting.id}`}
-                    show
+            {amending && (
+                <AmendTransactionModal
+                    key={`amend-${amending.id}`}
                     onClose={onClose}
                     subscriber={subscriber}
-                    balance={balanceWithout(correcting)}
-                    currencies={statement.currencies}
-                    paymentMethods={statement.paymentMethods}
+                    balance={summary.balance}
+                    entry={amending}
                     transferBanks={statement.transferBanks}
-                    correcting={correcting}
-                    correctionReasons={correctionReasons.payment}
                 />
             )}
 
-            {correcting?.recorded.kind === 'charge' && (
-                <ChargeModal
-                    key={`correct-${correcting.id}`}
-                    show
+
+            {editing && (
+                <EditTransactionAmountModal
+                    key={`edit-${editing.id}`}
                     onClose={onClose}
                     subscriber={subscriber}
-                    balance={balanceWithout(correcting)}
-                    chargeTypes={statement.chargeTypes}
-                    correcting={correcting}
-                    correctionReasons={correctionReasons.adjustment}
+                    balance={summary.balance}
+                    entry={editing}
                 />
             )}
 
-            {correcting?.recorded.kind === 'discount' && (
-                <DiscountModal
-                    key={`correct-${correcting.id}`}
-                    show
+            {cancelling && (
+                <DeleteTransactionModal
+                    key={`cancel-${cancelling.id}`}
                     onClose={onClose}
                     subscriber={subscriber}
-                    balance={balanceWithout(correcting)}
-                    discountMethods={statement.discountMethods}
-                    correcting={correcting}
-                    correctionReasons={correctionReasons.adjustment}
+                    balance={summary.balance}
+                    entry={cancelling}
+                    action="cancel"
+                    reasons={cancelling.deletionReasons}
                 />
             )}
 
-            {correcting?.recorded.kind === 'clearing' && (
-                <ClearingModal
-                    key={`correct-${correcting.id}`}
-                    show
+            {refunding && (
+                <DeleteTransactionModal
+                    key={`refund-${refunding.id}`}
                     onClose={onClose}
                     subscriber={subscriber}
-                    balance={balanceWithout(correcting)}
-                    correcting={correcting}
-                    correctionReasons={correctionReasons.adjustment}
+                    balance={summary.balance}
+                    entry={refunding}
+                    action="refund"
+                    reasons={refunding.deletionReasons}
                 />
             )}
 
             {deleting && (
-                <DeleteTransactionModal
-                    key={`delete-${deleting.id}`}
-                    onClose={onClose}
-                    subscriber={subscriber}
-                    balance={summary.balance}
-                    entry={deleting}
-                    reasons={deleting.deletionReasons}
-                />
-            )}
-
-            {erasing && (
-                <ForceDeleteTransactionModal key={`erase-${erasing.id}`} onClose={onClose} subscriber={subscriber} balance={summary.balance} entry={erasing} />
+                <ForceDeleteTransactionModal key={`delete-${deleting.id}`} onClose={onClose} subscriber={subscriber} balance={summary.balance} entry={deleting} />
             )}
 
             {canRecordPayment && (

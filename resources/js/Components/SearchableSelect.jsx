@@ -72,7 +72,7 @@ export default function SearchableSelect({
                 disabled={disabled}
                 aria-expanded={open}
                 onClick={() => setOpen((current) => !current)}
-                className={`flex w-full items-center justify-between gap-2 rounded-control border bg-surface px-3.5 py-2.5 text-start text-sm transition focus:outline-none focus-visible:border-gray-900 focus-visible:ring-4 focus-visible:ring-gray-900/10 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-gray-50 disabled:text-gray-500 ${
+                className={`flex h-[42px] w-full items-center justify-between gap-2 rounded-control border bg-surface px-3 text-start text-base leading-6 transition focus:outline-none focus-visible:border-gray-900 focus-visible:ring-4 focus-visible:ring-gray-900/10 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-gray-50 disabled:text-gray-500 ${
                     open || active ? 'border-gray-400' : 'border-gray-200 hover:border-gray-300'
                 }`}
             >

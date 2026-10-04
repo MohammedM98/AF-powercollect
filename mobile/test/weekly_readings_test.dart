@@ -81,7 +81,7 @@ void main() {
     expect(find.text('بانتظار الاعتماد'), findsOneWidget);
     expect(find.byType(CheckboxListTile), findsNothing);
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('الأسبوع السابق').last);
     await tester.pumpAndSettle();
@@ -95,7 +95,7 @@ void main() {
     expect(find.text('Filtered Subscriber'), findsOneWidget);
 
     api.allowed = false;
-    await tester.tap(find.byTooltip('تحديث القراءات'));
+    await tester.fling(find.byType(ListView).first, const Offset(0, 400), 1000);
     await tester.pumpAndSettle();
     expect(find.textContaining('ليس لديك صلاحية عرض القراءات'), findsOneWidget);
     expect(find.text('Filtered Subscriber'), findsNothing);

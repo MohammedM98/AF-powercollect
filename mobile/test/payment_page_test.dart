@@ -80,7 +80,8 @@ void main() {
   }
 
   Future<void> confirmAndSubmit(WidgetTester tester, Finder scrollable) async {
-    await tapInList(tester, scrollable, find.byType(CheckboxListTile));
+    await tapInList(
+        tester, scrollable, find.byKey(const ValueKey('payment-confirm')));
     await tester.tap(find.byKey(const ValueKey('payment-submit')));
     await tester.pumpAndSettle();
   }

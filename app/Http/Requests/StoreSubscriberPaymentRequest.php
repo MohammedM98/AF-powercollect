@@ -10,6 +10,13 @@ use Illuminate\Validation\Rule;
 
 class StoreSubscriberPaymentRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('reference_number')) {
+            $this->merge(['reference_number' => trim((string) $this->input('reference_number'))]);
+        }
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */

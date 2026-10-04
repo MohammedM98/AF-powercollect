@@ -59,6 +59,14 @@ class SubscriberTransactionPolicy
         return $user->hasPermission(PermissionKey::CorrectTransactions) && $this->mayChange($user, $subscriberTransaction);
     }
 
+    /** Amend payment details without changing its financial meaning. */
+    public function amend(User $user, SubscriberTransaction $subscriberTransaction): bool
+    {
+        return $user->hasPermission(PermissionKey::CorrectTransactions)
+            && $subscriberTransaction->isAmendable()
+            && $this->inBranchOf($user, $subscriberTransaction);
+    }
+
     /**
      * Deleting (cancelling) a line takes the "Delete Transactions"
      * permission, in the user's own branch. The permanent-delete permission

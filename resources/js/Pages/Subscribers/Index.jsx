@@ -237,7 +237,7 @@ export default function Index({
                         },
                         {
                             label: 'مقاصة',
-                            icon: 'repeat',
+                            icon: 'scale',
                             tone: 'teal',
                             onSelect: () => openStatement(subscriber, 'clearing'),
                             lockedReason: subscriber.canAdjustBalance ? null : needsPermission('إضافة تحميل وخصم'),

@@ -1,5 +1,5 @@
-import { useId, useRef, useState } from 'react';
-import { usePage } from '@inertiajs/react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { useHttp, usePage } from '@inertiajs/react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
@@ -23,6 +23,18 @@ const BANKS = {
     'بنك فلسطين': { logo: '/images/banks/bank-of-palestine.webp', color: '#b8007a', kind: 'تحويل بنكي' },
     'جوال باي': { logo: '/images/banks/jawwal-pay.webp', color: '#7cb342', kind: 'محفظة' },
     'محفظة بالباي': { logo: '/images/banks/palpay.webp', color: '#9b30e0', kind: 'محفظة' },
+    'البنك الإسلامي الفلسطيني': {
+        logo: '/images/banks/palestine-islamic-bank.jpeg',
+        color: '#173d69',
+        kind: 'تحويل بنكي',
+        logoClassName: 'absolute left-[-19px] top-[-15px] h-auto w-[120px] max-w-none',
+    },
+    'البنك الوطني الإسلامي': {
+        logo: '/images/banks/national-islamic-bank.png',
+        color: '#17268b',
+        kind: 'تحويل بنكي',
+        logoClassName: 'absolute left-[-6px] top-[-12px] h-auto w-[100px] max-w-none',
+    },
 };
 
 const inputClass =
@@ -60,8 +72,26 @@ function MethodTile({ value, checked, onChange, icon, title, hint }) {
     );
 }
 
-/** A bank or e-wallet the transfer went to, with its logo and brand color. */
-function BankTile({ bank, checked, onChange }) {
+function BankMark({ bank }) {
+    const look = BANKS[bank];
+
+    if (!look) {
+        return (
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
+                <Icon name="bank" className="h-5 w-5" />
+            </span>
+        );
+    }
+
+    return (
+        <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-[0_4px_10px_-6px_rgb(0_0_0/0.4)]">
+            <img src={look.logo} alt="" className={look.logoClassName ?? 'h-full w-full object-cover'} />
+        </span>
+    );
+}
+
+/** A bank or e-wallet, with a consistently sized brand mark. */
+function BankTile({ bank, checked, name, onChange, required = false }) {
     const look = BANKS[bank];
     const color = look?.color;
 
@@ -72,23 +102,134 @@ function BankTile({ bank, checked, onChange }) {
             }`}
             style={checked && color ? { borderColor: color, boxShadow: `0 0 0 3px ${color}29`, backgroundColor: `${color}0d` } : undefined}
         >
-            <input type="radio" name="bank_name" value={bank} required checked={checked} onChange={() => onChange(bank)} className="sr-only" />
-            {look ? (
-                <img
-                    src={look.logo}
-                    alt=""
-                    className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-[0_0_0_1px_rgb(0_0_0/0.06),0_4px_10px_-6px_rgb(0_0_0/0.4)]"
-                />
-            ) : (
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
-                    <Icon name="bank" className="h-5 w-5" />
-                </span>
-            )}
+            <input type="radio" name={name} value={bank} required={required} checked={checked} onChange={() => onChange(bank)} className="sr-only" />
+            <BankMark bank={bank} />
             <span className="min-w-0">
                 {bank}
                 <small className="block text-xs font-medium text-gray-500">{look?.kind ?? 'تحويل'}</small>
             </span>
         </label>
+    );
+}
+
+function BankDropdown({ banks, id, name, onChange, value }) {
+    const [open, setOpen] = useState(false);
+    const containerRef = useRef(null);
+    const listboxId = useId();
+    const selectedLook = BANKS[value];
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        function closeOutside(event) {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setOpen(false);
+            }
+        }
+
+        function closeOnEscape(event) {
+            if (event.key === 'Escape') {
+                setOpen(false);
+            }
+        }
+
+        document.addEventListener('mousedown', closeOutside);
+        document.addEventListener('keydown', closeOnEscape);
+
+        return () => {
+            document.removeEventListener('mousedown', closeOutside);
+            document.removeEventListener('keydown', closeOnEscape);
+        };
+    }, [open]);
+
+    function select(bank) {
+        onChange(bank);
+        setOpen(false);
+    }
+
+    return (
+        <div ref={containerRef} className="relative">
+            <input type="hidden" name={name} value={value} />
+            <button
+                type="button"
+                id={id}
+                aria-controls={listboxId}
+                aria-expanded={open}
+                aria-haspopup="listbox"
+                onClick={() => setOpen((current) => !current)}
+                className={`flex min-h-[58px] w-full items-center gap-3 rounded-[14px] border-[1.5px] bg-surface px-3 py-2 text-start transition focus:outline-none focus-visible:ring-4 focus-visible:ring-gray-900/10 ${
+                    open ? 'border-gray-900' : 'border-gray-200 hover:border-gray-300'
+                }`}
+            >
+                {value ? (
+                    <>
+                        <BankMark bank={value} />
+                        <span className="min-w-0">
+                            <b className="block truncate text-[14.5px] text-gray-900">{value}</b>
+                            <small className="block text-xs font-medium text-gray-500">{selectedLook?.kind ?? 'تحويل'}</small>
+                        </span>
+                    </>
+                ) : (
+                    <span className="text-sm text-gray-400">اختر البنك أو المحفظة المحوّل منها</span>
+                )}
+                <Icon name="chevron-down" className={`ms-auto h-4 w-4 shrink-0 text-gray-400 transition ${open ? 'rotate-180' : ''}`} />
+            </button>
+
+            {open && (
+                <ul
+                    id={listboxId}
+                    role="listbox"
+                    aria-label="البنك المحوّل منه"
+                    className="animate-modal-panel absolute inset-x-0 z-30 mt-2 max-h-80 overflow-y-auto rounded-2xl border border-gray-100 bg-surface p-1.5 shadow-lift"
+                >
+                    <li role="none">
+                        <button
+                            type="button"
+                            role="option"
+                            aria-selected={!value}
+                            onClick={() => select('')}
+                            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start transition hover:bg-gray-50 ${
+                                !value ? 'bg-gray-50 font-semibold text-gray-900' : 'text-gray-600'
+                            }`}
+                        >
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 text-gray-400">
+                                <Icon name="close" className="h-4 w-4" />
+                            </span>
+                            <span className="text-sm">غير محدد</span>
+                            {!value && <Icon name="check" className="ms-auto h-4 w-4 text-brand-600" strokeWidth={2} />}
+                        </button>
+                    </li>
+                    {banks.map((bank) => {
+                        const isSelected = value === bank;
+                        const look = BANKS[bank];
+
+                        return (
+                            <li key={bank} role="none">
+                                <button
+                                    type="button"
+                                    role="option"
+                                    aria-selected={isSelected}
+                                    onClick={() => select(bank)}
+                                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start transition hover:bg-gray-50 ${
+                                        isSelected ? 'bg-gray-50' : ''
+                                    }`}
+                                    style={isSelected && look?.color ? { backgroundColor: `${look.color}0d` } : undefined}
+                                >
+                                    <BankMark bank={bank} />
+                                    <span className="min-w-0">
+                                        <b className="block text-[14.5px] text-gray-900">{bank}</b>
+                                        <small className="block text-xs font-medium text-gray-500">{look?.kind ?? 'تحويل'}</small>
+                                    </span>
+                                    {isSelected && <Icon name="check" className="ms-auto h-4 w-4 shrink-0 text-brand-600" strokeWidth={2} />}
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
+        </div>
     );
 }
 
@@ -298,6 +439,8 @@ export default function PaymentModal({
     const [detailsOpen, setDetailsOpen] = useState(Boolean(recorded?.notes));
     const [discarding, setDiscarding] = useState(false);
     const [receipt, setReceipt] = useState(null);
+    const [referenceStatus, setReferenceStatus] = useState(null);
+    const referenceCheck = useHttp();
 
     const isShekel = data.currency === 'ILS';
     const throughBank = data.payment_method === 'bank_transfer';
@@ -314,6 +457,40 @@ export default function PaymentModal({
     const sortedCurrencies = [...currencies].sort((a, b) => rank(a.value) - rank(b.value));
     const methods = ['bank_transfer', 'cash'].filter((method) => paymentMethods.some((option) => option.value === method));
     const detailErrors = Boolean(errors.notes);
+
+    useEffect(() => {
+        const reference = data.reference_number.trim();
+
+        if (!show || !throughBank || reference === '') {
+            referenceCheck.cancel();
+            setReferenceStatus(null);
+
+            return undefined;
+        }
+
+        const timer = setTimeout(() => {
+            const query = new URLSearchParams({
+                reference_number: reference,
+                amount: data.amount,
+                currency: data.currency,
+                sender_name: data.sender_name,
+            });
+
+            if (correcting?.id) {
+                query.set('ignore_transaction_id', correcting.id);
+            }
+
+            referenceCheck
+                .get(`/subscribers/${subscriber.id}/payments/reference-status?${query}`)
+                .then((status) => setReferenceStatus(status ?? null))
+                .catch(() => setReferenceStatus(null));
+        }, 400);
+
+        return () => {
+            clearTimeout(timer);
+            referenceCheck.cancel();
+        };
+    }, [show, throughBank, data.reference_number, data.amount, data.currency, data.sender_name, correcting?.id, subscriber.id]);
 
     function rank(currency) {
         const index = CURRENCY_ORDER.indexOf(currency);
@@ -407,11 +584,11 @@ export default function PaymentModal({
         <>
             <Modal show={show} onClose={requestClose} maxWidth="5xl">
                 {receipt ? (
-                    <div role="dialog" aria-modal="true" aria-label="سُجّلت الدفعة">
+                    <div role="dialog" aria-modal="true" aria-label={correcting ? 'صُحّحت الدفعة' : 'سُجّلت الدفعة'}>
                         <PaymentReceipt
                             receipt={receipt}
                             subscriberName={subscriber.fullName}
-                            title={correcting ? 'عُدّلت الدفعة' : 'سُجّلت الدفعة'}
+                            title={correcting ? 'صُحّحت الدفعة' : 'سُجّلت الدفعة'}
                             onAnother={correcting ? null : () => setReceipt(null)}
                             onDone={close}
                         />
@@ -428,16 +605,20 @@ export default function PaymentModal({
                         className="flex max-h-[calc(100dvh-6rem)] flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_minmax(0,1fr)_auto]"
                     >
                         <div className="flex shrink-0 items-center gap-3.5 border-b border-gray-100 px-5 py-4 sm:px-6 sm:py-5 lg:col-start-1 lg:row-start-1">
-                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-graphite-gradient text-white shadow-sm">
-                                <Icon name={correcting ? 'pencil' : 'card'} className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                            <span
+                                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-white shadow-sm ${
+                                    correcting ? 'bg-gradient-to-br from-amber-500 to-amber-700' : 'bg-graphite-gradient'
+                                }`}
+                            >
+                                <Icon name={correcting ? 'repeat' : 'card'} className="h-[18px] w-[18px]" strokeWidth={1.8} />
                             </span>
                             <div className="min-w-0">
                                 <h3 id={titleId} className="font-luxe text-[22px] font-bold leading-tight text-gray-900">
-                                    {correcting ? 'تعديل دفعة' : 'تسجيل دفعة'}
+                                    {correcting ? 'تصحيح دفعة' : 'تسجيل دفعة'}
                                 </h3>
                                 <p className="mt-0.5 text-[13.5px] text-gray-500">
                                     {correcting
-                                        ? 'صحّح بيانات الدفعة؛ تبقى الأصلية في الكشف ملغاة مع سبب التعديل.'
+                                        ? 'صحّح الدفعة؛ تبقى الأصلية في الكشف ملغاة مع سبب التصحيح.'
                                         : 'سجّل المبلغ المستلم، ويُحدَّث الرصيد تلقائيًا.'}
                                 </p>
                             </div>
@@ -632,7 +813,9 @@ export default function PaymentModal({
                                                             key={bank}
                                                             bank={bank}
                                                             checked={data.bank_name === bank}
+                                                            name="bank_name"
                                                             onChange={(value) => setData('bank_name', value)}
+                                                            required
                                                         />
                                                     ))}
                                                 </div>
@@ -643,18 +826,13 @@ export default function PaymentModal({
                                                 <FieldLabel htmlFor="sender_bank_name" hint="اختياري">
                                                     البنك المحوّل منه (من)
                                                 </FieldLabel>
-                                                <select
+                                                <BankDropdown
+                                                    banks={transferBanks}
                                                     id="sender_bank_name"
                                                     name="sender_bank_name"
                                                     value={data.sender_bank_name}
-                                                    onChange={(e) => setData('sender_bank_name', e.target.value)}
-                                                    className={inputClass}
-                                                >
-                                                    <option value="">اختر البنك أو المحفظة المحوّل منها</option>
-                                                    {transferBanks.map((bank) => (
-                                                        <option key={bank} value={bank}>{bank}</option>
-                                                    ))}
-                                                </select>
+                                                    onChange={(value) => setData('sender_bank_name', value)}
+                                                />
                                                 <InputError message={errors.sender_bank_name} className="mt-2" />
                                             </div>
 
@@ -699,6 +877,26 @@ export default function PaymentModal({
                                                         className={`${inputClass} text-end font-display`}
                                                     />
                                                     <InputError message={errors.reference_number} className="mt-2" />
+                                                    {referenceCheck.processing && <p className="mt-2 text-xs text-gray-500">جارٍ التحقق من الرقم المرجعي...</p>}
+                                                    {referenceStatus?.conflict && (
+                                                        <p className="mt-2 text-xs font-medium text-red-600">
+                                                            هذا الرقم المرجعي مستخدم في السند{' '}
+                                                            <a href={referenceStatus.conflict.url} className="underline">
+                                                                {referenceStatus.conflict.voucherNumber ?? '—'} — {referenceStatus.conflict.subscriberName}
+                                                            </a>
+                                                        </p>
+                                                    )}
+                                                    {referenceStatus?.available && !referenceStatus.warning && (
+                                                        <p className="mt-2 text-xs font-medium text-emerald-600">الرقم المرجعي متاح.</p>
+                                                    )}
+                                                    {referenceStatus?.warning && (
+                                                        <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-800">
+                                                            تنبيه فقط: توجد دفعة اليوم بالمبلغ واسم المحوِّل نفسيهما —{' '}
+                                                            <a href={referenceStatus.warning.url} className="underline">
+                                                                السند {referenceStatus.warning.voucherNumber ?? '—'}
+                                                            </a>
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -792,14 +990,16 @@ export default function PaymentModal({
                             </span>
                             <PrimaryButton
                                 type="submit"
-                                disabled={!(Number(data.amount) > 0) || form.processing}
-                                className="ms-auto h-12 min-w-0 flex-1 rounded-[14px] px-5 text-[15.5px] font-bold sm:min-w-[230px] sm:flex-none"
+                                disabled={!(Number(data.amount) > 0) || form.processing || Boolean(referenceStatus?.conflict)}
+                                className={`ms-auto h-12 min-w-0 flex-1 rounded-[14px] px-5 text-[15.5px] font-bold sm:min-w-[230px] sm:flex-none ${
+                                    correcting ? '!bg-none !bg-amber-600 !shadow-[0_12px_26px_-12px_rgb(180_83_9)]' : ''
+                                }`}
                             >
                                 <Icon name="check" className="h-[18px] w-[18px]" strokeWidth={2.2} />
                                 {form.processing
                                     ? 'جارٍ الحفظ...'
                                     : correcting
-                                      ? 'حفظ التعديل'
+                                      ? 'حفظ التصحيح'
                                       : Number(data.amount) > 0
                                         ? `تسجيل ${formatMoney(data.amount)} ${currencyLabel}`
                                         : 'تسجيل الدفعة'}

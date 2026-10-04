@@ -4,7 +4,6 @@ import {
     describeBalance,
     discountAmount,
     filterStatementEntries,
-    foldCorrections,
     paymentInShekels,
 } from '../../resources/js/lib/accountStatement.js';
 
@@ -27,7 +26,9 @@ const entries = [
         typeLabel: 'دفعة',
         isCredit: true,
         paymentMethod: 'cash',
-        voucherNumber: '000118',
+        voucherNumber: '4471',
+        systemVoucherNumber: '000118',
+        manualVoucherNumber: '4471',
         amount: '20.00',
         recordedByName: 'Mohammed',
     },
@@ -69,6 +70,7 @@ test('filters by every charge, every payment and discount, one type, or payment 
 
 test('search matches voucher numbers, banks, references and employee names', () => {
     assert.deepEqual(ids(filterStatementEntries(entries, { search: '000118' })), [2]);
+    assert.deepEqual(ids(filterStatementEntries(entries, { search: '4471' })), [2]);
     assert.deepEqual(ids(filterStatementEntries(entries, { search: 'بنك فلسطين' })), [3]);
     assert.deepEqual(ids(filterStatementEntries(entries, { search: 'البنك الإسلامي الفلسطيني' })), [3]);
     assert.deepEqual(ids(filterStatementEntries(entries, { search: ' trx-88214 ' })), [3]);
@@ -105,49 +107,4 @@ test('a discount is a percentage of what is owed, kilowatts at the kilo price, o
     assert.equal(discountAmount('percentage', '12.5', '78.18', '0.60'), 9.77);
     assert.equal(discountAmount('shekel', '', '250.00', '0.60'), null);
     assert.equal(discountAmount('shekel', '0', '250.00', '0.60'), null);
-});
-
-const corrections = [
-    { id: 1, groupId: 1, type: 'meter_reading' },
-    { id: 2, groupId: 2, type: 'payment', cancellation: { wasCorrected: true } },
-    { id: 3, groupId: 2, type: 'reversal', isReversal: true, isFollowUp: true },
-    { id: 4, groupId: 4, type: 'payment', isCorrection: true, corrects: { id: 2, date: '2026-09-05 10:00' } },
-    { id: 5, groupId: 5, type: 'payment', cancellation: { wasCorrected: false } },
-    { id: 6, groupId: 5, type: 'reversal', isReversal: true, isFollowUp: true },
-];
-
-test('a corrected or deleted line folds under its reversal, and a replacement stands on its own', () => {
-    const folded = foldCorrections(corrections, corrections, new Set());
-
-    assert.deepEqual(
-        folded.map((entry) => entry.id),
-        [1, 3, 4, 6],
-    );
-    assert.equal(folded[0].history, null);
-    assert.deepEqual(folded[1].history, { hiddenCount: 1, wasCorrected: true, expanded: false, isHead: true });
-    assert.equal(folded[2].history, null);
-    assert.deepEqual(folded[3].history, { hiddenCount: 1, wasCorrected: false, expanded: false, isHead: true });
-});
-
-test('an opened group shows all its lines, and the others stay folded', () => {
-    const opened = foldCorrections(corrections, corrections, new Set([2]));
-
-    assert.deepEqual(
-        opened.map((entry) => entry.id),
-        [1, 2, 3, 4, 6],
-    );
-    assert.deepEqual(opened[1].history, { hiddenCount: 1, wasCorrected: true, expanded: true, isHead: false });
-    assert.deepEqual(
-        foldCorrections(corrections, corrections, new Set([5])).map((entry) => entry.id),
-        [1, 3, 4, 5, 6],
-    );
-});
-
-test('a folded line shows when the filters hide the line that stands for it', () => {
-    const cancelledOnly = corrections.filter((entry) => entry.id === 2);
-
-    assert.deepEqual(
-        foldCorrections(corrections, cancelledOnly, new Set()).map((entry) => entry.id),
-        [2],
-    );
 });

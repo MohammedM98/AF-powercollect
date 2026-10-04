@@ -23,7 +23,8 @@ class PowerCollectApp extends StatefulWidget {
   State<PowerCollectApp> createState() => _PowerCollectAppState();
 }
 
-class _PowerCollectAppState extends State<PowerCollectApp> {
+class _PowerCollectAppState extends State<PowerCollectApp>
+    with WidgetsBindingObserver {
   late final ApiClient api = widget.apiClient ?? ApiClient();
   late final FieldStore store = widget.fieldStore ?? FieldStore();
   bool loading = true;
@@ -33,8 +34,25 @@ class _PowerCollectAppState extends State<PowerCollectApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     restore();
   }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    AppIdentity.dark = _systemIsDark;
+    rebuildEverything();
+  }
+
+  bool get _systemIsDark =>
+      WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+      Brightness.dark;
 
   Future<void> restore() async {
     try {
@@ -89,30 +107,35 @@ class _PowerCollectAppState extends State<PowerCollectApp> {
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'PowerCollect',
-        debugShowCheckedModeBanner: false,
-        locale: const Locale('ar'),
-        supportedLocales: const [Locale('ar')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        theme: AppIdentity.theme,
-        home: loading
-            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-            : startupError != null
-                ? Scaffold(body: Center(child: Text(startupError!)))
-                : user == null
-                    ? LoginPage(onLogin: login)
-                    : FieldShell(
-                        api: api,
-                        store: store,
-                        user: user!,
-                        onLogout: logout,
-                        onReauthenticate: requireLogin),
-      );
+  Widget build(BuildContext context) {
+    AppIdentity.dark = _systemIsDark;
+    return MaterialApp(
+      title: 'PowerCollect',
+      debugShowCheckedModeBanner: false,
+      locale: const Locale('ar'),
+      supportedLocales: const [Locale('ar')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      theme: AppIdentity.theme,
+      home: loading
+          ? Scaffold(
+              body: Center(
+                  child: CircularProgressIndicator(color: AppIdentity.brand)))
+          : startupError != null
+              ? Scaffold(body: Center(child: Text(startupError!)))
+              : user == null
+                  ? LoginPage(onLogin: login)
+                  : FieldShell(
+                      api: api,
+                      store: store,
+                      user: user!,
+                      onLogout: logout,
+                      onReauthenticate: requireLogin),
+    );
+  }
 }
 
 class LoginPage extends StatefulWidget {
@@ -152,6 +175,27 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  InputDecoration _decoration(String hint, String icon, {Widget? suffix}) =>
+      InputDecoration(
+        hintText: hint,
+        hintStyle: AppIdentity.body(16, color: AppIdentity.faint),
+        prefixIcon: Padding(
+            padding: const EdgeInsetsDirectional.only(start: 14, end: 10),
+            child: AppIcon(icon, color: AppIdentity.faint)),
+        prefixIconConstraints: const BoxConstraints(),
+        suffixIcon: suffix,
+        suffixIconConstraints: const BoxConstraints(),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 17),
+        border: _border(AppIdentity.line),
+        enabledBorder: _border(AppIdentity.line),
+        focusedBorder: _border(AppIdentity.brand),
+      );
+
+  OutlineInputBorder _border(Color color) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(17),
+      borderSide: BorderSide(color: color, width: 1.5));
+
   @override
   Widget build(BuildContext context) => Scaffold(
         body: SafeArea(
@@ -159,63 +203,69 @@ class _LoginPageState extends State<LoginPage> {
                 child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 32, 20, 24),
+              padding: const EdgeInsets.fromLTRB(22, 30, 22, 30),
               children: [
-                Image.asset('assets/images/brand.webp', height: 140),
-                const SizedBox(height: 16),
+                Padding(
+                    padding: const EdgeInsets.only(top: 20, bottom: 6),
+                    child: Image.asset('assets/images/brand.webp', width: 170)),
                 Text('تطبيق الميدان',
                     textAlign: TextAlign.center,
-                    style: AppIdentity.heading(26)),
-                Text('سجّل الدخول للبدء',
-                    textAlign: TextAlign.center,
-                    style: AppIdentity.body(14, color: AppIdentity.faint)),
-                const SizedBox(height: 28),
-                AppPanel(
-                    child: AutofillGroup(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
+                    style: AppIdentity.heading(27)),
+                Padding(
+                    padding: const EdgeInsets.only(top: 2, bottom: 22),
+                    child: Text('سجّل الدخول للبدء',
+                        textAlign: TextAlign.center,
+                        style: AppIdentity.body(14, color: AppIdentity.faint))),
+                AutofillGroup(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                       TextField(
                           controller: username,
                           autofillHints: const [AutofillHints.username],
                           textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
-                              labelText: 'اسم المستخدم',
-                              prefixIcon: Icon(Icons.person_outline))),
-                      const SizedBox(height: 16),
+                          style: AppIdentity.body(16),
+                          decoration: _decoration('اسم المستخدم', 'user')),
+                      const SizedBox(height: 12),
                       TextField(
                           controller: password,
                           obscureText: !showPassword,
                           autofillHints: const [AutofillHints.password],
                           onSubmitted: (_) => submit(),
-                          decoration: InputDecoration(
-                              labelText: 'كلمة المرور',
-                              prefixIcon: const Icon(Icons.lock_outline),
-                              suffixIcon: IconButton(
-                                  tooltip: showPassword
-                                      ? 'إخفاء كلمة المرور'
-                                      : 'إظهار كلمة المرور',
-                                  icon: Icon(showPassword
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined),
-                                  onPressed: () => setState(
-                                      () => showPassword = !showPassword)))),
+                          style: AppIdentity.body(16),
+                          decoration: _decoration('كلمة المرور', 'lock',
+                              suffix: Padding(
+                                  padding: const EdgeInsetsDirectional.only(
+                                      start: 10, end: 14),
+                                  child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => setState(
+                                          () => showPassword = !showPassword),
+                                      child: Tooltip(
+                                          message: showPassword
+                                              ? 'إخفاء كلمة المرور'
+                                              : 'إظهار كلمة المرور',
+                                          child: AppIcon(
+                                              showPassword ? 'eyeoff' : 'eye',
+                                              color: AppIdentity.faint)))))),
+                      const SizedBox(height: 12),
                       if (error != null) ...[
+                        AppNotice(error!, error: true),
                         const SizedBox(height: 12),
-                        AppNotice(error!, error: true)
                       ],
-                      const SizedBox(height: 20),
                       AppAction(
                           label: busy ? 'جارٍ الدخول...' : 'تسجيل الدخول',
-                          icon: Icons.login,
+                          icon: 'login',
                           busy: busy,
                           onPressed: busy ? null : submit),
-                    ]))),
-                const SizedBox(height: 16),
-                Text(
-                    'بعد أول دخول وتحميل البيانات، يمكنك إدخال قراءات العدادات دون اتصال. التحصيل يحتاج إلى الإنترنت.',
-                    textAlign: TextAlign.center,
-                    style: AppIdentity.body(12.5, color: AppIdentity.faint)),
+                    ])),
+                Padding(
+                    padding: const EdgeInsets.only(top: 14),
+                    child: Text(
+                        'بعد أول دخول وتحميل البيانات، يمكنك إدخال قراءات العدادات دون اتصال. التحصيل يحتاج إلى الإنترنت.',
+                        textAlign: TextAlign.center,
+                        style:
+                            AppIdentity.body(12.5, color: AppIdentity.faint))),
               ]),
         ))),
       );
@@ -448,7 +498,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
 
   Future<void> openPayment(Map<String, dynamic> subscriber) async {
     if (!online) {
-      setState(() => message = 'التحصيل يتطلب اتصالًا بالخادم.');
+      showAppToast(context, 'التحصيل يتطلب اتصالًا بالخادم.', icon: 'cloudoff');
       return;
     }
     final submitted = await Navigator.of(context).push<bool>(MaterialPageRoute(
@@ -461,7 +511,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     ));
     if (!mounted) return;
     if (submitted == true) {
-      setState(() => message = 'سُجلت الدفعة مباشرة في السجل المالي.');
+      showAppToast(context, 'سُجلت الدفعة مباشرة في السجل المالي.');
     }
     try {
       await refreshCollections();
@@ -472,6 +522,16 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   }
 
   Future<void> signOut() async {
+    if (widget.store.queuedReadings.isNotEmpty) {
+      showAppToast(context, 'زامن القراءات غير المرسلة قبل تسجيل الخروج.',
+          icon: 'err');
+      return;
+    }
+    final confirmed = await showAppSheet<bool>(context,
+        title: 'تسجيل الخروج؟',
+        message: 'ستحتاج إلى الإنترنت لتسجيل الدخول مرة أخرى.',
+        children: [_confirmButtons('تسجيل الخروج')]);
+    if (confirmed != true) return;
     try {
       await widget.onLogout();
     } on ApiException catch (error) {
@@ -479,25 +539,32 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     }
   }
 
+  Widget _confirmButtons(String confirm) => Builder(
+      builder: (context) => Row(children: [
+            Expanded(
+                child: AppAction(
+                    label: 'إلغاء',
+                    primary: false,
+                    onPressed: () => Navigator.pop(context, false))),
+            const SizedBox(width: 8),
+            Expanded(
+                child: AppAction(
+                    label: confirm,
+                    onPressed: () => Navigator.pop(context, true))),
+          ]));
+
   Future<void> discardRejectedReading(Map<String, dynamic> reading) async {
-    final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-              title: const Text('حذف القراءة المحلية؟'),
-              content: Text('رفض الخادم هذه القراءة: ${reading['sync_error']}\n'
-                  'سيُحذف الإدخال من هذا الجهاز ويمكنك إدخاله من جديد.'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('إلغاء')),
-                FilledButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('حذف')),
-              ],
-            ));
+    final confirmed = await showAppSheet<bool>(context,
+        title: 'حذف القراءة المحلية؟',
+        message: 'رفض الخادم هذه القراءة: ${reading['sync_error']}\n'
+            'سيُحذف الإدخال من هذا الجهاز ويمكنك إدخاله من جديد.',
+        children: [_confirmButtons('حذف')]);
     if (confirmed != true) return;
     await widget.store.removeReading(reading['mobile_operation_id'] as String);
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      showAppToast(context, 'حُذفت القراءة من الجهاز', icon: 'trash');
+    }
   }
 
   void navigate(FieldSection destination) {
@@ -517,10 +584,8 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   /// Take a saved reading back off the queue and open it on the keypad.
   Future<void> reenterReading(Map<String, dynamic> reading) async {
     if (syncing) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(
-            content: Text('جارٍ الإرسال الآن. أعد المحاولة بعد لحظات.')));
+      showAppToast(context, 'جارٍ الإرسال الآن. أعد المحاولة بعد لحظات.',
+          icon: 'clock');
       return;
     }
     await widget.store.reopenReading(reading['mobile_operation_id'] as String);
@@ -538,48 +603,18 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
         builder: (_) => WeeklyReadingsPage(api: widget.api)));
   }
 
-  List<(FieldSection, String, IconData, IconData)> get destinations => [
-        (
-          FieldSection.home,
-          'الرئيسية',
-          Icons.home_outlined,
-          Icons.home_rounded
-        ),
-        if (canRead)
-          (
-            FieldSection.readings,
-            'القراءات',
-            Icons.bolt_outlined,
-            Icons.bolt_rounded
-          ),
-        if (canCollect)
-          (
-            FieldSection.collections,
-            'التحصيل',
-            Icons.payments_outlined,
-            Icons.payments_rounded
-          ),
-        (
-          FieldSection.sync,
-          'الإرسال',
-          Icons.cloud_outlined,
-          Icons.cloud_rounded
-        ),
-        (
-          FieldSection.account,
-          'حسابي',
-          Icons.person_outline,
-          Icons.person_rounded
-        ),
+  List<AppNavItem> get destinations => [
+        const AppNavItem('home', 'الرئيسية', 'home'),
+        if (canRead) const AppNavItem('readings', 'القراءات', 'bolt'),
+        if (canCollect) const AppNavItem('collections', 'التحصيل', 'cash'),
+        AppNavItem('sync', 'الإرسال', 'cloud',
+            badge: widget.store.queuedReadings.length),
+        const AppNavItem('account', 'حسابي', 'user'),
       ];
 
   @override
   Widget build(BuildContext context) {
     final inReadings = section == FieldSection.readings && canRead;
-    final pending = widget.store.queuedReadings.length;
-    final tabs = destinations;
-    final selectedTab =
-        tabs.indexWhere((destination) => destination.$1 == section);
     return PopScope(
       canPop: section == FieldSection.home,
       onPopInvokedWithResult: (didPop, _) {
@@ -602,49 +637,44 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                     message: message,
                     requiresLogin: requiresLogin,
                     focusSubscriberId: focusSubscriberId,
-                    onSync: () => unawaited(synchronize()),
+                    onSync: () => navigate(FieldSection.sync),
                     onRefresh: synchronize,
                     onSave: saveReadings,
-                    onDiscard: discardRejectedReading,
-                    onFocusChanged: (focused) =>
-                        setState(() => readingFocus = focused),
                     onExit: () => navigate(FieldSection.home),
                     onReauthenticate: widget.onReauthenticate,
+                    onFocusChanged: (focused) =>
+                        setState(() => readingFocus = focused),
                   )
                 : SafeArea(bottom: false, child: sectionBody()),
           ),
         ),
         bottomNavigationBar: inReadings && readingFocus
             ? null
-            : NavigationBar(
-                selectedIndex: selectedTab < 0 ? 0 : selectedTab,
-                onDestinationSelected: (index) => navigate(tabs[index].$1),
-                destinations: [
-                  for (final (destination, label, icon, selectedIcon) in tabs)
-                    NavigationDestination(
-                      icon: destination == FieldSection.sync && pending > 0
-                          ? Badge(label: Text('$pending'), child: Icon(icon))
-                          : Icon(icon),
-                      selectedIcon:
-                          destination == FieldSection.sync && pending > 0
-                              ? Badge(
-                                  label: Text('$pending'),
-                                  child: Icon(selectedIcon))
-                              : Icon(selectedIcon),
-                      label: label,
-                    ),
-                ],
-              ),
+            : AppNavBar(
+                items: destinations,
+                selected: section.name,
+                onSelect: (id) => navigate(FieldSection.values.byName(id))),
       ),
     );
   }
 
+  String get offlineText => switch (section) {
+        FieldSection.collections =>
+          'لا يوجد اتصال. اتصل بالإنترنت لتسجيل الدفعات.',
+        FieldSection.sync =>
+          'لا يوجد اتصال. ستُرسل القراءات تلقائيًا عند عودته.',
+        _ => canRead
+            ? 'لا يوجد اتصال. تُحفظ القراءات على الجهاز وتُرسل تلقائيًا. التحصيل يحتاج إلى الإنترنت.'
+            : 'لا يوجد اتصال. اتصل بالإنترنت لتسجيل الدفعات.',
+      };
+
   Widget sectionBody() {
+    final firstName = '${widget.user['name'] ?? ''}'.trim().split(' ').first;
     final title = switch (section) {
       FieldSection.collections => 'التحصيل',
       FieldSection.sync => 'حالة الإرسال',
       FieldSection.account => 'حسابي',
-      _ => 'مرحبًا، ${widget.user['name']}',
+      _ => 'مرحبًا، $firstName',
     };
     return Column(children: [
       AppHeader(
@@ -662,16 +692,14 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           online: online,
           syncing: syncing,
           pending: widget.store.queuedReadings.length),
-      if (!online && !syncing)
+      if (!online && !syncing && section != FieldSection.account)
         Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: AppNotice(canRead
-                ? 'لا يوجد اتصال. تُحفظ القراءات على الجهاز وتُرسل تلقائيًا. التحصيل يحتاج إلى الإنترنت.'
-                : 'لا يوجد اتصال. اتصل بالإنترنت لتسجيل الدفعات.')),
+            child: AppNotice(offlineText, warning: true, icon: 'cloudoff')),
       if (message != null && (online || requiresLogin))
         Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: AppNotice(message!)),
+            child: AppNotice(message!, warning: true)),
       if (requiresLogin)
         TextButton(
             onPressed: widget.onReauthenticate,
@@ -705,9 +733,22 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   Widget refreshable(Widget list) => RefreshIndicator(
       color: AppIdentity.brand, onRefresh: synchronize, child: list);
 
+  /// «3 payments», as Arabic counts them.
+  String paymentsCount(int count) => switch (count) {
+        0 => 'لا دفعات',
+        1 => 'دفعة واحدة',
+        2 => 'دفعتان',
+        <= 10 => '$count دفعات',
+        _ => '$count دفعة',
+      };
+
   Widget home() {
-    final total = today.fold<double>(0,
-        (sum, payment) => sum + (double.tryParse('${payment['amount']}') ?? 0));
+    final total = today.fold<double>(0, (sum, payment) {
+      return sum +
+          (double.tryParse(
+                  '${payment['amount_in_shekels'] ?? payment['amount']}') ??
+              0);
+    });
     final subscribers = widget.store.subscribers;
     final queued = widget.store.queuedReadings;
     final done = subscribers
@@ -719,32 +760,32 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
         .length;
     final drafts = widget.store.readingDrafts.length;
     final weekStart = widget.store.state['week_start'];
+    final rejected = queued.any((reading) => reading['sync_error'] != null);
+    final ratio = subscribers.isEmpty ? 0.0 : done / subscribers.length;
     return refreshable(ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
         children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-                gradient: AppIdentity.hero,
-                borderRadius: BorderRadius.circular(24)),
+          AppHero(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  height: 26,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .1),
+                      color: const Color(0x18FFFFFF),
                       borderRadius: BorderRadius.circular(99)),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Container(
                         width: 7,
                         height: 7,
                         decoration: BoxDecoration(
-                            color: online
-                                ? const Color(0xFF6EE7B7)
-                                : const Color(0xFFFCD34D),
+                            color: syncing
+                                ? const Color(0xFF93C5FD)
+                                : online
+                                    ? AppIdentity.heroGood
+                                    : AppIdentity.heroWarn,
                             shape: BoxShape.circle)),
                     const SizedBox(width: 6),
                     Text(
@@ -759,80 +800,90 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                 ),
                 const Spacer(),
                 if (weekStart != null)
-                  Text(
-                      'أسبوع ${AppIdentity.shortDate(weekStart)} – ${AppIdentity.shortDate(widget.store.state['week_end'])}',
-                      style: AppIdentity.body(12.5,
-                          color: const Color(0xFFAEB6C1))),
+                  Flexible(
+                      child: Text.rich(
+                          TextSpan(children: [
+                            const TextSpan(text: 'أسبوع '),
+                            TextSpan(
+                                text:
+                                    '${AppIdentity.shortDate(weekStart)} – ${AppIdentity.shortDate(widget.store.state['week_end'])}',
+                                style: AppIdentity.number(12.5,
+                                    weight: FontWeight.w500,
+                                    color: AppIdentity.heroFaint)),
+                          ]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppIdentity.body(12.5,
+                              color: AppIdentity.heroFaint))),
               ]),
               const SizedBox(height: 16),
-              Row(children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                 if (canRead)
                   Expanded(
-                      child: heroStat(
-                          'قراءات الأسبوع', '$done / ${subscribers.length}',
-                          progress: subscribers.isEmpty
-                              ? null
-                              : done / subscribers.length)),
+                      child: Row(children: [
+                    AppRing(ratio),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: heroStat(
+                            'قراءات الأسبوع', '$done / ${subscribers.length}')),
+                  ])),
                 if (canRead && canCollect) const SizedBox(width: 12),
                 if (canCollect)
                   Expanded(
                       child: heroStat(
-                          'تحصيل اليوم', '${AppIdentity.money(total)} ₪')),
+                          'تحصيل اليوم', '${AppIdentity.grouped(total)} ₪',
+                          note: paymentsCount(today.length))),
                 if (!canRead && !canCollect)
                   Expanded(
                       child: heroStat('الفرع',
-                          '${widget.user['branch_name'] ?? 'جميع الفروع'}')),
+                          '${widget.user['branch_name'] ?? 'جميع الفروع'}',
+                          size: 18)),
               ]),
             ]),
           ),
-          if (queued.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            statusStrip(
+          if (queued.isNotEmpty)
+            AppStrip(
                 key: const ValueKey('home-pending'),
-                icon: queued.any((reading) => reading['sync_error'] != null)
-                    ? Icons.error_outline
-                    : Icons.schedule,
-                color: queued.any((reading) => reading['sync_error'] != null)
-                    ? AppIdentity.bad
-                    : AppIdentity.warning,
+                icon: rejected ? 'err' : 'clock',
+                tone: rejected ? AppTone.bad : AppTone.warning,
                 text:
                     '${AppIdentity.readingsCount(queued.length)} بانتظار المزامنة',
                 action: 'عرض',
                 onTap: () => navigate(FieldSection.sync)),
-          ],
-          if (canRead && drafts > 0) ...[
-            const SizedBox(height: 8),
-            statusStrip(
-                icon: Icons.edit_note_rounded,
-                color: AppIdentity.brand,
+          if (canRead && drafts > 0)
+            AppStrip(
+                icon: 'note',
+                tone: AppTone.brand,
                 text: '${AppIdentity.readingsCount(drafts)} مكتوبة ولم تُحفظ',
                 action: 'متابعة',
                 onTap: () => navigate(FieldSection.readings)),
-          ],
-          Padding(
-              padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
-              child: Text('ماذا تريد أن تسجّل اليوم؟',
-                  style: AppIdentity.heading(16))),
+          const AppSection('ماذا تريد أن تسجّل اليوم؟'),
           if (canRead)
             AppServiceCard(
                 title: 'إدخال القراءات',
                 subtitle: 'قراءات عدادات الطبلونات',
                 summary: 'قُرئت $done من ${subscribers.length}',
-                icon: Icons.bolt_outlined,
+                icon: 'bolt',
+                color: AppIdentity.brand,
+                tint: AppIdentity.brandSoft,
                 onTap: () => navigate(FieldSection.readings)),
           if (canCollect)
             AppServiceCard(
                 title: 'تسجيل الدفعات',
                 subtitle: 'تحصيل دفعات المشتركين',
-                summary: 'اليوم ${AppIdentity.money(total)} ₪',
-                icon: Icons.payments_outlined,
+                summary: 'اليوم ${AppIdentity.grouped(total)} ₪',
+                icon: 'cash',
+                color: AppIdentity.good,
+                tint: AppIdentity.goodTint,
                 onTap: () => navigate(FieldSection.collections)),
           if (canViewReadings)
             AppServiceCard(
                 title: 'القراءات الأسبوعية',
                 subtitle: 'قراءات المشتركين والاستهلاك',
                 summary: 'عرض فقط',
-                icon: Icons.history_outlined,
+                icon: 'hist',
+                color: AppIdentity.info,
+                tint: AppIdentity.infoTint,
                 onTap: openWeeklyReadings),
           if (!canRead && !canCollect && !canViewReadings)
             const AppNotice(
@@ -840,66 +891,35 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
         ]));
   }
 
-  Widget heroStat(String label, String value, {double? progress}) =>
+  Widget heroStat(String label, String value,
+          {String? note, double size = 23}) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label,
-            style: AppIdentity.body(12.5, color: const Color(0xFFAEB6C1))),
-        const SizedBox(height: 4),
-        FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(value,
-                textDirection: TextDirection.ltr,
-                style: AppIdentity.number(22, color: Colors.white))),
-        if (progress != null) ...[
-          const SizedBox(height: 8),
-          ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 5,
-                  backgroundColor: Colors.white.withValues(alpha: .12),
-                  color: const Color(0xFF6EE7B7))),
-        ],
-      ]);
-
-  Widget statusStrip(
-          {required IconData icon,
-          required Color color,
-          required String text,
-          required String action,
-          required VoidCallback onTap,
-          Key? key}) =>
-      Material(
-        key: key,
-        color: color.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: Text(text,
-                      style: AppIdentity.body(14,
-                          weight: FontWeight.w600, color: color))),
-              Text(action,
-                  style: AppIdentity.body(13.5,
-                      weight: FontWeight.w700, color: color)),
-              Icon(Icons.chevron_left, color: color, size: 20),
-            ]),
-          ),
+            style: AppIdentity.body(12.5, color: AppIdentity.heroFaint)),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(value,
+                      textDirection: TextDirection.ltr,
+                      style: AppIdentity.number(size,
+                          weight: FontWeight.w800, color: Colors.white)))),
         ),
-      );
+        if (note != null)
+          Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(note,
+                  style: AppIdentity.body(12.5, color: AppIdentity.heroFaint))),
+      ]);
 
   Widget syncView() {
     final queue = widget.store.queuedReadings;
     final rejected = queue.where((reading) => reading['sync_error'] != null);
     return refreshable(ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
         children: [
           Row(children: [
             Expanded(
@@ -910,15 +930,15 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
             const SizedBox(width: 8),
             Expanded(
                 child: AppStat('رفضها الخادم', '${rejected.length}',
-                    color:
-                        rejected.isEmpty ? AppIdentity.ink : AppIdentity.bad)),
+                    color: rejected.isEmpty ? null : AppIdentity.bad)),
           ]),
-          const SizedBox(height: 16),
-          Text('القراءات المحفوظة على الجهاز', style: AppIdentity.heading(17)),
-          const SizedBox(height: 4),
-          Text('يمكنك تعديل أي قراءة قبل إرسالها.',
-              style: AppIdentity.body(12.5, color: AppIdentity.faint)),
-          const SizedBox(height: 10),
+          AppSection('القراءات المحفوظة على الجهاز',
+              note:
+                  'آخر تحديث ${updatedText(widget.store.state['roster_updated_at'] as String?)}'),
+          Padding(
+              padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+              child: Text('يمكنك تعديل أي قراءة قبل إرسالها.',
+                  style: AppIdentity.body(12.5, color: AppIdentity.faint))),
           QueuedReadingsList(
               queue: queue,
               subscribers: widget.store.subscribers,
@@ -927,99 +947,100 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                   ? reenterReading
                   : null,
               onDiscard: discardRejectedReading),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           AppAction(
-              label: syncing ? 'جارٍ المزامنة...' : 'مزامنة الآن',
+              label: syncing
+                  ? 'جارٍ المزامنة...'
+                  : online
+                      ? 'مزامنة الآن'
+                      : 'سيتم الإرسال عند عودة الاتصال',
               busy: syncing,
-              icon: Icons.sync,
-              onPressed: syncing ? null : () => unawaited(synchronize())),
+              icon: 'sync',
+              onPressed:
+                  syncing || !online ? null : () => unawaited(synchronize())),
           const SizedBox(height: 12),
           const AppNotice(
               'المزامنة دون اتصال مخصصة لقراءات العدادات فقط. الدفعات تُسجّل أثناء الاتصال مباشرة.'),
         ]));
   }
 
-  Widget account() =>
-      ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
-        AppPanel(
-            child: Row(children: [
-          Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                  gradient: AppIdentity.hero,
-                  borderRadius: BorderRadius.circular(22)),
-              alignment: Alignment.center,
-              child: Text('${widget.user['name'] ?? '?'}'.characters.first,
-                  style: AppIdentity.heading(26, color: Colors.white))),
-          const SizedBox(width: 14),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text('${widget.user['name']}', style: AppIdentity.heading(20)),
-                Text('@${widget.user['username']}',
-                    textDirection: TextDirection.ltr,
-                    style: AppIdentity.body(13.5, color: AppIdentity.faint)),
-                const SizedBox(height: 4),
-                Row(children: [
-                  const Icon(Icons.location_on_outlined,
-                      size: 15, color: AppIdentity.muted),
-                  const SizedBox(width: 4),
-                  Expanded(
-                      child: Text(
-                          '${widget.user['branch_name'] ?? 'جميع الفروع'}',
-                          style: AppIdentity.body(13.5,
-                              color: AppIdentity.muted))),
-                ]),
-              ])),
-        ])),
-        const SizedBox(height: 16),
-        Text('الصلاحيات المتاحة', style: AppIdentity.heading(17)),
-        const SizedBox(height: 10),
-        AppPanel(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final (allowed, label, icon) in [
-                    (canRead, 'إدخال القراءات', Icons.bolt_outlined),
-                    (canCollect, 'تسجيل الدفعات', Icons.payments_outlined),
-                    (
-                      canViewReadings,
-                      'عرض القراءات الأسبوعية',
-                      Icons.history_outlined
-                    ),
-                  ])
-                    ListTile(
-                        leading: Icon(icon,
-                            color:
-                                allowed ? AppIdentity.ink : AppIdentity.faint),
-                        title: Text(label,
-                            style: AppIdentity.body(14.5,
-                                weight: FontWeight.w600,
-                                color: allowed
-                                    ? AppIdentity.ink
-                                    : AppIdentity.faint)),
-                        trailing: Icon(
-                            allowed
-                                ? Icons.check_circle
-                                : Icons.remove_circle_outline,
-                            size: 20,
-                            color: allowed
-                                ? AppIdentity.good
-                                : AppIdentity.faint)),
+  Widget account() {
+    final name = '${widget.user['name'] ?? '?'}';
+    return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+        children: [
+          AppPanel(
+              child: Row(children: [
+            SizedBox(
+                width: 66,
+                height: 66,
+                child: AppHero(
+                    radius: 22,
+                    shadow: false,
+                    padding: EdgeInsets.zero,
+                    child: Center(
+                        child: Text(name.characters.first,
+                            style: AppIdentity.heading(28,
+                                color: Colors.white))))),
+            const SizedBox(width: 14),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(name, style: AppIdentity.heading(21)),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text('@${widget.user['username']}',
+                        textDirection: TextDirection.ltr,
+                        style: AppIdentity.body(13, color: AppIdentity.faint)),
+                  ),
+                  Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(children: [
+                        AppIcon('pin', size: 15, color: AppIdentity.faint),
+                        const SizedBox(width: 4),
+                        Expanded(
+                            child: Text(
+                                '${widget.user['branch_name'] ?? 'جميع الفروع'}',
+                                style: AppIdentity.body(13,
+                                    color: AppIdentity.faint))),
+                      ])),
                 ])),
-        if (widget.store.queuedReadings.isNotEmpty) ...[
+          ])),
+          const AppSection('الصلاحيات المتاحة'),
+          AppRows(children: [
+            for (final (allowed, label, icon) in [
+              (canRead, 'إدخال القراءات', 'bolt'),
+              (canCollect, 'تسجيل الدفعات', 'cash'),
+              (canViewReadings, 'عرض القراءات الأسبوعية', 'hist'),
+            ])
+              AppRow(
+                  leading: AppIconTile(
+                      icon,
+                      allowed ? AppIdentity.ink : AppIdentity.faint,
+                      AppIdentity.sunken,
+                      size: 40,
+                      iconSize: 20),
+                  title: Text(label,
+                      style: AppIdentity.body(15,
+                          weight: FontWeight.w700,
+                          color:
+                              allowed ? AppIdentity.ink : AppIdentity.faint)),
+                  trailing: AppTag(allowed ? 'مفعّلة' : 'غير مفعّلة',
+                      allowed ? AppTone.good : AppTone.muted)),
+          ]),
+          if (widget.store.queuedReadings.isNotEmpty)
+            Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: AppNotice(
+                    '${AppIdentity.readingsCount(widget.store.queuedReadings.length)} لم تُرسل بعد. زامنها قبل تسجيل الخروج.',
+                    warning: true)),
           const SizedBox(height: 16),
-          AppNotice(
-              '${AppIdentity.readingsCount(widget.store.queuedReadings.length)} لم تُرسل بعد. زامنها قبل تسجيل الخروج.'),
-        ],
-        const SizedBox(height: 20),
-        AppAction(
-            label: 'تسجيل الخروج',
-            primary: false,
-            icon: Icons.logout,
-            onPressed: signOut),
-      ]);
+          AppAction(
+              label: 'تسجيل الخروج',
+              primary: false,
+              icon: 'logout',
+              onPressed: signOut),
+        ]);
+  }
 }

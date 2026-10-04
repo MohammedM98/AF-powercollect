@@ -36,6 +36,6 @@ class DeleteSubscriberTransactionRequest extends FormRequest
      */
     public function attributes(): array
     {
-        return ['correction_reason' => 'سبب الحذف', 'correction_notes' => 'شرح الحذف'];
+        return ['correction_reason' => 'سبب الإلغاء', 'correction_notes' => 'شرح الإلغاء'];
     }
 }

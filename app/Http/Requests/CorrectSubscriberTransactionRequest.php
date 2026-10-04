@@ -88,8 +88,8 @@ class CorrectSubscriberTransactionRequest extends FormRequest
             'method' => 'طريقة الخصم',
             'value' => 'قيمة الخصم',
             'notes' => 'التفاصيل',
-            'correction_reason' => 'سبب التعديل',
-            'correction_notes' => 'شرح التعديل',
+            'correction_reason' => 'سبب التصحيح',
+            'correction_notes' => 'شرح التصحيح',
         ];
     }
 

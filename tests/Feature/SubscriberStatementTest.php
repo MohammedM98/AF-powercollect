@@ -68,7 +68,8 @@ class SubscriberStatementTest extends TestCase
                     $this->assertSame('قراءة من الطبلون', $entries[1]['details']);
                     $this->assertSame([
                         'date' => '2026-08-30 12:40',
-                        'voucherNumber' => '000001',
+                        'voucherNumber' => '4471',
+                        'systemVoucherNumber' => '000001',
                         'manualVoucherNumber' => '4471',
                         'isCredit' => true,
                         'amount' => '20.00',
@@ -78,7 +79,7 @@ class SubscriberStatementTest extends TestCase
                         'cashBox' => '3',
                         'recordedByName' => 'Mohammed',
                     ], collect($entries[2])->only([
-                        'date', 'voucherNumber', 'manualVoucherNumber', 'isCredit', 'amount', 'currencyLabel', 'exchangeRate', 'paymentMethodLabel', 'cashBox', 'recordedByName',
+                        'date', 'voucherNumber', 'systemVoucherNumber', 'manualVoucherNumber', 'isCredit', 'amount', 'currencyLabel', 'exchangeRate', 'paymentMethodLabel', 'cashBox', 'recordedByName',
                     ])->all());
 
                     return true;
@@ -154,6 +155,88 @@ class SubscriberStatementTest extends TestCase
             [$transfer->bank_name, $transfer->reference_number, $transfer->cash_box, $transfer->manual_voucher_number],
         );
         $this->assertSame('دفعة بتحويل بنكي من محمود سالم', $transfer->description());
+    }
+
+    public function test_transfer_references_are_unique_company_wide_after_normalization(): void
+    {
+        $otherSubscriber = Subscriber::factory()->create(['full_name' => 'Mona']);
+        $otherCollector = User::factory()->branchAdmin()->create(['branch_id' => $otherSubscriber->branch_id]);
+        $existing = SubscriberTransaction::recordPayment($otherSubscriber, $otherCollector, [
+            'amount' => '25',
+            'currency' => 'ILS',
+            'payment_method' => 'bank_transfer',
+            'bank_name' => 'بنك فلسطين',
+            'sender_name' => 'Mona',
+            'reference_number' => ' tr  - 42 ',
+        ]);
+
+        $this->recordPayment([
+            'payment_method' => 'bank_transfer',
+            'bank_name' => 'بنك فلسطين',
+            'sender_name' => 'Ahmad',
+            'reference_number' => 'TR-42',
+        ])->assertSessionHasErrors([
+            'reference_number' => 'هذا الرقم المرجعي مسجَّل مسبقًا على دفعة أخرى — السند '.$existing->printedVoucherNumber().' للمشترك Mona.',
+        ]);
+
+        $this->assertSame('TR-42', $existing->active_reference);
+        $this->assertDatabaseCount('subscriber_transactions', 1);
+    }
+
+    public function test_live_reference_check_reports_conflicts_and_warns_about_same_day_duplicates(): void
+    {
+        $this->recordPayment([
+            'payment_method' => 'bank_transfer',
+            'bank_name' => 'بنك فلسطين',
+            'sender_name' => 'Ahmad',
+            'reference_number' => 'TR-LIVE-1',
+        ])->assertSessionHasNoErrors();
+        $payment = SubscriberTransaction::sole();
+
+        $this->actingAs($this->branchAdmin)
+            ->getJson(route('subscribers.payments.reference-status', [$this->subscriber, 'reference_number' => ' tr-live-1 ']))
+            ->assertOk()
+            ->assertJsonPath('available', false)
+            ->assertJsonPath('conflict.id', $payment->id)
+            ->assertJsonPath('conflict.voucherNumber', $payment->printedVoucherNumber());
+
+        $this->getJson(route('subscribers.payments.reference-status', [
+            $this->subscriber,
+            'reference_number' => 'TR-LIVE-2',
+            'amount' => '25',
+            'currency' => 'ILS',
+            'sender_name' => 'Ahmad',
+        ]))
+            ->assertOk()
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('warning.id', $payment->id);
+    }
+
+    public function test_cancelling_a_transfer_releases_its_reference_for_reuse(): void
+    {
+        $this->recordPayment([
+            'payment_method' => 'bank_transfer',
+            'bank_name' => 'بنك فلسطين',
+            'sender_name' => 'Ahmad',
+            'reference_number' => 'REUSE-7',
+        ])->assertSessionHasNoErrors();
+        $payment = SubscriberTransaction::sole();
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $payment]), [
+                'correction_reason' => 'duplicate',
+                'correction_notes' => 'أُلغي لإعادة التسجيل',
+            ])->assertSessionHasNoErrors();
+
+        $this->recordPayment([
+            'payment_method' => 'bank_transfer',
+            'bank_name' => 'بنك فلسطين',
+            'sender_name' => 'Ahmad',
+            'reference_number' => ' reuse - 7 ',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertNull($payment->fresh()->active_reference);
+        $this->assertSame('REUSE-7', SubscriberTransaction::whereNull('cancelled_at')->where('type', 'payment')->sole()->active_reference);
     }
 
     #[TestWith(['بنك فلسطين'])]

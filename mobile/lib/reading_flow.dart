@@ -4,33 +4,28 @@ import 'package:flutter/material.dart';
 
 import 'app_identity.dart';
 import 'field_store.dart';
-import 'queued_readings.dart';
 
-const _background = AppIdentity.background;
-const _surface = AppIdentity.surface;
-const _raised = AppIdentity.raised;
-const _sunken = AppIdentity.sunken;
-const _line = AppIdentity.line;
-const _lineSoft = AppIdentity.lineSoft;
-const _ink = AppIdentity.ink;
-const _muted = AppIdentity.muted;
-const _faint = AppIdentity.faint;
-const _brand = AppIdentity.brand;
-const _good = AppIdentity.good;
-const _warning = AppIdentity.warning;
-const _bad = AppIdentity.bad;
+Color get _background => AppIdentity.background;
+Color get _surface => AppIdentity.surface;
+Color get _raised => AppIdentity.raised;
+Color get _sunken => AppIdentity.sunken;
+Color get _line => AppIdentity.line;
+Color get _lineSoft => AppIdentity.lineSoft;
+Color get _ink => AppIdentity.ink;
+Color get _muted => AppIdentity.muted;
+Color get _faint => AppIdentity.faint;
+Color get _brand => AppIdentity.brand;
+Color get _good => AppIdentity.good;
+Color get _warning => AppIdentity.warning;
+Color get _bad => AppIdentity.bad;
 TextStyle _body(double size,
-        {FontWeight weight = FontWeight.normal, Color color = _ink}) =>
-    AppIdentity.body(size, weight: weight, color: color).copyWith(height: 1.15);
-TextStyle _heading(double size, {Color color = _ink}) =>
-    AppIdentity.heading(size, color: color);
-TextStyle _number(double size, {Color color = _ink}) =>
-    AppIdentity.number(size, color: color)
-        .copyWith(height: 1.0, fontWeight: FontWeight.w800);
-BoxDecoration _card({double radius = 20}) => AppIdentity.card(radius: radius);
+        {FontWeight weight = FontWeight.normal, Color? color}) =>
+    AppIdentity.body(size, weight: weight, color: color);
+TextStyle _number(double size, {Color? color}) =>
+    AppIdentity.number(size, color: color, weight: FontWeight.w800);
 
 /// How a typed reading compares with the meter's history.
-typedef _Verdict = ({String text, Color color, IconData icon});
+typedef _Verdict = ({String text, Color color, String icon});
 
 class ReadingFlow extends StatefulWidget {
   const ReadingFlow({
@@ -43,7 +38,6 @@ class ReadingFlow extends StatefulWidget {
     required this.onSave,
     required this.onExit,
     required this.onReauthenticate,
-    required this.onDiscard,
     this.onRefresh,
     this.onFocusChanged,
     this.focusSubscriberId,
@@ -59,7 +53,6 @@ class ReadingFlow extends StatefulWidget {
   final Future<void> Function(List<Map<String, dynamic>>) onSave;
   final VoidCallback onExit;
   final VoidCallback onReauthenticate;
-  final Future<void> Function(Map<String, dynamic>) onDiscard;
   final Future<void> Function()? onRefresh;
 
   /// Told whether a box (or another inner page) is open, so the app can
@@ -206,7 +199,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
       return (
         text: 'أقل من السابقة (${AppIdentity.reading(previous)})',
         color: _bad,
-        icon: Icons.error_outline,
+        icon: 'err',
       );
     }
     final usual = _usual(subscriber);
@@ -217,20 +210,20 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
         text:
             'أعلى من المعتاد بكثير (${(consumption / usual).toStringAsFixed(1)}×)',
         color: _warning,
-        icon: Icons.trending_up_rounded,
+        icon: 'up',
       );
     }
     if (consumption == 0) {
       return (
         text: 'لا استهلاك هذا الأسبوع، تأكّد من العداد',
         color: _warning,
-        icon: Icons.info_outline,
+        icon: 'info',
       );
     }
     return (
       text: 'ضمن المعتاد',
       color: _good,
-      icon: Icons.check_circle_outline,
+      icon: 'check',
     );
   }
 
@@ -267,8 +260,6 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
   void _back() {
     if (view == 'boxes') {
       widget.onExit();
-    } else if (view == 'sync') {
-      _setView(boxKey == null ? 'boxes' : 'box');
     } else if (view == 'box' && keypadOpen) {
       setState(() => keypadOpen = false);
     } else {
@@ -295,12 +286,12 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
       unawaited(_askToReenter(queued, subscriber));
       return;
     }
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-          content: Text(_entryOpen
-              ? 'وصلت قراءة ${subscriber['full_name']} إلى النظام. لتعديلها تواصل مع المدقق.'
-              : 'إدخال قراءات هذا الأسبوع غير متاح حاليًا.')));
+    showAppToast(
+        context,
+        _entryOpen
+            ? 'وصلت قراءة ${subscriber['full_name']} إلى النظام. لتعديلها تواصل مع المدقق.'
+            : 'إدخال قراءات هذا الأسبوع غير متاح حاليًا.',
+        icon: 'info');
   }
 
   /// Scroll the chosen subscriber into view once the keypad has opened.
@@ -319,54 +310,38 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
 
   Future<void> _askToReenter(
       Map<String, dynamic> reading, Map<String, dynamic> subscriber) async {
-    final reenter = await showModalBottomSheet<bool>(
-        context: context,
-        builder: (context) => SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text('${subscriber['full_name']}', style: _heading(19)),
-                      const SizedBox(height: 4),
-                      Text(
-                          reading['sync_error'] == null
-                              ? 'القراءة محفوظة على الجهاز ولم تُرسل بعد، ويمكنك تعديلها.'
-                              : 'رفض الخادم هذه القراءة: ${reading['sync_error']}',
-                          style: _body(13.5, color: _muted)),
-                      const SizedBox(height: 14),
-                      AppReadingCompare(
-                          previous: AppIdentity.reading(
-                              subscriber['previous_reading']),
-                          current:
-                              AppIdentity.reading(reading['current_reading']),
-                          consumption: _consumptionText(
-                              subscriber,
-                              double.tryParse(
-                                  '${reading['current_reading']}'))),
-                      const SizedBox(height: 16),
-                      AppAction(
-                          label: 'إعادة إدخال القراءة',
-                          icon: Icons.edit_outlined,
-                          onPressed: () => Navigator.pop(context, true)),
-                      const SizedBox(height: 8),
-                      AppAction(
-                          label: 'إبقاؤها كما هي',
-                          primary: false,
-                          onPressed: () => Navigator.pop(context, false)),
-                    ]),
-              ),
-            ));
+    final reenter = await showAppSheet<bool>(context,
+        title: '${subscriber['full_name']}',
+        message: reading['sync_error'] == null
+            ? 'القراءة محفوظة على الجهاز ولم تُرسل بعد، ويمكنك تعديلها.'
+            : 'رفض الخادم هذه القراءة: ${reading['sync_error']}',
+        children: [
+          AppReadingCompare(
+              previous: AppIdentity.reading(subscriber['previous_reading']),
+              current: AppIdentity.reading(reading['current_reading']),
+              highlightCurrent: true,
+              consumption: _consumptionText(subscriber,
+                  double.tryParse('${reading['current_reading']}'))),
+          const SizedBox(height: 16),
+          Builder(
+              builder: (context) => AppAction(
+                  label: 'إعادة إدخال القراءة',
+                  icon: 'edit',
+                  onPressed: () => Navigator.pop(context, true))),
+          const SizedBox(height: 8),
+          Builder(
+              builder: (context) => AppAction(
+                  label: 'إبقاؤها كما هي',
+                  primary: false,
+                  onPressed: () => Navigator.pop(context, false))),
+        ]);
     if (reenter == true) await _reenter(reading);
   }
 
   Future<void> _reenter(Map<String, dynamic> reading) async {
     if (widget.syncing) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(
-            content: Text('جارٍ الإرسال الآن. أعد المحاولة بعد لحظات.')));
+      showAppToast(context, 'جارٍ الإرسال الآن. أعد المحاولة بعد لحظات.',
+          icon: 'clock');
       return;
     }
     await widget.store.reopenReading(reading['mobile_operation_id'] as String);
@@ -478,7 +453,6 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
     final content = switch (view) {
       'box' => _boxView(),
       'done' => _doneView(),
-      'sync' => _syncView(),
       _ => _boxesView(),
     };
     final selected = view != 'box' || boxKey == null
@@ -501,14 +475,20 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
           bottom: view != 'boxes',
           child: Column(children: [
             if (view != 'done') _header(),
-            if (!widget.online && showBanners) _offlineBanner(),
+            if (!widget.online && showBanners)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: const AppNotice(
+                    'لا يوجد اتصال. تُحفظ القراءات على الجهاز وتُرسل تلقائيًا.',
+                    warning: true,
+                    icon: 'cloudoff'),
+              ),
             if (widget.message != null &&
                 (widget.online || widget.requiresLogin) &&
                 showBanners)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                child: _notice(widget.message!, Icons.info_outline, _warning,
-                    const Color(0xFFFFF4E8)),
+                child: AppNotice(widget.message!, warning: true),
               ),
             if (widget.requiresLogin && view != 'done')
               TextButton(
@@ -538,6 +518,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
                   visible: showKeypad,
                   child: AppKeypad(
                       onKey: _key,
+                      withNext: true,
                       enabled: !saving,
                       nextLabel: _hasFollowing(selected) ? 'التالي' : 'تم',
                       onClose: () => setState(() => keypadOpen = false))),
@@ -560,57 +541,28 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
     final subscribers =
         boxKey == null ? <Map<String, dynamic>>[] : _inBox(boxKey!);
     final first = subscribers.firstOrNull;
-    final title = switch (view) {
-      'box' => 'طبلون ${first == null ? '—' : _boxNumber(first)}',
-      'sync' => 'حالة الإرسال',
-      _ => 'إدخال القراءات',
-    };
     final weekStart = widget.store.state['week_start'];
     final weekEnd = widget.store.state['week_end'];
-    final subtitle = switch (view) {
-      'box' => [
-          '${first?['meter_box_name'] ?? 'الطبلون'}',
-          if ('${first?['meter_box_location'] ?? ''}'.isNotEmpty)
-            '${first?['meter_box_location']}',
-        ].join(' · '),
-      'sync' => 'القراءات المحفوظة على الجهاز',
-      _ => weekStart == null
-          ? 'اختر طبلونًا أو ابحث'
-          : 'أسبوع ${AppIdentity.shortDate(weekStart)} – ${AppIdentity.shortDate(weekEnd)}',
-    };
+    final boxView = view == 'box';
     return AppHeader(
-        title: title,
-        subtitle: subtitle,
+        title: boxView
+            ? 'طبلون ${first == null ? '—' : _boxNumber(first)}'
+            : 'إدخال القراءات',
+        subtitle: boxView
+            ? [
+                '${first?['meter_box_name'] ?? 'الطبلون'}',
+                if ('${first?['meter_box_location'] ?? ''}'.isNotEmpty)
+                  '${first?['meter_box_location']}',
+              ].join(' · ')
+            : weekStart == null
+                ? 'اختر طبلونًا أو ابحث'
+                : 'أسبوع ${AppIdentity.shortDate(weekStart)} – ${AppIdentity.shortDate(weekEnd)}',
         onBack: view == 'boxes' ? null : _back,
-        onSync: view == 'sync' ? null : () => _setView('sync'),
+        onSync: widget.onSync,
         online: widget.online,
         syncing: widget.syncing,
         pending: widget.store.queuedReadings.length);
   }
-
-  Widget _offlineBanner() => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-        child: _notice(
-            'لا يوجد اتصال. تُحفظ القراءات على الجهاز وتُرسل تلقائيًا.',
-            Icons.cloud_off_outlined,
-            _warning,
-            const Color(0xFFFFF4E8)),
-      );
-
-  Widget _notice(String text, IconData icon, Color color, Color background) =>
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-            color: background, borderRadius: BorderRadius.circular(14)),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, size: 17, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-              child: Text(text,
-                  style: _body(13, weight: FontWeight.w600, color: color))),
-        ]),
-      );
 
   Widget _refreshable(Widget list) => widget.onRefresh == null
       ? list
@@ -620,14 +572,13 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
   Widget _boxesView() {
     final groups = _groups();
     final query = search.text.trim().toLowerCase();
+    bool complete(List<Map<String, dynamic>> subscribers) =>
+        subscribers.where(_done).length == subscribers.length;
     final matchingBoxes = groups.entries.where((entry) {
-      final done = entry.value.where(_done).length;
-      if (query.isEmpty &&
-          filter == 'remaining' &&
-          done == entry.value.length) {
+      if (query.isEmpty && filter == 'remaining' && complete(entry.value)) {
         return false;
       }
-      if (query.isEmpty && filter == 'done' && done < entry.value.length) {
+      if (query.isEmpty && filter == 'done' && !complete(entry.value)) {
         return false;
       }
       final first = entry.value.first;
@@ -648,106 +599,78 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
         .where((entry) => entry.value.any(
             (subscriber) => _editable(subscriber) && _hasDraft(subscriber)))
         .firstOrNull;
+    int countFor(String value) => groups.values
+        .where((subscribers) =>
+            value == 'all' ||
+            (value == 'done' ? complete(subscribers) : !complete(subscribers)))
+        .length;
     return _refreshable(ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
         children: [
-          if (query.isEmpty) ...[
-            _progressCard(done, total),
-            const SizedBox(height: 12),
-          ],
-          if (query.isEmpty && draftBox != null) ...[
+          if (query.isEmpty) _progressCard(done, total),
+          if (query.isEmpty && draftBox != null)
             _resumeCard(draftBox.key, draftBox.value),
-            const SizedBox(height: 12),
-          ],
-          Container(
-            height: 52,
-            decoration: _card(radius: 16),
-            child: TextField(
+          const SizedBox(height: 12),
+          AppSearchField(
               controller: search,
+              hint: 'رقم الطبلون أو اسم المشترك',
               onChanged: (_) => setState(() {}),
-              style: _body(16),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'رقم الطبلون أو اسم المشترك',
-                hintStyle: _body(15, color: _faint),
-                prefixIcon: const Icon(Icons.search, color: _faint),
-                suffixIcon: search.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'مسح البحث',
-                        icon: const Icon(Icons.close, color: _faint),
-                        onPressed: () => setState(search.clear)),
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(2, 16, 2, 10),
-            child: Row(children: [
-              Text(query.isEmpty ? 'طبلونات منطقتك' : 'نتائج البحث',
-                  style: _heading(16)),
-              const Spacer(),
-              if (query.isNotEmpty)
-                Text(
-                    '${matchingBoxes.length + matchingSubscribers.length} نتيجة',
-                    style: _body(12.5, color: _faint)),
-            ]),
-          ),
-          if (query.isEmpty && total > 0) ...[
-            Row(children: [
-              _filterChip('all', 'الكل'),
-              const SizedBox(width: 6),
-              _filterChip('remaining', 'المتبقية'),
-              const SizedBox(width: 6),
-              _filterChip('done', 'المكتملة'),
-            ]),
-            const SizedBox(height: 10),
-          ],
-          if (total == 0)
-            _empty(Icons.download_outlined, 'لم تُحمّل الطبلونات بعد',
-                'اتصل بالخادم لتحميل مشتركي منطقتك.'),
-          if (total > 0 && matchingBoxes.isEmpty && matchingSubscribers.isEmpty)
-            query.isEmpty
-                ? _empty(
-                    filter == 'remaining'
-                        ? Icons.task_alt
-                        : Icons.inventory_2_outlined,
-                    filter == 'remaining'
-                        ? 'قُرئت كل الطبلونات'
-                        : 'لا توجد طبلونات مكتملة بعد',
-                    filter == 'remaining'
-                        ? 'أحسنت! لا يوجد ما تبقّى لهذا الأسبوع.'
-                        : 'تظهر هنا الطبلونات بعد قراءة كل مشتركيها.')
-                : _empty(Icons.search_off, 'لا توجد نتائج لـ "$query"',
-                    'جرّب رقم الطبلون أو جزءًا من الاسم.'),
-          if (matchingBoxes.isNotEmpty || matchingSubscribers.isNotEmpty)
-            Container(
-              decoration: _card(),
-              clipBehavior: Clip.antiAlias,
-              child: Material(
-                color: _surface,
-                child: Column(children: [
-                  for (final entry in matchingBoxes)
-                    _boxRow(entry.key, entry.value,
-                        last: entry == matchingBoxes.last &&
-                            matchingSubscribers.isEmpty),
-                  for (final subscriber in matchingSubscribers)
-                    _subscriberResult(subscriber,
-                        last: subscriber == matchingSubscribers.last),
-                ]),
-              ),
-            ),
-          if (widget.store.state['can_record_readings_now'] == false)
+              onClear: () => setState(search.clear)),
+          AppSection(query.isEmpty ? 'طبلونات منطقتك' : 'نتائج البحث',
+              note: query.isEmpty
+                  ? null
+                  : '${matchingBoxes.length + matchingSubscribers.length} نتيجة'),
+          if (query.isEmpty && total > 0)
             Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: _notice('إدخال قراءات هذا الأسبوع غير متاح حاليًا.',
-                  Icons.info_outline, _warning, const Color(0xFFFFF4E8)),
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final (value, label) in [
+                  ('all', 'الكل'),
+                  ('remaining', 'المتبقية'),
+                  ('done', 'المكتملة'),
+                ])
+                  AppChip(label,
+                      count: countFor(value),
+                      selected: filter == value,
+                      onTap: () => setState(() => filter = value)),
+              ]),
+            ),
+          if (total == 0)
+            AppRows(children: const [
+              AppEmpty('down', 'لم تُحمّل الطبلونات بعد',
+                  'اتصل بالخادم لتحميل مشتركي منطقتك.')
+            ]),
+          if (total > 0 && matchingBoxes.isEmpty && matchingSubscribers.isEmpty)
+            AppRows(children: [
+              query.isEmpty
+                  ? AppEmpty(
+                      filter == 'remaining' ? 'check' : 'bolt',
+                      filter == 'remaining'
+                          ? 'قُرئت كل الطبلونات'
+                          : 'لا توجد طبلونات مكتملة بعد',
+                      filter == 'remaining'
+                          ? 'أحسنت! لا يوجد ما تبقّى لهذا الأسبوع.'
+                          : 'تظهر هنا الطبلونات بعد قراءة كل مشتركيها.',
+                      good: filter == 'remaining')
+                  : AppEmpty(
+                      'search',
+                      'لا توجد نتائج لـ «${search.text.trim()}»',
+                      'جرّب رقم الطبلون أو جزءًا من الاسم.'),
+            ]),
+          if (matchingBoxes.isNotEmpty || matchingSubscribers.isNotEmpty)
+            AppRows(children: [
+              for (final entry in matchingBoxes)
+                _boxRow(entry.key, entry.value),
+              for (final subscriber in matchingSubscribers)
+                _subscriberResult(subscriber),
+            ]),
+          if (widget.store.state['can_record_readings_now'] == false)
+            const Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: AppNotice('إدخال قراءات هذا الأسبوع غير متاح حاليًا.',
+                  warning: true),
             ),
         ]));
   }
@@ -755,41 +678,20 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
   Widget _progressCard(int done, int total) {
     final pending = widget.store.queuedReadings.length;
     final ratio = total == 0 ? 0.0 : done / total;
-    return Container(
+    return AppHero(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          gradient: AppIdentity.hero, borderRadius: BorderRadius.circular(22)),
       child: Row(children: [
-        SizedBox(
-          width: 64,
-          height: 64,
-          child: Stack(alignment: Alignment.center, children: [
-            SizedBox.expand(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: ratio),
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.easeOutCubic,
-                builder: (context, value, _) => CircularProgressIndicator(
-                    value: value,
-                    strokeWidth: 6,
-                    strokeCap: StrokeCap.round,
-                    backgroundColor: Colors.white.withValues(alpha: .12),
-                    color: const Color(0xFF6EE7B7)),
-              ),
-            ),
-            Text('${(ratio * 100).round()}%',
-                style: _number(14, color: Colors.white)),
-          ]),
-        ),
+        AppRing(ratio),
         const SizedBox(width: 16),
         Expanded(
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('قُرئت هذا الأسبوع',
-                style: _body(12.5, color: const Color(0xFFAEB6C1))),
-            const SizedBox(height: 4),
-            Text('$done من $total', style: _number(22, color: Colors.white)),
-            const SizedBox(height: 6),
+                style: _body(12.5, color: AppIdentity.heroFaint)),
+            Padding(
+                padding: const EdgeInsets.only(top: 2, bottom: 4),
+                child: Text('$done من $total',
+                    style: _number(23, color: Colors.white))),
             Text(
                 pending == 0
                     ? 'كل القراءات أُرسلت'
@@ -797,8 +699,8 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
                 style: _body(12.5,
                     weight: FontWeight.w600,
                     color: pending == 0
-                        ? const Color(0xFF6EE7B7)
-                        : const Color(0xFFFCD34D))),
+                        ? AppIdentity.heroGood
+                        : AppIdentity.heroWarn)),
           ]),
         ),
       ]),
@@ -809,310 +711,226 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
     final count = subscribers
         .where((subscriber) => _editable(subscriber) && _hasDraft(subscriber))
         .length;
-    return Material(
-      color: const Color(0xFFF9EEF0),
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        key: const ValueKey('resume-drafts'),
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => _openBox(key),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(children: [
-            const Icon(Icons.edit_note_rounded, color: _brand, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('أكمل من حيث توقفت',
-                        style: _body(15, weight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(
-                        '${AppIdentity.readingsCount(count)} لم تُحفظ بعد في طبلون ${_boxNumber(subscribers.first)}',
-                        style: _body(12.5, color: _muted)),
-                  ]),
-            ),
-            const Icon(Icons.chevron_left, color: _brand),
-          ]),
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Material(
+        color: AppIdentity.brandSoft,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          key: const ValueKey('resume-drafts'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _openBox(key),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(children: [
+              AppIcon('note', size: 26, color: _brand),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('أكمل من حيث توقفت',
+                          style: _body(15, weight: FontWeight.w700)),
+                      Text(
+                          '${AppIdentity.readingsCount(count)} لم تُحفظ بعد في طبلون ${_boxNumber(subscribers.first)}',
+                          style: _body(12.5, color: _muted)),
+                    ]),
+              ),
+              AppIcon('chev', size: 20, color: _brand),
+            ]),
+          ),
         ),
       ),
     );
   }
 
-  Widget _filterChip(String value, String label) => ChoiceChip(
-        label: Text(label),
-        selected: filter == value,
-        showCheckmark: false,
-        labelStyle: _body(13,
-            weight: FontWeight.w700,
-            color: filter == value ? Colors.white : _muted),
-        selectedColor: _ink,
-        backgroundColor: _surface,
-        side: BorderSide(color: filter == value ? _ink : _line),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99)),
-        onSelected: (_) => setState(() => filter = value),
-      );
-
-  Widget _boxRow(String key, List<Map<String, dynamic>> subscribers,
-      {bool last = false}) {
+  Widget _boxRow(String key, List<Map<String, dynamic>> subscribers) {
     final first = subscribers.first;
     final done = subscribers.where(_done).length;
+    final complete = done == subscribers.length;
     final drafted = subscribers
         .where((subscriber) => _editable(subscriber) && _hasDraft(subscriber))
         .length;
     final number = _boxNumber(first);
-    return InkWell(
+    final location = '${first['meter_box_location'] ?? ''}';
+    return AppRow(
+      key: ValueKey('box-$number'),
       onTap: () => _openBox(key),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-            border: last
-                ? null
-                : const Border(bottom: BorderSide(color: _lineSoft))),
-        child: Row(children: [
-          _boxBadge(number, complete: done == subscribers.length),
-          const SizedBox(width: 12),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text('${first['meter_box_name'] ?? 'طبلون $number'}',
-                    style: _body(15.5, weight: FontWeight.w700),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Row(children: [
-                  Flexible(
-                    child: Text(
-                        '${first['meter_box_location'] ?? ''}'.isEmpty
-                            ? '${subscribers.length} مشترك'
-                            : '${first['meter_box_location']} · ${subscribers.length} مشترك',
-                        style: _body(12.5, color: _faint),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                  if (drafted > 0) ...[
-                    const SizedBox(width: 6),
-                    _tag('مسودة $drafted', _brand, const Color(0xFFF9EEF0)),
-                  ],
-                ]),
-              ])),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 72,
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              if (done == subscribers.length)
-                _tag('مكتمل', _good, const Color(0xFFE8F6F0))
-              else ...[
-                Text('$done من ${subscribers.length}', style: _number(14)),
-                const SizedBox(height: 5),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: LinearProgressIndicator(
-                    value: subscribers.isEmpty ? 0 : done / subscribers.length,
-                    minHeight: 6,
-                    backgroundColor: _sunken,
-                    color: _good,
-                  ),
-                ),
-              ],
-            ]),
-          ),
+      leading: _boxBadge(number, complete: complete),
+      title: Text.rich(
+          TextSpan(children: [
+            TextSpan(text: '${first['meter_box_name'] ?? 'طبلون $number'} '),
+            TextSpan(
+                text: number,
+                style: _number(12.5, color: _faint)
+                    .copyWith(fontWeight: FontWeight.w600)),
+          ]),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _body(15, weight: FontWeight.w700)),
+      subtitle: Row(children: [
+        Flexible(
+          child: Text(
+              location.isEmpty
+                  ? '${subscribers.length} مشترك'
+                  : '$location · ${subscribers.length} مشترك',
+              style: _body(12.5, color: _faint),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ),
+        if (drafted > 0) ...[
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_left, color: _faint, size: 20),
-        ]),
-      ),
+          AppTag('مسودة $drafted', AppTone.brand),
+        ],
+      ]),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (complete)
+          const AppTag('مكتمل', AppTone.good)
+        else
+          SizedBox(
+            width: 74,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('$done من ${subscribers.length}',
+                      style: AppIdentity.number(13.5)),
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: done / subscribers.length,
+                      minHeight: 6,
+                      backgroundColor: _sunken,
+                      color: _good,
+                    ),
+                  ),
+                ]),
+          ),
+        const SizedBox(width: 12),
+        AppIcon('chev', size: 18, color: _faint),
+      ]),
     );
   }
 
-  Widget _boxBadge(String number,
-          {bool muted = false, bool complete = false}) =>
-      Container(
+  Widget _boxBadge(String number, {bool complete = false}) => Container(
         width: 50,
         height: 50,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-            color: muted
-                ? const Color(0x26FFFFFF)
-                : complete
-                    ? _good
-                    : const Color(0xFF262C34),
-            borderRadius: BorderRadius.circular(15)),
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-                number.replaceFirst(RegExp(r'^BOX-', caseSensitive: false), ''),
-                maxLines: 1,
-                softWrap: false,
-                style: _number(15, color: Colors.white)),
-          ),
-        ),
+            color: complete ? _good : const Color(0xFF262C34),
+            borderRadius: BorderRadius.circular(16)),
+        child: complete
+            ? const AppIcon('check', color: Colors.white)
+            : Padding(
+                padding: const EdgeInsets.all(4),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                      number.replaceFirst(
+                          RegExp(r'^(BOX|N)-', caseSensitive: false), ''),
+                      maxLines: 1,
+                      softWrap: false,
+                      style: _number(14, color: Colors.white)),
+                ),
+              ),
       );
 
-  Widget _subscriberResult(Map<String, dynamic> subscriber,
-          {bool last = false}) =>
-      InkWell(
+  Widget _subscriberResult(Map<String, dynamic> subscriber) => AppRow(
         onTap: () =>
             _openBox(_boxKey(subscriber), focusId: subscriber['id'] as int),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-              border: last
-                  ? null
-                  : const Border(bottom: BorderSide(color: _lineSoft))),
-          child: Row(children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                  color: _sunken, borderRadius: BorderRadius.circular(14)),
-              child: Text('${subscriber['full_name']}'.characters.first,
-                  style: _number(14)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text('${subscriber['full_name']}',
-                      style: _body(15.5, weight: FontWeight.w700),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  Text(
-                      'طبلون ${_boxNumber(subscriber)} · السابقة ${AppIdentity.reading(subscriber['previous_reading'])}',
-                      style: _body(12.5, color: _faint),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ])),
-            _statusTag(subscriber),
-          ]),
-        ),
+        leading: AppAvatar('${subscriber['full_name']}'),
+        title: AppRowTitle('${subscriber['full_name']}'),
+        subtitle: AppRowNote(
+            'طبلون ${_boxNumber(subscriber)} · السابقة ${AppIdentity.reading(subscriber['previous_reading'])}'),
+        trailing: _statusTag(subscriber),
       );
 
   Widget _statusTag(Map<String, dynamic> subscriber) {
     final queued = _queued(subscriber);
     if (queued != null) {
       return queued['sync_error'] == null
-          ? _tag('على الجهاز', _warning, const Color(0xFFFFF4E8))
-          : _tag('تعذر الإرسال', _bad, const Color(0xFFFFEEEE));
+          ? const AppTag('على الجهاز', AppTone.warning)
+          : const AppTag('تعذر الإرسال', AppTone.bad);
     }
     return switch (subscriber['reading_status']) {
-      'approved' => _tag('معتمدة', _good, const Color(0xFFE8F6F0)),
-      'pending' => _tag('قيد المراجعة', _warning, const Color(0xFFFFF4E8)),
+      'approved' => const AppTag('معتمدة', AppTone.good),
+      'pending' => const AppTag('قيد المراجعة', AppTone.warning),
       _ => _hasDraft(subscriber)
-          ? _tag('مسودة', _brand, const Color(0xFFF9EEF0))
-          : _tag('لم تُقرأ', _muted, _sunken),
+          ? const AppTag('مسودة', AppTone.brand)
+          : const AppTag('لم تُقرأ', AppTone.muted),
     };
   }
-
-  Widget _tag(String label, Color color, Color background) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-            color: background, borderRadius: BorderRadius.circular(20)),
-        child: Text(label,
-            style: _body(11.5, weight: FontWeight.w700, color: color)),
-      );
-
-  Widget _empty(IconData icon, String title, String subtitle) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-        decoration: _card(),
-        child: Column(children: [
-          Icon(icon, size: 34, color: _faint),
-          const SizedBox(height: 10),
-          Text(title,
-              style: _body(16, weight: FontWeight.w700),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 4),
-          Text(subtitle,
-              style: _body(13, color: _faint), textAlign: TextAlign.center),
-        ]),
-      );
 
   Widget _boxView() {
     final subscribers =
         boxKey == null ? <Map<String, dynamic>>[] : _inBox(boxKey!);
     if (subscribers.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: _empty(Icons.inventory_2_outlined, 'الطبلون غير متاح',
-            'ارجع إلى قائمة الطبلونات.'),
-      );
+      return ListView(padding: const EdgeInsets.all(16), children: [
+        AppRows(children: const [
+          AppEmpty('bolt', 'الطبلون غير متاح', 'ارجع إلى قائمة الطبلونات.')
+        ])
+      ]);
     }
     final done = subscribers.where(_done).length;
     final ready = subscribers.where(_ready).length;
     return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
         children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-            decoration: _card(radius: 18),
+          AppPanel(
             child: Column(children: [
               Row(children: [
-                Text('قُرئت $done من ${subscribers.length}',
-                    style: _body(14, weight: FontWeight.w700)),
-                const Spacer(),
+                Expanded(
+                    child: Text('قُرئت $done من ${subscribers.length}',
+                        style: _body(14, weight: FontWeight.w700))),
                 if (ready > 0)
-                  _tag('${AppIdentity.readingsCount(ready)} جاهزة للحفظ',
-                      _brand, const Color(0xFFF9EEF0)),
+                  Flexible(
+                    child: AppTag(
+                        '${AppIdentity.readingsCount(ready)} جاهزة للحفظ',
+                        AppTone.brand),
+                  ),
               ]),
               const SizedBox(height: 10),
               ClipRRect(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(8),
                 child: Row(children: [
                   if (done > 0)
                     Expanded(
-                        flex: done, child: Container(height: 7, color: _good)),
+                        flex: done, child: Container(height: 8, color: _good)),
                   if (ready > 0)
                     Expanded(
                         flex: ready,
-                        child: Container(height: 7, color: _brand)),
-                  if (subscribers.length - done - ready > 0)
-                    Expanded(
-                        flex: subscribers.length - done - ready,
-                        child: Container(height: 7, color: _sunken)),
+                        child: Container(height: 8, color: _brand)),
+                  Expanded(
+                      flex: subscribers.length - done - ready == 0
+                          ? 0
+                          : subscribers.length - done - ready,
+                      child: Container(height: 8, color: _sunken)),
                 ]),
               ),
             ]),
           ),
           const SizedBox(height: 12),
-          Container(
-            decoration: _card(),
-            clipBehavior: Clip.antiAlias,
-            child: Material(
-              color: _surface,
-              child: Column(children: [
-                for (var index = 0; index < subscribers.length; index++)
-                  _readingRow(subscribers[index], index,
-                      last: index == subscribers.length - 1),
-              ]),
-            ),
-          ),
-          const SizedBox(height: 10),
+          AppRows(children: [
+            for (var index = 0; index < subscribers.length; index++)
+              _readingRow(subscribers[index], index),
+          ]),
+          const SizedBox(height: 12),
           if (saveError != null)
-            _notice(
-                saveError!, Icons.error_outline, _bad, const Color(0xFFFFEEEE))
+            AppNotice(saveError!, error: true)
           else
-            _notice(
-                'اضغط على أي مشترك لإدخال قراءته أو تعديلها. بعد الحفظ تصل القراءات إلى النظام بحالة «قيد المراجعة».',
-                Icons.info_outline,
-                _muted,
-                _raised),
+            const AppNotice(
+                'اضغط على أي مشترك لإدخال قراءته أو تعديلها. بعد الحفظ تصل القراءات إلى النظام بحالة «قيد المراجعة».'),
         ]);
   }
 
   String? _consumptionText(Map<String, dynamic> subscriber, double? value) {
     if (value == null || value < _previous(subscriber)) return null;
-    return AppIdentity.reading(value - _previous(subscriber));
+    return AppIdentity.reading(
+        ((value - _previous(subscriber)) * 100).round() / 100);
   }
 
-  Widget _readingRow(Map<String, dynamic> subscriber, int index,
-      {bool last = false}) {
+  Widget _readingRow(Map<String, dynamic> subscriber, int index) {
     final id = subscriber['id'] as int;
     final selected = selectedId == id && keypadOpen;
     final queued = _queued(subscriber);
@@ -1121,11 +939,56 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
     final value = double.tryParse(draft ?? '');
     final previous = _previous(subscriber);
     final low = value != null && value < previous;
-    final consumption = value == null ? null : value - previous;
     final lastWeek = _history(subscriber).firstOrNull;
     final shownReading =
         queued?['current_reading'] ?? subscriber['current_reading'];
     final rejected = queued?['sync_error'] != null;
+    final verdict = _verdict(subscriber, value);
+    Widget? caret = selected ? const AppCaret() : null;
+
+    Widget cell;
+    if (!finished && draft != null && draft.isNotEmpty) {
+      cell = _cell(
+          top: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(draft, textDirection: TextDirection.ltr, style: _number(18)),
+            if (caret != null) caret,
+          ]),
+          bottom: low
+              ? 'أقل من السابقة'
+              : '${_consumptionText(subscriber, value)} ك.و.س',
+          bottomColor: verdict?.color ?? _good,
+          background: selected ? _surface : _raised,
+          border: low
+              ? _bad
+              : selected
+                  ? _brand
+                  : _line,
+          glow: selected);
+    } else if (finished) {
+      cell = _cell(
+          top: Text(AppIdentity.reading(shownReading),
+              textDirection: TextDirection.ltr, style: _number(18)),
+          bottom: queued == null
+              ? subscriber['reading_status'] == 'approved'
+                  ? 'معتمدة'
+                  : 'قيد المراجعة'
+              : rejected
+                  ? 'تعذر الإرسال'
+                  : 'على الجهاز',
+          bottomColor: rejected ? _bad : _good,
+          background: rejected ? AppIdentity.badTint : AppIdentity.goodTint,
+          border: Colors.transparent);
+    } else {
+      cell = _cell(
+          top: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(selected ? 'اكتب القراءة' : 'اضغط للإدخال',
+                style: _body(13, color: selected ? _brand : _faint)),
+            if (caret != null) caret,
+          ]),
+          background: selected ? _surface : _raised,
+          border: selected ? _brand : _line,
+          glow: selected);
+    }
     return InkWell(
       key: rowKeys.putIfAbsent(id, GlobalKey.new),
       onTap: () => _select(subscriber),
@@ -1133,12 +996,10 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF9EEF0) : Colors.transparent,
-          border: Border(
-              bottom:
-                  last ? BorderSide.none : const BorderSide(color: _lineSoft),
-              right: selected
-                  ? const BorderSide(color: _brand, width: 3)
+          color: selected ? AppIdentity.brandSoft : Colors.transparent,
+          border: BorderDirectional(
+              start: selected
+                  ? BorderSide(color: _brand, width: 3)
                   : BorderSide.none),
         ),
         child: Row(children: [
@@ -1150,11 +1011,11 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
                 color: selected
                     ? _brand
                     : finished
-                        ? const Color(0xFFE8F6F0)
+                        ? AppIdentity.goodTint
                         : _sunken,
                 borderRadius: BorderRadius.circular(10)),
             child: finished && !selected
-                ? const Icon(Icons.check, size: 16, color: _good)
+                ? AppIcon('check', size: 16, color: _good)
                 : Text('${index + 1}',
                     style: _number(13, color: selected ? Colors.white : _ink)),
           ),
@@ -1166,99 +1027,78 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
                   style: _body(15, weight: FontWeight.w700),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 2),
               Text(
                   [
                     'السابقة ${AppIdentity.reading(subscriber['previous_reading'])}',
                     if (lastWeek?['consumption'] != null)
                       'الأسبوع الماضي ${AppIdentity.reading(lastWeek!['consumption'])}',
                   ].join(' · '),
-                  style: _body(12.5, color: _faint),
+                  style: _body(12, color: _faint),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis),
             ]),
           ),
-          const SizedBox(width: 8),
-          Container(
-            width: 112,
-            height: 50,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: finished
-                  ? rejected
-                      ? const Color(0xFFFFEEEE)
-                      : const Color(0xFFE8F6F0)
-                  : selected
-                      ? _surface
-                      : _raised,
-              border: Border.all(
-                  color: low
-                      ? _bad
-                      : selected
-                          ? _brand
-                          : finished
-                              ? Colors.transparent
-                              : _line,
-                  width: 1.5),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: selected
-                  ? const [BoxShadow(color: Color(0x1FA51D26), spreadRadius: 3)]
-                  : null,
-            ),
-            child:
-                Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              if (!finished && draft != null && draft.isNotEmpty) ...[
-                Text(draft,
-                    style: _number(19), textDirection: TextDirection.ltr),
-                const SizedBox(height: 2),
-                Text(
-                    low
-                        ? 'أقل من السابقة'
-                        : '${AppIdentity.reading(consumption)} ك.و.س',
-                    style: _body(11.5,
-                        weight: FontWeight.w700,
-                        color: _verdict(subscriber, value)?.color ?? _good)),
-              ] else if (finished) ...[
-                Text(AppIdentity.reading(shownReading), style: _number(19)),
-                const SizedBox(height: 2),
-                Text(
-                    queued == null
-                        ? subscriber['reading_status'] == 'approved'
-                            ? 'معتمدة'
-                            : 'قيد المراجعة'
-                        : rejected
-                            ? 'تعذر الإرسال'
-                            : 'على الجهاز',
-                    style: _body(11.5,
-                        weight: FontWeight.w700,
-                        color: rejected ? _bad : _good)),
-              ] else if (selected)
-                Text('اكتب القراءة', style: _body(13, color: _brand))
-              else
-                Text('اضغط للإدخال', style: _body(13, color: _faint)),
-            ]),
-          ),
+          const SizedBox(width: 10),
+          cell,
         ]),
       ),
     );
   }
 
-  /// The chosen subscriber's previous and new reading side by side, with
-  /// their recent weeks, shown above the keypad while typing.
+  Widget _cell(
+          {required Widget top,
+          String? bottom,
+          Color? bottomColor,
+          required Color background,
+          required Color border,
+          bool glow = false}) =>
+      Container(
+        width: 116,
+        height: 52,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: background,
+          border: Border.all(color: border, width: 1.5),
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: glow
+              ? [
+                  BoxShadow(
+                      color: _brand.withValues(alpha: .12), spreadRadius: 3)
+                ]
+              : null,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child:
+                Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              top,
+              if (bottom != null)
+                Text(bottom,
+                    maxLines: 1,
+                    style: _body(11,
+                        weight: FontWeight.w700, color: bottomColor ?? _faint)),
+            ]),
+          ),
+        ),
+      );
+
+  /// The chosen subscriber's previous and new reading side by side, shown
+  /// above the keypad while typing.
   Widget _comparePanel(Map<String, dynamic> subscriber) {
     final draft = drafts[subscriber['id']];
     final value = double.tryParse(draft ?? '');
     final verdict = _verdict(subscriber, value);
-    final history = _history(subscriber).reversed.toList();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
           color: _surface,
           border: Border(top: BorderSide(color: _lineSoft)),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
-                color: Color(0x0F101828), blurRadius: 12, offset: Offset(0, -4))
+                color: Color(0x0D101828), blurRadius: 16, offset: Offset(0, -6))
           ]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
@@ -1269,7 +1109,8 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
                 overflow: TextOverflow.ellipsis),
           ),
           if (verdict != null) ...[
-            Icon(verdict.icon, size: 16, color: verdict.color),
+            const SizedBox(width: 8),
+            AppIcon(verdict.icon, size: 15, color: verdict.color),
             const SizedBox(width: 4),
             Flexible(
               child: Text(verdict.text,
@@ -1280,7 +1121,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
             ),
           ],
         ]),
-        const SizedBox(height: 8),
+        const SizedBox(height: 9),
         AppReadingCompare(
           previous: AppIdentity.reading(subscriber['previous_reading']),
           current: draft == null || draft.isEmpty ? null : draft,
@@ -1289,63 +1130,8 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
           alert: verdict?.color == _good ? null : verdict?.color,
           highlightCurrent: true,
         ),
-        if (history.isNotEmpty && MediaQuery.sizeOf(context).height >= 700) ...[
-          const SizedBox(height: 8),
-          _historyStrip(
-              history,
-              value == null || value < _previous(subscriber)
-                  ? null
-                  : value - _previous(subscriber)),
-        ],
       ]),
     );
-  }
-
-  /// Small bars of the last weeks' consumption beside this week's.
-  Widget _historyStrip(List<Map<String, dynamic>> history, double? now) {
-    final weeks = [
-      for (final week in history)
-        (
-          label: AppIdentity.shortDate(week['week_start']),
-          value: double.tryParse('${week['consumption']}') ?? 0,
-          current: false,
-        ),
-      (label: 'الآن', value: now ?? 0, current: true),
-    ];
-    final highest = weeks
-        .map((week) => week.value)
-        .fold<double>(1, (top, value) => value > top ? value : top);
-    return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-      Text('الاستهلاك', style: _body(11.5, color: _faint)),
-      const SizedBox(width: 10),
-      for (final week in weeks)
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(
-                  week.current && now == null
-                      ? '—'
-                      : AppIdentity.reading(week.value),
-                  style: _number(11.5, color: week.current ? _brand : _muted)),
-              const SizedBox(height: 3),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                height: 4 + 18 * (week.value / highest),
-                decoration: BoxDecoration(
-                    color: week.current ? _brand : _line,
-                    borderRadius: BorderRadius.circular(4)),
-              ),
-              const SizedBox(height: 3),
-              Text(week.label,
-                  style: _body(10.5,
-                      weight:
-                          week.current ? FontWeight.w700 : FontWeight.normal,
-                      color: week.current ? _brand : _faint)),
-            ]),
-          ),
-        ),
-    ]);
   }
 
   Widget _saveBar() {
@@ -1358,58 +1144,15 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
                 ? 'حفظ قراءتين وإرسالهما للمراجعة'
                 : 'حفظ $count قراءات وإرسالها للمراجعة';
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      decoration: const BoxDecoration(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
           color: _background,
           border: Border(top: BorderSide(color: _lineSoft))),
-      child: _button(label,
+      child: AppAction(
+          label: label,
           onPressed: count == 0 || saving ? null : _save,
-          primary: true,
           busy: saving,
-          icon: Icons.check),
-    );
-  }
-
-  Widget _button(String text,
-      {required VoidCallback? onPressed,
-      bool primary = false,
-      bool busy = false,
-      IconData? icon}) {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 160),
-        opacity: onPressed == null && primary && !busy ? 0.5 : 1,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: primary ? null : _surface,
-            gradient: primary ? AppIdentity.action : null,
-            border: primary ? null : Border.all(color: _line),
-            borderRadius: BorderRadius.circular(17),
-          ),
-          child: TextButton.icon(
-            onPressed: onPressed,
-            icon: busy
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : icon == null
-                    ? const SizedBox.shrink()
-                    : Icon(icon, size: 20),
-            label: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
-            style: TextButton.styleFrom(
-                foregroundColor: primary ? Colors.white : _ink,
-                disabledForegroundColor:
-                    primary ? const Color(0xCCFFFFFF) : _faint,
-                textStyle: _body(15, weight: FontWeight.w700),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(17))),
-          ),
-        ),
-      ),
+          icon: 'check'),
     );
   }
 
@@ -1430,127 +1173,33 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
         : pending.isNotEmpty
             ? 'حُفظت على الجهاز، وستُرسل إلى النظام الأساسي فور عودة الاتصال. يمكنك تعديلها قبل إرسالها.'
             : 'وصلت إلى النظام الأساسي بحالة «قيد المراجعة» بانتظار المدقق.';
-    final status = rejected
-        ? 'تعذر الإرسال'
-        : pending.isNotEmpty
-            ? 'بانتظار الإرسال'
-            : 'قيد المراجعة';
     final next = _nextUnfinishedBox();
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 30, 20, 24),
-      children: [
-        const SizedBox(height: 30),
-        Center(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: .6, end: 1),
-            duration: const Duration(milliseconds: 420),
-            curve: Curves.elasticOut,
-            builder: (context, scale, child) =>
-                Transform.scale(scale: scale, child: child),
-            child: Container(
-                width: 84,
-                height: 84,
-                decoration: BoxDecoration(
-                    color: const Color(0xFFE8F6F0),
-                    borderRadius: BorderRadius.circular(28)),
-                child: const Icon(Icons.check, size: 42, color: _good)),
-          ),
+    return AppSuccess(
+      title: 'تم حفظ القراءات',
+      message: description,
+      facts: [
+        ('الطبلون', AppFact(savedBox, number: true)),
+        ('عدد القراءات', AppFact('$savedCount', number: true)),
+        (
+          'الحالة',
+          rejected
+              ? const AppFact('تعذر الإرسال')
+              : pending.isNotEmpty
+                  ? const AppTag('بانتظار الإرسال', AppTone.warning)
+                  : const AppTag('قيد المراجعة', AppTone.warning)
         ),
-        const SizedBox(height: 16),
-        Text('تم حفظ القراءات',
-            style: _heading(24), textAlign: TextAlign.center),
-        const SizedBox(height: 4),
-        Text(description,
-            style: _body(14.5, color: _muted), textAlign: TextAlign.center),
-        const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: _card(),
-          child: Column(children: [
-            _receiptRow('الطبلون', savedBox),
-            _receiptRow('عدد القراءات', '$savedCount'),
-            _receiptRow('الحالة', status, last: true),
-          ]),
-        ),
-        const SizedBox(height: 20),
-        if (next != null) ...[
-          _button('الطبلون التالي: ${_boxNumber(next.value.first)}',
+      ],
+      actions: [
+        if (next != null)
+          AppAction(
+              label: 'الطبلون التالي: ${_boxNumber(next.value.first)}',
               onPressed: () => _openBox(next.key),
-              primary: true,
-              icon: Icons.arrow_forward),
-          const SizedBox(height: 10),
-        ],
-        _button('العودة إلى الطبلونات',
-            onPressed: _back, primary: next == null),
+              icon: 'arrow'),
+        AppAction(
+            label: 'العودة إلى الطبلونات',
+            primary: next == null,
+            onPressed: _back),
       ],
     );
   }
-
-  Widget _receiptRow(String label, String value, {bool last = false}) =>
-      Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-            border:
-                last ? null : const Border(bottom: BorderSide(color: _line))),
-        child: Row(children: [
-          Text(label, style: _body(14.5, color: _muted)),
-          const Spacer(),
-          Text(value, style: _body(14.5, weight: FontWeight.w700)),
-        ]),
-      );
-
-  Widget _syncView() {
-    final queue = widget.store.queuedReadings;
-    return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-        children: [
-          Row(children: [
-            Expanded(
-                child: AppStat('بانتظار الإرسال', '${queue.length}',
-                    color: queue.isEmpty ? _good : _warning)),
-            const SizedBox(width: 8),
-            Expanded(
-                child: AppStat(
-                    'آخر تحديث للبيانات',
-                    _updatedText(
-                        widget.store.state['roster_updated_at'] as String?))),
-          ]),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
-            child: Text('لم تُرسل بعد', style: _heading(16)),
-          ),
-          QueuedReadingsList(
-              queue: queue,
-              subscribers: widget.store.subscribers,
-              onReenter: _entryOpen ? _reenter : null,
-              onDiscard: (reading) async {
-                await widget.onDiscard(reading);
-                if (mounted) setState(() {});
-              }),
-          const SizedBox(height: 14),
-          _button(
-              widget.syncing
-                  ? 'جارٍ الإرسال...'
-                  : widget.online
-                      ? 'إرسال الآن'
-                      : 'سيتم الإرسال عند عودة الاتصال',
-              onPressed: widget.online && !widget.syncing && queue.isNotEmpty
-                  ? widget.onSync
-                  : null,
-              busy: widget.syncing,
-              icon: Icons.sync,
-              primary: true),
-        ]);
-  }
-}
-
-/// When the roster was last downloaded, in words.
-String _updatedText(String? updatedAt) {
-  final updated = DateTime.tryParse(updatedAt ?? '');
-  if (updated == null) return '—';
-  final minutes = DateTime.now().difference(updated).inMinutes;
-  if (minutes < 1) return 'الآن';
-  if (minutes < 60) return 'قبل $minutes د';
-  if (minutes < 24 * 60) return 'قبل ${minutes ~/ 60} س';
-  return AppIdentity.shortDate(updatedAt);
 }

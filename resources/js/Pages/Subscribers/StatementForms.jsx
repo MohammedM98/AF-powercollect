@@ -9,15 +9,11 @@ import ForceDeleteTransactionModal from './ForceDeleteTransactionModal';
 import DiscountModal from './DiscountModal';
 import PaymentModal from './PaymentModal';
 
-const ACTION_TONES = {
-    payment:
-        'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 hover:border-emerald-600 hover:bg-emerald-600 hover:text-white focus-visible:border-emerald-600 focus-visible:bg-emerald-600 focus-visible:text-white dark:text-emerald-400 dark:hover:text-white dark:focus-visible:text-white',
-    charge:
-        'border-amber-500/25 bg-amber-500/10 text-amber-700 hover:border-amber-600 hover:bg-amber-600 hover:text-white focus-visible:border-amber-600 focus-visible:bg-amber-600 focus-visible:text-white dark:text-amber-400 dark:hover:text-white dark:focus-visible:text-white',
-    discount:
-        'border-violet-500/25 bg-violet-500/10 text-violet-700 hover:border-violet-600 hover:bg-violet-600 hover:text-white focus-visible:border-violet-600 focus-visible:bg-violet-600 focus-visible:text-white dark:text-violet-400 dark:hover:text-white dark:focus-visible:text-white',
-    clearing:
-        'border-teal-500/25 bg-teal-500/10 text-teal-700 hover:border-teal-600 hover:bg-teal-600 hover:text-white focus-visible:border-teal-600 focus-visible:bg-teal-600 focus-visible:text-white dark:text-teal-400 dark:hover:text-white dark:focus-visible:text-white',
+const ACTION_ICON_TONES = {
+    payment: 'text-emerald-600 group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
+    charge: 'text-amber-600 group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
+    discount: 'text-violet-600 group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
+    clearing: 'text-teal-600 group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
 };
 
 /**
@@ -102,10 +98,14 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
                             type="button"
                             role="menuitem"
                             onClick={() => choose(item.action)}
-                            className={`flex h-11 w-full items-center gap-2.5 rounded-xl border px-3 text-start text-sm font-semibold transition focus-visible:outline-none ${ACTION_TONES[item.action]}`}
+                            className="group/item flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-start text-sm font-medium text-gray-900 outline-none transition hover:bg-gray-100 focus-visible:bg-gray-100"
                         >
-                            <Icon name={item.icon} className="h-[18px] w-[18px] shrink-0" />
-                            <span>{item.label}</span>
+                            <span
+                                className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] bg-gray-100 transition group-hover/item:text-white group-focus-visible/item:text-white ${ACTION_ICON_TONES[item.action]}`}
+                            >
+                                <Icon name={item.icon} className="h-[17px] w-[17px]" />
+                            </span>
+                            <span className="flex-1 truncate">{item.label}</span>
                         </button>
                     ))}
                 </div>

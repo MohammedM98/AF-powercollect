@@ -332,6 +332,8 @@ trait BuildsSubscriberStatement
             'referenceNumber' => $receipt->reference_number,
             'cashBox' => $receipt->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
+            // The weekly reading the line was billed from, which a reading and its standing discount share.
+            'meterReadingId' => $transaction->meter_reading_id,
             // The weekly reading a standing line was billed from, to correct from the line's menu.
             'reading' => $this->correctableReading($transaction, $actor),
             // A payment's receipt, to print or reprint from the line's menu.

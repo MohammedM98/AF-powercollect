@@ -1,10 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
 import { COMPANY_NAME } from '@/Layouts/GuestLayout';
-import { describeBalance, filterStatementEntries, statementCsv } from '@/lib/accountStatement';
+import {
+    compactStatementEntries,
+    describeBalance,
+    filterStatementEntries,
+    netOfReadingDiscount,
+    relatedLineChains,
+    statementCsv,
+    withReadingDiscounts,
+} from '@/lib/accountStatement';
 import { downloadCsv } from '@/lib/csv';
 import { formatAmount } from '@/lib/currency';
 
@@ -15,6 +23,7 @@ const BALANCE_PILLS = {
 };
 
 const COLUMNS = [
+    '#',
     'رقم الصندوق',
     'رقم السند',
     'الرقم المرجعي',
@@ -30,7 +39,34 @@ const COLUMNS = [
     'اسم المستخدم',
 ];
 
+/** Each chain of related lines gets one of these colours (cycling), on its lines' edge and number. */
+const CHAIN_COLORS = ['37 99 235', '217 119 6', '147 51 234', '13 148 136', '219 39 119', '101 163 13'];
+
 const EMPTY_FILTERS = { search: '', type: '', method: '', dateFrom: '', dateTo: '' };
+
+const VIEW_STORAGE_KEY = 'statement-view';
+
+const VIEWS = [
+    { value: 'compact', label: 'عرض مختصر', hint: 'دون الحركات الملغاة وقيودها العكسية، والخصم الدائم داخل قراءته' },
+    { value: 'full', label: 'كل الحركات', hint: 'كل حركة كما سُجّلت، ومنها الملغاة وقيودها العكسية' },
+];
+
+/** The view this browser last chose, compact unless it chose the full one. */
+function rememberedView() {
+    try {
+        return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'full' ? 'full' : 'compact';
+    } catch {
+        return 'compact';
+    }
+}
+
+function rememberView(view) {
+    try {
+        window.localStorage.setItem(VIEW_STORAGE_KEY, view);
+    } catch {
+        // The choice just isn't remembered.
+    }
+}
 
 // The time printed on the statement, in the app's Arabic with Western digits.
 const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
@@ -64,7 +100,7 @@ function CancellationNote({ cancellation, onJump }) {
             <span>
                 {cancellation.wasCorrected ? (
                     <button type="button" onClick={() => onJump(cancellation.correctionId)} className="font-semibold text-amber-700 hover:underline">
-                        ⟲ صُحّحت ← #{cancellation.correctionLineNumber}
+                        صُحّحت بالحركة #{cancellation.correctionLineNumber}
                     </button>
                 ) : <b className="font-semibold text-gray-700">أُلغيت</b>}
                 <>: {cancellation.reasonLabel}</>
@@ -84,18 +120,18 @@ function CorrectsNote({ corrects, onJump }) {
         <p className="ledger-description mt-1.5 flex items-center gap-1.5 text-xs font-normal text-amber-700 dark:text-amber-400">
             <Icon name="repeat" className="h-3.5 w-3.5 shrink-0" />
             <button type="button" onClick={() => onJump(corrects.id)} className="font-semibold hover:underline">
-                تصحيح لـ #{corrects.lineNumber} ↑
+                تصحيح للحركة #{corrects.lineNumber} ↑
             </button>
         </p>
     );
 }
 
-function ReversalNote({ reverses, onJump }) {
+function ReversalNote({ entry, reverses, onJump }) {
     return (
         <p className="ledger-description mt-1.5 flex items-center gap-1.5 text-xs font-normal text-blue-700">
             <Icon name="repeat" className="h-3.5 w-3.5 shrink-0" />
             <button type="button" onClick={() => onJump(reverses.id)} className="font-semibold hover:underline">
-                عرض الحركة الأصلية #{reverses.lineNumber}
+                {entry.type === 'refund' ? 'يُرجع الدفعة' : 'يُلغي الحركة'} #{reverses.lineNumber} ↑
             </button>
         </p>
     );
@@ -106,8 +142,42 @@ function LinkedReversalNote({ reversal, onJump }) {
         <p className="ledger-description mt-1.5 flex items-center gap-1.5 text-xs font-normal text-blue-700 dark:text-blue-400">
             <Icon name="repeat" className="h-3.5 w-3.5 shrink-0" />
             <button type="button" onClick={() => onJump(reversal.id)} className="font-semibold hover:underline">
-                عرض حركة الإلغاء/الإرجاع #{reversal.lineNumber}
+                {reversal.type === 'refund' ? 'أُرجعت بالحركة' : 'أُلغيت بالحركة'} #{reversal.lineNumber} ↓
             </button>
+        </p>
+    );
+}
+
+/**
+ * In the compact view, on a line that replaced or outlived cancelled ones:
+ * opens them, with their reversals, under it.
+ */
+function HistoryToggle({ entry, isOpen, onToggle }) {
+    const wasCorrected = entry.isCorrection || entry.history.some((line) => line.cancellation?.wasCorrected);
+
+    return (
+        <p className="ledger-description mt-1.5 flex items-center gap-1.5 text-xs font-normal">
+            <button
+                type="button"
+                onClick={onToggle}
+                aria-expanded={isOpen}
+                className="statement-screen-only inline-flex items-center gap-1.5 font-semibold text-amber-700 hover:underline dark:text-amber-400"
+            >
+                <Icon name="history" className="h-3.5 w-3.5 shrink-0" />
+                {wasCorrected ? 'صُحّحت' : 'لها حركات ملغاة'} · {isOpen ? 'إخفاء السجل' : `السجل (${entry.history.length})`}
+            </button>
+        </p>
+    );
+}
+
+/** Under a reading's line in the compact view: the standing discount it was billed with. */
+function ReadingDiscountNote({ discountLine }) {
+    return (
+        <p className="ledger-description mt-1.5 flex items-center gap-1.5 text-xs font-normal text-emerald-700 dark:text-emerald-400">
+            <Icon name="tag" className="h-3.5 w-3.5 shrink-0" />
+            <span>
+                {withLtrDates(discountLine.description)}: − <bdi dir="ltr">{formatAmount(discountLine.amount)}</bdi>
+            </span>
         </p>
     );
 }
@@ -152,7 +222,7 @@ function AmendmentBadge({ amendments }) {
 
 /** Whether a line has a menu: actions the user may take on it, its reading to correct, or a receipt to print. */
 function hasLineMenu(entry) {
-    return entry.available_actions?.length > 0 || Boolean(entry.reading) || Boolean(entry.receiptUrl);
+    return entry.available_actions?.length > 0 || Boolean(entry.reading) || Boolean(entry.receiptUrl) || Boolean(entry.discountLine?.available_actions?.length);
 }
 
 function transactionNoun(entry) {
@@ -219,8 +289,13 @@ function lineActionsMenu(entry, onAction) {
         ...actionItem(entry, action),
         onSelect: () => onAction(action, entry),
     }));
+    const discountItems = (entry.discountLine?.available_actions ?? []).map((action) => ({
+        ...actionItem(entry.discountLine, action),
+        onSelect: () => onAction(action, entry.discountLine),
+    }));
     const groups = [
         ...(items.length ? [{ label: 'إجراءات الحركة', items }] : []),
+        ...(discountItems.length ? [{ label: 'الخصم الدائم لهذه القراءة', items: discountItems }] : []),
         ...(entry.reading
             ? [
                   {
@@ -314,7 +389,7 @@ function PrintHeading({ subscriber, caption }) {
                     <p className="text-xs text-gray-600">طُبع في {PRINTED_AT_FORMAT.format(new Date())}</p>
                 </div>
             </div>
-            {caption && <p className="mt-2 text-xs text-gray-700">مطبوع حسب التصفية: {caption}</p>}
+            {caption && <p className="mt-2 text-xs text-gray-700">مطبوع حسب: {caption}</p>}
         </header>
     );
 }
@@ -324,11 +399,163 @@ function followsLineAbove(entry) {
     return entry.isFollowUp && entry.reverses?.lineNumber === entry.lineNumber - 1;
 }
 
-/** The row's look: a cancelled line greyed, a reversal or replacement marked as following the line above. */
-function rowClass(entry, highlighted) {
-    return [entry.cancellation && 'ledger-cancelled', followsLineAbove(entry) && 'ledger-follow-up', highlighted && 'outline outline-2 outline-offset-[-2px] outline-amber-400']
+/** The row's look: a cancelled line greyed, a reversal or replacement marked as following the line above, a folded one faded. */
+function rowClass(entry, highlighted, isHistory, isRelated) {
+    return [
+        entry.cancellation && 'ledger-cancelled',
+        isRelated && 'ledger-related',
+        isHistory ? 'ledger-history' : followsLineAbove(entry) && 'ledger-follow-up',
+        highlighted && 'outline outline-2 outline-offset-[-2px] outline-amber-400',
+    ]
         .filter(Boolean)
         .join(' ') || undefined;
+}
+
+/**
+ * One statement line. In the compact view a line may carry its reading's
+ * standing discount (`discountLine`, shown as one bill: the amount after
+ * the discount) and the cancelled lines folded under it (`history`).
+ * A folded line (`isHistory`) shows no balance: with its reversal it
+ * changed nothing.
+ */
+function StatementRow({
+    entry,
+    chain = null,
+    hoveredChain = null,
+    onHoverChain,
+    isCompact,
+    isHistory = false,
+    highlighted,
+    hasLineMenus,
+    historyOpen = false,
+    onToggleHistory,
+    onJump,
+    onAction,
+}) {
+    const entryBalance = describeBalance(entry.balance);
+    const showsHistory = isCompact && !isHistory && entry.history?.length > 0;
+    const chainColor = chain ? CHAIN_COLORS[(chain - 1) % CHAIN_COLORS.length] : null;
+
+    return (
+        <tr
+            id={`statement-line-${entry.id}`}
+            className={rowClass(entry, highlighted, isHistory, chain !== null && chain === hoveredChain)}
+            style={chainColor ? { '--ledger-chain': chainColor } : undefined}
+            data-chain={chain ?? undefined}
+            onMouseEnter={chain ? () => onHoverChain(chain) : undefined}
+            onMouseLeave={chain ? () => onHoverChain(null) : undefined}
+        >
+            <td data-label="#" className="whitespace-nowrap tabular-nums">
+                <span className="inline-flex items-center gap-1.5 font-semibold text-gray-700" title={chain ? 'الحركات المرتبطة بنفس اللون' : undefined}>
+                    {chainColor && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: `rgb(${chainColor})` }} />}
+                    #{entry.lineNumber}
+                    {entry.discountLine && <span className="font-normal text-gray-400">+ #{entry.discountLine.lineNumber}</span>}
+                </span>
+            </td>
+            <td data-label="رقم الصندوق" className="tabular-nums text-gray-700">
+                {entry.cashBox ?? <Dash />}
+            </td>
+            <td data-label="رقم السند" className="font-semibold tabular-nums text-gray-900">
+                {entry.voucherNumber ?? <Dash />}
+            </td>
+            <td data-label="الرقم المرجعي" className="tabular-nums text-gray-700">
+                {entry.referenceNumber ? <span dir="ltr">{entry.referenceNumber}</span> : <Dash />}
+            </td>
+            <td data-label="البنك" className="text-gray-700">
+                {entry.bankName ? (
+                    <div className="grid gap-1">
+                        {entry.senderBankName && <span>من: {entry.senderBankName}</span>}
+                        <span>إلى: {entry.bankName}</span>
+                    </div>
+                ) : <Dash />}
+            </td>
+            <td data-label="تاريخ الحركة" className="whitespace-nowrap tabular-nums text-gray-600">
+                <span dir="ltr">{entry.date}</span>
+            </td>
+            <td data-label="البيان" className="font-medium text-gray-900">
+                <div className="ledger-description">
+                    {(isHistory || followsLineAbove(entry)) && <span className="me-1 text-blue-600">↲</span>}
+                    <span className="ledger-struck">{withLtrDates(entry.description)}</span>
+                </div>
+                {entry.details && (
+                    <p className="ledger-description mt-1 text-xs font-normal text-gray-500">
+                        {withLtrDates(entry.details)}
+                    </p>
+                )}
+                {entry.discountLine && <ReadingDiscountNote discountLine={entry.discountLine} />}
+                {entry.cancellation && <CancellationNote cancellation={entry.cancellation} onJump={onJump} />}
+                {entry.reverses && <ReversalNote entry={entry} reverses={entry.reverses} onJump={onJump} />}
+                {entry.linkedReversal && <LinkedReversalNote reversal={entry.linkedReversal} onJump={onJump} />}
+                {showsHistory ? (
+                    <HistoryToggle entry={entry} isOpen={historyOpen} onToggle={onToggleHistory} />
+                ) : (
+                    entry.corrects && <CorrectsNote corrects={entry.corrects} onJump={onJump} />
+                )}
+            </td>
+            <td
+                data-label="المبلغ"
+                className={`font-display font-semibold tabular-nums ${entry.isCredit ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900'}`}
+            >
+                {entry.discountLine ? (
+                    <span className="grid gap-0.5">
+                        <span>{formatAmount(netOfReadingDiscount(entry))}</span>
+                        <span className="font-sans text-xs font-normal text-gray-500" title="القراءة − الخصم الدائم">
+                            <bdi dir="ltr">
+                                {formatAmount(entry.amount)} − {formatAmount(entry.discountLine.amount)}
+                            </bdi>
+                        </span>
+                    </span>
+                ) : (
+                    <span className="ledger-struck">{formatAmount(entry.amount)}</span>
+                )}
+            </td>
+            <td data-label="العملة" className="text-gray-700">
+                {entry.currencyLabel}
+            </td>
+            <td data-label="نوع الحركة">
+                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <StatusPill tone={entry.isCredit ? 'green' : 'red'} label={entry.isCredit ? 'له' : 'عليه'} />
+                    <span className="font-medium text-gray-900">{entry.typeLabel}</span>
+                    {entry.discountLine && <span className="text-xs text-emerald-700 dark:text-emerald-400">بعد الخصم الدائم</span>}
+                    {entry.cancellation && (
+                        <StatusPill tone={entry.cancellation.wasCorrected ? 'amber' : 'gray'} label={entry.cancellation.wasCorrected ? 'مُصحّحة' : 'ملغاة'} />
+                    )}
+                    {entry.isCorrection && (
+                        <span className="inline-flex items-center whitespace-nowrap rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                            تصحيح
+                        </span>
+                    )}
+                    {entry.isAmended && <AmendmentBadge amendments={entry.amendments} />}
+                </span>
+            </td>
+            <td data-label="طريقة الدفع" className="text-gray-700">
+                {entry.paymentMethodLabel ?? <Dash />}
+            </td>
+            <td data-label="سعر الصرف" className="tabular-nums text-gray-600">
+                {entry.exchangeRate}
+            </td>
+            <td data-label="الرصيد (شيكل)">
+                {isHistory ? (
+                    <span title="أُلغيت مع قيدها العكسي، فلم تغيّر الرصيد">
+                        <Dash />
+                    </span>
+                ) : (
+                    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <b className="font-display tabular-nums text-gray-900">{entryBalance.amount}</b>
+                        <StatusPill tone={BALANCE_PILLS[entryBalance.tone]} label={entryBalance.label} />
+                    </span>
+                )}
+            </td>
+            <td data-label="اسم المستخدم" className="text-gray-700">
+                {entry.recordedByName ?? <Dash />}
+            </td>
+            {hasLineMenus && (
+                <td className="statement-screen-only text-end">
+                    {hasLineMenu(entry) && <RowActionsMenu menu={lineActionsMenu(entry, onAction)} />}
+                </td>
+            )}
+        </tr>
+    );
 }
 
 function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
@@ -351,22 +578,37 @@ function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
 /**
  * The body of a subscriber's account statement: the balance and totals,
  * the search and filters, and every line (charges عليه, payments and
- * discounts له) oldest first with the balance after each. Corrected and
- * deleted lines, their reversals and any replacements always stay visible
- * in chronological order. Their links jump between related lines without
- * hiding a balance-changing ledger entry.
+ * discounts له) oldest first with the balance after each.
+ *
+ * It opens compact: a cancelled line and the reversal that takes it back
+ * add up to nothing, so both are left out and the balances read as if they
+ * were never recorded (ending where the full statement ends); the line
+ * that corrected them can open them under it, and a weekly reading shows
+ * its standing discount inside its line. "كل الحركات" shows every line as
+ * recorded, in chronological order, with links between related lines.
+ * The browser remembers the view chosen.
  * `onAction` receives one of the server-provided canonical actions and the
  * line to change. Used by the statement page and the subscribers-list window.
  *
- * The lines shown can be saved for Excel or printed — on landscape paper,
+ * The lines shown, in the view shown, can be saved for Excel or printed — on landscape paper,
  * with the company and `subscriber` (the statement's header) above them
  * and only the statement on the page, light whatever the app's theme.
  */
 export default function AccountStatement({ subscriber, entries, summary, paymentMethods, transactionTypes, onAction }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
+    const [view, setView] = useState(rememberedView);
+    const [openHistories, setOpenHistories] = useState(() => new Set());
     const [highlightedLineId, setHighlightedLineId] = useState(null);
+    const [pendingJump, setPendingJump] = useState(null);
+    const [hoveredChain, setHoveredChain] = useState(null);
     const highlightTimer = useRef(null);
-    const visibleEntries = filterStatementEntries(entries, filters);
+    const isCompact = view === 'compact';
+    const compact = useMemo(() => compactStatementEntries(entries), [entries]);
+    const shownEntries = isCompact ? compact.entries : entries;
+    const visibleEntries = filterStatementEntries(shownEntries, filters);
+    const rows = isCompact ? withReadingDiscounts(visibleEntries) : visibleEntries;
+    const chains = useMemo(() => relatedLineChains(entries), [entries]);
+    const entriesById = useMemo(() => new Map(entries.map((entry) => [entry.id, entry])), [entries]);
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
     const balance = describeBalance(summary.balance);
@@ -377,18 +619,52 @@ export default function AccountStatement({ subscriber, entries, summary, payment
         setFilters((current) => ({ ...current, [key]: value }));
     }
 
+    function chooseView(nextView) {
+        setView(nextView);
+        rememberView(nextView);
+    }
+
+    function toggleHistory(lineId) {
+        setOpenHistories((current) => {
+            const next = new Set(current);
+            next.has(lineId) ? next.delete(lineId) : next.add(lineId);
+
+            return next;
+        });
+    }
+
+    /** Scrolls to a line and marks it; a line folded away in the compact view is opened first. */
     function jumpToLine(lineId) {
         const line = document.getElementById(`statement-line-${lineId}`);
 
-        if (!line) {
+        if (line) {
+            line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setHighlightedLineId(lineId);
+            clearTimeout(highlightTimer.current);
+            highlightTimer.current = setTimeout(() => setHighlightedLineId(null), 1800);
+
             return;
         }
 
-        line.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setHighlightedLineId(lineId);
-        clearTimeout(highlightTimer.current);
-        highlightTimer.current = setTimeout(() => setHighlightedLineId(null), 1800);
+        const holder = rows.find((row) => row.history?.some((folded) => folded.id === lineId));
+
+        if (holder) {
+            setOpenHistories((current) => new Set(current).add(holder.id));
+        } else if (isCompact) {
+            chooseView('full');
+        } else {
+            return;
+        }
+
+        setPendingJump(lineId);
     }
+
+    useEffect(() => {
+        if (pendingJump !== null) {
+            setPendingJump(null);
+            jumpToLine(pendingJump);
+        }
+    }, [pendingJump]);
 
     useEffect(() => () => clearTimeout(highlightTimer.current), []);
 
@@ -421,9 +697,21 @@ export default function AccountStatement({ subscriber, entries, summary, payment
         downloadCsv(statementCsv(visibleEntries), `statement-${subscriber.accountNumber}.csv`);
     }
 
+    /** The modals work on the line as the server sent it, not as the compact view shows it. */
+    function actOn(action, entry) {
+        onAction(action, entriesById.get(entry.id) ?? entry);
+    }
+
+    const printCaption = [
+        isCompact && compact.hiddenCount > 0 && 'عرض مختصر دون الحركات الملغاة وقيودها العكسية',
+        filtersCaption(filters, transactionTypes, paymentMethods),
+    ]
+        .filter(Boolean)
+        .join(' · ');
+
     return (
         <div className="account-statement">
-            <PrintHeading subscriber={subscriber} caption={filtersCaption(filters, transactionTypes, paymentMethods)} />
+            <PrintHeading subscriber={subscriber} caption={printCaption} />
 
             <div className="statement-summary mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <SummaryCard
@@ -462,6 +750,22 @@ export default function AccountStatement({ subscriber, entries, summary, payment
 
             <div className="data-table-toolbar">
                 <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+                    <div role="group" aria-label="طريقة العرض" className="me-auto inline-flex rounded-control border border-gray-100 bg-gray-50 p-0.5">
+                        {VIEWS.map((option) => (
+                            <button
+                                key={option.value}
+                                type="button"
+                                aria-pressed={view === option.value}
+                                title={option.hint}
+                                onClick={() => chooseView(option.value)}
+                                className={`h-[30px] rounded-[10px] px-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${
+                                    view === option.value ? 'bg-surface text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
                     <button
                         type="button"
                         onClick={exportEntries}
@@ -558,102 +862,39 @@ export default function AccountStatement({ subscriber, entries, summary, payment
                         </tr>
                     </thead>
                     <tbody>
-                        {visibleEntries.length === 0 ? (
+                        {rows.length === 0 ? (
                             <tr>
                                 <td colSpan={columns.length}>
                                     {entries.length ? 'لا توجد حركات تطابق البحث والتصفية.' : 'لا توجد حركات على هذا الحساب بعد.'}
                                 </td>
                             </tr>
                         ) : (
-                            visibleEntries.map((entry) => {
-                                const entryBalance = describeBalance(entry.balance);
+                            rows.map((entry) => {
+                                const historyOpen = isCompact && openHistories.has(entry.id);
+                                const rowProps = { isCompact, hasLineMenus, hoveredChain, onHoverChain: setHoveredChain, onJump: jumpToLine, onAction: actOn };
 
                                 return (
-                                    <tr
-                                        key={entry.id}
-                                        id={`statement-line-${entry.id}`}
-                                        className={rowClass(entry, highlightedLineId === entry.id)}
-                                    >
-                                        <td data-label="رقم الصندوق" className="tabular-nums text-gray-700">
-                                            {entry.cashBox ?? <Dash />}
-                                        </td>
-                                        <td data-label="رقم السند" className="font-semibold tabular-nums text-gray-900">
-                                            {entry.voucherNumber ?? <Dash />}
-                                        </td>
-                                        <td data-label="الرقم المرجعي" className="tabular-nums text-gray-700">
-                                            {entry.referenceNumber ? <span dir="ltr">{entry.referenceNumber}</span> : <Dash />}
-                                        </td>
-                                        <td data-label="البنك" className="text-gray-700">
-                                            {entry.bankName ? (
-                                                <div className="grid gap-1">
-                                                    {entry.senderBankName && <span>من: {entry.senderBankName}</span>}
-                                                    <span>إلى: {entry.bankName}</span>
-                                                </div>
-                                            ) : <Dash />}
-                                        </td>
-                                        <td data-label="تاريخ الحركة" className="tabular-nums text-gray-600">
-                                            <span dir="ltr">{entry.date}</span>
-                                        </td>
-                                        <td data-label="البيان" className="font-medium text-gray-900">
-                                            <div className="ledger-description">
-                                                {followsLineAbove(entry) && <span className="me-1 text-blue-600">↲</span>}
-                                                <span className="ledger-struck">{withLtrDates(entry.description)}</span>
-                                            </div>
-                                            {entry.details && (
-                                                <p className="ledger-description mt-1 text-xs font-normal text-gray-500">
-                                                    {withLtrDates(entry.details)}
-                                                </p>
-                                            )}
-                                            {entry.cancellation && <CancellationNote cancellation={entry.cancellation} onJump={jumpToLine} />}
-                                            {entry.reverses && <ReversalNote reverses={entry.reverses} onJump={jumpToLine} />}
-                                            {entry.linkedReversal && <LinkedReversalNote reversal={entry.linkedReversal} onJump={jumpToLine} />}
-                                            {entry.corrects && <CorrectsNote corrects={entry.corrects} onJump={jumpToLine} />}
-                                        </td>
-                                        <td
-                                            data-label="المبلغ"
-                                            className={`font-display font-semibold tabular-nums ${entry.isCredit ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900'}`}
-                                        >
-                                            <span className="ledger-struck">{formatAmount(entry.amount)}</span>
-                                        </td>
-                                        <td data-label="العملة" className="text-gray-700">
-                                            {entry.currencyLabel}
-                                        </td>
-                                        <td data-label="نوع الحركة">
-                                            <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                <StatusPill tone={entry.isCredit ? 'green' : 'red'} label={entry.isCredit ? 'له' : 'عليه'} />
-                                                <span className="font-medium text-gray-900">{entry.typeLabel}</span>
-                                                {entry.cancellation && (
-                                                    <StatusPill tone={entry.cancellation.wasCorrected ? 'amber' : 'gray'} label={entry.cancellation.wasCorrected ? 'مُصحّحة' : 'ملغاة'} />
-                                                )}
-                                                {entry.isCorrection && (
-                                                    <span className="inline-flex items-center whitespace-nowrap rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-                                                        تصحيح
-                                                    </span>
-                                                )}
-                                                {entry.isAmended && <AmendmentBadge amendments={entry.amendments} />}
-                                            </span>
-                                        </td>
-                                        <td data-label="طريقة الدفع" className="text-gray-700">
-                                            {entry.paymentMethodLabel ?? <Dash />}
-                                        </td>
-                                        <td data-label="سعر الصرف" className="tabular-nums text-gray-600">
-                                            {entry.exchangeRate}
-                                        </td>
-                                        <td data-label="الرصيد (شيكل)">
-                                            <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                <b className="font-display tabular-nums text-gray-900">{entryBalance.amount}</b>
-                                                <StatusPill tone={BALANCE_PILLS[entryBalance.tone]} label={entryBalance.label} />
-                                            </span>
-                                        </td>
-                                        <td data-label="اسم المستخدم" className="text-gray-700">
-                                            {entry.recordedByName ?? <Dash />}
-                                        </td>
-                                        {hasLineMenus && (
-                                            <td className="statement-screen-only text-end">
-                                                {hasLineMenu(entry) && <RowActionsMenu menu={lineActionsMenu(entry, onAction)} />}
-                                            </td>
-                                        )}
-                                    </tr>
+                                    <Fragment key={entry.id}>
+                                        <StatementRow
+                                            {...rowProps}
+                                            entry={entry}
+                                            chain={chains.get(entry.id) ?? null}
+                                            highlighted={highlightedLineId === entry.id}
+                                            historyOpen={historyOpen}
+                                            onToggleHistory={() => toggleHistory(entry.id)}
+                                        />
+                                        {historyOpen &&
+                                            entry.history.map((folded) => (
+                                                <StatementRow
+                                                    key={folded.id}
+                                                    {...rowProps}
+                                                    entry={folded}
+                                                    chain={chains.get(folded.id) ?? null}
+                                                    isHistory
+                                                    highlighted={highlightedLineId === folded.id}
+                                                />
+                                            ))}
+                                    </Fragment>
                                 );
                             })
                         )}
@@ -664,6 +905,15 @@ export default function AccountStatement({ subscriber, entries, summary, payment
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
                 <p aria-live="polite">
                     الحركات المعروضة: {visibleEntries.length} من {entries.length} · الأقدم أولًا، والرصيد بعد كل حركة
+                    {isCompact && compact.hiddenCount > 0 && (
+                        <>
+                            {' '}
+                            · أُخفيت {compact.hiddenCount} حركة ملغاة مع قيودها العكسية (مجموعها صفر){' '}
+                            <button type="button" onClick={() => chooseView('full')} className="statement-screen-only font-medium text-brand-600 hover:underline">
+                                عرض كل الحركات
+                            </button>
+                        </>
+                    )}
                 </p>
                 {isFiltered && (
                     <button

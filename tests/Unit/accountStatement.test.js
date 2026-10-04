@@ -1,11 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+    compactStatementEntries,
     describeBalance,
     discountAmount,
     filterStatementEntries,
+    netOfReadingDiscount,
     paymentInShekels,
+    relatedLineChains,
     statementCsv,
+    withReadingDiscounts,
 } from '../../resources/js/lib/accountStatement.js';
 
 const entries = [
@@ -152,4 +156,88 @@ test('the statement exports each shown line with its side, its state and the bal
     assert.ok(lines[1].endsWith('"50","عليه","ملغاة","سارة"'));
     assert.ok(lines[2].includes('"4471"'));
     assert.ok(lines[2].endsWith('"24","له","تصحيح","Mohammed"'));
+});
+
+/** A weekly reading of 60 with a standing discount of 30, corrected to 60 again, then a payment cancelled outright. */
+const ledger = [
+    { id: 1, lineNumber: 1, type: 'meter_reading', meterReadingId: 9, amount: '60.00', balance: '60.00', cancellation: { wasCorrected: true, correctionId: 5 } },
+    { id: 2, lineNumber: 2, type: 'reading_discount', meterReadingId: 9, amount: '30.00', balance: '30.00', cancellation: { wasCorrected: true, correctionId: 6 } },
+    { id: 3, lineNumber: 3, type: 'reversal', amount: '60.00', balance: '-30.00', reverses: { id: 1 } },
+    { id: 4, lineNumber: 4, type: 'reversal', amount: '30.00', balance: '0.00', reverses: { id: 2 } },
+    { id: 5, lineNumber: 5, type: 'meter_reading', meterReadingId: 9, amount: '60.00', balance: '60.00', isCorrection: true, corrects: { id: 1 } },
+    { id: 6, lineNumber: 6, type: 'reading_discount', meterReadingId: 9, amount: '30.00', balance: '30.00', isCorrection: true, corrects: { id: 2 } },
+    { id: 7, lineNumber: 7, type: 'payment', amount: '25.00', balance: '5.00', cancellation: { wasCorrected: false } },
+    { id: 8, lineNumber: 8, type: 'fine', amount: '10.00', balance: '15.00' },
+    { id: 9, lineNumber: 9, type: 'refund', amount: '25.00', balance: '40.00', reverses: { id: 7 } },
+];
+
+test('the compact statement leaves out cancelled lines with their reversals and rebalances what is left', () => {
+    const { entries: shown, hiddenCount } = compactStatementEntries(ledger);
+
+    assert.deepEqual(ids(shown), [5, 6, 8]);
+    assert.deepEqual(
+        shown.map((entry) => entry.balance),
+        ['60.00', '30.00', '40.00'],
+    );
+    assert.equal(shown.at(-1).balance, ledger.at(-1).balance);
+    assert.equal(hiddenCount, 6);
+});
+
+test('a correction carries the lines it replaced; a plain cancellation is carried by nothing', () => {
+    const { entries: shown } = compactStatementEntries(ledger);
+
+    assert.deepEqual(ids(shown[0].history), [1, 3]);
+    assert.deepEqual(ids(shown[1].history), [2, 4]);
+    assert.deepEqual(shown[2].history, []);
+});
+
+test('a payment refunded only in part stays in the compact statement', () => {
+    const partlyRefunded = [
+        { id: 1, lineNumber: 1, type: 'payment', amount: '100.00', balance: '-100.00', cancellation: { wasCorrected: false } },
+        { id: 2, lineNumber: 2, type: 'refund', amount: '40.00', balance: '-60.00', reverses: { id: 1 } },
+    ];
+
+    assert.deepEqual(ids(compactStatementEntries(partlyRefunded).entries), [1, 2]);
+});
+
+test('a cancelled reading discount folds under the standing reading of the same week', () => {
+    const { entries: shown } = compactStatementEntries([
+        { id: 1, lineNumber: 1, type: 'meter_reading', meterReadingId: 9, amount: '60.00', balance: '60.00' },
+        { id: 2, lineNumber: 2, type: 'reading_discount', meterReadingId: 9, amount: '30.00', balance: '30.00', cancellation: { wasCorrected: false } },
+        { id: 3, lineNumber: 3, type: 'reversal', amount: '30.00', balance: '60.00', reverses: { id: 2 } },
+    ]);
+
+    assert.deepEqual(ids(shown), [1]);
+    assert.deepEqual(ids(shown[0].history), [2, 3]);
+});
+
+test('a reading shows its standing discount inside its line, as one bill', () => {
+    const rows = withReadingDiscounts(compactStatementEntries(ledger).entries);
+
+    assert.deepEqual(ids(rows), [5, 8]);
+    assert.equal(rows[0].discountLine.id, 6);
+    assert.equal(rows[0].balance, '30.00');
+    assert.equal(netOfReadingDiscount(rows[0]), '30.00');
+    assert.deepEqual(ids(rows[0].history), [1, 2, 3, 4]);
+});
+
+test('a discount is kept on its own line unless it follows its own standing reading', () => {
+    const rows = withReadingDiscounts([
+        { id: 1, type: 'meter_reading', meterReadingId: 9, amount: '60.00', balance: '60.00' },
+        { id: 2, type: 'reading_discount', meterReadingId: 8, amount: '30.00', balance: '30.00' },
+        { id: 3, type: 'meter_reading', meterReadingId: 7, amount: '60.00', balance: '90.00', cancellation: { wasCorrected: false } },
+        { id: 4, type: 'reading_discount', meterReadingId: 7, amount: '30.00', balance: '60.00' },
+    ]);
+
+    assert.deepEqual(ids(rows), [1, 2, 3, 4]);
+    assert.ok(rows.every((row) => !row.discountLine));
+});
+
+test('lines that belong together share a chain number; a line on its own has none', () => {
+    const chains = relatedLineChains(ledger);
+
+    assert.deepEqual([1, 2, 3, 4, 5, 6].map((id) => chains.get(id)), [1, 1, 1, 1, 1, 1]);
+    assert.equal(chains.get(7), 2);
+    assert.equal(chains.get(9), 2);
+    assert.equal(chains.has(8), false);
 });

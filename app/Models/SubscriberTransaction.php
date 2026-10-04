@@ -328,12 +328,12 @@ class SubscriberTransaction extends Model
     }
 
     /**
-     * The standing discount (خصم دائم) billed beside this weekly reading's
-     * charge, while it still stands; null for any other line. Cancelling the
-     * charge cancels it too, or the subscriber would keep a discount on a
-     * bill that no longer exists.
+     * The standing discount (خصم القراءات الأسبوعية) billed beside this weekly reading's
+     * charge, while it still stands; null for any other line. The two are
+     * one bill: cancelling or deleting the charge takes it too, or the
+     * subscriber would keep a discount on a bill that no longer exists.
      */
-    private function readingDiscountStanding(): ?self
+    private function readingDiscountStanding(bool $lockForUpdate = true): ?self
     {
         if ($this->type !== self::TYPE_METER_READING || $this->meter_reading_id === null) {
             return null;
@@ -344,7 +344,7 @@ class SubscriberTransaction extends Model
             ->where('type', self::TYPE_READING_DISCOUNT)
             ->whereNull('cancelled_at')
             ->where('status', self::STATUS_ACTIVE)
-            ->lockForUpdate()
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
             ->first();
     }
 
@@ -672,12 +672,17 @@ class SubscriberTransaction extends Model
                 : [...$metadataActions, TransactionAction::Refund];
         }
 
+        // A weekly reading's discount stands or falls with its reading: cancelling the reading takes it too.
+        if ($this->type === self::TYPE_READING_DISCOUNT) {
+            return [];
+        }
+
         if (in_array($this->type, self::PAYMENT_LIKE_TYPES, true)) {
             return $isLast ? [TransactionAction::Delete] : [TransactionAction::Cancel];
         }
 
         if (in_array($this->type, self::REVERSAL_TYPES, true)) {
-            return $isLast ? [TransactionAction::DeleteReversal] : [];
+            return $isLast && $this->reverses?->type !== self::TYPE_READING_DISCOUNT ? [TransactionAction::DeleteReversal] : [];
         }
 
         return $metadataActions;
@@ -704,12 +709,18 @@ class SubscriberTransaction extends Model
 
     public function isLastTransaction(bool $lockForUpdate = false): bool
     {
-        return self::query()
+        [$lastId, $previousId] = self::query()
             ->where('subscriber_id', $this->subscriber_id)
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
-            ->value('id') === $this->id;
+            ->limit(2)
+            ->pluck('id')
+            ->pad(2, null)
+            ->all();
+
+        return $lastId === $this->id
+            || ($previousId === $this->id && $this->readingDiscountStanding($lockForUpdate)?->id === $lastId);
     }
 
     private function hasAppliedPayment(bool $lockForUpdate = false): bool
@@ -876,15 +887,18 @@ class SubscriberTransaction extends Model
         }
 
         $action = $this->isReversal() ? TransactionAction::DeleteReversal->value : TransactionAction::Delete->value;
+        // A weekly reading's standing discount is deleted with it: the two are one bill.
+        $deleted = array_values(array_filter([$this, $this->readingDiscountStanding()]));
 
-        self::releaseEditableClosingLines([$this->id]);
-        $this->delete();
+        self::releaseEditableClosingLines(array_map(fn (self $line): int => $line->id, $deleted));
+        array_walk($deleted, fn (self $line): ?bool => $line->delete());
         self::recalculateBalances($this->subscriber_id);
-        TransactionDeletion::record($actor, $action, $data['correction_notes'] ?? null, [$this->getAttributes()]);
+        TransactionDeletion::record($actor, $action, $data['correction_notes'] ?? null, array_map(fn (self $line): array => $line->getAttributes(), $deleted));
 
         Log::warning('Transaction hard deleted under ledger golden rule', [
             'action' => $action,
             'transaction' => $this->getAttributes(),
+            'with_reading_discount' => ($deleted[1] ?? null)?->getAttributes(),
             'deleted_by' => $actor->only(['id', 'name', 'username']),
             'reason' => $data['correction_notes'] ?? null,
         ]);
@@ -1070,9 +1084,10 @@ class SubscriberTransaction extends Model
 
     /**
      * Whether a line may be deleted (cancelled with a reversal): anything
-     * that may be corrected, and also a weekly reading, its standing
-     * discount or the registration fee, billed wrongly. Its source key is
-     * kept, so the flow that billed it does not bill it again.
+     * that may be corrected, and also a weekly reading or the registration
+     * fee, billed wrongly. Its source key is kept, so the flow that billed
+     * it does not bill it again. A weekly reading's discount is never
+     * deleted on its own: it goes with its reading.
      */
     public function isCancellable(): bool
     {
@@ -1080,7 +1095,7 @@ class SubscriberTransaction extends Model
             return false;
         }
 
-        return $this->isCorrectable() || in_array($this->type, [self::TYPE_METER_READING, self::TYPE_READING_DISCOUNT, self::TYPE_SUBSCRIPTION_FEE], true);
+        return $this->isCorrectable() || in_array($this->type, [self::TYPE_METER_READING, self::TYPE_SUBSCRIPTION_FEE], true);
     }
 
     /** A standing payment whose descriptive details may still be amended. */
@@ -1153,11 +1168,16 @@ class SubscriberTransaction extends Model
     /**
      * Whether a line may be erased for good: only the last line of the
      * statement, and not one a closing has counted. When that is a
-     * reversal, the cancelled line it reverses goes with it.
+     * reversal, the cancelled line it reverses goes with it. Never a
+     * weekly reading's discount, which goes only with its reading.
      */
     public function isErasable(bool $lockForUpdate = false): bool
     {
         $erased = $this->isReversal() ? $this->reverses : $this;
+
+        if ($erased?->type === self::TYPE_READING_DISCOUNT) {
+            return false;
+        }
 
         return $this->isLastOnStatement($lockForUpdate)
             && ! ClosingPayment::query()
@@ -1312,7 +1332,7 @@ class SubscriberTransaction extends Model
             self::TYPE_INVOICE => 'فاتورة',
             self::TYPE_CREDIT => 'رصيد دائن',
             self::TYPE_READING_DISCOUNT => implode(' · ', array_filter([
-                'خصم دائم',
+                'خصم القراءة الأسبوعية',
                 match ($this->discount_method) {
                     DiscountMethod::Percentage => 'نسبة '.self::formatAmount($this->discount_value).'%',
                     DiscountMethod::Kilowatt => self::formatAmount($this->discount_value).' كيلو مجاني',
@@ -1362,7 +1382,7 @@ class SubscriberTransaction extends Model
             self::TYPE_PAYMENT => 'دفعة',
             self::TYPE_CREDIT => 'رصيد دائن',
             self::TYPE_DISCOUNT => 'خصم',
-            self::TYPE_READING_DISCOUNT => 'خصم دائم',
+            self::TYPE_READING_DISCOUNT => 'خصم القراءة الأسبوعية',
             self::TYPE_CLEARING => 'مقاصة',
             self::TYPE_REVERSAL => 'قيد عكسي',
             self::TYPE_CANCELLATION => 'إلغاء',

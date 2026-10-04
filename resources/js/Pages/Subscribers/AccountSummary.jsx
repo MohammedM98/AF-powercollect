@@ -23,7 +23,7 @@ export function StandingDiscountBadge({ discount }) {
             className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400"
         >
             <Icon name="discount" className="h-3.5 w-3.5" />
-            خصم دائم: {discount.terms}
+            خصم القراءات الأسبوعية: {discount.terms}
             {discount.segment && ` · ${discount.segment}`}
         </span>
     );

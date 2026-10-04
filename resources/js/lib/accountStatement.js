@@ -252,9 +252,46 @@ export function relatedLineChains(entries) {
     return chains;
 }
 
+/** Each chain of related lines gets one of these colours (cycling), as "r g b". */
+const CHAIN_COLORS = ['37 99 235', '217 119 6', '147 51 234', '13 148 136', '219 39 119', '101 163 13'];
+
+/** The colour of a chain of related lines (its number from relatedLineChains()), or null for a line on its own. */
+export function chainColor(chain) {
+    return chain ? CHAIN_COLORS[(chain - 1) % CHAIN_COLORS.length] : null;
+}
+
 /** What a reading's line comes to after its standing discount, in shekels. */
 export function netOfReadingDiscount(entry) {
     return money(cents(entry.amount) - cents(entry.discountLine?.amount ?? 0));
+}
+
+const VIEW_STORAGE_KEY = 'statement-view';
+
+/**
+ * The two ways a statement can be shown: compact (without cancelled lines
+ * and the reversals that take them back) or every line as recorded.
+ */
+export const STATEMENT_VIEWS = [
+    { value: 'compact', label: 'عرض مختصر', hint: 'دون الحركات الملغاة وقيودها العكسية، وخصم القراءة الأسبوعية داخل قراءتها' },
+    { value: 'full', label: 'كل الحركات', hint: 'كل حركة كما سُجّلت، ومنها الملغاة وقيودها العكسية' },
+];
+
+/** The view this browser last chose, compact unless it chose the full one. */
+export function rememberedStatementView() {
+    try {
+        return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'full' ? 'full' : 'compact';
+    } catch {
+        return 'compact';
+    }
+}
+
+/** Remembers the view chosen, for the statement page and the subscriber's account tab alike. */
+export function rememberStatementView(view) {
+    try {
+        window.localStorage.setItem(VIEW_STORAGE_KEY, view);
+    } catch {
+        // The choice just isn't remembered.
+    }
 }
 
 /**

@@ -139,27 +139,19 @@ class SubscriberChargesAndDiscountsTest extends TestCase
                 ->where('summary.discounted', '30.00'));
     }
 
-    public function test_a_kilowatt_discount_is_priced_at_the_subscribers_kilo_price(): void
+    /**
+     * Percentages and free kilowatts belong to the weekly readings discount.
+     */
+    #[TestWith(['percentage', '10'])]
+    #[TestWith(['kilowatt', '25'])]
+    public function test_a_one_off_discount_is_given_in_shekels_only(string $method, string $value): void
     {
-        $this->subscriber->tariff->update(['rate' => 0.6]);
         $this->subscriberOwes('100.00');
 
-        $this->discount('kilowatt', '25')->assertSessionHasNoErrors();
+        $this->discount($method, $value)
+            ->assertSessionHasErrors(['method' => 'الخصم لمرة واحدة يكون بالشيكل فقط.']);
 
-        $discount = $this->latestTransaction();
-        $this->assertSame('-15.00', $discount->amount);
-        $this->assertSame('خصم لمرة واحدة · 25 كيلو × 0.60 شيكل', $discount->description());
-    }
-
-    public function test_a_percentage_discount_is_taken_off_the_balance_owed(): void
-    {
-        $this->subscriberOwes('250.00');
-
-        $this->discount('percentage', '10')->assertSessionHasNoErrors();
-
-        $discount = $this->latestTransaction();
-        $this->assertSame('-25.00', $discount->amount);
-        $this->assertSame('خصم لمرة واحدة · نسبة 10% من الرصيد المستحق (250 شيكل)', $discount->description());
+        $this->assertDatabaseCount('subscriber_transactions', 1);
     }
 
     public function test_a_discount_cannot_be_more_than_the_subscriber_owes(): void
@@ -180,7 +172,7 @@ class SubscriberChargesAndDiscountsTest extends TestCase
     #[TestWith(['charges', ['type' => 'bonus', 'amount' => '10'], 'type'])]
     #[TestWith(['charges', ['type' => 'settlement', 'amount' => '10'], 'type'])]
     #[TestWith(['charges', ['type' => 'disconnection_fee', 'amount' => '0'], 'amount'])]
-    #[TestWith(['discounts', ['method' => 'percentage', 'value' => '150'], 'value'])]
+    #[TestWith(['discounts', ['method' => 'shekel', 'value' => '0'], 'value'])]
     #[TestWith(['discounts', ['method' => 'coupon', 'value' => '10'], 'method'])]
     public function test_an_invalid_charge_or_discount_is_rejected(string $kind, array $input, string $field): void
     {

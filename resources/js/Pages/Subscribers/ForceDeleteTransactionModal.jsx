@@ -17,7 +17,7 @@ export default function ForceDeleteTransactionModal({ onClose, subscriber, balan
     const noun = {
         payment: 'الدفعة',
         discount: 'الخصم',
-        reading_discount: 'الخصم الدائم',
+        reading_discount: 'خصم القراءة الأسبوعية',
         credit: 'الرصيد الدائن',
         clearing: 'المقاصة',
     }[entry.type] ?? 'الحركة';
@@ -61,6 +61,13 @@ export default function ForceDeleteTransactionModal({ onClose, subscriber, balan
                         </div>
                     ))}
                 </div>
+            )}
+
+            {action === 'delete' && entry.readingDiscount && (
+                <p className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm text-gray-700">
+                    لهذه القراءة خصم أسبوعي بقيمة <b className="font-display">{entry.readingDiscount}</b> شيكل. يُحذف معها، لأنه لا يقوم إلا على فاتورة
+                    القراءة.
+                </p>
             )}
 
             <p className="rounded-xl bg-brand-500/5 px-4 py-3 text-sm text-brand-700">

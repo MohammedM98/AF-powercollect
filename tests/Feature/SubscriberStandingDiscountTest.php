@@ -256,15 +256,15 @@ class SubscriberStandingDiscountTest extends TestCase
                 ->where('entries.0.amount', '150.00')
                 ->where('entries.0.details', 'عداد جديد')
                 ->where('entries.1.type', 'reading_discount')
-                ->where('entries.1.typeLabel', 'خصم دائم')
-                ->where('entries.1.description', 'خصم دائم · 3 كيلو مجاني · موظفو أبو زايد')
+                ->where('entries.1.typeLabel', 'خصم القراءة الأسبوعية')
+                ->where('entries.1.description', 'خصم القراءة الأسبوعية · 3 كيلو مجاني · موظفو أبو زايد')
                 ->where('entries.1.isCredit', true)
                 ->where('entries.1.amount', '90.00')
                 ->where('entries.1.details', null)
                 ->where('summary.balance', '60.00')
                 ->where('summary.discounted', '90.00')
                 ->where('summary.discountsCount', 1)
-                ->where('transactionTypes', fn ($types): bool => collect($types)->contains(['value' => 'reading_discount', 'label' => 'خصم دائم'])));
+                ->where('transactionTypes', fn ($types): bool => collect($types)->contains(['value' => 'reading_discount', 'label' => 'خصم القراءة الأسبوعية'])));
     }
 
     public function test_correcting_an_approved_reading_takes_its_discount_off_too_and_keeps_the_discount_it_was_recorded_with(): void
@@ -384,7 +384,7 @@ class SubscriberStandingDiscountTest extends TestCase
             ->get(route('subscribers.statement', $this->subscriber))
             ->assertInertia(fn ($page) => $page
                 ->where('entries.0.cancellation.wasCorrected', true)
-                ->where('entries.0.cancellation.reasonLabel', 'تغيير الخصم الدائم')
+                ->where('entries.0.cancellation.reasonLabel', 'تغيير خصم القراءات الأسبوعية')
                 ->where('entries.1.type', 'reading_discount')
                 ->where('entries.2.type', 'reversal')
                 ->where('entries.2.groupId', $charge->corrects_id)

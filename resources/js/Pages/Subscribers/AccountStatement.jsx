@@ -5,11 +5,15 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
 import { COMPANY_NAME } from '@/Layouts/GuestLayout';
 import {
+    chainColor,
     compactStatementEntries,
     describeBalance,
     filterStatementEntries,
     netOfReadingDiscount,
     relatedLineChains,
+    rememberStatementView,
+    rememberedStatementView,
+    STATEMENT_VIEWS,
     statementCsv,
     withReadingDiscounts,
 } from '@/lib/accountStatement';
@@ -39,34 +43,7 @@ const COLUMNS = [
     'اسم المستخدم',
 ];
 
-/** Each chain of related lines gets one of these colours (cycling), on its lines' edge and number. */
-const CHAIN_COLORS = ['37 99 235', '217 119 6', '147 51 234', '13 148 136', '219 39 119', '101 163 13'];
-
 const EMPTY_FILTERS = { search: '', type: '', method: '', dateFrom: '', dateTo: '' };
-
-const VIEW_STORAGE_KEY = 'statement-view';
-
-const VIEWS = [
-    { value: 'compact', label: 'عرض مختصر', hint: 'دون الحركات الملغاة وقيودها العكسية، والخصم الدائم داخل قراءته' },
-    { value: 'full', label: 'كل الحركات', hint: 'كل حركة كما سُجّلت، ومنها الملغاة وقيودها العكسية' },
-];
-
-/** The view this browser last chose, compact unless it chose the full one. */
-function rememberedView() {
-    try {
-        return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'full' ? 'full' : 'compact';
-    } catch {
-        return 'compact';
-    }
-}
-
-function rememberView(view) {
-    try {
-        window.localStorage.setItem(VIEW_STORAGE_KEY, view);
-    } catch {
-        // The choice just isn't remembered.
-    }
-}
 
 // The time printed on the statement, in the app's Arabic with Western digits.
 const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
@@ -222,14 +199,14 @@ function AmendmentBadge({ amendments }) {
 
 /** Whether a line has a menu: actions the user may take on it, its reading to correct, or a receipt to print. */
 function hasLineMenu(entry) {
-    return entry.available_actions?.length > 0 || Boolean(entry.reading) || Boolean(entry.receiptUrl) || Boolean(entry.discountLine?.available_actions?.length);
+    return entry.available_actions?.length > 0 || Boolean(entry.reading) || Boolean(entry.receiptUrl);
 }
 
 function transactionNoun(entry) {
     return {
         payment: 'الدفعة',
         discount: 'الخصم',
-        reading_discount: 'الخصم الدائم',
+        reading_discount: 'خصم القراءة الأسبوعية',
         credit: 'الرصيد الدائن',
         clearing: 'المقاصة',
     }[entry.type] ?? 'الحركة';
@@ -289,13 +266,8 @@ function lineActionsMenu(entry, onAction) {
         ...actionItem(entry, action),
         onSelect: () => onAction(action, entry),
     }));
-    const discountItems = (entry.discountLine?.available_actions ?? []).map((action) => ({
-        ...actionItem(entry.discountLine, action),
-        onSelect: () => onAction(action, entry.discountLine),
-    }));
     const groups = [
         ...(items.length ? [{ label: 'إجراءات الحركة', items }] : []),
-        ...(discountItems.length ? [{ label: 'الخصم الدائم لهذه القراءة', items: discountItems }] : []),
         ...(entry.reading
             ? [
                   {
@@ -434,20 +406,20 @@ function StatementRow({
 }) {
     const entryBalance = describeBalance(entry.balance);
     const showsHistory = isCompact && !isHistory && entry.history?.length > 0;
-    const chainColor = chain ? CHAIN_COLORS[(chain - 1) % CHAIN_COLORS.length] : null;
+    const color = chainColor(chain);
 
     return (
         <tr
             id={`statement-line-${entry.id}`}
             className={rowClass(entry, highlighted, isHistory, chain !== null && chain === hoveredChain)}
-            style={chainColor ? { '--ledger-chain': chainColor } : undefined}
+            style={color ? { '--ledger-chain': color } : undefined}
             data-chain={chain ?? undefined}
             onMouseEnter={chain ? () => onHoverChain(chain) : undefined}
             onMouseLeave={chain ? () => onHoverChain(null) : undefined}
         >
             <td data-label="#" className="whitespace-nowrap tabular-nums">
                 <span className="inline-flex items-center gap-1.5 font-semibold text-gray-700" title={chain ? 'الحركات المرتبطة بنفس اللون' : undefined}>
-                    {chainColor && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: `rgb(${chainColor})` }} />}
+                    {color && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: `rgb(${color})` }} />}
                     #{entry.lineNumber}
                     {entry.discountLine && <span className="font-normal text-gray-400">+ #{entry.discountLine.lineNumber}</span>}
                 </span>
@@ -499,7 +471,7 @@ function StatementRow({
                 {entry.discountLine ? (
                     <span className="grid gap-0.5">
                         <span>{formatAmount(netOfReadingDiscount(entry))}</span>
-                        <span className="font-sans text-xs font-normal text-gray-500" title="القراءة − الخصم الدائم">
+                        <span className="font-sans text-xs font-normal text-gray-500" title="القراءة − خصم القراءة الأسبوعية">
                             <bdi dir="ltr">
                                 {formatAmount(entry.amount)} − {formatAmount(entry.discountLine.amount)}
                             </bdi>
@@ -516,7 +488,7 @@ function StatementRow({
                 <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
                     <StatusPill tone={entry.isCredit ? 'green' : 'red'} label={entry.isCredit ? 'له' : 'عليه'} />
                     <span className="font-medium text-gray-900">{entry.typeLabel}</span>
-                    {entry.discountLine && <span className="text-xs text-emerald-700 dark:text-emerald-400">بعد الخصم الدائم</span>}
+                    {entry.discountLine && <span className="text-xs text-emerald-700 dark:text-emerald-400">بعد خصم القراءة الأسبوعية</span>}
                     {entry.cancellation && (
                         <StatusPill tone={entry.cancellation.wasCorrected ? 'amber' : 'gray'} label={entry.cancellation.wasCorrected ? 'مُصحّحة' : 'ملغاة'} />
                     )}
@@ -596,7 +568,7 @@ function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
  */
 export default function AccountStatement({ subscriber, entries, summary, paymentMethods, transactionTypes, onAction }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
-    const [view, setView] = useState(rememberedView);
+    const [view, setView] = useState(rememberedStatementView);
     const [openHistories, setOpenHistories] = useState(() => new Set());
     const [highlightedLineId, setHighlightedLineId] = useState(null);
     const [pendingJump, setPendingJump] = useState(null);
@@ -621,7 +593,7 @@ export default function AccountStatement({ subscriber, entries, summary, payment
 
     function chooseView(nextView) {
         setView(nextView);
-        rememberView(nextView);
+        rememberStatementView(nextView);
     }
 
     function toggleHistory(lineId) {
@@ -751,7 +723,7 @@ export default function AccountStatement({ subscriber, entries, summary, payment
             <div className="data-table-toolbar">
                 <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
                     <div role="group" aria-label="طريقة العرض" className="me-auto inline-flex rounded-control border border-gray-100 bg-gray-50 p-0.5">
-                        {VIEWS.map((option) => (
+                        {STATEMENT_VIEWS.map((option) => (
                             <button
                                 key={option.value}
                                 type="button"

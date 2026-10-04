@@ -18,7 +18,7 @@ export default function DeleteTransactionModal({ onClose, subscriber, balance, e
     const isRefund = action === 'refund';
     const noun = {
         discount: 'الخصم',
-        reading_discount: 'الخصم الدائم',
+        reading_discount: 'خصم القراءة الأسبوعية',
         credit: 'الرصيد الدائن',
         clearing: 'المقاصة',
     }[entry.type] ?? 'الحركة';
@@ -58,7 +58,7 @@ export default function DeleteTransactionModal({ onClose, subscriber, balance, e
             maxWidth="xl"
             bodyClassName="space-y-5"
             action={{ submitLabel: label, title: `${label}؟`, confirmLabel: `نعم، ${label}`, icon: isRefund ? 'repeat' : 'close', tone: 'danger' }}
-            saveConfirmMessage={`ستُضاف حركة ${label} مرتبطة بـ «${entry.description}»${discountReturned ? `، ويُلغى معها الخصم الدائم (${entry.readingDiscount} شيكل)` : ''}، ويصبح الرصيد ${balanceText}. هل تريد المتابعة؟`}
+            saveConfirmMessage={`ستُضاف حركة ${label} مرتبطة بـ «${entry.description}»${discountReturned ? `، ويُلغى معها خصم القراءة الأسبوعية (${entry.readingDiscount} شيكل)` : ''}، ويصبح الرصيد ${balanceText}. هل تريد المتابعة؟`}
         >
             <OriginalLine entry={entry} tone="cancel" />
 
@@ -68,7 +68,7 @@ export default function DeleteTransactionModal({ onClose, subscriber, balance, e
 
             {discountReturned > 0 && (
                 <p className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm text-gray-700">
-                    لهذه القراءة خصم دائم بقيمة <b className="font-display">{entry.readingDiscount}</b> شيكل. يُلغى معها تلقائيًا بالسبب نفسه، لأنه لا يقوم
+                    لهذه القراءة خصم أسبوعي بقيمة <b className="font-display">{entry.readingDiscount}</b> شيكل. يُلغى معها تلقائيًا بالسبب نفسه، لأنه لا يقوم
                     إلا على فاتورة القراءة.
                 </p>
             )}

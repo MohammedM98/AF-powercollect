@@ -252,6 +252,14 @@ export function relatedLineChains(entries) {
     return chains;
 }
 
+/** Each chain of related lines gets one of these colours (cycling), as "r g b". */
+const CHAIN_COLORS = ['37 99 235', '217 119 6', '147 51 234', '13 148 136', '219 39 119', '101 163 13'];
+
+/** The colour of a chain of related lines (its number from relatedLineChains()), or null for a line on its own. */
+export function chainColor(chain) {
+    return chain ? CHAIN_COLORS[(chain - 1) % CHAIN_COLORS.length] : null;
+}
+
 /** What a reading's line comes to after its standing discount, in shekels. */
 export function netOfReadingDiscount(entry) {
     return money(cents(entry.amount) - cents(entry.discountLine?.amount ?? 0));

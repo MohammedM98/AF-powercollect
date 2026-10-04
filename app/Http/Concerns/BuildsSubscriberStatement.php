@@ -77,12 +77,13 @@ trait BuildsSubscriberStatement
         $lineNumbers = $transactions->values()->mapWithKeys(fn (SubscriberTransaction $transaction, int $index): array => [$transaction->id => $index + 1])->all();
         $balanceInCents = 0;
         $lastTransactionId = $transactions->last()?->id;
+        $previousTransactionId = $transactions->count() > 1 ? $transactions->values()->get($transactions->count() - 2)->id : null;
         $lastGroupId = $transactions->whereNull('reverses_id')->last()?->id;
         $lastLegacyLineId = $transactions
             ->filter(fn (SubscriberTransaction $transaction): bool => $transaction->id === $lastGroupId || $transaction->reverses_id === $lastGroupId)
             ->last()?->id;
         $entries = $transactions
-            ->map(function (SubscriberTransaction $transaction) use (&$balanceInCents, $actor, $firstLineIds, $lineNumbers, $lastTransactionId, $lastLegacyLineId, $transactions): array {
+            ->map(function (SubscriberTransaction $transaction) use (&$balanceInCents, $actor, $firstLineIds, $lineNumbers, $lastTransactionId, $previousTransactionId, $lastLegacyLineId, $transactions): array {
                 $balanceInCents += $this->cents($transaction->amount);
                 $hasPayment = $transactions->contains(fn (SubscriberTransaction $candidate): bool => $candidate->reference_transaction_id === $transaction->id
                     && in_array($candidate->type, SubscriberTransaction::PAYMENT_LIKE_TYPES, true));
@@ -93,16 +94,25 @@ trait BuildsSubscriberStatement
                         && ! $candidate->isCancelled())
                     : null;
 
-                return [...$this->statementEntry(
+                // A reading followed only by its own standing discount is the last bill: the two are deleted together.
+                $isLast = $transaction->id === $lastTransactionId
+                    || ($transaction->id === $previousTransactionId && $readingDiscount?->id === $lastTransactionId);
+                $entry = $this->statementEntry(
                     $transaction,
                     $balanceInCents,
                     $actor,
                     $firstLineIds[$transaction->id],
                     $lineNumbers,
-                    $transaction->id === $lastTransactionId,
+                    $isLast,
                     $hasPayment,
                     $transaction->id === $lastLegacyLineId,
-                ), 'readingDiscount' => $readingDiscount ? SubscriberTransaction::formatAmount(abs((float) $readingDiscount->amount)) : null];
+                );
+
+                if ($readingDiscount !== null) {
+                    $entry['actionEffects']['delete'] = $this->money($this->cents($transaction->amount) + $this->cents($readingDiscount->amount));
+                }
+
+                return [...$entry, 'readingDiscount' => $readingDiscount ? SubscriberTransaction::formatAmount(abs((float) $readingDiscount->amount)) : null];
             })
             ->values();
 

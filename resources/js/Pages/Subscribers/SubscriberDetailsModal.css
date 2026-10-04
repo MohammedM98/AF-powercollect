@@ -145,6 +145,11 @@
 .sp-statement .sp-number { display: inline-block; font-size: 13.5px; }
 .sp-date { display: block; direction: ltr; font: 600 12px/1.6 Alexandria, sans-serif; white-space: nowrap; }
 .sp-date small, .sp-cancellation { display: block; color: var(--sp-muted); font-size: 11.5px; }
+/* Lines that belong together (a line, its cancellation, its correction, a reading's discount) share a colour, lit together on hover. */
+.sp-statement tr[data-chain] td { background: rgb(var(--sp-chain) / 0.05); }
+.sp-statement tr[data-chain] td:first-child { box-shadow: inset -3px 0 rgb(var(--sp-chain)); }
+.sp-statement tr.sp-related[data-chain] td { background: rgb(var(--sp-chain) / 0.12); }
+.sp-chain-dot { display: inline-block; width: 8px; height: 8px; margin-inline-end: 6px; border-radius: 50%; background: rgb(var(--sp-chain)); vertical-align: middle; }
 .sp-history-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; border: 0; padding: 0; background: transparent; color: var(--sp-warn); font-size: 11.5px; font-weight: 600; }
 .sp-history-link:hover { text-decoration: underline; }
 .sp-history-link svg { width: 13px; height: 13px; }

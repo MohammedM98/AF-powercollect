@@ -5,6 +5,7 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
 import { COMPANY_NAME } from '@/Layouts/GuestLayout';
 import {
+    chainColor,
     compactStatementEntries,
     describeBalance,
     filterStatementEntries,
@@ -41,9 +42,6 @@ const COLUMNS = [
     'الرصيد (شيكل)',
     'اسم المستخدم',
 ];
-
-/** Each chain of related lines gets one of these colours (cycling), on its lines' edge and number. */
-const CHAIN_COLORS = ['37 99 235', '217 119 6', '147 51 234', '13 148 136', '219 39 119', '101 163 13'];
 
 const EMPTY_FILTERS = { search: '', type: '', method: '', dateFrom: '', dateTo: '' };
 
@@ -201,7 +199,7 @@ function AmendmentBadge({ amendments }) {
 
 /** Whether a line has a menu: actions the user may take on it, its reading to correct, or a receipt to print. */
 function hasLineMenu(entry) {
-    return entry.available_actions?.length > 0 || Boolean(entry.reading) || Boolean(entry.receiptUrl) || Boolean(entry.discountLine?.available_actions?.length);
+    return entry.available_actions?.length > 0 || Boolean(entry.reading) || Boolean(entry.receiptUrl);
 }
 
 function transactionNoun(entry) {
@@ -268,13 +266,8 @@ function lineActionsMenu(entry, onAction) {
         ...actionItem(entry, action),
         onSelect: () => onAction(action, entry),
     }));
-    const discountItems = (entry.discountLine?.available_actions ?? []).map((action) => ({
-        ...actionItem(entry.discountLine, action),
-        onSelect: () => onAction(action, entry.discountLine),
-    }));
     const groups = [
         ...(items.length ? [{ label: 'إجراءات الحركة', items }] : []),
-        ...(discountItems.length ? [{ label: 'خصم هذه القراءة الأسبوعية', items: discountItems }] : []),
         ...(entry.reading
             ? [
                   {
@@ -413,20 +406,20 @@ function StatementRow({
 }) {
     const entryBalance = describeBalance(entry.balance);
     const showsHistory = isCompact && !isHistory && entry.history?.length > 0;
-    const chainColor = chain ? CHAIN_COLORS[(chain - 1) % CHAIN_COLORS.length] : null;
+    const color = chainColor(chain);
 
     return (
         <tr
             id={`statement-line-${entry.id}`}
             className={rowClass(entry, highlighted, isHistory, chain !== null && chain === hoveredChain)}
-            style={chainColor ? { '--ledger-chain': chainColor } : undefined}
+            style={color ? { '--ledger-chain': color } : undefined}
             data-chain={chain ?? undefined}
             onMouseEnter={chain ? () => onHoverChain(chain) : undefined}
             onMouseLeave={chain ? () => onHoverChain(null) : undefined}
         >
             <td data-label="#" className="whitespace-nowrap tabular-nums">
                 <span className="inline-flex items-center gap-1.5 font-semibold text-gray-700" title={chain ? 'الحركات المرتبطة بنفس اللون' : undefined}>
-                    {chainColor && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: `rgb(${chainColor})` }} />}
+                    {color && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: `rgb(${color})` }} />}
                     #{entry.lineNumber}
                     {entry.discountLine && <span className="font-normal text-gray-400">+ #{entry.discountLine.lineNumber}</span>}
                 </span>

@@ -164,3 +164,20 @@ test('account opens compact, leaving out a cancelled line and its reversal, and 
     assert.match(html, /aria-pressed="true"[^>]*>عرض مختصر/);
     assert.match(html, /كل الحركات/);
 });
+
+test('account colours a weekly reading and its discount alike, and a line on its own not at all', () => {
+    const html = renderToStaticMarkup(createElement(AccountTab, {
+        statement: {
+            summary: { balance: '63.40', charged: '93.40', paid: '0.00', discounted: '30.00' },
+            entries: [
+                { id: 1, date: '2026-09-01 12:00', type: 'meter_reading', typeLabel: 'قراءة', description: 'قراءة أسبوعية', isCredit: false, amount: '83.40', currencyLabel: 'شيكل', balance: '83.40', meterReadingId: 7 },
+                { id: 2, date: '2026-09-01 12:00', type: 'reading_discount', typeLabel: 'خصم القراءة الأسبوعية', description: 'خصم', isCredit: true, amount: '30', currencyLabel: 'شيكل', balance: '53.40', meterReadingId: 7 },
+                { id: 3, date: '2026-09-02 12:00', type: 'penalty', typeLabel: 'غرامة', description: 'غرامة', isCredit: false, amount: '10', currencyLabel: 'شيكل', balance: '63.40' },
+            ],
+        },
+    }));
+
+    assert.equal(html.match(/data-chain="1"/g)?.length, 2);
+    assert.equal(html.match(/data-chain=/g)?.length, 2);
+    assert.equal(html.match(/sp-chain-dot/g)?.length, 2);
+});

@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import Modal from '@/Components/Modal';
 import Icon from '@/Components/Icon';
-import { compactStatementEntries, describeBalance, filterStatementEntries, rememberStatementView, rememberedStatementView, STATEMENT_VIEWS } from '@/lib/accountStatement';
+import { chainColor, compactStatementEntries, describeBalance, filterStatementEntries, relatedLineChains, rememberStatementView, rememberedStatementView, STATEMENT_VIEWS } from '@/lib/accountStatement';
 import { groupReadingsByMonth } from '@/lib/readingHistory';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
@@ -54,6 +54,7 @@ function Section({ title, icon, onEdit, children, trailing }) {
 export function AccountTab({ statement, onOpenStatement, onLoadStatement, loading }) {
     const [type, setType] = useState('');
     const [view, setView] = useState(rememberedStatementView);
+    const [hoveredChain, setHoveredChain] = useState(null);
     function chooseView(nextView) {
         setView(nextView);
         rememberStatementView(nextView);
@@ -65,6 +66,7 @@ export function AccountTab({ statement, onOpenStatement, onLoadStatement, loadin
     const isCompact = view === 'compact';
     const compact = compactStatementEntries(statement.entries);
     const entries = filterStatementEntries(isCompact ? compact.entries : statement.entries, { type }).toReversed();
+    const chains = relatedLineChains(statement.entries);
     const balance = describeBalance(statement.summary.balance);
     return <>
         <div className="sp-account-summary">
@@ -82,10 +84,13 @@ export function AccountTab({ statement, onOpenStatement, onLoadStatement, loadin
             <thead><tr><th>التاريخ</th><th>المعاملة</th><th>الوصف</th><th className="sp-amount-column">المبلغ</th><th className="sp-amount-column">الرصيد بعدها</th></tr></thead>
             <tbody>{entries.map((entry) => {
                 const running = describeBalance(entry.balance);
-                return <tr key={entry.id}>
+                const chain = chains.get(entry.id) ?? null;
+                const color = chainColor(chain);
+                return <tr key={entry.id} data-chain={chain ?? undefined} className={chain !== null && chain === hoveredChain ? 'sp-related' : undefined} style={color ? { '--sp-chain': color } : undefined}
+                    onMouseEnter={chain ? () => setHoveredChain(chain) : undefined} onMouseLeave={chain ? () => setHoveredChain(null) : undefined}>
                     <td><span className="sp-date">{entry.date.slice(0, 10)}<small>{entry.date.slice(11)}</small></span></td>
                     <td><span className={`sp-transaction-type ${entry.isCredit ? 'sp-credit' : 'sp-owes'}`}><Icon name={entry.isCredit ? 'arrow-down' : 'receipt'} />{entry.typeLabel}</span></td>
-                    <td>{entry.description}{entry.cancellation && <small className="sp-cancellation">{entry.cancellation.wasCorrected ? 'مصححة' : 'ملغاة'} · {entry.cancellation.reasonLabel}</small>}{entry.history?.length > 0 && <button type="button" className="sp-history-link" onClick={() => chooseView('full')}><Icon name="history" />صُحّحت · {entry.history.length} حركات سابقة</button>}</td>
+                    <td>{color && <span className="sp-chain-dot" title="الحركات المرتبطة بنفس اللون" aria-hidden="true" />}{entry.description}{entry.cancellation && <small className="sp-cancellation">{entry.cancellation.wasCorrected ? 'مصححة' : 'ملغاة'} · {entry.cancellation.reasonLabel}</small>}{entry.history?.length > 0 && <button type="button" className="sp-history-link" onClick={() => chooseView('full')}><Icon name="history" />صُحّحت · {entry.history.length} حركات سابقة</button>}</td>
                     <td className="sp-amount-column"><b className={`sp-number ${entry.isCredit ? 'sp-credit' : 'sp-owes'}`}>{entry.isCredit ? '+' : '−'}{number(entry.amount)} {entry.currencyLabel}</b></td>
                     <td className="sp-amount-column"><span className="sp-number">{money(running.amount)}</span> <small>{running.label}</small></td>
                 </tr>;

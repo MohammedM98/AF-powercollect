@@ -553,15 +553,19 @@
 
 /*
  * Lines that belong together (a line, its cancellation or refund, its
- * correction, a reading's discount) share a colour on their edge, and are
- * all lit while the pointer is on one of them.
+ * correction, a reading's discount) share a colour on their edge and a
+ * faint tint of it, and are all lit while the pointer is on one of them.
  */
+.data-table tbody tr[data-chain]:not(.ledger-cancelled, .ledger-history) td {
+    background: rgb(var(--ledger-chain) / 0.05);
+}
+
 .data-table tbody tr[data-chain] td:first-child {
     border-right: 3px solid rgb(var(--ledger-chain));
 }
 
-.data-table tbody tr.ledger-related td {
-    background: rgb(var(--ledger-chain) / 0.08);
+.data-table tbody tr.ledger-related[data-chain] td {
+    background: rgb(var(--ledger-chain) / 0.12);
 }
 
 /*

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\ChargeType;
 use App\Enums\ClosingStatus;
+use App\Enums\CorrectionReason;
 use App\Enums\DiscountMethod;
 use App\Models\Branch;
 use App\Models\Closing;
@@ -495,20 +496,73 @@ class SubscriberTransactionActionTest extends TestCase
         $this->assertSame(0.0, $subscriber->balance());
     }
 
-    public function test_cancelling_only_the_standing_discount_leaves_the_reading_billed(): void
+    public function test_a_weekly_reading_discount_cannot_be_cancelled_or_deleted_on_its_own(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->superAdmin()->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         [$charge, $discount] = $this->billedReadingWithDiscount($subscriber, $actor);
-        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+
+        $this->actingAs($actor)->get(route('subscribers.statement', $subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.1.id', $discount->id)
+                ->where('entries.1.available_actions', [])
+                ->where('entries.1.canDelete', false)
+                ->where('entries.1.canForceDelete', false));
 
         $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $discount]), [
-            'action' => 'cancel',
+            'action' => 'delete',
+            'correction_notes' => 'خطأ',
+        ])->assertSessionHasErrors(['action' => 'هذا الإجراء غير مسموح لهذه الحركة.']);
+        $this->actingAs($actor)
+            ->delete(route('subscribers.transactions.destroy', [$subscriber, $discount]), ['correction_reason' => 'wrong_reading', 'correction_notes' => 'خطأ'])
+            ->assertForbidden();
+
+        $this->assertNull($discount->refresh()->cancelled_at);
+        $this->assertSame(53.4, $subscriber->balance());
+    }
+
+    public function test_deleting_the_last_weekly_reading_deletes_its_standing_discount_with_it(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->superAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+        [$charge, $discount] = $this->billedReadingWithDiscount($subscriber, $actor);
+
+        $this->actingAs($actor)->get(route('subscribers.statement', $subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.1.id', $charge->id)
+                ->where('entries.1.available_actions', ['delete'])
+                ->where('entries.1.actionEffects.delete', '53.40'));
+
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $charge]), [
+            'action' => 'delete',
+            'correction_notes' => 'قراءة مُدخلة بالخطأ',
         ])->assertSessionHasNoErrors();
 
-        $this->assertNull($charge->refresh()->cancelled_at);
-        $this->assertSame(93.4, $subscriber->balance());
+        $this->assertModelMissing($charge);
+        $this->assertModelMissing($discount);
+        $this->assertSame(10.0, $subscriber->balance());
+        $this->assertCount(2, TransactionDeletion::sole()->transactions);
+    }
+
+    public function test_the_reversal_of_a_weekly_reading_discount_cannot_be_deleted_to_bring_the_discount_back(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->superAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        [$charge, $discount] = $this->billedReadingWithDiscount($subscriber, $actor);
+        $charge->cancel($actor, CorrectionReason::WrongReading, 'خطأ');
+        $discountReversal = SubscriberTransaction::query()->where('reverses_id', $discount->id)->sole();
+
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $discountReversal]), [
+            'action' => 'delete_reversal',
+            'correction_notes' => 'خطأ',
+        ])->assertSessionHasErrors(['action' => 'هذا الإجراء غير مسموح لهذه الحركة.']);
+
+        $this->assertNotNull($discount->refresh()->cancelled_at);
+        $this->assertSame(0.0, $subscriber->balance());
     }
 
     /**
@@ -567,26 +621,15 @@ class SubscriberTransactionActionTest extends TestCase
         $branch = Branch::factory()->create();
         $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
-        $reading = MeterReading::factory()->approved()->for($subscriber)->create();
-        $readingDiscount = $subscriber->transactions()->create([
-            'recorded_by' => $actor->id,
-            'meter_reading_id' => $reading->id,
-            'type' => SubscriberTransaction::TYPE_READING_DISCOUNT,
-            'source_key' => $reading->discountSourceKey(),
-            'amount' => '-15.00',
-            'currency_amount' => '15.00',
-            'discount_method' => DiscountMethod::Kilowatt,
-            'discount_value' => '3',
-        ]);
+        [$charge, $readingDiscount] = $this->billedReadingWithDiscount($subscriber, $actor);
+        $reading = $charge->meterReading;
         SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
-        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $readingDiscount]), [
-            'action' => 'cancel',
-        ])->assertSessionHasNoErrors();
+        $charge->cancel($actor, CorrectionReason::WrongReading, 'خطأ');
 
         $this->actingAs($actor)->get(route('subscribers.statement', $subscriber))
             ->assertInertia(fn ($page) => $page
-                ->where('entries.0.id', $readingDiscount->id)
-                ->where('entries.0.available_actions', []));
+                ->where('entries.1.id', $readingDiscount->id)
+                ->where('entries.1.available_actions', []));
 
         $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $readingDiscount]), [
             'action' => 'delete_tree',

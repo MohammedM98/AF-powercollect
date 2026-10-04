@@ -59,6 +59,22 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
         return null;
     }
 
+    const actions = [
+        ...(canRecordPayment ? [{ action: 'payment', label: 'تسجيل دفعة', icon: 'banknotes' }] : []),
+        ...(canAdjustBalance
+            ? [
+                  { action: 'charge', label: 'تحميل حركة', icon: 'document-plus' },
+                  { action: 'discount', label: 'إضافة خصم', icon: 'discount' },
+                  { action: 'clearing', label: 'مقاصة', icon: 'scale' },
+              ]
+            : []),
+    ];
+
+    function choose(action) {
+        setOpen(false);
+        onOpen(action);
+    }
+
     return (
         <div ref={menuRef} className="relative shrink-0">
             <button

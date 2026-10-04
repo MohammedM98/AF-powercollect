@@ -158,7 +158,7 @@ class User extends Authenticatable
             'المشتركون المسجّلون' => $this->registeredSubscribers()->count(),
             'الحركات المالية' => SubscriberTransaction::query()->where('recorded_by', $this->id)->orWhere('cancelled_by', $this->id)->count(),
             'القراءات' => MeterReading::query()->where('recorded_by', $this->id)->orWhere('approved_by', $this->id)->count(),
-            'الخصومات الدائمة' => StandingDiscount::query()->where('granted_by', $this->id)->count(),
+            'خصومات القراءات الأسبوعية' => StandingDiscount::query()->where('granted_by', $this->id)->count(),
         ], 'يمكنك إيقاف حسابه بدلًا من حذفه.');
     }
 

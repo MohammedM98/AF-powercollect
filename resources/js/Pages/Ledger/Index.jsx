@@ -23,7 +23,7 @@ const STATUS_DOTS = { active: 'green', suspended: 'amber', disconnected: 'gray' 
 function headlineLabel(side, type) {
     if (side === 'credit') {
         return (
-            { payment: 'إجمالي الدفعات', discount: 'إجمالي الخصومات', reading_discount: 'إجمالي الخصومات الدائمة' }[type] ?? 'إجمالي التسديد والخصم'
+            { payment: 'إجمالي الدفعات', discount: 'إجمالي الخصومات', reading_discount: 'إجمالي خصومات القراءات الأسبوعية' }[type] ?? 'إجمالي التسديد والخصم'
         );
     }
 

@@ -17,7 +17,7 @@ export default function ForceDeleteTransactionModal({ onClose, subscriber, balan
     const noun = {
         payment: 'الدفعة',
         discount: 'الخصم',
-        reading_discount: 'الخصم الدائم',
+        reading_discount: 'خصم القراءة الأسبوعية',
         credit: 'الرصيد الدائن',
         clearing: 'المقاصة',
     }[entry.type] ?? 'الحركة';

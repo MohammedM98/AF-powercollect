@@ -163,7 +163,7 @@ class MeterReading extends Model
     /**
      * Approve the reading: it is locked from then on, and its amount is
      * charged to the subscriber's transactions — the week's full bill, with
-     * its standing discount beside it as a line of its own (خصم دائم). A
+     * its standing discount beside it as a line of its own (خصم القراءات الأسبوعية). A
      * reading that is already approved is left as it is.
      */
     public function approve(User $approver): void
@@ -253,7 +253,7 @@ class MeterReading extends Model
 
     /**
      * Take the reading's standing discount off the subscriber's account as
-     * a line of its own (خصم دائم) beside the reading's charge, naming the
+     * a line of its own (خصم القراءات الأسبوعية) beside the reading's charge, naming the
      * customer segment it was given to in its details; a reading billed
      * without one takes nothing off.
      */

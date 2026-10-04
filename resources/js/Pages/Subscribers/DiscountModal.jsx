@@ -28,18 +28,18 @@ import {
 } from './AccountFormParts';
 import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './CorrectionFields';
 
-/** A discount comes off the balance once, or off every weekly reading from now on. */
+/** A discount comes off the balance once, in shekels, or off every weekly reading from now on. */
 const KINDS = [
-    { value: 'once', icon: 'tag', title: 'لمرة واحدة', hint: 'يُخصم الآن من الرصيد المستحق' },
-    { value: 'standing', icon: 'repeat', title: 'خصم دائم', hint: 'من كل قراءة أسبوعية حتى تُوقفه' },
+    { value: 'once', icon: 'tag', title: 'لمرة واحدة', hint: 'مبلغ بالشيكل يُخصم الآن من الرصيد المستحق' },
+    { value: 'standing', icon: 'repeat', title: 'خصم القراءات الأسبوعية', hint: 'من كل قراءة أسبوعية حتى تُوقفه' },
 ];
 
 const METHOD_ICONS = { percentage: 'percent', kilowatt: 'bolt', shekel: 'currency' };
 const METHOD_ORDER = ['percentage', 'kilowatt', 'shekel'];
 
-/** The quick values under the amount, by kind and method. */
+/** The quick values under the amount, by kind and method; a one-off discount is in shekels only. */
 const QUICK_VALUES = {
-    once: { percentage: [5, 10, 25, 50], kilowatt: [10, 20, 50], shekel: [10, 20, 50] },
+    once: { shekel: [10, 20, 50] },
     standing: { percentage: [5, 10, 20], kilowatt: [5, 10, 20], shekel: [0.5, 1] },
 };
 
@@ -49,32 +49,27 @@ const WEEKS_PER_MONTH = 4.3;
 const inputClass =
     'block h-[50px] w-full rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-4 text-base text-gray-900 transition placeholder:text-gray-400 hover:border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-900/10';
 
-/** What the value field asks for, by kind and method, given the subscriber's kilo price and what they owe. */
-function fieldFor(kind, method, kiloPrice, owed) {
-    const standing = kind === 'standing';
+/** What the value field asks for: shekels off the balance once, or by method for the weekly readings discount. */
+function fieldFor(kind, method, kiloPrice) {
+    if (kind === 'once') {
+        return { label: 'المبلغ', hint: 'بالشيكل', unit: '₪', suffix: ' ₪' };
+    }
 
     return {
-        percentage: {
-            title: 'نسبة',
-            tileHint: standing ? 'من قيمة كل قراءة' : `من الرصيد المستحق (${formatMoney(owed)} ₪)`,
-            label: standing ? 'النسبة من كل قراءة' : 'النسبة',
-            hint: 'من 1 إلى 100',
-            unit: '%',
-            suffix: '%',
-        },
+        percentage: { title: 'نسبة', tileHint: 'من قيمة كل قراءة', label: 'النسبة من كل قراءة', hint: 'من 1 إلى 100', unit: '%', suffix: '%' },
         kilowatt: {
             title: 'كيلوات',
-            tileHint: standing ? 'كيلوات مجانية كل أسبوع' : `على سعر الكيلو (${formatMoney(kiloPrice)} ₪)`,
-            label: standing ? 'الكيلوات المجانية كل أسبوع' : 'عدد الكيلوات',
+            tileHint: 'كيلوات مجانية كل أسبوع',
+            label: 'الكيلوات المجانية كل أسبوع',
             hint: `الكيلو بـ ${formatMoney(kiloPrice)} ₪`,
             unit: 'كيلو',
             suffix: ' كيلو',
         },
         shekel: {
-            title: standing ? 'شيكل من سعر الكيلو' : 'شيكل',
-            tileHint: standing ? 'يُنزل من سعر الكيلو' : 'مبلغ ثابت من الرصيد',
-            label: standing ? 'الخصم من سعر الكيلو' : 'المبلغ',
-            hint: standing ? `سعر الكيلو ${formatMoney(kiloPrice)} ₪` : 'بالشيكل',
+            title: 'شيكل من سعر الكيلو',
+            tileHint: 'يُنزل من سعر الكيلو',
+            label: 'الخصم من سعر الكيلو',
+            hint: `سعر الكيلو ${formatMoney(kiloPrice)} ₪`,
             unit: '₪',
             suffix: ' ₪',
         },
@@ -94,18 +89,19 @@ function withSegment(terms, segment) {
 }
 
 /**
- * Give a subscriber a discount (خصم). Once: taken off what they owe now —
- * a percentage of the balance, kilowatts at their kilo price, or shekels.
- * Standing: an advantage taken off the latest week's reading, straight
- * away if it has been entered, and every weekly reading after it — a
+ * Give a subscriber a discount (خصم). Once: shekels taken off what they
+ * owe now. Weekly readings (خصم القراءات الأسبوعية): an advantage taken
+ * off the latest week's reading, straight away if it has been entered,
+ * and every weekly reading after it — a
  * percentage of the reading, free kilowatts, or shekels off the kilo price
  * — until it is stopped. A dark panel beside the form shows the balance a
  * discount leaves, or what the subscriber pays for the latest week with a
- * standing one. Keys: Ctrl + Enter saves, 1 · 2 · 3 pick the method.
+ * standing one. Keys: Ctrl + Enter saves, 1 · 2 · 3 pick the weekly
+ * readings discount's method.
  *
  * With `correcting` (a statement line), it corrects that one-off discount
- * instead: the form starts from it, `balance` leaves it out, and saving
- * cancels it and records this one in its place, with one of
+ * instead: the form starts from its shekels, `balance` leaves it out, and
+ * saving cancels it and records this one in its place, with one of
  * `correctionReasons`.
  */
 export default function DiscountModal({
@@ -127,8 +123,8 @@ export default function DiscountModal({
         correcting
             ? {
                   kind: 'once',
-                  method: correcting.recorded.method ?? 'shekel',
-                  value: correcting.recorded.value ? formatAmount(correcting.recorded.value) : '',
+                  method: 'shekel',
+                  value: formatAmount(correcting.amount),
                   segment: '',
                   notes: correcting.recorded.notes,
                   ...EMPTY_CORRECTION,
@@ -145,8 +141,8 @@ export default function DiscountModal({
     const kiloPrice = Number(subscriber.kiloPrice);
     const owed = Math.max(Number(balance), 0);
     const value = Number(data.value) > 0 ? Number(data.value) : 0;
-    const field = fieldFor(data.kind, data.method, kiloPrice, owed);
-    const methods = METHOD_ORDER.filter((method) => discountMethods.some((option) => option.value === method));
+    const field = fieldFor(data.kind, data.method, kiloPrice);
+    const methods = isStanding ? METHOD_ORDER.filter((method) => discountMethods.some((option) => option.value === method)) : [];
 
     // What makes the value unusable, said under it.
     let invalid = null;
@@ -216,7 +212,7 @@ export default function DiscountModal({
         setData((previous) => ({
             ...previous,
             kind,
-            method: current?.method ?? previous.method,
+            method: kind === 'once' ? 'shekel' : (current?.method ?? previous.method),
             value: current ? formatAmount(current.value) : '',
             segment,
             notes: current?.notes ?? '',
@@ -278,11 +274,7 @@ export default function DiscountModal({
               }
             : {
                   standing: false,
-                  method: {
-                      percentage: `${formatAmount(value)}% من الرصيد`,
-                      kilowatt: `${formatAmount(value)} كيلو × ${formatMoney(kiloPrice)} ₪`,
-                      shekel: 'مبلغ ثابت',
-                  }[data.method],
+                  method: 'مبلغ ثابت بالشيكل',
                   discount,
                   balanceAfter,
               };
@@ -322,7 +314,7 @@ export default function DiscountModal({
                 {receipt ? (
                     <DoneScreen
                         tone={correcting ? 'amber' : 'green'}
-                        title={receipt.standing ? 'فُعّل الخصم الدائم' : correcting ? 'صُحّح الخصم' : 'أُضيف الخصم'}
+                        title={receipt.standing ? 'فُعّل خصم القراءات الأسبوعية' : correcting ? 'صُحّح الخصم' : 'أُضيف الخصم'}
                         text={
                             receipt.standing
                                 ? 'يُخصم تلقائيًا من قراءة الأسبوع الأخير وكل قراءة بعدها.'
@@ -394,7 +386,7 @@ export default function DiscountModal({
                                         <Icon name="repeat" className="h-[18px] w-[18px] shrink-0 text-emerald-700 dark:text-emerald-400" />
                                         <div className="min-w-0 flex-1">
                                             <b className="font-bold text-gray-900">
-                                                لديه خصم دائم: {withSegment(standingDiscount.terms, standingDiscount.segment)}
+                                                لديه خصم على القراءات الأسبوعية: {withSegment(standingDiscount.terms, standingDiscount.segment)}
                                             </b>
                                             <small className="block text-[12.5px] text-gray-500">
                                                 منذ <bdi dir="ltr">{standingDiscount.grantedAt}</bdi>
@@ -413,35 +405,38 @@ export default function DiscountModal({
                                     </div>
                                 )}
 
-                                <fieldset>
-                                    <legend className="contents">
-                                        <FieldLabel required hint="اختر بالأرقام 1 · 2 · 3">
-                                            طريقة الخصم
-                                        </FieldLabel>
-                                    </legend>
-                                    <div className="grid gap-3 sm:grid-cols-3">
-                                        {methods.map((method, index) => {
-                                            const look = fieldFor(data.kind, method, kiloPrice, owed);
+                                {isStanding && (
+                                    <fieldset>
+                                        <legend className="contents">
+                                            <FieldLabel required hint="اختر بالأرقام 1 · 2 · 3">
+                                                طريقة الخصم
+                                            </FieldLabel>
+                                        </legend>
+                                        <div className="grid gap-3 sm:grid-cols-3">
+                                            {methods.map((method, index) => {
+                                                const look = fieldFor(data.kind, method, kiloPrice);
 
-                                            return (
-                                                <ChoiceTile
-                                                    key={method}
-                                                    name="method"
-                                                    value={method}
-                                                    checked={data.method === method}
-                                                    onChange={changeMethod}
-                                                    icon={METHOD_ICONS[method]}
-                                                    title={look.title}
-                                                    hint={look.tileHint}
-                                                    tone="green"
-                                                    stacked
-                                                    shortcut={index + 1}
-                                                />
-                                            );
-                                        })}
-                                    </div>
-                                    <InputError message={errors.method} className="mt-2" />
-                                </fieldset>
+                                                return (
+                                                    <ChoiceTile
+                                                        key={method}
+                                                        name="method"
+                                                        value={method}
+                                                        checked={data.method === method}
+                                                        onChange={changeMethod}
+                                                        icon={METHOD_ICONS[method]}
+                                                        title={look.title}
+                                                        hint={look.tileHint}
+                                                        tone="green"
+                                                        stacked
+                                                        shortcut={index + 1}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                        <InputError message={errors.method} className="mt-2" />
+                                    </fieldset>
+                                )}
+                                {!isStanding && <InputError message={errors.method} />}
 
                                 <div>
                                     <FieldLabel htmlFor="value" required hint={field.hint}>
@@ -463,39 +458,24 @@ export default function DiscountModal({
                                                 {field.suffix}
                                             </QuickPick>
                                         ))}
-                                        {!isStanding && data.method === 'shekel' && owed > 0 && (
+                                        {!isStanding && owed > 0 && (
                                             <QuickPick tone="green" onClick={() => setValue(owed)}>
                                                 كل ما عليه
                                             </QuickPick>
                                         )}
-                                        {value > 0 && !invalid && (
+                                        {isStanding && value > 0 && !invalid && (
                                             <span className="ms-auto text-[13.5px] text-gray-500">
-                                                {isStanding ? (
-                                                    <>
-                                                        يوفّر{' '}
-                                                        <b className="font-display text-emerald-700 dark:text-emerald-400">
-                                                            {formatMoney(weeklySaving)} ₪
-                                                        </b>{' '}
-                                                        في الأسبوع
-                                                    </>
-                                                ) : (
-                                                    data.method !== 'shekel' && (
-                                                        <>
-                                                            ={' '}
-                                                            <b className="font-display text-emerald-700 dark:text-emerald-400">
-                                                                {formatMoney(discount)} ₪
-                                                            </b>
-                                                        </>
-                                                    )
-                                                )}
+                                                يوفّر{' '}
+                                                <b className="font-display text-emerald-700 dark:text-emerald-400">{formatMoney(weeklySaving)} ₪</b>{' '}
+                                                في الأسبوع
                                             </span>
                                         )}
                                     </AmountBox>
                                     <InputError message={errors.value ?? invalid} className="mt-2" />
                                     {isStanding && value > 0 && !invalid && exampleWithDiscount.amountDue < Number(example.minimumPayment) && (
                                         <FieldWarning>
-                                            مع الخصم الدائم لا يُطبَّق الحد الأدنى للأسبوع ({formatMoney(example.minimumPayment)} ₪): يدفع المشترك ثمن
-                                            الكيلوات بعد الخصم فقط.
+                                            مع خصم القراءات الأسبوعية لا يُطبَّق الحد الأدنى للأسبوع ({formatMoney(example.minimumPayment)} ₪): يدفع
+                                            المشترك ثمن الكيلوات بعد الخصم فقط.
                                         </FieldWarning>
                                     )}
                                 </div>
@@ -559,7 +539,7 @@ export default function DiscountModal({
                             </div>
 
                             {isStanding ? (
-                                <SummaryPanel title="ملخص الخصم الدائم" tag="كل أسبوع">
+                                <SummaryPanel title="ملخص خصم القراءات الأسبوعية" tag="كل أسبوع">
                                     <SummaryFigure
                                         label={example.label}
                                         value={formatMoney(exampleWithDiscount.amountDue)}
@@ -594,20 +574,7 @@ export default function DiscountModal({
                                 </SummaryPanel>
                             ) : (
                                 <SummaryPanel title="ملخص الخصم" tag="مرة واحدة">
-                                    <SummaryFigure
-                                        label="قيمة الخصم"
-                                        value={`−${formatMoney(discount ?? 0)}`}
-                                        tone="green"
-                                        note={
-                                            value > 0 && !invalid
-                                                ? data.method === 'percentage'
-                                                    ? `${formatAmount(value)}% من ${formatMoney(owed)} ₪`
-                                                    : data.method === 'kilowatt'
-                                                      ? `${formatAmount(value)} كيلو × ${formatMoney(kiloPrice)} ₪`
-                                                      : null
-                                                : null
-                                        }
-                                    />
+                                    <SummaryFigure label="قيمة الخصم" value={`−${formatMoney(discount ?? 0)}`} tone="green" />
                                     <SummaryLedger
                                         rows={[
                                             [correcting ? 'الرصيد بدون الأصلي' : 'الرصيد الحالي', balanceText(describeBalance(balance))],
@@ -629,8 +596,8 @@ export default function DiscountModal({
                                     ? 'حفظ التصحيح'
                                     : isStanding
                                       ? standingDiscount
-                                          ? 'استبدال الخصم الدائم'
-                                          : 'تفعيل الخصم الدائم'
+                                          ? 'استبدال خصم القراءات الأسبوعية'
+                                          : 'تفعيل خصم القراءات الأسبوعية'
                                       : discount
                                         ? `خصم ${formatMoney(discount)} ₪`
                                         : 'إضافة الخصم'
@@ -657,7 +624,7 @@ export default function DiscountModal({
                 show={show && confirmingStop}
                 onConfirm={stopStandingDiscount}
                 onCancel={() => setConfirmingStop(false)}
-                title="إيقاف الخصم الدائم؟"
+                title="إيقاف خصم القراءات الأسبوعية؟"
                 message={
                     standingDiscount &&
                     (latestWeek

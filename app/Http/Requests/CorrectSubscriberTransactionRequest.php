@@ -35,7 +35,7 @@ class CorrectSubscriberTransactionRequest extends FormRequest
         return [
             ...match (true) {
                 $line->isPayment() => StoreSubscriberPaymentRequest::paymentRules($this->input('payment_method')),
-                $line->isDiscount() => StoreSubscriberDiscountRequest::discountRules($this->input('method')),
+                $line->isDiscount() => StoreSubscriberDiscountRequest::discountRules(),
                 $line->isClearing() => StoreSubscriberClearingRequest::clearingRules(),
                 default => StoreSubscriberChargeRequest::chargeRules(),
             },
@@ -74,6 +74,7 @@ class CorrectSubscriberTransactionRequest extends FormRequest
     {
         return [
             ...StoreSubscriberPaymentRequest::paymentMessages(),
+            ...StoreSubscriberDiscountRequest::discountMessages(),
             ...($this->line()->isClearing() ? StoreSubscriberClearingRequest::clearingMessages() : StoreSubscriberChargeRequest::chargeMessages()),
         ];
     }

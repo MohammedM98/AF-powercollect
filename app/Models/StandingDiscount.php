@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A subscriber's standing discount (خصم دائم): an advantage taken off every
+ * A subscriber's standing discount (خصم القراءات الأسبوعية): an advantage taken off every
  * weekly reading recorded while it lasts — a percentage of the reading,
  * free kilowatts of its consumption, or shekels off the kilo price — given
  * to a customer segment typed with it, such as موظفو أبو زايد. Each reading

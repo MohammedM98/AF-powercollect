@@ -203,7 +203,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, on
                             <Section title="الاشتراك والقاطع" icon="bolt" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
                                 <Field label="نوع الاشتراك" value={<span className="sp-chip"><Icon name="bolt" />{subscriber.tariffCategoryLabel}</span>} /><Field label="تصنيف الزبائن" value={subscriber.tariffSegmentName} />
                                 <Field label="القاطع" value={subscriber.circuitBreakerAmpere ? `${subscriber.circuitBreakerAmpere} أمبير` : null} /><Field label="سعر الكيلو" value={money(subscriber.tariffRate)} numeric />
-                                <Field label="الحد الأدنى" value={money(subscriber.minimum_charge)} numeric /><Field label="الخصم الدائم على القراءات" value={subscriber.standingDiscountSummary} />
+                                <Field label="الحد الأدنى" value={money(subscriber.minimum_charge)} numeric /><Field label="خصم القراءات الأسبوعية" value={subscriber.standingDiscountSummary} />
                             </dl></Section>
                             <Section title="الموقع والعداد" icon="pin" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
                                 <Field label="الفرع" value={subscriber.branchName} /><Field label="المحافظة" value={subscriber.governorateName} />

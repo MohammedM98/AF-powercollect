@@ -208,7 +208,7 @@ function transactionNoun(entry) {
     return {
         payment: 'الدفعة',
         discount: 'الخصم',
-        reading_discount: 'الخصم الدائم',
+        reading_discount: 'خصم القراءة الأسبوعية',
         credit: 'الرصيد الدائن',
         clearing: 'المقاصة',
     }[entry.type] ?? 'الحركة';
@@ -274,7 +274,7 @@ function lineActionsMenu(entry, onAction) {
     }));
     const groups = [
         ...(items.length ? [{ label: 'إجراءات الحركة', items }] : []),
-        ...(discountItems.length ? [{ label: 'الخصم الدائم لهذه القراءة', items: discountItems }] : []),
+        ...(discountItems.length ? [{ label: 'خصم هذه القراءة الأسبوعية', items: discountItems }] : []),
         ...(entry.reading
             ? [
                   {
@@ -478,7 +478,7 @@ function StatementRow({
                 {entry.discountLine ? (
                     <span className="grid gap-0.5">
                         <span>{formatAmount(netOfReadingDiscount(entry))}</span>
-                        <span className="font-sans text-xs font-normal text-gray-500" title="القراءة − الخصم الدائم">
+                        <span className="font-sans text-xs font-normal text-gray-500" title="القراءة − خصم القراءة الأسبوعية">
                             <bdi dir="ltr">
                                 {formatAmount(entry.amount)} − {formatAmount(entry.discountLine.amount)}
                             </bdi>
@@ -495,7 +495,7 @@ function StatementRow({
                 <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
                     <StatusPill tone={entry.isCredit ? 'green' : 'red'} label={entry.isCredit ? 'له' : 'عليه'} />
                     <span className="font-medium text-gray-900">{entry.typeLabel}</span>
-                    {entry.discountLine && <span className="text-xs text-emerald-700 dark:text-emerald-400">بعد الخصم الدائم</span>}
+                    {entry.discountLine && <span className="text-xs text-emerald-700 dark:text-emerald-400">بعد خصم القراءة الأسبوعية</span>}
                     {entry.cancellation && (
                         <StatusPill tone={entry.cancellation.wasCorrected ? 'amber' : 'gray'} label={entry.cancellation.wasCorrected ? 'مُصحّحة' : 'ملغاة'} />
                     )}

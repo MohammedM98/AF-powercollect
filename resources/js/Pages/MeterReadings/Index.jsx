@@ -141,7 +141,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                         </p>
                         {row.discount && (
                             <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                                خصم دائم: {row.discount.terms}
+                                خصم القراءات الأسبوعية: {row.discount.terms}
                                 {row.discount.segment && ` · ${row.discount.segment}`}
                             </p>
                         )}

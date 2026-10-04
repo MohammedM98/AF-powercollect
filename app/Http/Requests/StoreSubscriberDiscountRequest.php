@@ -21,29 +21,27 @@ class StoreSubscriberDiscountRequest extends FormRequest
     }
 
     /**
-     * `value` is the percentage, the kilowatts or the shekels, by `method`.
+     * A one-off discount is given in shekels only: `value` is the shekels
+     * taken off the balance. Percentages and free kilowatts belong to the
+     * weekly readings discount.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
-        return self::discountRules($this->input('method'));
+        return self::discountRules();
     }
 
     /**
-     * The discount's rules, for a discount given by `$method`; shared with
-     * correcting a discount.
+     * The discount's rules; shared with correcting a discount.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
-    public static function discountRules(mixed $method): array
+    public static function discountRules(): array
     {
         return [
-            'method' => ['required', Rule::enum(DiscountMethod::class)],
-            'value' => [
-                'required', 'numeric', 'decimal:0,2', 'gt:0',
-                $method === DiscountMethod::Percentage->value ? 'max:100' : 'max:1000000',
-            ],
+            'method' => ['required', Rule::in([DiscountMethod::Shekel->value])],
+            'value' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -99,6 +97,24 @@ class StoreSubscriberDiscountRequest extends FormRequest
                 SubscriberTransaction::formatAmount($owed),
             ));
         }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return self::discountMessages();
+    }
+
+    /**
+     * The discount's messages; shared with correcting a discount.
+     *
+     * @return array<string, string>
+     */
+    public static function discountMessages(): array
+    {
+        return ['method.in' => 'الخصم لمرة واحدة يكون بالشيكل فقط.'];
     }
 
     /**

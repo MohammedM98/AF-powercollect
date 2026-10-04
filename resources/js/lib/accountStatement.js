@@ -264,7 +264,7 @@ const VIEW_STORAGE_KEY = 'statement-view';
  * and the reversals that take them back) or every line as recorded.
  */
 export const STATEMENT_VIEWS = [
-    { value: 'compact', label: 'عرض مختصر', hint: 'دون الحركات الملغاة وقيودها العكسية، والخصم الدائم داخل قراءته' },
+    { value: 'compact', label: 'عرض مختصر', hint: 'دون الحركات الملغاة وقيودها العكسية، وخصم القراءة الأسبوعية داخل قراءتها' },
     { value: 'full', label: 'كل الحركات', hint: 'كل حركة كما سُجّلت، ومنها الملغاة وقيودها العكسية' },
 ];
 

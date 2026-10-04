@@ -328,7 +328,7 @@ class SubscriberTransaction extends Model
     }
 
     /**
-     * The standing discount (خصم دائم) billed beside this weekly reading's
+     * The standing discount (خصم القراءات الأسبوعية) billed beside this weekly reading's
      * charge, while it still stands; null for any other line. Cancelling the
      * charge cancels it too, or the subscriber would keep a discount on a
      * bill that no longer exists.
@@ -1312,7 +1312,7 @@ class SubscriberTransaction extends Model
             self::TYPE_INVOICE => 'فاتورة',
             self::TYPE_CREDIT => 'رصيد دائن',
             self::TYPE_READING_DISCOUNT => implode(' · ', array_filter([
-                'خصم دائم',
+                'خصم القراءة الأسبوعية',
                 match ($this->discount_method) {
                     DiscountMethod::Percentage => 'نسبة '.self::formatAmount($this->discount_value).'%',
                     DiscountMethod::Kilowatt => self::formatAmount($this->discount_value).' كيلو مجاني',
@@ -1362,7 +1362,7 @@ class SubscriberTransaction extends Model
             self::TYPE_PAYMENT => 'دفعة',
             self::TYPE_CREDIT => 'رصيد دائن',
             self::TYPE_DISCOUNT => 'خصم',
-            self::TYPE_READING_DISCOUNT => 'خصم دائم',
+            self::TYPE_READING_DISCOUNT => 'خصم القراءة الأسبوعية',
             self::TYPE_CLEARING => 'مقاصة',
             self::TYPE_REVERSAL => 'قيد عكسي',
             self::TYPE_CANCELLATION => 'إلغاء',

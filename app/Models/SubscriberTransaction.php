@@ -317,7 +317,35 @@ class SubscriberTransaction extends Model
      */
     public function cancel(User $actor, CorrectionReason $reason, ?string $notes): self
     {
-        return $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCancellable());
+        return DB::transaction(function () use ($actor, $reason, $notes): self {
+            $reversal = $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCancellable());
+
+            // A weekly reading's standing discount only stands beside its charge.
+            $this->readingDiscountStanding()?->reverse($actor, $reason, $notes, fn (self $line): bool => ! $line->isCancelled());
+
+            return $reversal;
+        });
+    }
+
+    /**
+     * The standing discount (خصم دائم) billed beside this weekly reading's
+     * charge, while it still stands; null for any other line. Cancelling the
+     * charge cancels it too, or the subscriber would keep a discount on a
+     * bill that no longer exists.
+     */
+    private function readingDiscountStanding(): ?self
+    {
+        if ($this->type !== self::TYPE_METER_READING || $this->meter_reading_id === null) {
+            return null;
+        }
+
+        return self::query()
+            ->where('meter_reading_id', $this->meter_reading_id)
+            ->where('type', self::TYPE_READING_DISCOUNT)
+            ->whereNull('cancelled_at')
+            ->where('status', self::STATUS_ACTIVE)
+            ->lockForUpdate()
+            ->first();
     }
 
     /**
@@ -944,7 +972,7 @@ class SubscriberTransaction extends Model
             'active_reference' => null,
         ]);
 
-        return $this->subscriber->transactions()->create([
+        $cancellation = $this->subscriber->transactions()->create([
             'recorded_by' => $actor->id,
             'reverses_id' => $this->id,
             'reference_transaction_id' => $this->id,
@@ -957,6 +985,11 @@ class SubscriberTransaction extends Model
             'exchange_rate' => $this->exchange_rate,
             'payment_method' => $this->payment_method,
         ]);
+
+        // A weekly reading's standing discount only stands beside its charge, so it is cancelled with it.
+        $this->readingDiscountStanding()?->applyCancellation($actor, $data);
+
+        return $cancellation;
     }
 
     /** @param array<string, mixed> $data */

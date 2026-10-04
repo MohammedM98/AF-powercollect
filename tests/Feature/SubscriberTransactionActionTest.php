@@ -422,6 +422,96 @@ class SubscriberTransactionActionTest extends TestCase
         $this->assertModelMissing($closingLine);
     }
 
+    public function test_cancelling_a_weekly_reading_cancels_its_standing_discount_with_it(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        [$charge, $discount] = $this->billedReadingWithDiscount($subscriber, $actor);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+
+        $this->actingAs($actor)->get(route('subscribers.statement', $subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.0.id', $charge->id)
+                ->where('entries.0.readingDiscount', '30')
+                ->where('entries.1.readingDiscount', null));
+
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $charge]), [
+            'action' => 'cancel',
+            'correction_reason' => 'wrong_reading',
+            'correction_notes' => 'قراءة مُدخلة بالخطأ',
+        ])->assertSessionHasNoErrors();
+
+        $discount->refresh();
+        $this->assertNotNull($discount->cancelled_at);
+        $this->assertSame('wrong_reading', $discount->cancellation_reason->value);
+        $this->assertSame('قراءة مُدخلة بالخطأ', $discount->cancellation_notes);
+        $this->assertSame('30.00', SubscriberTransaction::query()->where('reverses_id', $discount->id)->sole()->amount);
+        // Only the penalty is left owing: the reading and its discount are both gone from the balance.
+        $this->assertSame(10.0, $subscriber->balance());
+    }
+
+    public function test_deleting_a_weekly_reading_with_a_reason_reverses_its_standing_discount_with_it(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        [$charge, $discount] = $this->billedReadingWithDiscount($subscriber, $actor);
+
+        $this->actingAs($actor)
+            ->delete(route('subscribers.transactions.destroy', [$subscriber, $charge]), ['correction_reason' => 'wrong_reading', 'correction_notes' => 'خطأ'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertNotNull($discount->refresh()->cancelled_at);
+        $this->assertSame(0.0, $subscriber->balance());
+    }
+
+    public function test_cancelling_only_the_standing_discount_leaves_the_reading_billed(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        [$charge, $discount] = $this->billedReadingWithDiscount($subscriber, $actor);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $discount]), [
+            'action' => 'cancel',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertNull($charge->refresh()->cancelled_at);
+        $this->assertSame(93.4, $subscriber->balance());
+    }
+
+    /**
+     * An approved weekly reading billed 83.40 with a 30 standing discount beside it.
+     *
+     * @return array{0: SubscriberTransaction, 1: SubscriberTransaction}
+     */
+    private function billedReadingWithDiscount(Subscriber $subscriber, User $actor): array
+    {
+        $reading = MeterReading::factory()->approved()->for($subscriber)->create();
+        $charge = $subscriber->transactions()->create([
+            'recorded_by' => $actor->id,
+            'meter_reading_id' => $reading->id,
+            'type' => SubscriberTransaction::TYPE_METER_READING,
+            'source_key' => $reading->chargeSourceKey(),
+            'amount' => '83.40',
+            'currency_amount' => '83.40',
+        ]);
+        $discount = $subscriber->transactions()->create([
+            'recorded_by' => $actor->id,
+            'meter_reading_id' => $reading->id,
+            'type' => SubscriberTransaction::TYPE_READING_DISCOUNT,
+            'source_key' => $reading->discountSourceKey(),
+            'amount' => '-30.00',
+            'currency_amount' => '30.00',
+            'discount_method' => DiscountMethod::Kilowatt,
+            'discount_value' => '1',
+        ]);
+
+        return [$charge, $discount];
+    }
+
     public function test_a_cancelled_reading_discount_cannot_be_deleted_with_its_cancellation(): void
     {
         $branch = Branch::factory()->create();

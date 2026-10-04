@@ -86,8 +86,14 @@ trait BuildsSubscriberStatement
                 $balanceInCents += $this->cents($transaction->amount);
                 $hasPayment = $transactions->contains(fn (SubscriberTransaction $candidate): bool => $candidate->reference_transaction_id === $transaction->id
                     && in_array($candidate->type, SubscriberTransaction::PAYMENT_LIKE_TYPES, true));
+                // A standing weekly reading's own standing discount, which cancelling the reading cancels too.
+                $readingDiscount = $transaction->type === SubscriberTransaction::TYPE_METER_READING && $transaction->meter_reading_id !== null && ! $transaction->isCancelled()
+                    ? $transactions->first(fn (SubscriberTransaction $candidate): bool => $candidate->meter_reading_id === $transaction->meter_reading_id
+                        && $candidate->type === SubscriberTransaction::TYPE_READING_DISCOUNT
+                        && ! $candidate->isCancelled())
+                    : null;
 
-                return $this->statementEntry(
+                return [...$this->statementEntry(
                     $transaction,
                     $balanceInCents,
                     $actor,
@@ -96,7 +102,7 @@ trait BuildsSubscriberStatement
                     $transaction->id === $lastTransactionId,
                     $hasPayment,
                     $transaction->id === $lastLegacyLineId,
-                );
+                ), 'readingDiscount' => $readingDiscount ? SubscriberTransaction::formatAmount(abs((float) $readingDiscount->amount)) : null];
             })
             ->values();
 

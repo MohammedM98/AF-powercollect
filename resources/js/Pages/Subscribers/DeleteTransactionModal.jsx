@@ -24,7 +24,11 @@ export default function DeleteTransactionModal({ onClose, subscriber, balance, e
     const label = isRefund ? 'إرجاع الدفعة' : `إلغاء ${noun}`;
     const form = useForm({ ...EMPTY_CORRECTION, action, ...(isRefund ? { amount: entry.refundableAmount ?? entry.amount } : {}) });
     const deleteForm = { ...form, isEdit: true, save: (options) => form.post(`${url}/actions`, options) };
-    const balanceAfter = describeBalance(isRefund ? Number(balance) + Number(form.data.amount || 0) : Number(balance) - Number(entry.recorded.effect));
+    // Cancelling a weekly reading cancels its standing discount too, which gives that amount back to what is owed.
+    const discountReturned = !isRefund && entry.readingDiscount ? Number(entry.readingDiscount) : 0;
+    const balanceAfter = describeBalance(
+        isRefund ? Number(balance) + Number(form.data.amount || 0) : Number(balance) - Number(entry.recorded.effect) + discountReturned,
+    );
     const balanceText = balanceAfter.tone === 'settled' ? 'مسدّدًا' : `${balanceAfter.amount} شيكل ${balanceAfter.label}`;
 
     return (
@@ -37,13 +41,20 @@ export default function DeleteTransactionModal({ onClose, subscriber, balance, e
             maxWidth="xl"
             bodyClassName="space-y-5"
             action={{ submitLabel: label, title: `${label}؟`, confirmLabel: `نعم، ${label}`, icon: isRefund ? 'repeat' : 'close', tone: 'danger' }}
-            saveConfirmMessage={`ستُضاف حركة ${label} مرتبطة بـ «${entry.description}»، ويصبح الرصيد ${balanceText}. هل تريد المتابعة؟`}
+            saveConfirmMessage={`ستُضاف حركة ${label} مرتبطة بـ «${entry.description}»${discountReturned ? `، ويُلغى معها الخصم الدائم (${entry.readingDiscount} شيكل)` : ''}، ويصبح الرصيد ${balanceText}. هل تريد المتابعة؟`}
         >
             <OriginalLine entry={entry} tone="cancel" />
 
             <p className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
                 لا تُمسح الحركة من السجل: تبقى الحركة الأصلية، وتُضاف حركة {label} جديدة في نهاية السجل مع رابط مباشر بينهما.
             </p>
+
+            {discountReturned > 0 && (
+                <p className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm text-gray-700">
+                    لهذه القراءة خصم دائم بقيمة <b className="font-display">{entry.readingDiscount}</b> شيكل. يُلغى معها تلقائيًا بالسبب نفسه، لأنه لا يقوم
+                    إلا على فاتورة القراءة.
+                </p>
+            )}
 
             {isRefund && (
                 <div>

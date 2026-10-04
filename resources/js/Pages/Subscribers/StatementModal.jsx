@@ -141,7 +141,7 @@ export default function StatementModal({ subscriber, statement, initialForm = nu
                 </div>
             </Modal>
 
-            {statement && <StatementForms statement={statement} openForm={openForm} onClose={() => setOpenForm(null)} />}
+            {statement && <StatementForms statement={statement} openForm={openForm} onClose={() => setOpenForm(null)} onOpen={setOpenForm} />}
         </>
     );
 }

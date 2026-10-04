@@ -207,7 +207,7 @@ function actionItem(entry, action) {
         },
         refund: {
             label: 'إرجاع الدفعة',
-            description: 'إرجاع كامل أو جزئي وإضافة حركة مرتبطة بالدفعة',
+            description: 'إرجاع كامل الدفعة بحركة مرتبطة، ثم تسجيل الدفعة الصحيحة إن لزم',
             icon: 'repeat',
             tone: 'brand',
         },

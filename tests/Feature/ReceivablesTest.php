@@ -91,7 +91,16 @@ class ReceivablesTest extends TestCase
             ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $charge]), ['correction_reason' => 'duplicate', 'correction_notes' => 'مكررة'])
             ->assertSessionHasNoErrors();
         $this->travelTo('2026-09-15 12:00:00');
-        $this->actingAs($this->branchAdmin)->post(route('subscribers.transactions.actions.store', [$this->subscriber, $payment]), ['action' => 'refund', 'amount' => '40'])->assertSessionHasNoErrors();
+        // A partial refund, as one was recorded before refunds became whole-payment only.
+        $this->subscriber->transactions()->create([
+            'recorded_by' => $this->branchAdmin->id,
+            'reverses_id' => $payment->id,
+            'reference_transaction_id' => $payment->id,
+            'type' => SubscriberTransaction::TYPE_REFUND,
+            'source_key' => 'refund:'.$payment->id.':legacy',
+            'amount' => '40.00',
+            'currency_amount' => '40.00',
+        ]);
         $this->travelTo('2026-09-20 12:00:00');
 
         $this->actingAs($this->branchAdmin)

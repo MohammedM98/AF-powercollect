@@ -992,7 +992,14 @@ class SubscriberTransaction extends Model
         return $cancellation;
     }
 
-    /** @param array<string, mixed> $data */
+    /**
+     * Refund the payment in full: everything of it not refunded yet (all of
+     * it, unless an older partial refund took some back), with a linked
+     * refund line, and mark it refunded. A wrong amount is put right by
+     * recording the right payment afterwards, never by a partial refund.
+     *
+     * @param  array<string, mixed>  $data
+     */
     private function applyRefund(User $actor, array $data): self
     {
         $refunded = self::query()
@@ -1001,11 +1008,10 @@ class SubscriberTransaction extends Model
             ->lockForUpdate()
             ->get()
             ->sum(fn (self $refund): float => abs((float) $refund->amount));
-        $remaining = round(abs((float) $this->amount) - $refunded, 2);
-        $amount = round((float) $data['amount'], 2);
+        $amount = round(abs((float) $this->amount) - $refunded, 2);
 
-        if ($amount > $remaining) {
-            throw ValidationException::withMessages(['amount' => 'مبلغ الإرجاع أكبر من المبلغ المتبقي للحركة.']);
+        if ($amount <= 0) {
+            throw ValidationException::withMessages(['action' => 'أُرجعت هذه الدفعة بالكامل من قبل.']);
         }
 
         $refund = $this->subscriber->transactions()->create([
@@ -1017,21 +1023,22 @@ class SubscriberTransaction extends Model
             'source_key' => 'refund:'.$this->id.':'.Str::ulid(),
             'amount' => number_format($amount, 2, '.', ''),
             'currency' => $this->currency,
-            'currency_amount' => number_format($amount / max((float) $this->exchange_rate, 1), 2, '.', ''),
+            // Untouched, it gives back exactly what was paid, in the currency it was paid in.
+            'currency_amount' => $refunded <= 0 && $this->currency_amount !== null
+                ? $this->currency_amount
+                : number_format($amount / max((float) $this->exchange_rate, 1), 2, '.', ''),
             'exchange_rate' => $this->exchange_rate,
             'payment_method' => $this->payment_method,
         ]);
 
-        if ($amount >= $remaining) {
-            $this->update([
-                'status' => self::STATUS_LINKED_CANCELLATION,
-                'cancelled_at' => now(),
-                'cancelled_by' => $actor->id,
-                'cancellation_reason' => CorrectionReason::PaymentRefunded,
-                'cancellation_notes' => $data['correction_notes'] ?? null,
-                'active_reference' => null,
-            ]);
-        }
+        $this->update([
+            'status' => self::STATUS_LINKED_CANCELLATION,
+            'cancelled_at' => now(),
+            'cancelled_by' => $actor->id,
+            'cancellation_reason' => CorrectionReason::PaymentRefunded,
+            'cancellation_notes' => $data['correction_notes'] ?? null,
+            'active_reference' => null,
+        ]);
 
         return $refund;
     }

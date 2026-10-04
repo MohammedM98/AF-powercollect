@@ -32,7 +32,8 @@ class ApplySubscriberTransactionActionRequest extends FormRequest
     {
         return [
             'action' => ['required', Rule::enum(TransactionAction::class)],
-            'amount' => ['required_if:action,edit,refund', 'nullable', 'numeric', 'gt:0', 'decimal:0,2'],
+            // A refund always returns the whole payment; a wrong amount is put right with a new payment.
+            'amount' => ['required_if:action,edit', 'prohibited_if:action,refund', 'nullable', 'numeric', 'gt:0', 'decimal:0,2'],
             'bank_name' => ['nullable', 'string', 'max:255'],
             'sender_bank_name' => ['nullable', 'string', 'max:255'],
             'sender_name' => ['nullable', 'string', 'max:255'],

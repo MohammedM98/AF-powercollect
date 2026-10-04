@@ -3,10 +3,12 @@
 namespace Tests\Feature;
 
 use App\Enums\ChargeType;
+use App\Enums\ClosingStatus;
 use App\Enums\DiscountMethod;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingPayment;
+use App\Models\MeterReading;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\User;
@@ -357,6 +359,97 @@ class SubscriberTransactionActionTest extends TestCase
         ])->assertSessionHasErrors(['action' => 'هذا الإجراء غير مسموح لهذه الحركة.']);
 
         $this->assertModelExists($payment);
+    }
+
+    public function test_deleting_the_last_payment_takes_it_off_a_draft_closing(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
+            'amount' => '50',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+        ]);
+        $closing = Closing::factory()->create(['branch_id' => $branch->id]);
+        $closingLine = ClosingPayment::create(['closing_id' => $closing->id, 'subscriber_transaction_id' => $payment->id]);
+
+        $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'delete',
+            'correction_notes' => 'دفعة مكررة',
+        ]);
+
+        $response->assertSessionHasNoErrors()->assertSessionHas('status', 'transaction-delete');
+        $this->assertModelMissing($payment);
+        $this->assertModelMissing($closingLine);
+        $this->assertModelExists($closing);
+    }
+
+    public function test_deleting_a_refunded_payment_tree_takes_it_off_a_returned_closing(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
+            'amount' => '50',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+        ]);
+        $closing = Closing::factory()->create(['branch_id' => $branch->id, 'status' => ClosingStatus::Returned]);
+        $closingLine = ClosingPayment::create(['closing_id' => $closing->id, 'subscriber_transaction_id' => $payment->id]);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'refund',
+            'amount' => '50',
+        ]);
+        $refund = SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_REFUND)->sole();
+
+        $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'delete_tree',
+            'correction_notes' => 'الدفعة والإرجاع مكرران',
+        ]);
+
+        $response->assertSessionHasNoErrors()->assertSessionHas('status', 'transaction-delete_tree');
+        $this->assertModelMissing($payment);
+        $this->assertModelMissing($refund);
+        $this->assertModelMissing($closingLine);
+    }
+
+    public function test_a_cancelled_reading_discount_cannot_be_deleted_with_its_cancellation(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $reading = MeterReading::factory()->approved()->for($subscriber)->create();
+        $readingDiscount = $subscriber->transactions()->create([
+            'recorded_by' => $actor->id,
+            'meter_reading_id' => $reading->id,
+            'type' => SubscriberTransaction::TYPE_READING_DISCOUNT,
+            'source_key' => $reading->discountSourceKey(),
+            'amount' => '-15.00',
+            'currency_amount' => '15.00',
+            'discount_method' => DiscountMethod::Kilowatt,
+            'discount_value' => '3',
+        ]);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $readingDiscount]), [
+            'action' => 'cancel',
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($actor)->get(route('subscribers.statement', $subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.0.id', $readingDiscount->id)
+                ->where('entries.0.available_actions', []));
+
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $readingDiscount]), [
+            'action' => 'delete_tree',
+            'correction_notes' => 'خصم ملغى',
+        ])->assertSessionHasErrors(['action' => 'هذا الإجراء غير مسموح لهذه الحركة.']);
+
+        $this->assertDatabaseHas('subscriber_transactions', [
+            'id' => $readingDiscount->id,
+            'source_key' => $reading->discountSourceKey(),
+        ]);
     }
 
     public function test_permanent_deletion_actions_require_an_audit_reason(): void

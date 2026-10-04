@@ -626,7 +626,7 @@ class SubscriberTransaction extends Model
         $metadataActions = $this->isPayment() ? [TransactionAction::EditMetadata] : [];
 
         if ($this->currentStatus() !== self::STATUS_ACTIVE) {
-            return $this->isFullyReversed($lockForUpdate) ? [TransactionAction::DeleteTree] : [];
+            return ! $this->isBilledByReading() && $this->isFullyReversed($lockForUpdate) ? [TransactionAction::DeleteTree] : [];
         }
 
         if (in_array($this->type, self::INVOICE_LIKE_TYPES, true)) {
@@ -716,6 +716,15 @@ class SubscriberTransaction extends Model
 
         return $reversals->isNotEmpty()
             && Closing::cents($this->amount) + $reversals->sum(fn (self $reversal): int => Closing::cents($reversal->amount)) === 0;
+    }
+
+    /**
+     * Whether a reading billed this line. Its row must stay, even cancelled,
+     * so its source key keeps the reading from billing it again.
+     */
+    private function isBilledByReading(): bool
+    {
+        return $this->meter_reading_id !== null;
     }
 
     private function isPermanentDeletionLocked(bool $lockForUpdate = false): bool
@@ -835,15 +844,16 @@ class SubscriberTransaction extends Model
             $original->update($updates);
         }
 
+        self::releaseEditableClosingLines([$this->id]);
+        $this->delete();
+        self::recalculateBalances($this->subscriber_id);
+
         Log::warning('Transaction hard deleted under ledger golden rule', [
             'action' => $this->isReversal() ? TransactionAction::DeleteReversal->value : TransactionAction::Delete->value,
             'transaction' => $this->getAttributes(),
             'deleted_by' => $actor->only(['id', 'name', 'username']),
             'reason' => $data['correction_notes'] ?? null,
         ]);
-
-        $this->delete();
-        self::recalculateBalances($this->subscriber_id);
 
         return null;
     }
@@ -865,6 +875,7 @@ class SubscriberTransaction extends Model
             ->all();
 
         self::query()->where('corrects_id', $this->id)->update(['corrects_id' => null]);
+        self::releaseEditableClosingLines([$this->id, ...$reversals->modelKeys()]);
         $reversals->each->delete();
         $this->delete();
         self::recalculateBalances($this->subscriber_id);
@@ -877,6 +888,23 @@ class SubscriberTransaction extends Model
         ]);
 
         return null;
+    }
+
+    /**
+     * Take deleted transactions off any draft or returned closing, as
+     * syncPayments() would; a submitted or approved one blocks deletion.
+     *
+     * @param  array<int, int>  $transactionIds
+     */
+    private static function releaseEditableClosingLines(array $transactionIds): void
+    {
+        ClosingPayment::query()
+            ->whereIn('subscriber_transaction_id', $transactionIds)
+            ->whereHas('closing', fn (Builder $query): Builder => $query->whereIn('status', [
+                ClosingStatus::Draft->value,
+                ClosingStatus::Returned->value,
+            ]))
+            ->delete();
     }
 
     private static function recalculateBalances(int $subscriberId): void

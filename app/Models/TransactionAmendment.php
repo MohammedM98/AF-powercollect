@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** A non-financial, audited change to one payment's descriptive details. */
+/** An audited in-place change to a transaction amount or descriptive details. */
 #[Fillable(['transaction_id', 'user_id', 'changes', 'reason'])]
 class TransactionAmendment extends Model
 {

@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Enums\ChargeType;
 use App\Enums\DiscountMethod;
 use App\Models\Branch;
+use App\Models\Closing;
+use App\Models\ClosingPayment;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\User;
@@ -46,6 +48,7 @@ class SubscriberTransactionActionTest extends TestCase
         $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $invoice]), [
             'action' => 'edit',
             'amount' => '75',
+            'amendment_reason' => 'المبلغ الصحيح في المستند',
         ]);
 
         $response->assertSessionHasNoErrors()->assertSessionHas('status', 'transaction-edit');
@@ -53,6 +56,11 @@ class SubscriberTransactionActionTest extends TestCase
         $this->assertSame('75.00', $invoice->refresh()->amount);
         $this->assertSame('75.00', $invoice->balance_after);
         $this->assertSame(75.0, $subscriber->balance());
+        $this->assertDatabaseHas('transaction_amendments', [
+            'transaction_id' => $invoice->id,
+            'user_id' => $actor->id,
+            'reason' => 'المبلغ الصحيح في المستند',
+        ]);
     }
 
     public function test_non_last_payment_can_be_partially_refunded_and_links_both_rows(): void
@@ -122,6 +130,7 @@ class SubscriberTransactionActionTest extends TestCase
 
         $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
             'action' => 'delete',
+            'correction_notes' => 'دفعة مكررة',
         ]);
 
         $response->assertSessionHasNoErrors();
@@ -153,6 +162,7 @@ class SubscriberTransactionActionTest extends TestCase
         $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $discount]), [
             'action' => 'edit_metadata',
             'notes' => 'بيان جديد',
+            'amendment_reason' => 'محاولة غير مسموحة',
         ]);
 
         $response->assertSessionHasErrors(['action' => 'هذا الإجراء غير مسموح لهذه الحركة.']);
@@ -183,6 +193,190 @@ class SubscriberTransactionActionTest extends TestCase
         $this->assertSame(10.0, $subscriber->balance());
     }
 
+    public function test_non_last_discount_is_cancelled_with_a_type_specific_cancellation_instead_of_a_refund(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '50', 'غرامة');
+        $discount = SubscriberTransaction::recordDiscount($subscriber, $actor, DiscountMethod::Shekel, '20', 'خصم اجتماعي');
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '5', 'غرامة لاحقة');
+
+        $this->actingAs($actor)->get(route('subscribers.statement', $subscriber))
+            ->assertInertia(fn ($page) => $page->where('entries.1.available_actions', ['cancel']));
+
+        $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $discount]), [
+            'action' => 'cancel',
+            'correction_notes' => 'أُلغي الخصم',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $cancellation = SubscriberTransaction::query()->where('reference_transaction_id', $discount->id)->sole();
+        $this->assertSame(SubscriberTransaction::TYPE_CANCELLATION, $cancellation->type);
+        $this->assertStringContainsString('إلغاء:', $cancellation->description());
+        $this->assertDatabaseMissing('subscriber_transactions', [
+            'reference_transaction_id' => $discount->id,
+            'type' => SubscriberTransaction::TYPE_REFUND,
+        ]);
+    }
+
+    public function test_fully_refunded_payment_offers_delete_refund_only_and_delete_linked_tree_actions(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
+            'amount' => '50',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+        ]);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'refund',
+            'amount' => '50',
+        ])->assertSessionHasNoErrors();
+        $refund = SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_REFUND)->sole();
+
+        $this->actingAs($actor)->get(route('subscribers.statement', $subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.0.available_actions', ['delete_tree'])
+                ->where('entries.0.linkedReversals.0.id', $refund->id)
+                ->where('entries.2.available_actions', ['delete_reversal']));
+    }
+
+    public function test_deleting_only_the_last_refund_reactivates_the_payment_and_rebalances_the_statement(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
+            'amount' => '50',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+        ]);
+        $charge = SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'refund',
+            'amount' => '50',
+        ]);
+        $refund = SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_REFUND)->sole();
+
+        $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $refund]), [
+            'action' => 'delete_reversal',
+            'correction_notes' => 'الإرجاع سُجل بالخطأ',
+        ]);
+
+        $response->assertSessionHasNoErrors()->assertSessionHas('status', 'transaction-delete_reversal');
+        $this->assertModelMissing($refund);
+        $this->assertSame(SubscriberTransaction::STATUS_ACTIVE, $payment->refresh()->status);
+        $this->assertNull($payment->cancelled_at);
+        $this->assertSame('-40.00', $charge->refresh()->balance_after);
+        $this->assertSame(-40.0, $subscriber->balance());
+    }
+
+    public function test_deleting_a_fully_refunded_tree_removes_both_sides_and_rebalances_later_transactions(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
+            'amount' => '50',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+        ]);
+        $firstCharge = SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة أولى');
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'refund',
+            'amount' => '50',
+        ]);
+        $refund = SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_REFUND)->sole();
+        $lastCharge = SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '20', 'غرامة لاحقة');
+
+        $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'delete_tree',
+            'correction_notes' => 'الدفعة والإرجاع مكرران',
+        ]);
+
+        $response->assertSessionHasNoErrors()->assertSessionHas('status', 'transaction-delete_tree');
+        $this->assertModelMissing($payment);
+        $this->assertModelMissing($refund);
+        $this->assertSame('10.00', $firstCharge->refresh()->balance_after);
+        $this->assertSame('30.00', $lastCharge->refresh()->balance_after);
+        $this->assertSame(30.0, $subscriber->balance());
+    }
+
+    public function test_partial_refund_cannot_delete_the_original_and_linked_tree(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
+            'amount' => '50',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+        ]);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'refund',
+            'amount' => '20',
+        ]);
+
+        $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'delete_tree',
+            'correction_notes' => 'محاولة حذف جزئي',
+        ]);
+
+        $response->assertSessionHasErrors(['action' => 'هذا الإجراء غير مسموح لهذه الحركة.']);
+        $this->assertModelExists($payment);
+        $this->assertDatabaseHas('subscriber_transactions', [
+            'reference_transaction_id' => $payment->id,
+            'type' => SubscriberTransaction::TYPE_REFUND,
+            'amount' => '20.00',
+        ]);
+    }
+
+    public function test_permanent_actions_and_metadata_edits_are_unavailable_for_a_payment_in_a_closed_day(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
+            'amount' => '50',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+        ]);
+        $closing = Closing::factory()->submitted()->create(['branch_id' => $branch->id]);
+        ClosingPayment::create(['closing_id' => $closing->id, 'subscriber_transaction_id' => $payment->id]);
+
+        $this->actingAs($actor)->get(route('subscribers.statement', $subscriber))
+            ->assertInertia(fn ($page) => $page->where('entries.0.available_actions', []));
+
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'delete',
+            'correction_notes' => 'لا يجب الحذف',
+        ])->assertSessionHasErrors(['action' => 'هذا الإجراء غير مسموح لهذه الحركة.']);
+
+        $this->assertModelExists($payment);
+    }
+
+    public function test_permanent_deletion_actions_require_an_audit_reason(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
+            'amount' => '50',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+        ]);
+
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'delete',
+        ])->assertSessionHasErrors('correction_notes');
+
+        $this->assertModelExists($payment);
+    }
+
     public function test_server_rejects_an_action_not_returned_in_available_actions(): void
     {
         $branch = Branch::factory()->create();
@@ -197,6 +391,7 @@ class SubscriberTransactionActionTest extends TestCase
         $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
             'action' => 'edit',
             'amount' => '75',
+            'amendment_reason' => 'محاولة غير مسموحة',
         ]);
 
         $response->assertSessionHasErrors(['action' => 'هذا الإجراء غير مسموح لهذه الحركة.']);

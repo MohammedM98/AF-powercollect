@@ -150,9 +150,9 @@ function AmendmentBadge({ amendments }) {
     );
 }
 
-/** Whether a line has a menu: actions the user may take on it, or a receipt to print. */
+/** Whether a line has a menu: actions the user may take on it, its reading to correct, or a receipt to print. */
 function hasLineMenu(entry) {
-    return entry.available_actions?.length > 0 || Boolean(entry.receiptUrl);
+    return entry.available_actions?.length > 0 || Boolean(entry.reading) || Boolean(entry.receiptUrl);
 }
 
 function transactionNoun(entry) {
@@ -221,6 +221,24 @@ function lineActionsMenu(entry, onAction) {
     }));
     const groups = [
         ...(items.length ? [{ label: 'إجراءات الحركة', items }] : []),
+        ...(entry.reading
+            ? [
+                  {
+                      label: 'القراءة الأسبوعية',
+                      items: [
+                          {
+                              label: 'تصحيح القراءة',
+                              description: 'أدخل القراءة الصحيحة: تُلغى الحركة بقيد عكسي، وتعود القراءة للاعتماد ثم تُحمَّل من جديد',
+                              icon: 'bolt',
+                              tone: 'amber',
+                              disabled: !entry.reading.canCorrect,
+                              hint: entry.reading.correctUnavailableReason ?? undefined,
+                              onSelect: () => onAction('correct_reading', entry),
+                          },
+                      ],
+                  },
+              ]
+            : []),
         ...(entry.receiptUrl
             ? [
                   {

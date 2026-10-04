@@ -630,8 +630,11 @@ class SubscriberTransaction extends Model
         }
 
         if (in_array($this->type, self::INVOICE_LIKE_TYPES, true)) {
+            // A weekly reading's charge changes only by correcting the reading, so the two always agree.
+            $amountEdit = $this->isBilledByReading() ? [] : [TransactionAction::Edit];
+
             return $isLast && ! $hasPayment
-                ? [TransactionAction::Edit, ...$metadataActions, TransactionAction::Delete]
+                ? [...$amountEdit, ...$metadataActions, TransactionAction::Delete]
                 : [...$metadataActions, TransactionAction::Cancel];
         }
 

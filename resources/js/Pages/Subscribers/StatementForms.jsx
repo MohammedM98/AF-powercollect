@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from '@/Components/Icon';
+import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import ChargeModal from './ChargeModal';
 import ClearingModal from './ClearingModal';
 import AmendTransactionModal from './AmendTransactionModal';
@@ -118,7 +119,8 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
  * The payment, charge, discount and clearing forms of a statement;
  * `openForm` names the one showing ('payment', 'charge', 'discount',
  * 'clearing' or null), or is `{ action: 'edit' | 'edit_metadata' | 'delete' | 'delete_reversal' | 'delete_tree' | 'cancel' | 'refund', entry }`
- * for one of a line's audit-safe actions. `statement` is the statement's page props.
+ * for one of a line's audit-safe actions, or `{ action: 'correct_reading', entry }` to correct the
+ * weekly reading a line was billed from, in the readings page's own form. `statement` is the statement's page props.
  */
 export function StatementForms({ statement, openForm, onClose }) {
     const { subscriber, summary, canRecordPayment, canAdjustBalance } = statement;
@@ -127,6 +129,7 @@ export function StatementForms({ statement, openForm, onClose }) {
     const deleting = ['delete', 'delete_reversal', 'delete_tree'].includes(openForm?.action) ? openForm.entry : null;
     const cancelling = openForm?.action === 'cancel' ? openForm.entry : null;
     const refunding = openForm?.action === 'refund' ? openForm.entry : null;
+    const correctingReading = openForm?.action === 'correct_reading' ? openForm.entry.reading : null;
 
     return (
         <>
@@ -174,6 +177,10 @@ export function StatementForms({ statement, openForm, onClose }) {
                     action="refund"
                     reasons={refunding.deletionReasons}
                 />
+            )}
+
+            {correctingReading && (
+                <MeterReadingModal key={`reading-${correctingReading.id}`} show onClose={onClose} reading={correctingReading} weekOptions={[]} />
             )}
 
             {deleting && (

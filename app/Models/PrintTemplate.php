@@ -32,6 +32,8 @@ class PrintTemplate extends Model
         '/subscribers' => ['label' => 'المشتركون', 'icon' => 'users'],
         '/meter-boxes' => ['label' => 'الطبلونات', 'icon' => 'table'],
         '/ledger' => ['label' => 'السجل المالي', 'icon' => 'ledger'],
+        '/receivables' => ['label' => 'أعمار الديون', 'icon' => 'wallet'],
+        '/transaction-audit' => ['label' => 'سجل التدقيق', 'icon' => 'history'],
         '/users' => ['label' => 'المستخدمون', 'icon' => 'user'],
         '/branches' => ['label' => 'الفروع', 'icon' => 'pin'],
         '/circuit-breakers' => ['label' => 'القواطع', 'icon' => 'bolt'],

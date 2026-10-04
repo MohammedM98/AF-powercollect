@@ -2,7 +2,7 @@ import { usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import ThemeToggle from '@/Components/ThemeToggle';
 
-const COMPANY_NAME = 'شركة أبناء فارس أبو زايد للتجارة والاستيراد';
+export const COMPANY_NAME = 'شركة أبناء فارس أبو زايد للتجارة والاستيراد';
 const COMPANY_NAME_EN = 'Sons of Fares AbuZayed Trading & Import Company';
 
 const FEATURES = [

@@ -540,6 +540,134 @@
     border-right: 3px solid rgb(var(--blue-500) / 0.55);
 }
 
+/*
+ * The account statement printed (its print button, or the browser's own
+ * print while it is open, on its page or in its window over a list): only
+ * the statement — its print heading, summary and lines — on landscape
+ * paper, as a plain bordered table without the filters or line menus.
+ */
+.statement-print-only {
+    display: none;
+}
+
+@page statement {
+    size: A4 landscape;
+    margin: 10mm;
+}
+
+@media print {
+    body:has(.account-statement) *:not(:has(.account-statement)):not(.account-statement):not(.account-statement *) {
+        display: none !important;
+    }
+
+    html:has(.account-statement),
+    body:has(.account-statement) {
+        background: #fff !important;
+    }
+
+    body:has(.account-statement) :has(.account-statement) {
+        display: block !important;
+        position: static !important;
+        overflow: visible !important;
+        width: auto !important;
+        max-width: none !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    .account-statement {
+        page: statement;
+        color: #111827;
+    }
+
+    .account-statement .statement-print-only {
+        display: block;
+    }
+
+    .account-statement .statement-screen-only,
+    .account-statement .data-table-toolbar {
+        display: none !important;
+    }
+
+    .account-statement .statement-summary {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+
+    .account-statement .statement-summary > div {
+        padding: 6px 8px;
+        break-inside: avoid;
+    }
+
+    .account-statement .statement-summary > div > p:nth-child(2) {
+        font-size: 15px;
+    }
+
+    .account-statement .data-table-container {
+        overflow: visible !important;
+        padding: 0;
+        border: 0;
+        background: none;
+    }
+
+    .account-statement .data-table-ledger {
+        min-width: 0 !important;
+        border-collapse: collapse;
+        font-size: 9.5px;
+    }
+
+    .account-statement .data-table-ledger thead {
+        display: table-header-group;
+    }
+
+    .account-statement .data-table-ledger tr {
+        break-inside: avoid;
+        animation: none !important;
+    }
+
+    .account-statement .data-table-ledger th,
+    .account-statement .data-table-ledger td,
+    .account-statement .data-table-ledger td:first-child,
+    .account-statement .data-table-ledger td:last-child {
+        padding: 3px 5px;
+        border: 1px solid #d1d5db;
+        border-radius: 0;
+        box-shadow: none !important;
+        white-space: normal;
+        color: #111827;
+    }
+
+    .account-statement .data-table-ledger th {
+        background: #f3f4f6;
+        font-size: 9.5px;
+        font-weight: 700;
+    }
+
+    .account-statement .data-table-ledger td *,
+    .account-statement .data-table-ledger th * {
+        font-size: inherit !important;
+        line-height: 1.4;
+    }
+
+    .account-statement .data-table-ledger .ledger-description {
+        min-width: 0;
+        max-width: none;
+    }
+
+    .account-statement .data-table-ledger button {
+        pointer-events: none;
+    }
+}
+
 /* Rows float in one after another, quickly. */
 .data-table tbody tr {
     animation: rise-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;

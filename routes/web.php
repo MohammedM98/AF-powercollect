@@ -21,6 +21,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileDeviceController;
 use App\Http\Controllers\ReadingScheduleController;
 use App\Http\Controllers\ReadNotificationController;
+use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SubAreaController;
 use App\Http\Controllers\SubscriberBulkChangeController;
@@ -36,6 +37,7 @@ use App\Http\Controllers\SubscriberStatementController;
 use App\Http\Controllers\SubscriberTransactionController;
 use App\Http\Controllers\TariffController;
 use App\Http\Controllers\TariffSegmentController;
+use App\Http\Controllers\TransactionAuditController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserTypeController;
 use Illuminate\Support\Facades\Route;
@@ -53,6 +55,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
+    Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
+    Route::get('/transaction-audit', [TransactionAuditController::class, 'index'])->name('transaction-audit.index');
 
     Route::get('/closings', [ClosingController::class, 'index'])->name('closings.index');
     Route::get('/closings/register.csv', [ClosingController::class, 'export'])->name('closings.export');
@@ -85,6 +89,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/subscribers/{subscriber}/statement', [SubscriberStatementController::class, 'show'])->name('subscribers.statement');
     Route::get('/subscribers/{subscriber}/payments/reference-status', [SubscriberPaymentController::class, 'referenceStatus'])->name('subscribers.payments.reference-status');
     Route::post('/subscribers/{subscriber}/payments', [SubscriberPaymentController::class, 'store'])->name('subscribers.payments.store');
+    Route::get('/subscribers/{subscriber}/payments/{transaction}/receipt', [SubscriberPaymentController::class, 'receipt'])->scopeBindings()->name('subscribers.payments.receipt');
     Route::post('/subscribers/{subscriber}/charges', [SubscriberChargeController::class, 'store'])->name('subscribers.charges.store');
     Route::post('/subscribers/{subscriber}/discounts', [SubscriberDiscountController::class, 'store'])->name('subscribers.discounts.store');
     Route::post('/subscribers/{subscriber}/clearings', [SubscriberClearingController::class, 'store'])->name('subscribers.clearings.store');

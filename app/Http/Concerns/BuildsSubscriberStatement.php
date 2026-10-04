@@ -324,6 +324,8 @@ trait BuildsSubscriberStatement
             'referenceNumber' => $receipt->reference_number,
             'cashBox' => $receipt->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
+            // A payment's receipt, to print or reprint from the line's menu.
+            'receiptUrl' => $transaction->isPayment() ? route('subscribers.payments.receipt', [$transaction->subscriber_id, $transaction->id]) : null,
             'details' => match ($transaction->type) {
                 SubscriberTransaction::TYPE_METER_READING => $transaction->notes ?? $transaction->meterReading?->notes,
                 // Its customer segment is already in the description.

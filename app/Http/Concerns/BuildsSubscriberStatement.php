@@ -59,6 +59,8 @@ trait BuildsSubscriberStatement
                 'meterReading',
                 'cancelledBy',
                 'reverses.closingLine',
+                'referenceTransaction.closingLine',
+                'linkedReversals',
                 'corrects',
                 'correction',
                 'amendments.user',
@@ -72,13 +74,16 @@ trait BuildsSubscriberStatement
         $firstLineIds = $this->firstLineIds($transactions);
         $lineNumbers = $transactions->values()->mapWithKeys(fn (SubscriberTransaction $transaction, int $index): array => [$transaction->id => $index + 1])->all();
         $balanceInCents = 0;
+        $lastTransactionId = $transactions->last()?->id;
         $lastGroupId = $transactions->whereNull('reverses_id')->last()?->id;
-        $lastLineId = $transactions
+        $lastLegacyLineId = $transactions
             ->filter(fn (SubscriberTransaction $transaction): bool => $transaction->id === $lastGroupId || $transaction->reverses_id === $lastGroupId)
             ->last()?->id;
         $entries = $transactions
-            ->map(function (SubscriberTransaction $transaction) use (&$balanceInCents, $actor, $firstLineIds, $lineNumbers, $lastLineId): array {
+            ->map(function (SubscriberTransaction $transaction) use (&$balanceInCents, $actor, $firstLineIds, $lineNumbers, $lastTransactionId, $lastLegacyLineId, $transactions): array {
                 $balanceInCents += $this->cents($transaction->amount);
+                $hasPayment = $transactions->contains(fn (SubscriberTransaction $candidate): bool => $candidate->reference_transaction_id === $transaction->id
+                    && in_array($candidate->type, SubscriberTransaction::PAYMENT_LIKE_TYPES, true));
 
                 return $this->statementEntry(
                     $transaction,
@@ -86,7 +91,9 @@ trait BuildsSubscriberStatement
                     $actor,
                     $firstLineIds[$transaction->id],
                     $lineNumbers,
-                    $transaction->id === $lastLineId,
+                    $transaction->id === $lastTransactionId,
+                    $hasPayment,
+                    $transaction->id === $lastLegacyLineId,
                 );
             })
             ->values();
@@ -252,7 +259,9 @@ trait BuildsSubscriberStatement
         User $actor,
         int $groupId,
         array $lineNumbers,
-        bool $isLastOnStatement,
+        bool $isLastTransaction,
+        bool $hasPayment,
+        bool $isLastLegacyLine,
     ): array {
         $receipt = $transaction->isReversal() && $transaction->reverses ? $transaction->reverses : $transaction;
         $hasEditPermission = $actor->hasPermission(PermissionKey::CorrectTransactions);
@@ -261,12 +270,18 @@ trait BuildsSubscriberStatement
         $canAmend = $actor->can('amend', $transaction);
         $canCorrect = $actor->can('update', $transaction);
         $canDelete = $actor->can('delete', $transaction);
-        $canForceDelete = $isLastOnStatement && $actor->can('forceDelete', $transaction);
-        $mayCancel = $hasDeletePermission || ($hasForceDeletePermission && $isLastOnStatement);
+        $canForceDelete = $isLastLegacyLine && $actor->can('forceDelete', $transaction);
+        $mayCancel = $hasDeletePermission || ($hasForceDeletePermission && $isLastLegacyLine);
         $eraseTarget = $transaction->isReversal() ? $transaction->reverses : $transaction;
+        $availableActions = $transaction->availableActions($actor, $isLastTransaction, $hasPayment);
+        $linkedReversal = $transaction->linkedReversals->last();
 
         return [
             'id' => $transaction->id,
+            // In this application a subscribers row is the individual subscription.
+            'subscription_id' => $transaction->subscriber_id,
+            'branch_id' => $transaction->branch_id,
+            'employee_id' => $transaction->employee_id,
             'lineNumber' => $lineNumbers[$transaction->id],
             'groupId' => $groupId,
             'date' => $transaction->created_at->format('Y-m-d H:i'),
@@ -276,6 +291,10 @@ trait BuildsSubscriberStatement
             'description' => $transaction->description(),
             'type' => $transaction->type,
             'typeLabel' => $transaction->typeLabel(),
+            'status' => $transaction->status,
+            'reference_transaction_id' => $transaction->reference_transaction_id,
+            'balance_after' => $transaction->balance_after ?? $this->money($balanceInCents),
+            'available_actions' => $availableActions,
             'isCredit' => $transaction->isCredit(),
             'amount' => $transaction->currency_amount ?? ltrim($transaction->amount, '-'),
             'currencyLabel' => __($transaction->currency->label()),
@@ -285,6 +304,7 @@ trait BuildsSubscriberStatement
             'paymentMethodLabel' => $transaction->payment_method ? __($transaction->payment_method->label()) : null,
             'bankName' => $receipt->bank_name,
             'senderBankName' => $receipt->sender_bank_name,
+            'senderName' => $receipt->sender_name,
             'referenceNumber' => $receipt->reference_number,
             'cashBox' => $receipt->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
@@ -302,6 +322,11 @@ trait BuildsSubscriberStatement
                 'id' => $transaction->reverses->id,
                 'lineNumber' => $lineNumbers[$transaction->reverses->id] ?? null,
             ] : null,
+            'linkedReversal' => $linkedReversal ? [
+                'id' => $linkedReversal->id,
+                'lineNumber' => $lineNumbers[$linkedReversal->id] ?? null,
+                'type' => $linkedReversal->type,
+            ] : null,
             // The line a replacement corrects, which stays further up the statement.
             'corrects' => $transaction->corrects ? [
                 'id' => $transaction->corrects->id,
@@ -312,7 +337,7 @@ trait BuildsSubscriberStatement
                 'wasCorrected' => $transaction->correction !== null,
                 'correctionId' => $transaction->correction?->id,
                 'correctionLineNumber' => $transaction->correction ? ($lineNumbers[$transaction->correction->id] ?? null) : null,
-                'reasonLabel' => __($transaction->cancellation_reason->label()),
+                'reasonLabel' => $transaction->cancellation_reason ? __($transaction->cancellation_reason->label()) : 'تصحيح الحركة',
                 'notes' => $transaction->cancellation_notes,
                 'byName' => $transaction->cancelledBy?->name,
                 'at' => $transaction->cancelled_at->format('Y-m-d H:i'),
@@ -343,7 +368,7 @@ trait BuildsSubscriberStatement
                 : null,
             'forceDeleteUnavailableReason' => $hasForceDeletePermission && ! $canForceDelete
                 ? match (true) {
-                    ! $isLastOnStatement => 'ليست آخر حركة',
+                    ! $isLastLegacyLine => 'ليست آخر حركة',
                     $eraseTarget?->closingLine !== null => 'ضمن إغلاق مالي',
                     default => 'لا يمكن حذفها نهائيًا',
                 }

@@ -53,10 +53,7 @@ export default function Statement(statement) {
                 summary={summary}
                 paymentMethods={paymentMethods}
                 transactionTypes={transactionTypes}
-                onAmend={(entry) => setOpenForm({ action: 'amend', entry })}
-                onCorrect={(entry) => setOpenForm({ action: 'correct', entry })}
-                onDelete={(entry) => setOpenForm({ action: 'delete', entry })}
-                onErase={(entry) => setOpenForm({ action: 'erase', entry })}
+                onAction={(action, entry) => setOpenForm({ action, entry })}
             />
 
             <StatementForms statement={statement} openForm={openForm} onClose={() => setOpenForm(null)} />

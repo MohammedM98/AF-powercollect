@@ -6,6 +6,7 @@ use App\Enums\ChargeType;
 use App\Enums\CorrectionReason;
 use App\Enums\DiscountMethod;
 use App\Http\Requests\AmendSubscriberTransactionRequest;
+use App\Http\Requests\ApplySubscriberTransactionActionRequest;
 use App\Http\Requests\CorrectSubscriberTransactionRequest;
 use App\Http\Requests\DeleteSubscriberTransactionRequest;
 use App\Http\Requests\ForceDeleteSubscriberTransactionRequest;
@@ -22,6 +23,22 @@ use Inertia\Inertia;
  */
 class SubscriberTransactionController extends Controller
 {
+    /** Apply one of the five canonical ledger actions. */
+    public function apply(
+        ApplySubscriberTransactionActionRequest $request,
+        Subscriber $subscriber,
+        SubscriberTransaction $transaction,
+    ): RedirectResponse {
+        $action = $request->action();
+        $summary = sprintf('%s — %s', $subscriber->displayName(), $transaction->description());
+
+        $transaction->applyAction($request->user(), $action, $request->validated());
+
+        $request->user()->notify(new ActionCompleted('transaction-'.$action->value, $summary));
+
+        return back()->with('status', 'transaction-'.$action->value);
+    }
+
     /** Amend non-financial payment details in place and keep their history. */
     public function amend(AmendSubscriberTransactionRequest $request, Subscriber $subscriber, SubscriberTransaction $transaction): RedirectResponse
     {

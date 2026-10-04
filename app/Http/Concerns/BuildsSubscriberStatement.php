@@ -8,10 +8,12 @@ use App\Enums\Currency;
 use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
+use App\Models\MeterReading;
 use App\Models\StandingDiscount;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -238,7 +240,7 @@ trait BuildsSubscriberStatement
             'segment' => $discount->segment,
             'notes' => $discount->notes,
             'grantedByName' => $discount->grantedBy?->name,
-            'grantedAt' => $discount->updated_at->format('Y-m-d'),
+            'grantedAt' => $this->businessTime($discount->updated_at, 'Y-m-d'),
         ];
     }
 
@@ -292,7 +294,7 @@ trait BuildsSubscriberStatement
             'employee_id' => $transaction->employee_id,
             'lineNumber' => $lineNumbers[$transaction->id],
             'groupId' => $groupId,
-            'date' => $transaction->created_at->format('Y-m-d H:i'),
+            'date' => $this->businessTime($transaction->created_at),
             'voucherNumber' => $receipt->displayVoucherNumber(),
             'systemVoucherNumber' => $receipt->printedVoucherNumber(),
             'manualVoucherNumber' => $receipt->manual_voucher_number,
@@ -359,7 +361,7 @@ trait BuildsSubscriberStatement
             'corrects' => $transaction->corrects ? [
                 'id' => $transaction->corrects->id,
                 'lineNumber' => $lineNumbers[$transaction->corrects->id] ?? null,
-                'date' => $transaction->corrects->created_at->format('Y-m-d H:i'),
+                'date' => $this->businessTime($transaction->corrects->created_at),
             ] : null,
             'cancellation' => $transaction->isCancelled() ? [
                 'wasCorrected' => $transaction->correction !== null,
@@ -368,13 +370,13 @@ trait BuildsSubscriberStatement
                 'reasonLabel' => $transaction->cancellation_reason ? __($transaction->cancellation_reason->label()) : 'تصحيح الحركة',
                 'notes' => $transaction->cancellation_notes,
                 'byName' => $transaction->cancelledBy?->name,
-                'at' => $transaction->cancelled_at->format('Y-m-d H:i'),
+                'at' => $this->businessTime($transaction->cancelled_at),
             ] : null,
             'isAmended' => $transaction->amendments->isNotEmpty(),
             'amendments' => $transaction->amendments->map(fn ($amendment): array => [
                 'id' => $amendment->id,
                 'userName' => $amendment->user?->name,
-                'at' => $amendment->created_at->format('Y-m-d H:i'),
+                'at' => $this->businessTime($amendment->created_at),
                 'reason' => $amendment->reason,
                 'changes' => collect($amendment->changes)->map(fn (array $values, string $field): array => [
                     'field' => $field,
@@ -419,7 +421,7 @@ trait BuildsSubscriberStatement
      * and is billed again (MeterReading::correct). Only the subscriber's
      * latest reading, in a week still open to the user, can be corrected.
      *
-     * @return array{id: int, weekStart: string, weekEnd: string, previous_reading: float, current_reading: float, consumption: float, notes: ?string, status: string, subscriberName: string, accountNumber: ?string, canCorrect: bool, correctUnavailableReason: ?string}|null
+     * @return array{id: int, weekStart: string, weekEnd: string, previous_reading: float, current_reading: float, consumption: float, notes: ?string, status: string, subscriberName: string, accountNumber: ?string, canCorrect: bool, canApprove: bool, correctUnavailableReason: ?string}|null
      */
     private function correctableReading(SubscriberTransaction $transaction, User $actor): ?array
     {
@@ -444,6 +446,8 @@ trait BuildsSubscriberStatement
             'subscriberName' => $transaction->subscriber->displayName(),
             'accountNumber' => $transaction->subscriber->account_number,
             'canCorrect' => $canCorrect,
+            // May approve the corrected reading at once, instead of sending it back for approval.
+            'canApprove' => $actor->can('approveAny', MeterReading::class) && ($actor->isSuperAdmin() || $reading->branch_id === $actor->branch_id),
             'correctUnavailableReason' => match (true) {
                 $canCorrect => null,
                 ! $isLatest => 'توجد قراءة لأسبوع لاحق',
@@ -505,6 +509,15 @@ trait BuildsSubscriberStatement
         };
 
         return [...$fields, 'notes' => $transaction->notes ?? '', 'effect' => $transaction->amount];
+    }
+
+    /**
+     * A stored (UTC) moment as the business's clock shows it, as receipts,
+     * the financial log and the audit log show it too.
+     */
+    private function businessTime(CarbonInterface $moment, string $format = 'Y-m-d H:i'): string
+    {
+        return $moment->copy()->setTimezone(config('app.business_timezone'))->format($format);
     }
 
     private function cents(string $amount): int

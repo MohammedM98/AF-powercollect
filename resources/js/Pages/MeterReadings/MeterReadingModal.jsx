@@ -7,6 +7,7 @@ import { useResourceForm } from '@/hooks/useResourceForm';
 import { consumptionBetween } from '@/lib/readings';
 
 const APPROVED_READING_WARNING = 'هذه القراءة معتمدة. تعديلها يعيدها إلى قيد المراجعة ويزيل مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.';
+const APPROVE_NOW_NOTE = 'هذه القراءة معتمدة. سيُلغى مبلغها السابق بقيد عكسي يبقى في الكشف، وتُعتمد القراءة المصحّحة ويُحمَّل مبلغها الجديد فورًا.';
 
 function Summary({ label, value, tone = 'text-gray-900' }) {
     return (
@@ -22,17 +23,21 @@ function Summary({ label, value, tone = 'text-gray-900' }) {
 /**
  * Enter or correct a weekly reading. `fixedSubscriber` (an option shaped
  * like `subscriberOptions` entries) pins the form to one subscriber, as
- * when it is opened from that subscriber's statement.
+ * when it is opened from that subscriber's statement. A reading that
+ * says `canApprove` (the statement's) offers to approve the correction at
+ * once instead of sending it back for approval.
  */
 export default function MeterReadingModal({ show, onClose, reading, subscriberOptions = [], fixedSubscriber = null, weekOptions }) {
+    const offersApproval = Boolean(reading?.status === 'approved' && reading?.canApprove);
     const form = useResourceForm(
         '/meter-readings',
         reading,
         reading
-            ? { current_reading: String(reading.current_reading), notes: reading.notes ?? '' }
+            ? { current_reading: String(reading.current_reading), notes: reading.notes ?? '', ...(offersApproval ? { approve: true } : {}) }
             : { subscriber_id: fixedSubscriber?.value ?? '', week_start: weekOptions[0]?.value ?? '', current_reading: '', notes: '' },
     );
     const { data, setData, errors, isEdit } = form;
+    const approvesNow = offersApproval && data.approve;
 
     const selectedSubscriber = isEdit ? null : (fixedSubscriber ?? subscriberOptions.find((option) => option.value === String(data.subscriber_id)));
     const previousReading = isEdit ? reading.previous_reading : selectedSubscriber?.lastReading;
@@ -51,7 +56,7 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
             // Readings are entered one after another, so they save without a confirmation step —
             // except correcting an approved one, which sends it back for approval.
             confirmBeforeSave={isEdit && reading.status === 'approved'}
-            saveConfirmMessage={`${APPROVED_READING_WARNING} هل تريد المتابعة؟`}
+            saveConfirmMessage={`${approvesNow ? APPROVE_NOW_NOTE : APPROVED_READING_WARNING} هل تريد المتابعة؟`}
         >
             {isEdit ? (
                 <div className="rounded-lg border border-gray-100 px-4 py-3 text-sm">
@@ -128,6 +133,25 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
                         tone={consumption !== null && consumption < 0 ? 'text-red-600' : 'text-brand-700'}
                     />
                 </div>
+            )}
+
+            {offersApproval && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-sm">
+                    <input
+                        type="checkbox"
+                        className="mt-1 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        checked={data.approve}
+                        onChange={(e) => setData('approve', e.target.checked)}
+                    />
+                    <span>
+                        <span className="block font-semibold text-gray-900">اعتماد القراءة المصحّحة الآن</span>
+                        <span className="block text-xs text-gray-500">
+                            {data.approve
+                                ? 'يُحمَّل المبلغ الجديد على الحساب مباشرة، دون انتظار المراجعة.'
+                                : 'تعود القراءة إلى قيد المراجعة، ولا يُحمَّل مبلغها حتى يعتمدها أحد المعتمِدين.'}
+                        </span>
+                    </span>
+                </label>
             )}
 
             <div>

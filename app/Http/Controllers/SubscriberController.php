@@ -232,7 +232,7 @@ class SubscriberController extends Controller
             'statusLabel' => __($reading->status->label()),
             'notes' => $reading->notes,
             'recordedByName' => $reading->recordedBy?->name,
-            'recordedAt' => $reading->created_at->format('Y-m-d H:i'),
+            'recordedAt' => $reading->created_at->copy()->setTimezone(config('app.business_timezone'))->format('Y-m-d H:i'),
             'recordedSource' => $reading->mobile_operation_id !== null ? 'app' : 'web',
             'minimumApplied' => $reading->discount_method === null && (float) $reading->reading_fee < (float) $reading->minimum_payment,
             'canUpdate' => $actor->can('update', $reading),

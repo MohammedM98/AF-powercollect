@@ -28,6 +28,8 @@ class UpdateMeterReadingRequest extends FormRequest
         return [
             'current_reading' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            // Approve it again straight away, when the corrector may (see MeterReadingController::update).
+            'approve' => ['sometimes', 'boolean'],
         ];
     }
 

@@ -18,6 +18,7 @@ export const ACTION_MESSAGES = {
     'meter-reading-updated': 'تم تحديث القراءة بنجاح.',
     'meter-readings-approved': 'تم اعتماد القراءات بنجاح.',
     'meter-reading-reopened': 'تم تعديل القراءة، وعادت إلى قيد المراجعة لإعادة اعتمادها.',
+    'meter-reading-corrected-approved': 'تم تصحيح القراءة واعتمادها، وحُمّل مبلغها الجديد على حساب المشترك.',
     'meter-reading-needs-reapproval': 'تم تعديل قراءة معتمدة وتحتاج إلى إعادة اعتماد.',
     'payment-recorded': 'تم تسجيل الدفعة بنجاح.',
     'charge-recorded': 'تم تسجيل التحميل بنجاح.',

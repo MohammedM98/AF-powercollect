@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ChargeType;
+use App\Enums\CorrectionReason;
 use App\Models\Branch;
 use App\Models\MeterReading;
 use App\Models\Subscriber;
@@ -67,7 +69,8 @@ class SubscriberStatementTest extends TestCase
                     $this->assertSame(['رسوم اشتراك', 'قراءة أسبوعية', 'دفعة'], collect($entries)->pluck('typeLabel')->all());
                     $this->assertSame('قراءة من الطبلون', $entries[1]['details']);
                     $this->assertSame([
-                        'date' => '2026-08-30 12:40',
+                        // Recorded at 12:40 UTC: the statement shows the business's clock (Gaza, UTC+3).
+                        'date' => '2026-08-30 15:40',
                         'voucherNumber' => '4471',
                         'systemVoucherNumber' => '000001',
                         'manualVoucherNumber' => '4471',
@@ -278,6 +281,24 @@ class SubscriberStatementTest extends TestCase
         ])->assertSessionHasErrors('sender_bank_name');
 
         $this->assertDatabaseCount('subscriber_transactions', 0);
+    }
+
+    public function test_every_time_on_the_statement_follows_the_business_clock_even_across_midnight(): void
+    {
+        // 22:30 UTC on 30 August is 01:30 on 31 August in Gaza.
+        $this->travelTo('2026-08-30 22:30:00');
+        $payment = SubscriberTransaction::recordPayment($this->subscriber, $this->branchAdmin, ['amount' => '25', 'currency' => 'ILS', 'payment_method' => 'cash']);
+        SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::Penalty, '10', null);
+        $this->travelTo('2026-08-30 23:10:00');
+        $payment->amend($this->branchAdmin, ['notes' => 'تصحيح'], 'توضيح');
+        $payment->cancel($this->branchAdmin, CorrectionReason::Duplicate, null);
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.0.date', '2026-08-31 01:30')
+                ->where('entries.0.amendments.0.at', '2026-08-31 02:10')
+                ->where('entries.0.cancellation.at', '2026-08-31 02:10'));
     }
 
     public function test_a_recorded_payment_hands_its_form_the_voucher_number_and_the_balance_it_left(): void

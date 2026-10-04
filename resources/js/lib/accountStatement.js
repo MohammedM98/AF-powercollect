@@ -257,6 +257,35 @@ export function netOfReadingDiscount(entry) {
     return money(cents(entry.amount) - cents(entry.discountLine?.amount ?? 0));
 }
 
+const VIEW_STORAGE_KEY = 'statement-view';
+
+/**
+ * The two ways a statement can be shown: compact (without cancelled lines
+ * and the reversals that take them back) or every line as recorded.
+ */
+export const STATEMENT_VIEWS = [
+    { value: 'compact', label: 'عرض مختصر', hint: 'دون الحركات الملغاة وقيودها العكسية، والخصم الدائم داخل قراءته' },
+    { value: 'full', label: 'كل الحركات', hint: 'كل حركة كما سُجّلت، ومنها الملغاة وقيودها العكسية' },
+];
+
+/** The view this browser last chose, compact unless it chose the full one. */
+export function rememberedStatementView() {
+    try {
+        return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'full' ? 'full' : 'compact';
+    } catch {
+        return 'compact';
+    }
+}
+
+/** Remembers the view chosen, for the statement page and the subscriber's account tab alike. */
+export function rememberStatementView(view) {
+    try {
+        window.localStorage.setItem(VIEW_STORAGE_KEY, view);
+    } catch {
+        // The choice just isn't remembered.
+    }
+}
+
 /**
  * How a balance reads: a positive balance is what the subscriber owes
  * (عليه), a negative one is credit in their favour (له).

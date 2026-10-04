@@ -144,3 +144,23 @@ test('account distinguishes loading, failed loading and a genuinely empty accoun
     assert.match(empty, /لا توجد حركات لهذا النوع/);
     assert.doesNotMatch(empty, /تعذر تحميل الحساب/);
 });
+
+test('account opens compact, leaving out a cancelled line and its reversal, and offers every line', () => {
+    const html = renderToStaticMarkup(createElement(AccountTab, {
+        statement: {
+            summary: { balance: '80.00', charged: '80.00', paid: '0.00', discounted: '0.00' },
+            entries: [
+                { id: 1, date: '2026-09-01 12:00', type: 'meter_reading', typeLabel: 'قراءة', description: 'القراءة الخاطئة', isCredit: false, amount: '100', currencyLabel: 'شيكل', balance: '100.00', cancellation: { wasCorrected: true, reasonLabel: 'خطأ', correctionId: 3 } },
+                { id: 2, date: '2026-09-02 12:00', type: 'reversal', typeLabel: 'قيد عكسي', description: 'عكس القراءة', isCredit: true, amount: '100', currencyLabel: 'شيكل', balance: '0.00', reverses: { id: 1 } },
+                { id: 3, date: '2026-09-02 12:00', type: 'meter_reading', typeLabel: 'قراءة', description: 'القراءة الصحيحة', isCredit: false, amount: '80', currencyLabel: 'شيكل', balance: '80.00', isCorrection: true },
+            ],
+        },
+    }));
+
+    assert.match(html, /القراءة الصحيحة/);
+    assert.doesNotMatch(html, /القراءة الخاطئة|عكس القراءة/);
+    assert.match(html, /صُحّحت · 2 حركات سابقة/);
+    assert.match(html, /أُخفيت 2 حركة ملغاة/);
+    assert.match(html, /aria-pressed="true"[^>]*>عرض مختصر/);
+    assert.match(html, /كل الحركات/);
+});

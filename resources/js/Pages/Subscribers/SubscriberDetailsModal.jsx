@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import Modal from '@/Components/Modal';
 import Icon from '@/Components/Icon';
-import { describeBalance, filterStatementEntries } from '@/lib/accountStatement';
+import { compactStatementEntries, describeBalance, filterStatementEntries, rememberStatementView, rememberedStatementView, STATEMENT_VIEWS } from '@/lib/accountStatement';
 import { groupReadingsByMonth } from '@/lib/readingHistory';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
@@ -53,11 +53,18 @@ function Section({ title, icon, onEdit, children, trailing }) {
 
 export function AccountTab({ statement, onOpenStatement, onLoadStatement, loading }) {
     const [type, setType] = useState('');
+    const [view, setView] = useState(rememberedStatementView);
+    function chooseView(nextView) {
+        setView(nextView);
+        rememberStatementView(nextView);
+    }
     if (!statement) {
         return loading ? <div className="sp-loading" role="status" aria-label="جارٍ تحميل الحساب"><div /><div /><div /><div /></div>
             : <div className="sp-empty"><p>تعذر تحميل الحساب.</p><button type="button" className="sp-button" onClick={onLoadStatement}>إعادة المحاولة</button></div>;
     }
-    const entries = filterStatementEntries(statement.entries, { type }).toReversed();
+    const isCompact = view === 'compact';
+    const compact = compactStatementEntries(statement.entries);
+    const entries = filterStatementEntries(isCompact ? compact.entries : statement.entries, { type }).toReversed();
     const balance = describeBalance(statement.summary.balance);
     return <>
         <div className="sp-account-summary">
@@ -68,6 +75,7 @@ export function AccountTab({ statement, onOpenStatement, onLoadStatement, loadin
         </div>
         <div className="sp-account-toolbar">
             <div className="sp-filters" role="group" aria-label="نوع المعاملة">{[['', 'الكل'], ['meter_reading', 'فواتير'], ['payment', 'دفعات'], ['debit', 'تحميلات'], ['credit', 'دفعات وخصومات']].map(([value, label]) => <button type="button" key={value} aria-pressed={type === value} onClick={() => setType(value)}>{label}</button>)}</div>
+            <div className="sp-filters" role="group" aria-label="طريقة العرض">{STATEMENT_VIEWS.map((option) => <button type="button" key={option.value} aria-pressed={view === option.value} title={option.hint} onClick={() => chooseView(option.value)}>{option.label}</button>)}</div>
             <button type="button" className="sp-button" onClick={() => onOpenStatement()}><Icon name="ledger" />كشف الحساب الكامل</button>
         </div>
         <div className="sp-table-wrap"><table className="sp-statement">
@@ -77,12 +85,13 @@ export function AccountTab({ statement, onOpenStatement, onLoadStatement, loadin
                 return <tr key={entry.id}>
                     <td><span className="sp-date">{entry.date.slice(0, 10)}<small>{entry.date.slice(11)}</small></span></td>
                     <td><span className={`sp-transaction-type ${entry.isCredit ? 'sp-credit' : 'sp-owes'}`}><Icon name={entry.isCredit ? 'arrow-down' : 'receipt'} />{entry.typeLabel}</span></td>
-                    <td>{entry.description}{entry.cancellation && <small className="sp-cancellation">{entry.cancellation.wasCorrected ? 'مصححة' : 'ملغاة'} · {entry.cancellation.reasonLabel}</small>}</td>
+                    <td>{entry.description}{entry.cancellation && <small className="sp-cancellation">{entry.cancellation.wasCorrected ? 'مصححة' : 'ملغاة'} · {entry.cancellation.reasonLabel}</small>}{entry.history?.length > 0 && <button type="button" className="sp-history-link" onClick={() => chooseView('full')}><Icon name="history" />صُحّحت · {entry.history.length} حركات سابقة</button>}</td>
                     <td className="sp-amount-column"><b className={`sp-number ${entry.isCredit ? 'sp-credit' : 'sp-owes'}`}>{entry.isCredit ? '+' : '−'}{number(entry.amount)} {entry.currencyLabel}</b></td>
                     <td className="sp-amount-column"><span className="sp-number">{money(running.amount)}</span> <small>{running.label}</small></td>
                 </tr>;
             })}</tbody>
         </table>{entries.length === 0 && <p className="sp-empty">لا توجد حركات لهذا النوع.</p>}</div>
+        {isCompact && compact.hiddenCount > 0 && <p className="sp-hidden-note">أُخفيت {compact.hiddenCount} حركة ملغاة مع قيودها العكسية (مجموعها صفر) · <button type="button" onClick={() => chooseView('full')}>عرض كل الحركات</button></p>}
     </>;
 }
 

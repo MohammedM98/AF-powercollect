@@ -10,6 +10,9 @@ import {
     filterStatementEntries,
     netOfReadingDiscount,
     relatedLineChains,
+    rememberStatementView,
+    rememberedStatementView,
+    STATEMENT_VIEWS,
     statementCsv,
     withReadingDiscounts,
 } from '@/lib/accountStatement';
@@ -43,30 +46,6 @@ const COLUMNS = [
 const CHAIN_COLORS = ['37 99 235', '217 119 6', '147 51 234', '13 148 136', '219 39 119', '101 163 13'];
 
 const EMPTY_FILTERS = { search: '', type: '', method: '', dateFrom: '', dateTo: '' };
-
-const VIEW_STORAGE_KEY = 'statement-view';
-
-const VIEWS = [
-    { value: 'compact', label: 'عرض مختصر', hint: 'دون الحركات الملغاة وقيودها العكسية، والخصم الدائم داخل قراءته' },
-    { value: 'full', label: 'كل الحركات', hint: 'كل حركة كما سُجّلت، ومنها الملغاة وقيودها العكسية' },
-];
-
-/** The view this browser last chose, compact unless it chose the full one. */
-function rememberedView() {
-    try {
-        return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'full' ? 'full' : 'compact';
-    } catch {
-        return 'compact';
-    }
-}
-
-function rememberView(view) {
-    try {
-        window.localStorage.setItem(VIEW_STORAGE_KEY, view);
-    } catch {
-        // The choice just isn't remembered.
-    }
-}
 
 // The time printed on the statement, in the app's Arabic with Western digits.
 const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
@@ -596,7 +575,7 @@ function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
  */
 export default function AccountStatement({ subscriber, entries, summary, paymentMethods, transactionTypes, onAction }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
-    const [view, setView] = useState(rememberedView);
+    const [view, setView] = useState(rememberedStatementView);
     const [openHistories, setOpenHistories] = useState(() => new Set());
     const [highlightedLineId, setHighlightedLineId] = useState(null);
     const [pendingJump, setPendingJump] = useState(null);
@@ -621,7 +600,7 @@ export default function AccountStatement({ subscriber, entries, summary, payment
 
     function chooseView(nextView) {
         setView(nextView);
-        rememberView(nextView);
+        rememberStatementView(nextView);
     }
 
     function toggleHistory(lineId) {
@@ -751,7 +730,7 @@ export default function AccountStatement({ subscriber, entries, summary, payment
             <div className="data-table-toolbar">
                 <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
                     <div role="group" aria-label="طريقة العرض" className="me-auto inline-flex rounded-control border border-gray-100 bg-gray-50 p-0.5">
-                        {VIEWS.map((option) => (
+                        {STATEMENT_VIEWS.map((option) => (
                             <button
                                 key={option.value}
                                 type="button"

@@ -507,6 +507,7 @@ class SubscriberTransactionActionTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('entries.1.id', $discount->id)
                 ->where('entries.1.available_actions', [])
+                ->where('entries.1.reading', null)
                 ->where('entries.1.canDelete', false)
                 ->where('entries.1.canForceDelete', false));
 

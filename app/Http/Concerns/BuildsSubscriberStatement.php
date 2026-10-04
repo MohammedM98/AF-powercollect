@@ -344,8 +344,9 @@ trait BuildsSubscriberStatement
             'recordedByName' => $transaction->recordedBy?->name,
             // The weekly reading the line was billed from, which a reading and its standing discount share.
             'meterReadingId' => $transaction->meter_reading_id,
-            // The weekly reading a standing line was billed from, to correct from the line's menu.
-            'reading' => $this->correctableReading($transaction, $actor),
+            // The weekly reading a standing line was billed from, to correct from the line's menu;
+            // a reading's discount has no menu of its own, as it goes with its reading.
+            'reading' => $transaction->type === SubscriberTransaction::TYPE_READING_DISCOUNT ? null : $this->correctableReading($transaction, $actor),
             // A payment's receipt, to print or reprint from the line's menu.
             'receiptUrl' => $transaction->isPayment() ? route('subscribers.payments.receipt', [$transaction->subscriber_id, $transaction->id]) : null,
             'details' => match ($transaction->type) {

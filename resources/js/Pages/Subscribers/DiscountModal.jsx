@@ -602,7 +602,7 @@ export default function DiscountModal({
                                         ? `خصم ${formatMoney(discount)} ₪`
                                         : 'إضافة الخصم'
                             }
-                            shortcuts="1 · 2 · 3 للطريقة"
+                            shortcuts={isStanding ? '1 · 2 · 3 للطريقة' : undefined}
                         />
                     </form>
                 )}

@@ -40,12 +40,15 @@ class TransactionAuditTest extends TestCase
         $this->get(route('transaction-audit.index'))->assertRedirect(route('login'));
     }
 
-    public function test_the_log_takes_the_view_collections_permission(): void
+    public function test_the_log_takes_its_own_view_audit_log_permission(): void
     {
         $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
         $this->actingAs($dataEntry)->get(route('transaction-audit.index'))->assertForbidden();
 
         $dataEntry->permissions()->attach(Permission::idsFor([PermissionKey::ViewCollections]));
+        $this->actingAs($dataEntry->fresh())->get(route('transaction-audit.index'))->assertForbidden();
+
+        $dataEntry->permissions()->attach(Permission::idsFor([PermissionKey::ViewTransactionAudit]));
         $this->actingAs($dataEntry->fresh())->get(route('transaction-audit.index'))->assertOk();
     }
 

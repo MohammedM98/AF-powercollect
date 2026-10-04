@@ -25,12 +25,38 @@ class SubscriberTransactionPolicy
     }
 
     /**
+     * The branch performance pages take their own "View Branch
+     * Performance" permission.
+     */
+    public function viewBranchPerformance(User $user): bool
+    {
+        return $user->hasPermission(PermissionKey::ViewBranchPerformance);
+    }
+
+    /**
      * One branch's figures: any branch for the Super Admin, otherwise only
      * the user's own.
      */
     public function viewForBranch(User $user, Branch $branch): bool
     {
-        return $this->viewAny($user) && ($user->isSuperAdmin() || $branch->id === $user->branch_id);
+        return $this->viewBranchPerformance($user) && ($user->isSuperAdmin() || $branch->id === $user->branch_id);
+    }
+
+    /**
+     * The debt aging report (أعمار الديون) takes its own permission.
+     */
+    public function viewDebtAging(User $user): bool
+    {
+        return $user->hasPermission(PermissionKey::ViewDebtAging);
+    }
+
+    /**
+     * The audit log (سجل التدقيق) — who changed or deleted which line —
+     * takes its own permission.
+     */
+    public function viewTransactionAudit(User $user): bool
+    {
+        return $user->hasPermission(PermissionKey::ViewTransactionAudit);
     }
 
     /**

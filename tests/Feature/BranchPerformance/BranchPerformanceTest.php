@@ -50,13 +50,15 @@ class BranchPerformanceTest extends TestCase
         $this->get(route('branch-performance.show', $this->karrada))->assertRedirect(route('login'));
     }
 
-    public function test_the_pages_take_the_view_collections_permission(): void
+    public function test_the_pages_take_their_own_view_branch_performance_permission(): void
     {
         $this->actingAs($this->clerk)->get(route('branch-performance.index'))->assertForbidden();
         $this->actingAs($this->clerk)->get(route('branch-performance.show', $this->karrada))->assertForbidden();
 
         $this->clerk->permissions()->attach(Permission::idsFor([PermissionKey::ViewCollections]));
+        $this->actingAs($this->clerk->fresh())->get(route('branch-performance.show', $this->karrada))->assertForbidden();
 
+        $this->clerk->permissions()->attach(Permission::idsFor([PermissionKey::ViewBranchPerformance]));
         $this->actingAs($this->clerk->fresh())->get(route('branch-performance.show', $this->karrada))->assertOk();
     }
 

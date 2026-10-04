@@ -43,7 +43,7 @@ class ReceivableController extends Controller
 
     public function index(Request $request): InertiaResponse
     {
-        $this->authorize('viewAny', SubscriberTransaction::class);
+        $this->authorize('viewDebtAging', SubscriberTransaction::class);
 
         $actor = $request->user();
         $debtors = $this->withAgeFilter((new DebtAging(DailySeries::today()))->debtors($this->filteredSubscribers($request, $actor)), $request);

@@ -45,7 +45,7 @@ class BranchPerformanceController extends Controller
 
     public function index(Request $request): InertiaResponse|RedirectResponse
     {
-        $this->authorize('viewAny', SubscriberTransaction::class);
+        $this->authorize('viewBranchPerformance', SubscriberTransaction::class);
 
         $actor = $request->user();
 

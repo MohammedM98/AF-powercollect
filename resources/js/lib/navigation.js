@@ -7,9 +7,9 @@
 export const MAIN_LINKS = [
     { href: '/dashboard', label: 'لوحة التحكم', icon: 'grid' },
     { href: '/ledger', label: 'السجل المالي', icon: 'ledger', can: 'viewLedger' },
-    { href: '/receivables', label: 'أعمار الديون', icon: 'wallet', can: 'viewLedger' },
-    { href: '/transaction-audit', label: 'سجل التدقيق', icon: 'history', can: 'viewLedger' },
-    { href: '/branch-performance', label: 'أداء الفروع', icon: 'trend', can: 'viewLedger' },
+    { href: '/receivables', label: 'أعمار الديون', icon: 'wallet', can: 'viewDebtAging' },
+    { href: '/transaction-audit', label: 'سجل التدقيق', icon: 'history', can: 'viewTransactionAudit' },
+    { href: '/branch-performance', label: 'أداء الفروع', icon: 'trend', can: 'viewBranchPerformance' },
     { href: '/closings', label: 'الإغلاق', icon: 'scale', can: 'viewClosings' },
     { href: '/reports', label: 'التقارير', icon: 'receipt', can: 'viewClosings' },
     { href: '/subscribers', label: 'المشتركون', icon: 'users', can: 'viewSubscribers' },

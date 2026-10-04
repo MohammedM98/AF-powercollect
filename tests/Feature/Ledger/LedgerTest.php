@@ -245,7 +245,7 @@ class LedgerTest extends TestCase
     public function test_only_the_super_admin_and_the_branchs_own_staff_see_a_branchs_figures(): void
     {
         $viewer = User::factory()->collector()->create(['branch_id' => $this->branch->id]);
-        $viewer->permissions()->attach(Permission::idsFor([PermissionKey::ViewCollections]));
+        $viewer->permissions()->attach(Permission::idsFor([PermissionKey::ViewBranchPerformance]));
         $otherBranch = Branch::factory()->create();
 
         $this->assertTrue(User::factory()->superAdmin()->create()->can('viewForBranch', [SubscriberTransaction::class, $otherBranch]));

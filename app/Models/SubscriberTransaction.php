@@ -564,7 +564,21 @@ class SubscriberTransaction extends Model
 
         $isLast ??= $this->isLastTransaction($lockForUpdate);
         $hasPayment ??= $this->hasAppliedPayment($lockForUpdate);
-        $businessActions = $this->businessAvailableActions($isLast, $hasPayment);
+        $businessActions = $this->businessAvailableActions($isLast, $hasPayment, $lockForUpdate);
+
+        if (! $this->isAmendable($lockForUpdate)) {
+            $businessActions = array_values(array_filter(
+                $businessActions,
+                fn (TransactionAction $action): bool => $action !== TransactionAction::EditMetadata,
+            ));
+        }
+
+        if ($this->isPermanentDeletionLocked($lockForUpdate)) {
+            $businessActions = array_values(array_filter(
+                $businessActions,
+                fn (TransactionAction $action): bool => ! $action->isPermanentDeletion(),
+            ));
+        }
 
         return collect(TransactionAction::ordered())
             ->filter(fn (TransactionAction $action): bool => in_array($action, $businessActions, true) && $this->actorMay($actor, $action))
@@ -591,9 +605,11 @@ class SubscriberTransaction extends Model
             }
 
             $result = match ($action) {
-                TransactionAction::Edit => $line->applyAmountEdit($data),
+                TransactionAction::Edit => $line->applyAmountEdit($actor, $data),
                 TransactionAction::EditMetadata => $line->applyMetadataEdit($actor, $data),
                 TransactionAction::Delete => $line->applyHardDelete($actor, $data),
+                TransactionAction::DeleteReversal => $line->applyHardDelete($actor, $data),
+                TransactionAction::DeleteTree => $line->applyTreeDelete($actor, $data),
                 TransactionAction::Cancel => $line->applyCancellation($actor, $data),
                 TransactionAction::Refund => $line->applyRefund($actor, $data),
             };
@@ -605,12 +621,12 @@ class SubscriberTransaction extends Model
     }
 
     /** @return array<int, TransactionAction> */
-    private function businessAvailableActions(bool $isLast, bool $hasPayment): array
+    private function businessAvailableActions(bool $isLast, bool $hasPayment, bool $lockForUpdate): array
     {
         $metadataActions = $this->isPayment() ? [TransactionAction::EditMetadata] : [];
 
         if ($this->currentStatus() !== self::STATUS_ACTIVE) {
-            return $metadataActions;
+            return $this->isFullyReversed($lockForUpdate) ? [TransactionAction::DeleteTree] : [];
         }
 
         if (in_array($this->type, self::INVOICE_LIKE_TYPES, true)) {
@@ -619,14 +635,18 @@ class SubscriberTransaction extends Model
                 : [...$metadataActions, TransactionAction::Cancel];
         }
 
-        if (in_array($this->type, self::PAYMENT_LIKE_TYPES, true)) {
+        if ($this->isPayment()) {
             return $isLast
                 ? [...$metadataActions, TransactionAction::Delete]
                 : [...$metadataActions, TransactionAction::Refund];
         }
 
+        if (in_array($this->type, self::PAYMENT_LIKE_TYPES, true)) {
+            return $isLast ? [TransactionAction::Delete] : [TransactionAction::Cancel];
+        }
+
         if (in_array($this->type, self::REVERSAL_TYPES, true)) {
-            return $isLast ? [TransactionAction::Delete] : [];
+            return $isLast ? [TransactionAction::DeleteReversal] : [];
         }
 
         return $metadataActions;
@@ -636,7 +656,7 @@ class SubscriberTransaction extends Model
     {
         return match ($action) {
             TransactionAction::Edit, TransactionAction::EditMetadata => $actor->hasPermission(PermissionKey::CorrectTransactions),
-            TransactionAction::Delete => $actor->hasPermission(PermissionKey::DeleteTransactions)
+            TransactionAction::Delete, TransactionAction::DeleteReversal, TransactionAction::DeleteTree => $actor->hasPermission(PermissionKey::DeleteTransactions)
                 || $actor->hasPermission(PermissionKey::ForceDeleteTransactions),
             TransactionAction::Cancel, TransactionAction::Refund => $actor->hasPermission(PermissionKey::DeleteTransactions),
         };
@@ -670,9 +690,66 @@ class SubscriberTransaction extends Model
             ->exists();
     }
 
-    /** @param array<string, mixed> $data */
-    private function applyAmountEdit(array $data): self
+    private function isFullyReversed(bool $lockForUpdate = false): bool
     {
+        $hasCorrection = ! $lockForUpdate && $this->relationLoaded('correction')
+            ? $this->correction !== null
+            : self::query()
+                ->where('corrects_id', $this->id)
+                ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+                ->exists();
+
+        if ($hasCorrection) {
+            return false;
+        }
+
+        $reversals = ! $lockForUpdate && $this->relationLoaded('linkedReversals')
+            ? $this->linkedReversals->whereIn('type', self::REVERSAL_TYPES)
+            : self::query()
+                ->where('subscriber_id', $this->subscriber_id)
+                ->where(fn (Builder $query): Builder => $query
+                    ->where('reference_transaction_id', $this->id)
+                    ->orWhere('reverses_id', $this->id))
+                ->whereIn('type', self::REVERSAL_TYPES)
+                ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+                ->get();
+
+        return $reversals->isNotEmpty()
+            && Closing::cents($this->amount) + $reversals->sum(fn (self $reversal): int => Closing::cents($reversal->amount)) === 0;
+    }
+
+    private function isPermanentDeletionLocked(bool $lockForUpdate = false): bool
+    {
+        if (! $lockForUpdate) {
+            if ($this->reference_transaction_id !== null && $this->relationLoaded('referenceTransaction')) {
+                return $this->referenceTransaction?->isInClosedDay() ?? false;
+            }
+
+            if ($this->reverses_id !== null && $this->relationLoaded('reverses')) {
+                return $this->reverses?->isInClosedDay() ?? false;
+            }
+
+            if ($this->relationLoaded('closingLine')) {
+                return $this->isInClosedDay();
+            }
+        }
+
+        $originalId = $this->reference_transaction_id ?? $this->reverses_id ?? $this->id;
+
+        return ClosingPayment::query()
+            ->where('subscriber_transaction_id', $originalId)
+            ->whereHas('closing', fn (Builder $query): Builder => $query->whereIn('status', [
+                ClosingStatus::Submitted->value,
+                ClosingStatus::Approved->value,
+            ]))
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+            ->exists();
+    }
+
+    /** @param array<string, mixed> $data */
+    private function applyAmountEdit(User $actor, array $data): self
+    {
+        $oldAmount = $this->amount;
         $amount = number_format((float) $data['amount'], 2, '.', '');
         $balanceBefore = (float) self::query()
             ->where('subscriber_id', $this->subscriber_id)
@@ -683,6 +760,11 @@ class SubscriberTransaction extends Model
             'amount' => $amount,
             'currency_amount' => $this->currency_amount === null ? null : $amount,
             'balance_after' => number_format($balanceBefore + (float) $amount, 2, '.', ''),
+        ]);
+        $this->amendments()->create([
+            'user_id' => $actor->id,
+            'changes' => ['amount' => [$oldAmount, $amount]],
+            'reason' => trim((string) $data['amendment_reason']),
         ]);
 
         return $this;
@@ -733,7 +815,8 @@ class SubscriberTransaction extends Model
     /** @param array<string, mixed> $data */
     private function applyHardDelete(User $actor, array $data): ?self
     {
-        $original = $this->referenceTransaction()->lockForUpdate()->first();
+        $originalId = $this->reference_transaction_id ?? $this->reverses_id;
+        $original = $originalId === null ? null : self::query()->lockForUpdate()->find($originalId);
 
         if ($original !== null) {
             $updates = [
@@ -753,14 +836,63 @@ class SubscriberTransaction extends Model
         }
 
         Log::warning('Transaction hard deleted under ledger golden rule', [
+            'action' => $this->isReversal() ? TransactionAction::DeleteReversal->value : TransactionAction::Delete->value,
             'transaction' => $this->getAttributes(),
             'deleted_by' => $actor->only(['id', 'name', 'username']),
             'reason' => $data['correction_notes'] ?? null,
         ]);
 
         $this->delete();
+        self::recalculateBalances($this->subscriber_id);
 
         return null;
+    }
+
+    /** @param array<string, mixed> $data */
+    private function applyTreeDelete(User $actor, array $data): ?self
+    {
+        $reversals = self::query()
+            ->where('subscriber_id', $this->subscriber_id)
+            ->where(fn (Builder $query): Builder => $query
+                ->where('reference_transaction_id', $this->id)
+                ->orWhere('reverses_id', $this->id))
+            ->whereIn('type', self::REVERSAL_TYPES)
+            ->lockForUpdate()
+            ->get();
+        $deletedTransactions = collect([$this])
+            ->concat($reversals)
+            ->map(fn (self $transaction): array => $transaction->getAttributes())
+            ->all();
+
+        self::query()->where('corrects_id', $this->id)->update(['corrects_id' => null]);
+        $reversals->each->delete();
+        $this->delete();
+        self::recalculateBalances($this->subscriber_id);
+
+        Log::warning('Transaction tree hard deleted under ledger golden rule', [
+            'action' => TransactionAction::DeleteTree->value,
+            'transactions' => $deletedTransactions,
+            'deleted_by' => $actor->only(['id', 'name', 'username']),
+            'reason' => $data['correction_notes'] ?? null,
+        ]);
+
+        return null;
+    }
+
+    private static function recalculateBalances(int $subscriberId): void
+    {
+        $balanceInCents = 0;
+        $transactions = self::query()
+            ->where('subscriber_id', $subscriberId)
+            ->oldest('created_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($transactions as $transaction) {
+            $balanceInCents += Closing::cents($transaction->amount);
+            $transaction->updateQuietly(['balance_after' => Closing::money($balanceInCents)]);
+        }
     }
 
     /** @param array<string, mixed> $data */

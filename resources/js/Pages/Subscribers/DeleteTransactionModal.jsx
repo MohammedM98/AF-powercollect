@@ -15,22 +15,28 @@ import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './Correc
 export default function DeleteTransactionModal({ onClose, subscriber, balance, entry, action, reasons }) {
     const url = `/subscribers/${subscriber.id}/transactions/${entry.id}`;
     const isRefund = action === 'refund';
-    const form = useForm({ ...EMPTY_CORRECTION, action, ...(isRefund ? { amount: entry.amount } : {}) });
+    const noun = {
+        discount: 'الخصم',
+        reading_discount: 'الخصم الدائم',
+        credit: 'الرصيد الدائن',
+        clearing: 'المقاصة',
+    }[entry.type] ?? 'الحركة';
+    const label = isRefund ? 'إرجاع الدفعة' : `إلغاء ${noun}`;
+    const form = useForm({ ...EMPTY_CORRECTION, action, ...(isRefund ? { amount: entry.refundableAmount ?? entry.amount } : {}) });
     const deleteForm = { ...form, isEdit: true, save: (options) => form.post(`${url}/actions`, options) };
     const balanceAfter = describeBalance(isRefund ? Number(balance) + Number(form.data.amount || 0) : Number(balance) - Number(entry.recorded.effect));
     const balanceText = balanceAfter.tone === 'settled' ? 'مسدّدًا' : `${balanceAfter.amount} شيكل ${balanceAfter.label}`;
-    const label = isRefund ? 'إرجاع' : 'إلغاء';
 
     return (
         <FormModal
             show
             onClose={onClose}
             form={deleteForm}
-            title={`${label} الحركة`}
+            title={label}
             icon={isRefund ? 'repeat' : 'close'}
             maxWidth="xl"
             bodyClassName="space-y-5"
-            action={{ submitLabel: label, title: `${label} الحركة؟`, confirmLabel: `نعم، ${label}`, icon: isRefund ? 'repeat' : 'close', tone: 'danger' }}
+            action={{ submitLabel: label, title: `${label}؟`, confirmLabel: `نعم، ${label}`, icon: isRefund ? 'repeat' : 'close', tone: 'danger' }}
             saveConfirmMessage={`ستُضاف حركة ${label} مرتبطة بـ «${entry.description}»، ويصبح الرصيد ${balanceText}. هل تريد المتابعة؟`}
         >
             <OriginalLine entry={entry} tone="cancel" />
@@ -47,7 +53,7 @@ export default function DeleteTransactionModal({ onClose, subscriber, balance, e
                         name="amount"
                         type="number"
                         min="0.01"
-                        max={entry.amount}
+                        max={entry.refundableAmount ?? entry.amount}
                         step="0.01"
                         required
                         className="mt-1 block w-full"

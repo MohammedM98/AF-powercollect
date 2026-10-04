@@ -8,7 +8,7 @@ import { OriginalLine } from './CorrectionFields';
 
 /** Edit the amount of the final invoice-like transaction in place. */
 export default function EditTransactionAmountModal({ onClose, subscriber, balance, entry }) {
-    const form = useForm({ action: 'edit', amount: entry.amount });
+    const form = useForm({ action: 'edit', amount: entry.amount, amendment_reason: '' });
     const editForm = {
         ...form,
         isEdit: true,
@@ -46,6 +46,22 @@ export default function EditTransactionAmountModal({ onClose, subscriber, balanc
                     onChange={(event) => form.setData('amount', event.target.value)}
                 />
                 <InputError message={form.errors.amount ?? form.errors.action} className="mt-2" />
+            </div>
+
+            <div>
+                <InputLabel htmlFor="amendment_reason" value="سبب التعديل" />
+                <textarea
+                    id="amendment_reason"
+                    name="amendment_reason"
+                    rows={2}
+                    required
+                    maxLength={1000}
+                    className="mt-1 block w-full"
+                    placeholder="اكتب سبب تعديل المبلغ"
+                    value={form.data.amendment_reason}
+                    onChange={(event) => form.setData('amendment_reason', event.target.value)}
+                />
+                <InputError message={form.errors.amendment_reason} className="mt-2" />
             </div>
 
             <BalanceAfter label="الرصيد بعد التعديل" balanceAfter={balanceAfter} />

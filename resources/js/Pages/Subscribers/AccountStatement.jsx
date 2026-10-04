@@ -144,41 +144,68 @@ function hasLineActions(entry) {
     return entry.available_actions?.length > 0;
 }
 
-function lineActionsMenu(entry, onAction) {
-    const actionItems = {
+function transactionNoun(entry) {
+    return {
+        payment: 'الدفعة',
+        discount: 'الخصم',
+        reading_discount: 'الخصم الدائم',
+        credit: 'الرصيد الدائن',
+        clearing: 'المقاصة',
+    }[entry.type] ?? 'الحركة';
+}
+
+function actionItem(entry, action) {
+    const noun = transactionNoun(entry);
+
+    return {
         edit: {
-            label: 'تعديل',
-            description: 'تعديل المبلغ في مكانه — متاح لآخر حركة مؤهلة فقط',
+            label: 'تعديل المبلغ',
+            description: 'تعديل مبلغ آخر حركة مؤهلة وإعادة احتساب رصيدها',
             icon: 'pencil',
             tone: 'amber',
         },
         edit_metadata: {
-            label: 'تعديل البيانات',
-            description: 'البنك والمرجع والمرسل — الرصيد لا يتغيّر',
+            label: 'تعديل بيانات الدفعة',
+            description: 'البنك والمرجع والمرسل والملاحظات — الرصيد لا يتغيّر',
             icon: 'pencil',
             tone: 'blue',
         },
         delete: {
-            label: 'حذف',
-            description: 'آخر حركة فقط — تختفي بلا أي أثر',
+            label: `حذف ${noun}`,
+            description: 'حذف نهائي لآخر حركة فقط مع تسجيل السبب في سجل التدقيق',
+            icon: 'trash',
+            tone: 'red',
+        },
+        delete_reversal: {
+            label: entry.type === 'refund' ? 'حذف الإرجاع فقط' : 'حذف الإلغاء فقط',
+            description: 'تعود الحركة الأصلية إلى الحالة النشطة ويُعاد احتساب الرصيد',
+            icon: 'trash',
+            tone: 'red',
+        },
+        delete_tree: {
+            label: entry.type === 'payment' ? 'حذف الدفعة والإرجاع معًا' : `حذف ${noun} والإلغاء معًا`,
+            description: 'حذف الحركة الأصلية وكل الحركات المرتبطة بها وإعادة موازنة السجل',
             icon: 'trash',
             tone: 'red',
         },
         cancel: {
-            label: 'إلغاء',
-            description: 'إضافة حركة إلغاء مرتبطة بالحركة الأصلية',
+            label: `إلغاء ${noun}`,
+            description: `إضافة حركة إلغاء مرتبطة بـ${noun} في نهاية السجل`,
             icon: 'close',
             tone: 'brand',
         },
         refund: {
-            label: 'إرجاع',
-            description: 'إرجاع كامل أو جزئي وإضافة حركة مرتبطة',
+            label: 'إرجاع الدفعة',
+            description: 'إرجاع كامل أو جزئي وإضافة حركة مرتبطة بالدفعة',
             icon: 'repeat',
             tone: 'brand',
         },
-    };
+    }[action];
+}
+
+function lineActionsMenu(entry, onAction) {
     const items = (entry.available_actions ?? []).map((action) => ({
-        ...actionItems[action],
+        ...actionItem(entry, action),
         onSelect: () => onAction(action, entry),
     }));
 

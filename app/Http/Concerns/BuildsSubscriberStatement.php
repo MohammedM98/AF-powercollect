@@ -58,8 +58,8 @@ trait BuildsSubscriberStatement
                 'recordedBy',
                 'meterReading',
                 'cancelledBy',
-                'reverses.closingLine',
-                'referenceTransaction.closingLine',
+                'reverses.closingLine.closing',
+                'referenceTransaction.closingLine.closing',
                 'linkedReversals',
                 'corrects',
                 'correction',
@@ -274,7 +274,15 @@ trait BuildsSubscriberStatement
         $mayCancel = $hasDeletePermission || ($hasForceDeletePermission && $isLastLegacyLine);
         $eraseTarget = $transaction->isReversal() ? $transaction->reverses : $transaction;
         $availableActions = $transaction->availableActions($actor, $isLastTransaction, $hasPayment);
-        $linkedReversal = $transaction->linkedReversals->last();
+        $linkedReversals = $transaction->linkedReversals
+            ->whereIn('type', SubscriberTransaction::REVERSAL_TYPES)
+            ->values();
+        $linkedReversal = $linkedReversals->last();
+        $treeEffectInCents = $this->cents($transaction->amount)
+            + $linkedReversals->sum(fn (SubscriberTransaction $reversal): int => $this->cents($reversal->amount));
+        $refundedInCents = $linkedReversals
+            ->where('type', SubscriberTransaction::TYPE_REFUND)
+            ->sum(fn (SubscriberTransaction $refund): int => abs($this->cents($refund->amount)));
 
         return [
             'id' => $transaction->id,
@@ -295,6 +303,14 @@ trait BuildsSubscriberStatement
             'reference_transaction_id' => $transaction->reference_transaction_id,
             'balance_after' => $transaction->balance_after ?? $this->money($balanceInCents),
             'available_actions' => $availableActions,
+            'actionEffects' => [
+                'delete' => $transaction->amount,
+                'delete_reversal' => $transaction->amount,
+                'delete_tree' => $this->money($treeEffectInCents),
+            ],
+            'refundableAmount' => $transaction->isPayment()
+                ? $this->money(max(0, abs($this->cents($transaction->amount)) - $refundedInCents))
+                : null,
             'isCredit' => $transaction->isCredit(),
             'amount' => $transaction->currency_amount ?? ltrim($transaction->amount, '-'),
             'currencyLabel' => __($transaction->currency->label()),
@@ -327,6 +343,14 @@ trait BuildsSubscriberStatement
                 'lineNumber' => $lineNumbers[$linkedReversal->id] ?? null,
                 'type' => $linkedReversal->type,
             ] : null,
+            'linkedReversals' => $linkedReversals->map(fn (SubscriberTransaction $reversal): array => [
+                'id' => $reversal->id,
+                'lineNumber' => $lineNumbers[$reversal->id] ?? null,
+                'type' => $reversal->type,
+                'typeLabel' => $reversal->typeLabel(),
+                'description' => $reversal->description(),
+                'amount' => SubscriberTransaction::formatAmount(abs((float) $reversal->amount)),
+            ])->all(),
             // The line a replacement corrects, which stays further up the statement.
             'corrects' => $transaction->corrects ? [
                 'id' => $transaction->corrects->id,
@@ -386,6 +410,7 @@ trait BuildsSubscriberStatement
     private function amendmentFieldLabel(string $field): string
     {
         return match ($field) {
+            'amount' => 'المبلغ',
             'bank_name' => 'البنك المحوّل له',
             'sender_bank_name' => 'البنك المحوّل منه',
             'sender_name' => 'اسم المرسل',

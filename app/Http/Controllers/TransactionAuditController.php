@@ -55,7 +55,7 @@ class TransactionAuditController extends Controller
 
     public function index(Request $request): InertiaResponse
     {
-        $this->authorize('viewAny', SubscriberTransaction::class);
+        $this->authorize('viewTransactionAudit', SubscriberTransaction::class);
 
         $actor = $request->user();
         $period = $this->period($request);

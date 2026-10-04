@@ -274,5 +274,9 @@
     "Sent": "أُرسلت",
     "Failed": "فشلت",
     "Manage Print Templates": "إدارة قوالب الطباعة",
-    "Print Templates": "قوالب الطباعة"
+    "Print Templates": "قوالب الطباعة",
+    "View Branch Performance": "عرض أداء الفروع",
+    "View Debt Aging": "عرض أعمار الديون",
+    "View Audit Log": "عرض سجل التدقيق",
+    "Reports": "التقارير"
 }

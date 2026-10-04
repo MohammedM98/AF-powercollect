@@ -38,24 +38,22 @@ class PermissionController extends Controller
         $actor = $request->user();
         $grantablePermissionIds = $this->grantablePermissionIds($actor);
 
-        $query = $this->manageableUsers($actor)->with('branch');
+        $query = $this->manageableUsers($actor)->with(['branch', 'permissions']);
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
         $this->applyDataTableFilterSelects($query, $request, ['role', 'branch_id']);
 
         $users = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
-            ->through(fn (User $user) => $this->employeeSummary($user));
+            ->through(fn (User $user) => $this->employeeSummary($user, $grantablePermissionIds));
 
         $findManageable = fn (int $id) => $this->manageableUsers($actor)->with(['branch', 'permissions'])->find($id);
         $selectedUser = $findManageable($request->integer('selected')) ?? $findManageable($users->first()['id'] ?? 0);
 
         return Inertia::render('Settings/Permissions', [
             'users' => $users,
-            'selectedUser' => $selectedUser ? [
-                ...$this->employeeSummary($selectedUser),
-                'permissionIds' => array_values(array_intersect($selectedUser->permissions->modelKeys(), $grantablePermissionIds)),
-            ] : null,
+            'selectedUser' => $selectedUser ? $this->employeeSummary($selectedUser, $grantablePermissionIds) : null,
             'permissionGroups' => $this->permissionGroups($actor),
+            'roleTemplates' => $this->roleTemplates($actor, $grantablePermissionIds),
             'scopedToOwnBranch' => ! $actor->isSuperAdmin(),
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => $this->filterOptions($actor),
@@ -104,19 +102,49 @@ class PermissionController extends Controller
     }
 
     /**
-     * How an employee appears in the list and above the editor.
+     * How an employee appears in the list and above the editor, with the
+     * permissions they hold that the actor may change — the ones the
+     * editor shows, counts, and copies to another employee.
      *
-     * @return array{id: int, name: string, username: string, roleLabel: string, branchName: ?string}
+     * @param  array<int, int>  $grantablePermissionIds
+     * @return array{id: int, name: string, username: string, role: string, roleLabel: string, branchName: ?string, permissionIds: array<int, int>}
      */
-    private function employeeSummary(User $user): array
+    private function employeeSummary(User $user, array $grantablePermissionIds): array
     {
         return [
             'id' => $user->id,
             'name' => $user->name,
             'username' => $user->username,
+            'role' => $user->role->value,
             'roleLabel' => __($user->role->label()),
             'branchName' => $user->branch?->name,
+            'permissionIds' => array_values(array_intersect($user->permissions->modelKeys(), $grantablePermissionIds)),
         ];
+    }
+
+    /**
+     * Each role the actor may manage, with its usual permissions
+     * (UserRole::starterPermissions) among those the actor may grant: the
+     * template an employee's permissions can be reset to, and what marks
+     * an employee's permissions as customised.
+     *
+     * @param  array<int, int>  $grantablePermissionIds
+     * @return array<int, array{role: string, label: string, permissionIds: array<int, int>}>
+     */
+    private function roleTemplates(User $actor, array $grantablePermissionIds): array
+    {
+        $roles = $actor->isSuperAdmin() ? UserRole::assignableBySuperAdmin() : UserRole::staffRoles();
+        $idsByKey = Permission::query()->pluck('id', 'key');
+
+        return array_map(fn (UserRole $role): array => [
+            'role' => $role->value,
+            'label' => __($role->label()),
+            'permissionIds' => collect($role->starterPermissions())
+                ->map(fn (PermissionKey $key): ?int => isset($idsByKey[$key->value]) ? (int) $idsByKey[$key->value] : null)
+                ->filter(fn (?int $id): bool => in_array($id, $grantablePermissionIds, true))
+                ->values()
+                ->all(),
+        ], $roles);
     }
 
     /**

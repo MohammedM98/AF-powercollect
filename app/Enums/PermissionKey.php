@@ -69,6 +69,10 @@ enum PermissionKey: string
     case AuditClosings = 'closings.audit';
     case ViewAllClosings = 'closings.view_all';
 
+    case ViewBranchPerformance = 'reports.branch_performance';
+    case ViewDebtAging = 'reports.debt_aging';
+    case ViewTransactionAudit = 'reports.transaction_audit';
+
     case ViewMessages = 'messages.view';
     case SendMessages = 'messages.send';
 
@@ -131,6 +135,9 @@ enum PermissionKey: string
             self::PrepareClosings => 'Prepare Closings',
             self::AuditClosings => 'Audit Closings',
             self::ViewAllClosings => 'View All Closings and Reports',
+            self::ViewBranchPerformance => 'View Branch Performance',
+            self::ViewDebtAging => 'View Debt Aging',
+            self::ViewTransactionAudit => 'View Audit Log',
             self::ViewMessages => 'View Messages',
             self::SendMessages => 'Send Messages',
             self::ManagePrintTemplates => 'Manage Print Templates',
@@ -161,7 +168,8 @@ enum PermissionKey: string
 
     /**
      * Every permission key, grouped by the table/resource it governs, for
-     * rendering the Settings → Permissions matrix. Each group lists its
+     * rendering the Settings → Permissions matrix, in the order it reads:
+     * everyday work, then money, reports and messages, then administration. Each group lists its
      * columns in display order as [action => PermissionKey]; a resource
      * that has no grantable key for a given action (e.g. Collections has no
      * "create" — it's recorded/confirmed instead) simply omits that action.
@@ -171,18 +179,6 @@ enum PermissionKey: string
     public static function resourceGroups(): array
     {
         return [
-            'branches' => [
-                'label' => 'Branches',
-                'actions' => ['view' => self::ViewBranches, 'create' => self::CreateBranches, 'update' => self::UpdateBranches, 'delete' => self::DeleteBranches],
-            ],
-            'users' => [
-                'label' => 'Users',
-                'actions' => ['view' => self::ViewUsers, 'create' => self::CreateUsers, 'update' => self::UpdateUsers, 'delete' => self::DeleteUsers],
-            ],
-            'user_types' => [
-                'label' => 'User Types',
-                'actions' => ['view' => self::ViewUserTypes, 'create' => self::CreateUserTypes, 'update' => self::UpdateUserTypes, 'delete' => self::DeleteUserTypes],
-            ],
             'subscribers' => [
                 'label' => 'Subscribers',
                 'actions' => [
@@ -193,10 +189,6 @@ enum PermissionKey: string
                     'minimum_charge' => self::UpdateSubscriberMinimumCharge,
                 ],
             ],
-            'tariffs' => [
-                'label' => 'Tariffs',
-                'actions' => ['view' => self::ViewTariffs, 'create' => self::CreateTariffs, 'update' => self::UpdateTariffs, 'delete' => self::DeleteTariffs],
-            ],
             'meter_boxes' => [
                 'label' => 'Meter Boxes',
                 'actions' => ['view' => self::ViewMeterBoxes, 'create' => self::CreateMeterBoxes, 'update' => self::UpdateMeterBoxes, 'delete' => self::DeleteMeterBoxes],
@@ -205,17 +197,9 @@ enum PermissionKey: string
                 'label' => 'Circuit Breakers',
                 'actions' => ['view' => self::ViewCircuitBreakers, 'create' => self::CreateCircuitBreakers, 'update' => self::UpdateCircuitBreakers, 'delete' => self::DeleteCircuitBreakers],
             ],
-            'areas' => [
-                'label' => 'Areas',
-                'actions' => ['view' => self::ViewAreas, 'create' => self::CreateAreas, 'update' => self::UpdateAreas, 'delete' => self::DeleteAreas],
-            ],
-            'sub_areas' => [
-                'label' => 'Sub Areas',
-                'actions' => ['view' => self::ViewSubAreas, 'create' => self::CreateSubAreas, 'update' => self::UpdateSubAreas, 'delete' => self::DeleteSubAreas],
-            ],
-            'governorates' => [
-                'label' => 'Governorates',
-                'actions' => ['view' => self::ViewGovernorates, 'create' => self::CreateGovernorates, 'update' => self::UpdateGovernorates, 'delete' => self::DeleteGovernorates],
+            'tariffs' => [
+                'label' => 'Tariffs',
+                'actions' => ['view' => self::ViewTariffs, 'create' => self::CreateTariffs, 'update' => self::UpdateTariffs, 'delete' => self::DeleteTariffs],
             ],
             'meter_readings' => [
                 'label' => 'Meter Readings',
@@ -237,6 +221,14 @@ enum PermissionKey: string
                 'label' => 'Closings',
                 'actions' => ['prepare' => self::PrepareClosings, 'view_all' => self::ViewAllClosings, 'audit' => self::AuditClosings],
             ],
+            'reports' => [
+                'label' => 'Reports',
+                'actions' => [
+                    'branch_performance' => self::ViewBranchPerformance,
+                    'debt_aging' => self::ViewDebtAging,
+                    'transaction_audit' => self::ViewTransactionAudit,
+                ],
+            ],
             'messages' => [
                 'label' => 'Messages',
                 'actions' => ['view' => self::ViewMessages, 'send' => self::SendMessages],
@@ -244,6 +236,30 @@ enum PermissionKey: string
             'print_templates' => [
                 'label' => 'Print Templates',
                 'actions' => ['manage' => self::ManagePrintTemplates],
+            ],
+            'users' => [
+                'label' => 'Users',
+                'actions' => ['view' => self::ViewUsers, 'create' => self::CreateUsers, 'update' => self::UpdateUsers, 'delete' => self::DeleteUsers],
+            ],
+            'user_types' => [
+                'label' => 'User Types',
+                'actions' => ['view' => self::ViewUserTypes, 'create' => self::CreateUserTypes, 'update' => self::UpdateUserTypes, 'delete' => self::DeleteUserTypes],
+            ],
+            'branches' => [
+                'label' => 'Branches',
+                'actions' => ['view' => self::ViewBranches, 'create' => self::CreateBranches, 'update' => self::UpdateBranches, 'delete' => self::DeleteBranches],
+            ],
+            'governorates' => [
+                'label' => 'Governorates',
+                'actions' => ['view' => self::ViewGovernorates, 'create' => self::CreateGovernorates, 'update' => self::UpdateGovernorates, 'delete' => self::DeleteGovernorates],
+            ],
+            'areas' => [
+                'label' => 'Areas',
+                'actions' => ['view' => self::ViewAreas, 'create' => self::CreateAreas, 'update' => self::UpdateAreas, 'delete' => self::DeleteAreas],
+            ],
+            'sub_areas' => [
+                'label' => 'Sub Areas',
+                'actions' => ['view' => self::ViewSubAreas, 'create' => self::CreateSubAreas, 'update' => self::UpdateSubAreas, 'delete' => self::DeleteSubAreas],
             ],
         ];
     }

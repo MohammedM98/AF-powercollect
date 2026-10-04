@@ -41,12 +41,15 @@ class ReceivablesTest extends TestCase
         $this->get(route('receivables.index'))->assertRedirect(route('login'));
     }
 
-    public function test_the_report_takes_the_view_collections_permission(): void
+    public function test_the_report_takes_its_own_view_debt_aging_permission(): void
     {
         $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
         $this->actingAs($dataEntry)->get(route('receivables.index'))->assertForbidden();
 
         $dataEntry->permissions()->attach(Permission::idsFor([PermissionKey::ViewCollections]));
+        $this->actingAs($dataEntry->fresh())->get(route('receivables.index'))->assertForbidden();
+
+        $dataEntry->permissions()->attach(Permission::idsFor([PermissionKey::ViewDebtAging]));
         $this->actingAs($dataEntry->fresh())->get(route('receivables.index'))->assertOk();
     }
 

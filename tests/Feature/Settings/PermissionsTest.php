@@ -4,6 +4,7 @@ namespace Tests\Feature\Settings;
 
 use App\Enums\PermissionKey;
 use App\Enums\SubscriberStatus;
+use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\Tariff;
@@ -135,8 +136,8 @@ class PermissionsTest extends TestCase
         $response = $this->actingAs($superAdmin)->get(route('settings.permissions.edit'));
 
         $response->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
-            'branches', 'users', 'user_types', 'subscribers', 'tariffs', 'meter_boxes', 'circuit_breakers',
-            'areas', 'sub_areas', 'governorates', 'meter_readings', 'collections', 'closings', 'messages', 'print_templates',
+            'subscribers', 'meter_boxes', 'circuit_breakers', 'tariffs', 'meter_readings', 'collections', 'closings', 'reports',
+            'messages', 'print_templates', 'users', 'user_types', 'branches', 'governorates', 'areas', 'sub_areas',
         ]));
     }
 
@@ -149,7 +150,7 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect($groups)
-                ->reject(fn (array $group): bool => in_array($group['key'], ['meter_readings', 'collections', 'closings', 'messages', 'print_templates'], true))
+                ->reject(fn (array $group): bool => in_array($group['key'], ['meter_readings', 'collections', 'closings', 'reports', 'messages', 'print_templates'], true))
                 ->every(fn (array $group): bool => collect($group['actions'])->contains('action', 'delete')),
         ));
     }
@@ -194,7 +195,7 @@ class PermissionsTest extends TestCase
 
         $response->assertInertia(fn ($page) => $page
             ->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
-                'users', 'subscribers', 'tariffs', 'meter_boxes', 'circuit_breakers', 'sub_areas', 'meter_readings', 'collections', 'closings', 'messages',
+                'subscribers', 'meter_boxes', 'circuit_breakers', 'tariffs', 'meter_readings', 'collections', 'closings', 'reports', 'messages', 'users', 'sub_areas',
             ])
             ->where('selectedUser.permissionIds', [$viewSubscribers->id]));
     }
@@ -293,6 +294,29 @@ class PermissionsTest extends TestCase
             ->where('selectedUser.id', $selected->id)
             ->where('selectedUser.name', 'Zed Collector')
             ->where('selectedUser.permissionIds', [$viewBranches->id]));
+    }
+
+    public function test_the_page_lists_each_employees_permissions_and_each_roles_usual_ones_the_actor_may_grant(): void
+    {
+        $this->seedPermissions();
+        $branch = Branch::factory()->create();
+        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $branch->id]);
+        $viewAreas = Permission::where('key', PermissionKey::ViewAreas->value)->firstOrFail();
+        $dataEntry->permissions()->attach($viewAreas);
+        $idsOf = fn (array $keys): array => Permission::whereIn('key', array_map(fn (PermissionKey $key) => $key->value, $keys))->pluck('id')->sort()->values()->all();
+        $sorted = fn (array $ids): array => collect($ids)->sort()->values()->all();
+
+        $this->actingAs($branchAdmin)
+            ->get(route('settings.permissions.edit'))
+            ->assertInertia(fn ($page) => $page
+                ->where('users.data.0.role', 'data_entry')
+                // A company-wide grant from the Super Admin isn't the Branch Admin's to show or count.
+                ->where('users.data.0.permissionIds', fn ($ids): bool => $sorted($ids->all()) === $idsOf(UserRole::DataEntry->starterPermissions()))
+                ->where('roleTemplates', fn ($templates): bool => collect($templates)->pluck('role')->all() === ['collector', 'data_entry', 'accountant', 'financial_auditor'])
+                ->where('roleTemplates.1.permissionIds', fn ($ids): bool => $sorted($ids->all()) === $idsOf(UserRole::DataEntry->starterPermissions()))
+                // The Financial Auditor's usual permission is company-wide, so a Branch Admin's template for it is empty.
+                ->where('roleTemplates.3.permissionIds', []));
     }
 
     public function test_branch_admin_cannot_open_another_branchs_employee_in_the_editor(): void

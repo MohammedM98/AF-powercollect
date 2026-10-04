@@ -8,7 +8,9 @@ use App\Models\MeterReading;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\User;
+use App\Notifications\ReadingNeedsReapproval;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class StatementReadingCorrectionTest extends TestCase
@@ -105,6 +107,48 @@ class StatementReadingCorrectionTest extends TestCase
         $this->actingAs($accountant)
             ->get(route('subscribers.statement', $this->subscriber))
             ->assertInertia(fn ($page) => $page->where('entries.0.reading', null));
+    }
+
+    public function test_someone_who_may_approve_readings_can_correct_and_approve_in_one_step(): void
+    {
+        Notification::fake();
+        $line = $this->readingLine();
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page->where('entries.0.reading.canApprove', true));
+
+        $this->actingAs($this->branchAdmin)
+            ->from(route('subscribers.statement', $this->subscriber))
+            ->put(route('meter-readings.update', $this->reading), ['current_reading' => '1100', 'approve' => true])
+            ->assertRedirect(route('subscribers.statement', $this->subscriber))
+            ->assertSessionHas('status', 'meter-reading-corrected-approved');
+
+        $this->assertNotNull($line->refresh()->cancelled_at);
+        $this->assertSame(MeterReadingStatus::Approved, $this->reading->refresh()->status);
+        $replacement = SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->sole();
+        $this->assertSame($line->id, $replacement->corrects_id);
+        $this->assertSame((float) $this->reading->amountBeforeDiscount(), (float) $replacement->amount);
+        $this->assertSame(round((float) $replacement->amount, 2), $this->subscriber->balance());
+        Notification::assertNotSentTo($this->reading->approvers(), ReadingNeedsReapproval::class);
+    }
+
+    public function test_asking_to_approve_without_the_permission_still_sends_the_reading_back_for_approval(): void
+    {
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->subscriber->branch_id]);
+        $line = $this->readingLine();
+
+        $this->actingAs($dataEntry)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page->where('entries.0.reading.canCorrect', true)->where('entries.0.reading.canApprove', false));
+
+        $this->actingAs($dataEntry)
+            ->put(route('meter-readings.update', $this->reading), ['current_reading' => '1100', 'approve' => true])
+            ->assertSessionHas('status', 'meter-reading-reopened');
+
+        $this->assertNotNull($line->refresh()->cancelled_at);
+        $this->assertSame(MeterReadingStatus::Pending, $this->reading->refresh()->status);
+        $this->assertSame(0, SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->count());
     }
 
     private function approvedReading(string $weekStart, string $weekEnd, int $previous, int $current, string $amountDue): MeterReading

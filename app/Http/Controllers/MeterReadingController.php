@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -151,18 +152,34 @@ class MeterReadingController extends Controller
     /**
      * Correct a reading, recalculating its charges from the price and
      * minimum captured when it was first recorded. Correcting an approved
-     * reading sends it back for approval and tells the people who approve.
+     * reading sends it back for approval and tells the people who approve —
+     * unless the corrector may approve it and asks to (`approve`, as the
+     * statement's form does), when it is approved again at once and billed
+     * at the corrected amount, all or nothing.
      */
     public function update(UpdateMeterReadingRequest $request, MeterReading $meterReading): RedirectResponse
     {
         $actor = $request->user();
-        $wentBackToReview = $meterReading->correct(
-            $request->float('current_reading'),
-            $request->has('notes') ? $request->input('notes') : $meterReading->notes,
-            $actor,
-        );
+        [$wentBackToReview, $approvedAgain] = DB::transaction(function () use ($request, $meterReading, $actor): array {
+            $wentBackToReview = $meterReading->correct(
+                $request->float('current_reading'),
+                $request->has('notes') ? $request->input('notes') : $meterReading->notes,
+                $actor,
+            );
+            $approvedAgain = $wentBackToReview && $request->boolean('approve') && $actor->can('approve', $meterReading);
+
+            if ($approvedAgain) {
+                $meterReading->approve($actor);
+            }
+
+            return [$wentBackToReview, $approvedAgain];
+        });
 
         $actor->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscriber->displayName()));
+
+        if ($approvedAgain) {
+            return back()->with('status', 'meter-reading-corrected-approved');
+        }
 
         if (! $wentBackToReview) {
             return back()->with('status', 'meter-reading-updated');

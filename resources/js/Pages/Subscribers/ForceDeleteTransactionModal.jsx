@@ -12,8 +12,8 @@ import { OriginalLine } from './CorrectionFields';
  * the balance is as if it was never recorded. Only the reason is logged.
  */
 export default function ForceDeleteTransactionModal({ onClose, subscriber, balance, entry }) {
-    const form = useForm({ correction_notes: '' });
-    const eraseForm = { ...form, isEdit: true, save: (options) => form.delete(`/subscribers/${subscriber.id}/transactions/${entry.id}/permanent`, options) };
+    const form = useForm({ action: 'delete', correction_notes: '' });
+    const eraseForm = { ...form, isEdit: true, save: (options) => form.post(`/subscribers/${subscriber.id}/transactions/${entry.id}/actions`, options) };
     const balanceAfter = describeBalance(Number(balance) - Number(entry.eraseEffect));
     const balanceText = balanceAfter.tone === 'settled' ? 'مسدّدًا' : `${balanceAfter.amount} شيكل ${balanceAfter.label}`;
 

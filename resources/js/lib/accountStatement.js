@@ -58,54 +58,6 @@ export function filterStatementEntries(entries, { search = '', type = '', method
 }
 
 /**
- * Folds each corrected or deleted line away under the line that stands for
- * it: its reversal, the newest line of its group. (A corrected line's
- * replacement is a group of its own, further down the statement.) `entries` is the whole
- * statement, `visibleEntries` the lines the filters leave, and
- * `collapsedGroups` the groups (by `groupId`) manually folded. Every
- * correction is unfolded by default. Folding hides
- * only lines that cancel each other out, so no balance shown changes. A
- * line whose stand-in the filters hide
- * is shown anyway. Each line comes back with `history`: null for a line
- * never corrected or deleted, else how many lines its group hides, whether
- * the group is open, whether its first line was corrected (rather than
- * deleted), and whether this is the line that stands for it.
- */
-export function foldCorrections(entries, visibleEntries, collapsedGroups) {
-    const groups = new Map();
-
-    entries.forEach((entry) => groups.set(entry.groupId, [...(groups.get(entry.groupId) ?? []), entry]));
-
-    const heads = new Map();
-
-    groups.forEach((lines, groupId) => {
-        if (lines.length > 1) {
-            heads.set(groupId, lines.at(-1).id);
-        }
-    });
-
-    const visibleIds = new Set(visibleEntries.map((entry) => entry.id));
-
-    return visibleEntries
-        .filter((entry) => {
-            const head = heads.get(entry.groupId);
-
-            return head === undefined || head === entry.id || !collapsedGroups.has(entry.groupId) || !visibleIds.has(head);
-        })
-        .map((entry) => ({
-            ...entry,
-            history: heads.has(entry.groupId)
-                ? {
-                      hiddenCount: groups.get(entry.groupId).length - 1,
-                      wasCorrected: Boolean(groups.get(entry.groupId)[0].cancellation?.wasCorrected),
-                      expanded: !collapsedGroups.has(entry.groupId),
-                      isHead: heads.get(entry.groupId) === entry.id,
-                  }
-                : null,
-        }));
-}
-
-/**
  * How a balance reads: a positive balance is what the subscriber owes
  * (عليه), a negative one is credit in their favour (له).
  */

@@ -8,6 +8,8 @@ use App\Enums\CorrectionReason;
 use App\Enums\Currency;
 use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
+use App\Enums\PermissionKey;
+use App\Enums\TransactionAction;
 use Closure;
 use Database\Factories\SubscriberTransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -38,14 +40,19 @@ use Illuminate\Validation\ValidationException;
  */
 #[Fillable([
     'subscriber_id',
+    'branch_id',
     'recorded_by',
+    'employee_id',
     'meter_reading_id',
     'reverses_id',
     'corrects_id',
+    'reference_transaction_id',
     'type',
+    'status',
     'source_key',
     'mobile_operation_id',
     'amount',
+    'balance_after',
     'currency',
     'currency_amount',
     'exchange_rate',
@@ -81,6 +88,12 @@ class SubscriberTransaction extends Model
     /** Money the subscriber paid. */
     public const TYPE_PAYMENT = 'payment';
 
+    /** A generic amount charged to the subscription. */
+    public const TYPE_INVOICE = 'invoice';
+
+    /** An adjustment in the subscriber's favour. */
+    public const TYPE_CREDIT = 'credit';
+
     /** An amount taken off what the subscriber owes. */
     public const TYPE_DISCOUNT = 'discount';
 
@@ -102,11 +115,41 @@ class SubscriberTransaction extends Model
      */
     public const TYPE_REVERSAL = 'reversal';
 
+    /** A reversal of an invoice-like transaction. */
+    public const TYPE_CANCELLATION = 'cancellation';
+
+    /** A full or partial reversal of a payment-like transaction. */
+    public const TYPE_REFUND = 'refund';
+
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUS_LINKED_CANCELLATION = 'linked_cancellation';
+
     /**
      * The lines in the subscriber's favour (له); every other type is a
      * charge (عليه).
      */
-    public const CREDIT_TYPES = [self::TYPE_PAYMENT, self::TYPE_DISCOUNT, self::TYPE_READING_DISCOUNT, self::TYPE_CLEARING];
+    public const CREDIT_TYPES = [self::TYPE_PAYMENT, self::TYPE_CREDIT, self::TYPE_DISCOUNT, self::TYPE_READING_DISCOUNT, self::TYPE_CLEARING];
+
+    public const INVOICE_LIKE_TYPES = [
+        self::TYPE_INVOICE,
+        self::TYPE_METER_READING,
+        self::TYPE_SUBSCRIPTION_FEE,
+        'penalty',
+        'disconnection_fee',
+    ];
+
+    public const PAYMENT_LIKE_TYPES = [
+        self::TYPE_PAYMENT,
+        self::TYPE_CREDIT,
+        self::TYPE_DISCOUNT,
+        self::TYPE_READING_DISCOUNT,
+        self::TYPE_CLEARING,
+    ];
+
+    public const REVERSAL_TYPES = [self::TYPE_REVERSAL, self::TYPE_CANCELLATION, self::TYPE_REFUND];
 
     /** Payment details that may change without touching its financial meaning. */
     public const AMENDABLE_FIELDS = ['bank_name', 'sender_bank_name', 'sender_name', 'reference_number', 'notes'];
@@ -115,6 +158,7 @@ class SubscriberTransaction extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'balance_after' => 'decimal:2',
             'currency' => Currency::class,
             'currency_amount' => 'decimal:2',
             'exchange_rate' => 'decimal:4',
@@ -125,6 +169,24 @@ class SubscriberTransaction extends Model
             'cancelled_at' => 'datetime',
             'cancellation_reason' => CorrectionReason::class,
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $transaction): void {
+            $transaction->status ??= self::STATUS_ACTIVE;
+            $transaction->employee_id ??= $transaction->recorded_by;
+            $transaction->reference_transaction_id ??= $transaction->reverses_id;
+            $transaction->branch_id ??= $transaction->subscriber()->value('branch_id');
+
+            if ($transaction->balance_after === null && $transaction->subscriber_id !== null) {
+                $currentBalance = (float) self::query()
+                    ->where('subscriber_id', $transaction->subscriber_id)
+                    ->sum('amount');
+
+                $transaction->balance_after = number_format($currentBalance + (float) $transaction->amount, 2, '.', '');
+            }
+        });
     }
 
     /**
@@ -286,6 +348,7 @@ class SubscriberTransaction extends Model
             }
 
             $line->update([
+                'status' => self::STATUS_CANCELLED,
                 'cancelled_at' => now(),
                 'cancelled_by' => $actor->id,
                 'cancellation_reason' => $reason,
@@ -487,14 +550,300 @@ class SubscriberTransaction extends Model
         return $this->manual_voucher_number ?: $this->printedVoucherNumber();
     }
 
+    /**
+     * The canonical actions the current user may submit for this transaction.
+     * Business rules and permissions are both decided on the server.
+     *
+     * @return array<int, string>
+     */
+    public function availableActions(User $actor, ?bool $isLast = null, ?bool $hasPayment = null, bool $lockForUpdate = false): array
+    {
+        if (! $actor->isSuperAdmin() && $this->subscriber->branch_id !== $actor->branch_id) {
+            return [];
+        }
+
+        $isLast ??= $this->isLastTransaction($lockForUpdate);
+        $hasPayment ??= $this->hasAppliedPayment($lockForUpdate);
+        $businessActions = $this->businessAvailableActions($isLast, $hasPayment);
+
+        return collect(TransactionAction::ordered())
+            ->filter(fn (TransactionAction $action): bool => in_array($action, $businessActions, true) && $this->actorMay($actor, $action))
+            ->map(fn (TransactionAction $action): string => $action->value)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Apply one of the five canonical actions after locking and validating
+     * the transaction against a freshly computed available-actions list.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function applyAction(User $actor, TransactionAction $action, array $data): ?self
+    {
+        return DB::transaction(function () use ($actor, $action, $data): ?self {
+            $line = self::query()->with('subscriber')->lockForUpdate()->findOrFail($this->id);
+            $isLast = $line->isLastTransaction(lockForUpdate: true);
+            $hasPayment = $line->hasAppliedPayment(lockForUpdate: true);
+
+            if (! in_array($action->value, $line->availableActions($actor, $isLast, $hasPayment, lockForUpdate: true), true)) {
+                throw ValidationException::withMessages(['action' => 'هذا الإجراء غير مسموح لهذه الحركة.']);
+            }
+
+            $result = match ($action) {
+                TransactionAction::Edit => $line->applyAmountEdit($data),
+                TransactionAction::EditMetadata => $line->applyMetadataEdit($actor, $data),
+                TransactionAction::Delete => $line->applyHardDelete($actor, $data),
+                TransactionAction::Cancel => $line->applyCancellation($actor, $data),
+                TransactionAction::Refund => $line->applyRefund($actor, $data),
+            };
+
+            $this->setRawAttributes($line->getAttributes(), true);
+
+            return $result;
+        });
+    }
+
+    /** @return array<int, TransactionAction> */
+    private function businessAvailableActions(bool $isLast, bool $hasPayment): array
+    {
+        $metadataActions = $this->isPayment() ? [TransactionAction::EditMetadata] : [];
+
+        if ($this->currentStatus() !== self::STATUS_ACTIVE) {
+            return $metadataActions;
+        }
+
+        if (in_array($this->type, self::INVOICE_LIKE_TYPES, true)) {
+            return $isLast && ! $hasPayment
+                ? [TransactionAction::Edit, ...$metadataActions, TransactionAction::Delete]
+                : [...$metadataActions, TransactionAction::Cancel];
+        }
+
+        if (in_array($this->type, self::PAYMENT_LIKE_TYPES, true)) {
+            return $isLast
+                ? [...$metadataActions, TransactionAction::Delete]
+                : [...$metadataActions, TransactionAction::Refund];
+        }
+
+        if (in_array($this->type, self::REVERSAL_TYPES, true)) {
+            return $isLast ? [TransactionAction::Delete] : [];
+        }
+
+        return $metadataActions;
+    }
+
+    private function actorMay(User $actor, TransactionAction $action): bool
+    {
+        return match ($action) {
+            TransactionAction::Edit, TransactionAction::EditMetadata => $actor->hasPermission(PermissionKey::CorrectTransactions),
+            TransactionAction::Delete => $actor->hasPermission(PermissionKey::DeleteTransactions)
+                || $actor->hasPermission(PermissionKey::ForceDeleteTransactions),
+            TransactionAction::Cancel, TransactionAction::Refund => $actor->hasPermission(PermissionKey::DeleteTransactions),
+        };
+    }
+
+    private function currentStatus(): string
+    {
+        if ($this->status !== null) {
+            return $this->status;
+        }
+
+        return $this->cancelled_at === null ? self::STATUS_ACTIVE : self::STATUS_CANCELLED;
+    }
+
+    public function isLastTransaction(bool $lockForUpdate = false): bool
+    {
+        return self::query()
+            ->where('subscriber_id', $this->subscriber_id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+            ->value('id') === $this->id;
+    }
+
+    private function hasAppliedPayment(bool $lockForUpdate = false): bool
+    {
+        return self::query()
+            ->where('reference_transaction_id', $this->id)
+            ->whereIn('type', self::PAYMENT_LIKE_TYPES)
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+            ->exists();
+    }
+
+    /** @param array<string, mixed> $data */
+    private function applyAmountEdit(array $data): self
+    {
+        $amount = number_format((float) $data['amount'], 2, '.', '');
+        $balanceBefore = (float) self::query()
+            ->where('subscriber_id', $this->subscriber_id)
+            ->whereKeyNot($this->id)
+            ->sum('amount');
+
+        $this->update([
+            'amount' => $amount,
+            'currency_amount' => $this->currency_amount === null ? null : $amount,
+            'balance_after' => number_format($balanceBefore + (float) $amount, 2, '.', ''),
+        ]);
+
+        return $this;
+    }
+
+    /** @param array<string, mixed> $data */
+    private function applyMetadataEdit(User $actor, array $data): self
+    {
+        $fields = array_intersect_key($data, array_flip(self::AMENDABLE_FIELDS));
+        $activeReference = array_key_exists('reference_number', $fields)
+            ? self::normalizeReference($fields['reference_number'])
+            : $this->active_reference;
+        self::ensureReferenceIsAvailable($activeReference, $this->id);
+
+        $changes = [];
+        $updates = [];
+
+        foreach ($fields as $field => $value) {
+            $oldValue = $this->getAttribute($field);
+            $newValue = filled($value) ? trim((string) $value) : null;
+
+            if ((string) ($oldValue ?? '') === (string) ($newValue ?? '')) {
+                continue;
+            }
+
+            $changes[$field] = [$oldValue, $newValue];
+            $updates[$field] = $newValue;
+        }
+
+        if ($changes === []) {
+            throw ValidationException::withMessages(['details' => 'غيّر بيانًا واحدًا على الأقل قبل الحفظ.']);
+        }
+
+        if (array_key_exists('reference_number', $updates)) {
+            $updates['active_reference'] = $activeReference;
+        }
+
+        $this->update($updates);
+        $this->amendments()->create([
+            'user_id' => $actor->id,
+            'changes' => $changes,
+            'reason' => filled($data['amendment_reason'] ?? null) ? trim((string) $data['amendment_reason']) : 'تعديل بيانات الحركة',
+        ]);
+
+        return $this;
+    }
+
+    /** @param array<string, mixed> $data */
+    private function applyHardDelete(User $actor, array $data): ?self
+    {
+        $original = $this->referenceTransaction()->lockForUpdate()->first();
+
+        if ($original !== null) {
+            $updates = [
+                'status' => self::STATUS_ACTIVE,
+                'cancelled_at' => null,
+                'cancelled_by' => null,
+                'cancellation_reason' => null,
+                'cancellation_notes' => null,
+            ];
+
+            if ($original->isPayment() && $original->reference_number !== null) {
+                self::ensureReferenceIsAvailable(self::normalizeReference($original->reference_number), $original->id);
+                $updates['active_reference'] = self::normalizeReference($original->reference_number);
+            }
+
+            $original->update($updates);
+        }
+
+        Log::warning('Transaction hard deleted under ledger golden rule', [
+            'transaction' => $this->getAttributes(),
+            'deleted_by' => $actor->only(['id', 'name', 'username']),
+            'reason' => $data['correction_notes'] ?? null,
+        ]);
+
+        $this->delete();
+
+        return null;
+    }
+
+    /** @param array<string, mixed> $data */
+    private function applyCancellation(User $actor, array $data): self
+    {
+        $reason = CorrectionReason::tryFrom((string) ($data['correction_reason'] ?? '')) ?? CorrectionReason::Other;
+
+        $this->update([
+            'status' => self::STATUS_CANCELLED,
+            'cancelled_at' => now(),
+            'cancelled_by' => $actor->id,
+            'cancellation_reason' => $reason,
+            'cancellation_notes' => $data['correction_notes'] ?? null,
+            'active_reference' => null,
+        ]);
+
+        return $this->subscriber->transactions()->create([
+            'recorded_by' => $actor->id,
+            'reverses_id' => $this->id,
+            'reference_transaction_id' => $this->id,
+            'type' => self::TYPE_CANCELLATION,
+            'status' => self::STATUS_ACTIVE,
+            'source_key' => 'cancellation:'.$this->id.':'.Str::ulid(),
+            'amount' => number_format(-(float) $this->amount, 2, '.', ''),
+            'currency' => $this->currency,
+            'currency_amount' => $this->currency_amount,
+            'exchange_rate' => $this->exchange_rate,
+            'payment_method' => $this->payment_method,
+        ]);
+    }
+
+    /** @param array<string, mixed> $data */
+    private function applyRefund(User $actor, array $data): self
+    {
+        $refunded = self::query()
+            ->where('reference_transaction_id', $this->id)
+            ->where('type', self::TYPE_REFUND)
+            ->lockForUpdate()
+            ->get()
+            ->sum(fn (self $refund): float => abs((float) $refund->amount));
+        $remaining = round(abs((float) $this->amount) - $refunded, 2);
+        $amount = round((float) $data['amount'], 2);
+
+        if ($amount > $remaining) {
+            throw ValidationException::withMessages(['amount' => 'مبلغ الإرجاع أكبر من المبلغ المتبقي للحركة.']);
+        }
+
+        $refund = $this->subscriber->transactions()->create([
+            'recorded_by' => $actor->id,
+            'reverses_id' => $this->id,
+            'reference_transaction_id' => $this->id,
+            'type' => self::TYPE_REFUND,
+            'status' => self::STATUS_ACTIVE,
+            'source_key' => 'refund:'.$this->id.':'.Str::ulid(),
+            'amount' => number_format($amount, 2, '.', ''),
+            'currency' => $this->currency,
+            'currency_amount' => number_format($amount / max((float) $this->exchange_rate, 1), 2, '.', ''),
+            'exchange_rate' => $this->exchange_rate,
+            'payment_method' => $this->payment_method,
+        ]);
+
+        if ($amount >= $remaining) {
+            $this->update([
+                'status' => self::STATUS_LINKED_CANCELLATION,
+                'cancelled_at' => now(),
+                'cancelled_by' => $actor->id,
+                'cancellation_reason' => CorrectionReason::PaymentRefunded,
+                'cancellation_notes' => $data['correction_notes'] ?? null,
+                'active_reference' => null,
+            ]);
+        }
+
+        return $refund;
+    }
+
     public function isCancelled(): bool
     {
-        return $this->cancelled_at !== null;
+        return $this->currentStatus() !== self::STATUS_ACTIVE || $this->cancelled_at !== null;
     }
 
     public function isReversal(): bool
     {
-        return $this->type === self::TYPE_REVERSAL;
+        return in_array($this->type, self::REVERSAL_TYPES, true);
     }
 
     /**
@@ -751,6 +1100,8 @@ class SubscriberTransaction extends Model
                 default => 'مبلغ ثابت',
             },
             self::TYPE_CLEARING => 'مقاصة مقابل خدمة للشركة',
+            self::TYPE_INVOICE => 'فاتورة',
+            self::TYPE_CREDIT => 'رصيد دائن',
             self::TYPE_READING_DISCOUNT => implode(' · ', array_filter([
                 'خصم دائم',
                 match ($this->discount_method) {
@@ -760,9 +1111,12 @@ class SubscriberTransaction extends Model
                 },
                 $this->readingDiscountSegment(),
             ])),
-            self::TYPE_REVERSAL => $this->reverses
-                ? 'إلغاء: '.$this->reverses->description().($this->reverses->voucher_number ? ' · سند '.$this->reverses->printedVoucherNumber() : '')
+            self::TYPE_REVERSAL, self::TYPE_CANCELLATION => $this->referenceTransaction
+                ? 'إلغاء: '.$this->referenceTransaction->description().($this->referenceTransaction->voucher_number ? ' · سند '.$this->referenceTransaction->printedVoucherNumber() : '')
                 : 'قيد عكسي',
+            self::TYPE_REFUND => $this->referenceTransaction
+                ? 'إرجاع: '.$this->referenceTransaction->description().($this->referenceTransaction->voucher_number ? ' · سند '.$this->referenceTransaction->printedVoucherNumber() : '')
+                : 'إرجاع دفعة',
             default => $this->typeLabel(),
         };
     }
@@ -792,14 +1146,18 @@ class SubscriberTransaction extends Model
     public static function typeLabels(): array
     {
         return [
+            self::TYPE_INVOICE => 'فاتورة',
             self::TYPE_METER_READING => 'قراءة أسبوعية',
             self::TYPE_SUBSCRIPTION_FEE => 'رسوم اشتراك',
             ...collect(ChargeType::cases())->mapWithKeys(fn (ChargeType $type) => [$type->value => __($type->label())])->all(),
             self::TYPE_PAYMENT => 'دفعة',
+            self::TYPE_CREDIT => 'رصيد دائن',
             self::TYPE_DISCOUNT => 'خصم',
             self::TYPE_READING_DISCOUNT => 'خصم دائم',
             self::TYPE_CLEARING => 'مقاصة',
             self::TYPE_REVERSAL => 'قيد عكسي',
+            self::TYPE_CANCELLATION => 'إلغاء',
+            self::TYPE_REFUND => 'إرجاع',
         ];
     }
 
@@ -829,6 +1187,18 @@ class SubscriberTransaction extends Model
     public function reverses(): BelongsTo
     {
         return $this->belongsTo(self::class, 'reverses_id');
+    }
+
+    /** The original transaction referenced by a cancellation or refund. */
+    public function referenceTransaction(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reference_transaction_id');
+    }
+
+    /** Cancellation and refund rows that point back to this transaction. */
+    public function linkedReversals(): HasMany
+    {
+        return $this->hasMany(self::class, 'reference_transaction_id')->oldest('created_at')->orderBy('id');
     }
 
     /**

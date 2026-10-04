@@ -27,19 +27,20 @@ export default function AmendTransactionModal({ onClose, subscriber, balance, en
     const form = useForm({
         ...(throughBank
             ? {
-                  bank_name: entry.recorded.bank_name ?? '',
-                  sender_bank_name: entry.recorded.sender_bank_name ?? '',
-                  sender_name: entry.recorded.sender_name ?? '',
-                  reference_number: entry.recorded.reference_number ?? '',
+                  bank_name: entry.recorded?.bank_name ?? entry.bankName ?? '',
+                  sender_bank_name: entry.recorded?.sender_bank_name ?? entry.senderBankName ?? '',
+                  sender_name: entry.recorded?.sender_name ?? entry.senderName ?? '',
+                  reference_number: entry.recorded?.reference_number ?? entry.referenceNumber ?? '',
               }
             : {}),
-        notes: entry.recorded.notes ?? '',
+        action: 'edit_metadata',
+        notes: entry.recorded?.notes ?? entry.details ?? '',
         amendment_reason: '',
     });
     const amendForm = {
         ...form,
         isEdit: true,
-        save: (options) => form.patch(`/subscribers/${subscriber.id}/transactions/${entry.id}/details`, options),
+        save: (options) => form.post(`/subscribers/${subscriber.id}/transactions/${entry.id}/actions`, options),
     };
 
     return (
@@ -47,7 +48,7 @@ export default function AmendTransactionModal({ onClose, subscriber, balance, en
             show
             onClose={onClose}
             form={amendForm}
-            title="تعديل بيانات الدفعة"
+            title="تعديل بيانات الحركة"
             icon="pencil"
             headerTone="blue"
             maxWidth="2xl"

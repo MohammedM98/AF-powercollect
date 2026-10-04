@@ -123,7 +123,10 @@ class LedgerController extends Controller
                     ->orWhere('account_number', 'like', "%{$search}%"))))
             ->when($type === self::DEBIT, fn (Builder $query) => $query->charges())
             ->when($type === self::CREDIT, fn (Builder $query) => $query->credits())
-            ->when(array_key_exists((string) $type, SubscriberTransaction::typeLabels()), fn (Builder $query) => $query->where('type', $type))
+            ->when(
+                ! in_array($type, [self::DEBIT, self::CREDIT], true) && array_key_exists((string) $type, SubscriberTransaction::typeLabels()),
+                fn (Builder $query) => $query->where('type', $type),
+            )
             ->when($recordedBy, fn (Builder $query) => $query->where('recorded_by', $recordedBy));
     }
 

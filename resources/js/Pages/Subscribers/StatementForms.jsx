@@ -4,6 +4,7 @@ import ChargeModal from './ChargeModal';
 import ClearingModal from './ClearingModal';
 import AmendTransactionModal from './AmendTransactionModal';
 import DeleteTransactionModal from './DeleteTransactionModal';
+import EditTransactionAmountModal from './EditTransactionAmountModal';
 import ForceDeleteTransactionModal from './ForceDeleteTransactionModal';
 import DiscountModal from './DiscountModal';
 import PaymentModal from './PaymentModal';
@@ -116,17 +117,16 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
 /**
  * The payment, charge, discount and clearing forms of a statement;
  * `openForm` names the one showing ('payment', 'charge', 'discount',
- * 'clearing' or null), or is `{ action: 'amend' | 'correct' | 'delete' | 'erase', entry }`
+ * 'clearing' or null), or is `{ action: 'edit' | 'edit_metadata' | 'delete' | 'cancel' | 'refund', entry }`
  * for one of a line's audit-safe actions. `statement` is the statement's page props.
  */
 export function StatementForms({ statement, openForm, onClose }) {
-    const { subscriber, summary, canRecordPayment, canAdjustBalance, correctionReasons } = statement;
-    const amending = openForm?.action === 'amend' ? openForm.entry : null;
-    const correcting = openForm?.action === 'correct' ? openForm.entry : null;
+    const { subscriber, summary, canRecordPayment, canAdjustBalance } = statement;
+    const amending = openForm?.action === 'edit_metadata' ? openForm.entry : null;
+    const editing = openForm?.action === 'edit' ? openForm.entry : null;
     const deleting = openForm?.action === 'delete' ? openForm.entry : null;
-    const erasing = openForm?.action === 'erase' ? openForm.entry : null;
-    // A correction's form works from the balance without the line it replaces.
-    const balanceWithout = (entry) => (Number(summary.balance) - Number(entry.recorded.effect)).toFixed(2);
+    const cancelling = openForm?.action === 'cancel' ? openForm.entry : null;
+    const refunding = openForm?.action === 'refund' ? openForm.entry : null;
 
     return (
         <>
@@ -141,72 +141,43 @@ export function StatementForms({ statement, openForm, onClose }) {
                 />
             )}
 
-            {correcting?.recorded.kind === 'payment' && (
-                <PaymentModal
-                    key={`correct-${correcting.id}`}
-                    show
+
+            {editing && (
+                <EditTransactionAmountModal
+                    key={`edit-${editing.id}`}
                     onClose={onClose}
                     subscriber={subscriber}
-                    balance={balanceWithout(correcting)}
-                    currencies={statement.currencies}
-                    paymentMethods={statement.paymentMethods}
-                    transferBanks={statement.transferBanks}
-                    correcting={correcting}
-                    correctionReasons={correctionReasons.payment}
+                    balance={summary.balance}
+                    entry={editing}
                 />
             )}
 
-            {correcting?.recorded.kind === 'charge' && (
-                <ChargeModal
-                    key={`correct-${correcting.id}`}
-                    show
+            {cancelling && (
+                <DeleteTransactionModal
+                    key={`cancel-${cancelling.id}`}
                     onClose={onClose}
                     subscriber={subscriber}
-                    balance={balanceWithout(correcting)}
-                    chargeTypes={statement.chargeTypes}
-                    correcting={correcting}
-                    correctionReasons={correctionReasons.adjustment}
+                    balance={summary.balance}
+                    entry={cancelling}
+                    action="cancel"
+                    reasons={cancelling.deletionReasons}
                 />
             )}
 
-            {correcting?.recorded.kind === 'discount' && (
-                <DiscountModal
-                    key={`correct-${correcting.id}`}
-                    show
+            {refunding && (
+                <DeleteTransactionModal
+                    key={`refund-${refunding.id}`}
                     onClose={onClose}
                     subscriber={subscriber}
-                    balance={balanceWithout(correcting)}
-                    discountMethods={statement.discountMethods}
-                    correcting={correcting}
-                    correctionReasons={correctionReasons.adjustment}
-                />
-            )}
-
-            {correcting?.recorded.kind === 'clearing' && (
-                <ClearingModal
-                    key={`correct-${correcting.id}`}
-                    show
-                    onClose={onClose}
-                    subscriber={subscriber}
-                    balance={balanceWithout(correcting)}
-                    correcting={correcting}
-                    correctionReasons={correctionReasons.adjustment}
+                    balance={summary.balance}
+                    entry={refunding}
+                    action="refund"
+                    reasons={refunding.deletionReasons}
                 />
             )}
 
             {deleting && (
-                <DeleteTransactionModal
-                    key={`delete-${deleting.id}`}
-                    onClose={onClose}
-                    subscriber={subscriber}
-                    balance={summary.balance}
-                    entry={deleting}
-                    reasons={deleting.deletionReasons}
-                />
-            )}
-
-            {erasing && (
-                <ForceDeleteTransactionModal key={`erase-${erasing.id}`} onClose={onClose} subscriber={subscriber} balance={summary.balance} entry={erasing} />
+                <ForceDeleteTransactionModal key={`delete-${deleting.id}`} onClose={onClose} subscriber={subscriber} balance={summary.balance} entry={deleting} />
             )}
 
             {canRecordPayment && (

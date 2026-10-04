@@ -13,9 +13,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('subscriber_transactions', function (Blueprint $table) {
-            $table->string('active_reference', 100)->nullable()->after('reference_number');
-        });
+        if (! Schema::hasColumn('subscriber_transactions', 'active_reference')) {
+            Schema::table('subscriber_transactions', function (Blueprint $table) {
+                $table->string('active_reference', 100)->nullable()->after('reference_number');
+            });
+        }
 
         DB::table('subscriber_transactions')
             ->where('type', 'payment')
@@ -30,9 +32,29 @@ return new class extends Migration
                 ]);
             });
 
-        Schema::table('subscriber_transactions', function (Blueprint $table) {
-            $table->unique('active_reference');
-        });
+        DB::table('subscriber_transactions')
+            ->select('active_reference')
+            ->whereNotNull('active_reference')
+            ->groupBy('active_reference')
+            ->havingRaw('COUNT(*) > 1')
+            ->pluck('active_reference')
+            ->each(function (string $activeReference): void {
+                $canonicalTransactionId = DB::table('subscriber_transactions')
+                    ->where('active_reference', $activeReference)
+                    ->orderBy('id')
+                    ->value('id');
+
+                DB::table('subscriber_transactions')
+                    ->where('active_reference', $activeReference)
+                    ->where('id', '!=', $canonicalTransactionId)
+                    ->update(['active_reference' => null]);
+            });
+
+        if (! Schema::hasIndex('subscriber_transactions', ['active_reference'], 'unique')) {
+            Schema::table('subscriber_transactions', function (Blueprint $table) {
+                $table->unique('active_reference');
+            });
+        }
     }
 
     /**

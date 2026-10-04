@@ -122,7 +122,7 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
  * for one of a line's audit-safe actions, or `{ action: 'correct_reading', entry }` to correct the
  * weekly reading a line was billed from, in the readings page's own form. `statement` is the statement's page props.
  */
-export function StatementForms({ statement, openForm, onClose }) {
+export function StatementForms({ statement, openForm, onClose, onOpen = null }) {
     const { subscriber, summary, canRecordPayment, canAdjustBalance } = statement;
     const amending = openForm?.action === 'edit_metadata' ? openForm.entry : null;
     const editing = openForm?.action === 'edit' ? openForm.entry : null;
@@ -176,6 +176,7 @@ export function StatementForms({ statement, openForm, onClose }) {
                     entry={refunding}
                     action="refund"
                     reasons={refunding.deletionReasons}
+                    onRecordPayment={canRecordPayment && onOpen ? () => onOpen('payment') : null}
                 />
             )}
 

@@ -66,7 +66,7 @@ class SubscriberTransactionActionTest extends TestCase
         ]);
     }
 
-    public function test_non_last_payment_can_be_partially_refunded_and_links_both_rows(): void
+    public function test_a_refund_always_returns_the_whole_payment_and_links_both_rows(): void
     {
         $branch = Branch::factory()->create();
         $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
@@ -80,20 +80,56 @@ class SubscriberTransactionActionTest extends TestCase
 
         $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
             'action' => 'refund',
-            'amount' => '20',
+            'correction_notes' => 'المبلغ سُجّل خطأ، تُسجّل الدفعة الصحيحة بعده',
         ]);
 
         $response->assertSessionHasNoErrors();
         $refund = SubscriberTransaction::query()->where('type', 'refund')->sole();
         $this->assertSame($payment->id, $refund->reference_transaction_id);
-        $this->assertSame('20.00', $refund->amount);
-        $this->assertSame('-20.00', $refund->balance_after);
-        $this->assertSame('active', $payment->refresh()->status);
+        $this->assertSame('50.00', $refund->amount);
+        $this->assertSame('10.00', $refund->balance_after);
+        $this->assertSame(SubscriberTransaction::STATUS_LINKED_CANCELLATION, $payment->refresh()->status);
+        $this->assertSame('المبلغ سُجّل خطأ، تُسجّل الدفعة الصحيحة بعده', $payment->cancellation_notes);
 
         $this->actingAs($actor)->get(route('subscribers.statement', $subscriber))
             ->assertInertia(fn ($page) => $page
                 ->where('entries.0.linkedReversal.id', $refund->id)
                 ->where('entries.2.reverses.id', $payment->id));
+    }
+
+    public function test_a_refund_cannot_be_for_part_of_a_payment(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $payment = SubscriberTransaction::recordPayment($subscriber, $actor, ['amount' => '50', 'currency' => 'ILS', 'payment_method' => 'cash']);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'refund',
+            'amount' => '20',
+        ])->assertSessionHasErrors('amount');
+
+        $this->assertDatabaseMissing('subscriber_transactions', ['type' => SubscriberTransaction::TYPE_REFUND]);
+        $this->assertSame(SubscriberTransaction::STATUS_ACTIVE, $payment->refresh()->status);
+    }
+
+    public function test_a_payment_partly_refunded_before_refunds_only_what_is_left(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $payment = SubscriberTransaction::recordPayment($subscriber, $actor, ['amount' => '50', 'currency' => 'ILS', 'payment_method' => 'cash']);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+        $this->legacyPartialRefund($payment, $actor, '20.00');
+
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
+            'action' => 'refund',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(['20.00', '30.00'], SubscriberTransaction::query()->where('type', 'refund')->orderBy('id')->pluck('amount')->all());
+        $this->assertSame(SubscriberTransaction::STATUS_LINKED_CANCELLATION, $payment->refresh()->status);
+        $this->assertSame(10.0, $subscriber->balance());
     }
 
     public function test_cancel_appends_a_linked_cancellation_and_marks_the_original_cancelled(): void
@@ -191,7 +227,6 @@ class SubscriberTransactionActionTest extends TestCase
 
         $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
             'action' => 'refund',
-            'amount' => '50',
         ]);
 
         $response->assertSessionHasNoErrors();
@@ -239,7 +274,6 @@ class SubscriberTransactionActionTest extends TestCase
         SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
         $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
             'action' => 'refund',
-            'amount' => '50',
         ])->assertSessionHasNoErrors();
         $refund = SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_REFUND)->sole();
 
@@ -263,7 +297,6 @@ class SubscriberTransactionActionTest extends TestCase
         $charge = SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
         $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
             'action' => 'refund',
-            'amount' => '50',
         ]);
         $refund = SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_REFUND)->sole();
 
@@ -293,7 +326,6 @@ class SubscriberTransactionActionTest extends TestCase
         $firstCharge = SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة أولى');
         $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
             'action' => 'refund',
-            'amount' => '50',
         ]);
         $refund = SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_REFUND)->sole();
         $lastCharge = SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '20', 'غرامة لاحقة');
@@ -325,10 +357,8 @@ class SubscriberTransactionActionTest extends TestCase
             'payment_method' => 'cash',
         ]);
         SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
-        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
-            'action' => 'refund',
-            'amount' => '20',
-        ]);
+        // Partial refunds can't be made any more, but older ones stay on the books.
+        $this->legacyPartialRefund($payment, $actor, '20.00');
 
         $response = $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
             'action' => 'delete_tree',
@@ -407,7 +437,6 @@ class SubscriberTransactionActionTest extends TestCase
         SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
         $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $payment]), [
             'action' => 'refund',
-            'amount' => '50',
         ]);
         $refund = SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_REFUND)->sole();
 
@@ -420,6 +449,117 @@ class SubscriberTransactionActionTest extends TestCase
         $this->assertModelMissing($payment);
         $this->assertModelMissing($refund);
         $this->assertModelMissing($closingLine);
+    }
+
+    public function test_cancelling_a_weekly_reading_cancels_its_standing_discount_with_it(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        [$charge, $discount] = $this->billedReadingWithDiscount($subscriber, $actor);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+
+        $this->actingAs($actor)->get(route('subscribers.statement', $subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries.0.id', $charge->id)
+                ->where('entries.0.readingDiscount', '30')
+                ->where('entries.1.readingDiscount', null));
+
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $charge]), [
+            'action' => 'cancel',
+            'correction_reason' => 'wrong_reading',
+            'correction_notes' => 'قراءة مُدخلة بالخطأ',
+        ])->assertSessionHasNoErrors();
+
+        $discount->refresh();
+        $this->assertNotNull($discount->cancelled_at);
+        $this->assertSame('wrong_reading', $discount->cancellation_reason->value);
+        $this->assertSame('قراءة مُدخلة بالخطأ', $discount->cancellation_notes);
+        $this->assertSame('30.00', SubscriberTransaction::query()->where('reverses_id', $discount->id)->sole()->amount);
+        // Only the penalty is left owing: the reading and its discount are both gone from the balance.
+        $this->assertSame(10.0, $subscriber->balance());
+    }
+
+    public function test_deleting_a_weekly_reading_with_a_reason_reverses_its_standing_discount_with_it(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        [$charge, $discount] = $this->billedReadingWithDiscount($subscriber, $actor);
+
+        $this->actingAs($actor)
+            ->delete(route('subscribers.transactions.destroy', [$subscriber, $charge]), ['correction_reason' => 'wrong_reading', 'correction_notes' => 'خطأ'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertNotNull($discount->refresh()->cancelled_at);
+        $this->assertSame(0.0, $subscriber->balance());
+    }
+
+    public function test_cancelling_only_the_standing_discount_leaves_the_reading_billed(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        [$charge, $discount] = $this->billedReadingWithDiscount($subscriber, $actor);
+        SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
+
+        $this->actingAs($actor)->post(route('subscribers.transactions.actions.store', [$subscriber, $discount]), [
+            'action' => 'cancel',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertNull($charge->refresh()->cancelled_at);
+        $this->assertSame(93.4, $subscriber->balance());
+    }
+
+    /**
+     * A partial refund of the payment, as one was recorded before refunds
+     * became whole-payment only.
+     */
+    private function legacyPartialRefund(SubscriberTransaction $payment, User $actor, string $amount): SubscriberTransaction
+    {
+        return $payment->subscriber->transactions()->create([
+            'recorded_by' => $actor->id,
+            'reverses_id' => $payment->id,
+            'reference_transaction_id' => $payment->id,
+            'type' => SubscriberTransaction::TYPE_REFUND,
+            'status' => SubscriberTransaction::STATUS_ACTIVE,
+            'source_key' => 'refund:'.$payment->id.':legacy',
+            'amount' => $amount,
+            'currency' => $payment->currency,
+            'currency_amount' => $amount,
+            'exchange_rate' => $payment->exchange_rate,
+            'payment_method' => $payment->payment_method,
+        ]);
+    }
+
+    /**
+     * An approved weekly reading billed 83.40 with a 30 standing discount beside it.
+     *
+     * @return array{0: SubscriberTransaction, 1: SubscriberTransaction}
+     */
+    private function billedReadingWithDiscount(Subscriber $subscriber, User $actor): array
+    {
+        $reading = MeterReading::factory()->approved()->for($subscriber)->create();
+        $charge = $subscriber->transactions()->create([
+            'recorded_by' => $actor->id,
+            'meter_reading_id' => $reading->id,
+            'type' => SubscriberTransaction::TYPE_METER_READING,
+            'source_key' => $reading->chargeSourceKey(),
+            'amount' => '83.40',
+            'currency_amount' => '83.40',
+        ]);
+        $discount = $subscriber->transactions()->create([
+            'recorded_by' => $actor->id,
+            'meter_reading_id' => $reading->id,
+            'type' => SubscriberTransaction::TYPE_READING_DISCOUNT,
+            'source_key' => $reading->discountSourceKey(),
+            'amount' => '-30.00',
+            'currency_amount' => '30.00',
+            'discount_method' => DiscountMethod::Kilowatt,
+            'discount_value' => '1',
+        ]);
+
+        return [$charge, $discount];
     }
 
     public function test_a_cancelled_reading_discount_cannot_be_deleted_with_its_cancellation(): void

@@ -317,7 +317,35 @@ class SubscriberTransaction extends Model
      */
     public function cancel(User $actor, CorrectionReason $reason, ?string $notes): self
     {
-        return $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCancellable());
+        return DB::transaction(function () use ($actor, $reason, $notes): self {
+            $reversal = $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCancellable());
+
+            // A weekly reading's standing discount only stands beside its charge.
+            $this->readingDiscountStanding()?->reverse($actor, $reason, $notes, fn (self $line): bool => ! $line->isCancelled());
+
+            return $reversal;
+        });
+    }
+
+    /**
+     * The standing discount (خصم دائم) billed beside this weekly reading's
+     * charge, while it still stands; null for any other line. Cancelling the
+     * charge cancels it too, or the subscriber would keep a discount on a
+     * bill that no longer exists.
+     */
+    private function readingDiscountStanding(): ?self
+    {
+        if ($this->type !== self::TYPE_METER_READING || $this->meter_reading_id === null) {
+            return null;
+        }
+
+        return self::query()
+            ->where('meter_reading_id', $this->meter_reading_id)
+            ->where('type', self::TYPE_READING_DISCOUNT)
+            ->whereNull('cancelled_at')
+            ->where('status', self::STATUS_ACTIVE)
+            ->lockForUpdate()
+            ->first();
     }
 
     /**
@@ -944,7 +972,7 @@ class SubscriberTransaction extends Model
             'active_reference' => null,
         ]);
 
-        return $this->subscriber->transactions()->create([
+        $cancellation = $this->subscriber->transactions()->create([
             'recorded_by' => $actor->id,
             'reverses_id' => $this->id,
             'reference_transaction_id' => $this->id,
@@ -957,9 +985,21 @@ class SubscriberTransaction extends Model
             'exchange_rate' => $this->exchange_rate,
             'payment_method' => $this->payment_method,
         ]);
+
+        // A weekly reading's standing discount only stands beside its charge, so it is cancelled with it.
+        $this->readingDiscountStanding()?->applyCancellation($actor, $data);
+
+        return $cancellation;
     }
 
-    /** @param array<string, mixed> $data */
+    /**
+     * Refund the payment in full: everything of it not refunded yet (all of
+     * it, unless an older partial refund took some back), with a linked
+     * refund line, and mark it refunded. A wrong amount is put right by
+     * recording the right payment afterwards, never by a partial refund.
+     *
+     * @param  array<string, mixed>  $data
+     */
     private function applyRefund(User $actor, array $data): self
     {
         $refunded = self::query()
@@ -968,11 +1008,10 @@ class SubscriberTransaction extends Model
             ->lockForUpdate()
             ->get()
             ->sum(fn (self $refund): float => abs((float) $refund->amount));
-        $remaining = round(abs((float) $this->amount) - $refunded, 2);
-        $amount = round((float) $data['amount'], 2);
+        $amount = round(abs((float) $this->amount) - $refunded, 2);
 
-        if ($amount > $remaining) {
-            throw ValidationException::withMessages(['amount' => 'مبلغ الإرجاع أكبر من المبلغ المتبقي للحركة.']);
+        if ($amount <= 0) {
+            throw ValidationException::withMessages(['action' => 'أُرجعت هذه الدفعة بالكامل من قبل.']);
         }
 
         $refund = $this->subscriber->transactions()->create([
@@ -984,21 +1023,22 @@ class SubscriberTransaction extends Model
             'source_key' => 'refund:'.$this->id.':'.Str::ulid(),
             'amount' => number_format($amount, 2, '.', ''),
             'currency' => $this->currency,
-            'currency_amount' => number_format($amount / max((float) $this->exchange_rate, 1), 2, '.', ''),
+            // Untouched, it gives back exactly what was paid, in the currency it was paid in.
+            'currency_amount' => $refunded <= 0 && $this->currency_amount !== null
+                ? $this->currency_amount
+                : number_format($amount / max((float) $this->exchange_rate, 1), 2, '.', ''),
             'exchange_rate' => $this->exchange_rate,
             'payment_method' => $this->payment_method,
         ]);
 
-        if ($amount >= $remaining) {
-            $this->update([
-                'status' => self::STATUS_LINKED_CANCELLATION,
-                'cancelled_at' => now(),
-                'cancelled_by' => $actor->id,
-                'cancellation_reason' => CorrectionReason::PaymentRefunded,
-                'cancellation_notes' => $data['correction_notes'] ?? null,
-                'active_reference' => null,
-            ]);
-        }
+        $this->update([
+            'status' => self::STATUS_LINKED_CANCELLATION,
+            'cancelled_at' => now(),
+            'cancelled_by' => $actor->id,
+            'cancellation_reason' => CorrectionReason::PaymentRefunded,
+            'cancellation_notes' => $data['correction_notes'] ?? null,
+            'active_reference' => null,
+        ]);
 
         return $refund;
     }

@@ -57,7 +57,7 @@ export default function Statement(statement) {
                 onAction={(action, entry) => setOpenForm({ action, entry })}
             />
 
-            <StatementForms statement={statement} openForm={openForm} onClose={() => setOpenForm(null)} />
+            <StatementForms statement={statement} openForm={openForm} onClose={() => setOpenForm(null)} onOpen={setOpenForm} />
         </AuthenticatedLayout>
     );
 }

@@ -72,10 +72,11 @@ class TransactionAuditTest extends TestCase
                 ->where('events.data.0.lines', [['label' => __(ChargeType::Penalty->label()), 'amount' => '5', 'voucherNumber' => null]])
                 ->where('events.data.0.reason', 'سُجّلت بالخطأ')
                 ->where('events.data.1.kind', 'refund')
-                ->where('events.data.1.kindNote', 'جزئي')
+                ->where('events.data.1.kindNote', 'كامل')
                 ->where('events.data.1.lines.0', ['label' => 'دفعة', 'amount' => '100', 'voucherNumber' => '000001'])
-                ->where('events.data.1.lines.1.amount', '40')
-                ->where('events.data.1.reason', null)
+                ->where('events.data.1.lines.1.amount', '100')
+                ->where('events.data.1.reason', __(CorrectionReason::PaymentRefunded->label()))
+                ->where('events.data.1.notes', 'سُجّلت بمبلغ خطأ')
                 ->where('events.data.2.kind', 'correction')
                 ->where('events.data.2.reason', __(CorrectionReason::WrongAmount->label()))
                 ->where('events.data.2.notes', 'المبلغ الصحيح 15')
@@ -160,7 +161,7 @@ class TransactionAuditTest extends TestCase
         $this->travelTo('2026-09-06 12:00:00');
         $corrected->correct($this->branchAdmin, CorrectionReason::WrongAmount, 'المبلغ الصحيح 15', fn (Subscriber $subscriber): SubscriberTransaction => SubscriberTransaction::recordCharge($subscriber, $this->branchAdmin, ChargeType::Penalty, '15', null));
         $this->travelTo('2026-09-07 12:00:00');
-        $payment->applyAction($this->branchAdmin, TransactionAction::Refund, ['amount' => '40']);
+        $payment->applyAction($this->branchAdmin, TransactionAction::Refund, ['correction_notes' => 'سُجّلت بمبلغ خطأ']);
         $this->travelTo('2026-09-08 12:00:00');
         SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::Penalty, '5', null)
             ->applyAction($this->branchAdmin, TransactionAction::Delete, ['correction_notes' => 'سُجّلت بالخطأ']);

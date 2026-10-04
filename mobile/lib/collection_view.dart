@@ -89,7 +89,7 @@ class _CollectionViewState extends State<CollectionView> {
             const SizedBox(height: 10),
             AppSearchField(
                 controller: widget.search,
-                hint: 'اسم المشترك أو رقم الحساب',
+                hint: 'الاسم أو رقم الحساب أو الطبلون',
                 maxLength: 100,
                 onChanged: (_) => widget.onSearchChanged(),
                 onSubmitted: (_) => widget.onSearch(),
@@ -117,18 +117,23 @@ class _CollectionViewState extends State<CollectionView> {
             ],
             if (widget.results.isEmpty && !widget.busy && widget.error == null)
               AppRows(children: [
-                AppEmpty(
-                    'search',
-                    widget.search.text.trim().isNotEmpty
-                        ? 'لا توجد نتائج'
-                        : 'لا يوجد مشتركون متاحون',
-                    'اكتب الاسم أو رقم الحساب لتسجيل دفعة.'),
+                widget.search.text.trim().isNotEmpty
+                    ? AppEmpty(
+                        'search',
+                        'لا توجد نتائج لـ «${widget.search.text.trim()}»',
+                        'تأكد من الاسم، أو ابحث برقم الحساب أو رقم الطبلون.')
+                    : const AppEmpty('search', 'لا يوجد مشتركون متاحون',
+                        'اكتب الاسم أو رقم الحساب لعرض المشترك.'),
               ]),
             if (widget.results.isNotEmpty)
-              AppRows(children: [
-                for (final subscriber in widget.results)
-                  subscriberRow(subscriber),
-              ]),
+              AnimatedOpacity(
+                opacity: widget.busy ? .55 : 1,
+                duration: const Duration(milliseconds: 150),
+                child: AppRows(children: [
+                  for (final subscriber in widget.results)
+                    subscriberRow(subscriber),
+                ]),
+              ),
             if (widget.hasMore)
               Padding(
                   padding: const EdgeInsets.only(top: 12),
@@ -189,6 +194,8 @@ class _CollectionViewState extends State<CollectionView> {
         subtitle: Text.rich(
             TextSpan(children: [
               TextSpan(text: 'حساب ${subscriber['account_number']}'),
+              if (subscriber['meter_box_number'] != null)
+                TextSpan(text: ' · طبلون ${subscriber['meter_box_number']}'),
               if (unusual)
                 TextSpan(
                     text:
@@ -198,13 +205,12 @@ class _CollectionViewState extends State<CollectionView> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppIdentity.body(12.5, color: AppIdentity.faint)),
-        trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
           Text(balanceText(balance),
               style: AppIdentity.number(14,
                   color: balance > 0 ? AppIdentity.bad : AppIdentity.good)),
-          Text('+ دفعة',
-              style: AppIdentity.body(13,
-                  weight: FontWeight.w700, color: AppIdentity.brand)),
+          const SizedBox(width: 6),
+          AppIcon('chev', size: 18, color: AppIdentity.faint),
         ]),
       ),
     );

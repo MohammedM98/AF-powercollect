@@ -189,4 +189,25 @@ void main() {
         isNot('operation-1'));
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('offline search finds a name however its Arabic is spelled',
+      (tester) async {
+    final store = readerStore();
+    (store.state['subscribers'] as List)[0]['full_name'] = 'أحمد مصطفى';
+    await tester.pumpWidget(
+        PowerCollectApp(apiClient: OfflineApi(), fieldStore: store));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إدخال القراءات').last);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'مصطفي احمد');
+    await tester.pumpAndSettle();
+    expect(find.text('أحمد مصطفى'), findsOneWidget);
+    expect(find.text('Subscriber Two'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'احمد خالد');
+    await tester.pumpAndSettle();
+    expect(find.text('أحمد مصطفى'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

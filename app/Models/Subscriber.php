@@ -4,9 +4,11 @@ namespace App\Models;
 
 use App\Enums\SubscriberStatus;
 use App\Models\Concerns\BelongsToBranch;
+use App\Support\ArabicSearch;
 use App\Support\DeletionBlocker;
 use Database\Factories\SubscriberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -61,6 +63,26 @@ class Subscriber extends Model
     public function displayName(): string
     {
         return filled($this->subscription_name) ? $this->subscription_name : $this->full_name;
+    }
+
+    /**
+     * Subscribers whose name, account name, account number or meter box
+     * number contains every word of the search, however its Arabic is
+     * spelled (see ArabicSearch).
+     */
+    #[Scope]
+    protected function matchingSearch(Builder $query, string $search): void
+    {
+        foreach (ArabicSearch::terms($search) as $term) {
+            $query->where(function (Builder $matching) use ($term): void {
+                foreach (['full_name', 'subscription_name', 'account_number'] as $column) {
+                    ArabicSearch::orWhereContains($matching, $column, $term);
+                }
+
+                $matching->orWhereHas('meterBox', fn (Builder $box): Builder => $box
+                    ->where(fn (Builder $number): Builder => ArabicSearch::orWhereContains($number, 'box_number', $term)));
+            });
+        }
     }
 
     /** The subscription's contact number, falling back to the personal number. */

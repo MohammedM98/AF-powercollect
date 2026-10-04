@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app_identity.dart';
 import 'field_store.dart';
+import 'search_text.dart';
 
 Color get _background => AppIdentity.background;
 Color get _surface => AppIdentity.surface;
@@ -571,7 +572,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
 
   Widget _boxesView() {
     final groups = _groups();
-    final query = search.text.trim().toLowerCase();
+    final query = search.text.trim();
     bool complete(List<Map<String, dynamic>> subscribers) =>
         subscribers.where(_done).length == subscribers.length;
     final matchingBoxes = groups.entries.where((entry) {
@@ -582,16 +583,16 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
         return false;
       }
       final first = entry.value.first;
-      return [
+      return matchesSearch(query, [
         _boxNumber(first),
-        '${first['meter_box_name'] ?? ''}',
-        '${first['meter_box_location'] ?? ''}'
-      ].any((value) => value.toLowerCase().contains(query));
+        first['meter_box_name'],
+        first['meter_box_location'],
+      ]);
     }).toList();
     final matchingSubscribers = widget.store.subscribers.where((subscriber) {
       if (query.isEmpty) return false;
-      return [subscriber['full_name'], subscriber['account_number']]
-          .any((value) => '$value'.toLowerCase().contains(query));
+      return matchesSearch(
+          query, [subscriber['full_name'], subscriber['account_number']]);
     }).toList();
     final total = widget.store.subscribers.length;
     final done = widget.store.subscribers.where(_done).length;

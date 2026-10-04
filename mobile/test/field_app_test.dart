@@ -45,6 +45,18 @@ class CollectorApi extends ApiClient {
       };
 
   @override
+  Future<Map<String, dynamic>> collectionSubscriber(int id) async => {
+        'subscriber': {
+          'id': id,
+          'full_name': 'Collector Subscriber',
+          'account_number': 'A42',
+          'balance': '100.00',
+        },
+        'last_payment': null,
+        'transactions': [],
+      };
+
+  @override
   Future<Map<String, dynamic>> sendCollection(
       Map<String, dynamic> collection) async {
     submitted++;
@@ -283,6 +295,8 @@ void main() {
     await tester.tap(find.text('تسجيل الدفعات').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Collector Subscriber'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('subscriber-record-payment')));
     await tester.pumpAndSettle();
     for (final digit in ['2', '5']) {
       await tester.tap(find.byKey(ValueKey('payment-key-$digit')));

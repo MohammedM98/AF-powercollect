@@ -16,6 +16,7 @@ Route::prefix('mobile')->name('mobile.')->group(function (): void {
         Route::post('/readings', [MobileReadingController::class, 'store'])->name('readings.store');
         Route::get('/readings', [MobileReadingController::class, 'index'])->name('readings.index');
         Route::get('/collections/subscribers', [MobileCollectionController::class, 'subscribers'])->name('collections.subscribers');
+        Route::get('/collections/subscribers/{subscriber}', [MobileCollectionController::class, 'show'])->whereNumber('subscriber')->name('collections.subscribers.show');
         Route::get('/collections', [MobileCollectionController::class, 'index'])->name('collections.index');
         Route::post('/collections', [MobileCollectionController::class, 'store'])->name('collections.store');
     });

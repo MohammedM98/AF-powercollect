@@ -335,6 +335,103 @@ class MobileApiTest extends TestCase
         $this->assertSame(50.0, $subscriber->fresh()->balance());
     }
 
+    public function test_collection_search_ignores_arabic_spelling_and_word_order(): void
+    {
+        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections);
+        $ahmad = Subscriber::factory()->create(['branch_id' => $collector->branch_id, 'full_name' => 'أحمد علي عبد الله']);
+        $fatima = Subscriber::factory()->create(['branch_id' => $collector->branch_id, 'full_name' => 'فاطمة مصطفى']);
+        Subscriber::factory()->create(['branch_id' => $collector->branch_id, 'full_name' => 'خالد يوسف']);
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
+
+        $this->getJson(route('mobile.collections.subscribers', ['search' => 'عبد  اَحمد']))
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $ahmad->id);
+        $this->getJson(route('mobile.collections.subscribers', ['search' => 'فاطمه مصطفي']))
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $fatima->id);
+        $this->getJson(route('mobile.collections.subscribers', ['search' => 'احمد خالد']))
+            ->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_collection_search_reads_arabic_digits_and_lists_the_exact_account_first(): void
+    {
+        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections);
+        $longer = Subscriber::factory()->create(['branch_id' => $collector->branch_id, 'account_number' => '91042']);
+        SubscriberTransaction::factory()->for($longer)->create(['amount' => '500.00']);
+        $exact = Subscriber::factory()->create(['branch_id' => $collector->branch_id, 'account_number' => '1042']);
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
+
+        $this->getJson(route('mobile.collections.subscribers', ['search' => '١٠٤٢']))
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $exact->id)
+            ->assertJsonPath('data.1.id', $longer->id);
+    }
+
+    public function test_collection_search_treats_like_wildcards_as_plain_text(): void
+    {
+        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections);
+        Subscriber::factory()->create(['branch_id' => $collector->branch_id, 'full_name' => 'Plain Name']);
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
+
+        $this->getJson(route('mobile.collections.subscribers', ['search' => '%']))
+            ->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson(route('mobile.collections.subscribers', ['search' => 'Pl_in']))
+            ->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_weekly_readings_search_matches_arabic_spelling_variants(): void
+    {
+        $user = $this->collectorWithPermission(PermissionKey::ViewMeterReadings);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $user->branch_id, 'full_name' => 'إسراء']);
+        Subscriber::factory()->create(['branch_id' => $user->branch_id, 'full_name' => 'سلمى']);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($user))
+            ->getJson(route('mobile.readings.index', ['search' => 'اسراء']))
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('data.0.id', $subscriber->id);
+    }
+
+    public function test_subscriber_page_shows_balance_last_payment_and_latest_lines_newest_first(): void
+    {
+        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections);
+        $subscriber = Subscriber::factory()->create(['branch_id' => $collector->branch_id, 'full_name' => 'أحمد', 'phone' => '0599000111']);
+        $charge = SubscriberTransaction::factory()->for($subscriber)->create(['amount' => '120.00', 'created_at' => now()->subDays(2)]);
+        $payment = SubscriberTransaction::recordPayment($subscriber, $collector, ['amount' => '30', 'currency' => 'ILS', 'payment_method' => 'cash']);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
+            ->getJson(route('mobile.collections.subscribers.show', $subscriber))
+            ->assertOk()
+            ->assertJsonPath('subscriber.id', $subscriber->id)
+            ->assertJsonPath('subscriber.full_name', 'أحمد')
+            ->assertJsonPath('subscriber.phone', '0599000111')
+            ->assertJsonPath('subscriber.balance', '90.00')
+            ->assertJsonPath('last_payment.id', $payment->id)
+            ->assertJsonPath('last_payment.amount_in_shekels', '30.00')
+            ->assertJsonCount(2, 'transactions')
+            ->assertJsonPath('transactions.0.id', $payment->id)
+            ->assertJsonPath('transactions.0.amount', '30.00')
+            ->assertJsonPath('transactions.0.is_credit', true)
+            ->assertJsonPath('transactions.0.balance_after', '90.00')
+            ->assertJsonPath('transactions.1.id', $charge->id)
+            ->assertJsonPath('transactions.1.is_credit', false)
+            ->assertJsonPath('transactions.1.balance_after', '120.00');
+    }
+
+    public function test_subscriber_page_needs_the_collection_permission_and_the_same_branch(): void
+    {
+        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections);
+        $otherBranch = Subscriber::factory()->create();
+        $reader = $this->collectorWithPermission(PermissionKey::ViewMeterReadings);
+        $ownBranch = Subscriber::factory()->create(['branch_id' => $reader->branch_id]);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
+            ->getJson(route('mobile.collections.subscribers.show', $otherBranch))
+            ->assertNotFound();
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($reader))
+            ->getJson(route('mobile.collections.subscribers.show', $ownBranch))
+            ->assertForbidden();
+    }
+
     public function test_mobile_bank_transfers_keep_both_source_and_destination_banks(): void
     {
         $collector = User::factory()->collector()->create();
@@ -484,5 +581,13 @@ class MobileApiTest extends TestCase
 
         $this->actingAs(User::factory()->branchAdmin()->create(['branch_id' => $branch->id]))
             ->get('/pending-collections')->assertNotFound();
+    }
+
+    private function collectorWithPermission(PermissionKey $permission): User
+    {
+        $user = User::factory()->collector()->create();
+        $user->permissions()->sync(Permission::idsFor([$permission]));
+
+        return $user;
     }
 }

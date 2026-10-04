@@ -20,35 +20,16 @@ class QueuedReadingsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (queue.isEmpty) {
-      return AppPanel(
-          child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              child: Column(children: [
-                Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                        color: AppIdentity.good.withValues(alpha: .1),
-                        borderRadius: BorderRadius.circular(18)),
-                    child: const Icon(Icons.cloud_done_outlined,
-                        color: AppIdentity.good, size: 28)),
-                const SizedBox(height: 12),
-                Text('لا يوجد شيء بانتظار الإرسال',
-                    style: AppIdentity.body(15, weight: FontWeight.w700)),
-                const SizedBox(height: 2),
-                Text('كل القراءات وصلت إلى النظام الأساسي.',
-                    style: AppIdentity.body(13, color: AppIdentity.faint)),
-              ])));
+      return AppRows(children: const [
+        AppEmpty('cloud', 'لا يوجد شيء بانتظار الإرسال',
+            'كل القراءات وصلت إلى النظام الأساسي.',
+            good: true),
+      ]);
     }
-    return AppPanel(
-        padding: EdgeInsets.zero,
-        child: Column(children: [
-          for (var index = 0; index < queue.length; index++)
-            _tile(queue[index], last: index == queue.length - 1),
-        ]));
+    return AppRows(children: [for (final reading in queue) _tile(reading)]);
   }
 
-  Widget _tile(Map<String, dynamic> reading, {required bool last}) {
+  Widget _tile(Map<String, dynamic> reading) {
     final subscriber = subscribers
         .where((item) => item['id'] == reading['subscriber_id'])
         .firstOrNull;
@@ -59,55 +40,52 @@ class QueuedReadingsList extends StatelessWidget {
     final consumption = current == null || previous == null
         ? null
         : current - (double.tryParse('$previous') ?? 0);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-      decoration: BoxDecoration(
-          border: last
-              ? null
-              : const Border(bottom: BorderSide(color: AppIdentity.lineSoft))),
-      child: Row(children: [
-        Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-                color: color.withValues(alpha: .1),
-                borderRadius: BorderRadius.circular(13)),
-            child: Icon(rejected ? Icons.error_outline : Icons.schedule,
-                color: color, size: 21)),
-        const SizedBox(width: 12),
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(
-              '${subscriber?['full_name'] ?? 'مشترك #${reading['subscriber_id']}'}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppIdentity.body(15, weight: FontWeight.w700)),
-          Text(
-              [
-                'الجديدة ${AppIdentity.reading(reading['current_reading'])}',
-                if (previous != null)
-                  'السابقة ${AppIdentity.reading(previous)}',
-                if (consumption != null && consumption >= 0)
-                  '${AppIdentity.reading(consumption)} ك.و.س',
-              ].join(' · '),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppIdentity.body(12.5, color: AppIdentity.faint)),
-          const SizedBox(height: 2),
-          Text(rejected ? '${reading['sync_error']}' : 'بانتظار الاتصال',
-              style:
-                  AppIdentity.body(12, weight: FontWeight.w600, color: color)),
-        ])),
-        TextButton(
+    return AppRow(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      leading: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+              color: rejected ? AppIdentity.badTint : AppIdentity.warningTint,
+              borderRadius: BorderRadius.circular(15)),
+          child: AppIcon(rejected ? 'err' : 'clock', color: color)),
+      title: AppRowTitle(
+          '${subscriber?['full_name'] ?? 'مشترك #${reading['subscriber_id']}'}'),
+      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        AppRowNote([
+          'الجديدة ${AppIdentity.reading(reading['current_reading'])}',
+          if (previous != null) 'السابقة ${AppIdentity.reading(previous)}',
+          if (consumption != null && consumption >= 0)
+            '${AppIdentity.reading(consumption)} ك.و.س',
+        ].join(' · ')),
+        Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+                rejected ? '${reading['sync_error']}' : 'بانتظار الاتصال',
+                style: AppIdentity.body(12.5,
+                    weight: FontWeight.w600, color: color))),
+      ]),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        AppIconButton(
             key: ValueKey('reenter-${reading['mobile_operation_id']}'),
-            onPressed: onReenter == null ? null : () => onReenter!(reading),
-            child: const Text('تعديل')),
-        if (rejected)
-          IconButton(
-              tooltip: 'حذف القراءة المرفوضة',
-              icon: const Icon(Icons.delete_outline, color: AppIdentity.muted),
+            icon: 'edit',
+            label: 'تعديل',
+            size: 38,
+            iconSize: 17,
+            flat: true,
+            onPressed: onReenter == null ? null : () => onReenter!(reading)),
+        if (rejected) ...[
+          const SizedBox(width: 4),
+          AppIconButton(
+              icon: 'trash',
+              label: 'حذف القراءة المرفوضة',
+              size: 38,
+              iconSize: 17,
+              flat: true,
+              color: AppIdentity.bad,
               onPressed: () => onDiscard(reading)),
+        ],
       ]),
     );
   }

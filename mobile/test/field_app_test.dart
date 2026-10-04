@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:power_collect/api_client.dart';
+import 'package:power_collect/app_identity.dart';
 import 'package:power_collect/field_store.dart';
 import 'package:power_collect/main.dart';
 import 'package:power_collect/payment_page.dart';
@@ -179,7 +180,7 @@ void main() {
     expect(find.text('تسجيل الدفعات'), findsNothing);
     await tester.tap(find.text('إدخال القراءات').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('B1'));
+    await tester.tap(find.byKey(const ValueKey('box-B1')));
     await tester.pumpAndSettle();
     expect(find.text('Subscriber One'), findsOneWidget);
     expect(store.queuedReadings, hasLength(1));
@@ -229,7 +230,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('إدخال القراءات').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('B1'));
+    await tester.tap(find.byKey(const ValueKey('box-B1')));
     await tester.pumpAndSettle();
 
     for (final digit in ['1', '1', '0', '0']) {
@@ -296,15 +297,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(cash);
     await tester.pumpAndSettle();
-    final recordButton = tester.widget<TextButton>(
-        find.widgetWithText(TextButton, 'تسجيل 25.00 شيكل'));
+    final recordButton =
+        tester.widget<AppAction>(find.byKey(const ValueKey('payment-submit')));
     expect(recordButton.onPressed, isNull);
-    await tester.scrollUntilVisible(find.byType(CheckboxListTile), 200,
+    await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('payment-confirm')), 200,
         scrollable: find
             .descendant(
                 of: find.byType(PaymentPage), matching: find.byType(Scrollable))
             .first);
-    await tester.tap(find.byType(CheckboxListTile));
+    await tester.tap(find.byKey(const ValueKey('payment-confirm')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('تسجيل 25.00 شيكل'));
     await tester.pumpAndSettle();

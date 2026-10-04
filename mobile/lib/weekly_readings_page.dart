@@ -111,68 +111,38 @@ class _WeeklyReadingsPageState extends State<WeeklyReadingsPage> {
             title: 'القراءات الأسبوعية',
             subtitle: 'قراءات المشتركين · عرض فقط',
             onBack: () => Navigator.pop(context)),
-        Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(children: [
-              if (weeks.isNotEmpty)
-                DropdownButtonFormField<String>(
-                    key: ValueKey(week),
-                    initialValue: weeks.any((option) => option['value'] == week)
-                        ? week
-                        : null,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'الأسبوع'),
-                    items: [
-                      for (final option in weeks)
-                        DropdownMenuItem(
-                            value: option['value'] as String,
-                            child: Text('${option['label']}',
-                                overflow: TextOverflow.ellipsis,
-                                style: AppIdentity.body(13))),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => week = value);
-                      unawaited(load());
-                    }),
-              const SizedBox(height: 12),
-              TextField(
-                  controller: search,
-                  maxLength: 100,
-                  onChanged: searchChanged,
-                  onSubmitted: (_) => unawaited(load()),
-                  decoration: InputDecoration(
-                      counterText: '',
-                      hintText: 'اسم المشترك أو رقم الحساب أو الطبلون',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: search.text.isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: 'مسح البحث',
-                              icon: const Icon(Icons.close),
-                              onPressed: () {
-                                search.clear();
-                                unawaited(load());
-                              }))),
-              Row(children: [
-                Text('$total مشترك',
-                    style: AppIdentity.body(13, color: AppIdentity.faint)),
-                const Spacer(),
-                IconButton(
-                    tooltip: 'تحديث القراءات',
-                    onPressed: busy ? null : () => unawaited(load()),
-                    icon: const Icon(Icons.refresh)),
-              ]),
-              if (busy) const LinearProgressIndicator(),
-            ])),
         Expanded(
             child: RefreshIndicator(
                 color: AppIdentity.brand,
                 onRefresh: load,
                 child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                     children: [
+                      if (weeks.isNotEmpty) weekPicker(),
+                      const SizedBox(height: 10),
+                      AppSearchField(
+                          controller: search,
+                          hint: 'اسم المشترك أو رقم الحساب أو الطبلون',
+                          maxLength: 100,
+                          onChanged: searchChanged,
+                          onSubmitted: (_) => unawaited(load()),
+                          onClear: () {
+                            search.clear();
+                            unawaited(load());
+                          }),
+                      AppSection('$total مشترك'),
+                      if (busy)
+                        Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                    minHeight: 3,
+                                    color: AppIdentity.brand,
+                                    backgroundColor: AppIdentity.sunken))),
                       if (error != null) ...[
                         AppNotice(error!, error: true),
                         TextButton(
@@ -180,11 +150,18 @@ class _WeeklyReadingsPageState extends State<WeeklyReadingsPage> {
                             child: const Text('إعادة المحاولة')),
                       ],
                       if (!busy && error == null && subscribers.isEmpty)
-                        const AppPanel(
-                            child: Center(child: Text('لا توجد نتائج'))),
+                        AppRows(children: [
+                          Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 18, vertical: 28),
+                              child: Text('لا توجد نتائج',
+                                  textAlign: TextAlign.center,
+                                  style: AppIdentity.body(13,
+                                      color: AppIdentity.faint)))
+                        ]),
                       for (final subscriber in subscribers)
                         Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(bottom: 10),
                             child: readingCard(subscriber)),
                       if (page > 0 && page < lastPage)
                         AppAction(
@@ -197,60 +174,96 @@ class _WeeklyReadingsPageState extends State<WeeklyReadingsPage> {
                     ]))),
       ])));
 
+  Widget weekPicker() => Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+            color: AppIdentity.surface,
+            border: Border.all(color: AppIdentity.line, width: 1.5),
+            borderRadius: BorderRadius.circular(15)),
+        child: Row(children: [
+          AppIcon('clock', color: AppIdentity.faint),
+          const SizedBox(width: 8),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                key: ValueKey(week),
+                value: weeks.any((option) => option['value'] == week)
+                    ? week
+                    : null,
+                isExpanded: true,
+                dropdownColor: AppIdentity.surface,
+                icon: AppIcon('down', color: AppIdentity.faint),
+                style: AppIdentity.body(14, weight: FontWeight.w700),
+                items: [
+                  for (final option in weeks)
+                    DropdownMenuItem(
+                        value: option['value'] as String,
+                        child: Text('${option['label']}',
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                AppIdentity.body(14, weight: FontWeight.w700))),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => week = value);
+                  unawaited(load());
+                },
+              ),
+            ),
+          ),
+        ]),
+      );
+
   Widget readingCard(Map<String, dynamic> subscriber) {
     final status = subscriber['status'];
-    final (statusLabel, color, icon) = switch (status) {
-      'approved' => ('معتمدة', AppIdentity.good, Icons.verified_outlined),
-      'pending' => ('بانتظار الاعتماد', AppIdentity.warning, Icons.schedule),
-      _ => ('لم تُدخل قراءة', AppIdentity.muted, Icons.remove_circle_outline),
+    final (statusLabel, tone, icon) = switch (status) {
+      'approved' => ('معتمدة', AppTone.good, 'check'),
+      'pending' => ('بانتظار الاعتماد', AppTone.warning, 'clock'),
+      _ => ('لم تُدخل قراءة', AppTone.muted, 'info'),
     };
-    return AppPanel(
+    return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: AppIdentity.card(radius: 20),
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${subscriber['full_name']}', style: AppIdentity.heading(17)),
-          Text(
-              'حساب ${subscriber['account_number']} · طبلون ${subscriber['meter_box_number'] ?? '—'}',
-              style: AppIdentity.body(12, color: AppIdentity.faint)),
-        ])),
-        const SizedBox(width: 8),
-        Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-                color: color.withValues(alpha: .1),
-                borderRadius: BorderRadius.circular(99)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
-              Text(statusLabel,
-                  style: AppIdentity.body(12,
-                      color: color, weight: FontWeight.w700)),
-            ])),
-      ]),
-      const SizedBox(height: 12),
-      AppReadingCompare(
-          previous: AppIdentity.reading(subscriber['previous_reading']),
-          current: subscriber['current_reading'] == null
-              ? null
-              : AppIdentity.reading(subscriber['current_reading']),
-          consumption: subscriber['consumption'] == null
-              ? null
-              : AppIdentity.reading(subscriber['consumption'])),
-      if (subscriber['amount_due'] != null) ...[
-        const SizedBox(height: 10),
-        readingValue('قيمة الأسبوع (₪)', subscriber['amount_due']),
-      ],
-    ]));
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text('${subscriber['full_name']}',
+                      style: AppIdentity.body(15.5, weight: FontWeight.w700)),
+                  Text(
+                      'حساب ${subscriber['account_number']} · طبلون ${subscriber['meter_box_number'] ?? '—'}',
+                      style: AppIdentity.body(12, color: AppIdentity.faint)),
+                ])),
+            const SizedBox(width: 8),
+            AppTag(statusLabel, tone, icon: icon),
+          ]),
+          const SizedBox(height: 10),
+          AppReadingCompare(
+              previous: AppIdentity.reading(subscriber['previous_reading']),
+              current: subscriber['current_reading'] == null
+                  ? null
+                  : AppIdentity.reading(subscriber['current_reading']),
+              currentLabel: 'الحالية',
+              consumption: subscriber['consumption'] == null
+                  ? null
+                  : AppIdentity.reading(subscriber['consumption'])),
+          if (subscriber['amount_due'] != null) ...[
+            const SizedBox(height: 10),
+            const AppDashedLine(),
+            Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Row(children: [
+                  Expanded(
+                      child:
+                          Text('قيمة الأسبوع', style: AppIdentity.body(13.5))),
+                  Text('${AppIdentity.grouped(subscriber['amount_due'])} ₪',
+                      style: AppIdentity.number(13.5)),
+                ])),
+          ],
+        ]));
   }
-
-  Widget readingValue(String label, dynamic value) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [
-        Expanded(child: Text(label, style: AppIdentity.body(13))),
-        Text(value == null ? '—' : AppIdentity.money(value),
-            style: AppIdentity.number(15)),
-      ]));
 }

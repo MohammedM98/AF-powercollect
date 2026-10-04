@@ -58,12 +58,14 @@ MemoryStore readerStore({List<Map<String, dynamic>> queued = const []}) =>
       };
 
 Future<void> openBox(WidgetTester tester, MemoryStore store) async {
+  await tester.binding.setSurfaceSize(const Size(390, 844));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester
       .pumpWidget(PowerCollectApp(apiClient: OfflineApi(), fieldStore: store));
   await tester.pumpAndSettle();
   await tester.tap(find.text('إدخال القراءات').last);
   await tester.pumpAndSettle();
-  await tester.tap(find.text('B1'));
+  await tester.tap(find.byKey(const ValueKey('box-B1')));
   await tester.pumpAndSettle();
 }
 

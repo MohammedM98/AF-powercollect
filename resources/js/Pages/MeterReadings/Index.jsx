@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import ConfirmDialog from '@/Components/ConfirmDialog';
@@ -60,12 +60,18 @@ function calculateCharges(currentReading, row) {
     return { consumption, ...weeklyCharges(consumption, row.unitPrice, row.minimumPayment, row.discount) };
 }
 
-function focusNextReadingInput(currentInput) {
+/**
+ * Moves from a reading field to the one `step` rows away (1 down, -1 up),
+ * skipping the ones that can't be edited. Down past the last field leaves
+ * the field; up past the first stays where it is.
+ */
+function focusReadingInput(currentInput, step = 1) {
     const inputs = [...document.querySelectorAll('[data-reading-input]:not([disabled])')];
-    const nextInput = inputs[inputs.indexOf(currentInput) + 1];
-    if (nextInput) {
-        nextInput.focus();
-    } else {
+    const target = inputs[inputs.indexOf(currentInput) + step];
+
+    if (target) {
+        target.focus();
+    } else if (step > 0) {
         currentInput.blur();
     }
 }
@@ -79,6 +85,9 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     const [value, setValue] = useState(savedValue);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
+    const inputRef = useRef(null);
+    // Set when the field was clicked into and left with nothing entered, until it is entered or clicked again.
+    const [leftEmpty, setLeftEmpty] = useState(false);
     // Changing an approved reading sends it back for approval, so it waits on "are you sure?".
     const [confirmingApprovedEdit, setConfirmingApprovedEdit] = useState(false);
 
@@ -86,6 +95,26 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     useEffect(() => {
         setValue(savedValue);
     }, [savedValue]);
+
+    // A reading the server refused is entered again: the field gets the focus back, its number selected,
+    // unless the user has already moved on to another field.
+    useEffect(() => {
+        if (error && !saving && (!document.activeElement || document.activeElement === document.body)) {
+            inputRef.current?.focus();
+            inputRef.current?.select();
+        }
+    }, [error, saving]);
+
+    // The reminder to enter the reading fades after a while, still there to click.
+    useEffect(() => {
+        if (!leftEmpty) {
+            return undefined;
+        }
+
+        const timer = setTimeout(() => setLeftEmpty(false), 8000);
+
+        return () => clearTimeout(timer);
+    }, [leftEmpty]);
 
     const isDraft = value !== savedValue;
     const charges = !isDraft && row.reading ? { ...row.reading, minimumApplies: Number(row.reading.readingFee) < Number(row.minimumPayment) && !row.discount } : calculateCharges(value, row);
@@ -157,22 +186,45 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     min={row.previousReading}
                     dir="ltr"
                     data-reading-input
+                    ref={inputRef}
                     aria-label={`القراءة الجديدة لـ ${row.fullName}`}
                     aria-invalid={Boolean(error)}
                     disabled={!row.canEdit || saving}
                     value={value}
                     placeholder={row.canEdit ? 'أدخل القراءة' : '—'}
-                    onInput={(e) => setValue(e.target.value)}
-                    onBlur={() => save()}
+                    onInput={(e) => {
+                        setValue(e.target.value);
+                        setLeftEmpty(false);
+                    }}
+                    onFocus={(e) => {
+                        setLeftEmpty(false);
+                        e.target.select();
+                    }}
+                    onBlur={() => {
+                        save();
+                        setLeftEmpty(value === '' && savedValue === '');
+                    }}
                     onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
+                        // Enter and the down arrow go to the next subscriber, the up arrow to the previous one.
+                        if (e.key === 'Enter' || e.key === 'ArrowDown') {
                             e.preventDefault();
-                            focusNextReadingInput(e.currentTarget);
+                            focusReadingInput(e.currentTarget, 1);
+                        } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            focusReadingInput(e.currentTarget, -1);
                         }
                     }}
                     className={error ? 'has-error' : ''}
                 /></div>
                 {error && <p className="mt-1 max-w-[16rem] text-xs text-red-600">{error}</p>}
+                {leftEmpty && !error && (
+                    <p role="alert" className="re-flash">
+                        لم تُدخل قراءة هذا المشترك.{' '}
+                        <button type="button" onClick={() => inputRef.current?.focus()}>
+                            أدخلها الآن
+                        </button>
+                    </p>
+                )}
                 {row.hasLaterWeek && <p className="mt-1 text-xs text-gray-400">توجد قراءة لأسبوع لاحق</p>}
             </td>
             <td className={`re-diff re-number ${charges && charges.consumption < 0 ? 'text-red-600' : 'text-brand-700'}`}>
@@ -353,7 +405,7 @@ export default function Index({
             <Head title="القراءات الأسبوعية" />
             <div className="reading-entry" dir="rtl">
                 <div className="re-heading">
-                    <div><h1>القراءات</h1><p>أدخل القراءة الجديدة بجانب آخر قراءة، واضغط Enter للحفظ والانتقال للمشترك التالي.</p></div>
+                    <div><h1>القراءات</h1><p>أدخل القراءة الجديدة بجانب آخر قراءة، واضغط Enter أو السهم لأسفل للحفظ والانتقال للمشترك التالي، والسهم لأعلى للرجوع.</p></div>
                     <div className="re-actions">
                         <span className={`re-open ${entryWindow.isOpen ? 'is-open' : ''}`}><i />الإدخال {entryWindow.isOpen ? 'مفتوح' : 'مغلق'}</span>
                         <div className="re-week">
@@ -506,7 +558,7 @@ export default function Index({
                 </table>
             </div>
 
-            <div className="re-footer"><span>مجموع المستحق لهذا الأسبوع <b>{formatCurrency(summary.amountDue)}</b></span><span><Icon name="enter" /> Enter للحفظ والانتقال · Tab للتنقل</span></div>
+            <div className="re-footer"><span>مجموع المستحق لهذا الأسبوع <b>{formatCurrency(summary.amountDue)}</b></span><span><Icon name="enter" /> Enter أو ↓ للحفظ والانتقال · ↑ للرجوع · Tab للتنقل</span></div>
             <Pagination meta={rows} filters={filters} baseUrl="/meter-readings" extraParams={{ week }} />
             </section>
 

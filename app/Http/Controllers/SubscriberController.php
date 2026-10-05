@@ -23,6 +23,7 @@ use App\Models\TariffSegment;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
 use App\Support\DailySeries;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -49,7 +50,8 @@ class SubscriberController extends Controller
             ->visibleTo($actor)
             ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'tariffSegment', 'circuitBreaker', 'standingDiscount', 'registeredBy', 'meterReadings.recordedBy'])
             ->with(['profile' => fn ($query) => $query->withCount(['subscriptions' => fn ($subscriptions) => $subscriptions->visibleTo($actor)])])
-            ->withSum('transactions as outstanding_balance', 'amount');
+            ->withSum('transactions as outstanding_balance', 'amount')
+            ->withExists(['transactions as has_subscription_fee' => fn (Builder $transactions) => $transactions->where('type', SubscriberTransaction::TYPE_SUBSCRIPTION_FEE)]);
         $this->applySubscriberListFilters($query, $request);
 
         $canRecordReadings = $actor->can('create', MeterReading::class);
@@ -114,14 +116,8 @@ class SubscriberController extends Controller
 
             $subscriber->save();
 
-            if ($chargeSubscriptionFee && $subscriber->subscription_fee !== null && (float) $subscriber->subscription_fee > 0) {
-                $subscriber->transactions()->create([
-                    'recorded_by' => $actor->id,
-                    'type' => SubscriberTransaction::TYPE_SUBSCRIPTION_FEE,
-                    'source_key' => 'subscription-fee:'.$subscriber->id,
-                    'amount' => $subscriber->subscription_fee,
-                    'currency_amount' => $subscriber->subscription_fee,
-                ]);
+            if ($chargeSubscriptionFee) {
+                $this->chargeSubscriptionFee($subscriber, $actor);
             }
 
             return $subscriber;
@@ -130,6 +126,25 @@ class SubscriberController extends Controller
         $actor->notify(new ActionCompleted('subscriber-created', $subscriber->displayName()));
 
         return redirect()->route('subscribers.index')->with('status', 'subscriber-created');
+    }
+
+    /**
+     * Charge the subscriber's subscription fee to their account, as a
+     * subscription-fee line, if it has an amount.
+     */
+    private function chargeSubscriptionFee(Subscriber $subscriber, User $actor): void
+    {
+        if ($subscriber->subscription_fee === null || (float) $subscriber->subscription_fee <= 0) {
+            return;
+        }
+
+        $subscriber->transactions()->create([
+            'recorded_by' => $actor->id,
+            'type' => SubscriberTransaction::TYPE_SUBSCRIPTION_FEE,
+            'source_key' => 'subscription-fee:'.$subscriber->id,
+            'amount' => $subscriber->subscription_fee,
+            'currency_amount' => $subscriber->subscription_fee,
+        ]);
     }
 
     /**
@@ -153,8 +168,10 @@ class SubscriberController extends Controller
      */
     public function update(UpdateSubscriberRequest $request, Subscriber $subscriber): RedirectResponse
     {
-        $data = $request->validated();
+        $data = $request->safe()->except(['charge_subscription_fee']);
         $data = $this->enforceMinimumChargePermission(auth()->user(), $data, $subscriber);
+        // Only a subscriber without the fee on the account is validated for charging it.
+        $chargeSubscriptionFee = (bool) $request->validated('charge_subscription_fee', false);
 
         // Activating a subscriber who was not active starts their subscription today, unless a date was picked.
         if ($data['status'] === SubscriberStatus::Active->value
@@ -163,9 +180,13 @@ class SubscriberController extends Controller
             $data['subscription_date'] = DailySeries::today()->toDateString();
         }
 
-        DB::transaction(function () use ($subscriber, $data): void {
+        DB::transaction(function () use ($subscriber, $data, $chargeSubscriptionFee, $request): void {
             $subscriber->profile()->lockForUpdate()->firstOrFail();
             $subscriber->update($data);
+
+            if ($chargeSubscriptionFee) {
+                $this->chargeSubscriptionFee($subscriber, $request->user());
+            }
         });
         $request->user()->notify(new ActionCompleted('subscriber-updated', $subscriber->displayName()));
 
@@ -314,6 +335,8 @@ class SubscriberController extends Controller
             'minimum_charge' => $subscriber->minimum_charge,
             'initial_reading' => $subscriber->initial_reading,
             'subscription_fee' => $subscriber->subscription_fee,
+            // Whether the fee is already on the account: if not, the edit form can still charge it.
+            'subscription_fee_charged' => (bool) ($subscriber->has_subscription_fee ?? $subscriber->hasSubscriptionFeeCharge()),
             'subscription_date' => $subscriber->subscription_date?->format('Y-m-d'),
             'notes' => $subscriber->notes,
         ];

@@ -182,6 +182,36 @@ class SubscriberValidationTest extends TestCase
         $this->assertSame('2026-01-01', $subscriber->fresh()->subscription_date->toDateString());
     }
 
+    public function test_a_subscriber_added_without_the_fee_can_be_charged_it_when_edited(): void
+    {
+        $payload = $this->validPayload();
+        $subscriber = Subscriber::factory()->create(['branch_id' => auth()->user()->branch_id]);
+
+        $this->put(route('subscribers.update', $subscriber), [...$payload, 'charge_subscription_fee' => true, 'subscription_fee' => ''])
+            ->assertSessionHasErrors('subscription_fee');
+        $this->assertSame(0, $subscriber->transactions()->count());
+
+        $this->put(route('subscribers.update', $subscriber), [...$payload, 'charge_subscription_fee' => true, 'subscription_fee' => '45'])
+            ->assertSessionHasNoErrors();
+
+        $fee = $subscriber->transactions()->sole();
+        $this->assertSame('subscription_fee', $fee->type);
+        $this->assertSame('45.00', $fee->amount);
+        $this->assertTrue($subscriber->fresh()->hasSubscriptionFeeCharge());
+    }
+
+    public function test_the_fee_is_charged_only_once(): void
+    {
+        $payload = $this->validPayload();
+        $subscriber = Subscriber::factory()->create(['branch_id' => auth()->user()->branch_id]);
+        $charge = [...$payload, 'charge_subscription_fee' => true, 'subscription_fee' => '45'];
+
+        $this->put(route('subscribers.update', $subscriber), $charge)->assertSessionHasNoErrors();
+        $this->put(route('subscribers.update', $subscriber), $charge)->assertSessionHasNoErrors();
+
+        $this->assertSame(1, $subscriber->transactions()->count());
+    }
+
     public function test_update_rejects_another_subscribers_national_id(): void
     {
         $payload = $this->validPayload();

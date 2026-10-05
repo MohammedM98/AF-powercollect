@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Head, router } from '@inertiajs/react';
+import { notify } from '@/lib/notify';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Icon from '@/Components/Icon';
@@ -86,8 +87,8 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const inputRef = useRef(null);
-    // Set when the field was clicked into and left with nothing entered, until it is entered or clicked again.
-    const [leftEmpty, setLeftEmpty] = useState(false);
+    // Set when the arrows or Enter move on from the field: skipping a subscriber that way is on purpose.
+    const skippedByKey = useRef(false);
     // Changing an approved reading sends it back for approval, so it waits on "are you sure?".
     const [confirmingApprovedEdit, setConfirmingApprovedEdit] = useState(false);
 
@@ -104,17 +105,6 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
             inputRef.current?.select();
         }
     }, [error, saving]);
-
-    // The reminder to enter the reading fades after a while, still there to click.
-    useEffect(() => {
-        if (!leftEmpty) {
-            return undefined;
-        }
-
-        const timer = setTimeout(() => setLeftEmpty(false), 8000);
-
-        return () => clearTimeout(timer);
-    }, [leftEmpty]);
 
     const isDraft = value !== savedValue;
     const charges = !isDraft && row.reading ? { ...row.reading, minimumApplies: Number(row.reading.readingFee) < Number(row.minimumPayment) && !row.discount } : calculateCharges(value, row);
@@ -192,39 +182,36 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     disabled={!row.canEdit || saving}
                     value={value}
                     placeholder={row.canEdit ? 'أدخل القراءة' : '—'}
-                    onInput={(e) => {
-                        setValue(e.target.value);
-                        setLeftEmpty(false);
-                    }}
+                    onInput={(e) => setValue(e.target.value)}
                     onFocus={(e) => {
-                        setLeftEmpty(false);
+                        skippedByKey.current = false;
                         e.target.select();
                     }}
                     onBlur={() => {
                         save();
-                        setLeftEmpty(value === '' && savedValue === '');
+
+                        // Clicked into and left with nothing entered: a flash message, so the table's rows stay as they are.
+                        if (value === '' && savedValue === '' && !skippedByKey.current) {
+                            notify(`لم تُدخل قراءة ${row.fullName}، عُد إلى حقلها وأدخلها.`);
+                        }
+
+                        skippedByKey.current = false;
                     }}
                     onKeyDown={(e) => {
                         // Enter and the down arrow go to the next subscriber, the up arrow to the previous one.
                         if (e.key === 'Enter' || e.key === 'ArrowDown') {
                             e.preventDefault();
+                            skippedByKey.current = true;
                             focusReadingInput(e.currentTarget, 1);
                         } else if (e.key === 'ArrowUp') {
                             e.preventDefault();
+                            skippedByKey.current = true;
                             focusReadingInput(e.currentTarget, -1);
                         }
                     }}
                     className={error ? 'has-error' : ''}
                 /></div>
                 {error && <p className="mt-1 max-w-[16rem] text-xs text-red-600">{error}</p>}
-                {leftEmpty && !error && (
-                    <p role="alert" className="re-flash">
-                        لم تُدخل قراءة هذا المشترك.{' '}
-                        <button type="button" onClick={() => inputRef.current?.focus()}>
-                            أدخلها الآن
-                        </button>
-                    </p>
-                )}
                 {row.hasLaterWeek && <p className="mt-1 text-xs text-gray-400">توجد قراءة لأسبوع لاحق</p>}
             </td>
             <td className={`re-diff re-number ${charges && charges.consumption < 0 ? 'text-red-600' : 'text-brand-700'}`}>

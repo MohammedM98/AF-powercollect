@@ -13,7 +13,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { printFieldsProps, printRowProps } from '@/lib/print';
 import { formatCurrency } from '@/lib/currency';
-import { formatMonthSpan } from '@/lib/format';
+import { formatMonthName } from '@/lib/format';
 import { consumptionBetween, weeklyCharges } from '@/lib/readings';
 import { activeReadingStatus, readingStatusFilters } from '@/lib/readingSheet';
 import './ReadingEntry.css';
@@ -405,29 +405,20 @@ export default function Index({
         });
     }
 
-    // The month the week ends in, then the weeks of that month: pick the month first, then its week.
+    // The year and the month the week ends in, then that month's weeks: pick the year, the month, then the week.
+    const currentYear = weekEnd.slice(0, 4);
     const currentMonth = weekEnd.slice(0, 7);
-    const monthOptions = [];
-    for (const option of weekOptions) {
-        const key = option.end.slice(0, 7);
-        if (!monthOptions.some((month) => month.key === key)) {
-            monthOptions.push({ key, label: formatMonthSpan(option.end, option.end) });
-        }
-    }
-    if (!monthOptions.some((month) => month.key === currentMonth)) {
-        monthOptions.push({ key: currentMonth, label: formatMonthSpan(weekEnd, weekEnd) });
-    }
-    const weeksOfMonth = weekOptions.filter((option) => option.end.slice(0, 7) === currentMonth);
-    if (!weeksOfMonth.some((option) => option.value === week)) {
-        weeksOfMonth.push({ value: week, end: weekEnd });
-    }
+    const periodOptions = weekOptions.some((option) => option.value === week) ? weekOptions : [...weekOptions, { value: week, end: weekEnd }];
+    const yearOptions = [...new Set(periodOptions.map((option) => option.end.slice(0, 4)))];
+    const monthOptions = [...new Set(periodOptions.filter((option) => option.end.startsWith(currentYear)).map((option) => option.end.slice(0, 7)))];
+    const weeksOfMonth = periodOptions.filter((option) => option.end.startsWith(currentMonth));
 
-    /** Another month opens on its latest week. */
-    function changeMonth(key) {
-        const latestOfMonth = weekOptions.find((option) => option.end.slice(0, 7) === key);
+    /** Another year or month opens on its latest week. */
+    function changePeriod(prefix) {
+        const latest = periodOptions.find((option) => option.end.startsWith(prefix));
 
-        if (latestOfMonth) {
-            changeWeek(latestOfMonth.value);
+        if (latest) {
+            changeWeek(latest.value);
         }
     }
 
@@ -449,11 +440,14 @@ export default function Index({
                         <span className={`re-open ${entryWindow.isOpen ? 'is-open' : ''}`}><i />الإدخال {entryWindow.isOpen ? 'مفتوح' : 'مغلق'}</span>
                         <div className="re-week">
                             <button type="button" aria-label="الأسبوع السابق" disabled={weekIndex < 0 || weekIndex === weekOptions.length - 1} onClick={() => changeWeek(weekOptions[weekIndex + 1].value)}><Icon name="chevron-right" /></button>
-                            <select className="re-week-select" aria-label="الشهر" value={currentMonth} onChange={(e) => changeMonth(e.target.value)}>
-                                {monthOptions.map((month) => <option key={month.key} value={month.key}>{month.label}</option>)}
+                            <select className="re-week-select" aria-label="السنة" value={currentYear} onChange={(e) => changePeriod(e.target.value)}>
+                                {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+                            </select>
+                            <select className="re-week-select" aria-label="الشهر" value={currentMonth} onChange={(e) => changePeriod(e.target.value)}>
+                                {monthOptions.map((month) => <option key={month} value={month}>{formatMonthName(`${month}-01`)}</option>)}
                             </select>
                             <select className="re-week-select" aria-label="أسبوع القراءة" value={week} onChange={(e) => changeWeek(e.target.value)}>
-                                {weeksOfMonth.map((option) => <option key={option.value} value={option.value}>{shortDate(option.value)} – {shortDate(option.end)}</option>)}
+                                {weeksOfMonth.map((option) => <option key={option.value} value={option.value}>{`\u202A${shortDate(option.value)} – ${shortDate(option.end)}\u202C`}</option>)}
                             </select>
                             <button type="button" aria-label="الأسبوع التالي" disabled={weekIndex <= 0} onClick={() => changeWeek(weekOptions[weekIndex - 1].value)}><Icon name="chevron-left" /></button>
                         </div>

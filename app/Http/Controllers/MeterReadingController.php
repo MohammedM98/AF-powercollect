@@ -88,8 +88,8 @@ class MeterReadingController extends Controller
             'rows' => $rows,
             'week' => $week,
             'weekEnd' => MeterReading::weekEndFor($weekStart)->toDateString(),
-            // About fourteen months of weeks, for the month and week pickers.
-            'weekOptions' => MeterReading::recentWeekOptions(60),
+            // The weeks back to the first reading (at least fourteen months), for the year, month and week pickers.
+            'weekOptions' => MeterReading::recentWeekOptions($this->weeksToOffer()),
             'summary' => [
                 'total' => (clone $scope)->count(),
                 'entered' => (clone $scope)->whereHas('meterReadings', $enteredThisWeek)->count(),
@@ -377,6 +377,23 @@ class MeterReadingController extends Controller
         }
 
         return MeterReading::weekStartFor($requested)->min($latestWeek);
+    }
+
+    /**
+     * How many weeks the pickers offer: back to the week of the first
+     * reading, but at least 60 and at most 520 (ten years).
+     */
+    private function weeksToOffer(): int
+    {
+        $first = MeterReading::query()->min('week_start');
+
+        if ($first === null) {
+            return 60;
+        }
+
+        $weeks = (int) floor(MeterReading::latestEndedWeekStart()->diffInDays(Carbon::parse($first), absolute: true) / 7) + 1;
+
+        return max(60, min(520, $weeks));
     }
 
     /**

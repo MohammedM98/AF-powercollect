@@ -3,8 +3,8 @@ const LOCALE = 'ar-SY-u-nu-latn';
 
 const DAY_FORMAT = new Intl.DateTimeFormat(LOCALE, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 const SHORT_DAY_FORMAT = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long', timeZone: 'UTC' });
-const MONTH_FORMAT = new Intl.DateTimeFormat(LOCALE, { month: 'long', timeZone: 'UTC' });
-const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+// The usual names of the months (يناير, أبريل…), where the dates above use the Levantine ones.
+const MONTH_NAME_FORMAT = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', timeZone: 'UTC' });
 const RELATIVE_FORMAT = new Intl.RelativeTimeFormat('ar', { numeric: 'always' });
 
 const HONORIFICS = new Set(['mr', 'mrs', 'ms', 'dr', 'prof']);
@@ -83,22 +83,9 @@ export function localDay(date = new Date()) {
 }
 
 /** "السبت، 26 أيلول" for a Y-m-d date. */
-/**
- * The month (or the two months) a stretch of days falls in, e.g.
- * "أيلول 2026", or "أيلول – تشرين الأول 2026" when it crosses a month,
- * with both years when it crosses a year. Days are 'YYYY-MM-DD'.
- */
-export function formatMonthSpan(from, to) {
-    const start = new Date(`${from}T00:00:00Z`);
-    const end = new Date(`${to}T00:00:00Z`);
-
-    if (start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth()) {
-        return MONTH_YEAR_FORMAT.format(start);
-    }
-
-    return start.getUTCFullYear() === end.getUTCFullYear()
-        ? `${MONTH_FORMAT.format(start)} – ${MONTH_YEAR_FORMAT.format(end)}`
-        : `${MONTH_YEAR_FORMAT.format(start)} – ${MONTH_YEAR_FORMAT.format(end)}`;
+/** The usual name of a day's month, e.g. "أبريل" for '2026-04-12'. */
+export function formatMonthName(day) {
+    return MONTH_NAME_FORMAT.format(new Date(`${day}T00:00:00Z`));
 }
 
 export function formatDayLabel(day) {

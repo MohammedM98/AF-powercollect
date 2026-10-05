@@ -380,13 +380,19 @@ export default function SubscriberForm({
                     />
                 </Field>
 
-                <Field id="status" label="الحالة" required error={errors.status} span="sm:col-span-2 lg:col-span-3">
+                <Field
+                    id="status"
+                    label="الحالة"
+                    required
+                    error={errors.status}
+                    span="sm:col-span-2 lg:col-span-3"
+                    hint={
+                        isEdit && original.status !== 'active' && data.status === 'active'
+                            ? 'عند التفعيل أدخل القراءة السابقة للعدّاد، ويُحدَّث تاريخ الاشتراك إلى تاريخ اليوم.'
+                            : undefined
+                    }
+                >
                     <ChoiceChips label="الحالة" value={data.status} onChange={chooseStatus} options={STATUS_OPTIONS} />
-                    {isEdit && original.status !== 'active' && data.status === 'active' && (
-                        <p className="mt-2 text-xs font-medium text-amber-700">
-                            عند التفعيل أدخل القراءة السابقة للعدّاد، ويُحدَّث تاريخ الاشتراك إلى تاريخ اليوم.
-                        </p>
-                    )}
                 </Field>
             </FormSection>
 

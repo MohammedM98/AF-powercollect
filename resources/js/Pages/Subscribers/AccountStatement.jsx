@@ -354,8 +354,7 @@ function PrintHeading({ subscriber, caption }) {
                             </>
                         )}
                         حساب <bdi dir="ltr">{subscriber.accountNumber}</bdi>
-                        {subscriber.tariffCategoryLabel && ` · ${subscriber.tariffCategoryLabel}`}
-                        {subscriber.tariffSegmentName && ` (${subscriber.tariffSegmentName})`}
+                        {subscriber.tariffName && ` · ${subscriber.tariffName}`}
                         {subscriber.meterBoxNumber && ` · طبلون ${subscriber.meterBoxNumber}`}
                     </p>
                     <p className="text-xs text-gray-600">طُبع في {PRINTED_AT_FORMAT.format(new Date())}</p>

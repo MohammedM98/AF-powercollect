@@ -9,7 +9,6 @@ use App\Models\MeterReading;
 use App\Models\StandingDiscount;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
-use App\Models\TariffSegment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -94,15 +93,14 @@ class SubscriberStandingDiscountTest extends TestCase
         $this->assertSame(30.0, $this->subscriber->balance());
     }
 
-    public function test_the_discount_form_suggests_the_segments_already_given_a_discount_and_the_tariffs_segments(): void
+    public function test_the_discount_form_suggests_the_segments_already_given_a_discount(): void
     {
         StandingDiscount::factory()->create(['segment' => 'موظفو أبو زايد']);
         StandingDiscount::factory()->create(['segment' => 'موظفو أبو زايد']);
-        TariffSegment::factory()->for($this->subscriber->tariff)->create(['name' => 'مساجد']);
 
         $this->actingAs($this->branchAdmin)
             ->get(route('subscribers.statement', $this->subscriber))
-            ->assertInertia(fn ($page) => $page->where('discountSegments', ['مساجد', 'موظفو أبو زايد']));
+            ->assertInertia(fn ($page) => $page->where('discountSegments', ['موظفو أبو زايد']));
     }
 
     public function test_giving_a_standing_discount_again_replaces_the_one_the_subscriber_has(): void

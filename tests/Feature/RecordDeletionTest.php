@@ -12,7 +12,6 @@ use App\Models\Permission;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\Tariff;
-use App\Models\TariffSegment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -119,23 +118,20 @@ class RecordDeletionTest extends TestCase
         $this->assertModelExists($collector);
     }
 
-    public function test_a_tariff_or_segment_in_use_is_kept_and_an_unused_one_is_deleted(): void
+    public function test_a_tariff_in_use_is_kept_and_an_unused_one_is_deleted(): void
     {
         $tariff = Tariff::factory()->create();
-        $segment = TariffSegment::factory()->create(['tariff_id' => $tariff->id]);
-        Subscriber::factory()->create(['tariff_id' => $tariff->id, 'tariff_segment_id' => $segment->id]);
-        $unusedSegment = TariffSegment::factory()->create(['tariff_id' => $tariff->id]);
+        Subscriber::factory()->create(['tariff_id' => $tariff->id]);
+        $unused = Tariff::factory()->create();
 
         $this->deleteAs($this->superAdmin, route('tariffs.destroy', $tariff))
-            ->assertSessionHasErrors(['delete' => 'لا يمكن حذف التعرفة لوجود سجلات مرتبطة به — المشتركون: 1 · تصنيفات الزبائن: 2.']);
-        $this->deleteAs($this->superAdmin, route('tariff-segments.destroy', $segment))->assertSessionHasErrors('delete');
-        $this->deleteAs($this->superAdmin, route('tariff-segments.destroy', $unusedSegment))
+            ->assertSessionHasErrors(['delete' => 'لا يمكن حذف التعرفة لوجود سجلات مرتبطة به — المشتركون: 1.']);
+        $this->deleteAs($this->superAdmin, route('tariffs.destroy', $unused))
             ->assertSessionHasNoErrors()
-            ->assertSessionHas('status', 'tariff-segment-deleted');
+            ->assertSessionHas('status', 'tariff-deleted');
 
         $this->assertModelExists($tariff);
-        $this->assertModelExists($segment);
-        $this->assertModelMissing($unusedSegment);
+        $this->assertModelMissing($unused);
     }
 
     public function test_places_are_deleted_only_once_nothing_is_under_them(): void

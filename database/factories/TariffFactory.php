@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Enums\TariffCategory;
 use App\Models\Tariff;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -19,7 +18,7 @@ class TariffFactory extends Factory
     public function definition(): array
     {
         return [
-            'category' => fake()->randomElement(TariffCategory::cases()),
+            'name' => fake()->unique()->words(2, true),
             'rate' => fake()->randomFloat(2, 10, 200),
         ];
     }
@@ -27,14 +26,14 @@ class TariffFactory extends Factory
     public function residential(): static
     {
         return $this->state(fn (array $attributes) => [
-            'category' => TariffCategory::Residential,
+            'name' => 'منزلي',
         ]);
     }
 
     public function commercial(): static
     {
         return $this->state(fn (array $attributes) => [
-            'category' => TariffCategory::Commercial,
+            'name' => 'تجاري',
         ]);
     }
 }

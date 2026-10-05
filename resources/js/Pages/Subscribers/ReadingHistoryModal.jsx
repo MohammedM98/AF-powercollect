@@ -107,7 +107,7 @@ export default function ReadingHistoryModal({ subscriber, onClose }) {
                         <div className="rh-meta">
                             <span>حساب <b dir="ltr">{subscriber.account_number}</b></span>
                             {subscriber.meterBoxNumber && <><span>·</span><span>الطبلون <b>{subscriber.meterBoxNumber}</b>{subscriber.subAreaName && ` · ${subscriber.subAreaName}`}</span></>}
-                            <span>·</span><span>{subscriber.branchName}</span><span>·</span><span>{subscriber.tariffCategoryLabel} · {money(subscriber.tariffRate)} ₪ للكيلو</span>
+                            <span>·</span><span>{subscriber.branchName}</span><span>·</span><span>{subscriber.tariffName} · {money(subscriber.tariffRate)} ₪ للكيلو</span>
                             <span className={`rh-pill ${subscriber.status === 'active' ? 'is-approved' : 'is-pending'}`}><i />{subscriber.statusLabel}</span>
                         </div>
                     </div>

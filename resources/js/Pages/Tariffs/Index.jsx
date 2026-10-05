@@ -8,7 +8,6 @@ import { formatMoney, formatNumber, normalizeDecimalInput } from '@/lib/format';
 import { rateChange, stepRate } from '@/lib/tariffs';
 import TariffModal from './TariffModal';
 
-const CATEGORY_ICONS = { residential: 'home', commercial: 'shop' };
 const RATE_STEPS = [-0.25, -0.1, 0.1, 0.25];
 
 /** The price with two decimals: 3 → "3.00". */
@@ -56,7 +55,7 @@ function RateEditor({ tariff, dark, onDone }) {
 
         router.put(
             `/tariffs/${tariff.id}`,
-            { category: tariff.category, rate: change.rate },
+            { name: tariff.name, rate: change.rate },
             { preserveScroll: true, onStart: () => setSaving(true), onFinish: () => setSaving(false), onSuccess: onDone },
         );
     }
@@ -88,7 +87,7 @@ function RateEditor({ tariff, dark, onDone }) {
                         value={text}
                         inputMode="decimal"
                         dir="ltr"
-                        aria-label={`السعر الجديد لتعرفة ${tariff.categoryLabel}`}
+                        aria-label={`السعر الجديد لتعرفة ${tariff.name}`}
                         onFocus={(event) => event.target.select()}
                         onChange={(event) => setText(normalizeDecimalInput(event.target.value))}
                         onKeyDown={onKeyDown}
@@ -198,10 +197,10 @@ function TariffCard({ tariff, dark, editing, onEdit, onDoneEditing, onDelete }) 
                 <span
                     className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[15px] ${dark ? 'bg-white/10' : 'bg-gray-100 text-gray-700'}`}
                 >
-                    <Icon name={CATEGORY_ICONS[tariff.category] ?? 'currency'} className="h-6 w-6" />
+                    <Icon name="currency" className="h-6 w-6" />
                 </span>
                 <div className="min-w-0">
-                    <h3 className="font-luxe text-[22px] font-bold">{tariff.categoryLabel}</h3>
+                    <h3 className="font-luxe text-[22px] font-bold">{tariff.name}</h3>
                     <small className={`block text-[13.5px] ${muted}`}>{formatNumber(tariff.subscribersCount)} مشترك على هذه التعرفة</small>
                 </div>
                 <div className="ms-auto flex items-center gap-2">
@@ -210,7 +209,7 @@ function TariffCard({ tariff, dark, editing, onEdit, onDoneEditing, onDelete }) 
                             type="button"
                             onClick={onDelete}
                             title="حذف التعرفة"
-                            aria-label={`حذف تعرفة ${tariff.categoryLabel}`}
+                            aria-label={`حذف تعرفة ${tariff.name}`}
                             className={`flex h-11 w-11 items-center justify-center rounded-[13px] border transition ${
                                 dark
                                     ? 'border-white/15 bg-white/5 text-red-300 hover:bg-white/10'
@@ -317,7 +316,7 @@ function QuickCalculator({ tariffs }) {
                 {tariffs.map((tariff) => (
                     <div key={tariff.id} className="min-w-[150px] flex-1 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-2.5">
                         <small className="block text-[12.5px] text-gray-500">
-                            {tariff.categoryLabel} · {price(tariff.rate)} ₪
+                            {tariff.name} · {price(tariff.rate)} ₪
                         </small>
                         <b className="font-display text-[22px] font-extrabold text-gray-900">{price(amount * Number(tariff.rate))} ₪</b>
                     </div>
@@ -327,169 +326,14 @@ function QuickCalculator({ tariffs }) {
     );
 }
 
-/** A segment's name typed in place — renaming one, or adding a new one. Enter saves, Esc cancels. */
-function SegmentInput({ initial = '', placeholder, onSave, onCancel }) {
-    const [name, setName] = useState(initial);
-
-    function save() {
-        if (name.trim()) {
-            onSave(name.trim());
-        }
-    }
-
-    return (
-        <span className="inline-flex h-[38px] items-center rounded-full border border-gray-900 bg-surface pe-1 ps-1.5">
-            <input
-                autoFocus
-                value={name}
-                placeholder={placeholder}
-                aria-label={placeholder ?? 'اسم التصنيف'}
-                maxLength={100}
-                onChange={(event) => setName(event.target.value)}
-                onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                        event.preventDefault();
-                        save();
-                    } else if (event.key === 'Escape') {
-                        event.stopPropagation();
-                        onCancel();
-                    }
-                }}
-                className="w-36 border-0 bg-transparent px-2 py-0 text-sm font-semibold text-gray-900 focus:ring-0"
-            />
-            <button
-                type="button"
-                onClick={save}
-                aria-label="حفظ"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-emerald-700 hover:bg-emerald-500/10"
-            >
-                <Icon name="check" className="h-4 w-4" strokeWidth={2} />
-            </button>
-            <button
-                type="button"
-                onClick={onCancel}
-                aria-label="إلغاء"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
-            >
-                <Icon name="close" className="h-4 w-4" strokeWidth={2} />
-            </button>
-        </span>
-    );
-}
-
-/**
- * The customer segments of each tariff (mosques, schools…), for grouping
- * and reports only: renamed, added and removed in place.
- */
-function Segments({ tariffs, canCreateSegment, onDelete }) {
-    // 'segment-{id}' while renaming one, 'tariff-{id}' while adding one.
-    const [editing, setEditing] = useState(null);
-    const visitOptions = { preserveScroll: true, onSuccess: () => setEditing(null) };
-
-    return (
-        <section aria-label="تصنيف الزبائن" className="mt-4 overflow-hidden rounded-card border border-gray-100 bg-surface shadow-card">
-            <div className="border-b border-gray-100 px-5 py-4 sm:px-6">
-                <h3 className="font-luxe text-lg font-bold text-gray-900">تصنيف الزبائن</h3>
-                <p className="text-[13.5px] text-gray-500">مثل المساجد والمدارس والمستشفيات — للتجميع والتقارير فقط، ويبقى السعر سعر التعرفة.</p>
-            </div>
-
-            {tariffs.map((tariff) => {
-                const busiest = Math.max(1, ...tariff.segments.map((segment) => segment.subscribersCount));
-
-                return (
-                    <div
-                        key={tariff.id}
-                        className="grid gap-2 border-b border-gray-100 px-5 py-4 last:border-0 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-4 sm:px-6"
-                    >
-                        <div>
-                            <b className="block text-[15.5px] font-bold text-gray-900">{tariff.categoryLabel}</b>
-                            <small className="text-[12.5px] text-gray-500">{formatNumber(tariff.unsegmentedCount)} بدون تصنيف</small>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            {tariff.segments.map((segment) =>
-                                editing === `segment-${segment.id}` ? (
-                                    <SegmentInput
-                                        key={segment.id}
-                                        initial={segment.name}
-                                        onCancel={() => setEditing(null)}
-                                        onSave={(name) => router.put(`/tariff-segments/${segment.id}`, { name }, visitOptions)}
-                                    />
-                                ) : (
-                                    <span
-                                        key={segment.id}
-                                        className="inline-flex h-[38px] items-center gap-2 rounded-full border border-gray-100 bg-gray-50 pe-1.5 ps-3.5 text-sm font-semibold text-gray-900"
-                                    >
-                                        {segment.name}
-                                        <span className="font-display text-xs font-semibold text-gray-500">{segment.subscribersCount} مشترك</span>
-                                        <span className="h-[5px] w-11 overflow-hidden rounded-full bg-gray-200" aria-hidden="true">
-                                            <i
-                                                className="block h-full rounded-full bg-gray-700"
-                                                style={{ width: `${(segment.subscribersCount / busiest) * 100}%` }}
-                                            />
-                                        </span>
-                                        {segment.canUpdate && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditing(`segment-${segment.id}`)}
-                                                aria-label={`تعديل ${segment.name}`}
-                                                className="flex h-7 w-7 items-center justify-center rounded-full text-blue-600 hover:bg-blue-500/10"
-                                            >
-                                                <Icon name="pencil" className="h-[15px] w-[15px]" />
-                                            </button>
-                                        )}
-                                        {segment.canDelete && segment.subscribersCount === 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => onDelete(segment)}
-                                                aria-label={`حذف ${segment.name}`}
-                                                className="flex h-7 w-7 items-center justify-center rounded-full text-brand-600 hover:bg-brand-500/10"
-                                            >
-                                                <Icon name="trash" className="h-[15px] w-[15px]" />
-                                            </button>
-                                        )}
-                                    </span>
-                                ),
-                            )}
-
-                            {tariff.segments.length === 0 && editing !== `tariff-${tariff.id}` && (
-                                <span className="text-[13.5px] text-gray-500">لا يوجد تصنيف — يُسجَّل المشتركون «{tariff.categoryLabel}» فقط.</span>
-                            )}
-
-                            {canCreateSegment &&
-                                (editing === `tariff-${tariff.id}` ? (
-                                    <SegmentInput
-                                        placeholder="اسم التصنيف"
-                                        onCancel={() => setEditing(null)}
-                                        onSave={(name) => router.post('/tariff-segments', { tariff_id: tariff.id, name }, visitOptions)}
-                                    />
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditing(`tariff-${tariff.id}`)}
-                                        className="inline-flex h-[38px] items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-gray-300 px-3.5 text-sm font-semibold text-gray-600 transition hover:border-gray-900 hover:text-gray-900"
-                                    >
-                                        <Icon name="plus" className="h-[15px] w-[15px]" strokeWidth={2} />
-                                        تصنيف جديد
-                                    </button>
-                                ))}
-                        </div>
-                    </div>
-                );
-            })}
-        </section>
-    );
-}
-
 /**
  * The tariffs: a card for each with its kilo price, the figures behind it
- * and its price history, the price edited in place; a quick calculator;
- * and each tariff's customer segments.
+ * and its price history, the price edited in place; and a quick calculator.
  */
-export default function Index({ tariffs, canCreate, canCreateSegment, categoryOptions }) {
+export default function Index({ tariffs, canCreate }) {
     const [editingId, setEditingId] = useState(null);
     const [creating, setCreating] = useState(false);
     const { requestDelete, deleteDialog } = useDeleteRecord('التعرفة');
-    const { requestDelete: requestSegmentDelete, deleteDialog: segmentDeleteDialog } = useDeleteRecord('تصنيف الزبائن');
 
     return (
         <SettingsLayout
@@ -498,7 +342,7 @@ export default function Index({ tariffs, canCreate, canCreateSegment, categoryOp
                     <div className="min-w-0">
                         <h2 className="text-3xl font-bold text-gray-900">التعرفات</h2>
                         <p className="mt-1 text-[14.5px] text-gray-500">
-                            سعر الكيلو لكل فئة. تُحسب كل قراءة على السعر الساري وقتها، فتغيير السعر لا يمسّ القراءات السابقة.
+                            سعر الكيلو لكل تعرفة، ولك أن تضيف ما تشاء من التعرفات. تُحسب كل قراءة على السعر الساري وقتها، فتغيير السعر لا يمسّ القراءات السابقة.
                         </p>
                     </div>
                     {canCreate && (
@@ -526,25 +370,18 @@ export default function Index({ tariffs, canCreate, canCreateSegment, categoryOp
                                 editing={editingId === tariff.id}
                                 onEdit={() => setEditingId(tariff.id)}
                                 onDoneEditing={() => setEditingId(null)}
-                                onDelete={() => requestDelete(`/tariffs/${tariff.id}`, tariff.categoryLabel)}
+                                onDelete={() => requestDelete(`/tariffs/${tariff.id}`, tariff.name)}
                             />
                         ))}
                     </div>
 
                     <QuickCalculator tariffs={tariffs} />
-
-                    <Segments
-                        tariffs={tariffs}
-                        canCreateSegment={canCreateSegment}
-                        onDelete={(segment) => requestSegmentDelete(`/tariff-segments/${segment.id}`, segment.name)}
-                    />
                 </>
             )}
 
-            {canCreate && <TariffModal show={creating} onClose={() => setCreating(false)} tariff={null} categoryOptions={categoryOptions} />}
+            {canCreate && <TariffModal show={creating} onClose={() => setCreating(false)} tariff={null} />}
 
             {deleteDialog}
-            {segmentDeleteDialog}
         </SettingsLayout>
     );
 }

@@ -61,14 +61,13 @@ class StandingDiscount extends Model
 
     /**
      * The customer segments offered while typing one: those already given
-     * a standing discount and the tariffs' own customer segments.
+     * a standing discount.
      *
      * @return array<int, string>
      */
     public static function segmentSuggestions(): array
     {
         return self::query()->whereNotNull('segment')->distinct()->pluck('segment')
-            ->merge(TariffSegment::query()->distinct()->pluck('name'))
             ->unique()
             ->sort()
             ->values()

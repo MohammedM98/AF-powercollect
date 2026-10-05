@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\SubscriberStatus;
-use App\Enums\TariffCategory;
 use App\Models\Branch;
 use App\Models\MeterBox;
 use App\Models\Subscriber;
@@ -36,7 +35,7 @@ class SubscriberModelTest extends TestCase
         $this->assertTrue($subscriber->tariff->is($tariff));
         $this->assertTrue($subscriber->branch->is($branch));
         $this->assertTrue($subscriber->registeredBy->is($registrar));
-        $this->assertSame(TariffCategory::Residential, $subscriber->tariff->category);
+        $this->assertSame('منزلي', $subscriber->tariff->name);
         $this->assertSame(SubscriberStatus::Active, $subscriber->status);
 
         $this->assertTrue($box->subscribers->contains($subscriber));
@@ -82,11 +81,11 @@ class SubscriberModelTest extends TestCase
         $this->assertSame('202700001', Subscriber::factory()->create()->account_number);
     }
 
-    public function test_the_two_fixed_tariff_categories_are_seeded(): void
+    public function test_the_two_starting_tariffs_are_seeded(): void
     {
         $this->seed(TariffSeeder::class);
 
-        $this->assertDatabaseHas('tariffs', ['category' => TariffCategory::Residential->value]);
-        $this->assertDatabaseHas('tariffs', ['category' => TariffCategory::Commercial->value]);
+        $this->assertDatabaseHas('tariffs', ['name' => 'منزلي']);
+        $this->assertDatabaseHas('tariffs', ['name' => 'تجاري']);
     }
 }

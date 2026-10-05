@@ -7,7 +7,6 @@ use App\Models\Branch;
 use App\Models\Governorate;
 use App\Models\SubArea;
 use Illuminate\Database\Seeder;
-use RuntimeException;
 
 class LocationSeeder extends Seeder
 {
@@ -49,20 +48,18 @@ class LocationSeeder extends Seeder
     }
 
     /**
-     * The branch that works in the seeded area — or the only branch there
-     * is — which the seeders of the area's boxes and subscribers use.
+     * The مخيم 2 branch the area's boxes and subscribers belong to: the one
+     * named «مخيم 2» (or whose name contains it), else the one working in
+     * the area. If there is none yet, it is created.
      */
     public static function branch(): Branch
     {
-        $areaId = Area::query()->where('name', 'مخيم 2')->value('id');
-        $branches = Branch::query()->where('area_id', $areaId)->get();
+        $area = Area::query()->where('name', 'مخيم 2')->firstOrFail();
+        $named = Branch::query()->where('name', 'like', '%مخيم 2%')->get();
 
-        if ($branches->count() !== 1 && Branch::query()->count() === 1) {
-            $branches = Branch::query()->get();
-        }
-
-        return $branches->count() === 1
-            ? $branches->first()
-            : throw new RuntimeException('لم أجد فرعًا واحدًا لمنطقة «مخيم 2»؛ اربط الفرع بالمنطقة من الإعدادات ثم أعد التشغيل.');
+        return $named->firstWhere('name', 'مخيم 2')
+            ?? ($named->count() === 1 ? $named->first() : null)
+            ?? Branch::query()->where('area_id', $area->id)->first()
+            ?? Branch::query()->create(['name' => 'مخيم 2', 'governorate_id' => $area->governorate_id, 'area_id' => $area->id]);
     }
 }

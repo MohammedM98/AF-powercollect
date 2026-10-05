@@ -161,6 +161,7 @@ class MobileCollectionController extends Controller
                 'sender_bank_name' => $validated['sender_bank_name'] ?? null,
                 'sender_name' => $validated['sender_name'] ?? null,
                 'reference_number' => $validated['reference_number'] ?? null,
+                'confirm_duplicate_reference' => (bool) ($validated['confirm_duplicate_reference'] ?? false),
                 'manual_voucher_number' => $validated['manual_voucher_number'] ?? null,
                 'cash_box' => $validated['cash_box'] ?? null,
                 'notes' => $validated['notes'] ?? null,

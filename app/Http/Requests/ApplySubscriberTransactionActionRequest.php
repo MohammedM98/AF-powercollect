@@ -37,7 +37,7 @@ class ApplySubscriberTransactionActionRequest extends FormRequest
             'bank_name' => ['nullable', 'string', 'max:255'],
             'sender_bank_name' => ['nullable', 'string', 'max:255'],
             'sender_name' => ['nullable', 'string', 'max:255'],
-            'reference_number' => ['nullable', 'string', 'max:100'],
+            'reference_number' => ['prohibited'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'amendment_reason' => ['required_if:action,edit,edit_metadata', 'nullable', 'string', 'max:1000'],
             'correction_reason' => ['nullable', Rule::enum(CorrectionReason::class)],

@@ -10,13 +10,6 @@ use Illuminate\Validation\Rule;
 /** Change only a payment's descriptive details, with an audit reason. */
 class AmendSubscriberTransactionRequest extends FormRequest
 {
-    protected function prepareForValidation(): void
-    {
-        if ($this->has('reference_number')) {
-            $this->merge(['reference_number' => trim((string) $this->input('reference_number'))]);
-        }
-    }
-
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -42,7 +35,8 @@ class AmendSubscriberTransactionRequest extends FormRequest
                 ? ['nullable', Rule::in(config('powercollect.transfer_banks'))]
                 : ['prohibited'],
             'sender_name' => $throughBank ? ['nullable', 'string', 'max:255'] : ['prohibited'],
-            'reference_number' => $throughBank ? ['required', 'string', 'max:100'] : ['prohibited'],
+            // A payment's reference number is never changed after it is recorded.
+            'reference_number' => ['prohibited'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'amendment_reason' => ['required', 'string', 'max:1000'],
             'amount' => ['prohibited'],

@@ -131,12 +131,11 @@ class SubscriberStatementTest extends TestCase
         $this->assertSame('1.0000', $payment->exchange_rate);
     }
 
-    public function test_a_bank_transfer_needs_one_of_the_transfer_banks_its_number_and_sender_and_keeps_no_cash_box_or_paper_voucher(): void
+    public function test_a_bank_transfer_needs_one_of_the_transfer_banks_and_sender_and_keeps_no_cash_box_or_paper_voucher(): void
     {
         $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => '', 'reference_number' => '', 'sender_name' => ''])
             ->assertSessionHasErrors([
                 'bank_name' => 'اختر البنك أو المحفظة التي حُوّل إليها المبلغ.',
-                'reference_number',
                 'sender_name' => 'أدخل اسم صاحب الحساب الذي حُوّل منه المبلغ.',
             ]);
         $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => 'بنك القاهرة', 'reference_number' => 'TRX-1', 'sender_name' => 'Ahmad'])
@@ -160,7 +159,17 @@ class SubscriberStatementTest extends TestCase
         $this->assertSame('دفعة بتحويل بنكي من محمود سالم', $transfer->description());
     }
 
-    public function test_transfer_references_are_unique_company_wide_after_normalization(): void
+    public function test_a_transfer_can_be_recorded_without_a_reference_number(): void
+    {
+        $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad', 'reference_number' => ''])
+            ->assertSessionHasNoErrors();
+        $this->recordPayment(['payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(2, SubscriberTransaction::whereNull('reference_number')->whereNull('active_reference')->count());
+    }
+
+    public function test_a_reference_already_on_another_payment_needs_confirmation_after_normalization(): void
     {
         $otherSubscriber = Subscriber::factory()->create(['full_name' => 'Mona']);
         $otherCollector = User::factory()->branchAdmin()->create(['branch_id' => $otherSubscriber->branch_id]);
@@ -172,18 +181,20 @@ class SubscriberStatementTest extends TestCase
             'sender_name' => 'Mona',
             'reference_number' => ' tr  - 42 ',
         ]);
-
-        $this->recordPayment([
+        $duplicate = [
             'payment_method' => 'bank_transfer',
             'bank_name' => 'بنك فلسطين',
             'sender_name' => 'Ahmad',
             'reference_number' => 'TR-42',
-        ])->assertSessionHasErrors([
+        ];
+
+        $this->recordPayment($duplicate)->assertSessionHasErrors([
             'reference_number' => 'هذا الرقم المرجعي مسجَّل مسبقًا على دفعة أخرى — السند '.$existing->printedVoucherNumber().' للمشترك Mona.',
         ]);
-
-        $this->assertSame('TR-42', $existing->active_reference);
         $this->assertDatabaseCount('subscriber_transactions', 1);
+
+        $this->recordPayment([...$duplicate, 'confirm_duplicate_reference' => true])->assertSessionHasNoErrors();
+        $this->assertSame(['TR-42', 'TR-42'], SubscriberTransaction::orderBy('id')->pluck('active_reference')->all());
     }
 
     public function test_live_reference_check_reports_conflicts_and_warns_about_same_day_duplicates(): void

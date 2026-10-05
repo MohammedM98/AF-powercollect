@@ -30,7 +30,6 @@ export default function AmendTransactionModal({ onClose, subscriber, balance, en
                   bank_name: entry.recorded?.bank_name ?? entry.bankName ?? '',
                   sender_bank_name: entry.recorded?.sender_bank_name ?? entry.senderBankName ?? '',
                   sender_name: entry.recorded?.sender_name ?? entry.senderName ?? '',
-                  reference_number: entry.recorded?.reference_number ?? entry.referenceNumber ?? '',
               }
             : {}),
         action: 'edit_metadata',
@@ -119,20 +118,13 @@ export default function AmendTransactionModal({ onClose, subscriber, balance, en
                         <InputError message={form.errors.sender_name} className="mt-2" />
                     </div>
 
-                    <div>
-                        <InputLabel htmlFor="amend_reference_number" value="الرقم المرجعي" />
-                        <input
-                            id="amend_reference_number"
-                            name="reference_number"
-                            type="text"
-                            maxLength={100}
-                            dir="ltr"
-                            className={inputClass}
-                            value={form.data.reference_number}
-                            onChange={(event) => form.setData('reference_number', event.target.value)}
-                        />
-                        <InputError message={form.errors.reference_number} className="mt-2" />
-                    </div>
+                    <LockedValue label="الرقم المرجعي">
+                        {entry.recorded?.reference_number ?? entry.referenceNumber ? (
+                            <bdi dir="ltr">{entry.recorded?.reference_number ?? entry.referenceNumber}</bdi>
+                        ) : (
+                            '—'
+                        )}
+                    </LockedValue>
                 </div>
             )}
 

@@ -208,7 +208,6 @@ class SubscriberTransactionCorrectionTest extends TestCase
             'bank_name' => 'البنك الإسلامي الفلسطيني',
             'sender_bank_name' => 'البنك الوطني الإسلامي',
             'sender_name' => 'أحمد محمد',
-            'reference_number' => 'TR-200',
             'notes' => 'تم تدقيق الحوالة',
             'amendment_reason' => 'اختير البنك الخطأ عند التسجيل',
         ])
@@ -220,7 +219,7 @@ class SubscriberTransactionCorrectionTest extends TestCase
         $this->assertSame($recordedAt, $payment->created_at->toJSON());
         $this->assertSame($balance, $this->subscriber->balance());
         $this->assertSame(
-            ['البنك الإسلامي الفلسطيني', 'البنك الوطني الإسلامي', 'أحمد محمد', 'TR-200', 'تم تدقيق الحوالة'],
+            ['البنك الإسلامي الفلسطيني', 'البنك الوطني الإسلامي', 'أحمد محمد', 'TR-1', 'تم تدقيق الحوالة'],
             [$payment->bank_name, $payment->sender_bank_name, $payment->sender_name, $payment->reference_number, $payment->notes],
         );
 
@@ -228,7 +227,7 @@ class SubscriberTransactionCorrectionTest extends TestCase
         $this->assertSame($this->branchAdmin->id, $firstAmendment->user_id);
         $this->assertSame('اختير البنك الخطأ عند التسجيل', $firstAmendment->reason);
         $this->assertSame(['بنك فلسطين', 'البنك الإسلامي الفلسطيني'], $firstAmendment->changes['bank_name']);
-        $this->assertSame(['TR-1', 'TR-200'], $firstAmendment->changes['reference_number']);
+        $this->assertArrayNotHasKey('reference_number', $firstAmendment->changes);
 
         $this->amend($payment, [
             'bank_name' => 'البنك الإسلامي الفلسطيني',
@@ -237,6 +236,15 @@ class SubscriberTransactionCorrectionTest extends TestCase
             'reference_number' => 'TR-201',
             'notes' => 'تم تدقيق الحوالة',
             'amendment_reason' => 'تصحيح الرقم المرجعي',
+        ])->assertSessionHasErrors('reference_number');
+        $this->assertSame('TR-1', $payment->fresh()->reference_number);
+
+        $this->amend($payment, [
+            'bank_name' => 'البنك الإسلامي الفلسطيني',
+            'sender_bank_name' => 'البنك الوطني الإسلامي',
+            'sender_name' => 'أحمد محمد',
+            'notes' => 'ملاحظة جديدة',
+            'amendment_reason' => 'تحديث الملاحظة',
         ])->assertSessionHasNoErrors();
 
         $this->actingAs($this->branchAdmin)
@@ -252,11 +260,10 @@ class SubscriberTransactionCorrectionTest extends TestCase
                 ->where('entries.1.amendments.0.changes.0.label', 'البنك المحوّل له')
                 ->where('entries.1.amendments.0.changes.0.from', 'بنك فلسطين')
                 ->where('entries.1.amendments.0.changes.0.to', 'البنك الإسلامي الفلسطيني')
-                ->where('entries.1.amendments.1.reason', 'تصحيح الرقم المرجعي')
-                ->where('entries.1.amendments.1.changes.0.label', 'الرقم المرجعي')
-                ->where('entries.1.amendments.1.changes.0.from', 'TR-200')
-                ->where('entries.1.amendments.1.changes.0.to', 'TR-201')
-                ->where('entries.1.recorded.reference_number', 'TR-201')
+                ->where('entries.1.amendments.1.reason', 'تحديث الملاحظة')
+                ->where('entries.1.amendments.1.changes.0.label', 'الملاحظات')
+                ->where('entries.1.amendments.1.changes.0.to', 'ملاحظة جديدة')
+                ->where('entries.1.recorded.reference_number', 'TR-1')
                 ->where('entries.1.balance', '175.00')
                 ->where('summary.balance', '175.00'));
     }

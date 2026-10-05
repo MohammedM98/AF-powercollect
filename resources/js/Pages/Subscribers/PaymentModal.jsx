@@ -424,6 +424,7 @@ export default function PaymentModal({
                   sender_bank_name: recorded.sender_bank_name ?? '',
                   sender_name: recorded.sender_name || subscriber.fullName,
                   reference_number: recorded.reference_number,
+                  confirm_duplicate_reference: false,
                   cash_box: recorded.cash_box,
                   manual_voucher_number: recorded.manual_voucher_number,
                   notes: recorded.notes,
@@ -439,6 +440,7 @@ export default function PaymentModal({
                   // Who the transfer came from: the subscriber unless someone else paid.
                   sender_name: subscriber.fullName,
                   reference_number: '',
+                  confirm_duplicate_reference: false,
                   cash_box: '',
                   manual_voucher_number: '',
                   notes: '',
@@ -873,29 +875,38 @@ export default function PaymentModal({
                                                     <InputError message={errors.sender_name} className="mt-2" />
                                                 </div>
                                                 <div>
-                                                    <FieldLabel htmlFor="reference_number" required hint="من إشعار الحوالة">
+                                                    <FieldLabel htmlFor="reference_number" hint="اختياري · من إشعار الحوالة">
                                                         الرقم المرجعي
                                                     </FieldLabel>
                                                     <input
                                                         id="reference_number"
                                                         name="reference_number"
-                                                        required
                                                         dir="ltr"
                                                         autoComplete="off"
                                                         placeholder="مثال: TRX-48213"
                                                         value={data.reference_number}
-                                                        onChange={(e) => setData('reference_number', e.target.value)}
+                                                        onChange={(e) => setData((current) => ({ ...current, reference_number: e.target.value, confirm_duplicate_reference: false }))}
                                                         className={`${inputClass} text-end font-display`}
                                                     />
                                                     <InputError message={errors.reference_number} className="mt-2" />
                                                     {referenceCheck.processing && <p className="mt-2 text-xs text-gray-500">جارٍ التحقق من الرقم المرجعي...</p>}
                                                     {referenceStatus?.conflict && (
-                                                        <p className="mt-2 text-xs font-medium text-red-600">
-                                                            هذا الرقم المرجعي مستخدم في السند{' '}
-                                                            <a href={referenceStatus.conflict.url} className="underline">
-                                                                {referenceStatus.conflict.voucherNumber ?? '—'} — {referenceStatus.conflict.subscriberName}
-                                                            </a>
-                                                        </p>
+                                                        <div className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-800">
+                                                            <p>
+                                                                هذا الرقم المرجعي مسجَّل مسبقًا في السند{' '}
+                                                                <a href={referenceStatus.conflict.url} className="underline">
+                                                                    {referenceStatus.conflict.voucherNumber ?? '—'} — {referenceStatus.conflict.subscriberName}
+                                                                </a>
+                                                            </p>
+                                                            <label className="mt-1.5 flex items-center gap-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={Boolean(data.confirm_duplicate_reference)}
+                                                                    onChange={(e) => setData('confirm_duplicate_reference', e.target.checked)}
+                                                                />
+                                                                أؤكد تسجيل الدفعة بالرقم نفسه
+                                                            </label>
+                                                        </div>
                                                     )}
                                                     {referenceStatus?.available && !referenceStatus.warning && (
                                                         <p className="mt-2 text-xs font-medium text-emerald-600">الرقم المرجعي متاح.</p>
@@ -1001,7 +1012,7 @@ export default function PaymentModal({
                             </span>
                             <PrimaryButton
                                 type="submit"
-                                disabled={!(Number(data.amount) > 0) || form.processing || Boolean(referenceStatus?.conflict)}
+                                disabled={!(Number(data.amount) > 0) || form.processing || (Boolean(referenceStatus?.conflict) && !data.confirm_duplicate_reference)}
                                 className={`ms-auto h-12 min-w-0 flex-1 rounded-[14px] px-5 text-[15.5px] font-bold sm:min-w-[230px] sm:flex-none ${
                                     correcting ? '!bg-none !bg-amber-600 !shadow-[0_12px_26px_-12px_rgb(180_83_9)]' : ''
                                 }`}

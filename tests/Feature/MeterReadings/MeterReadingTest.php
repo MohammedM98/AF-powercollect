@@ -220,7 +220,9 @@ class MeterReadingTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('week', '2026-09-18')
                 ->where('weekOptions.0.value', '2026-09-18')
-                ->where('weekOptions.0.label', 'الأسبوع المنتهي في الخميس 24-09-2026'));
+                ->where('weekOptions.0.label', 'الأسبوع المنتهي في الخميس 24-09-2026')
+                ->where('weekOptions.0.end', '2026-09-24')
+                ->has('weekOptions', 60));
 
         $this->actingAs($this->dataEntry)
             ->get(route('meter-readings.index', ['week' => '2026-09-25']))

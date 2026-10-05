@@ -88,7 +88,8 @@ class MeterReadingController extends Controller
             'rows' => $rows,
             'week' => $week,
             'weekEnd' => MeterReading::weekEndFor($weekStart)->toDateString(),
-            'weekOptions' => MeterReading::recentWeekOptions(),
+            // About fourteen months of weeks, for the month and week pickers.
+            'weekOptions' => MeterReading::recentWeekOptions(60),
             'summary' => [
                 'total' => (clone $scope)->count(),
                 'entered' => (clone $scope)->whereHas('meterReadings', $enteredThisWeek)->count(),

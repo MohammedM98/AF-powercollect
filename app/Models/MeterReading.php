@@ -79,9 +79,10 @@ class MeterReading extends Model
 
     /**
      * The latest ended week and the ones before it, newest first, as
-     * select options. Weeks read on an earlier reading day keep their dates.
+     * select options (`value` the week's first day, `end` its last). Weeks
+     * read on an earlier reading day keep their dates.
      *
-     * @return array<int, array{value: string, label: string}>
+     * @return array<int, array{value: string, label: string, end: string}>
      */
     public static function recentWeekOptions(int $count = 8): array
     {
@@ -93,6 +94,7 @@ class MeterReading extends Model
             $options[] = [
                 'value' => $weekStart->toDateString(),
                 'label' => 'الأسبوع المنتهي في '.$weekEnd->locale('ar')->dayName.' '.$weekEnd->format('d-m-Y'),
+                'end' => $weekEnd->toDateString(),
             ];
             $weekStart = self::weekStartFor($weekStart->copy()->subDay());
         }

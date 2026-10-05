@@ -3,31 +3,30 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 
 /**
- * The form's starting values: the tariff's own when editing, otherwise blank.
+ * The form's starting values: the tariff's own when editing, otherwise
+ * blank with the first category preselected.
  */
-export function tariffFormData(tariff) {
-    return tariff ? { name: tariff.name, rate: tariff.rate } : { name: '', rate: '' };
+export function tariffFormData(tariff, categoryOptions) {
+    return tariff ? { category: tariff.category, rate: tariff.rate } : { category: categoryOptions[0]?.value ?? '', rate: '' };
 }
 
-export default function TariffForm({ data, setData, errors }) {
+export default function TariffForm({ data, setData, errors, categoryOptions }) {
     return (
         <>
             <div>
-                <InputLabel htmlFor="name" value="اسم التعرفة" />
-                <TextInput
-                    id="name"
-                    type="text"
-                    maxLength={255}
-                    placeholder="مثال: منزلي، تجاري، مساجد"
-                    className="mt-1 block w-full"
-                    value={data.name}
-                    onChange={(e) => setData('name', e.target.value)}
-                />
-                <InputError message={errors.name} className="mt-2" />
+                <InputLabel htmlFor="category" value="الفئة" />
+                <select id="category" className="mt-1 block w-full" value={data.category} onChange={(e) => setData('category', e.target.value)}>
+                    {categoryOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+                <InputError message={errors.category} className="mt-2" />
             </div>
 
             <div className="mt-4">
-                <InputLabel htmlFor="rate" value="سعر الكيلو (شيكل)" />
+                <InputLabel htmlFor="rate" value="السعر (شيكل)" />
                 <TextInput
                     id="rate"
                     type="number"

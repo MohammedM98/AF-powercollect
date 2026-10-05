@@ -516,8 +516,8 @@ class MeterReadingController extends Controller
         $groups[] = $this->circuitBreakerFilterGroup();
 
         $groups[] = $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(
-            Tariff::orderBy('id')->get(),
-            'name',
+            Tariff::orderBy('category')->get(),
+            fn (Tariff $tariff) => __($tariff->category->label()),
         ));
 
         $groups[] = $this->filterGroup('entry', 'حالة الإدخال', [

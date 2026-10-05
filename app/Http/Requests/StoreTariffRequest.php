@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\TariffCategory;
 use App\Models\Tariff;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -29,7 +30,7 @@ class StoreTariffRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255', Rule::unique('tariffs', 'name')->ignore($this->route('tariff'))],
+            'category' => ['required', Rule::enum(TariffCategory::class), Rule::unique('tariffs', 'category')->ignore($this->route('tariff'))],
             'rate' => ['required', 'numeric', 'min:0'],
         ];
     }

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Tariffs;
 
 use App\Enums\PermissionKey;
+use App\Enums\TariffCategory;
 use App\Models\Permission;
 use App\Models\Tariff;
 use App\Models\User;
@@ -28,13 +29,13 @@ class TariffAuthorizationTest extends TestCase
         $superAdmin = User::factory()->superAdmin()->create();
 
         $response = $this->actingAs($superAdmin)->post(route('tariffs.store'), [
-            'name' => 'منزلي',
+            'category' => TariffCategory::Residential->value,
             'rate' => 25.50,
         ]);
 
         $response->assertRedirect(route('tariffs.index'));
         $this->assertDatabaseHas('tariffs', [
-            'name' => 'منزلي',
+            'category' => TariffCategory::Residential->value,
             'rate' => 25.50,
         ]);
     }
@@ -45,7 +46,7 @@ class TariffAuthorizationTest extends TestCase
         $tariff = Tariff::factory()->residential()->create(['rate' => 10]);
 
         $response = $this->actingAs($superAdmin)->put(route('tariffs.update', $tariff), [
-            'name' => 'منزلي',
+            'category' => TariffCategory::Residential->value,
             'rate' => 30,
         ]);
 
@@ -56,29 +57,15 @@ class TariffAuthorizationTest extends TestCase
         ]);
     }
 
-    public function test_cannot_create_two_tariffs_with_the_same_name(): void
+    public function test_cannot_create_two_tariffs_with_the_same_category(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
         Tariff::factory()->residential()->create();
 
         $this->actingAs($superAdmin)->post(route('tariffs.store'), [
-            'name' => 'منزلي',
+            'category' => TariffCategory::Residential->value,
             'rate' => 15,
-        ])->assertSessionHasErrors('name');
-    }
-
-    public function test_super_admin_can_add_as_many_tariffs_as_they_want_each_with_its_own_price(): void
-    {
-        $superAdmin = User::factory()->superAdmin()->create();
-        Tariff::factory()->residential()->create();
-        Tariff::factory()->commercial()->create();
-
-        $this->actingAs($superAdmin)->post(route('tariffs.store'), ['name' => 'مساجد', 'rate' => 20])->assertSessionHasNoErrors();
-        $this->post(route('tariffs.store'), ['name' => 'مدارس', 'rate' => 35.5])->assertSessionHasNoErrors();
-
-        $this->assertDatabaseHas('tariffs', ['name' => 'مساجد', 'rate' => 20]);
-        $this->assertDatabaseHas('tariffs', ['name' => 'مدارس', 'rate' => 35.5]);
-        $this->get(route('tariffs.index'))->assertInertia(fn ($page) => $page->where('canCreate', true)->has('tariffs', 4));
+        ])->assertSessionHasErrors('category');
     }
 
     public function test_collector_cannot_view_tariffs(): void
@@ -120,10 +107,10 @@ class TariffAuthorizationTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('canCreate', false)
                 ->where('tariffs.0.canUpdate', false));
-        $this->post(route('tariffs.store'), ['name' => 'تجاري', 'rate' => 15])->assertForbidden();
-        $this->put(route('tariffs.update', $tariff), ['name' => 'منزلي', 'rate' => 30])->assertForbidden();
+        $this->post(route('tariffs.store'), ['category' => TariffCategory::Commercial->value, 'rate' => 15])->assertForbidden();
+        $this->put(route('tariffs.update', $tariff), ['category' => TariffCategory::Residential->value, 'rate' => 30])->assertForbidden();
 
-        $this->assertDatabaseMissing('tariffs', ['name' => 'تجاري']);
+        $this->assertDatabaseMissing('tariffs', ['category' => TariffCategory::Commercial->value]);
         $this->assertDatabaseHas('tariffs', ['id' => $tariff->id, 'rate' => 10]);
     }
 
@@ -137,10 +124,10 @@ class TariffAuthorizationTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('canCreate', true)
                 ->where('tariffs.0.canUpdate', true));
-        $this->post(route('tariffs.store'), ['name' => 'تجاري', 'rate' => 15])->assertRedirect(route('tariffs.index'));
-        $this->put(route('tariffs.update', $tariff), ['name' => 'منزلي', 'rate' => 30])->assertRedirect(route('tariffs.index'));
+        $this->post(route('tariffs.store'), ['category' => TariffCategory::Commercial->value, 'rate' => 15])->assertRedirect(route('tariffs.index'));
+        $this->put(route('tariffs.update', $tariff), ['category' => TariffCategory::Residential->value, 'rate' => 30])->assertRedirect(route('tariffs.index'));
 
-        $this->assertDatabaseHas('tariffs', ['name' => 'تجاري', 'rate' => 15]);
+        $this->assertDatabaseHas('tariffs', ['category' => TariffCategory::Commercial->value, 'rate' => 15]);
         $this->assertDatabaseHas('tariffs', ['id' => $tariff->id, 'rate' => 30]);
     }
 }

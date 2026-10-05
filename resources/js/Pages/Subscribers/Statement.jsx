@@ -25,7 +25,8 @@ export default function Statement(statement) {
                         </Link>
                         <h2 className="mt-1 text-3xl font-bold text-gray-900">كشف حساب المشترك</h2>
                         <p className="mt-1 text-sm text-gray-500">
-                            {subscriber.fullName} · حساب <span dir="ltr">{subscriber.accountNumber}</span> · {subscriber.tariffName}
+                            {subscriber.fullName} · حساب <span dir="ltr">{subscriber.accountNumber}</span> · {subscriber.tariffCategoryLabel}
+                            {subscriber.tariffSegmentName && ` (${subscriber.tariffSegmentName})`}
                             {subscriber.meterBoxNumber && ` · طبلون ${subscriber.meterBoxNumber}`} · {subscriber.branchName}
                         </p>
                         {subscriber.standingDiscount && (

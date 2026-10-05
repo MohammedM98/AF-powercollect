@@ -8,6 +8,7 @@ use App\Models\Permission;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class CircuitBreakerAuthorizationTest extends TestCase
@@ -79,6 +80,56 @@ class CircuitBreakerAuthorizationTest extends TestCase
             'ampere' => 4,
             'minimum_payment' => 15,
         ])->assertSessionHasErrors('ampere');
+    }
+
+    public function test_two_and_four_ampere_breakers_can_share_the_twenty_shekel_minimum(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $this->actingAs($superAdmin)->post(route('circuit-breakers.store'), [
+            'ampere' => 2, 'minimum_payment' => 20,
+        ])->assertSessionHasNoErrors();
+
+        $this->post(route('circuit-breakers.store'), ['ampere' => 4, 'minimum_payment' => 20])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseCount('circuit_breakers', 2);
+        $this->assertDatabaseHas('circuit_breakers', ['ampere' => 2, 'minimum_payment' => 20]);
+        $this->assertDatabaseHas('circuit_breakers', ['ampere' => 4, 'minimum_payment' => 20]);
+    }
+
+    #[TestWith([0])]
+    #[TestWith([1])]
+    public function test_creating_a_breaker_below_two_amperes_is_rejected(int $ampere): void
+    {
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->post(route('circuit-breakers.store'), ['ampere' => $ampere, 'minimum_payment' => 20])
+            ->assertSessionHasErrors('ampere');
+
+        $this->assertDatabaseCount('circuit_breakers', 0);
+    }
+
+    public function test_editing_a_breaker_to_one_ampere_is_rejected_without_changing_its_payment(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $breaker = CircuitBreaker::factory()->create(['ampere' => 4, 'minimum_payment' => 20]);
+
+        $this->actingAs($superAdmin)->put(route('circuit-breakers.update', $breaker), ['ampere' => 1, 'minimum_payment' => 40])
+            ->assertSessionHasErrors('ampere');
+
+        $this->assertSame([4, '20.00'], [$breaker->fresh()->ampere, $breaker->fresh()->minimum_payment]);
+    }
+
+    public function test_editing_a_breaker_to_an_existing_size_is_rejected(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        CircuitBreaker::factory()->create(['ampere' => 2, 'minimum_payment' => 20]);
+        $breaker = CircuitBreaker::factory()->create(['ampere' => 4, 'minimum_payment' => 20]);
+
+        $this->actingAs($superAdmin)->put(route('circuit-breakers.update', $breaker), ['ampere' => 2, 'minimum_payment' => 40])
+            ->assertSessionHasErrors('ampere');
+
+        $this->assertSame([4, '20.00'], [$breaker->fresh()->ampere, $breaker->fresh()->minimum_payment]);
+        $this->assertDatabaseCount('circuit_breakers', 2);
     }
 
     public function test_collector_cannot_view_circuit_breakers(): void

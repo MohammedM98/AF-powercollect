@@ -33,7 +33,7 @@ function periodLabel(mode, details) {
  * before it is closed — how what the subscribers owe moved, where the
  * payments came in, the readings, each day's closing, and every line.
  */
-export default function Index({ branches, filters, scopeLabel, presets, today, cutoff, kinds, flow, collections, readings, days, check, transactions, period, branchSummary }) {
+export default function Index({ branches, filters, scopeLabel, presets, today, cutoff, kinds, flow, collections, readings, days, check, transactions, period, branchSummary, canExport }) {
     const { errors } = usePage().props;
     const oneDay = filters.from === filters.to;
     const query = new URLSearchParams(
@@ -138,10 +138,10 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                         />
                     </label>
                     <span className="sp" />
-                    <a className="btn" href={`/reports/lines.csv?${query}`}>
+                    {canExport && <a className="btn" href={`/reports/lines.csv?${query}`}>
                         <Icon name="arrow-down-tray" />
                         تنزيل Excel (CSV)
-                    </a>
+                    </a>}
                     <button type="button" className="btn" onClick={() => window.print()}>
                         <Icon name="printer" />
                         طباعة

@@ -27,7 +27,7 @@ class RoleStarterPermissionsMigrationTest extends TestCase
         $this->assertTrue($branchAdmin->hasPermission(PermissionKey::ViewTariffs));
         $this->assertFalse($branchAdmin->hasPermission(PermissionKey::UpdateTariffs));
         $this->assertEqualsCanonicalizing(
-            ['subscribers.view', 'subscribers.create', 'subscribers.update', 'meter_readings.view', 'meter_readings.record'],
+            ['subscribers.view', 'subscribers.create', 'subscribers.update', 'subscribers.bulk_update', 'meter_readings.view', 'meter_readings.record', 'meter_readings.correct'],
             $dataEntry->fresh()->permissions->pluck('key')->all(),
         );
     }

@@ -18,9 +18,14 @@ use App\Models\User;
  */
 class ClosingPolicy
 {
+    public function export(User $user): bool
+    {
+        return $this->viewAny($user) && $user->hasPermission(PermissionKey::ExportFinancialReports);
+    }
+
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::PrepareClosings, PermissionKey::AuditClosings, PermissionKey::ViewAllClosings);
+        return $user->hasAnyPermission(PermissionKey::ViewOwnClosings, PermissionKey::PrepareClosings, PermissionKey::AuditClosings, PermissionKey::ViewAllClosings);
     }
 
     /**
@@ -37,7 +42,7 @@ class ClosingPolicy
     public function viewBranch(User $user, Branch $branch): bool
     {
         return $this->viewAllBranches($user)
-            || ($user->hasPermission(PermissionKey::PrepareClosings) && ($user->isSuperAdmin() || $branch->id === $user->branch_id));
+            || ($user->hasAnyPermission(PermissionKey::ViewOwnClosings, PermissionKey::PrepareClosings) && ($user->isSuperAdmin() || $branch->id === $user->branch_id));
     }
 
     /**

@@ -43,7 +43,7 @@ class StatementReadingCorrectionTest extends TestCase
             ->get(route('subscribers.statement', $this->subscriber))
             ->assertInertia(fn ($page) => $page
                 ->where('entries.0.id', $line->id)
-                ->where('entries.0.available_actions', ['delete'])
+                ->where('entries.0.available_actions', [])
                 ->where('entries.0.meterReadingId', $this->reading->id)
                 ->where('entries.0.reading.id', $this->reading->id)
                 ->where('entries.0.reading.weekStart', '2026-08-21')

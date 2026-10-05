@@ -45,7 +45,7 @@ class MeterReadingPolicy
      */
     public function update(User $user, MeterReading $meterReading): bool
     {
-        if (! $this->canRecord($user)) {
+        if (! $user->hasPermission(PermissionKey::CorrectMeterReadings)) {
             return false;
         }
 

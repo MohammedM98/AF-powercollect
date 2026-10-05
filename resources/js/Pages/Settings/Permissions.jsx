@@ -3,13 +3,13 @@ import { Head, router, useForm } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import Icon from '@/Components/Icon';
 import Switch from '@/Components/Switch';
-import StatRing from '@/Components/StatRing';
+import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
-import { changesBetween, levelOf, samePermissions, sectionIds, sectionModel, withLevel, withToggled } from '@/lib/permissions';
+import { filterSections, individualChanges, levelOf, permissionEntries, samePermissions, sectionIds, sectionModel, withGroupAccess, withLevel, withToggled } from '@/lib/permissions';
 
 /** The icon and one-line description of each section (keyed like PermissionKey::resourceGroups()). */
 const SECTION_DETAILS = {
@@ -391,7 +391,7 @@ function SectionRow({ section, selected, saved, onChange, onSensitive, disabled 
                                 aria-expanded={detailed}
                                 className="text-xs font-semibold text-gray-500 underline decoration-dotted underline-offset-4 hover:text-gray-900"
                             >
-                                {detailed ? 'إخفاء التفاصيل' : 'تفصيل'}
+                                {detailed ? 'إخفاء الإجراءات' : 'اختيار إجراءات منفصلة'}
                             </button>
                         )}
                     </div>
@@ -406,8 +406,8 @@ function SectionRow({ section, selected, saved, onChange, onSensitive, disabled 
                                 key={id}
                                 checked={selected.includes(id)}
                                 onChange={(on) => onChange(withToggled(selected, id, on))}
-                                label={section.ladder.levels[index + 1]}
-                                ariaLabel={`${section.label}: ${section.ladder.levels[index + 1]}`}
+                                label={section.ladder.labels[index]}
+                                ariaLabel={`${section.label}: ${section.ladder.labels[index]}`}
                                 disabled={disabled}
                             />
                         ))}
@@ -479,114 +479,105 @@ function SectionRow({ section, selected, saved, onChange, onSensitive, disabled 
     );
 }
 
-/** The graphite card at the top: how much the employee holds, and what they can and can't do, in words. */
-function Summary({ employee, sections, selected, template }) {
-    const total = sections.reduce((sum, section) => sum + sectionIds(section).length, 0);
-    const can = [];
-    const cannot = [];
-    const sensitiveOn = [];
-
-    for (const section of sections) {
-        const ids = sectionIds(section);
-        const level = section.ladder ? levelOf(section.ladder, selected) : null;
-
-        if (!ids.some((id) => selected.includes(id))) {
-            cannot.push(section.label);
-            continue;
-        }
-
-        if (section.ladder && level !== null && level > 0) {
-            can.push(`${section.ladder.levels[level]} ${section.label}`);
-        } else if (section.ladder && level === null) {
-            can.push(`${section.label} (مخصّص)`);
-        }
-
-        for (const item of section.switches) {
-            if (selected.includes(item.id)) {
-                can.push(`${item.label}`);
-            }
-        }
-
-        for (const item of section.sensitive) {
-            if (selected.includes(item.id)) {
-                sensitiveOn.push(item.label === 'الحذف' ? `حذف ${section.label}` : item.label);
-            }
-        }
-    }
-
-    const matchesTemplate = template && samePermissions(selected, template.permissionIds);
+/** The existing graphite summary, focused on access and exceptions rather than a score. */
+export function PermissionSummary({ employee, sections, selected, template, scopedToOwnBranch }) {
+    const [expanded, setExpanded] = useState(false);
+    const entries = permissionEntries(sections);
+    const enabled = entries.filter((item) => selected.includes(item.id));
+    const sensitive = enabled.filter((item) => item.sensitive);
+    const deviations = template ? individualChanges(sections, template.permissionIds, selected).length : null;
+    const locked = employee.lockedPermissions ?? [];
 
     return (
-        <div className="relative mx-4 mt-4 grid items-center gap-4 overflow-hidden rounded-[20px] bg-graphite-gradient p-4 text-white sm:mx-5 sm:grid-cols-[auto_1fr] sm:p-5">
-            <div className="flex items-center gap-3 sm:flex-col sm:gap-1">
-                <StatRing percent={total ? (selected.length / total) * 100 : 0} size={76} color="text-[#ef7a80]" trackClass="text-white/10" labelClass="text-white" />
-                <span className="text-xs text-white/70">
-                    <b className="font-display text-sm text-white">{selected.length}</b> من {total}
-                </span>
+        <div className="relative mx-4 mt-4 overflow-hidden rounded-[20px] bg-graphite-gradient p-4 text-white sm:mx-5 sm:p-5">
+            <div className="flex flex-wrap items-start gap-3">
+                <div className="min-w-0 flex-1">
+                    <h3 className="font-bold">صلاحيات {employee.name.split(' ')[0]}</h3>
+                    <p className="mt-1 text-xs leading-5 text-white/70">
+                        {scopedToOwnBranch ? 'المعروض هو ما يمكنك تعديله لموظفي فرعك.' : 'صلاحيات الموظف ضمن نطاق دوره وفرعه.'}
+                        {' '}القالب ينسخ الصلاحيات ولا يغيّر الدور أو الفرع.
+                    </p>
+                </div>
+                <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}
+                    className="rounded-control border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/10">
+                    {expanded ? 'إخفاء ملخص الإجراءات' : 'عرض ملخص الإجراءات'}
+                </button>
             </div>
-            <div className="min-w-0">
-                <h3 className="flex flex-wrap items-center gap-2 font-bold">
-                    ماذا يستطيع {employee.name.split(' ')[0]}؟
-                    {template && (
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${matchesTemplate ? 'bg-white/10 text-white/80' : 'bg-white/20 text-white'}`}>
-                            {matchesTemplate ? `مطابق لقالب ${template.label}` : `مخصّص عن قالب ${template.label}`}
-                        </span>
-                    )}
-                </h3>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                    {can.length === 0 && sensitiveOn.length === 0 && (
-                        <span className="rounded-full border border-dashed border-white/25 px-2.5 py-0.5 text-[13px] text-white/70">لا يملك أي صلاحية</span>
-                    )}
-                    {can.map((text) => (
-                        <span key={text} className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[13px] text-white/90">
-                            <Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.2} />
-                            {text}
-                        </span>
-                    ))}
-                    {sensitiveOn.map((text) => (
-                        <span key={text} className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[13px] text-amber-200">
-                            <Icon name="warning" className="h-3.5 w-3.5" strokeWidth={2} />
-                            {text}
+            <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+                {[
+                    { count: enabled.length, label: 'صلاحية قابلة للإدارة' },
+                    { count: sensitive.length, label: 'صلاحية خاصة مفعّلة' },
+                    { count: deviations ?? '—', label: 'اختلاف عن قالب الدور' },
+                ].map((stat) => (
+                    <div key={stat.label} className="rounded-control bg-white/10 px-3 py-2.5">
+                        <b className="font-display text-xl">{stat.count}</b>
+                        <p className="mt-0.5 text-xs leading-5 text-white/70">{stat.label}</p>
+                    </div>
+                ))}
+            </div>
+            {template && <p className="mt-3 text-xs text-white/70">{deviations === 0 ? `مطابق لقالب ${template.label}` : `صلاحيات مخصّصة عن قالب ${template.label}`}</p>}
+            {expanded && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                    {enabled.length === 0 && <span className="text-sm text-white/70">لا توجد صلاحيات مفعّلة ضمن ما يمكنك إدارته.</span>}
+                    {enabled.map((item) => (
+                        <span key={item.id} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs ${item.sensitive ? 'bg-amber-400/20 text-amber-200' : 'bg-white/10 text-white/90'}`}>
+                            <Icon name={item.sensitive ? 'warning' : 'check'} className="h-3.5 w-3.5" />
+                            {item.section}: {item.label}
                         </span>
                     ))}
                 </div>
-                {cannot.length > 0 && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[13px]">
-                        <span className="text-white/60">لا يرى:</span>
-                        {cannot.map((label) => (
-                            <span key={label} className="rounded-full border border-dashed border-white/20 px-2.5 py-0.5 text-white/60">
-                                {label}
-                            </span>
-                        ))}
+            )}
+            {locked.length > 0 && (
+                <div className="mt-3 border-t border-white/15 pt-3 text-xs leading-5 text-white/70">
+                    <b className="text-white">{locked.length} صلاحية خارج نطاق إدارتك، تبقى كما هي:</b> {locked.join('، ')}
+                </div>
+            )}
+        </div>
+    );
+}
+
+export function PermissionChangeReview({ employee, changes }) {
+    return (
+        <div className="px-5 pb-5 sm:px-7">
+            <div className="mb-4 rounded-control border border-gray-100 bg-gray-50 p-3 text-sm leading-6 text-gray-600">
+                <b className="text-gray-900">{employee.name}</b> · {employee.roleLabel} · {employee.branchName ?? 'بلا فرع'}
+                <p>راجع كل إجراء قبل الحفظ. لا تتغيّر الصلاحيات خارج نطاق إدارتك.</p>
+            </div>
+            <div className="max-h-[50vh] space-y-2 overflow-y-auto" tabIndex={0} aria-label="جميع تغييرات الصلاحيات">
+                {changes.map((change) => (
+                    <div key={change.id} className="flex flex-wrap items-start gap-3 rounded-control border border-gray-100 px-3 py-2.5">
+                        <Icon name={change.sensitive ? 'warning' : 'shield'} className={`mt-0.5 h-4 w-4 shrink-0 ${change.sensitive ? 'text-amber-600' : 'text-gray-400'}`} />
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-gray-900">{change.label}</p>
+                            <p className="text-xs text-gray-500">{change.section}{change.hint ? ` · ${change.hint}` : ''}</p>
+                        </div>
+                        <span className={`shrink-0 rounded-lg px-2 py-1 text-xs font-bold ${change.added ? 'bg-brand-500/10 text-brand-600' : 'bg-gray-100 text-gray-700'}`}>
+                            {change.added ? 'غير ممنوح ← سيُمنح' : 'ممنوح ← سيُلغى'}
+                        </span>
                     </div>
-                )}
+                ))}
             </div>
         </div>
     );
 }
 
 /**
- * The left-hand panel: who is being edited, what they can do, each
- * section's level and sensitive permissions, and the bar that saves them.
- * The bar lists every change before it is saved.
+ * Keep the employee's scope visible while editing the grouped permission cards.
+ * Saving always opens the complete review of individual grants.
  */
 function PermissionEditor({ employee, sections, templates, copySources, scopedToOwnBranch, onDirtyChange }) {
     const saved = employee.permissionIds;
-    const { data, setData, put, processing } = useForm({ permissions: { [employee.id]: [...saved] } });
+    const { data, setData, put, processing, errors } = useForm({ permissions: { [employee.id]: [...saved] } });
     const selected = data.permissions[employee.id];
     const [query, setQuery] = useState('');
+    const [mode, setMode] = useState('all');
+    const [reviewing, setReviewing] = useState(false);
     // The sensitive permission waiting on "grant it?".
     const [pendingSensitive, setPendingSensitive] = useState(null);
-    const changes = useMemo(() => changesBetween(sections, saved, selected), [sections, saved, selected]);
+    const changes = useMemo(() => individualChanges(sections, saved, selected), [sections, saved, selected]);
     const dirty = !samePermissions(saved, selected);
     const template = templates.find((item) => item.role === employee.role);
-    const matching = query.trim()
-        ? sections.filter((section) =>
-              [section.label, SECTION_DETAILS[section.key]?.description, ...section.sensitive.map((item) => item.label), ...section.switches.map((item) => item.label)]
-                  .filter(Boolean)
-                  .some((text) => text.includes(query.trim())),
-          )
-        : sections;
+    const matching = filterSections(sections, selected, saved, query, mode);
     const groups = [
         ...SECTION_GROUPS.map((group) => ({ ...group, sections: group.keys.map((key) => matching.find((section) => section.key === key)).filter(Boolean) })),
         {
@@ -600,9 +591,19 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
         setData('permissions', { [employee.id]: ids });
     }
 
+    function setGroup(group, viewOnly) {
+        setSelected(withGroupAccess(group.sections, selected, viewOnly));
+    }
+
     function save() {
         if (dirty && !processing) {
-            put('/settings/permissions', { preserveScroll: true });
+            setReviewing(true);
+        }
+    }
+
+    function confirmSave() {
+        if (dirty && !processing) {
+            put('/settings/permissions', { preserveScroll: true, onSuccess: () => setReviewing(false), onError: () => setReviewing(false) });
         }
     }
 
@@ -629,28 +630,15 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
         function onKeyDown(event) {
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
                 event.preventDefault();
-                save();
+                if (!reviewing && !pendingSensitive) {
+                    save();
+                }
             }
         }
 
         document.addEventListener('keydown', onKeyDown);
         return () => document.removeEventListener('keydown', onKeyDown);
     });
-
-    /** Every section of a group to one level (view only, or nothing at all, sensitive ones included). */
-    function setGroup(group, viewOnly) {
-        let ids = selected;
-
-        for (const section of group.sections) {
-            ids = ids.filter((id) => !sectionIds(section).includes(id));
-
-            if (viewOnly && section.ladder) {
-                ids = [...ids, section.ladder.ids[0]];
-            }
-        }
-
-        setSelected(ids);
-    }
 
     return (
         <section className="rise-in rounded-card border border-gray-100 bg-surface shadow-card" aria-label={`صلاحيات ${employee.name}`}>
@@ -670,7 +658,7 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                     </p>
                 </div>
                 <div className="flex w-full flex-wrap gap-2 sm:ms-auto sm:w-auto">
-                    <MenuButton icon="shield" label="قالب الدور">
+                    <MenuButton icon="shield" label="تطبيق قالب صلاحيات">
                         {(close) =>
                             templates.map((item) => (
                                 <MenuItem
@@ -710,7 +698,7 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                 </div>
             </div>
 
-            <Summary employee={employee} sections={sections} selected={selected} template={template} />
+            <PermissionSummary employee={employee} sections={sections} selected={selected} template={template} scopedToOwnBranch={scopedToOwnBranch} />
 
             <div className="flex flex-wrap items-center gap-3 px-4 pb-1 pt-4 sm:px-5">
                 <div className="relative w-full sm:max-w-xs">
@@ -745,8 +733,23 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                 </p>
             </div>
 
+            <div className="flex flex-wrap items-center gap-2 px-4 pb-1 pt-3 sm:px-5" role="group" aria-label="تصفية الصلاحيات">
+                {[
+                    ['all', 'الكل'], ['enabled', 'المفعّلة'], ['sensitive', 'الصلاحيات الخاصة'], ['changed', 'التغييرات'],
+                ].map(([value, label]) => (
+                    <button key={value} type="button" onClick={() => setMode(value)} aria-pressed={mode === value}
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${mode === value ? 'border-brand-600 bg-brand-600 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                        {label} <span className="ms-1 font-display">{filterSections(sections, selected, saved, '', value).length}</span>
+                    </button>
+                ))}
+                <span className="text-xs text-gray-500 sm:ms-auto">{matching.length} من {sections.length} أقسام · التصفية لا تغيّر الصلاحيات</span>
+            </div>
+
             {groups.length === 0 ? (
-                <p className="px-5 py-12 text-center text-sm text-gray-500">لا توجد صلاحية بهذا الاسم.</p>
+                <div className="px-5 py-10 text-center text-sm text-gray-500">
+                    <p>لا توجد صلاحيات تطابق البحث أو التصفية.</p>
+                    <button type="button" onClick={() => { setQuery(''); setMode('all'); }} className="mt-2 font-semibold text-brand-600">عرض كل الصلاحيات</button>
+                </div>
             ) : (
                 groups.map((group) => (
                     <div key={group.title} className="px-4 pt-2 sm:px-5">
@@ -759,14 +762,14 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                                 onClick={() => setGroup(group, false)}
                                 className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900"
                             >
-                                إلغاء الكل
+                                إلغاء المجموعة
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setGroup(group, true)}
                                 className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900"
                             >
-                                عرض فقط للكل
+                                عرض فقط للمجموعة
                             </button>
                         </div>
                         <div className="space-y-2">
@@ -801,6 +804,7 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                     dirty ? 'border-amber-500/30 bg-surface/95' : 'border-gray-100 bg-surface/90'
                 }`}
             >
+                {Object.keys(errors).length > 0 && <p className="w-full text-sm font-semibold text-brand-600" role="alert">تعذّر حفظ الصلاحيات: {Object.values(errors)[0]}</p>}
                 <span className={`flex items-center gap-2 text-sm ${dirty ? 'font-semibold text-gray-900' : 'text-gray-500'}`} role="status">
                     {dirty ? (
                         <>
@@ -820,7 +824,7 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                             <span
                                 key={change.text}
                                 className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                    change.added ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'
+                                    change.added ? 'bg-brand-500/10 text-brand-600' : 'bg-gray-100 text-gray-700'
                                 }`}
                             >
                                 {change.added ? '+' : '−'} {change.text}
@@ -838,10 +842,24 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                     </SecondaryButton>
                     <PrimaryButton type="button" onClick={save} disabled={processing || !dirty} title="Ctrl + S">
                         <Icon name="check" className="h-4 w-4" strokeWidth={2} />
-                        {processing ? 'جارٍ الحفظ...' : 'حفظ الصلاحيات'}
+                        {processing ? 'جارٍ الحفظ...' : 'مراجعة وحفظ الصلاحيات'}
                     </PrimaryButton>
                 </div>
             </div>
+
+            <Modal show={reviewing} onClose={() => { if (!processing) { setReviewing(false); } }} maxWidth="2xl" centered>
+                <div role="dialog" aria-modal="true" aria-labelledby={`permission-review-${employee.id}`} dir="rtl">
+                    <div className="px-5 pb-4 pt-6 sm:px-7">
+                        <h3 id={`permission-review-${employee.id}`} className="text-lg font-bold text-gray-900">مراجعة تغييرات الصلاحيات</h3>
+                        <p className="mt-1 text-sm text-gray-500">منح {changes.filter((item) => item.added).length} · إلغاء {changes.filter((item) => !item.added).length}</p>
+                    </div>
+                    <PermissionChangeReview employee={employee} changes={changes} />
+                    <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:px-7">
+                        <SecondaryButton onClick={() => setReviewing(false)} disabled={processing} autoFocus>العودة للتعديل</SecondaryButton>
+                        <PrimaryButton type="button" onClick={confirmSave} disabled={processing || !dirty}>{processing ? 'جارٍ الحفظ...' : 'تأكيد وحفظ الصلاحيات'}</PrimaryButton>
+                    </div>
+                </div>
+            </Modal>
 
             <ConfirmDialog
                 show={Boolean(pendingSensitive)}
@@ -851,7 +869,7 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                 }}
                 onCancel={() => setPendingSensitive(null)}
                 title="صلاحية حساسة"
-                message={`«${pendingSensitive?.label ?? ''}»: ${pendingSensitive?.hint ?? ''}. هل تريد منحها لـ ${employee.name}؟ لن تُحفظ قبل أن تضغط «حفظ الصلاحيات».`}
+                message={`«${pendingSensitive?.label ?? ''}»: ${pendingSensitive?.hint ?? ''}. هل تريد منحها لـ ${employee.name}؟ ستراجع التغييرات كاملة قبل حفظها.`}
                 confirmLabel="نعم، فعّلها"
                 cancelLabel="إلغاء"
                 icon="warning"
@@ -939,7 +957,7 @@ export default function Permissions({ users, selectedUser, permissionGroups, rol
             header={
                 <div>
                     <h2 className="text-3xl font-bold text-gray-900">إدارة صلاحيات الموظفين</h2>
-                    <p className="mt-1 text-sm text-gray-500">اختر موظفًا، وحدّد لكل قسم ماذا يستطيع أن يفعل. لا يُحفظ شيء حتى تضغط «حفظ الصلاحيات».</p>
+                    <p className="mt-1 text-sm text-gray-500">اختر موظفًا، وحدّد الإجراءات المسموحة، ثم راجع التغييرات وأكّد حفظها.</p>
                 </div>
             }
         >
@@ -993,7 +1011,7 @@ export default function Permissions({ users, selectedUser, permissionGroups, rol
                     <span className="kbd">J</span> <span className="kbd">K</span> الموظف التالي والسابق
                 </span>
                 <span>
-                    <span className="kbd">Ctrl</span> + <span className="kbd">S</span> حفظ
+                    <span className="kbd">Ctrl</span> + <span className="kbd">S</span> مراجعة وحفظ
                 </span>
             </p>
 

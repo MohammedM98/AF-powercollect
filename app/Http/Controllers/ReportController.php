@@ -63,6 +63,7 @@ class ReportController extends Controller
             'branches' => $branches->map(fn (Branch $branch): array => ['value' => $branch->id, 'label' => $branch->name])->values(),
             'filters' => ['branch' => $branch, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'kind' => $kind],
             'scopeLabel' => $chosen->count() === 1 ? $chosen->first()->name : 'كل الفروع',
+            'canExport' => $request->user()->can('export', Closing::class),
             'period' => $period,
             'branchSummary' => $branchSummary,
             'presets' => $this->presets(),
@@ -90,7 +91,7 @@ class ReportController extends Controller
      */
     public function export(Request $request): StreamedResponse
     {
-        $this->authorize('viewAny', Closing::class);
+        $this->authorize('export', Closing::class);
         ['chosen' => $chosen, 'from' => $from, 'to' => $to, 'kind' => $kind] = $this->filters($request, $this->visibleBranches($request->user()));
         $lines = (new BranchReport($chosen, $from, $to))->lines($kind)
             ->with(['subscriber.branch', 'subscriber.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading'])

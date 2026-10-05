@@ -65,6 +65,10 @@ class SubscriberPolicy
      */
     public function bulkUpdate(User $user, string $field): bool
     {
+        if (! $user->hasPermission(PermissionKey::BulkUpdateSubscribers)) {
+            return false;
+        }
+
         return match ($field) {
             'status' => $user->hasPermission(PermissionKey::UpdateSubscribers),
             'minimum_charge' => $user->hasPermission(PermissionKey::UpdateSubscribers)

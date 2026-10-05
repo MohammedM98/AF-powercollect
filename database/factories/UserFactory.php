@@ -2,8 +2,10 @@
 
 namespace Database\Factories;
 
+use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Models\Branch;
+use App\Models\Permission;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -96,5 +98,11 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'role' => UserRole::FinancialAuditor,
         ]);
+    }
+
+    /** @param array<int, PermissionKey> $permissions */
+    public function withPermissions(array $permissions): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->permissions()->syncWithoutDetaching(Permission::idsFor($permissions)));
     }
 }

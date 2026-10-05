@@ -6,6 +6,7 @@ use App\Enums\ChargeType;
 use App\Enums\ClosingStatus;
 use App\Enums\CorrectionReason;
 use App\Enums\DiscountMethod;
+use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingPayment;
@@ -24,7 +25,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_statement_returns_canonical_available_actions_in_the_required_order(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $invoice = SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '50', 'غرامة');
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
@@ -45,7 +46,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_edit_changes_only_the_last_invoice_amount_and_recomputes_its_balance(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $invoice = SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '50', 'غرامة');
 
@@ -70,7 +71,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_a_refund_always_returns_the_whole_payment_and_links_both_rows(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',
@@ -101,7 +102,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_a_refund_cannot_be_for_part_of_a_payment(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, ['amount' => '50', 'currency' => 'ILS', 'payment_method' => 'cash']);
         SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
@@ -118,7 +119,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_a_payment_partly_refunded_before_refunds_only_what_is_left(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, ['amount' => '50', 'currency' => 'ILS', 'payment_method' => 'cash']);
         SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
@@ -136,7 +137,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_cancel_appends_a_linked_cancellation_and_marks_the_original_cancelled(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $invoice = SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '50', 'غرامة');
         SubscriberTransaction::recordPayment($subscriber, $actor, [
@@ -160,7 +161,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_delete_hard_deletes_only_the_last_transaction(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',
@@ -184,7 +185,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_statement_does_not_offer_edit_metadata_for_a_discount_without_payment_details(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '50', 'غرامة');
         SubscriberTransaction::recordDiscount($subscriber, $actor, DiscountMethod::Shekel, '20', 'البيان الأصلي');
@@ -197,7 +198,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_server_rejects_edit_metadata_for_a_discount_without_payment_details(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '50', 'غرامة');
         $discount = SubscriberTransaction::recordDiscount($subscriber, $actor, DiscountMethod::Shekel, '20', 'البيان الأصلي');
@@ -217,7 +218,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_full_refund_marks_the_original_as_linked_cancellation(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',
@@ -238,7 +239,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_non_last_discount_is_cancelled_with_a_type_specific_cancellation_instead_of_a_refund(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '50', 'غرامة');
         $discount = SubscriberTransaction::recordDiscount($subscriber, $actor, DiscountMethod::Shekel, '20', 'خصم اجتماعي');
@@ -265,7 +266,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_fully_refunded_payment_offers_delete_refund_only_and_delete_linked_tree_actions(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',
@@ -288,7 +289,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_deleting_only_the_last_refund_reactivates_the_payment_and_rebalances_the_statement(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',
@@ -317,7 +318,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_deleting_a_fully_refunded_tree_removes_both_sides_and_rebalances_later_transactions(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',
@@ -350,7 +351,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_partial_refund_cannot_delete_the_original_and_linked_tree(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',
@@ -378,7 +379,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_permanent_actions_and_metadata_edits_are_unavailable_for_a_payment_in_a_closed_day(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',
@@ -402,7 +403,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_deleting_the_last_payment_takes_it_off_a_draft_closing(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',
@@ -426,7 +427,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_deleting_a_refunded_payment_tree_takes_it_off_a_returned_closing(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',
@@ -455,7 +456,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_cancelling_a_weekly_reading_cancels_its_standing_discount_with_it(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         [$charge, $discount] = $this->billedReadingWithDiscount($subscriber, $actor);
         SubscriberTransaction::recordCharge($subscriber, $actor, ChargeType::Penalty, '10', 'غرامة');
@@ -484,7 +485,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_deleting_a_weekly_reading_with_a_reason_reverses_its_standing_discount_with_it(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         [$charge, $discount] = $this->billedReadingWithDiscount($subscriber, $actor);
 
@@ -620,7 +621,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_a_cancelled_reading_discount_cannot_be_deleted_with_its_cancellation(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         [$charge, $readingDiscount] = $this->billedReadingWithDiscount($subscriber, $actor);
         $reading = $charge->meterReading;
@@ -646,7 +647,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_permanent_deletion_actions_require_an_audit_reason(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',
@@ -664,7 +665,7 @@ class SubscriberTransactionActionTest extends TestCase
     public function test_server_rejects_an_action_not_returned_in_available_actions(): void
     {
         $branch = Branch::factory()->create();
-        $actor = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
         $subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
         $payment = SubscriberTransaction::recordPayment($subscriber, $actor, [
             'amount' => '50',

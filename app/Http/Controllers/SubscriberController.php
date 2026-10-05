@@ -22,6 +22,7 @@ use App\Models\Tariff;
 use App\Models\TariffSegment;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
+use App\Support\DailySeries;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -154,6 +155,13 @@ class SubscriberController extends Controller
     {
         $data = $request->validated();
         $data = $this->enforceMinimumChargePermission(auth()->user(), $data, $subscriber);
+
+        // Activating a subscriber who was not active starts their subscription today, unless a date was picked.
+        if ($data['status'] === SubscriberStatus::Active->value
+            && $subscriber->status !== SubscriberStatus::Active
+            && ($data['subscription_date'] ?? null) === $subscriber->subscription_date?->format('Y-m-d')) {
+            $data['subscription_date'] = DailySeries::today()->toDateString();
+        }
 
         DB::transaction(function () use ($subscriber, $data): void {
             $subscriber->profile()->lockForUpdate()->firstOrFail();

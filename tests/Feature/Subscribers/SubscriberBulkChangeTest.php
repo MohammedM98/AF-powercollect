@@ -195,13 +195,13 @@ class SubscriberBulkChangeTest extends TestCase
 
         $this->actingAs($branchAdmin)->get(route('subscribers.bulk-changes.index', ['change' => $change->id]))
             ->assertInertia(fn ($page) => $page
-                ->where('changes.data.0.description', 'الحالة ← مفصول')
+                ->where('changes.data.0.description', 'الحالة ← قيد الانتظار')
                 ->where('changes.data.0.canUndo', true)
                 ->reloadOnly('details', fn ($reload) => $reload
                     ->where('details.items.0.name', $subscriber->displayName())
                     ->where('details.items.0.old', 'نشط')
-                    ->where('details.items.0.new', 'مفصول')
-                    ->where('details.items.0.now', 'مفصول')));
+                    ->where('details.items.0.new', 'قيد الانتظار')
+                    ->where('details.items.0.now', 'قيد الانتظار')));
     }
 
     public function test_the_list_can_be_narrowed_to_chosen_subscribers_for_printing(): void

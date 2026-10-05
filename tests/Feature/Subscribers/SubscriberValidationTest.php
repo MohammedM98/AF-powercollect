@@ -135,6 +135,53 @@ class SubscriberValidationTest extends TestCase
         $this->assertSame(255.2, Subscriber::sole()->initial_reading);
     }
 
+    public function test_activating_a_waiting_subscriber_starts_their_subscription_today_from_the_new_reading(): void
+    {
+        $this->travelTo('2026-10-05 10:00:00');
+        $payload = $this->validPayload();
+        $subscriber = Subscriber::factory()->create([
+            'branch_id' => auth()->user()->branch_id,
+            'status' => SubscriberStatus::Suspended,
+            'subscription_date' => '2026-01-01',
+        ]);
+
+        $this->put(route('subscribers.update', $subscriber), [...$payload, 'subscription_date' => '2026-01-01', 'initial_reading' => 140.5])
+            ->assertSessionHasNoErrors();
+
+        $subscriber->refresh();
+        $this->assertSame(SubscriberStatus::Active, $subscriber->status);
+        $this->assertSame('2026-10-05', $subscriber->subscription_date->toDateString());
+        $this->assertSame(140.5, $subscriber->initial_reading);
+    }
+
+    public function test_activating_needs_the_starting_reading_and_keeps_a_date_picked_by_hand(): void
+    {
+        $payload = $this->validPayload();
+        $subscriber = Subscriber::factory()->create(['branch_id' => auth()->user()->branch_id, 'status' => SubscriberStatus::Suspended]);
+
+        $this->put(route('subscribers.update', $subscriber), [...$payload, 'initial_reading' => ''])
+            ->assertSessionHasErrors('initial_reading');
+
+        $this->put(route('subscribers.update', $subscriber), [...$payload, 'subscription_date' => '2026-09-20'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('2026-09-20', $subscriber->fresh()->subscription_date->toDateString());
+    }
+
+    public function test_saving_an_already_active_subscriber_leaves_their_subscription_date_alone(): void
+    {
+        $payload = $this->validPayload();
+        $subscriber = Subscriber::factory()->create([
+            'branch_id' => auth()->user()->branch_id,
+            'status' => SubscriberStatus::Active,
+            'subscription_date' => '2026-01-01',
+        ]);
+
+        $this->put(route('subscribers.update', $subscriber), [...$payload, 'subscription_date' => '2026-01-01'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('2026-01-01', $subscriber->fresh()->subscription_date->toDateString());
+    }
+
     public function test_update_rejects_another_subscribers_national_id(): void
     {
         $payload = $this->validPayload();

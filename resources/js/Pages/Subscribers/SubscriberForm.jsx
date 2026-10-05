@@ -1,4 +1,4 @@
-import { cloneElement, useEffect, useState } from 'react';
+import { cloneElement, useEffect, useRef, useState } from 'react';
 import Affix from '@/Components/Affix';
 import ChoiceChips from '@/Components/ChoiceChips';
 import ConfirmDialog from '@/Components/ConfirmDialog';
@@ -15,8 +15,8 @@ import { plainDigits } from '@/lib/formValidation';
 
 const STATUS_OPTIONS = [
     { value: 'active', label: 'نشط', dot: 'green' },
-    { value: 'suspended', label: 'مفصول', dot: 'amber' },
-    { value: 'disconnected', label: 'مقطوع', dot: 'gray' },
+    { value: 'suspended', label: 'قيد الانتظار', dot: 'amber' },
+    { value: 'disconnected', label: 'مفصول', dot: 'gray' },
 ];
 
 const STATUS_DOTS = {
@@ -127,7 +127,7 @@ function SubscriberPreview({ data, tariff, circuitBreaker, filled, total }) {
 
 /**
  * The form's starting values: the subscriber's own when editing,
- * otherwise blank. New subscribers start out suspended (مفصول).
+ * otherwise blank. New subscribers start out waiting (قيد الانتظار).
  */
 export function subscriberFormData(subscriber, sourceSubscriber = null) {
     const data = {
@@ -184,6 +184,8 @@ export default function SubscriberForm({
     isEdit = false,
     subscriptionCount = 1,
 }) {
+    // What the subscriber had when the form opened, which choosing the old status again brings back.
+    const original = useRef(data).current;
     const independentContactDetails = sharedPersonalDetails || isEdit;
     const nameField = independentContactDetails ? 'subscription_name' : 'full_name';
     const phoneField = independentContactDetails ? 'subscription_phone' : 'phone';
@@ -244,6 +246,26 @@ export default function SubscriberForm({
     function choose(field, value) {
         setData(field, value);
         clearErrors?.(field);
+    }
+
+    /**
+     * Activating a subscriber who is not active yet starts their subscription
+     * today, from a starting reading entered now; choosing their old status
+     * again puts back what they had.
+     */
+    function chooseStatus(value) {
+        const activating = isEdit && original.status !== 'active' && value === 'active';
+
+        setData((current) => ({
+            ...current,
+            status: value,
+            ...(isEdit && original.status !== 'active'
+                ? activating
+                    ? { initial_reading: '', subscription_date: new Date().toLocaleDateString('en-CA') }
+                    : { initial_reading: original.initial_reading, subscription_date: original.subscription_date }
+                : {}),
+        }));
+        clearErrors?.('status', 'initial_reading', 'subscription_date');
     }
 
     function onBranchChange(value) {
@@ -359,7 +381,12 @@ export default function SubscriberForm({
                 </Field>
 
                 <Field id="status" label="الحالة" required error={errors.status} span="sm:col-span-2 lg:col-span-3">
-                    <ChoiceChips label="الحالة" value={data.status} onChange={(value) => choose('status', value)} options={STATUS_OPTIONS} />
+                    <ChoiceChips label="الحالة" value={data.status} onChange={chooseStatus} options={STATUS_OPTIONS} />
+                    {isEdit && original.status !== 'active' && data.status === 'active' && (
+                        <p className="mt-2 text-xs font-medium text-amber-700">
+                            عند التفعيل أدخل القراءة السابقة للعدّاد، ويُحدَّث تاريخ الاشتراك إلى تاريخ اليوم.
+                        </p>
+                    )}
                 </Field>
             </FormSection>
 

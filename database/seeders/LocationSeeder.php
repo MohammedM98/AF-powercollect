@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Area;
+use App\Models\Branch;
 use App\Models\Governorate;
 use App\Models\SubArea;
 use Illuminate\Database\Seeder;
@@ -44,5 +45,21 @@ class LocationSeeder extends Seeder
                 }
             }
         }
+    }
+
+    /**
+     * The مخيم 2 branch the area's boxes and subscribers belong to: the one
+     * named «مخيم 2» (or whose name contains it), else the one working in
+     * the area. If there is none yet, it is created.
+     */
+    public static function branch(): Branch
+    {
+        $area = Area::query()->where('name', 'مخيم 2')->firstOrFail();
+        $named = Branch::query()->where('name', 'like', '%مخيم 2%')->get();
+
+        return $named->firstWhere('name', 'مخيم 2')
+            ?? ($named->count() === 1 ? $named->first() : null)
+            ?? Branch::query()->where('area_id', $area->id)->first()
+            ?? Branch::query()->create(['name' => 'مخيم 2', 'governorate_id' => $area->governorate_id, 'area_id' => $area->id]);
     }
 }

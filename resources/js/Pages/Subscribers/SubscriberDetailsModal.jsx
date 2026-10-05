@@ -167,7 +167,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, on
                         <span className="sp-avatar" aria-hidden="true">{subscriber.display_name?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('')}<i className={`sp-status-${subscriber.status}`} /></span>
                         <div className="sp-identity">
                             <h2 id={`${tabsId}-title`}>{subscriber.display_name}<span className={`sp-status sp-status-${subscriber.status}`}><i />{subscriber.statusLabel}</span></h2>
-                            <div className="sp-meta"><span>ملف المشترك</span><span className="sp-number">#{subscriber.subscriber_number ?? subscriber.account_number}</span><span><Icon name="pin" />{subscriber.branchName}</span><span><Icon name="bolt" />{subscriber.tariffCategoryLabel}{subscriber.circuitBreakerAmpere && ` · ${subscriber.circuitBreakerAmpere} أمبير`}</span></div>
+                            <div className="sp-meta"><span>ملف المشترك</span><span className="sp-number">#{subscriber.subscriber_number ?? subscriber.account_number}</span><span><Icon name="pin" />{subscriber.branchName}</span><span><Icon name="bolt" />{subscriber.tariffName}{subscriber.circuitBreakerAmpere && ` · ${subscriber.circuitBreakerAmpere} أمبير`}</span></div>
                             <div className="sp-facts">{lastPayment && <span>آخر دفعة <b>{number(lastPayment.amount)} {lastPayment.currencyLabel}</b></span>}<span>آخر قراءة <b>{number(subscriber.lastReading)}</b></span>{lastReading && <span>استهلاك آخر أسبوع <b>{number(lastReading.consumption)}</b> كيلوواط ساعة</span>}</div>
                         </div>
                         <div className={`sp-balance sp-${balance.tone}`}><small>الرصيد الحالي</small><b><bdi>{money(balance.amount)}</bdi><em>{balance.label}</em></b></div>
@@ -206,7 +206,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, on
                                 <Field label="رقم الهوية" value={subscriber.national_id} numeric copy /><Field label="رقم الجوال" value={subscriber.phone ?? subscriber.contact_phone} numeric copy />
                             </dl></Section>
                             <Section title="الاشتراك والقاطع" icon="bolt" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
-                                <Field label="نوع الاشتراك" value={<span className="sp-chip"><Icon name="bolt" />{subscriber.tariffCategoryLabel}</span>} /><Field label="تصنيف الزبائن" value={subscriber.tariffSegmentName} />
+                                <Field label="نوع الاشتراك" value={<span className="sp-chip"><Icon name="bolt" />{subscriber.tariffName}</span>} />
                                 <Field label="القاطع" value={subscriber.circuitBreakerAmpere ? `${subscriber.circuitBreakerAmpere} أمبير` : null} /><Field label="سعر الكيلو" value={money(subscriber.tariffRate)} numeric />
                                 <Field label="الحد الأدنى" value={money(subscriber.minimum_charge)} numeric /><Field label="خصم القراءات الأسبوعية" value={subscriber.standingDiscountSummary} />
                             </dl></Section>

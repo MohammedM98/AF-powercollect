@@ -19,7 +19,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 #[Fillable([
-    'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'tariff_segment_id', 'branch_id',
+    'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'branch_id',
     'registered_by', 'status', 'circuit_breaker_id', 'minimum_charge', 'initial_reading', 'subscription_fee',
     'subscription_date', 'activated_at', 'subscription_name', 'subscription_phone', 'notes',
 ])]
@@ -144,11 +144,6 @@ class Subscriber extends Model
     public function tariff(): BelongsTo
     {
         return $this->belongsTo(Tariff::class);
-    }
-
-    public function tariffSegment(): BelongsTo
-    {
-        return $this->belongsTo(TariffSegment::class);
     }
 
     public function circuitBreaker(): BelongsTo

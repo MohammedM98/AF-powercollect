@@ -18,8 +18,8 @@ class TariffCardsTest extends TestCase
         $superAdmin = User::factory()->superAdmin()->create(['name' => 'Sami']);
         $tariff = Tariff::factory()->residential()->create(['rate' => 2.5]);
 
-        $this->actingAs($superAdmin)->put(route('tariffs.update', $tariff), ['category' => 'residential', 'rate' => 3])->assertSessionHasNoErrors();
-        $this->actingAs($superAdmin)->put(route('tariffs.update', $tariff), ['category' => 'residential', 'rate' => 3])->assertSessionHasNoErrors();
+        $this->actingAs($superAdmin)->put(route('tariffs.update', $tariff), ['name' => 'منزلي', 'rate' => 3])->assertSessionHasNoErrors();
+        $this->actingAs($superAdmin)->put(route('tariffs.update', $tariff), ['name' => 'منزلي', 'rate' => 3])->assertSessionHasNoErrors();
 
         $this->assertSame(['3.00'], $tariff->rateChanges()->pluck('rate')->all());
 
@@ -44,9 +44,7 @@ class TariffCardsTest extends TestCase
             ->get(route('tariffs.index'))
             ->assertInertia(fn ($page) => $page
                 ->where('tariffs.0.subscribersCount', 2)
-                ->where('tariffs.0.unsegmentedCount', 2)
                 ->where('tariffs.0.averageConsumption', 37.5)
-                ->where('canCreate', true)
-                ->where('categoryOptions', [['value' => 'commercial', 'label' => 'تجاري']]));
+                ->where('canCreate', true));
     }
 }

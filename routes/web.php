@@ -36,7 +36,6 @@ use App\Http\Controllers\SubscriberStandingDiscountController;
 use App\Http\Controllers\SubscriberStatementController;
 use App\Http\Controllers\SubscriberTransactionController;
 use App\Http\Controllers\TariffController;
-use App\Http\Controllers\TariffSegmentController;
 use App\Http\Controllers\TransactionAuditController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserTypeController;
@@ -101,7 +100,6 @@ Route::middleware('auth')->group(function () {
     Route::put('/subscribers/{subscriber}/standing-discount', [SubscriberStandingDiscountController::class, 'update'])->name('subscribers.standing-discount.update');
     Route::delete('/subscribers/{subscriber}/standing-discount', [SubscriberStandingDiscountController::class, 'destroy'])->name('subscribers.standing-discount.destroy');
     Route::resource('tariffs', TariffController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
-    Route::resource('tariff-segments', TariffSegmentController::class)->only(['store', 'update', 'destroy']);
     Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('meter-boxes', MeterBoxController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('meter-readings', MeterReadingController::class)->only(['index', 'store', 'update']);

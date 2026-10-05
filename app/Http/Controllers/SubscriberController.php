@@ -19,7 +19,6 @@ use App\Models\SubArea;
 use App\Models\Subscriber;
 use App\Models\SubscriberTransaction;
 use App\Models\Tariff;
-use App\Models\TariffSegment;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
 use App\Support\DailySeries;
@@ -48,7 +47,7 @@ class SubscriberController extends Controller
             ->select('subscribers.*')
             ->selectRaw("COALESCE(NULLIF(subscription_name, ''), full_name) as display_name")
             ->visibleTo($actor)
-            ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'tariffSegment', 'circuitBreaker', 'standingDiscount', 'registeredBy', 'meterReadings.recordedBy'])
+            ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'standingDiscount', 'registeredBy', 'meterReadings.recordedBy'])
             ->with(['profile' => fn ($query) => $query->withCount(['subscriptions' => fn ($subscriptions) => $subscriptions->visibleTo($actor)])])
             ->withSum('transactions as outstanding_balance', 'amount')
             ->withExists(['transactions as has_subscription_fee' => fn (Builder $transactions) => $transactions->where('type', SubscriberTransaction::TYPE_SUBSCRIPTION_FEE)]);
@@ -220,8 +219,7 @@ class SubscriberController extends Controller
             'meterBoxNumber' => $subscriber->meterBox?->box_number,
             'meterBoxName' => $subscriber->meterBox?->displayName(),
             'subAreaName' => $subscriber->meterBox?->subArea?->name,
-            'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
-            'tariffSegmentName' => $subscriber->tariffSegment?->name,
+            'tariffName' => $subscriber->tariff->name,
             'tariffRate' => $subscriber->tariff->rate,
             'circuitBreakerAmpere' => $subscriber->circuitBreaker?->ampere,
             'standingDiscountSummary' => $subscriber->standingDiscount?->summary(),
@@ -328,7 +326,6 @@ class SubscriberController extends Controller
             'address' => $subscriber->address,
             'meter_box_id' => $subscriber->meter_box_id,
             'tariff_id' => $subscriber->tariff_id,
-            'tariff_segment_id' => $subscriber->tariff_segment_id,
             'branch_id' => $subscriber->branch_id,
             'status' => $subscriber->status->value,
             'circuit_breaker_id' => $subscriber->circuit_breaker_id,
@@ -376,11 +373,10 @@ class SubscriberController extends Controller
                 'sub_area_id' => $box->sub_area_id,
             ]);
 
-        $tariffs = Tariff::with('segments')->orderBy('category')->get()->map(fn (Tariff $tariff) => [
+        $tariffs = Tariff::orderBy('id')->get()->map(fn (Tariff $tariff) => [
             'id' => $tariff->id,
-            'categoryLabel' => __($tariff->category->label()),
+            'name' => $tariff->name,
             'rate' => $tariff->rate,
-            'segments' => $tariff->segments->map(fn (TariffSegment $segment) => ['id' => $segment->id, 'name' => $segment->name]),
         ]);
 
         return [
@@ -426,16 +422,7 @@ class SubscriberController extends Controller
 
         $groups = [
             $this->filterGroup('status', 'الحالة', SubscriberStatus::options()),
-            $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(
-                Tariff::orderBy('category')->get(),
-                fn (Tariff $tariff) => __($tariff->category->label()),
-            )),
-            $this->filterGroup('tariff_segment_id', 'تصنيف الزبائن', TariffSegment::with('tariff')->orderBy('tariff_id')->orderBy('name')->get()
-                ->map(fn (TariffSegment $segment) => [
-                    'value' => (string) $segment->id,
-                    'label' => $segment->label(),
-                    'scope' => $this->filterScope(['tariff_id' => $segment->tariff_id]),
-                ])),
+            $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(Tariff::orderBy('id')->get(), 'name')),
             $this->subAreaFilterGroup(SubArea::query()->visibleTo($actor)->orderBy('name')->get()),
             ...$this->meterBoxFilterGroups(
                 $meterBoxes,

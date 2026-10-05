@@ -97,7 +97,7 @@ function SubscriberPreview({ data, tariff, circuitBreaker, filled, total }) {
                             <div className="mt-2 flex flex-wrap gap-1.5 text-xs font-semibold">
                                 {tariff && (
                                     <span className="rounded-full bg-white/10 px-2.5 py-0.5">
-                                        {tariff.categoryLabel} · {formatAmount(tariff.rate)} ش/ك.و
+                                        {tariff.name} · {formatAmount(tariff.rate)} ش/ك.و
                                     </span>
                                 )}
                                 {circuitBreaker && <span className="rounded-full bg-white/10 px-2.5 py-0.5">قاطع {circuitBreaker.ampere} أمبير</span>}
@@ -139,7 +139,6 @@ export function subscriberFormData(subscriber, sourceSubscriber = null) {
         address: subscriber?.address ?? '',
         meter_box_id: subscriber?.meter_box_id ?? '',
         tariff_id: subscriber?.tariff_id ?? '',
-        tariff_segment_id: subscriber?.tariff_segment_id ?? '',
         status: subscriber?.status ?? 'suspended',
         branch_id: subscriber?.branch_id ?? '',
         circuit_breaker_id: subscriber?.circuit_breaker_id ?? '',
@@ -301,9 +300,8 @@ export default function SubscriberForm({
         }
     }
 
-    // A segment belongs to one tariff, so picking another tariff clears it.
     function onTariffChange(value) {
-        setData((current) => ({ ...current, tariff_id: value, tariff_segment_id: '' }));
+        setData('tariff_id', value);
         clearErrors?.('tariff_id');
     }
 
@@ -415,7 +413,7 @@ export default function SubscriberForm({
                         onChange={onTariffChange}
                         options={tariffs.map((tariff) => ({
                             value: tariff.id,
-                            label: tariff.categoryLabel,
+                            label: tariff.name,
                             hint: `${formatAmount(tariff.rate)} ش/ك.و`,
                         }))}
                     />
@@ -435,23 +433,6 @@ export default function SubscriberForm({
                         </Affix>
                     </div>
                 </div>
-
-                {(selectedTariff?.segments ?? []).length > 0 && (
-                    <Field id="tariff_segment_id" label="تصنيف الزبائن" error={errors.tariff_segment_id}>
-                        <select
-                            className="block w-full"
-                            value={data.tariff_segment_id}
-                            onChange={(e) => setData('tariff_segment_id', e.target.value)}
-                        >
-                            <option value="">{selectedTariff.categoryLabel} — بدون تصنيف</option>
-                            {selectedTariff.segments.map((segment) => (
-                                <option key={segment.id} value={segment.id}>
-                                    {segment.name}
-                                </option>
-                            ))}
-                        </select>
-                    </Field>
-                )}
 
                 <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id} span="sm:col-span-2">
                     <ChoiceChips

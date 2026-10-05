@@ -45,9 +45,24 @@ class SubscriberBulkChangeTest extends TestCase
 
         $this->actingAs($branchAdmin)
             ->post(route('subscribers.bulk-changes.store'), ['field' => 'status', 'value' => 'suspended', 'ids' => [$active->id]])
-            ->assertSessionHasErrors(['ids' => 'لا يمكن إعادة مشترك نشط إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».']);
+            ->assertSessionHasErrors(['ids' => 'لا يمكن إعادة مشترك سبق تفعيله إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».']);
 
         $this->assertSame(SubscriberStatus::Active, $active->fresh()->status);
+    }
+
+    public function test_a_disconnected_subscriber_who_was_active_is_not_put_back_to_waiting_in_bulk_but_one_never_active_is(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $wasActive = $this->subscriberOf($branchAdmin, ['status' => SubscriberStatus::Active]);
+        $wasActive->update(['status' => SubscriberStatus::Disconnected]);
+        $neverActive = $this->subscriberOf($branchAdmin, ['status' => SubscriberStatus::Disconnected]);
+
+        $this->actingAs($branchAdmin)
+            ->post(route('subscribers.bulk-changes.store'), ['field' => 'status', 'value' => 'suspended', 'ids' => [$wasActive->id, $neverActive->id]])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(SubscriberStatus::Disconnected, $wasActive->fresh()->status);
+        $this->assertSame(SubscriberStatus::Suspended, $neverActive->fresh()->status);
     }
 
     public function test_the_minimum_charge_is_set_for_the_ticked_subscribers_and_kept_for_undo(): void

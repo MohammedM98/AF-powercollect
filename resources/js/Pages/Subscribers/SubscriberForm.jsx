@@ -149,6 +149,8 @@ export function subscriberFormData(subscriber, sourceSubscriber = null) {
         // New subscribers, and existing ones whose fee is not on the account yet, can be charged it.
         ...(subscriber?.subscription_fee_charged ? {} : { charge_subscription_fee: false }),
         subscription_date: subscriber?.subscription_date ?? '',
+        // Only read by the form: it is not a field the server takes.
+        has_been_active: subscriber?.has_been_active ?? false,
         notes: subscriber?.notes ?? '',
     };
 
@@ -241,8 +243,8 @@ export default function SubscriberForm({
     const contactRequiredFields = REQUIRED_FIELDS.map((field) => field === 'full_name' ? nameField : field === 'phone' ? phoneField : field);
     // Once active, a subscriber is disconnected rather than put back to waiting.
     const statusOptions = STATUS_OPTIONS.map((option) =>
-        isEdit && original.status === 'active' && option.value === 'suspended'
-            ? { ...option, disabled: true, title: 'لا يمكن إعادة مشترك نشط إلى قيد الانتظار؛ غيّر حالته إلى مفصول.' }
+        isEdit && (original.status === 'active' || original.has_been_active) && option.value === 'suspended'
+            ? { ...option, disabled: true, title: 'لا يمكن إعادة مشترك سبق تفعيله إلى قيد الانتظار؛ غيّر حالته إلى مفصول.' }
             : option,
     );
     const readingRequired = data.status === 'active';

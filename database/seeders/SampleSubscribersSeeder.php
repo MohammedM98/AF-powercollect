@@ -49,6 +49,8 @@ class SampleSubscribersSeeder extends Seeder
 
             Subscriber::query()->create([
                 ...$subscriber,
+                // أحمد was active before he was disconnected.
+                ...($subscriber['status'] === SubscriberStatus::Disconnected ? ['activated_at' => $subscriber['subscription_date']] : []),
                 'branch_id' => $branch->id,
                 'tariff_id' => $tariff->id,
                 'registered_by' => $registrar->id,

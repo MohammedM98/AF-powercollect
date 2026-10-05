@@ -80,6 +80,8 @@
 .re-input input:focus { outline: none; border-color: var(--re-brand); box-shadow: 0 0 0 4px color-mix(in srgb, var(--re-brand) 12%, transparent); }
 .re-input input:disabled { background: var(--re-sunken); border-style: dashed; cursor: not-allowed; }
 .re-input input.has-error { border-color: #dc2626; }
+.re-input input.is-missed { border-color: #ea580c; background: color-mix(in srgb, #ea580c 6%, var(--re-surface)); }
+.re-input input.is-saved:hover { border-color: var(--re-success); }
 .re-diff { color: var(--re-brand); font-weight: 700; }
 .re-due { font-weight: 800; }
 .re-due p { font-family: 'IBM Plex Sans Arabic', sans-serif; }

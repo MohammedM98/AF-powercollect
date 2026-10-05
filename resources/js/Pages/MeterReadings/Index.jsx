@@ -89,6 +89,8 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     const inputRef = useRef(null);
     // Set when the arrows or Enter move on from the field: skipping a subscriber that way is on purpose.
     const skippedByKey = useRef(false);
+    // Set when the field was clicked into and left empty; shown in orange until it is entered or clicked again.
+    const [missed, setMissed] = useState(false);
     // Changing an approved reading sends it back for approval, so it waits on "are you sure?".
     const [confirmingApprovedEdit, setConfirmingApprovedEdit] = useState(false);
 
@@ -109,6 +111,13 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     const isDraft = value !== savedValue;
     const charges = !isDraft && row.reading ? { ...row.reading, minimumApplies: Number(row.reading.readingFee) < Number(row.minimumPayment) && !row.discount } : calculateCharges(value, row);
     const belowMinimum = charges?.minimumApplies;
+    const isSaved = Boolean(row.reading) && !isDraft && !error;
+    // What hovering the field says: why it was refused, that it was left empty, or what was saved.
+    const hoverText = error
+        ?? (missed ? 'لم تُدخل قراءة هذا المشترك' : null)
+        ?? (isSaved
+            ? `تم حفظ القراءة (${row.reading.status === 'pending' ? 'بانتظار الاعتماد' : (row.reading.statusLabel ?? row.reading.status)}) · الاستهلاك ${charges?.consumption ?? '—'} · المستحق ${charges ? formatCurrency(charges.amountDue) : '—'}`
+            : null);
 
     function save({ confirmed = false } = {}) {
         if (value === '' || value === savedValue || saving) {
@@ -180,13 +189,17 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     aria-label={`القراءة الجديدة لـ ${row.fullName}`}
                     aria-invalid={Boolean(error)}
                     // The reason shows as a flash message when the save fails, and on hover here: the row never grows.
-                    title={error ?? undefined}
+                    title={hoverText ?? undefined}
                     disabled={!row.canEdit || saving}
                     value={value}
                     placeholder={row.canEdit ? 'أدخل القراءة' : '—'}
-                    onInput={(e) => setValue(e.target.value)}
+                    onInput={(e) => {
+                        setValue(e.target.value);
+                        setMissed(false);
+                    }}
                     onFocus={(e) => {
                         skippedByKey.current = false;
+                        setMissed(false);
                         e.target.select();
                     }}
                     onBlur={() => {
@@ -194,6 +207,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
 
                         // Clicked into and left with nothing entered: a flash message, so the table's rows stay as they are.
                         if (value === '' && savedValue === '' && !skippedByKey.current) {
+                            setMissed(true);
                             notify(`لم تُدخل قراءة ${row.fullName}، عُد إلى حقلها وأدخلها.`);
                         }
 
@@ -211,7 +225,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                             focusReadingInput(e.currentTarget, -1);
                         }
                     }}
-                    className={error ? 'has-error' : ''}
+                    className={error ? 'has-error' : missed ? 'is-missed' : isSaved ? 'is-saved' : ''}
                 /></div>
                 {row.hasLaterWeek && <p className="mt-1 text-xs text-gray-400">توجد قراءة لأسبوع لاحق</p>}
             </td>

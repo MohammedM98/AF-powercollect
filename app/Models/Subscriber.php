@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\DB;
 #[Fillable([
     'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'tariff_segment_id', 'branch_id',
     'registered_by', 'status', 'circuit_breaker_id', 'minimum_charge', 'initial_reading', 'subscription_fee',
-    'subscription_date', 'subscription_name', 'subscription_phone', 'notes',
+    'subscription_date', 'activated_at', 'subscription_name', 'subscription_phone', 'notes',
 ])]
 class Subscriber extends Model
 {
@@ -41,6 +41,13 @@ class Subscriber extends Model
                 $subscriber->profile()->associate(SubscriberProfile::create($subscriber->only(SubscriberProfile::PERSONAL_FIELDS)));
             } else {
                 $subscriber->fill($subscriber->profile->only(SubscriberProfile::PERSONAL_FIELDS));
+            }
+        });
+
+        // The first time a subscriber is active is remembered: they can be disconnected after that, but never go back to waiting.
+        static::saving(function (Subscriber $subscriber): void {
+            if ($subscriber->status === SubscriberStatus::Active && $subscriber->activated_at === null) {
+                $subscriber->activated_at = now();
             }
         });
 
@@ -123,6 +130,7 @@ class Subscriber extends Model
         return [
             'status' => SubscriberStatus::class,
             'subscription_date' => 'date',
+            'activated_at' => 'datetime',
             'subscription_fee' => 'decimal:2',
             'initial_reading' => 'float',
         ];

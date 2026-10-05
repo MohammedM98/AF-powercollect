@@ -336,6 +336,8 @@ class SubscriberController extends Controller
             'initial_reading' => $subscriber->initial_reading,
             'subscription_fee' => $subscriber->subscription_fee,
             // Whether the fee is already on the account: if not, the edit form can still charge it.
+            // Whether the subscriber has ever been active: then they can be disconnected but not put back to waiting.
+            'has_been_active' => $subscriber->activated_at !== null,
             'subscription_fee_charged' => (bool) ($subscriber->has_subscription_fee ?? $subscriber->hasSubscriptionFeeCharge()),
             'subscription_date' => $subscriber->subscription_date?->format('Y-m-d'),
             'notes' => $subscriber->notes,

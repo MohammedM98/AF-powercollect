@@ -100,7 +100,7 @@ class SubscriberBulkChangeController extends Controller
 
         if ($changes->isEmpty()) {
             return back()->withErrors(['ids' => match (true) {
-                $backToWaiting->isNotEmpty() => 'لا يمكن إعادة مشترك نشط إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».',
+                $backToWaiting->isNotEmpty() => 'لا يمكن إعادة مشترك سبق تفعيله إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».',
                 $missingReading->isNotEmpty() => 'لا يمكن تفعيل مشترك قبل إدخال قراءته السابقة؛ أدخلها من «تعديل المشترك» أولًا.',
                 default => 'لا يوجد بين المختارين من تتغير قيمته.',
             }]);
@@ -126,6 +126,7 @@ class SubscriberBulkChangeController extends Controller
                 Subscriber::query()->whereKey($change['subscriber']->id)->update([
                     $field => $change['new'],
                     ...($startsSubscription ? ['subscription_date' => DailySeries::today()->toDateString()] : []),
+                    ...($field === 'status' && $change['new'] === SubscriberStatus::Active->value && $change['subscriber']->activated_at === null ? ['activated_at' => now()] : []),
                 ]);
             }
 
@@ -222,13 +223,15 @@ class SubscriberBulkChangeController extends Controller
     }
 
     /**
-     * Whether the change would put an active subscriber back to waiting.
+     * Whether the change would put a subscriber who has been active back to waiting.
      *
      * @param  array{subscriber: Subscriber, old: ?string, new: ?string}  $change
      */
     private function returnsToWaiting(string $field, array $change): bool
     {
-        return $field === 'status' && $change['old'] === SubscriberStatus::Active->value && $change['new'] === SubscriberStatus::Suspended->value;
+        return $field === 'status'
+            && $change['new'] === SubscriberStatus::Suspended->value
+            && ($change['old'] === SubscriberStatus::Active->value || $change['subscriber']->activated_at !== null);
     }
 
     /** The subscriber's stored value of the field, as a bulk change keeps it. */

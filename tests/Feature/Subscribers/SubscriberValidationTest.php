@@ -218,12 +218,28 @@ class SubscriberValidationTest extends TestCase
         $subscriber = Subscriber::factory()->create(['branch_id' => auth()->user()->branch_id, 'status' => SubscriberStatus::Active]);
 
         $this->put(route('subscribers.update', $subscriber), [...$payload, 'status' => SubscriberStatus::Suspended->value])
-            ->assertSessionHasErrors(['status' => 'لا يمكن إعادة مشترك نشط إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».']);
+            ->assertSessionHasErrors(['status' => 'لا يمكن إعادة مشترك سبق تفعيله إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».']);
         $this->assertSame(SubscriberStatus::Active, $subscriber->fresh()->status);
 
         $this->put(route('subscribers.update', $subscriber), [...$payload, 'status' => SubscriberStatus::Disconnected->value])
             ->assertSessionHasNoErrors();
         $this->assertSame(SubscriberStatus::Disconnected, $subscriber->fresh()->status);
+    }
+
+    public function test_a_disconnected_subscriber_who_was_never_active_can_wait_but_one_who_was_active_cannot(): void
+    {
+        $payload = $this->validPayload();
+        $branch = ['branch_id' => auth()->user()->branch_id];
+        $neverActive = Subscriber::factory()->create([...$branch, 'status' => SubscriberStatus::Disconnected]);
+        $wasActive = Subscriber::factory()->create([...$branch, 'status' => SubscriberStatus::Active, 'national_id' => '987654321']);
+        $wasActive->update(['status' => SubscriberStatus::Disconnected]);
+        $waiting = [...$payload, 'status' => SubscriberStatus::Suspended->value];
+
+        $this->put(route('subscribers.update', $neverActive), $waiting)->assertSessionHasNoErrors();
+        $this->assertSame(SubscriberStatus::Suspended, $neverActive->fresh()->status);
+
+        $this->put(route('subscribers.update', $wasActive), [...$waiting, 'national_id' => '987654321'])->assertSessionHasErrors('status');
+        $this->assertSame(SubscriberStatus::Disconnected, $wasActive->fresh()->status);
     }
 
     public function test_update_rejects_another_subscribers_national_id(): void

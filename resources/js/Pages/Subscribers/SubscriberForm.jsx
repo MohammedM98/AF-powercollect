@@ -177,6 +177,7 @@ export default function SubscriberForm({
     clearErrors,
     meterBoxes,
     tariffs,
+    segments = [],
     circuitBreakers,
     branches,
     subAreas,
@@ -301,9 +302,8 @@ export default function SubscriberForm({
         }
     }
 
-    // A segment belongs to one tariff, so picking another tariff clears it.
     function onTariffChange(value) {
-        setData((current) => ({ ...current, tariff_id: value, tariff_segment_id: '' }));
+        setData('tariff_id', value);
         clearErrors?.('tariff_id');
     }
 
@@ -439,20 +439,17 @@ export default function SubscriberForm({
                     </div>
                 </div>
 
-                {(selectedTariff?.segments ?? []).length > 0 && (
+                {segments.length > 0 && (
                     <Field id="tariff_segment_id" label="تصنيف الزبائن" error={errors.tariff_segment_id}>
-                        <select
-                            className="block w-full"
+                        <SearchableSelect
                             value={data.tariff_segment_id}
-                            onChange={(e) => setData('tariff_segment_id', e.target.value)}
-                        >
-                            <option value="">{selectedTariff.categoryLabel} — بدون تصنيف</option>
-                            {selectedTariff.segments.map((segment) => (
-                                <option key={segment.id} value={segment.id}>
-                                    {segment.name}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(value) => setData('tariff_segment_id', value)}
+                            options={segments.map((segment) => ({ value: String(segment.id), label: segment.name }))}
+                            placeholder="بدون تصنيف"
+                            searchPlaceholder="بحث في التصنيفات..."
+                            emptyLabel="لا توجد تصنيفات مطابقة"
+                            active={Boolean(data.tariff_segment_id)}
+                        />
                     </Field>
                 )}
 

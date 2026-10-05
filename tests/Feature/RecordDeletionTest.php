@@ -122,12 +122,12 @@ class RecordDeletionTest extends TestCase
     public function test_a_tariff_or_segment_in_use_is_kept_and_an_unused_one_is_deleted(): void
     {
         $tariff = Tariff::factory()->create();
-        $segment = TariffSegment::factory()->create(['tariff_id' => $tariff->id]);
+        $segment = TariffSegment::factory()->create();
         Subscriber::factory()->create(['tariff_id' => $tariff->id, 'tariff_segment_id' => $segment->id]);
-        $unusedSegment = TariffSegment::factory()->create(['tariff_id' => $tariff->id]);
+        $unusedSegment = TariffSegment::factory()->create();
 
         $this->deleteAs($this->superAdmin, route('tariffs.destroy', $tariff))
-            ->assertSessionHasErrors(['delete' => 'لا يمكن حذف التعرفة لوجود سجلات مرتبطة به — المشتركون: 1 · تصنيفات الزبائن: 2.']);
+            ->assertSessionHasErrors(['delete' => 'لا يمكن حذف التعرفة لوجود سجلات مرتبطة به — المشتركون: 1.']);
         $this->deleteAs($this->superAdmin, route('tariff-segments.destroy', $segment))->assertSessionHasErrors('delete');
         $this->deleteAs($this->superAdmin, route('tariff-segments.destroy', $unusedSegment))
             ->assertSessionHasNoErrors()

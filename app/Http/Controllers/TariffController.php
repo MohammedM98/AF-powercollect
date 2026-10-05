@@ -31,7 +31,7 @@ class TariffController extends Controller
     /**
      * The tariffs page: a card for each tariff with its kilo price, since
      * when and who set it, its price history, its subscribers and their
-     * average weekly consumption, and its customer segments.
+     * average weekly consumption. Below them, the customer segments.
      */
     public function index(Request $request): InertiaResponse
     {
@@ -40,7 +40,7 @@ class TariffController extends Controller
         $actor = $request->user();
         $tariffs = Tariff::query()
             ->withCount('subscribers')
-            ->with(['rateChanges.changedBy', 'segments' => fn ($query) => $query->withCount('subscribers')])
+            ->with('rateChanges.changedBy')
             ->get()
             ->sortBy(fn (Tariff $tariff): int => array_search($tariff->category, TariffCategory::cases(), true))
             ->values();
@@ -53,6 +53,13 @@ class TariffController extends Controller
         return Inertia::render('Tariffs/Index', [
             'tariffs' => $tariffs->map(fn (Tariff $tariff): array => $this->card($tariff, $actor, $averages[$tariff->id] ?? null))->all(),
             'canCreate' => $missing !== [] && $actor->can('create', Tariff::class),
+            'segments' => TariffSegment::query()->withCount('subscribers')->orderBy('name')->get()->map(fn (TariffSegment $segment): array => [
+                'id' => $segment->id,
+                'name' => $segment->name,
+                'subscribersCount' => $segment->subscribers_count,
+                'canUpdate' => $actor->can('update', $segment),
+                'canDelete' => $actor->can('delete', $segment),
+            ])->all(),
             'canCreateSegment' => $actor->can('create', TariffSegment::class),
             // Only a category with no tariff yet can be added.
             'categoryOptions' => TariffCategory::options($missing),
@@ -124,13 +131,11 @@ class TariffController extends Controller
     private function card(Tariff $tariff, User $actor, ?float $averageConsumption): array
     {
         $latest = $tariff->rateChanges->first();
-        $segmented = $tariff->segments->sum('subscribers_count');
 
         return [
             ...$this->editableFields($tariff),
             'categoryLabel' => __($tariff->category->label()),
             'subscribersCount' => $tariff->subscribers_count,
-            'unsegmentedCount' => max(0, $tariff->subscribers_count - $segmented),
             'averageConsumption' => $averageConsumption === null ? null : round($averageConsumption, 1),
             'rateSince' => $latest?->created_at->locale('ar')->translatedFormat('j F Y'),
             'rateChangedBy' => $latest?->changedBy?->name,
@@ -139,13 +144,6 @@ class TariffController extends Controller
                 'id' => $change->id,
                 'date' => $change->created_at->locale('ar')->translatedFormat('j F Y'),
                 'rate' => $change->rate,
-            ])->all(),
-            'segments' => $tariff->segments->map(fn (TariffSegment $segment): array => [
-                'id' => $segment->id,
-                'name' => $segment->name,
-                'subscribersCount' => $segment->subscribers_count,
-                'canUpdate' => $actor->can('update', $segment),
-                'canDelete' => $actor->can('delete', $segment),
             ])->all(),
             'canUpdate' => $actor->can('update', $tariff),
             'canDelete' => $actor->can('delete', $tariff),

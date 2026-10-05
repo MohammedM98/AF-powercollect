@@ -6,8 +6,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
 /**
- * Renames a segment. It stays under its tariff: moving it would leave its
- * subscribers with a segment that isn't one of their tariff's.
+ * Renames a segment.
  */
 class UpdateTariffSegmentRequest extends StoreTariffSegmentRequest
 {
@@ -33,7 +32,7 @@ class UpdateTariffSegmentRequest extends StoreTariffSegmentRequest
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('tariff_segments', 'name')->where('tariff_id', $segment->tariff_id)->ignore($segment),
+                Rule::unique('tariff_segments', 'name')->ignore($segment),
             ],
         ];
     }

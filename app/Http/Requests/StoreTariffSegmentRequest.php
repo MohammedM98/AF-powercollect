@@ -20,20 +20,18 @@ class StoreTariffSegmentRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * A name is unique within its tariff only, so "مدارس" can exist under
-     * both Residential and Commercial.
+     * A segment's name is unique.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'tariff_id' => ['required', Rule::exists('tariffs', 'id')],
             'name' => [
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('tariff_segments', 'name')->where('tariff_id', $this->input('tariff_id')),
+                Rule::unique('tariff_segments', 'name'),
             ],
         ];
     }

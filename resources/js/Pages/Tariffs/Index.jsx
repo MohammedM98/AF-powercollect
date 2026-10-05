@@ -378,104 +378,88 @@ function SegmentInput({ initial = '', placeholder, onSave, onCancel }) {
 }
 
 /**
- * The customer segments of each tariff (mosques, schools…), for grouping
- * and reports only: renamed, added and removed in place.
+ * The customer segments (mosques, schools…), one list for every tariff:
+ * for grouping and reports only, and any subscriber can be given any of
+ * them. Renamed, added and removed in place.
  */
-function Segments({ tariffs, canCreateSegment, onDelete }) {
-    // 'segment-{id}' while renaming one, 'tariff-{id}' while adding one.
+function Segments({ segments, canCreateSegment, onDelete }) {
+    // A segment's id while renaming it, 'new' while adding one.
     const [editing, setEditing] = useState(null);
     const visitOptions = { preserveScroll: true, onSuccess: () => setEditing(null) };
+    const busiest = Math.max(1, ...segments.map((segment) => segment.subscribersCount));
 
     return (
         <section aria-label="تصنيف الزبائن" className="mt-4 overflow-hidden rounded-card border border-gray-100 bg-surface shadow-card">
             <div className="border-b border-gray-100 px-5 py-4 sm:px-6">
                 <h3 className="font-luxe text-lg font-bold text-gray-900">تصنيف الزبائن</h3>
-                <p className="text-[13.5px] text-gray-500">مثل المساجد والمدارس والمستشفيات — للتجميع والتقارير فقط، ويبقى السعر سعر التعرفة.</p>
+                <p className="text-[13.5px] text-gray-500">
+                    مثل المساجد والمدارس والمستشفيات — للتجميع والتقارير فقط، ويمكن اختيار أي تصنيف لأي مشترك مهما كانت تعرفته، ويبقى السعر سعر التعرفة.
+                </p>
             </div>
 
-            {tariffs.map((tariff) => {
-                const busiest = Math.max(1, ...tariff.segments.map((segment) => segment.subscribersCount));
-
-                return (
-                    <div
-                        key={tariff.id}
-                        className="grid gap-2 border-b border-gray-100 px-5 py-4 last:border-0 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-4 sm:px-6"
-                    >
-                        <div>
-                            <b className="block text-[15.5px] font-bold text-gray-900">{tariff.categoryLabel}</b>
-                            <small className="text-[12.5px] text-gray-500">{formatNumber(tariff.unsegmentedCount)} بدون تصنيف</small>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            {tariff.segments.map((segment) =>
-                                editing === `segment-${segment.id}` ? (
-                                    <SegmentInput
-                                        key={segment.id}
-                                        initial={segment.name}
-                                        onCancel={() => setEditing(null)}
-                                        onSave={(name) => router.put(`/tariff-segments/${segment.id}`, { name }, visitOptions)}
-                                    />
-                                ) : (
-                                    <span
-                                        key={segment.id}
-                                        className="inline-flex h-[38px] items-center gap-2 rounded-full border border-gray-100 bg-gray-50 pe-1.5 ps-3.5 text-sm font-semibold text-gray-900"
-                                    >
-                                        {segment.name}
-                                        <span className="font-display text-xs font-semibold text-gray-500">{segment.subscribersCount} مشترك</span>
-                                        <span className="h-[5px] w-11 overflow-hidden rounded-full bg-gray-200" aria-hidden="true">
-                                            <i
-                                                className="block h-full rounded-full bg-gray-700"
-                                                style={{ width: `${(segment.subscribersCount / busiest) * 100}%` }}
-                                            />
-                                        </span>
-                                        {segment.canUpdate && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditing(`segment-${segment.id}`)}
-                                                aria-label={`تعديل ${segment.name}`}
-                                                className="flex h-7 w-7 items-center justify-center rounded-full text-blue-600 hover:bg-blue-500/10"
-                                            >
-                                                <Icon name="pencil" className="h-[15px] w-[15px]" />
-                                            </button>
-                                        )}
-                                        {segment.canDelete && segment.subscribersCount === 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => onDelete(segment)}
-                                                aria-label={`حذف ${segment.name}`}
-                                                className="flex h-7 w-7 items-center justify-center rounded-full text-brand-600 hover:bg-brand-500/10"
-                                            >
-                                                <Icon name="trash" className="h-[15px] w-[15px]" />
-                                            </button>
-                                        )}
-                                    </span>
-                                ),
+            <div className="flex flex-wrap items-center gap-2 px-5 py-4 sm:px-6">
+                {segments.map((segment) =>
+                    editing === segment.id ? (
+                        <SegmentInput
+                            key={segment.id}
+                            initial={segment.name}
+                            onCancel={() => setEditing(null)}
+                            onSave={(name) => router.put(`/tariff-segments/${segment.id}`, { name }, visitOptions)}
+                        />
+                    ) : (
+                        <span
+                            key={segment.id}
+                            className="inline-flex h-[38px] items-center gap-2 rounded-full border border-gray-100 bg-gray-50 pe-1.5 ps-3.5 text-sm font-semibold text-gray-900"
+                        >
+                            {segment.name}
+                            <span className="font-display text-xs font-semibold text-gray-500">{segment.subscribersCount} مشترك</span>
+                            <span className="h-[5px] w-11 overflow-hidden rounded-full bg-gray-200" aria-hidden="true">
+                                <i className="block h-full rounded-full bg-gray-700" style={{ width: `${(segment.subscribersCount / busiest) * 100}%` }} />
+                            </span>
+                            {segment.canUpdate && (
+                                <button
+                                    type="button"
+                                    onClick={() => setEditing(segment.id)}
+                                    aria-label={`تعديل ${segment.name}`}
+                                    className="flex h-7 w-7 items-center justify-center rounded-full text-blue-600 hover:bg-blue-500/10"
+                                >
+                                    <Icon name="pencil" className="h-[15px] w-[15px]" />
+                                </button>
                             )}
-
-                            {tariff.segments.length === 0 && editing !== `tariff-${tariff.id}` && (
-                                <span className="text-[13.5px] text-gray-500">لا يوجد تصنيف — يُسجَّل المشتركون «{tariff.categoryLabel}» فقط.</span>
+                            {segment.canDelete && segment.subscribersCount === 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => onDelete(segment)}
+                                    aria-label={`حذف ${segment.name}`}
+                                    className="flex h-7 w-7 items-center justify-center rounded-full text-brand-600 hover:bg-brand-500/10"
+                                >
+                                    <Icon name="trash" className="h-[15px] w-[15px]" />
+                                </button>
                             )}
+                        </span>
+                    ),
+                )}
 
-                            {canCreateSegment &&
-                                (editing === `tariff-${tariff.id}` ? (
-                                    <SegmentInput
-                                        placeholder="اسم التصنيف"
-                                        onCancel={() => setEditing(null)}
-                                        onSave={(name) => router.post('/tariff-segments', { tariff_id: tariff.id, name }, visitOptions)}
-                                    />
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditing(`tariff-${tariff.id}`)}
-                                        className="inline-flex h-[38px] items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-gray-300 px-3.5 text-sm font-semibold text-gray-600 transition hover:border-gray-900 hover:text-gray-900"
-                                    >
-                                        <Icon name="plus" className="h-[15px] w-[15px]" strokeWidth={2} />
-                                        تصنيف جديد
-                                    </button>
-                                ))}
-                        </div>
-                    </div>
-                );
-            })}
+                {segments.length === 0 && editing !== 'new' && <span className="text-[13.5px] text-gray-500">لا يوجد تصنيف بعد.</span>}
+
+                {canCreateSegment &&
+                    (editing === 'new' ? (
+                        <SegmentInput
+                            placeholder="اسم التصنيف"
+                            onCancel={() => setEditing(null)}
+                            onSave={(name) => router.post('/tariff-segments', { name }, visitOptions)}
+                        />
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setEditing('new')}
+                            className="inline-flex h-[38px] items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-gray-300 px-3.5 text-sm font-semibold text-gray-600 transition hover:border-gray-900 hover:text-gray-900"
+                        >
+                            <Icon name="plus" className="h-[15px] w-[15px]" strokeWidth={2} />
+                            تصنيف جديد
+                        </button>
+                    ))}
+            </div>
         </section>
     );
 }
@@ -485,7 +469,7 @@ function Segments({ tariffs, canCreateSegment, onDelete }) {
  * and its price history, the price edited in place; a quick calculator;
  * and each tariff's customer segments.
  */
-export default function Index({ tariffs, canCreate, canCreateSegment, categoryOptions }) {
+export default function Index({ tariffs, segments, canCreate, canCreateSegment, categoryOptions }) {
     const [editingId, setEditingId] = useState(null);
     const [creating, setCreating] = useState(false);
     const { requestDelete, deleteDialog } = useDeleteRecord('التعرفة');
@@ -534,7 +518,7 @@ export default function Index({ tariffs, canCreate, canCreateSegment, categoryOp
                     <QuickCalculator tariffs={tariffs} />
 
                     <Segments
-                        tariffs={tariffs}
+                        segments={segments}
                         canCreateSegment={canCreateSegment}
                         onDelete={(segment) => requestSegmentDelete(`/tariff-segments/${segment.id}`, segment.name)}
                     />

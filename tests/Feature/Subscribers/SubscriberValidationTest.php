@@ -337,10 +337,10 @@ class SubscriberValidationTest extends TestCase
         ]);
     }
 
-    public function test_registering_a_subscriber_with_a_segment_of_its_tariff_stores_it(): void
+    public function test_registering_a_subscriber_with_a_customer_segment_stores_it(): void
     {
         $payload = $this->validPayload();
-        $segment = TariffSegment::factory()->create(['tariff_id' => $payload['tariff_id'], 'name' => 'مساجد']);
+        $segment = TariffSegment::factory()->create(['name' => 'مساجد']);
         $payload['tariff_segment_id'] = $segment->id;
 
         $this->post(route('subscribers.store'), $payload)
@@ -353,10 +353,22 @@ class SubscriberValidationTest extends TestCase
         ]);
     }
 
-    public function test_subscriber_segment_must_belong_to_the_chosen_tariff(): void
+    public function test_a_customer_segment_can_be_given_whatever_the_subscribers_tariff(): void
     {
         $payload = $this->validPayload();
-        $payload['tariff_segment_id'] = TariffSegment::factory()->create(['tariff_id' => Tariff::factory()->commercial()])->id;
+        $segment = TariffSegment::factory()->create(['name' => 'مدارس']);
+        $payload['tariff_id'] = Tariff::factory()->commercial()->create()->id;
+        $payload['tariff_segment_id'] = $segment->id;
+
+        $this->post(route('subscribers.store'), $payload)->assertSessionHasNoErrors();
+
+        $this->assertSame($segment->id, Subscriber::sole()->tariff_segment_id);
+    }
+
+    public function test_a_customer_segment_that_does_not_exist_is_rejected(): void
+    {
+        $payload = $this->validPayload();
+        $payload['tariff_segment_id'] = 999999;
 
         $this->post(route('subscribers.store'), $payload)->assertSessionHasErrors('tariff_segment_id');
         $this->assertDatabaseCount('subscribers', 0);

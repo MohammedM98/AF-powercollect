@@ -6,6 +6,7 @@ export default function Create({
     branches,
     meterBoxes,
     tariffs,
+    segments,
     circuitBreakers,
     subAreas,
     canChooseBranch,
@@ -25,6 +26,7 @@ export default function Create({
                 branches={branches}
                 meterBoxes={meterBoxes}
                 tariffs={tariffs}
+                segments={segments}
                 circuitBreakers={circuitBreakers}
                 subAreas={subAreas}
                 canChooseBranch={canChooseBranch}

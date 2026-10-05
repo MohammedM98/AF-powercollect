@@ -7,6 +7,7 @@ export default function Edit({
     branches,
     meterBoxes,
     tariffs,
+    segments,
     circuitBreakers,
     subAreas,
     canChooseBranch,
@@ -26,6 +27,7 @@ export default function Edit({
                 branches={branches}
                 meterBoxes={meterBoxes}
                 tariffs={tariffs}
+                segments={segments}
                 circuitBreakers={circuitBreakers}
                 subAreas={subAreas}
                 canChooseBranch={canChooseBranch}

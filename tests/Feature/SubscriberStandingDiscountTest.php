@@ -98,7 +98,7 @@ class SubscriberStandingDiscountTest extends TestCase
     {
         StandingDiscount::factory()->create(['segment' => 'موظفو أبو زايد']);
         StandingDiscount::factory()->create(['segment' => 'موظفو أبو زايد']);
-        TariffSegment::factory()->for($this->subscriber->tariff)->create(['name' => 'مساجد']);
+        TariffSegment::factory()->create(['name' => 'مساجد']);
 
         $this->actingAs($this->branchAdmin)
             ->get(route('subscribers.statement', $this->subscriber))

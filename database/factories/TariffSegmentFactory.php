@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Tariff;
 use App\Models\TariffSegment;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -19,7 +18,6 @@ class TariffSegmentFactory extends Factory
     public function definition(): array
     {
         return [
-            'tariff_id' => Tariff::factory(),
             'name' => fake()->unique()->word(),
         ];
     }

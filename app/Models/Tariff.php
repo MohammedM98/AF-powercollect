@@ -49,14 +49,6 @@ class Tariff extends Model
     }
 
     /**
-     * Its customer segments (e.g. mosques, schools), which share its rate.
-     */
-    public function segments(): HasMany
-    {
-        return $this->hasMany(TariffSegment::class)->orderBy('name');
-    }
-
-    /**
      * Why the tariff can't be deleted yet — what still uses it — or null
      * when it can.
      */
@@ -64,7 +56,6 @@ class Tariff extends Model
     {
         return DeletionBlocker::describe('التعرفة', [
             'المشتركون' => $this->subscribers()->count(),
-            'تصنيفات الزبائن' => $this->segments()->count(),
         ]);
     }
 }

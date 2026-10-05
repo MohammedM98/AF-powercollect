@@ -11,8 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 /**
- * Customer segments are added and renamed from the Tariffs page, which
- * lists them under each tariff.
+ * Customer segments are added and renamed from the Tariffs page.
  */
 class TariffSegmentController extends Controller
 {

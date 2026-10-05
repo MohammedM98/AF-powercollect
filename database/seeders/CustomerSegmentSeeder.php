@@ -13,7 +13,6 @@ class CustomerSegmentSeeder extends Seeder
      * @var array<int, string>
      */
     private const SEGMENTS = [
-        'تجاري',
         'مساجد',
         'مكتب السوارحة',
         'مجاني',

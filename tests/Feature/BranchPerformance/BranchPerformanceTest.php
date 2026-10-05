@@ -142,8 +142,8 @@ class BranchPerformanceTest extends TestCase
                 ->where('canCompareBranches', true)
                 ->where('branch.statusCounts', [
                     ['value' => 'active', 'label' => 'نشط', 'count' => 2],
-                    ['value' => 'suspended', 'label' => 'مفصول', 'count' => 1],
-                    ['value' => 'disconnected', 'label' => 'مقطوع', 'count' => 0],
+                    ['value' => 'suspended', 'label' => 'قيد الانتظار', 'count' => 1],
+                    ['value' => 'disconnected', 'label' => 'مفصول', 'count' => 0],
                 ])
                 ->where('branch.chargesTotal', 200)
                 ->where('branch.monthChargesTotal', 170)

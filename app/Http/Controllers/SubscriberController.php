@@ -372,6 +372,23 @@ class SubscriberController extends Controller
     }
 
     /**
+     * The "Minimum charge" dropdown: each minimum charge (الحد الأدنى) the
+     * visible subscribers have, smallest first.
+     *
+     * @return array{key: string, label: string, options: array<int, array{value: string, label: string}>}
+     */
+    private function minimumChargeFilterGroup(User $actor): array
+    {
+        return $this->filterGroup('minimum_charge', 'الحد الأدنى', Subscriber::query()
+            ->visibleTo($actor)
+            ->whereNotNull('minimum_charge')
+            ->distinct()
+            ->orderBy('minimum_charge')
+            ->pluck('minimum_charge')
+            ->map(fn ($charge) => ['value' => (string) (float) $charge, 'label' => SubscriberTransaction::formatAmount($charge).' شيكل']));
+    }
+
+    /**
      * The Filter menu's dropdown groups for the index page. The branch
      * filter only makes sense for a Super Admin — everyone else's list is
      * already scoped to their own single branch.
@@ -394,11 +411,13 @@ class SubscriberController extends Controller
                     'label' => $segment->label(),
                     'scope' => $this->filterScope(['tariff_id' => $segment->tariff_id]),
                 ])),
+            $this->subAreaFilterGroup(SubArea::query()->visibleTo($actor)->orderBy('name')->get()),
             ...$this->meterBoxFilterGroups(
                 $meterBoxes,
                 $actor->isSuperAdmin() ? fn (MeterBox $box) => $box->branch->name : null,
             ),
             $this->circuitBreakerFilterGroup(),
+            $this->minimumChargeFilterGroup($actor),
         ];
 
         if ($actor->isSuperAdmin()) {

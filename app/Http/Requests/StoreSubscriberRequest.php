@@ -66,6 +66,11 @@ class StoreSubscriberRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
 
+        // An active subscriber is disconnected, never put back to waiting.
+        if ($this->route('subscriber')?->status === SubscriberStatus::Active) {
+            $rules['status'][] = Rule::notIn([SubscriberStatus::Suspended->value]);
+        }
+
         if ($this->user()->isSuperAdmin()) {
             $rules['branch_id'] = ['required', Rule::exists('branches', 'id')];
         }
@@ -99,6 +104,7 @@ class StoreSubscriberRequest extends FormRequest
     {
         return [
             'subscription_phone.regex' => 'رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056.',
+            'status.not_in' => 'لا يمكن إعادة مشترك نشط إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».',
             'initial_reading.required' => 'أدخل القراءة السابقة قبل تفعيل المشترك؛ منها يبدأ حساب استهلاكه.',
             'national_id.unique' => 'رقم الهوية مسجل بالفعل. استخدم «إضافة اشتراك» من قائمة المشترك لإنشاء اشتراك آخر.',
             'charge_subscription_fee.boolean' => 'اختر تفعيل تحميل رسوم الاشتراك أو إلغاءه.',

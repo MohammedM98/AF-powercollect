@@ -93,13 +93,17 @@ class SubscriberBulkChangeController extends Controller
             ])
             ->filter(fn (array $change) => $change['new'] !== null && $change['new'] !== $change['old'])
             ->values();
+        $backToWaiting = $changes->filter(fn (array $change) => $this->returnsToWaiting($field, $change));
+        $changes = $changes->reject(fn (array $change) => $this->returnsToWaiting($field, $change))->values();
         $missingReading = $changes->filter(fn (array $change) => $this->activatesWithoutReading($field, $change));
         $changes = $changes->reject(fn (array $change) => $this->activatesWithoutReading($field, $change))->values();
 
         if ($changes->isEmpty()) {
-            return back()->withErrors(['ids' => $missingReading->isNotEmpty()
-                ? 'لا يمكن تفعيل مشترك قبل إدخال قراءته السابقة؛ أدخلها من «تعديل المشترك» أولًا.'
-                : 'لا يوجد بين المختارين من تتغير قيمته.']);
+            return back()->withErrors(['ids' => match (true) {
+                $backToWaiting->isNotEmpty() => 'لا يمكن إعادة مشترك نشط إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».',
+                $missingReading->isNotEmpty() => 'لا يمكن تفعيل مشترك قبل إدخال قراءته السابقة؛ أدخلها من «تعديل المشترك» أولًا.',
+                default => 'لا يوجد بين المختارين من تتغير قيمته.',
+            }]);
         }
 
         $bulkChange = DB::transaction(function () use ($actor, $field, $byCircuitBreaker, $request, $changes): SubscriberBulkChange {
@@ -215,6 +219,16 @@ class SubscriberBulkChangeController extends Controller
                 'now' => $item->subscriber ? $this->display($change->field, $this->currentValue($item->subscriber, $change->field)) : '—',
             ]),
         ];
+    }
+
+    /**
+     * Whether the change would put an active subscriber back to waiting.
+     *
+     * @param  array{subscriber: Subscriber, old: ?string, new: ?string}  $change
+     */
+    private function returnsToWaiting(string $field, array $change): bool
+    {
+        return $field === 'status' && $change['old'] === SubscriberStatus::Active->value && $change['new'] === SubscriberStatus::Suspended->value;
     }
 
     /** The subscriber's stored value of the field, as a bulk change keeps it. */

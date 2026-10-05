@@ -11,7 +11,8 @@ const DOT_CLASSES = {
  * A few choices shown as pill buttons, picked with one click instead of a
  * drop-down (a radio group). Each option is `{ value, label, hint?, dot?, icon? }`:
  * `hint` is a quiet second part beside the label (a price, say), `dot` a
- * status color, `icon` an icon before the label. The arrow keys move the
+ * status color, `icon` an icon before the label, `disabled` a choice that
+ * cannot be picked (with `title` saying why). The arrow keys move the
  * choice, like native radio buttons.
  *
  * `required` adds a hidden radio named `name`, so the form's own check
@@ -47,7 +48,8 @@ export default function ChoiceChips({ id, name, value, onChange, options, label,
                         type="button"
                         role="radio"
                         aria-checked={checked}
-                        disabled={disabled}
+                        disabled={disabled || option.disabled}
+                        title={option.title}
                         tabIndex={checked || (selectedIndex === -1 && index === 0) ? 0 : -1}
                         onClick={() => onChange(String(option.value))}
                         onKeyDown={(event) => onKeyDown(event, index)}

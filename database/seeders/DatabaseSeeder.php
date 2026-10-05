@@ -36,6 +36,7 @@ class DatabaseSeeder extends Seeder
             CircuitBreakerSeeder::class,
             LocationSeeder::class,
             BranchManagerSeeder::class,
+            MeterBoxSeeder::class,
         ]);
 
         // Demo subscribers (and the branch/meter-box/circuit-breaker chain

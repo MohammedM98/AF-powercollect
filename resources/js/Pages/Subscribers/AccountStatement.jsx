@@ -623,7 +623,8 @@ export default function AccountStatement({ subscriber, entries, summary, payment
         if (holder) {
             setOpenHistories((current) => new Set(current).add(holder.id));
         } else if (isCompact) {
-            chooseView('full');
+            // Only for this visit: following a link shouldn't make the full view the remembered one.
+            setView('full');
         } else {
             return;
         }
@@ -837,7 +838,18 @@ export default function AccountStatement({ subscriber, entries, summary, payment
                         {rows.length === 0 ? (
                             <tr>
                                 <td colSpan={columns.length}>
-                                    {entries.length ? 'لا توجد حركات تطابق البحث والتصفية.' : 'لا توجد حركات على هذا الحساب بعد.'}
+                                    {!entries.length ? (
+                                        'لا توجد حركات على هذا الحساب بعد.'
+                                    ) : isCompact && !compact.entries.length ? (
+                                        <>
+                                            كل حركات هذا الحساب ملغاة مع قيودها العكسية (مجموعها صفر) فلا شيء يُعرض في العرض المختصر.{' '}
+                                            <button type="button" onClick={() => chooseView('full')} className="font-medium text-brand-600 hover:underline">
+                                                عرض كل الحركات
+                                            </button>
+                                        </>
+                                    ) : (
+                                        'لا توجد حركات تطابق البحث والتصفية.'
+                                    )}
                                 </td>
                             </tr>
                         ) : (

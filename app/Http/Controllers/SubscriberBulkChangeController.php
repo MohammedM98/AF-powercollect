@@ -11,6 +11,7 @@ use App\Models\SubscriberBulkChange;
 use App\Models\SubscriberBulkChangeItem;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
+use App\Support\DailySeries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -113,7 +114,15 @@ class SubscriberBulkChangeController extends Controller
             ]);
 
             foreach ($changes as $change) {
-                Subscriber::query()->whereKey($change['subscriber']->id)->update([$field => $change['new']]);
+                // Becoming active starts the subscription, as it does when the subscriber is edited.
+                $startsSubscription = $field === 'status'
+                    && $change['new'] === SubscriberStatus::Active->value
+                    && $change['old'] !== SubscriberStatus::Active->value;
+
+                Subscriber::query()->whereKey($change['subscriber']->id)->update([
+                    $field => $change['new'],
+                    ...($startsSubscription ? ['subscription_date' => DailySeries::today()->toDateString()] : []),
+                ]);
             }
 
             foreach ($changes->chunk(500) as $chunk) {

@@ -22,7 +22,8 @@ class SubscriberBulkChangeTest extends TestCase
     public function test_a_subscriber_without_an_initial_reading_is_not_activated(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
-        $ready = $this->subscriberOf($branchAdmin, ['status' => SubscriberStatus::Suspended, 'initial_reading' => 0]);
+        $this->travelTo('2026-10-05 10:00:00');
+        $ready = $this->subscriberOf($branchAdmin, ['status' => SubscriberStatus::Suspended, 'initial_reading' => 0, 'subscription_date' => '2026-01-01']);
         $waiting = $this->subscriberOf($branchAdmin, ['status' => SubscriberStatus::Suspended, 'initial_reading' => null]);
 
         $this->actingAs($branchAdmin)
@@ -30,6 +31,7 @@ class SubscriberBulkChangeTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertSame(SubscriberStatus::Active, $ready->fresh()->status);
+        $this->assertSame('2026-10-05', $ready->fresh()->subscription_date->toDateString());
         $this->assertSame(SubscriberStatus::Suspended, $waiting->fresh()->status);
 
         $this->post(route('subscribers.bulk-changes.store'), ['field' => 'status', 'value' => 'active', 'ids' => [$waiting->id]])

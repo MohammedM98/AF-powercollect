@@ -43,7 +43,8 @@ return new class extends Migration
             throw new RuntimeException('These tariffs are neither منزلي, تجاري nor «منزلي — …» / «تجاري — …»; delete or rename them first: '.implode('، ', $others));
         }
 
-        foreach ($categories as $name => $category) {
+        // A segment needs the tariff it goes back under.
+        foreach (collect($segments)->pluck(1)->unique() as $name) {
             if (! DB::table('tariffs')->where('name', $name)->exists()) {
                 throw new RuntimeException("The tariff «{$name}» is missing; add it first.");
             }

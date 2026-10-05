@@ -70,7 +70,7 @@ class SubAreaAndMinimumChargeFilterTest extends TestCase
 
                 return $groups->firstWhere('key', 'sub_area_id')['label'] === 'منطقة 2'
                     && collect($groups->firstWhere('key', 'sub_area_id')['options'])->pluck('label')->all() === ['الحاج', 'المدارس']
-                    && collect($groups->firstWhere('key', 'minimum_charge')['options'])->pluck('label')->all() === ['20 شيكل', '35.5 شيكل'];
+                    && collect($groups->firstWhere('key', 'minimum_charge')['options'])->pluck('label')->all() === ['20 شيكل', '35.50 شيكل'];
             }));
     }
 }

@@ -179,6 +179,8 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     ref={inputRef}
                     aria-label={`القراءة الجديدة لـ ${row.fullName}`}
                     aria-invalid={Boolean(error)}
+                    // The reason shows as a flash message when the save fails, and on hover here: the row never grows.
+                    title={error ?? undefined}
                     disabled={!row.canEdit || saving}
                     value={value}
                     placeholder={row.canEdit ? 'أدخل القراءة' : '—'}
@@ -211,7 +213,6 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     }}
                     className={error ? 'has-error' : ''}
                 /></div>
-                {error && <p className="mt-1 max-w-[16rem] text-xs text-red-600">{error}</p>}
                 {row.hasLaterWeek && <p className="mt-1 text-xs text-gray-400">توجد قراءة لأسبوع لاحق</p>}
             </td>
             <td className={`re-diff re-number ${charges && charges.consumption < 0 ? 'text-red-600' : 'text-brand-700'}`}>

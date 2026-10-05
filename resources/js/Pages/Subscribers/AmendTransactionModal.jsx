@@ -118,13 +118,24 @@ export default function AmendTransactionModal({ onClose, subscriber, balance, en
                         <InputError message={form.errors.sender_name} className="mt-2" />
                     </div>
 
-                    <LockedValue label="الرقم المرجعي">
-                        {entry.recorded?.reference_number ?? entry.referenceNumber ? (
-                            <bdi dir="ltr">{entry.recorded?.reference_number ?? entry.referenceNumber}</bdi>
-                        ) : (
-                            '—'
-                        )}
-                    </LockedValue>
+                    <div>
+                        <label htmlFor="amend_reference_number" className="flex items-center gap-1.5 text-[15px] font-semibold text-gray-700">
+                            الرقم المرجعي
+                            <Icon name="lock" className="h-3.5 w-3.5 text-gray-400" />
+                        </label>
+                        <input
+                            id="amend_reference_number"
+                            type="text"
+                            dir="ltr"
+                            readOnly
+                            disabled
+                            title="لا يمكن تعديل الرقم المرجعي بعد تسجيل الدفعة"
+                            className={`${inputClass} cursor-not-allowed bg-gray-50 text-end text-gray-600`}
+                            value={entry.recorded?.reference_number ?? entry.referenceNumber ?? ''}
+                            placeholder="—"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">لا يُعدَّل بعد التسجيل</p>
+                    </div>
                 </div>
             )}
 

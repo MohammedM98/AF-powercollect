@@ -3,9 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\Area;
+use App\Models\Branch;
 use App\Models\Governorate;
 use App\Models\SubArea;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
 class LocationSeeder extends Seeder
 {
@@ -44,5 +46,23 @@ class LocationSeeder extends Seeder
                 }
             }
         }
+    }
+
+    /**
+     * The branch that works in the seeded area — or the only branch there
+     * is — which the seeders of the area's boxes and subscribers use.
+     */
+    public static function branch(): Branch
+    {
+        $areaId = Area::query()->where('name', 'مخيم 2')->value('id');
+        $branches = Branch::query()->where('area_id', $areaId)->get();
+
+        if ($branches->count() !== 1 && Branch::query()->count() === 1) {
+            $branches = Branch::query()->get();
+        }
+
+        return $branches->count() === 1
+            ? $branches->first()
+            : throw new RuntimeException('لم أجد فرعًا واحدًا لمنطقة «مخيم 2»؛ اربط الفرع بالمنطقة من الإعدادات ثم أعد التشغيل.');
     }
 }

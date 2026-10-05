@@ -13,20 +13,31 @@ import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import { printFieldsProps, printRowProps } from '@/lib/print';
 import { formatCurrency } from '@/lib/currency';
+import { formatMonthSpan } from '@/lib/format';
 import { consumptionBetween, weeklyCharges } from '@/lib/readings';
 import { activeReadingStatus, readingStatusFilters } from '@/lib/readingSheet';
 import './ReadingEntry.css';
 import { WEEK_DAYS, formatWeekDay } from '@/lib/weekDays';
 
+/**
+ * What each sort is by, and how its two directions read: names go أ – ي or
+ * ي – أ, kilowatts and amounts from the least or the most, numbers from the
+ * smallest or the largest.
+ */
+const DIRECTION_LABELS = {
+    text: { asc: 'أ – ي', desc: 'ي – أ' },
+    amount: { asc: 'الأقل أولًا', desc: 'الأكثر أولًا' },
+    number: { asc: 'الأصغر أولًا', desc: 'الأكبر أولًا' },
+};
 const SORT_OPTIONS = [
-    { value: 'full_name', label: 'الاسم' },
-    { value: 'meter_box', label: 'الطبلون (الاسم ثم الرقم)' },
-    { value: 'meter_box_number', label: 'رقم الطبلون' },
-    { value: 'last_reading', label: 'آخر قراءة' },
-    { value: 'current_reading', label: 'القراءة الجديدة' },
-    { value: 'consumption', label: 'الفرق (كيلو)' },
-    { value: 'amount_due', label: 'المطلوب دفعه' },
-    { value: 'account_number', label: 'رقم الاشتراك' },
+    { value: 'full_name', label: 'الاسم', type: 'text' },
+    { value: 'meter_box', label: 'الطبلون (الاسم ثم الرقم)', type: 'text' },
+    { value: 'meter_box_number', label: 'رقم الطبلون', type: 'number' },
+    { value: 'last_reading', label: 'آخر قراءة', type: 'amount' },
+    { value: 'current_reading', label: 'القراءة الجديدة', type: 'amount' },
+    { value: 'consumption', label: 'الفرق (كيلو)', type: 'amount' },
+    { value: 'amount_due', label: 'المطلوب دفعه', type: 'amount' },
+    { value: 'account_number', label: 'رقم الاشتراك', type: 'number' },
 ];
 
 /** The details printing can show as columns of their own (see printFieldsProps). */
@@ -412,7 +423,7 @@ export default function Index({
                         <span className={`re-open ${entryWindow.isOpen ? 'is-open' : ''}`}><i />الإدخال {entryWindow.isOpen ? 'مفتوح' : 'مغلق'}</span>
                         <div className="re-week">
                             <button type="button" aria-label="الأسبوع السابق" disabled={weekIndex < 0 || weekIndex === weekOptions.length - 1} onClick={() => changeWeek(weekOptions[weekIndex + 1].value)}><Icon name="chevron-right" /></button>
-                            <label>أسبوع القراءة <small dir="ltr">{shortDate(week)} – {shortDate(weekEnd)}</small>
+                            <label>أسبوع القراءة <small dir="ltr">{shortDate(week)} – {shortDate(weekEnd)}</small><small className="re-month">{formatMonthSpan(week, weekEnd)}</small>
                                 <select aria-label="تغيير الأسبوع" value={week} onChange={(e) => changeWeek(e.target.value)}>
                                     {weekOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                                 </select>
@@ -494,13 +505,18 @@ export default function Index({
                         </option>
                     ))}
                 </select>
-                <button
-                    type="button"
-                    onClick={() => sortBy(filters.sort, filters.direction === 'asc' ? 'desc' : 'asc')}
-                    className="rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm shadow-sm hover:bg-gray-50"
+                <select
+                    aria-label="اتجاه الترتيب"
+                    value={filters.direction}
+                    onChange={(e) => sortBy(filters.sort, e.target.value)}
+                    className="py-1.5 text-sm"
                 >
-                    {filters.direction === 'asc' ? 'تصاعدي ↑' : 'تنازلي ↓'}
-                </button>
+                    {['asc', 'desc'].map((direction) => (
+                        <option key={direction} value={direction}>
+                            {DIRECTION_LABELS[(SORT_OPTIONS.find((option) => option.value === filters.sort) ?? SORT_OPTIONS[0]).type][direction]}
+                        </option>
+                    ))}
+                </select>
             </div>
 
             <DataTableToolbar

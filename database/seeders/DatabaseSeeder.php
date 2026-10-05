@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
             UserTypeSeeder::class,
             TariffSeeder::class,
             CircuitBreakerSeeder::class,
+            CustomerSegmentSeeder::class,
             LocationSeeder::class,
             BranchManagerSeeder::class,
             MeterBoxSeeder::class,

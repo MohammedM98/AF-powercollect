@@ -1,5 +1,5 @@
 /** How long each kind of notification stays up. Errors stay longer, so there is time to read why. */
-export const NOTIFICATION_DURATIONS = { success: 4000, error: 7000 };
+export const NOTIFICATION_DURATIONS = { success: 4000, warning: 5000, error: 7000 };
 
 /** How long a closing notification plays its exit before it is removed. */
 export const NOTIFICATION_EXIT_DURATION = 200;

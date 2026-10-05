@@ -18,6 +18,11 @@ const APPEARANCE = {
         icon: 'alert',
         card: 'bg-gradient-to-br from-red-600 to-red-700 shadow-[0_18px_40px_-14px_rgba(185,28,28,0.7)]',
     },
+    warning: {
+        title: 'تنبيه',
+        icon: 'alert',
+        card: 'bg-gradient-to-br from-amber-500 to-amber-600 shadow-[0_18px_40px_-14px_rgba(180,83,9,0.7)]',
+    },
     deleteError: {
         title: 'تعذّر الحذف',
         icon: 'alert',
@@ -67,7 +72,14 @@ export default function FlashNotifications({ initialStatus }) {
             currentQueue.push(messages.length === 1 ? messages[0] : 'يرجى مراجعة الحقول المحددة والمحاولة مجددًا.', 'error');
         });
 
+        // A message raised from the page itself, with notify().
+        function onNotify(event) {
+            currentQueue.push(event.detail?.message, event.detail?.type);
+        }
+        window.addEventListener('app:notify', onNotify);
+
         return () => {
+            window.removeEventListener('app:notify', onNotify);
             unsubscribeStart();
             unsubscribeSuccess();
             unsubscribeError();

@@ -33,6 +33,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             UserTypeSeeder::class,
             TariffSeeder::class,
+            CircuitBreakerSeeder::class,
             LocationSeeder::class,
             BranchManagerSeeder::class,
         ]);

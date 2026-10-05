@@ -53,7 +53,7 @@ class SubscriberSubscriptionsTest extends TestCase
         $this->assertNotSame($source->account_number, $additional->account_number);
         $this->assertSame(['Ahmad', '012345678', '0591234567', 'Shared address'], array_values($additional->only(SubscriberProfile::PERSONAL_FIELDS)));
         $this->assertSame($box->id, $additional->meter_box_id);
-        $this->assertSame(0.0, $additional->initial_reading);
+        $this->assertNull($additional->initial_reading);
         $this->assertSame(12.0, (float) $additional->minimum_charge);
         $this->assertSame(100.0, $source->balance());
         $this->assertSame(25.0, $additional->balance());

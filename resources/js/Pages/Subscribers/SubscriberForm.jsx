@@ -250,9 +250,10 @@ export default function SubscriberForm({
     }
 
     /**
-     * Activating a subscriber who is not active yet starts their subscription
-     * today, from a starting reading entered now; choosing their old status
-     * again puts back what they had.
+     * The starting reading is entered only for an active subscriber.
+     * Activating one who is not active yet starts their subscription today,
+     * from a reading entered now; choosing their old status again puts back
+     * what they had.
      */
     function chooseStatus(value) {
         const activating = isEdit && original.status !== 'active' && value === 'active';
@@ -260,10 +261,9 @@ export default function SubscriberForm({
         setData((current) => ({
             ...current,
             status: value,
+            initial_reading: value === 'active' ? (activating ? '' : current.initial_reading) : isEdit ? original.initial_reading : '',
             ...(isEdit && original.status !== 'active'
-                ? activating
-                    ? { initial_reading: '', subscription_date: new Date().toLocaleDateString('en-CA') }
-                    : { initial_reading: original.initial_reading, subscription_date: original.subscription_date }
+                ? { subscription_date: activating ? new Date().toLocaleDateString('en-CA') : original.subscription_date }
                 : {}),
         }));
         clearErrors?.('status', 'initial_reading', 'subscription_date');
@@ -567,15 +567,16 @@ export default function SubscriberForm({
                     label="القراءة السابقة"
                     required={readingRequired}
                     error={errors.initial_reading}
-                    hint={readingRequired ? 'منها يبدأ حساب الاستهلاك.' : 'اتركها فارغة إن لم يُوصَل بعد؛ وأدخلها قبل تفعيل المشترك.'}
+                    hint={readingRequired ? 'منها يبدأ حساب الاستهلاك.' : 'تُدخل القراءة عند تفعيل المشترك، منها يبدأ حساب استهلاكه.'}
                 >
                     <Affix unit="ك.و.س">
                         <TextInput
                             type="number"
                             required={readingRequired}
+                            disabled={!readingRequired}
                             min={0}
                             step="0.01"
-                            className="block w-full"
+                            className={`block w-full disabled:opacity-100 ${readingRequired ? '' : 'bg-gray-50 text-gray-600'}`}
                             value={data.initial_reading}
                             onChange={(event) => setData('initial_reading', event.target.value)}
                         />

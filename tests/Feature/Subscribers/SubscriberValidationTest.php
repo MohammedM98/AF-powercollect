@@ -135,6 +135,20 @@ class SubscriberValidationTest extends TestCase
         $this->assertSame(255.2, Subscriber::sole()->initial_reading);
     }
 
+    public function test_the_starting_reading_is_kept_only_for_an_active_subscriber(): void
+    {
+        $payload = $this->validPayload();
+
+        $this->post(route('subscribers.store'), [...$payload, 'status' => SubscriberStatus::Suspended->value, 'initial_reading' => 90])
+            ->assertSessionHasNoErrors();
+        $this->assertNull(Subscriber::sole()->initial_reading);
+
+        $disconnected = Subscriber::factory()->create(['branch_id' => auth()->user()->branch_id, 'status' => SubscriberStatus::Active, 'initial_reading' => 700]);
+        $this->put(route('subscribers.update', $disconnected), [...$payload, 'national_id' => '987654321', 'status' => SubscriberStatus::Disconnected->value, 'initial_reading' => 5])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(700.0, $disconnected->fresh()->initial_reading);
+    }
+
     public function test_activating_a_waiting_subscriber_starts_their_subscription_today_from_the_new_reading(): void
     {
         $this->travelTo('2026-10-05 10:00:00');

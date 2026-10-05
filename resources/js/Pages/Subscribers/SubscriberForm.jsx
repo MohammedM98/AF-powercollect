@@ -439,29 +439,19 @@ export default function SubscriberForm({
                     </div>
                 </div>
 
-                {segments.length > 0 && (
-                    <Field id="tariff_segment_id" label="تصنيف الزبائن" error={errors.tariff_segment_id}>
-                        <SearchableSelect
-                            value={data.tariff_segment_id}
-                            onChange={(value) => setData('tariff_segment_id', value)}
-                            options={segments.map((segment) => ({ value: String(segment.id), label: segment.name }))}
-                            placeholder="بدون تصنيف"
-                            searchPlaceholder="بحث في التصنيفات..."
-                            emptyLabel="لا توجد تصنيفات مطابقة"
-                            active={Boolean(data.tariff_segment_id)}
-                        />
-                    </Field>
-                )}
-
                 <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id} span="sm:col-span-2">
-                    <ChoiceChips
-                        label="القاطع"
+                    <SearchableSelect
                         value={data.circuit_breaker_id}
                         onChange={onCircuitBreakerChange}
-                        options={[
-                            { value: '', label: 'بدون' },
-                            ...circuitBreakers.map((circuitBreaker) => ({ value: circuitBreaker.id, label: `${circuitBreaker.ampere} أمبير` })),
-                        ]}
+                        options={circuitBreakers.map((circuitBreaker) => ({
+                            value: String(circuitBreaker.id),
+                            label: `${circuitBreaker.ampere} أمبير`,
+                            hint: `الحد الأدنى ${formatAmount(circuitBreaker.minimum_payment)} ش`,
+                        }))}
+                        placeholder="بدون قاطع"
+                        searchPlaceholder="بحث في القواطع..."
+                        emptyLabel="لا توجد قواطع مطابقة"
+                        active={Boolean(data.circuit_breaker_id)}
                     />
                 </Field>
 
@@ -505,6 +495,19 @@ export default function SubscriberForm({
                         icon="alert"
                     />
                 </div>
+                {segments.length > 0 && (
+                    <Field id="tariff_segment_id" label="تصنيف الزبائن" error={errors.tariff_segment_id} span="sm:col-span-2">
+                        <SearchableSelect
+                            value={data.tariff_segment_id}
+                            onChange={(value) => setData('tariff_segment_id', value)}
+                            options={segments.map((segment) => ({ value: String(segment.id), label: segment.name }))}
+                            placeholder="بدون تصنيف"
+                            searchPlaceholder="بحث في التصنيفات..."
+                            emptyLabel="لا توجد تصنيفات مطابقة"
+                            active={Boolean(data.tariff_segment_id)}
+                        />
+                    </Field>
+                )}
             </FormSection>
 
             <FormSection icon="pin" title="الموقع والعداد" description="الفرع ومنطقته والطبلون الذي يتغذّى منه">

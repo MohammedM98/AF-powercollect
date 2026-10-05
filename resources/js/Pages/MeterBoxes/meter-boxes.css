@@ -1,0 +1,94 @@
+.meter-box-table tbody tr.meter-box-expanded td {
+    border-bottom-color: transparent;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.meter-box-table tbody tr.meter-box-detail td,
+.meter-box-table tbody tr.meter-box-detail:hover td {
+    padding: 14px 16px 16px;
+    border-top: 0;
+    border-radius: 0 0 18px 18px;
+    background: rgb(var(--gray-50));
+    text-align: start;
+    box-shadow: none;
+}
+
+.meter-box-subscriber-columns {
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.meter-box-subscriber-name {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.meter-box-subscriber-balance {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: end;
+}
+
+.meter-box-subscriber-reading,
+.meter-box-subscriber-breaker {
+    display: none;
+}
+
+@container (min-width: 880px) {
+    .meter-box-subscriber-columns {
+        display: grid;
+        grid-template-columns: minmax(180px, 2fr) minmax(70px, 0.8fr) minmax(65px, 0.7fr) minmax(95px, 1fr) minmax(100px, 1fr) 36px;
+    }
+
+    .meter-box-subscriber-columns > * {
+        grid-column: auto;
+        grid-row: auto;
+    }
+
+    .meter-box-subscriber-reading,
+    .meter-box-subscriber-breaker {
+        display: block;
+    }
+
+    .meter-box-subscriber-label {
+        display: none;
+    }
+
+    .meter-box-subscriber-balance {
+        text-align: start;
+    }
+}
+
+@container (max-width: 640px) {
+    .meter-box-table tbody tr.meter-box-expanded {
+        border-bottom: 0;
+        border-radius: 18px 18px 0 0;
+    }
+
+    .meter-box-table tbody tr.meter-box-detail {
+        display: block;
+        margin-top: 0;
+        padding: 0;
+        border-radius: 0 0 18px 18px;
+        background: rgb(var(--gray-50));
+    }
+
+    .meter-box-table tbody tr.meter-box-detail td {
+        display: block;
+        padding: 12px;
+    }
+
+    .meter-box-subscriber-columns {
+        gap: 8px;
+        padding-inline: 10px;
+    }
+
+    .meter-box-subscriber-name .row-identity-avatar {
+        height: 32px;
+        width: 32px;
+    }
+
+    .meter-box-subscriber-name .row-identity-text {
+        font-size: 13px;
+    }
+}

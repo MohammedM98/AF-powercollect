@@ -13,6 +13,7 @@ use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\MessageTemplateController;
 use App\Http\Controllers\MeterBoxController;
+use App\Http\Controllers\MeterBoxSubscriberController;
 use App\Http\Controllers\MeterReadingController;
 use App\Http\Controllers\PeriodClosingController;
 use App\Http\Controllers\PermissionController;
@@ -104,6 +105,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('tariff-segments', TariffSegmentController::class)->only(['store', 'update', 'destroy']);
     Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('meter-boxes', MeterBoxController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+    Route::get('/meter-boxes/{meter_box}/subscribers', [MeterBoxSubscriberController::class, 'index'])->name('meter-boxes.subscribers.index');
     Route::resource('meter-readings', MeterReadingController::class)->only(['index', 'store', 'update']);
     Route::post('/meter-readings/approve', [MeterReadingController::class, 'approve'])->name('meter-readings.approve');
     Route::resource('areas', AreaController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);

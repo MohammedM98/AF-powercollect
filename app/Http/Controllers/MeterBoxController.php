@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\SubscriberStatus;
 use App\Http\Concerns\DeletesRecords;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreMeterBoxRequest;
@@ -9,13 +10,17 @@ use App\Http\Requests\UpdateMeterBoxRequest;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Governorate;
+use App\Models\MessageBatch;
 use App\Models\MeterBox;
+use App\Models\MeterReading;
 use App\Models\SubArea;
+use App\Models\Subscriber;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -23,7 +28,7 @@ class MeterBoxController extends Controller
 {
     use DeletesRecords, FiltersDataTable;
 
-    private const SORTABLE = ['name', 'box_number', 'created_at'];
+    private const SORTABLE = ['name', 'box_number', 'created_at', 'subscribers_count', 'debt'];
 
     /**
      * Display a listing of the resource.
@@ -34,10 +39,35 @@ class MeterBoxController extends Controller
 
         $actor = auth()->user();
 
-        $query = MeterBox::query()->visibleTo($actor)->with('branch.governorate', 'branch.area', 'subArea');
+        $canViewSubscribers = $actor->can('viewAny', Subscriber::class);
+        $balances = Subscriber::query()->visibleTo($actor)
+            ->select(['subscribers.id', 'meter_box_id', 'status'])
+            ->withSum('transactions as outstanding_balance', 'amount');
+        $totals = DB::query()->fromSub($balances, 'subscriber_balances')
+            ->select('meter_box_id')
+            ->selectRaw('COUNT(*) AS subscribers_count')
+            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS active_subscribers_count', [SubscriberStatus::Active->value])
+            ->selectRaw('SUM(CASE WHEN outstanding_balance > 0 THEN outstanding_balance ELSE 0 END) AS debt')
+            ->groupBy('meter_box_id');
+
+        $query = MeterBox::query()->visibleTo($actor)
+            ->leftJoinSub($totals, 'subscriber_totals', 'meter_boxes.id', '=', 'subscriber_totals.meter_box_id')
+            ->select('meter_boxes.*')
+            ->selectRaw('COALESCE(subscriber_totals.subscribers_count, 0) AS subscribers_count')
+            ->selectRaw('COALESCE(subscriber_totals.active_subscribers_count, 0) AS active_subscribers_count')
+            ->selectRaw('COALESCE(subscriber_totals.debt, 0) AS debt')
+            ->with('branch.governorate', 'branch.area', 'subArea');
         $query->matchingLabel($this->searchTerm($request));
-        $this->applyDataTableFilters($query, $request, [], self::SORTABLE, 'box_number');
+        $sortable = $canViewSubscribers ? self::SORTABLE : array_diff(self::SORTABLE, ['debt']);
+        $this->applyDataTableFilters($query, $request, [], $sortable, 'box_number');
         $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'sub_area_id']);
+
+        $summary = DB::query()->fromSub((clone $query)->reorder(), 'matching_boxes')
+            ->selectRaw('COUNT(*) AS total, COALESCE(SUM(subscribers_count), 0) AS subscribers')
+            ->selectRaw('COALESCE(SUM(active_subscribers_count), 0) AS active')
+            ->selectRaw('COALESCE(SUM(debt), 0) AS debt')
+            ->selectRaw('COALESCE(SUM(CASE WHEN subscribers_count = 0 THEN 1 ELSE 0 END), 0) AS empty_boxes')
+            ->first();
 
         $meterBoxes = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
@@ -47,6 +77,9 @@ class MeterBoxController extends Controller
                 'governorateName' => $meterBox->branch->governorate?->name,
                 'areaName' => $meterBox->branch->area?->name,
                 'subAreaName' => $meterBox->subArea?->name,
+                'subscribersCount' => (int) $meterBox->subscribers_count,
+                'activeSubscribersCount' => (int) $meterBox->active_subscribers_count,
+                'debt' => $canViewSubscribers ? number_format((float) $meterBox->debt, 2, '.', '') : null,
                 'canUpdate' => $actor->can('update', $meterBox),
                 'canDelete' => $actor->can('delete', $meterBox),
             ]);
@@ -54,6 +87,16 @@ class MeterBoxController extends Controller
         return Inertia::render('MeterBoxes/Index', [
             'meterBoxes' => $meterBoxes,
             'canCreate' => $actor->can('create', MeterBox::class),
+            'canViewSubscribers' => $canViewSubscribers,
+            'canRecordReadings' => $actor->can('create', MeterReading::class),
+            'canSendMessages' => $actor->can('create', MessageBatch::class),
+            'summary' => [
+                'total' => (int) $summary->total,
+                'subscribers' => (int) $summary->subscribers,
+                'active' => (int) $summary->active,
+                'empty' => (int) $summary->empty_boxes,
+                'debt' => $canViewSubscribers ? number_format((float) $summary->debt, 2, '.', '') : null,
+            ],
             'filters' => $this->dataTableState($request, 'box_number'),
             'filterOptions' => $this->filterOptions($actor),
             ...$this->formOptions(),

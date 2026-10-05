@@ -21,6 +21,16 @@ return [
     ],
 
     /*
+    | The manager of the مخيم 2 branch, added by BranchManagerSeeder.
+    */
+
+    'branch_manager' => [
+        'name' => env('BRANCH_MANAGER_NAME', 'Mohammed'),
+        'username' => env('BRANCH_MANAGER_USERNAME', 'mohammed'),
+        'password' => env('BRANCH_MANAGER_PASSWORD'),
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Bank Transfer Destinations
     |--------------------------------------------------------------------------

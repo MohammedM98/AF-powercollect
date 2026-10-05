@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
             UserTypeSeeder::class,
             TariffSeeder::class,
             LocationSeeder::class,
+            BranchManagerSeeder::class,
         ]);
 
         // Demo subscribers (and the branch/meter-box/circuit-breaker chain

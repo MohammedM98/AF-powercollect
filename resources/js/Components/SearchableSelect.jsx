@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '@/Components/Icon';
 
+/**
+ * A drop-down with a search box. Each option is `{ value, label, hint? }`:
+ * `hint` is a quiet second part (a price, say) shown beside the label,
+ * in the list and on the closed field, and searched with it. `required`
+ * (with `name`) makes the form's own check report a missing choice.
+ */
 export default function SearchableSelect({
     id,
+    name,
+    required = false,
     value,
     onChange,
     options,
@@ -17,12 +25,13 @@ export default function SearchableSelect({
     const [query, setQuery] = useState('');
     const containerRef = useRef(null);
     const searchRef = useRef(null);
+    const buttonRef = useRef(null);
 
     const selected = options.find((option) => String(option.value) === String(value));
 
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
-        return q ? options.filter((option) => option.label.toLowerCase().includes(q)) : options;
+        return q ? options.filter((option) => `${option.label} ${option.hint ?? ''}`.toLowerCase().includes(q)) : options;
     }, [options, query]);
 
     useEffect(() => {
@@ -67,6 +76,7 @@ export default function SearchableSelect({
     return (
         <div ref={containerRef} className={`relative ${className}`}>
             <button
+                ref={buttonRef}
                 type="button"
                 id={id}
                 disabled={disabled}
@@ -76,9 +86,27 @@ export default function SearchableSelect({
                     open || active ? 'border-gray-400' : 'border-gray-200 hover:border-gray-300'
                 }`}
             >
-                <span className={`truncate ${selected ? 'text-gray-900' : 'text-gray-400'}`}>{selected ? selected.label : placeholder}</span>
+                <span className={`flex min-w-0 items-baseline gap-2 ${selected ? 'text-gray-900' : 'text-gray-400'}`}>
+                    <span className="truncate">{selected ? selected.label : placeholder}</span>
+                    {selected?.hint && <span className="shrink-0 text-sm text-gray-500">{selected.hint}</span>}
+                </span>
                 <Icon name="chevron-down" className={`h-4 w-4 shrink-0 text-gray-400 transition ${open ? 'rotate-180' : ''}`} />
             </button>
+
+            {required && (
+                <input
+                    type="text"
+                    name={name}
+                    required
+                    value={value ?? ''}
+                    onChange={() => {}}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+                    // The form focuses the first missing field; send it on to the drop-down.
+                    onFocus={() => buttonRef.current?.focus()}
+                />
+            )}
 
             {open && (
                 <div className="animate-modal-panel absolute z-20 mt-2 w-full min-w-[12rem] overflow-hidden rounded-2xl border border-gray-100 bg-surface shadow-lift">
@@ -117,8 +145,11 @@ export default function SearchableSelect({
                                                 isSelected ? 'font-semibold text-gray-900' : 'text-gray-700'
                                             }`}
                                         >
-                                            {option.label}
-                                            {isSelected && <Icon name="check" className="h-4 w-4 shrink-0 text-brand-500" strokeWidth={2} />}
+                                            <span className="min-w-0 truncate">{option.label}</span>
+                                            <span className="flex shrink-0 items-center gap-2">
+                                                {option.hint && <span className="text-xs text-gray-500">{option.hint}</span>}
+                                                {isSelected && <Icon name="check" className="h-4 w-4 shrink-0 text-brand-500" strokeWidth={2} />}
+                                            </span>
                                         </button>
                                     </li>
                                 );

@@ -104,8 +104,6 @@ class SubscriberController extends Controller
         }
 
         $data['registered_by'] = $actor->id;
-        // The starting reading is entered when the subscriber is activated.
-        $data['initial_reading'] = $data['status'] === SubscriberStatus::Active->value ? ($data['initial_reading'] ?? null) : null;
         $data = $this->enforceMinimumChargePermission($actor, $data);
 
         $subscriber = DB::transaction(function () use ($data, $actor, $chargeSubscriptionFee, $sourceSubscriber): Subscriber {
@@ -174,10 +172,6 @@ class SubscriberController extends Controller
         $data = $this->enforceMinimumChargePermission(auth()->user(), $data, $subscriber);
         // Only a subscriber without the fee on the account is validated for charging it.
         $chargeSubscriptionFee = (bool) $request->validated('charge_subscription_fee', false);
-
-        if ($data['status'] !== SubscriberStatus::Active->value) {
-            unset($data['initial_reading']);
-        }
 
         // Activating a subscriber who was not active starts their subscription today, unless a date was picked.
         if ($data['status'] === SubscriberStatus::Active->value

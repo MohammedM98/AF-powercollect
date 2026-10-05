@@ -96,8 +96,7 @@ class SubscriberController extends Controller
     {
         $actor = auth()->user();
         $data = $request->safe()->except(['charge_subscription_fee', 'source_subscriber_id']);
-        // Only a subscriber without the fee on the account is validated for charging it.
-        $chargeSubscriptionFee = (bool) $request->validated('charge_subscription_fee', false);
+        $chargeSubscriptionFee = $request->boolean('charge_subscription_fee');
         $sourceSubscriber = $request->sourceSubscriber();
 
         if (! $actor->isSuperAdmin()) {
@@ -171,7 +170,8 @@ class SubscriberController extends Controller
     {
         $data = $request->safe()->except(['charge_subscription_fee']);
         $data = $this->enforceMinimumChargePermission(auth()->user(), $data, $subscriber);
-        $chargeSubscriptionFee = $request->boolean('charge_subscription_fee');
+        // Only a subscriber without the fee on the account is validated for charging it.
+        $chargeSubscriptionFee = (bool) $request->validated('charge_subscription_fee', false);
 
         // Activating a subscriber who was not active starts their subscription today, unless a date was picked.
         if ($data['status'] === SubscriberStatus::Active->value

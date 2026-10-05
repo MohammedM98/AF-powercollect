@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\SubscriberStatus;
+use App\Enums\TariffCategory;
 use App\Enums\UserRole;
 use App\Models\Subscriber;
 use App\Models\Tariff;
@@ -36,7 +37,7 @@ class SampleSubscribersSeeder extends Seeder
         $this->call(LocationSeeder::class);
 
         $branch = LocationSeeder::branch();
-        $tariff = Tariff::query()->where('name', 'منزلي')->first()
+        $tariff = Tariff::query()->where('category', TariffCategory::Residential->value)->first()
             ?? throw new RuntimeException('شغّل TariffSeeder أولًا.');
         $registrar = User::query()->where('role', UserRole::SuperAdmin->value)->first()
             ?? User::query()->where('branch_id', $branch->id)->firstOrFail();

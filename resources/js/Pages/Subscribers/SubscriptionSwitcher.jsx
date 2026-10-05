@@ -78,7 +78,7 @@ export default function SubscriptionSwitcher({ subscriberNumber, subscriptions, 
                             </span>
                             <b className="truncate text-[15px] text-gray-900">{subscription.fullName}</b>
                             <span className="truncate text-xs text-gray-500">
-                                {[subscription.meterBoxNumber && `طبلون ${subscription.meterBoxNumber}`, subscription.tariffName]
+                                {[subscription.meterBoxNumber && `طبلون ${subscription.meterBoxNumber}`, subscription.tariffCategoryLabel]
                                     .filter(Boolean)
                                     .join(' · ')}
                             </span>

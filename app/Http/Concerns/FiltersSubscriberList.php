@@ -25,7 +25,7 @@ trait FiltersSubscriberList
     {
         $subscriberNumber = DB::raw('(select subscriber_number from subscriber_profiles where subscriber_profiles.id = subscribers.subscriber_profile_id)');
         $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'phone', 'subscription_phone', 'account_number', $subscriberNumber], self::SUBSCRIBER_SORTABLE, 'display_name');
-        $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'meter_box_id']);
+        $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'tariff_segment_id', 'meter_box_id']);
         $this->applyMeterBoxNameFilter($query, $request);
         $this->applySubAreaFilter($query, $request);
         $this->applyCircuitBreakerFilter($query, $request);

@@ -53,7 +53,7 @@ trait BuildsSubscriberStatement
      */
     protected function subscriberStatement(User $actor, Subscriber $subscriber): array
     {
-        $subscriber->loadMissing(['profile', 'branch', 'tariff', 'meterBox', 'circuitBreaker', 'standingDiscount.grantedBy', 'latestMeterReading']);
+        $subscriber->loadMissing(['profile', 'branch', 'tariff', 'tariffSegment', 'meterBox', 'circuitBreaker', 'standingDiscount.grantedBy', 'latestMeterReading']);
 
         $transactions = $subscriber->transactions()
             ->with([
@@ -133,7 +133,8 @@ trait BuildsSubscriberStatement
                 'subscriberNumber' => $subscriber->profile?->subscriber_number,
                 'phone' => $subscriber->contactPhone(),
                 'branchName' => $subscriber->branch->name,
-                'tariffName' => $subscriber->tariff->name,
+                'tariffCategoryLabel' => __($subscriber->tariff->category->label()),
+                'tariffSegmentName' => $subscriber->tariffSegment?->name,
                 'meterBoxNumber' => $subscriber->meterBox?->box_number,
                 'kiloPrice' => $subscriber->tariff->rate,
                 'minimumPayment' => $subscriber->weeklyMinimumPayment(),
@@ -198,7 +199,7 @@ trait BuildsSubscriberStatement
         return Subscriber::query()
             ->visibleTo($actor)
             ->where('subscriber_profile_id', $subscriber->subscriber_profile_id)
-            ->with(['branch', 'tariff', 'meterBox'])
+            ->with(['branch', 'tariff', 'tariffSegment', 'meterBox'])
             ->withSum('transactions as balance', 'amount')
             ->orderBy('account_number')
             ->get()
@@ -207,7 +208,8 @@ trait BuildsSubscriberStatement
                 'fullName' => $subscription->displayName(),
                 'accountNumber' => $subscription->account_number,
                 'branchName' => $subscription->branch->name,
-                'tariffName' => $subscription->tariff->name,
+                'tariffCategoryLabel' => __($subscription->tariff->category->label()),
+                'tariffSegmentName' => $subscription->tariffSegment?->name,
                 'meterBoxNumber' => $subscription->meterBox?->box_number,
                 'status' => $subscription->status->value,
                 'statusLabel' => __($subscription->status->label()),

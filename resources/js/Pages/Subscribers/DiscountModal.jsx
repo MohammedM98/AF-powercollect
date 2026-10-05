@@ -204,9 +204,10 @@ export default function DiscountModal({
     }
 
     function changeKind(kind) {
-        // Switching to the standing kind starts from the subscriber's current one, to change it.
+        // Switching to the standing kind starts from the subscriber's current one, to change it,
+        // or else from their customer segment on the tariff, if they have one.
         const current = kind === 'standing' ? standingDiscount : null;
-        const segment = current ? (current.segment ?? '') : '';
+        const segment = current ? (current.segment ?? '') : kind === 'standing' ? (subscriber.tariffSegmentName ?? '') : '';
 
         setData((previous) => ({
             ...previous,

@@ -44,7 +44,8 @@ function statementHeader(subscriber) {
         status: subscriber.status,
         statusLabel: subscriber.statusLabel,
         branchName: subscriber.branchName,
-        tariffName: subscriber.tariffName,
+        tariffCategoryLabel: subscriber.tariffCategoryLabel,
+        tariffSegmentName: subscriber.tariffSegmentName,
         meterBoxNumber: subscriber.meterBoxNumber,
     };
 }
@@ -403,7 +404,8 @@ export default function Index({
                                         {subscriber.meterBoxNumber ? <span className="data-chip">{subscriber.meterBoxNumber}</span> : '—'}
                                     </td>
                                     <td className="text-gray-600">
-                                        {subscriber.tariffName}
+                                        {subscriber.tariffCategoryLabel}
+                                        {subscriber.tariffSegmentName && <div className="text-xs text-gray-400">{subscriber.tariffSegmentName}</div>}
                                     </td>
                                     <td className="text-gray-600">{subscriber.subAreaName || '—'}</td>
                                     <td className="whitespace-nowrap text-gray-600">{formatCurrency(subscriber.weeklyMinimumPayment)}</td>

@@ -74,9 +74,10 @@ export default function StatementModal({ subscriber, statement, initialForm = nu
                                             حساب <span dir="ltr">{header.accountNumber}</span> ·{' '}
                                         </>
                                     )}
-                                    {header.tariffName && (
+                                    {header.tariffCategoryLabel && (
                                         <>
-                                            {header.tariffName} ·{' '}
+                                            {header.tariffCategoryLabel}
+                                            {header.tariffSegmentName && ` (${header.tariffSegmentName})`} ·{' '}
                                         </>
                                     )}
                                     {header.meterBoxNumber && `طبلون ${header.meterBoxNumber} · `}

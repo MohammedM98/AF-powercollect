@@ -212,6 +212,20 @@ class SubscriberValidationTest extends TestCase
         $this->assertSame(1, $subscriber->transactions()->count());
     }
 
+    public function test_an_active_subscriber_can_be_disconnected_but_not_put_back_to_waiting(): void
+    {
+        $payload = $this->validPayload();
+        $subscriber = Subscriber::factory()->create(['branch_id' => auth()->user()->branch_id, 'status' => SubscriberStatus::Active]);
+
+        $this->put(route('subscribers.update', $subscriber), [...$payload, 'status' => SubscriberStatus::Suspended->value])
+            ->assertSessionHasErrors(['status' => 'لا يمكن إعادة مشترك نشط إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».']);
+        $this->assertSame(SubscriberStatus::Active, $subscriber->fresh()->status);
+
+        $this->put(route('subscribers.update', $subscriber), [...$payload, 'status' => SubscriberStatus::Disconnected->value])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(SubscriberStatus::Disconnected, $subscriber->fresh()->status);
+    }
+
     public function test_update_rejects_another_subscribers_national_id(): void
     {
         $payload = $this->validPayload();

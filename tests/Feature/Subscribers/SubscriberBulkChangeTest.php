@@ -38,6 +38,18 @@ class SubscriberBulkChangeTest extends TestCase
             ->assertSessionHasErrors(['ids' => 'لا يمكن تفعيل مشترك قبل إدخال قراءته السابقة؛ أدخلها من «تعديل المشترك» أولًا.']);
     }
 
+    public function test_an_active_subscriber_is_not_put_back_to_waiting(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $active = $this->subscriberOf($branchAdmin, ['status' => SubscriberStatus::Active]);
+
+        $this->actingAs($branchAdmin)
+            ->post(route('subscribers.bulk-changes.store'), ['field' => 'status', 'value' => 'suspended', 'ids' => [$active->id]])
+            ->assertSessionHasErrors(['ids' => 'لا يمكن إعادة مشترك نشط إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».']);
+
+        $this->assertSame(SubscriberStatus::Active, $active->fresh()->status);
+    }
+
     public function test_the_minimum_charge_is_set_for_the_ticked_subscribers_and_kept_for_undo(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
@@ -115,11 +127,11 @@ class SubscriberBulkChangeTest extends TestCase
             ->post(route('subscribers.bulk-changes.store'), ['field' => 'status', 'value' => 'suspended', 'ids' => [$subscriber->id]])
             ->assertForbidden();
         $this->actingAs($dataEntry)
-            ->post(route('subscribers.bulk-changes.store'), ['field' => 'status', 'value' => 'suspended', 'ids' => [$subscriber->id]])
+            ->post(route('subscribers.bulk-changes.store'), ['field' => 'status', 'value' => 'disconnected', 'ids' => [$subscriber->id]])
             ->assertSessionHasNoErrors();
 
         $this->assertEquals(10, (float) $subscriber->fresh()->minimum_charge);
-        $this->assertSame(SubscriberStatus::Suspended, $subscriber->fresh()->status);
+        $this->assertSame(SubscriberStatus::Disconnected, $subscriber->fresh()->status);
     }
 
     public function test_ticked_subscribers_of_another_branch_are_left_out(): void
@@ -192,18 +204,18 @@ class SubscriberBulkChangeTest extends TestCase
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
         $subscriber = $this->subscriberOf($branchAdmin, ['status' => SubscriberStatus::Active]);
-        $this->actingAs($branchAdmin)->post(route('subscribers.bulk-changes.store'), ['field' => 'status', 'value' => 'suspended', 'ids' => [$subscriber->id]]);
+        $this->actingAs($branchAdmin)->post(route('subscribers.bulk-changes.store'), ['field' => 'status', 'value' => 'disconnected', 'ids' => [$subscriber->id]]);
         $change = SubscriberBulkChange::sole();
 
         $this->actingAs($branchAdmin)->get(route('subscribers.bulk-changes.index', ['change' => $change->id]))
             ->assertInertia(fn ($page) => $page
-                ->where('changes.data.0.description', 'الحالة ← قيد الانتظار')
+                ->where('changes.data.0.description', 'الحالة ← مفصول')
                 ->where('changes.data.0.canUndo', true)
                 ->reloadOnly('details', fn ($reload) => $reload
                     ->where('details.items.0.name', $subscriber->displayName())
                     ->where('details.items.0.old', 'نشط')
-                    ->where('details.items.0.new', 'قيد الانتظار')
-                    ->where('details.items.0.now', 'قيد الانتظار')));
+                    ->where('details.items.0.new', 'مفصول')
+                    ->where('details.items.0.now', 'مفصول')));
     }
 
     public function test_the_list_can_be_narrowed_to_chosen_subscribers_for_printing(): void

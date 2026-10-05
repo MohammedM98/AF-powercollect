@@ -239,6 +239,12 @@ export default function SubscriberForm({
     const subscriptionFeeLocked = 'charge_subscription_fee' in data && !data.charge_subscription_fee;
 
     const contactRequiredFields = REQUIRED_FIELDS.map((field) => field === 'full_name' ? nameField : field === 'phone' ? phoneField : field);
+    // Once active, a subscriber is disconnected rather than put back to waiting.
+    const statusOptions = STATUS_OPTIONS.map((option) =>
+        isEdit && original.status === 'active' && option.value === 'suspended'
+            ? { ...option, disabled: true, title: 'لا يمكن إعادة مشترك نشط إلى قيد الانتظار؛ غيّر حالته إلى مفصول.' }
+            : option,
+    );
     const readingRequired = data.status === 'active';
     const requiredFields = [...contactRequiredFields, ...(canChooseBranch ? ['branch_id'] : []), ...(readingRequired ? ['initial_reading'] : [])];
     const filledRequiredFields = requiredFields.filter((field) => String(data[field] ?? '').trim() !== '').length;
@@ -393,7 +399,7 @@ export default function SubscriberForm({
                             : undefined
                     }
                 >
-                    <ChoiceChips label="الحالة" value={data.status} onChange={chooseStatus} options={STATUS_OPTIONS} />
+                    <ChoiceChips label="الحالة" value={data.status} onChange={chooseStatus} options={statusOptions} />
                 </Field>
             </FormSection>
 

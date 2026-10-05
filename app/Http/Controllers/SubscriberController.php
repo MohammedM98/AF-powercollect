@@ -351,7 +351,7 @@ class SubscriberController extends Controller
      * ("منطقة 2") is its own column, so the form narrows meter boxes down
      * via branch → sub-area, same as the Meter Boxes resource itself.
      *
-     * @return array{branches: Collection, meterBoxes: Collection, tariffs: Collection, subAreas: Collection, circuitBreakers: Collection, canChooseBranch: bool, currentBranchAreaId: ?int, currentBranchAreaName: ?string, canEditMinimumCharge: bool}
+     * @return array{branches: Collection, meterBoxes: Collection, tariffs: Collection, segments: Collection, subAreas: Collection, circuitBreakers: Collection, canChooseBranch: bool, currentBranchAreaId: ?int, currentBranchAreaName: ?string, canEditMinimumCharge: bool}
      */
     private function formOptions(): array
     {
@@ -376,17 +376,18 @@ class SubscriberController extends Controller
                 'sub_area_id' => $box->sub_area_id,
             ]);
 
-        $tariffs = Tariff::with('segments')->orderBy('category')->get()->map(fn (Tariff $tariff) => [
+        $tariffs = Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => [
             'id' => $tariff->id,
             'categoryLabel' => __($tariff->category->label()),
             'rate' => $tariff->rate,
-            'segments' => $tariff->segments->map(fn (TariffSegment $segment) => ['id' => $segment->id, 'name' => $segment->name]),
         ]);
 
         return [
             'branches' => $branches,
             'meterBoxes' => $meterBoxes,
             'tariffs' => $tariffs,
+            // Any subscriber can be given any customer segment, whatever their tariff.
+            'segments' => TariffSegment::orderBy('name')->get(['id', 'name']),
             'subAreas' => SubArea::orderBy('name')->get(),
             'circuitBreakers' => CircuitBreaker::orderBy('ampere')->get(),
             'canChooseBranch' => $canChooseBranch,
@@ -430,12 +431,7 @@ class SubscriberController extends Controller
                 Tariff::orderBy('category')->get(),
                 fn (Tariff $tariff) => __($tariff->category->label()),
             )),
-            $this->filterGroup('tariff_segment_id', 'تصنيف الزبائن', TariffSegment::with('tariff')->orderBy('tariff_id')->orderBy('name')->get()
-                ->map(fn (TariffSegment $segment) => [
-                    'value' => (string) $segment->id,
-                    'label' => $segment->label(),
-                    'scope' => $this->filterScope(['tariff_id' => $segment->tariff_id]),
-                ])),
+            $this->filterGroup('tariff_segment_id', 'تصنيف الزبائن', $this->modelOptions(TariffSegment::orderBy('name')->get(), 'name')),
             $this->subAreaFilterGroup(SubArea::query()->visibleTo($actor)->orderBy('name')->get()),
             ...$this->meterBoxFilterGroups(
                 $meterBoxes,

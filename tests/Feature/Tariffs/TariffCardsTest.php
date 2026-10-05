@@ -44,7 +44,6 @@ class TariffCardsTest extends TestCase
             ->get(route('tariffs.index'))
             ->assertInertia(fn ($page) => $page
                 ->where('tariffs.0.subscribersCount', 2)
-                ->where('tariffs.0.unsegmentedCount', 2)
                 ->where('tariffs.0.averageConsumption', 37.5)
                 ->where('canCreate', true)
                 ->where('categoryOptions', [['value' => 'commercial', 'label' => 'تجاري']]));

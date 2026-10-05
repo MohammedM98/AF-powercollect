@@ -10,6 +10,7 @@ export default function SubscriberModal({
     branches,
     meterBoxes,
     tariffs,
+    segments,
     circuitBreakers,
     subAreas,
     canChooseBranch,
@@ -37,6 +38,7 @@ export default function SubscriberModal({
                 branches={branches}
                 meterBoxes={meterBoxes}
                 tariffs={tariffs}
+                segments={segments}
                 circuitBreakers={circuitBreakers}
                 subAreas={subAreas}
                 canChooseBranch={canChooseBranch}

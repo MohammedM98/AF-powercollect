@@ -405,17 +405,20 @@ export default function SubscriberForm({
 
             <FormSection icon="bolt" title="نوع الاشتراك والقاطع" description="سعر الكيلو والحد الأدنى يُحسبان تلقائيًا من اختيارك">
                 <Field id="tariff_id" label="نوع الاشتراك" required error={errors.tariff_id} span="sm:col-span-2">
-                    <ChoiceChips
-                        label="نوع الاشتراك"
+                    <SearchableSelect
                         name="tariff_id"
                         required
                         value={data.tariff_id}
                         onChange={onTariffChange}
                         options={tariffs.map((tariff) => ({
-                            value: tariff.id,
+                            value: String(tariff.id),
                             label: tariff.name,
                             hint: `${formatAmount(tariff.rate)} ش/ك.و`,
                         }))}
+                        placeholder="اختر نوع الاشتراك"
+                        searchPlaceholder="بحث في أنواع الاشتراك..."
+                        emptyLabel="لا توجد أنواع مطابقة"
+                        active={Boolean(data.tariff_id)}
                     />
                 </Field>
 

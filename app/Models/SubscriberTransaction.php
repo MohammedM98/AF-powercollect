@@ -20,7 +20,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -152,7 +151,7 @@ class SubscriberTransaction extends Model
     public const REVERSAL_TYPES = [self::TYPE_REVERSAL, self::TYPE_CANCELLATION, self::TYPE_REFUND];
 
     /** Payment details that may change without touching its financial meaning. */
-    public const AMENDABLE_FIELDS = ['bank_name', 'sender_bank_name', 'sender_name', 'reference_number', 'notes'];
+    public const AMENDABLE_FIELDS = ['bank_name', 'sender_bank_name', 'sender_name', 'notes'];
 
     protected function casts(): array
     {
@@ -193,9 +192,10 @@ class SubscriberTransaction extends Model
      * Record a payment on the subscriber's account, converted to shekels
      * at `exchange_rate` (always 1 for shekels), with the next voucher
      * number. A transfer keeps its bank, sender and reference; cash keeps
-     * its cash box and paper voucher.
+     * its cash box and paper voucher. A reference already on another payment
+     * is refused unless the collector confirmed the duplicate.
      *
-     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, sender_bank_name?: ?string, sender_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string, mobile_operation_id?: ?string}  $payment
+     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, sender_bank_name?: ?string, sender_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string, mobile_operation_id?: ?string, confirm_duplicate_reference?: bool}  $payment
      */
     public static function recordPayment(Subscriber $subscriber, User $collector, array $payment): self
     {
@@ -206,39 +206,34 @@ class SubscriberTransaction extends Model
         $referenceNumber = $method === PaymentMethod::Cash ? null : trim((string) ($payment['reference_number'] ?? ''));
         $activeReference = self::normalizeReference($referenceNumber);
 
-        try {
-            return DB::transaction(function () use ($subscriber, $collector, $payment, $currency, $method, $exchangeRate, $inShekels, $referenceNumber, $activeReference): self {
+        return DB::transaction(function () use ($subscriber, $collector, $payment, $currency, $method, $exchangeRate, $inShekels, $referenceNumber, $activeReference): self {
+            if (! ($payment['confirm_duplicate_reference'] ?? false)) {
                 self::ensureReferenceIsAvailable($activeReference);
-                $voucherNumber = self::claimNextVoucherNumber();
-
-                return $subscriber->transactions()->create([
-                    'recorded_by' => $collector->id,
-                    'type' => self::TYPE_PAYMENT,
-                    'source_key' => 'payment:'.$voucherNumber,
-                    'mobile_operation_id' => $payment['mobile_operation_id'] ?? null,
-                    'amount' => number_format(-$inShekels, 2, '.', ''),
-                    'currency' => $currency,
-                    'currency_amount' => $payment['amount'],
-                    'exchange_rate' => $exchangeRate,
-                    'payment_method' => $method,
-                    'bank_name' => $method->throughBank() ? $payment['bank_name'] : null,
-                    'sender_bank_name' => $method->throughBank() ? ($payment['sender_bank_name'] ?? null) : null,
-                    'sender_name' => $method->throughBank() ? ($payment['sender_name'] ?? null) : null,
-                    'reference_number' => $referenceNumber ?: null,
-                    'active_reference' => $activeReference,
-                    'voucher_number' => $voucherNumber,
-                    'manual_voucher_number' => $method === PaymentMethod::Cash ? ($payment['manual_voucher_number'] ?? null) : null,
-                    'cash_box' => $method === PaymentMethod::Cash ? ($payment['cash_box'] ?? null) : null,
-                    'notes' => $payment['notes'] ?? null,
-                ]);
-            });
-        } catch (UniqueConstraintViolationException $exception) {
-            if (isset($payment['mobile_operation_id']) && self::query()->where('mobile_operation_id', $payment['mobile_operation_id'])->exists()) {
-                throw $exception;
             }
 
-            self::throwReferenceConflictAfterUniqueViolation($activeReference, $exception);
-        }
+            $voucherNumber = self::claimNextVoucherNumber();
+
+            return $subscriber->transactions()->create([
+                'recorded_by' => $collector->id,
+                'type' => self::TYPE_PAYMENT,
+                'source_key' => 'payment:'.$voucherNumber,
+                'mobile_operation_id' => $payment['mobile_operation_id'] ?? null,
+                'amount' => number_format(-$inShekels, 2, '.', ''),
+                'currency' => $currency,
+                'currency_amount' => $payment['amount'],
+                'exchange_rate' => $exchangeRate,
+                'payment_method' => $method,
+                'bank_name' => $method->throughBank() ? $payment['bank_name'] : null,
+                'sender_bank_name' => $method->throughBank() ? ($payment['sender_bank_name'] ?? null) : null,
+                'sender_name' => $method->throughBank() ? ($payment['sender_name'] ?? null) : null,
+                'reference_number' => $referenceNumber ?: null,
+                'active_reference' => $activeReference,
+                'voucher_number' => $voucherNumber,
+                'manual_voucher_number' => $method === PaymentMethod::Cash ? ($payment['manual_voucher_number'] ?? null) : null,
+                'cash_box' => $method === PaymentMethod::Cash ? ($payment['cash_box'] ?? null) : null,
+                'notes' => $payment['notes'] ?? null,
+            ]);
+        });
     }
 
     /**
@@ -433,56 +428,42 @@ class SubscriberTransaction extends Model
             throw ValidationException::withMessages(['details' => 'لا يمكن تعديل الحقول المالية أو هوية الحركة.']);
         }
 
-        $activeReference = array_key_exists('reference_number', $fields)
-            ? self::normalizeReference($fields['reference_number'])
-            : $this->active_reference;
+        return DB::transaction(function () use ($actor, $fields, $reason): TransactionAmendment {
+            $line = self::query()->lockForUpdate()->findOrFail($this->id);
 
-        try {
-            return DB::transaction(function () use ($actor, $fields, $reason, $activeReference): TransactionAmendment {
-                $line = self::query()->lockForUpdate()->findOrFail($this->id);
+            if (! $line->isAmendable(lockForUpdate: true)) {
+                throw ValidationException::withMessages(['details' => 'لا يمكن تعديل بيانات هذه الحركة.']);
+            }
 
-                if (! $line->isAmendable(lockForUpdate: true)) {
-                    throw ValidationException::withMessages(['details' => 'لا يمكن تعديل بيانات هذه الحركة.']);
+            $changes = [];
+            $updates = [];
+
+            foreach ($fields as $field => $value) {
+                $oldValue = $line->getAttribute($field);
+                $newValue = filled($value) ? trim((string) $value) : null;
+
+                if ((string) ($oldValue ?? '') === (string) ($newValue ?? '')) {
+                    continue;
                 }
 
-                self::ensureReferenceIsAvailable($activeReference, $line->id);
+                $changes[$field] = [$oldValue, $newValue];
+                $updates[$field] = $newValue;
+            }
 
-                $changes = [];
-                $updates = [];
+            if ($changes === []) {
+                throw ValidationException::withMessages(['details' => 'غيّر بيانًا واحدًا على الأقل قبل الحفظ.']);
+            }
 
-                foreach ($fields as $field => $value) {
-                    $oldValue = $line->getAttribute($field);
-                    $newValue = filled($value) ? trim((string) $value) : null;
+            $line->update($updates);
+            $amendment = $line->amendments()->create([
+                'user_id' => $actor->id,
+                'changes' => $changes,
+                'reason' => $reason,
+            ]);
+            $this->setRawAttributes($line->getAttributes(), true);
 
-                    if ((string) ($oldValue ?? '') === (string) ($newValue ?? '')) {
-                        continue;
-                    }
-
-                    $changes[$field] = [$oldValue, $newValue];
-                    $updates[$field] = $newValue;
-                }
-
-                if ($changes === []) {
-                    throw ValidationException::withMessages(['details' => 'غيّر بيانًا واحدًا على الأقل قبل الحفظ.']);
-                }
-
-                if (array_key_exists('reference_number', $updates)) {
-                    $updates['active_reference'] = $activeReference;
-                }
-
-                $line->update($updates);
-                $amendment = $line->amendments()->create([
-                    'user_id' => $actor->id,
-                    'changes' => $changes,
-                    'reason' => $reason,
-                ]);
-                $this->setRawAttributes($line->getAttributes(), true);
-
-                return $amendment;
-            });
-        } catch (UniqueConstraintViolationException $exception) {
-            self::throwReferenceConflictAfterUniqueViolation($activeReference, $exception, $this->id);
-        }
+            return $amendment;
+        });
     }
 
     public static function normalizeReference(mixed $reference): ?string
@@ -507,27 +488,13 @@ class SubscriberTransaction extends Model
             ->first();
     }
 
-    private static function ensureReferenceIsAvailable(?string $activeReference, ?int $ignoreTransactionId = null): void
+    private static function ensureReferenceIsAvailable(?string $activeReference): void
     {
-        $conflict = self::activeReferenceConflict($activeReference, $ignoreTransactionId);
+        $conflict = self::activeReferenceConflict($activeReference);
 
         if ($conflict) {
             throw self::referenceConflictException($conflict);
         }
-    }
-
-    private static function throwReferenceConflictAfterUniqueViolation(
-        ?string $activeReference,
-        UniqueConstraintViolationException $exception,
-        ?int $ignoreTransactionId = null,
-    ): never {
-        $conflict = self::activeReferenceConflict($activeReference, $ignoreTransactionId);
-
-        if ($conflict) {
-            throw self::referenceConflictException($conflict);
-        }
-
-        throw $exception;
     }
 
     private static function referenceConflictException(self $conflict): ValidationException
@@ -825,11 +792,6 @@ class SubscriberTransaction extends Model
     private function applyMetadataEdit(User $actor, array $data): self
     {
         $fields = array_intersect_key($data, array_flip(self::AMENDABLE_FIELDS));
-        $activeReference = array_key_exists('reference_number', $fields)
-            ? self::normalizeReference($fields['reference_number'])
-            : $this->active_reference;
-        self::ensureReferenceIsAvailable($activeReference, $this->id);
-
         $changes = [];
         $updates = [];
 
@@ -847,10 +809,6 @@ class SubscriberTransaction extends Model
 
         if ($changes === []) {
             throw ValidationException::withMessages(['details' => 'غيّر بيانًا واحدًا على الأقل قبل الحفظ.']);
-        }
-
-        if (array_key_exists('reference_number', $updates)) {
-            $updates['active_reference'] = $activeReference;
         }
 
         $this->update($updates);
@@ -879,7 +837,6 @@ class SubscriberTransaction extends Model
             ];
 
             if ($original->isPayment() && $original->reference_number !== null) {
-                self::ensureReferenceIsAvailable(self::normalizeReference($original->reference_number), $original->id);
                 $updates['active_reference'] = self::normalizeReference($original->reference_number);
             }
 

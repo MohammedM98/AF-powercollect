@@ -27,7 +27,7 @@ class StoreSubscriberPaymentRequest extends FormRequest
 
     /**
      * A shekel payment needs no exchange rate; a bank transfer needs one of
-     * the transfer banks, its number and who sent it (the subscriber or
+     * the transfer banks and who sent it (its reference number is optional) (the subscriber or
      * someone else); the cash box and the paper voucher only apply to cash.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
@@ -45,8 +45,6 @@ class StoreSubscriberPaymentRequest extends FormRequest
      */
     public static function paymentRules(mixed $paymentMethod): array
     {
-        $throughBank = PaymentMethod::tryFrom((string) $paymentMethod)?->throughBank() ?? false;
-
         return [
             'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'],
             'currency' => ['required', Rule::enum(Currency::class)],
@@ -55,7 +53,9 @@ class StoreSubscriberPaymentRequest extends FormRequest
             'bank_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'required', Rule::in(config('powercollect.transfer_banks'))],
             'sender_bank_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'nullable', Rule::in(config('powercollect.transfer_banks'))],
             'sender_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'required', 'string', 'max:255'],
-            'reference_number' => ['exclude_if:payment_method,'.PaymentMethod::Cash->value, Rule::requiredIf($throughBank), 'nullable', 'string', 'max:100'],
+            'reference_number' => ['exclude_if:payment_method,'.PaymentMethod::Cash->value, 'nullable', 'string', 'max:100'],
+            // Sent once the collector confirmed that the reference is already on another payment.
+            'confirm_duplicate_reference' => ['sometimes', 'boolean'],
             'cash_box' => ['exclude_unless:payment_method,'.PaymentMethod::Cash->value, 'nullable', 'string', 'max:20'],
             'manual_voucher_number' => ['exclude_unless:payment_method,'.PaymentMethod::Cash->value, 'nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string', 'max:1000'],

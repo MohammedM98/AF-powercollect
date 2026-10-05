@@ -236,6 +236,15 @@ class Subscriber extends Model
     }
 
     /**
+     * Whether a subscription fee has been charged to the account, whether
+     * with the subscriber or later from the transactions.
+     */
+    public function hasSubscriptionFeeCharge(): bool
+    {
+        return $this->transactions()->where('type', SubscriberTransaction::TYPE_SUBSCRIPTION_FEE)->exists();
+    }
+
+    /**
      * Delete the subscriber with their subscription fee (and standing
      * discount); deletionBlocker() must allow it first.
      */

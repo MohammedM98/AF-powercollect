@@ -70,15 +70,21 @@ class StoreSubscriberRequest extends FormRequest
             $rules['branch_id'] = ['required', Rule::exists('branches', 'id')];
         }
 
-        if (! $this->route('subscriber')) {
+        $subscriber = $this->route('subscriber');
+
+        if (! $subscriber) {
             $rules['source_subscriber_id'] = ['nullable', 'integer', Rule::exists('subscribers', 'id')];
-            $rules['charge_subscription_fee'] = ['sometimes', 'boolean'];
 
             if ($this->filled('source_subscriber_id')) {
                 foreach (SubscriberProfile::PERSONAL_FIELDS as $field) {
                     $rules[$field] = ['exclude'];
                 }
             }
+        }
+
+        // A new subscriber can be charged the fee, and so can an existing one that has not been yet.
+        if (! $subscriber || ! $subscriber->hasSubscriptionFeeCharge()) {
+            $rules['charge_subscription_fee'] = ['sometimes', 'boolean'];
 
             if ($this->boolean('charge_subscription_fee')) {
                 $rules['subscription_fee'] = ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'];

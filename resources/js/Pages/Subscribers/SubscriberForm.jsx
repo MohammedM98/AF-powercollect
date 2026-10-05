@@ -146,7 +146,8 @@ export function subscriberFormData(subscriber, sourceSubscriber = null) {
         minimum_charge: subscriber?.minimum_charge != null ? Number(subscriber.minimum_charge) : '',
         initial_reading: subscriber?.initial_reading ?? '',
         subscription_fee: subscriber?.subscription_fee ?? '',
-        ...(subscriber ? {} : { charge_subscription_fee: false }),
+        // New subscribers, and existing ones whose fee is not on the account yet, can be charged it.
+        ...(subscriber?.subscription_fee_charged ? {} : { charge_subscription_fee: false }),
         subscription_date: subscriber?.subscription_date ?? '',
         notes: subscriber?.notes ?? '',
     };

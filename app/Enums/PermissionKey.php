@@ -24,6 +24,7 @@ enum PermissionKey: string
     case UpdateSubscribers = 'subscribers.update';
     case DeleteSubscribers = 'subscribers.delete';
     case UpdateSubscriberMinimumCharge = 'subscribers.update_minimum_charge';
+    case BulkUpdateSubscribers = 'subscribers.bulk_update';
 
     case ViewTariffs = 'tariffs.view';
     case CreateTariffs = 'tariffs.create';
@@ -57,21 +58,26 @@ enum PermissionKey: string
 
     case ViewMeterReadings = 'meter_readings.view';
     case RecordMeterReadings = 'meter_readings.record';
+    case CorrectMeterReadings = 'meter_readings.correct';
     case ApproveMeterReadings = 'meter_readings.approve';
     case RecordCollections = 'collections.record';
     case ConfirmCollections = 'collections.confirm';
     case ViewCollections = 'collections.view';
     case AdjustBalances = 'collections.adjust';
     case CorrectTransactions = 'collections.correct';
+    case AmendTransactionDetails = 'collections.amend';
+    case RefundPayments = 'collections.refund';
     case DeleteTransactions = 'collections.delete';
     case ForceDeleteTransactions = 'collections.force_delete';
     case PrepareClosings = 'closings.prepare';
+    case ViewOwnClosings = 'closings.view';
     case AuditClosings = 'closings.audit';
     case ViewAllClosings = 'closings.view_all';
 
     case ViewBranchPerformance = 'reports.branch_performance';
     case ViewDebtAging = 'reports.debt_aging';
     case ViewTransactionAudit = 'reports.transaction_audit';
+    case ExportFinancialReports = 'reports.export';
 
     case ViewMessages = 'messages.view';
     case SendMessages = 'messages.send';
@@ -98,6 +104,7 @@ enum PermissionKey: string
             self::UpdateSubscribers => 'Edit Subscribers',
             self::DeleteSubscribers => 'Delete Subscribers',
             self::UpdateSubscriberMinimumCharge => 'Edit Subscriber Minimum Charge',
+            self::BulkUpdateSubscribers => 'Bulk Edit Subscribers',
             self::ViewTariffs => 'View Tariffs',
             self::CreateTariffs => 'Add Tariffs',
             self::UpdateTariffs => 'Edit Tariffs',
@@ -124,20 +131,25 @@ enum PermissionKey: string
             self::DeleteGovernorates => 'Delete Governorates',
             self::ViewMeterReadings => 'View Meter Readings',
             self::RecordMeterReadings => 'Record Meter Readings',
+            self::CorrectMeterReadings => 'Correct Meter Readings',
             self::ApproveMeterReadings => 'Approve Meter Readings',
-            self::RecordCollections => 'Record Collections',
+            self::RecordCollections => 'Add Payments',
             self::ConfirmCollections => 'Confirm Collections',
             self::ViewCollections => 'View Collections',
             self::AdjustBalances => 'Add Charges and Discounts',
             self::CorrectTransactions => 'Edit Transactions',
-            self::DeleteTransactions => 'Delete Transactions',
+            self::AmendTransactionDetails => 'Edit Payment Details',
+            self::RefundPayments => 'Refund Payments',
+            self::DeleteTransactions => 'Cancel Transactions',
             self::ForceDeleteTransactions => 'Permanently Delete Transactions',
             self::PrepareClosings => 'Prepare Closings',
+            self::ViewOwnClosings => 'View Branch Closings',
             self::AuditClosings => 'Audit Closings',
             self::ViewAllClosings => 'View All Closings and Reports',
             self::ViewBranchPerformance => 'View Branch Performance',
             self::ViewDebtAging => 'View Debt Aging',
             self::ViewTransactionAudit => 'View Audit Log',
+            self::ExportFinancialReports => 'Export Financial Reports',
             self::ViewMessages => 'View Messages',
             self::SendMessages => 'Send Messages',
             self::ManagePrintTemplates => 'Manage Print Templates',
@@ -187,6 +199,7 @@ enum PermissionKey: string
                     'update' => self::UpdateSubscribers,
                     'delete' => self::DeleteSubscribers,
                     'minimum_charge' => self::UpdateSubscriberMinimumCharge,
+                    'bulk_update' => self::BulkUpdateSubscribers,
                 ],
             ],
             'meter_boxes' => [
@@ -203,23 +216,25 @@ enum PermissionKey: string
             ],
             'meter_readings' => [
                 'label' => 'Meter Readings',
-                'actions' => ['view' => self::ViewMeterReadings, 'record' => self::RecordMeterReadings, 'approve' => self::ApproveMeterReadings],
+                'actions' => ['view' => self::ViewMeterReadings, 'record' => self::RecordMeterReadings, 'correct' => self::CorrectMeterReadings, 'approve' => self::ApproveMeterReadings],
             ],
             'collections' => [
-                'label' => 'Collections',
+                'label' => 'Payments and Transactions',
                 'actions' => [
                     'view' => self::ViewCollections,
                     'record' => self::RecordCollections,
                     'confirm' => self::ConfirmCollections,
                     'adjust' => self::AdjustBalances,
                     'correct' => self::CorrectTransactions,
+                    'amend' => self::AmendTransactionDetails,
+                    'refund' => self::RefundPayments,
                     'delete' => self::DeleteTransactions,
                     'force_delete' => self::ForceDeleteTransactions,
                 ],
             ],
             'closings' => [
                 'label' => 'Closings',
-                'actions' => ['prepare' => self::PrepareClosings, 'view_all' => self::ViewAllClosings, 'audit' => self::AuditClosings],
+                'actions' => ['view' => self::ViewOwnClosings, 'prepare' => self::PrepareClosings, 'view_all' => self::ViewAllClosings, 'audit' => self::AuditClosings],
             ],
             'reports' => [
                 'label' => 'Reports',
@@ -227,6 +242,7 @@ enum PermissionKey: string
                     'branch_performance' => self::ViewBranchPerformance,
                     'debt_aging' => self::ViewDebtAging,
                     'transaction_audit' => self::ViewTransactionAudit,
+                    'export' => self::ExportFinancialReports,
                 ],
             ],
             'messages' => [

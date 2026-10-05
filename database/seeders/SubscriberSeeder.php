@@ -82,7 +82,11 @@ class SubscriberSeeder extends Seeder
             $tariffs = Tariff::all();
         }
 
-        $circuitBreakers = CircuitBreaker::factory()->count(5)->create();
+        $circuitBreakers = CircuitBreaker::query()->orderBy('ampere')->get();
+        if ($circuitBreakers->isEmpty()) {
+            $this->call(CircuitBreakerSeeder::class);
+            $circuitBreakers = CircuitBreaker::query()->orderBy('ampere')->get();
+        }
         $governorates = [];
 
         foreach (self::BRANCHES as $config) {

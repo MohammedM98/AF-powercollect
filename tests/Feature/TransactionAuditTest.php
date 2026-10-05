@@ -31,7 +31,7 @@ class TransactionAuditTest extends TestCase
         // 15:00 on Sunday 20 September in Gaza (UTC+3), the business's time zone.
         $this->travelTo('2026-09-20 12:00:00');
         $this->branch = Branch::factory()->create(['name' => 'فرع الكرادة']);
-        $this->branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id, 'name' => 'Mohammed']);
+        $this->branchAdmin = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $this->branch->id, 'name' => 'Mohammed']);
         $this->subscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Ahmad Nasser']);
     }
 

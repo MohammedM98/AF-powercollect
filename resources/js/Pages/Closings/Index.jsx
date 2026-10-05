@@ -38,6 +38,7 @@ export default function Index({
     cashCoins,
     userId,
     cutoff,
+    canExport,
 }) {
     function visit(changes) {
         router.get('/closings', { tab, branch: branchId, date, period, ...changes }, { preserveScroll: true });
@@ -124,6 +125,7 @@ export default function Index({
                 {tab === 'handover' && handover && <CashHandover key={handover.id} closing={handover} onOpenDaily={() => visit({ tab: 'daily' })} />}
                 {tab === 'register' && register && (
                     <ClosingRegister
+                        canExport={canExport}
                         register={register}
                         branches={branches}
                         onChange={(filters) => router.get('/closings', { tab: 'register', ...filters }, { preserveScroll: true })}

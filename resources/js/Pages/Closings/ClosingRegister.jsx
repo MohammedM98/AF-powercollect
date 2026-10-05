@@ -11,7 +11,7 @@ const STATUS_COLORS = { approved: 'var(--cl-success)', submitted: 'var(--cl-info
  * the branch-days that had payments but no closing. Downloads as a CSV for
  * a spreadsheet, or prints.
  */
-export default function ClosingRegister({ register, branches, onChange, onOpenDay }) {
+export default function ClosingRegister({ register, branches, onChange, onOpenDay, canExport }) {
     const { errors } = usePage().props;
     const query = new URLSearchParams(
         Object.entries({ from: register.from, to: register.to, status: register.status ?? '', filter_branch: register.branchId ?? '' }).filter(
@@ -87,10 +87,10 @@ export default function ClosingRegister({ register, branches, onChange, onOpenDa
                     </select>
                 </label>
                 <span className="sp" />
-                <a className="btn" href={`/closings/register.csv?${query}`}>
+                {canExport && <a className="btn" href={`/closings/register.csv?${query}`}>
                     <Icon name="arrow-down-tray" />
                     تنزيل Excel (CSV)
-                </a>
+                </a>}
                 <button type="button" className="btn" onClick={() => window.print()}>
                     <Icon name="printer" />
                     طباعة

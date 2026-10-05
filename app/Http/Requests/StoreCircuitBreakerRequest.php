@@ -29,7 +29,7 @@ class StoreCircuitBreakerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'ampere' => ['required', 'integer', 'min:1', Rule::unique('circuit_breakers', 'ampere')->ignore($this->route('circuit_breaker'))],
+            'ampere' => ['required', 'integer', 'min:2', Rule::unique('circuit_breakers', 'ampere')->ignore($this->route('circuit_breaker'))],
             'minimum_payment' => ['required', 'numeric', 'min:0'],
         ];
     }

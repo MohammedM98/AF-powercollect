@@ -261,7 +261,9 @@ class MeterReading extends Model
      */
     private function recordDiscountLine(User $recorder): void
     {
-        if ((float) $this->discount_amount <= 0 || $this->sourceWasBilled($this->discountSourceKey())) {
+        if ((float) $this->discount_amount <= 0
+            || $this->sourceWasBilled($this->discountSourceKey())
+            || $this->currentLine(SubscriberTransaction::TYPE_METER_READING, lockForUpdate: true) === null) {
             return;
         }
 
@@ -293,12 +295,13 @@ class MeterReading extends Model
      * The reading's charge or standing-discount line that stands on the
      * subscriber's account, if it has been billed.
      */
-    private function currentLine(string $type): ?SubscriberTransaction
+    private function currentLine(string $type, bool $lockForUpdate = false): ?SubscriberTransaction
     {
         return SubscriberTransaction::query()
             ->where('meter_reading_id', $this->id)
             ->where('type', $type)
             ->whereNull('cancelled_at')
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
             ->first();
     }
 

@@ -69,6 +69,7 @@ class ClosingController extends Controller
                 'levels' => $this->closingLevels($branch, $date->greaterThan($latest) ? $latest : $date),
             ] : null,
             'register' => $tab === 'register' ? $this->requestedRegister($request, $branches) : null,
+            'canExport' => $request->user()->can('export', Closing::class),
             'differenceReasons' => $this->differenceReasons(),
             'cashNotes' => config('powercollect.closing.notes'),
             'cashCoins' => config('powercollect.closing.coins'),
@@ -83,7 +84,7 @@ class ClosingController extends Controller
      */
     public function export(Request $request): StreamedResponse
     {
-        $this->authorize('viewAny', Closing::class);
+        $this->authorize('export', Closing::class);
         $register = $this->requestedRegister($request, $this->visibleBranches($request->user()));
         $columns = ['التاريخ', 'الفرع', 'رقم الكشف', 'الحالة', 'الدفعات', 'التحصيل المؤكد', 'النقد المتوقع', 'النقد المعدود', 'الفرق', 'المعلّق', 'المسلَّم للشركة', 'المستلَم', 'أعدّه', 'اعتمده', 'وقت الاعتماد'];
 

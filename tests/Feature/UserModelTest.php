@@ -15,7 +15,7 @@ class UserModelTest extends TestCase
     use RefreshDatabase;
 
     private const DATA_ENTRY_STARTER_KEYS = [
-        'subscribers.view', 'subscribers.create', 'subscribers.update', 'meter_readings.view', 'meter_readings.record',
+        'subscribers.view', 'subscribers.create', 'subscribers.update', 'subscribers.bulk_update', 'meter_readings.view', 'meter_readings.record', 'meter_readings.correct',
     ];
 
     public function test_a_new_user_starts_with_their_roles_usual_permissions(): void

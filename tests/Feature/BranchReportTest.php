@@ -135,7 +135,7 @@ class BranchReportTest extends TestCase
         $this->assertStringNotContainsString('South', $this->get(route('reports.export'))->streamedContent());
 
         $auditor = User::factory()->financialAuditor()->create(['branch_id' => $this->north->id]);
-        $auditor->permissions()->sync(Permission::idsFor([PermissionKey::ViewAllClosings]));
+        $auditor->permissions()->sync(Permission::idsFor([PermissionKey::ViewAllClosings, PermissionKey::ExportFinancialReports]));
 
         $this->actingAs($auditor)->get(route('reports.index', ['branch' => 'all']))->assertInertia(fn ($page) => $page
             ->where('filters.branch', 'all')
@@ -192,7 +192,7 @@ class BranchReportTest extends TestCase
     private function preparer(): User
     {
         $user = User::factory()->accountant()->create(['branch_id' => $this->north->id]);
-        $user->permissions()->sync(Permission::idsFor([PermissionKey::PrepareClosings]));
+        $user->permissions()->sync(Permission::idsFor([PermissionKey::PrepareClosings, PermissionKey::ExportFinancialReports]));
 
         return $user;
     }

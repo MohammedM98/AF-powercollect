@@ -164,7 +164,7 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect(collect($groups)->firstWhere('key', 'collections')['actions'])->pluck('action')->all() === [
-                'view', 'record', 'confirm', 'adjust', 'correct', 'delete', 'force_delete',
+                'view', 'record', 'confirm', 'adjust', 'correct', 'amend', 'refund', 'delete', 'force_delete',
             ],
         ));
     }
@@ -176,9 +176,9 @@ class PermissionsTest extends TestCase
         $closingActions = fn ($groups): array => collect(collect($groups)->firstWhere('key', 'closings')['actions'])->pluck('action')->all();
 
         $this->actingAs(User::factory()->superAdmin()->create())->get(route('settings.permissions.edit'))
-            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['prepare', 'view_all', 'audit']));
+            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['view', 'prepare', 'view_all', 'audit']));
         $this->actingAs($branchAdmin)->get(route('settings.permissions.edit'))
-            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['prepare']));
+            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['view', 'prepare']));
     }
 
     public function test_branch_admin_does_not_see_company_wide_permissions_on_the_permissions_page(): void
@@ -311,12 +311,13 @@ class PermissionsTest extends TestCase
             ->get(route('settings.permissions.edit'))
             ->assertInertia(fn ($page) => $page
                 ->where('users.data.0.role', 'data_entry')
-                // A company-wide grant from the Super Admin isn't the Branch Admin's to show or count.
+                // Grants outside the actor's scope are shown separately and cannot be edited or copied.
                 ->where('users.data.0.permissionIds', fn ($ids): bool => $sorted($ids->all()) === $idsOf(UserRole::DataEntry->starterPermissions()))
+                ->where('selectedUser.lockedPermissions', [__(PermissionKey::ViewAreas->label())])
                 ->where('roleTemplates', fn ($templates): bool => collect($templates)->pluck('role')->all() === ['collector', 'data_entry', 'accountant', 'financial_auditor'])
                 ->where('roleTemplates.1.permissionIds', fn ($ids): bool => $sorted($ids->all()) === $idsOf(UserRole::DataEntry->starterPermissions()))
-                // The Financial Auditor's usual permission is company-wide, so a Branch Admin's template for it is empty.
-                ->where('roleTemplates.3.permissionIds', []));
+                // Exporting is grantable, but seeing other branches still requires a company-wide grant.
+                ->where('roleTemplates.3.permissionIds', $idsOf([PermissionKey::ExportFinancialReports])));
     }
 
     public function test_branch_admin_cannot_open_another_branchs_employee_in_the_editor(): void

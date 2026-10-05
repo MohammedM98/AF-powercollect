@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Http\Concerns\FiltersDataTable;
+use App\Http\Requests\UpdatePermissionsRequest;
 use App\Models\Permission;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
@@ -78,13 +79,13 @@ class PermissionController extends Controller
      * Branch Admin's save ignores company-wide permissions in the payload
      * and keeps any the Super Admin already gave that user.
      */
-    public function update(Request $request): RedirectResponse
+    public function update(UpdatePermissionsRequest $request): RedirectResponse
     {
         $this->authorize('manage', Permission::class);
 
         $actor = $request->user();
         $grantablePermissionIds = $this->grantablePermissionIds($actor);
-        $payload = (array) $request->input('permissions', []);
+        $payload = $request->validated('permissions');
 
         $users = $this->manageableUsers($actor)->with('permissions')->whereIn('id', array_keys($payload))->get();
 
@@ -107,7 +108,7 @@ class PermissionController extends Controller
      * editor shows, counts, and copies to another employee.
      *
      * @param  array<int, int>  $grantablePermissionIds
-     * @return array{id: int, name: string, username: string, role: string, roleLabel: string, branchName: ?string, permissionIds: array<int, int>}
+     * @return array{id: int, name: string, username: string, role: string, roleLabel: string, branchName: ?string, permissionIds: array<int, int>, lockedPermissions: array<int, string>}
      */
     private function employeeSummary(User $user, array $grantablePermissionIds): array
     {
@@ -119,6 +120,10 @@ class PermissionController extends Controller
             'roleLabel' => __($user->role->label()),
             'branchName' => $user->branch?->name,
             'permissionIds' => array_values(array_intersect($user->permissions->modelKeys(), $grantablePermissionIds)),
+            'lockedPermissions' => $user->permissions
+                ->reject(fn (Permission $permission): bool => in_array($permission->id, $grantablePermissionIds, true))
+                ->map(fn (Permission $permission): string => __(PermissionKey::tryFrom($permission->key)?->label() ?? $permission->label))
+                ->values()->all(),
         ];
     }
 

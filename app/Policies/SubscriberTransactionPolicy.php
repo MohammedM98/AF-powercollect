@@ -88,21 +88,20 @@ class SubscriberTransactionPolicy
     /** Amend payment details without changing its financial meaning. */
     public function amend(User $user, SubscriberTransaction $subscriberTransaction): bool
     {
-        return $user->hasPermission(PermissionKey::CorrectTransactions)
+        return $user->hasPermission(PermissionKey::AmendTransactionDetails)
             && $subscriberTransaction->isAmendable()
             && $this->inBranchOf($user, $subscriberTransaction);
     }
 
     /**
-     * Deleting (cancelling) a line takes the "Delete Transactions"
-     * permission, in the user's own branch. The permanent-delete permission
-     * also offers normal deletion for the same eligible final line, so its
-     * holder can choose whether to keep a reversal or erase it completely.
+     * Cancellation and refunding require their own permissions. Permanent
+     * deletion never implies either, including through the legacy endpoint.
      */
     public function delete(User $user, SubscriberTransaction $subscriberTransaction): bool
     {
-        $canDelete = $user->hasPermission(PermissionKey::DeleteTransactions)
-            || ($user->hasPermission(PermissionKey::ForceDeleteTransactions) && $subscriberTransaction->isErasable());
+        $canDelete = $user->hasPermission($subscriberTransaction->isPayment()
+            ? PermissionKey::RefundPayments
+            : PermissionKey::DeleteTransactions);
 
         return $canDelete
             && $subscriberTransaction->isCancellable()
@@ -128,7 +127,7 @@ class SubscriberTransactionPolicy
     }
 
     /**
-     * Erasing one line for good, with no trace, takes its own
+     * Removing a line from the statement, with a retained audit record, takes its own
      * "Permanently Delete Transactions" permission, in the user's own
      * branch. Only the last line of the statement, and not one a closing
      * has counted.

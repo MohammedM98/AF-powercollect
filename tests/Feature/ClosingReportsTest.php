@@ -80,7 +80,7 @@ class ClosingReportsTest extends TestCase
         $this->payment($this->south, '250', '2026-09-29 11:00');
         Closing::openForActiveBranches('2026-09-29');
         $preparer = User::factory()->accountant()->create(['branch_id' => $this->north->id]);
-        $preparer->permissions()->sync(Permission::idsFor([PermissionKey::PrepareClosings]));
+        $preparer->permissions()->sync(Permission::idsFor([PermissionKey::PrepareClosings, PermissionKey::ExportFinancialReports]));
 
         $this->actingAs($preparer)->get(route('closings.index', ['tab' => 'register', 'from' => '2026-09-01', 'to' => '2026-09-30', 'filter_branch' => $this->south->id]))
             ->assertInertia(fn ($page) => $page
@@ -113,7 +113,7 @@ class ClosingReportsTest extends TestCase
     private function financialAuditor(): User
     {
         $user = User::factory()->financialAuditor()->create(['branch_id' => $this->north->id]);
-        $user->permissions()->sync(Permission::idsFor([PermissionKey::ViewAllClosings]));
+        $user->permissions()->sync(Permission::idsFor([PermissionKey::ViewAllClosings, PermissionKey::ExportFinancialReports]));
 
         return $user;
     }

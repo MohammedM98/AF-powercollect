@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Models\Branch;
+use App\Models\CircuitBreaker;
 use App\Models\Subscriber;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
@@ -42,11 +43,22 @@ class DatabaseSeederTest extends TestCase
                 User::where('branch_id', $branch->id)->where('role', UserRole::BranchAdmin)->exists(),
                 "Branch [{$branch->name}] has no branch admin.",
             );
-            $this->assertTrue(
-                Subscriber::where('branch_id', $branch->id)->exists(),
-                "Branch [{$branch->name}] has no subscribers.",
-            );
         }
+
+        foreach (['فرع الكرادة' => 25, 'فرع المنصور' => 18, 'فرع العشار' => 20] as $name => $subscriberCount) {
+            $branch = Branch::where('name', $name)->sole();
+            $this->assertSame($subscriberCount, $branch->subscribers()->count(), "Demo branch [{$name}] has the wrong subscriber count.");
+        }
+    }
+
+    public function test_demo_subscribers_reuse_the_seeded_unique_breaker_sizes_and_their_minimum_payments(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertDatabaseCount('circuit_breakers', 7);
+        $this->assertDatabaseHas('circuit_breakers', ['ampere' => 2, 'minimum_payment' => 20]);
+        $this->assertDatabaseHas('circuit_breakers', ['ampere' => 4, 'minimum_payment' => 20]);
+        $this->assertSame(7, CircuitBreaker::distinct()->count('ampere'));
     }
 
     public function test_seeded_branch_staff_start_with_their_roles_usual_permissions(): void

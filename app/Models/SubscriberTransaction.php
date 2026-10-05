@@ -658,10 +658,11 @@ class SubscriberTransaction extends Model
     private function actorMay(User $actor, TransactionAction $action): bool
     {
         return match ($action) {
-            TransactionAction::Edit, TransactionAction::EditMetadata => $actor->hasPermission(PermissionKey::CorrectTransactions),
-            TransactionAction::Delete, TransactionAction::DeleteReversal, TransactionAction::DeleteTree => $actor->hasPermission(PermissionKey::DeleteTransactions)
-                || $actor->hasPermission(PermissionKey::ForceDeleteTransactions),
-            TransactionAction::Cancel, TransactionAction::Refund => $actor->hasPermission(PermissionKey::DeleteTransactions),
+            TransactionAction::Edit => $actor->hasPermission(PermissionKey::CorrectTransactions),
+            TransactionAction::EditMetadata => $actor->hasPermission(PermissionKey::AmendTransactionDetails),
+            TransactionAction::Delete, TransactionAction::DeleteReversal, TransactionAction::DeleteTree => $actor->hasPermission(PermissionKey::ForceDeleteTransactions),
+            TransactionAction::Cancel => $actor->hasPermission(PermissionKey::DeleteTransactions),
+            TransactionAction::Refund => $actor->hasPermission(PermissionKey::RefundPayments),
         };
     }
 

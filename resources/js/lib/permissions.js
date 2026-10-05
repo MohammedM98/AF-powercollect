@@ -12,7 +12,7 @@
 const LADDERS = {
     crud: { actions: ['view', 'create', 'update'], levels: ['بدون', 'عرض', 'إضافة', 'تعديل'], long: ['لا يرى القسم', 'يرى فقط', 'يرى ويضيف', 'يرى ويضيف ويعدّل'] },
     meter_readings: { actions: ['view', 'record'], levels: ['بدون', 'عرض', 'تسجيل'], long: ['لا يرى القراءات', 'يرى القراءات', 'يرى ويسجّل القراءات'] },
-    collections: { actions: ['view', 'record'], levels: ['بدون', 'عرض', 'تسجيل الدفعات'], long: ['لا يرى التحصيل', 'يرى السجل المالي والتحصيل', 'يرى ويسجّل الدفعات'] },
+    collections: { actions: ['view', 'record'], levels: ['بدون', 'عرض السجل', 'إضافة دفعة'], long: ['لا يملك عرض السجل أو إضافة دفعة', 'يعرض السجل المالي', 'يعرض السجل المالي ويضيف دفعات'] },
     messages: { actions: ['view', 'send'], levels: ['بدون', 'عرض', 'إرسال'], long: ['لا يرى الرسائل', 'يرى الرسائل', 'يرى ويرسل الرسائل'] },
     print_templates: { actions: ['manage'], levels: ['بدون', 'إدارة'], long: ['لا يدير القوالب', 'يدير قوالب الطباعة'] },
 };
@@ -29,10 +29,15 @@ export const SENSITIVE = {
     minimum_charge: { label: 'تعديل الحد الأدنى للدفع', hint: 'صلاحية خاصة', danger: false },
     approve: { label: 'اعتماد القراءات', hint: 'تُضاف مبالغها إلى حسابات المشتركين', danger: true },
     confirm: { label: 'تأكيد التحصيل', hint: 'تُمنح بحذر', danger: true },
-    adjust: { label: 'إضافة تحميل وخصم', hint: 'غرامات وتسويات وخصومات على الأرصدة', danger: true },
-    correct: { label: 'تعديل الحركات المالية', hint: 'تصحيح دفعة أو تحميل أو خصم مسجّل خطأً، مع السبب', danger: true },
+    adjust: { label: 'إضافة تحميل أو خصم أو تسوية', hint: 'يشمل الخصم الدائم وتسوية الرصيد — لا يمنح تعديل الحركات أو حذفها', danger: true },
+    correct: { label: 'تعديل مبلغ الحركة', hint: 'تصحيح مبلغ تحميل أو دفعة من مسار التصحيح، مع حفظ السبب والأثر المالي', danger: true },
+    'meter_readings.correct': { label: 'تصحيح القراءة الأسبوعية', hint: 'يعدّل قراءة الأسبوع المتاح؛ القراءة المعتمدة تعود للاعتماد', danger: true },
+    'subscribers.bulk_update': { label: 'تعديل المشتركين جماعيًا', hint: 'تعديل الحالة أو الحد الأدنى لمجموعة، مع صلاحية تعديل الحقل نفسه', danger: true },
+    'collections.amend': { label: 'تعديل بيانات الدفعة', hint: 'تعديل البنك والمرسل والملاحظات؛ لا يغيّر المبلغ أو رقم المرجع', danger: true },
+    'collections.refund': { label: 'ردّ الدفعة', hint: 'يردّ المبلغ بقيد مرتبط؛ تبقى الدفعة وسجل الردّ ظاهرين', danger: true },
     'collections.delete': { label: 'إلغاء الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف', danger: true },
-    'collections.force_delete': { label: 'الحذف النهائي للحركة', hint: 'يمحو آخر حركة من السجل نهائيًا — لا تراجع', danger: true },
+    'collections.force_delete': { label: 'الحذف النهائي للحركة', hint: 'يحذف الحركة المؤهلة أو سلسلة إلغائها من الكشف، مع الاحتفاظ بسجل تدقيق؛ لا يحذف القراءة', danger: true },
+    'reports.export': { label: 'تنزيل التقارير المالية', hint: 'تنزيل CSV للكشوف والتقارير التي يملك عرضها فقط', danger: false },
     'closings.audit': { label: 'تدقيق واعتماد الكشوف', hint: 'يعيد كشوف الفروع أو يعتمدها', danger: true },
 };
 
@@ -97,6 +102,7 @@ export function sectionModel(group) {
             ? {
                   ids: ladderEntries.map((entry) => entry.permission.id),
                   actions: ladderEntries.map((entry) => entry.action),
+                  labels: ladderEntries.map((entry) => group.key === 'collections' ? ({ view: 'عرض السجل المالي', record: 'إضافة دفعة' }[entry.action] ?? entry.permission.label) : entry.permission.label),
                   levels: ladderDef.levels.slice(0, ladderEntries.length + 1),
                   long: ladderDef.long.slice(0, ladderEntries.length + 1),
               }
@@ -106,8 +112,8 @@ export function sectionModel(group) {
             .map((entry) => ({
                 id: entry.permission.id,
                 action: entry.action,
-                label: ACTION_LABELS[entry.action] ?? entry.permission.label,
-                hint: ACTION_HINTS[entry.action] ?? null,
+                label: group.key === 'closings' && entry.action === 'view' ? 'عرض كشوف الفرع' : (ACTION_LABELS[entry.action] ?? entry.permission.label),
+                hint: group.key === 'closings' && entry.action === 'view' ? 'كشوف وتقارير الفرع دون إعدادها أو اعتمادها' : (ACTION_HINTS[entry.action] ?? null),
             })),
         sensitive: offLadder
             .filter((entry) => sensitiveOf(group.key, entry.action))
@@ -118,6 +124,61 @@ export function sectionModel(group) {
 /** Every permission id a section governs. */
 export function sectionIds(section) {
     return [...(section.ladder?.ids ?? []), ...section.switches.map((item) => item.id), ...section.sensitive.map((item) => item.id)];
+}
+
+/** Exact action names for review, including custom combinations off a ladder. */
+export function permissionEntries(sections) {
+    return sections.flatMap((section) => [
+        ...(section.ladder?.ids ?? []).map((id, index) => ({ id, action: section.ladder.actions[index], label: section.ladder.labels[index], sensitive: false })),
+        ...section.switches.map((item) => ({ ...item, sensitive: false })),
+        ...section.sensitive.map((item) => ({ ...item, sensitive: true })),
+    ].map((item) => ({ ...item, section: section.label, sectionKey: section.key })));
+}
+
+/** Each actual grant added or removed; a swap always produces both changes. */
+export function individualChanges(sections, saved, current) {
+    return permissionEntries(sections)
+        .filter((item) => saved.includes(item.id) !== current.includes(item.id))
+        .map((item) => ({ ...item, added: current.includes(item.id), text: `${item.section}: ${item.label}` }));
+}
+
+/** Group shortcuts operate on visible sections and leave all other grants alone. */
+export function withGroupAccess(sections, selected, viewOnly) {
+    const governed = sections.flatMap(sectionIds);
+    const next = selected.filter((id) => !governed.includes(id));
+
+    if (viewOnly) {
+        for (const section of sections) {
+            if (section.ladder?.actions[0] === 'view') {
+                next.push(section.ladder.ids[0]);
+            }
+            for (const item of section.switches) {
+                if (item.action === 'view' || (section.key === 'reports' && ['branch_performance', 'debt_aging', 'transaction_audit'].includes(item.action))) {
+                    next.push(item.id);
+                } else if (item.action === 'view_all' && selected.includes(item.id)) {
+                    next.push(item.id);
+                }
+            }
+        }
+    }
+
+    return next;
+}
+
+export function filterSections(sections, selected, saved, query, mode = 'all') {
+    const needle = query.trim().toLocaleLowerCase();
+
+    return sections.filter((section) => {
+        const entries = permissionEntries([section]);
+        const matchesQuery = !needle || [section.label, ...entries.flatMap((item) => [item.label, item.hint])]
+            .filter(Boolean).some((text) => text.toLocaleLowerCase().includes(needle));
+        const matchesMode = mode === 'all'
+            || (mode === 'enabled' && sectionIds(section).some((id) => selected.includes(id)))
+            || (mode === 'sensitive' && section.sensitive.length > 0)
+            || (mode === 'changed' && sectionIds(section).some((id) => saved.includes(id) !== selected.includes(id)));
+
+        return matchesQuery && matchesMode;
+    });
 }
 
 /**

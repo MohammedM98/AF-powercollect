@@ -18,7 +18,7 @@ export default function CircuitBreakerForm({ data, setData, errors }) {
                 <TextInput
                     id="ampere"
                     type="number"
-                    min={1}
+                    min={2}
                     step={1}
                     required
                     className="mt-1 block w-full"

@@ -283,13 +283,14 @@ trait BuildsSubscriberStatement
     ): array {
         $receipt = $transaction->isReversal() && $transaction->reverses ? $transaction->reverses : $transaction;
         $hasEditPermission = $actor->hasPermission(PermissionKey::CorrectTransactions);
-        $hasDeletePermission = $actor->hasPermission(PermissionKey::DeleteTransactions);
+        $hasAmendPermission = $actor->hasPermission(PermissionKey::AmendTransactionDetails);
+        $hasDeletePermission = $actor->hasPermission($transaction->isPayment() ? PermissionKey::RefundPayments : PermissionKey::DeleteTransactions);
         $hasForceDeletePermission = $actor->hasPermission(PermissionKey::ForceDeleteTransactions);
         $canAmend = $actor->can('amend', $transaction);
         $canCorrect = $actor->can('update', $transaction);
         $canDelete = $actor->can('delete', $transaction);
         $canForceDelete = $isLastLegacyLine && $actor->can('forceDelete', $transaction);
-        $mayCancel = $hasDeletePermission || ($hasForceDeletePermission && $isLastLegacyLine);
+        $mayCancel = $hasDeletePermission;
         $eraseTarget = $transaction->isReversal() ? $transaction->reverses : $transaction;
         $availableActions = $transaction->availableActions($actor, $isLastTransaction, $hasPayment);
         $linkedReversals = $transaction->linkedReversals
@@ -408,7 +409,7 @@ trait BuildsSubscriberStatement
             'canCorrect' => $canCorrect,
             'canDelete' => $canDelete,
             'canForceDelete' => $canForceDelete,
-            'amendUnavailableReason' => $hasEditPermission && ! $canAmend ? ($transaction->amendmentUnavailableReason() ?? 'غير متاح الآن') : null,
+            'amendUnavailableReason' => $hasAmendPermission && ! $canAmend ? ($transaction->amendmentUnavailableReason() ?? 'غير متاح الآن') : null,
             'correctUnavailableReason' => $hasEditPermission && ! $canCorrect
                 ? ($transaction->isCancelled() || $transaction->isReversal() ? 'الحركة ملغاة' : 'لا ينطبق على هذه الحركة')
                 : null,

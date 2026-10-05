@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { changesBetween, levelOf, samePermissions, sectionIds, sectionModel, withLevel, withToggled } from '../../resources/js/lib/permissions.js';
+import { changesBetween, filterSections, individualChanges, levelOf, samePermissions, sectionIds, sectionModel, withGroupAccess, withLevel, withToggled } from '../../resources/js/lib/permissions.js';
 
 const entry = (action, id, label = action) => ({ action, permission: id === null ? null : { id, label } });
 
@@ -73,4 +73,41 @@ test('each report is its own switch, explained in a line', () => {
     assert.deepEqual(reports.switches.map((item) => item.label), ['أداء الفروع', 'أعمار الديون', 'سجل التدقيق']);
     assert.ok(reports.switches.every((item) => item.hint));
     assert.deepEqual(reports.sensitive, []);
+});
+
+test('review lists exact additions and removals when a custom level swaps actions', () => {
+    const changes = individualChanges([subscribers], [1, 2, 4], [1, 3, 5]);
+    assert.deepEqual(changes.map(({ id, added, sensitive }) => ({ id, added, sensitive })), [
+        { id: 2, added: false, sensitive: false }, { id: 3, added: true, sensitive: false },
+        { id: 4, added: false, sensitive: true }, { id: 5, added: true, sensitive: true },
+    ]);
+});
+
+test('payment permissions use action names and keep edit, refund, cancel and permanent delete independent', () => {
+    const payments = sectionModel({ key: 'collections', label: 'الدفعات والحركات المالية', actions: [
+        entry('view', 10), entry('record', 11), entry('correct', 12), entry('amend', 13), entry('refund', 14), entry('delete', 15), entry('force_delete', 16),
+    ] });
+    assert.equal(payments.ladder.labels[1], 'إضافة دفعة');
+    assert.deepEqual(withToggled([10, 11], 12, true), [10, 11, 12]);
+    assert.deepEqual(individualChanges([payments], [10], [10, 11]).map((item) => item.label), ['إضافة دفعة']);
+    assert.equal(payments.sensitive.find((item) => item.id === 14).label, 'ردّ الدفعة');
+    assert.equal(payments.sensitive.find((item) => item.id === 15).label, 'إلغاء الحركات المالية');
+    assert.equal(payments.sensitive.find((item) => item.id === 16).label, 'الحذف النهائي للحركة');
+});
+
+test('search and filters reveal relevant actions without mutating selected grants', () => {
+    const readings = sectionModel({ key: 'meter_readings', label: 'القراءات', actions: [entry('view', 10), entry('record', 11), entry('correct', 12)] });
+    const selected = [1, 4, 10];
+    assert.deepEqual(filterSections([subscribers, readings], selected, [1, 10], 'تصحيح', 'all').map((item) => item.key), ['meter_readings']);
+    assert.deepEqual(filterSections([subscribers, readings], selected, [1, 10], '', 'changed').map((item) => item.key), ['subscribers']);
+    assert.equal(filterSections([subscribers, readings], [], [], '', 'enabled').length, 0);
+    assert.deepEqual(selected, [1, 4, 10]);
+});
+
+test('view-only group shortcut preserves report access, does not grant cross-branch access or export, and leaves other sections intact', () => {
+    const closings = sectionModel({ key: 'closings', label: 'الكشوف', actions: [entry('view', 10), entry('prepare', 11), entry('view_all', 12), entry('audit', 13)] });
+    const reports = sectionModel({ key: 'reports', label: 'التقارير', actions: [entry('debt_aging', 14), entry('export', 15)] });
+    assert.deepEqual(withGroupAccess([closings, reports], [99, 11, 13, 15], true), [99, 10, 14]);
+    assert.deepEqual(withGroupAccess([closings, reports], [99, 12, 15], true), [99, 10, 12, 14]);
+    assert.deepEqual(withGroupAccess([closings, reports], [99, 12, 15], false), [99]);
 });

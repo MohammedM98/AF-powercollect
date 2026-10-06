@@ -492,7 +492,7 @@ class MobileApiTest extends TestCase
         $this->assertDatabaseCount('subscriber_transactions', 1);
     }
 
-    public function test_mobile_payments_in_other_currencies_count_in_shekels_and_offer_the_website_banks(): void
+    public function test_mobile_payments_are_taken_in_shekels_only_and_offer_the_website_banks(): void
     {
         $collector = User::factory()->collector()->create();
         $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
@@ -501,7 +501,7 @@ class MobileApiTest extends TestCase
         $payment = [
             'subscriber_id' => $subscriber->id,
             'amount' => '20',
-            'currency' => 'USD',
+            'currency' => 'ILS',
             'payment_method' => 'cash',
             'collector_confirmed' => true,
         ];
@@ -509,16 +509,13 @@ class MobileApiTest extends TestCase
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
         $this->getJson(route('mobile.me'))
             ->assertJsonPath('user.transfer_banks', config('powercollect.transfer_banks'));
+        $this->postJson(route('mobile.collections.store'), [...$payment, 'currency' => 'USD', 'exchange_rate' => '3.7', 'mobile_operation_id' => Str::uuid()->toString()])
+            ->assertUnprocessable()->assertJsonValidationErrors('currency');
         $this->postJson(route('mobile.collections.store'), [...$payment, 'mobile_operation_id' => Str::uuid()->toString()])
-            ->assertUnprocessable()->assertJsonValidationErrors('exchange_rate');
-        $this->postJson(route('mobile.collections.store'), [
-            ...$payment,
-            'mobile_operation_id' => Str::uuid()->toString(),
-            'exchange_rate' => '3.7',
-        ])->assertCreated()
+            ->assertCreated()
             ->assertJsonPath('amount', '20.00')
-            ->assertJsonPath('currency', 'USD')
-            ->assertJsonPath('amount_in_shekels', '74.00');
+            ->assertJsonPath('currency', 'ILS')
+            ->assertJsonPath('amount_in_shekels', '20.00');
         $this->postJson(route('mobile.collections.store'), [
             'mobile_operation_id' => Str::uuid()->toString(),
             'subscriber_id' => $subscriber->id,
@@ -531,10 +528,10 @@ class MobileApiTest extends TestCase
             'collector_confirmed' => true,
         ])->assertCreated()->assertJsonPath('bank_name', 'البنك الإسلامي العربي');
 
-        $this->assertSame($startingBalance - 104, $subscriber->fresh()->balance());
+        $this->assertSame($startingBalance - 50, $subscriber->fresh()->balance());
         $this->getJson(route('mobile.collections.index'))
-            ->assertJsonPath('total', 104)
-            ->assertJsonPath('cash_total', 74);
+            ->assertJsonPath('total', 50)
+            ->assertJsonPath('cash_total', 20);
     }
 
     public function test_receipts_are_no_longer_read_or_stored_on_the_server(): void

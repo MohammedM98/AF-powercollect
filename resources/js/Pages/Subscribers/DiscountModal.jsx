@@ -166,23 +166,14 @@ export default function DiscountModal({
 
     const balanceAfter = discount === null || invalid ? null : Number(balance) - discount;
 
-    // Standing: the latest week's reading, which saving rebills at once, billed without and with it —
-    // else the last week read, or 10 kilos, at the subscriber's prices.
-    const latestWeek = subscriber.latestWeekReading;
+    // Standing: the last week read, or 10 kilos, at the subscriber's prices, billed without and with it.
     const hasLastReading = Number(subscriber.lastConsumption) > 0;
-    const example = latestWeek
-        ? {
-              kilos: Number(latestWeek.consumption),
-              unitPrice: latestWeek.unitPrice,
-              minimumPayment: latestWeek.minimumPayment,
-              label: 'يدفع عن قراءة الأسبوع الأخير',
-          }
-        : {
-              kilos: hasLastReading ? Number(subscriber.lastConsumption) : 10,
-              unitPrice: subscriber.kiloPrice,
-              minimumPayment: subscriber.minimumPayment,
-              label: hasLastReading ? 'يدفع عن آخر قراءة' : 'يدفع عن 10 كيلو (مثال)',
-          };
+    const example = {
+        kilos: hasLastReading ? Number(subscriber.lastConsumption) : 10,
+        unitPrice: subscriber.kiloPrice,
+        minimumPayment: subscriber.minimumPayment,
+        label: hasLastReading ? 'يدفع عن آخر قراءة' : 'يدفع عن 10 كيلو (مثال)',
+    };
     const exampleBill = weeklyCharges(example.kilos, example.unitPrice, example.minimumPayment);
     const exampleWithDiscount =
         isStanding && value > 0 && !invalid ? weeklyCharges(example.kilos, example.unitPrice, example.minimumPayment, data) : exampleBill;
@@ -553,7 +544,7 @@ export default function DiscountModal({
                                         ]}
                                         result={{
                                             label: 'يبدأ من',
-                                            value: latestWeek ? 'قراءة الأسبوع الأخير' : 'القراءة القادمة',
+                                            value: 'القراءة القادمة',
                                             className: 'text-[15px] text-white',
                                         }}
                                     />
@@ -627,9 +618,7 @@ export default function DiscountModal({
                 title="إيقاف خصم القراءات الأسبوعية؟"
                 message={
                     standingDiscount &&
-                    (latestWeek
-                        ? `سيُزال الخصم (${withSegment(standingDiscount.terms, standingDiscount.segment)}) من قراءة الأسبوع الأخير${latestWeek.isApproved ? ' ومن المعاملات المالية' : ''} ومن كل قراءة تُدخل بعدها. قراءات الأسابيع السابقة تحتفظ بخصمها.`
-                        : `لن يُخصم (${withSegment(standingDiscount.terms, standingDiscount.segment)}) من قراءات ${subscriber.fullName} التي تُدخل بعد الآن. القراءات السابقة تحتفظ بخصمها.`)
+                    `لن يُخصم (${withSegment(standingDiscount.terms, standingDiscount.segment)}) من قراءات ${subscriber.fullName} التي تُدخل بعد الآن. القراءات السابقة تحتفظ بخصمها.`
                 }
                 confirmLabel="نعم، أوقف الخصم"
                 cancelLabel="إبقاء الخصم"

@@ -133,6 +133,7 @@ export default function DiscountModal({
     );
     const { data, setData, errors } = form;
     const [discarding, setDiscarding] = useState(false);
+    const [confirmingSave, setConfirmingSave] = useState(false);
     const [confirmingStop, setConfirmingStop] = useState(false);
     const [stopping, setStopping] = useState(false);
     const [receipt, setReceipt] = useState(null);
@@ -256,6 +257,12 @@ export default function DiscountModal({
             return;
         }
 
+        setConfirmingSave(true);
+    }
+
+    function save() {
+        setConfirmingSave(false);
+
         const recorded = isStanding
             ? {
                   standing: true,
@@ -308,7 +315,7 @@ export default function DiscountModal({
                         title={receipt.standing ? 'فُعّل خصم القراءات الأسبوعية' : correcting ? 'صُحّح الخصم' : 'أُضيف الخصم'}
                         text={
                             receipt.standing
-                                ? 'يُخصم تلقائيًا من قراءة الأسبوع الأخير وكل قراءة بعدها.'
+                                ? 'يُخصم تلقائيًا من كل قراءة أسبوعية تُدخل من الآن.'
                                 : `نزل ${formatMoney(receipt.discount)} ₪ من حساب ${subscriber.fullName}.`
                         }
                         rows={doneRows}
@@ -624,6 +631,19 @@ export default function DiscountModal({
                 cancelLabel="إبقاء الخصم"
                 icon="alert"
                 tone="danger"
+            />
+
+            <ConfirmDialog
+                show={show && confirmingSave}
+                onConfirm={save}
+                onCancel={() => setConfirmingSave(false)}
+                title={correcting ? 'تأكيد حفظ التصحيح؟' : 'تأكيد إضافة الخصم؟'}
+                message={isStanding
+                        ? `سيُفعَّل خصم القراءات الأسبوعية (${standingTerms(data.method, data.value)}) لـ ${subscriber.fullName} على القراءات التي تُدخل من الآن. هل تريد المتابعة؟`
+                        : `${correcting ? 'سيُصحَّح الخصم إلى' : 'سينزل'} ${formatMoney(discount ?? 0)} ₪ من حساب ${subscriber.fullName}. هل تريد المتابعة؟`}
+                confirmLabel={correcting ? 'نعم، احفظ التصحيح' : 'نعم، أضف الخصم'}
+                cancelLabel="رجوع للمراجعة"
+                icon="check"
             />
         </>
     );

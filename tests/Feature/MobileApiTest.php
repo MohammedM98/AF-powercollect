@@ -446,7 +446,7 @@ class MobileApiTest extends TestCase
                 'currency' => 'ILS',
                 'payment_method' => 'bank_transfer',
                 'bank_name' => 'محفظة بالباي',
-                'sender_bank_name' => 'البنك الوطني الإسلامي',
+                'sender_bank_name' => 'البنك الإسلامي العربي',
                 'sender_name' => 'Ahmad',
                 'reference_number' => 'TR-MOBILE-1',
                 'collector_confirmed' => true,
@@ -455,7 +455,7 @@ class MobileApiTest extends TestCase
         $this->assertDatabaseHas('subscriber_transactions', [
             'subscriber_id' => $subscriber->id,
             'bank_name' => 'محفظة بالباي',
-            'sender_bank_name' => 'البنك الوطني الإسلامي',
+            'sender_bank_name' => 'البنك الإسلامي العربي',
             'amount' => '-100.00',
         ]);
     }
@@ -525,11 +525,11 @@ class MobileApiTest extends TestCase
             'amount' => '30',
             'currency' => 'ILS',
             'payment_method' => 'bank_transfer',
-            'bank_name' => 'البنك الوطني الإسلامي',
+            'bank_name' => 'البنك الإسلامي العربي',
             'sender_name' => 'Ahmad',
             'reference_number' => 'TR-30',
             'collector_confirmed' => true,
-        ])->assertCreated()->assertJsonPath('bank_name', 'البنك الوطني الإسلامي');
+        ])->assertCreated()->assertJsonPath('bank_name', 'البنك الإسلامي العربي');
 
         $this->assertSame($startingBalance - 104, $subscriber->fresh()->balance());
         $this->getJson(route('mobile.collections.index'))

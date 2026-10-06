@@ -35,7 +35,7 @@ export const ACTION_MESSAGES = {
     'transaction-refund': 'تم تسجيل إرجاع الدفعة وإضافته كحركة مرتبطة.',
     'transaction-erased': 'تم حذف الحركة نهائيًا ولم يبقَ لها أثر في الكشف.',
     'transaction-deleted': 'تم إلغاء الحركة، وأُضيف تحتها قيد عكسي يلغي أثرها.',
-    'standing-discount-saved': 'تم حفظ خصم القراءات الأسبوعية، ويُطبَّق من قراءة الأسبوع الأخير فصاعدًا.',
+    'standing-discount-saved': 'تم حفظ خصم القراءات الأسبوعية، ويُطبَّق على القراءات التي تُدخل من الآن.',
     'standing-discount-stopped': 'تم إيقاف خصم القراءات الأسبوعية.',
     'messages-created': 'تم إنشاء رسائل للمشتركين.',
     'messages-queued': 'تم تجهيز الرسائل وبدأ إرسالها.',

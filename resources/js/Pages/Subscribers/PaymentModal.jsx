@@ -29,12 +29,7 @@ const BANKS = {
         kind: 'تحويل بنكي',
         logoClassName: 'absolute left-[-19px] top-[-15px] h-auto w-[120px] max-w-none',
     },
-    'البنك الوطني الإسلامي': {
-        logo: '/images/banks/national-islamic-bank.png',
-        color: '#17268b',
-        kind: 'تحويل بنكي',
-        logoClassName: 'absolute left-[-6px] top-[-12px] h-auto w-[100px] max-w-none',
-    },
+    'البنك الإسلامي العربي': { logo: '/images/banks/arab-islamic-bank.png', color: '#7b2d8e', kind: 'تحويل بنكي' },
 };
 
 const inputClass =
@@ -450,6 +445,7 @@ export default function PaymentModal({
     const [senderIsSubscriber, setSenderIsSubscriber] = useState(!recorded?.sender_name || recorded.sender_name === subscriber.fullName);
     const [detailsOpen, setDetailsOpen] = useState(Boolean(recorded?.notes));
     const [discarding, setDiscarding] = useState(false);
+    const [confirmingSave, setConfirmingSave] = useState(false);
     const [receipt, setReceipt] = useState(null);
     const [referenceStatus, setReferenceStatus] = useState(null);
     const referenceCheck = useHttp();
@@ -572,6 +568,12 @@ export default function PaymentModal({
 
             return;
         }
+
+        setConfirmingSave(true);
+    }
+
+    function save() {
+        setConfirmingSave(false);
 
         const recorded = { amount: data.amount, symbol, currencyLabel, isShekel, inShekels, methodText };
 
@@ -1041,6 +1043,17 @@ export default function PaymentModal({
                 cancelLabel="البقاء ومتابعة الإدخال"
                 icon="alert"
                 tone="danger"
+            />
+
+            <ConfirmDialog
+                show={show && confirmingSave}
+                onConfirm={save}
+                onCancel={() => setConfirmingSave(false)}
+                title={correcting ? 'تأكيد حفظ التصحيح؟' : 'تأكيد تسجيل الدفعة؟'}
+                message={`${correcting ? 'ستُصحَّح الدفعة إلى' : 'ستُسجَّل دفعة'} ${formatMoney(data.amount)} ${symbol}${isShekel ? '' : ` (${formatMoney(inShekels ?? 0)} ₪)`} ${methodText} على حساب ${subscriber.fullName}. هل تريد المتابعة؟`}
+                confirmLabel={correcting ? 'نعم، احفظ التصحيح' : 'نعم، سجّل الدفعة'}
+                cancelLabel="رجوع للمراجعة"
+                icon="check"
             />
         </>
     );

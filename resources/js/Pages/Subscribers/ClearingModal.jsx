@@ -54,6 +54,7 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
     );
     const { data, setData, errors } = form;
     const [discarding, setDiscarding] = useState(false);
+    const [confirmingSave, setConfirmingSave] = useState(false);
     const [receipt, setReceipt] = useState(null);
 
     const owed = Math.max(Number(balance), 0);
@@ -88,6 +89,12 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
         if (!validateFormFields(event.currentTarget, form)) {
             return;
         }
+
+        setConfirmingSave(true);
+    }
+
+    function save() {
+        setConfirmingSave(false);
 
         const recorded = { amount, service: data.notes.trim(), balanceAfter };
 
@@ -243,6 +250,17 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
                 cancelLabel="البقاء ومتابعة الإدخال"
                 icon="alert"
                 tone="danger"
+            />
+
+            <ConfirmDialog
+                show={show && confirmingSave}
+                onConfirm={save}
+                onCancel={() => setConfirmingSave(false)}
+                title={correcting ? 'تأكيد حفظ التصحيح؟' : 'تأكيد تسجيل المقاصة؟'}
+                message={`${correcting ? 'ستُصحَّح المقاصة إلى' : 'سينزل'} ${formatMoney(amount)} ₪ من حساب ${subscriber.fullName}${correcting ? '' : ' مقابل خدمته للشركة'}. هل تريد المتابعة؟`}
+                confirmLabel={correcting ? 'نعم، احفظ التصحيح' : 'نعم، سجّل المقاصة'}
+                cancelLabel="رجوع للمراجعة"
+                icon="check"
             />
         </>
     );

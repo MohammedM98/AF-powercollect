@@ -76,8 +76,11 @@
 .re-sub input[type=checkbox], .re-approval input[type=checkbox] { border: 1.5px solid var(--re-line); border-radius: 5px; width: 18px; height: 18px; color: var(--re-success); flex: none; }
 .re-number { font-family: Alexandria, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .re-last, .re-rate, .re-min { color: var(--re-faint); }
-.re-input { width: 128px; }
-.re-input input { width: 100%; height: 44px; border: 1.5px solid var(--re-line); border-radius: 12px; background: var(--re-surface); padding: 0 12px; font: 600 16px Alexandria, sans-serif; text-align: center; -moz-appearance: textfield; appearance: textfield; color: var(--re-ink); }
+.re-input { width: 196px; display: flex; align-items: stretch; gap: 4px; }
+.re-step { width: 40px; height: 44px; flex: none; border-radius: 12px; border: 1.5px solid var(--re-line); background: var(--re-sunken); color: var(--re-ink); font: 700 20px/1 Alexandria, sans-serif; display: grid; place-items: center; padding: 0; cursor: pointer; }
+.re-step:hover:not(:disabled) { background: var(--re-ink); color: var(--re-surface); border-color: var(--re-ink); }
+.re-step:disabled { opacity: .4; cursor: not-allowed; }
+.re-input input { flex: 1; min-width: 0; height: 44px; border: 1.5px solid var(--re-line); border-radius: 12px; background: var(--re-surface); padding: 0 12px; font: 600 16px Alexandria, sans-serif; text-align: center; -moz-appearance: textfield; appearance: textfield; color: var(--re-ink); }
 .re-input input::placeholder { font: 500 14px 'IBM Plex Sans Arabic', sans-serif; text-align: center; direction: rtl; color: var(--re-faint); }
 .re-input input::-webkit-outer-spin-button, .re-input input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .re-input input:focus { outline: none; border-color: var(--re-brand); box-shadow: 0 0 0 4px color-mix(in srgb, var(--re-brand) 12%, transparent); }

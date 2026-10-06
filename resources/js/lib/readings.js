@@ -9,6 +9,19 @@ export function consumptionBetween(previousReading, currentReading) {
 }
 
 /**
+ * The reading after a + (1) or − (-1) step of one kilo from what is typed, as the text for
+ * the field. From an empty (or unreadable) field it starts at `previousReading`: + gives the
+ * last reading plus one, − the last reading itself. It never goes below `previousReading`.
+ */
+export function steppedReading(value, previousReading, direction) {
+    const typed = value !== '' && !Number.isNaN(Number(value));
+    const base = typed ? Number(value) : Number(previousReading);
+    const next = typed || direction > 0 ? base + direction : base;
+
+    return String(Math.round(Math.max(Number(previousReading), next) * 100) / 100);
+}
+
+/**
  * What a standing discount (`{ method, value }`) takes off a week's reading
  * fee, in shekels: a percentage of the fee, kilowatts of the consumption at
  * the kilo price, or shekels off the price of each kilo — never more than

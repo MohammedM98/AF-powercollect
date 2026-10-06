@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readingDiscount, weeklyCharges } from '../../resources/js/lib/readings.js';
+import { readingDiscount, steppedReading, weeklyCharges } from '../../resources/js/lib/readings.js';
 
 // The example week: 5 kilos at 30 shekels a kilo is a 150 shekel bill; the minimum is 20 a week.
 test('a week is billed consumption × kilo price, less its standing discount', () => {
@@ -55,4 +55,15 @@ test('free kilowatts leave only the kilos above them to pay, whatever the minimu
         amountDue: 30,
         minimumApplies: false,
     });
+});
+
+test('the + and - steps move a reading by one kilo and never below the last reading', () => {
+    assert.equal(steppedReading('6905', '6901', 1), '6906');
+    assert.equal(steppedReading('6905', '6901', -1), '6904');
+    assert.equal(steppedReading('6901', '6901', -1), '6901');
+    assert.equal(steppedReading('6901.5', 6901, 1), '6902.5');
+    // From an empty field they start at the last reading.
+    assert.equal(steppedReading('', '6901', 1), '6902');
+    assert.equal(steppedReading('', '6901', -1), '6901');
+    assert.equal(steppedReading('abc', '6901', 1), '6902');
 });

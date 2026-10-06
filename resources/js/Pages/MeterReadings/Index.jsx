@@ -14,7 +14,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { printFieldsProps, printRowProps } from '@/lib/print';
 import { formatCurrency } from '@/lib/currency';
 import { formatMonthName } from '@/lib/format';
-import { consumptionBetween, weeklyCharges } from '@/lib/readings';
+import { consumptionBetween, steppedReading, weeklyCharges } from '@/lib/readings';
 import { activeReadingStatus, readingStatusFilters } from '@/lib/readingSheet';
 import './ReadingEntry.css';
 import { WEEK_DAYS, formatWeekDay } from '@/lib/weekDays';
@@ -130,6 +130,13 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
             ? `تم حفظ القراءة (${row.reading.status === 'pending' ? 'بانتظار الاعتماد' : (row.reading.statusLabel ?? row.reading.status)}) · الاستهلاك ${charges?.consumption ?? '—'} · المستحق ${charges ? formatCurrency(charges.amountDue) : '—'}`
             : null);
 
+    // + and − (the buttons or the keys) move the reading by one kilo; from an empty field they start at the last reading.
+    function step(direction) {
+        setValue(steppedReading(value, row.previousReading, direction));
+        setMissed(false);
+        inputRef.current?.focus();
+    }
+
     function save({ confirmed = false } = {}) {
         if (value === '' || value === savedValue || saving) {
             return;
@@ -189,7 +196,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
             </td>
             <td className="re-last re-number">{row.previousReading}</td>
             <td className="re-input-cell">
-                <div className="re-input"><input
+                <div className="re-input" dir="ltr"><button type="button" tabIndex={-1} className="re-step" aria-label={`إنقاص قراءة ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => step(-1)} disabled={!row.canEdit || saving || (value !== '' && Number(value) <= Number(row.previousReading))}>−</button><input
                     type="number"
                     inputMode="decimal"
                     step="0.01"
@@ -225,6 +232,12 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                         skippedByKey.current = false;
                     }}
                     onKeyDown={(e) => {
+                        // The + and − keys step the reading like the buttons, instead of typing a sign.
+                        if ((e.key === '+' || e.key === '-') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                            e.preventDefault();
+                            step(e.key === '+' ? 1 : -1);
+                        }
+
                         // Enter and the down arrow go to the next subscriber, the up arrow to the previous one.
                         if (e.key === 'Enter' || e.key === 'ArrowDown') {
                             e.preventDefault();
@@ -237,7 +250,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                         }
                     }}
                     className={error ? 'has-error' : missed ? 'is-missed' : isSaved ? 'is-saved' : ''}
-                /></div>
+                /><button type="button" tabIndex={-1} className="re-step" aria-label={`زيادة قراءة ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)} disabled={!row.canEdit || saving}>+</button></div>
                 {row.hasLaterWeek && <p className="mt-1 text-xs text-gray-400">توجد قراءة لأسبوع لاحق</p>}
             </td>
             <td className={`re-diff re-number ${charges && charges.consumption < 0 ? 'text-red-600' : 'text-brand-700'}`}>

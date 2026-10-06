@@ -6,7 +6,7 @@ import Modal from '@/Components/Modal';
 import { downloadCsv } from '@/lib/csv';
 import { formatMoney, formatNumber } from '@/lib/format';
 import { groupReadingsByMonth, readingHistoryCsv, readingTotals, readingsInPeriod } from '@/lib/readingHistory';
-import { consumptionBetween, weeklyCharges } from '@/lib/readings';
+import { consumptionBetween, steppedReading, weeklyCharges } from '@/lib/readings';
 import './ReadingHistoryModal.css';
 
 const PERIODS = [['12', 'آخر 12 أسبوعًا'], ['26', '6 أشهر'], ['52', 'سنة'], ['all', 'الكل']];
@@ -140,10 +140,7 @@ function LiveRow({ subscriber, week, reading, maximum, average }) {
 
     // + and − (the buttons or the keys) move the reading by one kilo; from an empty field they start at the last reading.
     function step(direction) {
-        const base = typed ? Number(value) : Number(previous);
-        const next = typed || direction > 0 ? base + direction : base;
-
-        setValue(String(Math.round(Math.max(Number(previous), next) * 100) / 100));
+        setValue(steppedReading(value, previous, direction));
         setError(null);
         inputRef.current?.focus();
     }

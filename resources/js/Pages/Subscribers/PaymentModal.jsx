@@ -819,9 +819,12 @@ export default function PaymentModal({
                                                     {referenceStatus?.conflict && (
                                                         <div className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-800">
                                                             <p>
-                                                                هذا الرقم المرجعي مسجَّل مسبقًا في السند{' '}
+                                                                هذا الرقم المرجعي مسجَّل مسبقًا في{' '}
                                                                 <a href={referenceStatus.conflict.url} className="underline">
-                                                                    {referenceStatus.conflict.voucherNumber ?? '—'} — {referenceStatus.conflict.subscriberName}
+                                                                    {referenceStatus.conflict.voucherNumber
+                                                                        ? `السند ${referenceStatus.conflict.voucherNumber} — `
+                                                                        : 'دفعة '}
+                                                                    {referenceStatus.conflict.subscriberName}
                                                                 </a>
                                                             </p>
                                                             <label className="mt-1.5 flex items-center gap-2">
@@ -841,7 +844,7 @@ export default function PaymentModal({
                                                         <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-800">
                                                             تنبيه فقط: توجد دفعة اليوم بالمبلغ واسم المحوِّل نفسيهما —{' '}
                                                             <a href={referenceStatus.warning.url} className="underline">
-                                                                السند {referenceStatus.warning.voucherNumber ?? '—'}
+                                                                {referenceStatus.warning.voucherNumber ? `السند ${referenceStatus.warning.voucherNumber}` : 'الدفعة'}
                                                             </a>
                                                         </p>
                                                     )}

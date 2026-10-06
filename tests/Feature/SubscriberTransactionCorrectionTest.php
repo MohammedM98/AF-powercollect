@@ -61,7 +61,8 @@ class SubscriberTransactionCorrectionTest extends TestCase
 
         $replacement = $payment->correction;
         $this->assertSame(['payment', '-100.00', 'bank_transfer', 'بنك فلسطين'], [$replacement->type, $replacement->amount, $replacement->payment_method->value, $replacement->bank_name]);
-        $this->assertSame($payment->voucher_number + 1, $replacement->voucher_number);
+        // The right payment is a bank transfer, which has no voucher number.
+        $this->assertNull($replacement->voucher_number);
         $this->assertSame(100.0, $this->subscriber->balance());
         $this->assertSame(
             ['action' => 'transaction-corrected', 'subject' => 'Ahmad — دفعة 100 شيكل'],

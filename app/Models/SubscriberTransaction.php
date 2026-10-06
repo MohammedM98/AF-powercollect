@@ -191,7 +191,7 @@ class SubscriberTransaction extends Model
     /**
      * Record a payment on the subscriber's account, converted to shekels
      * at `exchange_rate` (always 1 for shekels), with the next voucher
-     * number. A transfer keeps its bank, sender and reference; cash keeps
+     * number (cash only). A transfer keeps its bank, sender and reference; cash keeps
      * its cash box and paper voucher. A reference already on another payment
      * is refused unless the collector confirmed the duplicate.
      *
@@ -211,12 +211,13 @@ class SubscriberTransaction extends Model
                 self::ensureReferenceIsAvailable($activeReference);
             }
 
-            $voucherNumber = self::claimNextVoucherNumber();
+            // Only cash payments get a voucher number; a transfer is identified by its bank reference.
+            $voucherNumber = $method === PaymentMethod::Cash ? self::claimNextVoucherNumber() : null;
 
             return $subscriber->transactions()->create([
                 'recorded_by' => $collector->id,
                 'type' => self::TYPE_PAYMENT,
-                'source_key' => 'payment:'.$voucherNumber,
+                'source_key' => 'payment:'.($voucherNumber ?? Str::ulid()),
                 'mobile_operation_id' => $payment['mobile_operation_id'] ?? null,
                 'amount' => number_format(-$inShekels, 2, '.', ''),
                 'currency' => $currency,
@@ -501,8 +502,8 @@ class SubscriberTransaction extends Model
     {
         return ValidationException::withMessages([
             'reference_number' => sprintf(
-                'هذا الرقم المرجعي مسجَّل مسبقًا على دفعة أخرى — السند %s للمشترك %s.',
-                $conflict->displayVoucherNumber() ?? '—',
+                'هذا الرقم المرجعي مسجَّل مسبقًا على دفعة أخرى%s للمشترك %s.',
+                $conflict->displayVoucherNumber() ? ' — السند '.$conflict->displayVoucherNumber() : '',
                 $conflict->subscriber->displayName(),
             ),
         ]);

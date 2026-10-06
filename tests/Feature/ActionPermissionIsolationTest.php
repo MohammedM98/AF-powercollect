@@ -131,27 +131,6 @@ class ActionPermissionIsolationTest extends TestCase
         $this->assertStringNotContainsString('Foreign confidential charge', $response->streamedContent());
     }
 
-    public function test_granular_migration_preserves_existing_access_without_granting_permanent_deletion(): void
-    {
-        $actor = User::factory()->collector()->create();
-        $actor->permissions()->sync(Permission::idsFor([
-            PermissionKey::RecordMeterReadings, PermissionKey::CorrectTransactions, PermissionKey::DeleteTransactions,
-            PermissionKey::UpdateSubscribers, PermissionKey::PrepareClosings,
-        ]));
-        $other = User::factory()->collector()->create();
-        $migration = require database_path('migrations/2026_10_05_130239_add_granular_action_permissions.php');
-        $migration->up();
-        $migration->up();
-        $fresh = $actor->fresh();
-        foreach ([PermissionKey::CorrectMeterReadings, PermissionKey::AmendTransactionDetails, PermissionKey::RefundPayments,
-            PermissionKey::BulkUpdateSubscribers, PermissionKey::ViewOwnClosings, PermissionKey::ExportFinancialReports] as $key) {
-            $this->assertTrue($fresh->hasPermission($key));
-        }
-        $this->assertFalse($fresh->hasPermission(PermissionKey::ForceDeleteTransactions));
-        $this->assertSame(0, $other->permissions()->count());
-        $this->assertSame(11, $actor->permissions()->count());
-    }
-
     public function test_malformed_permission_payload_cannot_silently_clear_grants(): void
     {
         $admin = User::factory()->superAdmin()->create();

@@ -160,19 +160,6 @@ class MeterReadingApprovalTest extends TestCase
         $this->assertSame(MeterReadingStatus::Approved, $reading->fresh()->status);
     }
 
-    public function test_existing_branch_admins_are_ticked_to_approve_readings(): void
-    {
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id]);
-        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
-        $branchAdmin->permissions()->detach(Permission::idsFor([PermissionKey::ApproveMeterReadings]));
-
-        (require database_path('migrations/2026_09_26_083544_tick_approve_meter_readings_for_branch_admins.php'))->up();
-
-        $this->assertTrue($branchAdmin->fresh()->hasPermission(PermissionKey::ApproveMeterReadings));
-        $this->assertTrue($branchAdmin->fresh()->hasPermission(PermissionKey::RecordMeterReadings));
-        $this->assertFalse($dataEntry->fresh()->hasPermission(PermissionKey::ApproveMeterReadings));
-    }
-
     public function test_the_super_admin_can_grant_approving_to_any_employee_from_the_permissions_page(): void
     {
         $collector = User::factory()->collector()->create(['branch_id' => $this->branch->id]);

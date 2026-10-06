@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -21,15 +20,6 @@ return new class extends Migration
             $table->decimal('rate', 10, 2);
             $table->foreignId('changed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
-        });
-
-        DB::table('tariffs')->orderBy('id')->each(function (object $tariff): void {
-            DB::table('tariff_rate_changes')->insert([
-                'tariff_id' => $tariff->id,
-                'rate' => $tariff->rate,
-                'created_at' => $tariff->updated_at ?? $tariff->created_at,
-                'updated_at' => $tariff->updated_at ?? $tariff->created_at,
-            ]);
         });
     }
 

@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('password');
             $table->string('role');
             $table->foreignId('branch_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('user_type_id')->nullable()->constrained()->restrictOnDelete();
             $table->boolean('is_active')->default(true);
             $table->rememberToken();
             $table->timestamps();

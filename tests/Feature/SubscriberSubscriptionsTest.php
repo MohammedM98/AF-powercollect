@@ -11,10 +11,7 @@ use App\Models\Subscriber;
 use App\Models\SubscriberProfile;
 use App\Models\SubscriberTransaction;
 use App\Models\User;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
@@ -213,76 +210,6 @@ class SubscriberSubscriptionsTest extends TestCase
         if ($deleteLast) {
             $this->delete(route('subscribers.destroy', $additional))->assertRedirect()->assertSessionHasNoErrors();
             $this->assertDatabaseMissing('subscriber_profiles', ['id' => $additional->subscriber_profile_id]);
-        }
-    }
-
-    public function test_rollback_refuses_to_remove_shared_profiles_when_multiple_subscriptions_exist(): void
-    {
-        $source = Subscriber::factory()->create();
-        Subscriber::factory()->for($source->profile, 'profile')->create();
-        $migration = require database_path('migrations/2026_09_30_083830_create_subscriber_profiles_table.php');
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Cannot roll back shared subscriber profiles while a subscriber has multiple subscriptions.');
-
-        $migration->down();
-    }
-
-    public function test_the_profile_migration_preserves_existing_subscribers_and_financial_history(): void
-    {
-        $previousConnection = DB::getDefaultConnection();
-        config(['database.connections.profile_migration_test' => [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'foreign_key_constraints' => true,
-        ]]);
-        DB::setDefaultConnection('profile_migration_test');
-        Schema::clearResolvedInstance('db.schema');
-
-        try {
-            Schema::create('subscribers', function (Blueprint $table): void {
-                $table->id();
-                $table->string('account_number')->unique();
-                $table->string('full_name');
-                $table->string('national_id', 9)->nullable()->unique();
-                $table->string('phone')->nullable();
-                $table->text('address')->nullable();
-                $table->timestamps();
-            });
-            Schema::create('subscriber_transactions', function (Blueprint $table): void {
-                $table->id();
-                $table->foreignId('subscriber_id')->constrained();
-                $table->decimal('amount', 12, 2);
-            });
-            DB::table('subscribers')->insert([
-                'id' => 1,
-                'account_number' => '202600001',
-                'full_name' => 'Existing subscriber',
-                'national_id' => '012345678',
-                'phone' => '0591234567',
-                'address' => 'Existing address',
-            ]);
-            DB::table('subscriber_transactions')->insert(['subscriber_id' => 1, 'amount' => 80]);
-            $migration = require database_path('migrations/2026_09_30_083830_create_subscriber_profiles_table.php');
-
-            $migration->up();
-
-            $subscription = DB::table('subscribers')->sole();
-            $profile = DB::table('subscriber_profiles')->sole();
-            $this->assertSame($profile->id, $subscription->subscriber_profile_id);
-            $this->assertSame('202600001', $subscription->account_number);
-            $this->assertSame('012345678', $profile->national_id);
-            $this->assertSame('Existing subscriber', $profile->full_name);
-            $this->assertSame('0591234567', $profile->phone);
-            $this->assertSame('Existing address', $profile->address);
-            $this->assertSame(80.0, (float) DB::table('subscriber_transactions')->sum('amount'));
-
-            $migration->down();
-            $this->assertSame('012345678', DB::table('subscribers')->sole()->national_id);
-        } finally {
-            DB::setDefaultConnection($previousConnection);
-            Schema::clearResolvedInstance('db.schema');
-            DB::purge('profile_migration_test');
         }
     }
 
@@ -544,21 +471,6 @@ class SubscriberSubscriptionsTest extends TestCase
             ->where('subscriptions.1.id', $house->id)
             ->where('subscriptions.1.fullName', 'Mohammed Hamdan house')
             ->where('subscriptions.1.balance', '-20.50'));
-    }
-
-    public function test_the_subscriber_number_migration_numbers_existing_people_in_the_order_they_were_added(): void
-    {
-        $first = Subscriber::factory()->create();
-        $second = Subscriber::factory()->create();
-        Subscriber::factory()->for($first->profile, 'profile')->create();
-        $migration = require database_path('migrations/2026_10_01_131242_add_subscriber_number_to_subscriber_profiles_table.php');
-        $migration->down();
-
-        $migration->up();
-
-        $this->assertDatabaseHas('subscriber_profiles', ['id' => $first->subscriber_profile_id, 'subscriber_number' => 1]);
-        $this->assertDatabaseHas('subscriber_profiles', ['id' => $second->subscriber_profile_id, 'subscriber_number' => 2]);
-        $this->assertDatabaseCount('subscriber_profiles', 2);
     }
 
     /** @return array<string, mixed> */

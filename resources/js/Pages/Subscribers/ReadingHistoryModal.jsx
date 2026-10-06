@@ -138,6 +138,16 @@ function LiveRow({ subscriber, week, reading, maximum, average }) {
         : typed && !negative ? { consumption, ...weeklyCharges(consumption, unitPrice, minimumPayment, reading ? null : subscriber.standingDiscount) } : null;
     const difference = charges && average > 0 ? Math.round((charges.consumption - average) / average * 100) : 0;
 
+    // + and − move the reading by one kilo; from an empty field they start at the last reading.
+    function step(direction) {
+        const base = typed ? Number(value) : Number(previous);
+        const next = typed || direction > 0 ? base + direction : base;
+
+        setValue(String(Math.round(Math.max(Number(previous), next) * 100) / 100));
+        setError(null);
+        inputRef.current?.focus();
+    }
+
     function save(confirmed = false) {
         if (!typed || !isDraft || saving || negative) {
             return;
@@ -168,14 +178,18 @@ function LiveRow({ subscriber, week, reading, maximum, average }) {
         <td className="rh-week"><b dir="ltr" title={week.label}>{shortDate(week.value)} ← {shortDate(week.end)}</b><span className="rh-note">{reading ? 'يمكن تعديل القراءة هنا' : 'قراءة جديدة — أدخلها هنا'}</span></td>
         <td className="rh-previous rh-number">{formatMoney(previous)}</td>
         <td className="rh-current rh-live-current">
-            <input ref={inputRef} type="number" inputMode="decimal" step="0.01" min={previous} dir="ltr" value={value} placeholder="أدخل القراءة" disabled={saving}
-                aria-label="القراءة الجديدة" aria-invalid={Boolean(error) || negative} title={error ?? (negative ? `لا يمكن أن تقل عن القراءة السابقة (${formatMoney(previous)})` : undefined)}
-                onChange={(event) => { setValue(event.target.value); setError(null); }}
-                onBlur={() => save()}
-                onKeyDown={(event) => {
-                    if (event.key === 'Enter') { event.preventDefault(); save(); }
-                    if (event.key === 'Escape' && isDraft) { event.stopPropagation(); setValue(savedValue); }
-                }} />
+            <div className="rh-stepper" dir="ltr">
+                <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => step(-1)} disabled={saving || !typed && value !== '' || (typed && Number(value) <= Number(previous))} aria-label="إنقاص القراءة">−</button>
+                <input ref={inputRef} type="number" inputMode="decimal" step="0.01" min={previous} dir="ltr" value={value} placeholder="أدخل القراءة" disabled={saving}
+                    aria-label="القراءة الجديدة" aria-invalid={Boolean(error) || negative} title={error ?? (negative ? `لا يمكن أن تقل عن القراءة السابقة (${formatMoney(previous)})` : undefined)}
+                    onChange={(event) => { setValue(event.target.value); setError(null); }}
+                    onBlur={() => save()}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter') { event.preventDefault(); save(); }
+                        if (event.key === 'Escape' && isDraft) { event.stopPropagation(); setValue(savedValue); }
+                    }} />
+                <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => step(1)} disabled={saving} aria-label="زيادة القراءة">+</button>
+            </div>
             {(error || negative) && <small className="rh-live-error" role="alert">{error ?? `أقل من السابقة (${formatMoney(previous)})`}</small>}
         </td>
         <td className="rh-consumption"><div><b>{charges ? formatMoney(charges.consumption) : '—'}</b>{charges && <><span className="rh-meter"><i style={{ width: `${Math.min(100, Math.max(0, charges.consumption) / Math.max(maximum, charges.consumption, 1) * 100)}%` }} /></span><span className={`rh-delta ${Math.abs(difference) < 10 ? '' : difference > 0 ? 'rh-up' : 'rh-down'}`} dir="ltr">{Math.abs(difference) < 10 ? '≈' : `${difference > 0 ? '+' : ''}${difference}٪`}</span></>}</div></td>

@@ -141,7 +141,7 @@ export function StatementForms({ statement, openForm, onClose, onOpen = null }) 
                     balance={summary.balance}
                     entry={amending}
                     transferBanks={statement.transferBanks}
-                    recipientBanks={statement.recipientBanks}
+                    senderBanks={statement.senderBanks}
                 />
             )}
 
@@ -205,7 +205,7 @@ export function StatementForms({ statement, openForm, onClose, onOpen = null }) 
                     currencies={statement.currencies}
                     paymentMethods={statement.paymentMethods}
                     transferBanks={statement.transferBanks}
-                    recipientBanks={statement.recipientBanks}
+                    senderBanks={statement.senderBanks}
                 />
             )}
 

@@ -281,30 +281,30 @@ class SubscriberStatementTest extends TestCase
                 ->where('entries.0.recorded.sender_bank_name', $bank));
     }
 
-    public function test_a_recipient_only_bank_can_receive_a_transfer_but_never_be_its_source(): void
+    public function test_a_sender_only_bank_can_be_a_transfer_source_but_never_its_destination(): void
     {
-        $this->recordPayment([
-            'payment_method' => 'bank_transfer',
-            'bank_name' => 'بنك القدس',
-            'sender_bank_name' => 'بنك فلسطين',
-            'sender_name' => 'Ahmad',
-            'reference_number' => 'TR-QUDS',
-        ])->assertSessionHasNoErrors();
-        $this->assertSame('بنك القدس', SubscriberTransaction::sole()->bank_name);
-
         $this->recordPayment([
             'payment_method' => 'bank_transfer',
             'bank_name' => 'بنك فلسطين',
             'sender_bank_name' => 'بنك القدس',
             'sender_name' => 'Ahmad',
+            'reference_number' => 'TR-QUDS',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('بنك القدس', SubscriberTransaction::sole()->sender_bank_name);
+
+        $this->recordPayment([
+            'payment_method' => 'bank_transfer',
+            'bank_name' => 'بنك القدس',
+            'sender_bank_name' => 'بنك فلسطين',
+            'sender_name' => 'Ahmad',
             'reference_number' => 'TR-QUDS-2',
-        ])->assertSessionHasErrors('sender_bank_name');
+        ])->assertSessionHasErrors('bank_name');
         $this->assertDatabaseCount('subscriber_transactions', 1);
 
         $this->actingAs($this->branchAdmin)
             ->get(route('subscribers.statement', $this->subscriber))
             ->assertInertia(fn ($page) => $page
-                ->where('recipientBanks', config('powercollect.recipient_banks'))
+                ->where('senderBanks', config('powercollect.sender_banks'))
                 ->where('transferBanks', fn ($banks) => ! collect($banks)->contains('بنك القدس')));
     }
 

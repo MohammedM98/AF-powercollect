@@ -22,7 +22,7 @@ function LockedValue({ label, children }) {
 }
 
 /** Amend a payment's descriptive details without changing its money or balance. */
-export default function AmendTransactionModal({ onClose, subscriber, balance, entry, transferBanks, recipientBanks }) {
+export default function AmendTransactionModal({ onClose, subscriber, balance, entry, transferBanks, senderBanks }) {
     const throughBank = entry.paymentMethod === 'bank_transfer' || entry.paymentMethod === 'cheque';
     const form = useForm({
         ...(throughBank
@@ -76,7 +76,7 @@ export default function AmendTransactionModal({ onClose, subscriber, balance, en
                             onChange={(event) => form.setData('bank_name', event.target.value)}
                         >
                             <option value="">اختر البنك أو المحفظة</option>
-                            {recipientBanks.map((bank) => (
+                            {transferBanks.map((bank) => (
                                 <option key={bank} value={bank}>
                                     {bank}
                                 </option>
@@ -95,7 +95,7 @@ export default function AmendTransactionModal({ onClose, subscriber, balance, en
                             onChange={(event) => form.setData('sender_bank_name', event.target.value)}
                         >
                             <option value="">غير محدد</option>
-                            {transferBanks.map((bank) => (
+                            {senderBanks.map((bank) => (
                                 <option key={bank} value={bank}>
                                     {bank}
                                 </option>

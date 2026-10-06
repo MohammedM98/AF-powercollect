@@ -45,16 +45,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Banks Receiving Transfers
+    | Banks Transfers Come From
     |--------------------------------------------------------------------------
     |
-    | The banks and e-wallets a transfer can be paid into: every transfer
-    | bank above, and the banks the company only receives into, which a
-    | sender never transfers from.
+    | The banks and e-wallets a sender can transfer from: every bank above,
+    | and the banks the company never receives into.
     |
     */
 
-    'recipient_banks' => ['بنك فلسطين', 'محفظة بالباي', 'جوال باي', 'البنك الإسلامي الفلسطيني', 'البنك الإسلامي العربي', 'بنك القدس'],
+    'sender_banks' => ['بنك فلسطين', 'محفظة بالباي', 'جوال باي', 'البنك الإسلامي الفلسطيني', 'البنك الإسلامي العربي', 'بنك القدس'],
 
     /*
     |--------------------------------------------------------------------------

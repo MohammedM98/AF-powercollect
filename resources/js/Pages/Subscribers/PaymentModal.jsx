@@ -398,7 +398,7 @@ export default function PaymentModal({
     currencies,
     paymentMethods,
     transferBanks,
-    recipientBanks,
+    senderBanks,
     correcting = null,
     correctionReasons = [],
 }) {
@@ -801,7 +801,7 @@ export default function PaymentModal({
                                                     onChange={(value) => setData('payment_method', value)}
                                                     icon="bank"
                                                     title="تحويل بنكي أو محفظة"
-                                                    hint={recipientBanks.join('، ')}
+                                                    hint={transferBanks.join('، ')}
                                                 />
                                             ) : (
                                                 <MethodTile
@@ -825,7 +825,7 @@ export default function PaymentModal({
                                                     البنك المستلم (إلى) <span className="text-brand-600">*</span>
                                                 </legend>
                                                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                                                    {recipientBanks.map((bank) => (
+                                                    {transferBanks.map((bank) => (
                                                         <BankTile
                                                             key={bank}
                                                             bank={bank}
@@ -844,7 +844,7 @@ export default function PaymentModal({
                                                     البنك المحوّل منه (من)
                                                 </FieldLabel>
                                                 <BankDropdown
-                                                    banks={transferBanks}
+                                                    banks={senderBanks}
                                                     id="sender_bank_name"
                                                     name="sender_bank_name"
                                                     value={data.sender_bank_name}

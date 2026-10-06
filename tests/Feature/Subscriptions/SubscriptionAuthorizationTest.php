@@ -216,6 +216,19 @@ class SubscriptionAuthorizationTest extends TestCase
         $response->assertDontSee('Commercial Subscription');
     }
 
+    public function test_a_box_without_a_name_adds_no_blank_option_to_the_box_name_filter(): void
+    {
+        $branch = Branch::factory()->create();
+        MeterBox::factory()->create(['branch_id' => $branch->id, 'name' => null, 'name_suffix' => null, 'box_number' => '111333']);
+        MeterBox::factory()->create(['branch_id' => $branch->id, 'name' => 'camp', 'name_suffix' => '1', 'box_number' => '1234']);
+
+        $this->actingAs(User::factory()->superAdmin()->create())->get(route('subscriptions.index'))
+            ->assertInertia(function ($page): void {
+                $names = collect(collect($page->toArray()['props']['filterOptions'])->firstWhere('key', 'meter_box_name')['options']);
+                $this->assertSame(['camp'], $names->pluck('label')->all());
+            });
+    }
+
     public function test_subscriptions_can_be_filtered_by_box_name_then_by_one_of_its_boxes(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();

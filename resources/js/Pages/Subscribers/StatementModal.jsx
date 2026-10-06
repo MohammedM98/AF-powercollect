@@ -5,6 +5,7 @@ import Icon from '@/Components/Icon';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import AccountStatement from './AccountStatement';
 import { StandingDiscountBadge } from './AccountSummary';
+import StopStandingDiscountButton from './StopStandingDiscountButton';
 import { StatementActions, StatementForms } from './StatementForms';
 import SubscriptionSwitcher from './SubscriptionSwitcher';
 
@@ -62,6 +63,13 @@ export default function StatementModal({ subscriber, statement, initialForm = nu
                                     </h3>
                                     <StatusPill tone={STATUS_TONES[header.status]} label={header.statusLabel} />
                                     {header.standingDiscount && <StandingDiscountBadge discount={header.standingDiscount} />}
+                                    {header.standingDiscount && statement?.canAdjustBalance && (
+                                        <StopStandingDiscountButton
+                                            subscriberId={header.id}
+                                            subscriberName={header.fullName}
+                                            discountLabel={header.standingDiscount.segment ? `${header.standingDiscount.terms} · ${header.standingDiscount.segment}` : header.standingDiscount.terms}
+                                        />
+                                    )}
                                 </div>
                                 <p className="mt-0.5 text-sm text-gray-500">
                                     {header.subscriberNumber && (

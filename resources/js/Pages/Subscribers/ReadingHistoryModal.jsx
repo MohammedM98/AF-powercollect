@@ -104,6 +104,7 @@ function HistoryChart({ readings, average }) {
 export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOptions = [] }) {
     const titleId = useId();
     const [enteringReading, setEnteringReading] = useState(false);
+    const [editingReading, setEditingReading] = useState(false);
     const [period, setPeriod] = useState('12');
     const [status, setStatus] = useState('all');
     const allReadings = readingsInPeriod(subscriber?.meterReadings ?? [], 'all');
@@ -119,6 +120,8 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
     const maximum = Math.max(1, ...visibleReadings.map((reading) => Number(reading.consumption)));
 
     const currentWeekRecorded = subscriber ? hasLatestWeekReading(subscriber, readingWeekOptions) : false;
+    // A subscriber has one reading a week: once this week's is recorded, the button corrects it instead.
+    const correctable = currentWeekRecorded && latest?.canUpdate ? latest : null;
 
     function exportReadings() {
         downloadCsv(readingHistoryCsv(visibleReadings), `readings-${subscriber.account_number}.csv`);
@@ -140,7 +143,9 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
                         </div>
                     </div>
                     <div className="rh-actions">
-                        {subscriber.canRecordReading && <button type="button" className="rh-enter" onClick={() => setEnteringReading(true)} disabled={currentWeekRecorded} title={currentWeekRecorded ? 'تم إدخال قراءة هذا الأسبوع' : 'تسجيل قراءة جديدة'}><Icon name="gauge" />{currentWeekRecorded ? 'قراءة هذا الأسبوع مسجّلة' : 'إدخال قراءة'}</button>}
+                        {subscriber.canRecordReading && (correctable
+                            ? <button type="button" className="rh-enter" onClick={() => setEditingReading(true)} title="لهذا المشترك قراءة مسجّلة لهذا الأسبوع؛ يمكنك تعديلها"><Icon name="pencil" />تعديل قراءة هذا الأسبوع</button>
+                            : <button type="button" className="rh-enter" onClick={() => setEnteringReading(true)} disabled={currentWeekRecorded} title={currentWeekRecorded ? 'لهذا المشترك قراءة مسجّلة لهذا الأسبوع، وتُفتح القراءة التالية عند انتهاء الأسبوع القادم' : 'تسجيل قراءة جديدة'}><Icon name="gauge" />{currentWeekRecorded ? 'قراءة هذا الأسبوع مسجّلة' : 'إدخال قراءة'}</button>)}
                         <button type="button" onClick={exportReadings} disabled={!visibleReadings.length} title="تصدير القراءات المعروضة بصيغة CSV المتوافقة مع Excel"><HistoryIcon name="excel" />تصدير Excel</button>
                         <button type="button" onClick={() => window.print()} disabled={!visibleReadings.length}><HistoryIcon name="print" />طباعة</button>
                         <button type="button" className="rh-close" onClick={onClose} aria-label="إغلاق"><Icon name="close" /></button>
@@ -174,8 +179,8 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
                                         <td className="rh-week"><b dir="ltr" title={`${reading.weekStart} – ${reading.weekEnd}`}>{shortDate(reading.weekStart)} ← {shortDate(reading.weekEnd)}</b>{reading.notes && <span className="rh-note">{reading.notes}</span>}</td>
                                         <td className="rh-previous rh-number">{formatMoney(reading.previous_reading)}</td><td className="rh-current rh-number">{formatMoney(reading.current_reading)}</td>
                                         <td className="rh-consumption"><div><b>{formatMoney(reading.consumption)}</b><span className="rh-meter"><i style={{ width: `${Number(reading.consumption) / maximum * 100}%` }} /></span><span className={`rh-delta ${Math.abs(difference) < 10 ? '' : difference > 0 ? 'rh-up' : 'rh-down'}`} dir="ltr" title="الفرق عن متوسط الفترة">{Math.abs(difference) < 10 ? '≈' : `${difference > 0 ? '+' : ''}${difference}٪`}</span></div></td>
-                                        <td className="rh-price rh-number" dir="ltr">{reading.unitPrice != null ? money(reading.unitPrice) : '—'}</td>
-                                        <td className="rh-minimum rh-number" dir="ltr">{reading.minimumPayment != null ? money(reading.minimumPayment) : '—'}</td>
+                                        <td className="rh-price rh-number"><span dir="ltr">{reading.unitPrice != null ? money(reading.unitPrice) : '—'}</span></td>
+                                        <td className="rh-minimum rh-number"><span dir="ltr">{reading.minimumPayment != null ? money(reading.minimumPayment) : '—'}</span></td>
                                         <td className="rh-discount">{Number(reading.discountAmount) > 0 ? <span className="rh-discount-value" dir="ltr">−{money(reading.discountAmount)}</span> : <span className="rh-muted">—</span>}</td>
                                         <td className="rh-due"><b dir="ltr">{money(reading.amountDue)} <em>₪</em></b>{reading.minimumApplied && <small>الحد الأدنى</small>}</td>
                                         <td className="rh-status"><span className={`rh-pill ${reading.status === 'approved' ? 'is-approved' : 'is-pending'}`}><i />{reading.status === 'pending' ? 'قيد المراجعة' : reading.statusLabel}</span></td>
@@ -190,6 +195,7 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
                 </div>
             </div>}
             {enteringReading && subscriber && <MeterReadingModal show onClose={() => setEnteringReading(false)} reading={null} fixedSubscriber={readingOptionFor(subscriber)} weekOptions={readingWeekOptions} />}
+            {editingReading && correctable && <MeterReadingModal show onClose={() => setEditingReading(false)} reading={{ ...correctable, subscriberName: subscriber.display_name, accountNumber: subscriber.account_number }} weekOptions={readingWeekOptions} />}
         </Modal>
     );
 }

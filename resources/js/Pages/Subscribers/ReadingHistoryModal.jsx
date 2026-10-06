@@ -138,7 +138,7 @@ function LiveRow({ subscriber, week, reading, maximum, average }) {
         : typed && !negative ? { consumption, ...weeklyCharges(consumption, unitPrice, minimumPayment, reading ? null : subscriber.standingDiscount) } : null;
     const difference = charges && average > 0 ? Math.round((charges.consumption - average) / average * 100) : 0;
 
-    // + and − move the reading by one kilo; from an empty field they start at the last reading.
+    // + and − (the buttons or the keys) move the reading by one kilo; from an empty field they start at the last reading.
     function step(direction) {
         const base = typed ? Number(value) : Number(previous);
         const next = typed || direction > 0 ? base + direction : base;
@@ -187,6 +187,11 @@ function LiveRow({ subscriber, week, reading, maximum, average }) {
                     onKeyDown={(event) => {
                         if (event.key === 'Enter') { event.preventDefault(); save(); }
                         if (event.key === 'Escape' && isDraft) { event.stopPropagation(); setValue(savedValue); }
+                        // The + and − keys (and the up and down arrows) step the reading like the buttons, instead of typing a sign.
+                        if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+                            if (event.key === '+' || event.key === 'ArrowUp') { event.preventDefault(); step(1); }
+                            if (event.key === '-' || event.key === 'ArrowDown') { event.preventDefault(); step(-1); }
+                        }
                     }} />
                 <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => step(1)} disabled={saving} aria-label="زيادة القراءة">+</button>
             </div>

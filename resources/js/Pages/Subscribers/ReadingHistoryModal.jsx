@@ -1,11 +1,12 @@
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
+import { router } from '@inertiajs/react';
+import ConfirmDialog from '@/Components/ConfirmDialog';
 import Icon from '@/Components/Icon';
 import Modal from '@/Components/Modal';
 import { downloadCsv } from '@/lib/csv';
 import { formatMoney, formatNumber } from '@/lib/format';
 import { groupReadingsByMonth, readingHistoryCsv, readingTotals, readingsInPeriod } from '@/lib/readingHistory';
-import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
-import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
+import { consumptionBetween, weeklyCharges } from '@/lib/readings';
 import './ReadingHistoryModal.css';
 
 const PERIODS = [['12', 'آخر 12 أسبوعًا'], ['26', '6 أشهر'], ['52', 'سنة'], ['all', 'الكل']];
@@ -100,11 +101,82 @@ function HistoryChart({ readings, average }) {
     );
 }
 
+/**
+ * The latest week's reading, entered or corrected right here as on the readings sheet:
+ * the last reading, the new one, and what it comes to as it is typed. Enter or the
+ * save button saves it; correcting an approved reading asks first.
+ */
+function ReadingEntry({ subscriber, week, reading }) {
+    const savedValue = reading ? String(reading.current_reading) : '';
+    const [value, setValue] = useState(savedValue);
+    const [error, setError] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [confirming, setConfirming] = useState(false);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        setValue(savedValue);
+        setError(null);
+    }, [savedValue]);
+
+    const previous = reading ? reading.previous_reading : subscriber.lastReading;
+    const isDraft = value !== savedValue;
+    const typed = value !== '' && !Number.isNaN(Number(value));
+    const consumption = typed ? consumptionBetween(previous, value) : null;
+    const draft = typed ? weeklyCharges(consumption, reading?.unitPrice ?? subscriber.tariffRate, reading?.minimumPayment ?? subscriber.weeklyMinimumPayment, reading ? null : subscriber.standingDiscount) : null;
+    const showing = reading && !isDraft ? { consumption: Number(reading.consumption), amountDue: Number(reading.amountDue) } : draft && { consumption, amountDue: draft.amountDue };
+    const negative = showing !== null && showing !== undefined && showing.consumption < 0;
+
+    function save(confirmed = false) {
+        if (!typed || !isDraft || saving || negative) {
+            return;
+        }
+
+        if (reading?.status === 'approved' && !confirmed) {
+            setConfirming(true);
+            return;
+        }
+
+        const options = {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => setSaving(true),
+            onFinish: () => setSaving(false),
+            onSuccess: () => setError(null),
+            onError: (errors) => setError(Object.values(errors)[0] ?? 'تعذّر حفظ القراءة.'),
+        };
+
+        if (reading) {
+            router.put(`/meter-readings/${reading.id}`, { current_reading: value }, options);
+        } else {
+            router.post('/meter-readings', { subscriber_id: subscriber.id, week_start: week.value, current_reading: value }, options);
+        }
+    }
+
+    return <section className="rh-entry" aria-label="قراءة الأسبوع">
+        <div className="rh-entry-heading">
+            <div><h3>{reading ? 'قراءة هذا الأسبوع' : 'إدخال قراءة'}</h3><span>{week.label}</span></div>
+            {reading ? <span className={`rh-pill ${reading.status === 'approved' ? 'is-approved' : 'is-pending'}`}><i />{reading.status === 'pending' ? 'قيد المراجعة' : reading.statusLabel}</span> : <span className="rh-pill is-missing"><i />لم تُدخل</span>}
+        </div>
+        <div className="rh-entry-fields">
+            <div className="rh-entry-field"><small>آخر قراءة للعداد</small><b className="rh-number" dir="ltr">{formatMoney(previous)}</b></div>
+            <label className="rh-entry-field rh-entry-input"><small>القراءة الجديدة</small>
+                <span><input ref={inputRef} type="number" inputMode="decimal" step="0.01" min={previous} dir="ltr" value={value} placeholder="أدخل القراءة" disabled={saving} aria-invalid={Boolean(error) || negative}
+                    onChange={(event) => { setValue(event.target.value); setError(null); }}
+                    onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); save(); } }} />
+                <button type="button" onClick={() => save()} disabled={!typed || !isDraft || saving || negative}>{saving ? 'جارٍ الحفظ...' : reading ? 'حفظ التعديل' : 'حفظ القراءة'}</button></span>
+            </label>
+            <div className="rh-entry-field"><small>الاستهلاك</small><b className={`rh-number ${negative ? 'rh-bad' : ''}`} dir="ltr">{showing ? formatMoney(showing.consumption) : '—'}<em>كيلو</em></b></div>
+            <div className="rh-entry-field"><small>المستحق</small><b className="rh-number" dir="ltr">{showing && !negative ? money(showing.amountDue) : '—'}<em>₪</em></b></div>
+        </div>
+        {(error || negative) && <p className="rh-entry-error" role="alert">{error ?? `القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة (${formatMoney(previous)}).`}</p>}
+        <ConfirmDialog show={confirming} onConfirm={() => { setConfirming(false); save(true); }} onCancel={() => { setConfirming(false); setValue(savedValue); }} title="تعديل قراءة معتمدة؟" message={`قراءة ${subscriber.display_name} معتمدة. تعديلها يعيدها إلى قيد المراجعة ويزيل مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`} confirmLabel="نعم، عدّل" cancelLabel="تراجع عن التعديل" icon="alert" />
+    </section>;
+}
+
 /** The selected subscriber's recorded history, presented using the supplied design. */
 export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOptions = [] }) {
     const titleId = useId();
-    const [enteringReading, setEnteringReading] = useState(false);
-    const [editingReading, setEditingReading] = useState(false);
     const [period, setPeriod] = useState('12');
     const [status, setStatus] = useState('all');
     const allReadings = readingsInPeriod(subscriber?.meterReadings ?? [], 'all');
@@ -119,9 +191,9 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
     const change = previousAverage > 0 ? Math.round((Number(latest.consumption) - previousAverage) / previousAverage * 100) : null;
     const maximum = Math.max(1, ...visibleReadings.map((reading) => Number(reading.consumption)));
 
-    const currentWeekRecorded = subscriber ? hasLatestWeekReading(subscriber, readingWeekOptions) : false;
-    // A subscriber has one reading a week: once this week's is recorded, the button corrects it instead.
-    const correctable = currentWeekRecorded && latest?.canUpdate ? latest : null;
+    // The latest ended week, which readings are entered for: this week's reading if it is recorded already.
+    const entryWeek = readingWeekOptions[0] ?? null;
+    const entryReading = entryWeek && latest?.weekStart === entryWeek.value ? latest : null;
 
     function exportReadings() {
         downloadCsv(readingHistoryCsv(visibleReadings), `readings-${subscriber.account_number}.csv`);
@@ -143,9 +215,6 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
                         </div>
                     </div>
                     <div className="rh-actions">
-                        {subscriber.canRecordReading && (correctable
-                            ? <button type="button" className="rh-enter" onClick={() => setEditingReading(true)} title="لهذا المشترك قراءة مسجّلة لهذا الأسبوع؛ يمكنك تعديلها"><Icon name="pencil" />تعديل قراءة هذا الأسبوع</button>
-                            : <button type="button" className="rh-enter" onClick={() => setEnteringReading(true)} disabled={currentWeekRecorded} title={currentWeekRecorded ? 'لهذا المشترك قراءة مسجّلة لهذا الأسبوع، وتُفتح القراءة التالية عند انتهاء الأسبوع القادم' : 'تسجيل قراءة جديدة'}><Icon name="gauge" />{currentWeekRecorded ? 'قراءة هذا الأسبوع مسجّلة' : 'إدخال قراءة'}</button>)}
                         <button type="button" onClick={exportReadings} disabled={!visibleReadings.length} title="تصدير القراءات المعروضة بصيغة CSV المتوافقة مع Excel"><HistoryIcon name="excel" />تصدير Excel</button>
                         <button type="button" onClick={() => window.print()} disabled={!visibleReadings.length}><HistoryIcon name="print" />طباعة</button>
                         <button type="button" className="rh-close" onClick={onClose} aria-label="إغلاق"><Icon name="close" /></button>
@@ -158,6 +227,7 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
                         <Figure label="أعلى استهلاك" value={formatMoney(busiest?.consumption ?? 0)} unit="كيلو">{busiest && `أسبوع ${shortDate(busiest.weekStart)} – ${shortDate(busiest.weekEnd)}`}</Figure>
                         <Figure label="آخر قراءة للعداد" value={formatMoney(subscriber.lastReading)}>{latest ? <>أسبوع {shortDate(latest.weekEnd)}{change !== null && <> · <span className={change > 0 ? 'rh-up' : 'rh-down'}>{change > 0 ? '▲' : change < 0 ? '▼' : '≈'} {Math.abs(change)}٪</span> عن متوسط {formatNumber(previousWeeks.length)} أسابيع</>}</> : 'قراءة العداد عند الاشتراك'}</Figure>
                     </div>
+                    {subscriber.canRecordReading && entryWeek && (!entryReading || entryReading.canUpdate) && <ReadingEntry subscriber={subscriber} week={entryWeek} reading={entryReading} />}
                     <HistoryChart readings={periodReadings} average={average} />
                     <div className="rh-toolbar">
                         <div className="rh-segments" role="group" aria-label="الفترة">{PERIODS.map(([value, label]) => <button type="button" key={value} aria-pressed={period === value} onClick={() => setPeriod(value)}>{label}</button>)}</div>
@@ -194,8 +264,6 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
                     </div>
                 </div>
             </div>}
-            {enteringReading && subscriber && <MeterReadingModal show onClose={() => setEnteringReading(false)} reading={null} fixedSubscriber={readingOptionFor(subscriber)} weekOptions={readingWeekOptions} />}
-            {editingReading && correctable && <MeterReadingModal show onClose={() => setEditingReading(false)} reading={{ ...correctable, subscriberName: subscriber.display_name, accountNumber: subscriber.account_number }} weekOptions={readingWeekOptions} />}
         </Modal>
     );
 }

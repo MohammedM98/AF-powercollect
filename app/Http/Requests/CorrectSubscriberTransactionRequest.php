@@ -45,8 +45,8 @@ class CorrectSubscriberTransactionRequest extends FormRequest
     }
 
     /**
-     * A corrected discount is checked against what the subscriber would
-     * owe without the discount it replaces.
+     * A corrected discount or clearing is checked against what the
+     * subscriber would owe without the line it replaces.
      *
      * @return array<int, callable>
      */
@@ -54,7 +54,7 @@ class CorrectSubscriberTransactionRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                if ($validator->errors()->isNotEmpty() || ! $this->line()->isDiscount()) {
+                if ($validator->errors()->isNotEmpty() || ! ($this->line()->isDiscount() || $this->line()->isClearing())) {
                     return;
                 }
 
@@ -62,7 +62,11 @@ class CorrectSubscriberTransactionRequest extends FormRequest
                 $subscriber = $this->route('subscriber');
                 $owed = round($subscriber->balance() - (float) $this->line()->amount, 2);
 
-                StoreSubscriberDiscountRequest::checkAgainstBalance($validator, $subscriber, $owed, $this->input('method'), $this->input('value'));
+                if ($this->line()->isDiscount()) {
+                    StoreSubscriberDiscountRequest::checkAgainstBalance($validator, $subscriber, $owed, $this->input('method'), $this->input('value'));
+                } else {
+                    StoreSubscriberClearingRequest::checkAgainstBalance($validator, $owed, $this->input('amount'));
+                }
             },
         ];
     }

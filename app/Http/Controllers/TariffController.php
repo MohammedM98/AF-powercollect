@@ -30,7 +30,7 @@ class TariffController extends Controller
 
     /**
      * The tariffs page: a card for each tariff with its kilo price, since
-     * when and who set it, its price history, its subscribers and their
+     * when and who set it, its price history, its subscriptions and their
      * average weekly consumption. Below them, the customer segments.
      */
     public function index(Request $request): InertiaResponse
@@ -39,7 +39,7 @@ class TariffController extends Controller
 
         $actor = $request->user();
         $tariffs = Tariff::query()
-            ->withCount('subscribers')
+            ->withCount('subscriptions')
             ->with('rateChanges.changedBy')
             ->get()
             ->sortBy(fn (Tariff $tariff): int => array_search($tariff->category, TariffCategory::cases(), true))
@@ -53,10 +53,10 @@ class TariffController extends Controller
         return Inertia::render('Tariffs/Index', [
             'tariffs' => $tariffs->map(fn (Tariff $tariff): array => $this->card($tariff, $actor, $averages[$tariff->id] ?? null))->all(),
             'canCreate' => $missing !== [] && $actor->can('create', Tariff::class),
-            'segments' => TariffSegment::query()->withCount('subscribers')->orderBy('name')->get()->map(fn (TariffSegment $segment): array => [
+            'segments' => TariffSegment::query()->withCount('subscriptions')->orderBy('name')->get()->map(fn (TariffSegment $segment): array => [
                 'id' => $segment->id,
                 'name' => $segment->name,
-                'subscribersCount' => $segment->subscribers_count,
+                'subscriptionsCount' => $segment->subscriptions_count,
                 'canUpdate' => $actor->can('update', $segment),
                 'canDelete' => $actor->can('delete', $segment),
             ])->all(),
@@ -135,7 +135,7 @@ class TariffController extends Controller
         return [
             ...$this->editableFields($tariff),
             'categoryLabel' => __($tariff->category->label()),
-            'subscribersCount' => $tariff->subscribers_count,
+            'subscriptionsCount' => $tariff->subscriptions_count,
             'averageConsumption' => $averageConsumption === null ? null : round($averageConsumption, 1),
             'rateSince' => $latest?->created_at->locale('ar')->translatedFormat('j F Y'),
             'rateChangedBy' => $latest?->changedBy?->name,
@@ -159,12 +159,12 @@ class TariffController extends Controller
     private function averageWeeklyConsumption(): array
     {
         return MeterReading::query()
-            ->join('subscribers', 'subscribers.id', '=', 'meter_readings.subscriber_id')
+            ->join('subscriptions', 'subscriptions.id', '=', 'meter_readings.subscription_id')
             ->where('meter_readings.status', MeterReadingStatus::Approved)
             ->where('meter_readings.week_start', '>=', now()->subWeeks(self::AVERAGE_WEEKS)->toDateString())
-            ->groupBy('subscribers.tariff_id')
+            ->groupBy('subscriptions.tariff_id')
             ->toBase()
-            ->selectRaw('subscribers.tariff_id, avg(meter_readings.consumption) as average')
+            ->selectRaw('subscriptions.tariff_id, avg(meter_readings.consumption) as average')
             ->pluck('average', 'tariff_id')
             ->map(fn ($average): float => (float) $average)
             ->all();

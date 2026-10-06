@@ -29,7 +29,7 @@ class PrintTemplate extends Model
      */
     public const PAGES = [
         '/meter-readings' => ['label' => 'القراءات', 'icon' => 'chart'],
-        '/subscribers' => ['label' => 'المشتركون', 'icon' => 'users'],
+        '/subscriptions' => ['label' => 'المشتركون', 'icon' => 'users'],
         '/meter-boxes' => ['label' => 'الطبلونات', 'icon' => 'table'],
         '/ledger' => ['label' => 'السجل المالي', 'icon' => 'ledger'],
         '/receivables' => ['label' => 'أعمار الديون', 'icon' => 'wallet'],

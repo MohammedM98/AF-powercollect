@@ -164,7 +164,7 @@ trait FiltersDataTable
     }
 
     /**
-     * Apply `?filter[meter_box_name]=…`: every subscriber on a box with
+     * Apply `?filter[meter_box_name]=…`: every subscription on a box with
      * that name, whatever the box's suffix or number.
      */
     protected function applyMeterBoxNameFilter(Builder $query, Request $request): Builder
@@ -306,8 +306,8 @@ trait FiltersDataTable
     }
 
     /**
-     * Apply `?filter[circuit_breaker_id]=…` to a subscribers query: the
-     * subscribers on that circuit breaker, or with none for `none`.
+     * Apply `?filter[circuit_breaker_id]=…` to a subscriptions query: the
+     * subscriptions on that circuit breaker, or with none for `none`.
      */
     protected function applyCircuitBreakerFilter(Builder $query, Request $request): Builder
     {
@@ -325,7 +325,7 @@ trait FiltersDataTable
 
     /**
      * The "Circuit breaker" dropdown — every breaker by its size, smallest
-     * first, plus the subscribers without one.
+     * first, plus the subscriptions without one.
      *
      * @return array{key: string, label: string, options: array<int, array{value: string, label: string}>}
      */

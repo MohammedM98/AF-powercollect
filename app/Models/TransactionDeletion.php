@@ -12,12 +12,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * good), why, and each line as it was (`transactions`, its stored
  * attributes), for the audit log. The lines themselves are gone.
  */
-#[Fillable(['subscriber_id', 'branch_id', 'user_id', 'action', 'reason', 'transactions'])]
+#[Fillable(['subscription_id', 'branch_id', 'user_id', 'action', 'reason', 'transactions'])]
 class TransactionDeletion extends Model
 {
     public const UPDATED_AT = null;
 
-    /** A final line erased for good (SubscriberTransaction::erase). */
+    /** A final line erased for good (SubscriptionTransaction::erase). */
     public const ACTION_ERASE = 'erase';
 
     protected function casts(): array
@@ -30,14 +30,14 @@ class TransactionDeletion extends Model
 
     /**
      * Record the deletion of these lines (their stored attributes, the
-     * line acted on first), all of one subscriber.
+     * line acted on first), all of one subscription.
      *
      * @param  array<int, array<string, mixed>>  $transactions
      */
     public static function record(User $actor, string $action, ?string $reason, array $transactions): self
     {
         return self::create([
-            'subscriber_id' => $transactions[0]['subscriber_id'] ?? null,
+            'subscription_id' => $transactions[0]['subscription_id'] ?? null,
             'branch_id' => $transactions[0]['branch_id'] ?? null,
             'user_id' => $actor->id,
             'action' => $action,
@@ -46,9 +46,9 @@ class TransactionDeletion extends Model
         ]);
     }
 
-    public function subscriber(): BelongsTo
+    public function subscription(): BelongsTo
     {
-        return $this->belongsTo(Subscriber::class);
+        return $this->belongsTo(Subscription::class);
     }
 
     public function user(): BelongsTo

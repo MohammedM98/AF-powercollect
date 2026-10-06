@@ -73,7 +73,7 @@ export function printScopeUrl(allRows) {
 
 /**
  * Extra fields a table offers the print designer besides its columns —
- * e.g. the box name, the subscriber's name and phone, which the screen
+ * e.g. the box name, the subscription's name and phone, which the screen
  * shows together in one cell. Spread on the <table>:
  * `<table {...printFieldsProps(FIELDS)}>` with `[{ key, label }]`, and on
  * each row `<tr {...printRowProps({ key: value })}>`. They start hidden in

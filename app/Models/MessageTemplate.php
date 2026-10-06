@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A saved wording for messages to subscribers, picked when writing a new
- * one. Its `{placeholders}` are filled in for each subscriber (see
+ * A saved wording for messages to subscriptions, picked when writing a new
+ * one. Its `{placeholders}` are filled in for each subscription (see
  * App\Support\Messaging\MessageComposer).
  */
 #[Fillable(['name', 'kind', 'body', 'created_by'])]

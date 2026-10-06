@@ -13,7 +13,7 @@ import { timeAgo } from '@/lib/format';
 import { ChannelLabel, DeliveryCounts, KindPill, MessageText } from './MessageParts';
 
 /**
- * Every send of messages to subscribers, newest first; a send opens to
+ * Every send of messages to subscriptions, newest first; a send opens to
  * its messages one by one.
  */
 export default function Index({ batches, canSend, filters, filterOptions }) {

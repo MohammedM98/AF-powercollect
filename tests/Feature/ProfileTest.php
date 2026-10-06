@@ -21,7 +21,7 @@ class ProfileTest extends TestCase
         $this->useDatabaseSessions();
         $user = User::factory()->dataEntry()->create(['name' => 'My Account', 'username' => 'my.account']);
         $other = User::factory()->create();
-        $user->permissions()->sync(Permission::idsFor([PermissionKey::ViewSubscribers]));
+        $user->permissions()->sync(Permission::idsFor([PermissionKey::ViewSubscriptions]));
         $user->notify(new ActionCompleted('profile-updated'));
         $other->notify(new ActionCompleted('password-updated'));
         MobileAccessToken::issue($user);
@@ -37,7 +37,7 @@ class ProfileTest extends TestCase
             ->where('user.weeklyActions', 1)
             ->where('user.branchName', $user->branch->name)
             ->missing('user.password')
-            ->where('permissionGroups', fn ($groups): bool => collect($groups)->flatMap(fn ($group) => $group['permissions'])->where('granted', true)->pluck('key')->all() === ['subscribers.view'])
+            ->where('permissionGroups', fn ($groups): bool => collect($groups)->flatMap(fn ($group) => $group['permissions'])->where('granted', true)->pluck('key')->all() === ['subscriptions.view'])
             ->where('devices', fn ($devices): bool => count($devices) === 3 && collect($devices)->where('type', 'mobile')->count() === 1 && collect($devices)->where('current', true)->count() === 1 && collect($devices)->contains('id', hash('sha256', 'mine')))
             ->where('activity.recent.0.action', 'profile-updated'));
     }

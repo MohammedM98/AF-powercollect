@@ -285,7 +285,7 @@ export function rememberedStatementView() {
     }
 }
 
-/** Remembers the view chosen, for the statement page and the subscriber's account tab alike. */
+/** Remembers the view chosen, for the statement page and the subscription's account tab alike. */
 export function rememberStatementView(view) {
     try {
         window.localStorage.setItem(VIEW_STORAGE_KEY, view);
@@ -295,7 +295,7 @@ export function rememberStatementView(view) {
 }
 
 /**
- * How a balance reads: a positive balance is what the subscriber owes
+ * How a balance reads: a positive balance is what the subscription owes
  * (عليه), a negative one is credit in their favour (له).
  */
 export function describeBalance(balance) {
@@ -365,8 +365,8 @@ export function paymentInShekels(amount, currency, exchangeRate) {
 
 /**
  * What a discount takes off, in shekels: a percentage of what the
- * subscriber owes, kilowatts at their kilo price, or the shekels given.
- * Mirrors SubscriberTransaction::discountFor(). Null until the value is valid.
+ * subscription owes, kilowatts at their kilo price, or the shekels given.
+ * Mirrors SubscriptionTransaction::discountFor(). Null until the value is valid.
  */
 export function discountAmount(method, value, owed, kiloPrice) {
     const number = Number(value);

@@ -21,26 +21,26 @@ function Summary({ label, value, tone = 'text-gray-900' }) {
 }
 
 /**
- * Enter or correct a weekly reading. `fixedSubscriber` (an option shaped
- * like `subscriberOptions` entries) pins the form to one subscriber, as
- * when it is opened from that subscriber's statement. A reading that
+ * Enter or correct a weekly reading. `fixedSubscription` (an option shaped
+ * like `subscriptionOptions` entries) pins the form to one subscription, as
+ * when it is opened from that subscription's statement. A reading that
  * says `canApprove` (the statement's) offers to approve the correction at
  * once instead of sending it back for approval.
  */
-export default function MeterReadingModal({ show, onClose, reading, subscriberOptions = [], fixedSubscriber = null, weekOptions }) {
+export default function MeterReadingModal({ show, onClose, reading, subscriptionOptions = [], fixedSubscription = null, weekOptions }) {
     const offersApproval = Boolean(reading?.status === 'approved' && reading?.canApprove);
     const form = useResourceForm(
         '/meter-readings',
         reading,
         reading
             ? { current_reading: String(reading.current_reading), notes: reading.notes ?? '', ...(offersApproval ? { approve: true } : {}) }
-            : { subscriber_id: fixedSubscriber?.value ?? '', week_start: weekOptions[0]?.value ?? '', current_reading: '', notes: '' },
+            : { subscription_id: fixedSubscription?.value ?? '', week_start: weekOptions[0]?.value ?? '', current_reading: '', notes: '' },
     );
     const { data, setData, errors, isEdit } = form;
     const approvesNow = offersApproval && data.approve;
 
-    const selectedSubscriber = isEdit ? null : (fixedSubscriber ?? subscriberOptions.find((option) => option.value === String(data.subscriber_id)));
-    const previousReading = isEdit ? reading.previous_reading : selectedSubscriber?.lastReading;
+    const selectedSubscription = isEdit ? null : (fixedSubscription ?? subscriptionOptions.find((option) => option.value === String(data.subscription_id)));
+    const previousReading = isEdit ? reading.previous_reading : selectedSubscription?.lastReading;
     const hasPrevious = previousReading !== undefined && previousReading !== null;
     const consumption = hasPrevious && data.current_reading !== '' ? consumptionBetween(previousReading, data.current_reading) : null;
 
@@ -60,28 +60,28 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
         >
             {isEdit ? (
                 <div className="rounded-lg border border-gray-100 px-4 py-3 text-sm">
-                    <p className="font-semibold text-gray-900">{reading.subscriberName}</p>
+                    <p className="font-semibold text-gray-900">{reading.subscriptionName}</p>
                     <p className="mt-1 text-gray-500">
                         <span dir="ltr">{reading.accountNumber}</span> · الأسبوع {reading.weekStart} ← {reading.weekEnd}
                     </p>
                 </div>
             ) : (
                 <>
-                    {fixedSubscriber ? (
-                        <div className="rounded-lg border border-gray-100 px-4 py-3 text-sm font-semibold text-gray-900">{fixedSubscriber.label}</div>
+                    {fixedSubscription ? (
+                        <div className="rounded-lg border border-gray-100 px-4 py-3 text-sm font-semibold text-gray-900">{fixedSubscription.label}</div>
                     ) : (
                         <div>
                             <InputLabel value="المشترك" />
                             <SearchableSelect
                                 className="mt-1"
-                                value={data.subscriber_id}
-                                onChange={(value) => setData('subscriber_id', value)}
-                                options={subscriberOptions}
+                                value={data.subscription_id}
+                                onChange={(value) => setData('subscription_id', value)}
+                                options={subscriptionOptions}
                                 placeholder="اختر مشتركًا"
                                 searchPlaceholder="بحث بالاسم أو رقم الاشتراك..."
                                 emptyLabel="لا يوجد مشتركون مطابقون"
                             />
-                            <InputError message={errors.subscriber_id} className="mt-2" />
+                            <InputError message={errors.subscription_id} className="mt-2" />
                         </div>
                     )}
 
@@ -100,8 +100,8 @@ export default function MeterReadingModal({ show, onClose, reading, subscriberOp
                             ))}
                         </select>
                         <InputError message={errors.week_start} className="mt-2" />
-                        {selectedSubscriber?.lastWeekStart && (
-                            <p className="mt-1 text-xs text-gray-500">آخر قراءة مسجلة لأسبوع يبدأ في {selectedSubscriber.lastWeekStart}</p>
+                        {selectedSubscription?.lastWeekStart && (
+                            <p className="mt-1 text-xs text-gray-500">آخر قراءة مسجلة لأسبوع يبدأ في {selectedSubscription.lastWeekStart}</p>
                         )}
                     </div>
                 </>

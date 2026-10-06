@@ -20,9 +20,9 @@ class CircuitBreaker extends Model
         return ['minimum_payment' => 'decimal:2'];
     }
 
-    public function subscribers(): HasMany
+    public function subscriptions(): HasMany
     {
-        return $this->hasMany(Subscriber::class);
+        return $this->hasMany(Subscription::class);
     }
 
     /**
@@ -31,6 +31,6 @@ class CircuitBreaker extends Model
      */
     public function deletionBlocker(): ?string
     {
-        return DeletionBlocker::describe('القاطع', ['المشتركون' => $this->subscribers()->count()]);
+        return DeletionBlocker::describe('القاطع', ['المشتركون' => $this->subscriptions()->count()]);
     }
 }

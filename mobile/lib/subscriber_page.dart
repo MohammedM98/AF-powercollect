@@ -31,8 +31,8 @@ class _SubscriberPageState extends State<SubscriberPage> {
 
   Map<String, dynamic> get subscriber => {
         ...widget.subscriber,
-        if (details?['subscriber'] is Map)
-          ...Map<String, dynamic>.from(details!['subscriber'] as Map),
+        if (details?['subscription'] is Map)
+          ...Map<String, dynamic>.from(details!['subscription'] as Map),
       };
   double get balance => double.tryParse('${subscriber['balance']}') ?? 0;
   List<Map<String, dynamic>> get transactions => [

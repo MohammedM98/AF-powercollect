@@ -19,12 +19,12 @@ enum PermissionKey: string
     case UpdateUserTypes = 'user_types.update';
     case DeleteUserTypes = 'user_types.delete';
 
-    case ViewSubscribers = 'subscribers.view';
-    case CreateSubscribers = 'subscribers.create';
-    case UpdateSubscribers = 'subscribers.update';
-    case DeleteSubscribers = 'subscribers.delete';
-    case UpdateSubscriberMinimumCharge = 'subscribers.update_minimum_charge';
-    case BulkUpdateSubscribers = 'subscribers.bulk_update';
+    case ViewSubscriptions = 'subscriptions.view';
+    case CreateSubscriptions = 'subscriptions.create';
+    case UpdateSubscriptions = 'subscriptions.update';
+    case DeleteSubscriptions = 'subscriptions.delete';
+    case UpdateSubscriptionMinimumCharge = 'subscriptions.update_minimum_charge';
+    case BulkUpdateSubscriptions = 'subscriptions.bulk_update';
 
     case ViewTariffs = 'tariffs.view';
     case CreateTariffs = 'tariffs.create';
@@ -99,12 +99,12 @@ enum PermissionKey: string
             self::CreateUserTypes => 'Add User Types',
             self::UpdateUserTypes => 'Edit User Types',
             self::DeleteUserTypes => 'Delete User Types',
-            self::ViewSubscribers => 'View Subscribers',
-            self::CreateSubscribers => 'Add Subscribers',
-            self::UpdateSubscribers => 'Edit Subscribers',
-            self::DeleteSubscribers => 'Delete Subscribers',
-            self::UpdateSubscriberMinimumCharge => 'Edit Subscriber Minimum Charge',
-            self::BulkUpdateSubscribers => 'Bulk Edit Subscribers',
+            self::ViewSubscriptions => 'View Subscriptions',
+            self::CreateSubscriptions => 'Add Subscriptions',
+            self::UpdateSubscriptions => 'Edit Subscriptions',
+            self::DeleteSubscriptions => 'Delete Subscriptions',
+            self::UpdateSubscriptionMinimumCharge => 'Edit Subscription Minimum Charge',
+            self::BulkUpdateSubscriptions => 'Bulk Edit Subscriptions',
             self::ViewTariffs => 'View Tariffs',
             self::CreateTariffs => 'Add Tariffs',
             self::UpdateTariffs => 'Edit Tariffs',
@@ -191,15 +191,15 @@ enum PermissionKey: string
     public static function resourceGroups(): array
     {
         return [
-            'subscribers' => [
-                'label' => 'Subscribers',
+            'subscriptions' => [
+                'label' => 'Subscriptions',
                 'actions' => [
-                    'view' => self::ViewSubscribers,
-                    'create' => self::CreateSubscribers,
-                    'update' => self::UpdateSubscribers,
-                    'delete' => self::DeleteSubscribers,
-                    'minimum_charge' => self::UpdateSubscriberMinimumCharge,
-                    'bulk_update' => self::BulkUpdateSubscribers,
+                    'view' => self::ViewSubscriptions,
+                    'create' => self::CreateSubscriptions,
+                    'update' => self::UpdateSubscriptions,
+                    'delete' => self::DeleteSubscriptions,
+                    'minimum_charge' => self::UpdateSubscriptionMinimumCharge,
+                    'bulk_update' => self::BulkUpdateSubscriptions,
                 ],
             ],
             'meter_boxes' => [

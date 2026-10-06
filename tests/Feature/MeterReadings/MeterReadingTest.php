@@ -4,7 +4,7 @@ namespace Tests\Feature\MeterReadings;
 
 use App\Enums\MeterReadingStatus;
 use App\Enums\PermissionKey;
-use App\Enums\SubscriberStatus;
+use App\Enums\SubscriptionStatus;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\MeterBox;
@@ -12,7 +12,7 @@ use App\Models\MeterReading;
 use App\Models\Permission;
 use App\Models\ReadingEntrySetting;
 use App\Models\SubArea;
-use App\Models\Subscriber;
+use App\Models\Subscription;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,7 +26,7 @@ class MeterReadingTest extends TestCase
 
     private User $dataEntry;
 
-    private Subscriber $subscriber;
+    private Subscription $subscription;
 
     protected function setUp(): void
     {
@@ -37,21 +37,21 @@ class MeterReadingTest extends TestCase
 
         $this->branch = Branch::factory()->create();
         $this->dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
-        $this->subscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'initial_reading' => 1200]);
+        $this->subscription = Subscription::factory()->create(['branch_id' => $this->branch->id, 'initial_reading' => 1200]);
     }
 
-    public function test_data_entry_records_a_reading_without_charging_the_subscriber(): void
+    public function test_data_entry_records_a_reading_without_charging_the_subscription(): void
     {
         $this->actingAs($this->dataEntry)
-            ->from(route('subscribers.index'))
+            ->from(route('subscriptions.index'))
             ->post(route('meter-readings.store'), [
-                'subscriber_id' => $this->subscriber->id,
+                'subscription_id' => $this->subscription->id,
                 'week_start' => '2026-09-22',
                 'current_reading' => 1250,
             ])
             ->assertSessionHasNoErrors()
             ->assertSessionHas('status', 'meter-reading-created')
-            ->assertRedirect(route('subscribers.index'));
+            ->assertRedirect(route('subscriptions.index'));
 
         $reading = MeterReading::sole();
         $this->assertSame('2026-09-18', $reading->week_start->toDateString());
@@ -62,13 +62,13 @@ class MeterReadingTest extends TestCase
         $this->assertSame(MeterReadingStatus::Pending, $reading->status);
         $this->assertSame($this->branch->id, $reading->branch_id);
         $this->assertTrue($reading->recordedBy->is($this->dataEntry));
-        $this->assertDatabaseCount('subscriber_transactions', 0);
+        $this->assertDatabaseCount('subscription_transactions', 0);
     }
 
     public function test_the_week_is_charged_consumption_times_the_kilowatt_price(): void
     {
-        $this->subscriber->tariff->update(['rate' => 0.6]);
-        $this->subscriber->update(['minimum_charge' => 20]);
+        $this->subscription->tariff->update(['rate' => 0.6]);
+        $this->subscription->update(['minimum_charge' => 20]);
 
         $this->actingAs($this->dataEntry)
             ->post(route('meter-readings.store'), $this->payload(['current_reading' => 1250]))
@@ -79,13 +79,13 @@ class MeterReadingTest extends TestCase
         $this->assertSame('30.00', $reading->reading_fee);
         $this->assertSame('20.00', $reading->minimum_payment);
         $this->assertSame('30.00', $reading->amount_due);
-        $this->assertDatabaseCount('subscriber_transactions', 0);
+        $this->assertDatabaseCount('subscription_transactions', 0);
     }
 
     public function test_the_minimum_payment_is_charged_when_the_reading_costs_less(): void
     {
-        $this->subscriber->tariff->update(['rate' => 0.6]);
-        $this->subscriber->update(['minimum_charge' => 20]);
+        $this->subscription->tariff->update(['rate' => 0.6]);
+        $this->subscription->update(['minimum_charge' => 20]);
 
         $this->actingAs($this->dataEntry)
             ->post(route('meter-readings.store'), $this->payload(['current_reading' => 1218]))
@@ -98,9 +98,9 @@ class MeterReadingTest extends TestCase
 
     public function test_a_reading_can_have_two_decimal_places(): void
     {
-        $this->subscriber->update(['initial_reading' => 255.2]);
-        $this->subscriber->tariff->update(['rate' => 0.6]);
-        $this->subscriber->update(['minimum_charge' => 0]);
+        $this->subscription->update(['initial_reading' => 255.2]);
+        $this->subscription->tariff->update(['rate' => 0.6]);
+        $this->subscription->update(['minimum_charge' => 0]);
 
         $this->actingAs($this->dataEntry)
             ->post(route('meter-readings.store'), $this->payload(['current_reading' => '260.35']))
@@ -126,7 +126,7 @@ class MeterReadingTest extends TestCase
     {
         $reading = $this->recordedReading('2026-09-18', 1200, 1250);
         $reading->update(['unit_price' => 0.5, 'minimum_payment' => 10]);
-        $this->subscriber->tariff->update(['rate' => 9]);
+        $this->subscription->tariff->update(['rate' => 9]);
 
         $this->actingAs($this->dataEntry)
             ->put(route('meter-readings.update', $reading), ['current_reading' => 1260])
@@ -159,7 +159,7 @@ class MeterReadingTest extends TestCase
         $this->assertDatabaseCount('meter_readings', 0);
     }
 
-    public function test_a_week_can_only_be_recorded_once_per_subscriber(): void
+    public function test_a_week_can_only_be_recorded_once_per_subscription(): void
     {
         $this->recordedReading('2026-09-18', 1200, 1250);
 
@@ -324,15 +324,15 @@ class MeterReadingTest extends TestCase
         $this->assertDatabaseCount('meter_readings', 0);
     }
 
-    public function test_readings_cannot_be_recorded_for_another_branch_or_an_inactive_subscriber(): void
+    public function test_readings_cannot_be_recorded_for_another_branch_or_an_inactive_subscription(): void
     {
-        $otherBranchSubscriber = Subscriber::factory()->create();
-        $suspendedSubscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'status' => SubscriberStatus::Suspended]);
+        $otherBranchSubscription = Subscription::factory()->create();
+        $suspendedSubscription = Subscription::factory()->create(['branch_id' => $this->branch->id, 'status' => SubscriptionStatus::Suspended]);
 
-        foreach ([$otherBranchSubscriber, $suspendedSubscriber] as $subscriber) {
+        foreach ([$otherBranchSubscription, $suspendedSubscription] as $subscription) {
             $this->actingAs($this->dataEntry)
-                ->post(route('meter-readings.store'), $this->payload(['subscriber_id' => $subscriber->id]))
-                ->assertSessionHasErrors('subscriber_id');
+                ->post(route('meter-readings.store'), $this->payload(['subscription_id' => $subscription->id]))
+                ->assertSessionHasErrors('subscription_id');
         }
 
         $this->assertDatabaseCount('meter_readings', 0);
@@ -377,10 +377,10 @@ class MeterReadingTest extends TestCase
         $this->assertDatabaseCount('meter_readings', 1);
 
         $this->travelTo(now()->parse('2026-09-24 14:01:00', 'UTC'));
-        $anotherSubscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'initial_reading' => 1200]);
-        $this->post(route('meter-readings.store'), $this->payload(['subscriber_id' => $anotherSubscriber->id]))->assertForbidden();
+        $anotherSubscription = Subscription::factory()->create(['branch_id' => $this->branch->id, 'initial_reading' => 1200]);
+        $this->post(route('meter-readings.store'), $this->payload(['subscription_id' => $anotherSubscription->id]))->assertForbidden();
         $this->actingAs(User::factory()->superAdmin()->create())
-            ->post(route('meter-readings.store'), $this->payload(['subscriber_id' => $anotherSubscriber->id]))
+            ->post(route('meter-readings.store'), $this->payload(['subscription_id' => $anotherSubscription->id]))
             ->assertSessionHasNoErrors();
         $this->assertDatabaseCount('meter_readings', 2);
     }
@@ -388,7 +388,7 @@ class MeterReadingTest extends TestCase
     public function test_the_latest_weeks_readings_can_still_be_corrected_while_entry_is_closed_but_not_added(): void
     {
         $reading = $this->recordedReading('2026-09-18', 1200, 1250);
-        $missing = Subscriber::factory()->create(['branch_id' => $this->branch->id]);
+        $missing = Subscription::factory()->create(['branch_id' => $this->branch->id]);
         ReadingEntrySetting::factory()->forcedClosed()->create();
 
         $this->actingAs($this->dataEntry)
@@ -396,7 +396,7 @@ class MeterReadingTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('canRecord', false)
                 ->where('rows.data', fn ($rows): bool => collect($rows)->pluck('canEdit', 'id')->all() == [
-                    $this->subscriber->id => true,
+                    $this->subscription->id => true,
                     $missing->id => false,
                 ]));
 
@@ -406,7 +406,7 @@ class MeterReadingTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->actingAs($this->dataEntry)
-            ->post(route('meter-readings.store'), $this->payload(['subscriber_id' => $missing->id]))
+            ->post(route('meter-readings.store'), $this->payload(['subscription_id' => $missing->id]))
             ->assertForbidden();
 
         $this->assertSame(1260.0, $reading->fresh()->current_reading);
@@ -465,11 +465,11 @@ class MeterReadingTest extends TestCase
         $this->assertDatabaseCount('meter_readings', 0);
     }
 
-    public function test_the_reading_sheet_lists_active_subscribers_of_the_actors_branch_with_their_last_reading(): void
+    public function test_the_reading_sheet_lists_active_subscriptions_of_the_actors_branch_with_their_last_reading(): void
     {
         $this->recordedReading('2026-09-11', 1200, 1250);
-        Subscriber::factory()->create(['branch_id' => $this->branch->id, 'status' => SubscriberStatus::Suspended]);
-        Subscriber::factory()->create();
+        Subscription::factory()->create(['branch_id' => $this->branch->id, 'status' => SubscriptionStatus::Suspended]);
+        Subscription::factory()->create();
 
         $this->actingAs($this->dataEntry)
             ->get(route('meter-readings.index'))
@@ -478,7 +478,7 @@ class MeterReadingTest extends TestCase
                 ->component('MeterReadings/Index')
                 ->where('week', '2026-09-18')
                 ->has('rows.data', 1)
-                ->where('rows.data.0.id', $this->subscriber->id)
+                ->where('rows.data.0.id', $this->subscription->id)
                 ->where('rows.data.0.previousReading', 1250)
                 ->where('rows.data.0.reading', null)
                 ->where('rows.data.0.canEdit', true)
@@ -498,8 +498,8 @@ class MeterReadingTest extends TestCase
     {
         $campOne = MeterBox::factory()->create(['branch_id' => $this->branch->id, 'name' => 'camp', 'name_suffix' => '1', 'box_number' => '1234']);
         $campTwo = MeterBox::factory()->create(['branch_id' => $this->branch->id, 'name' => 'camp', 'name_suffix' => '2', 'box_number' => '1243']);
-        $inCampOne = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $campOne->id]);
-        $inCampTwo = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $campTwo->id]);
+        $inCampOne = Subscription::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $campOne->id]);
+        $inCampTwo = Subscription::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $campTwo->id]);
 
         $this->actingAs($this->dataEntry)
             ->get(route('meter-readings.index', ['filter' => ['meter_box_name' => 'camp']]))
@@ -539,10 +539,10 @@ class MeterReadingTest extends TestCase
             }));
     }
 
-    public function test_the_reading_sheet_can_show_only_subscribers_still_missing_this_weeks_reading(): void
+    public function test_the_reading_sheet_can_show_only_subscriptions_still_missing_this_weeks_reading(): void
     {
         $this->recordedReading('2026-09-18', 1200, 1250);
-        $missing = Subscriber::factory()->create(['branch_id' => $this->branch->id]);
+        $missing = Subscription::factory()->create(['branch_id' => $this->branch->id]);
 
         $this->actingAs($this->dataEntry)
             ->get(route('meter-readings.index', ['filter' => ['entry' => 'missing']]))
@@ -556,16 +556,16 @@ class MeterReadingTest extends TestCase
     public function test_the_reading_sheet_sorts_by_the_weeks_computed_reading_columns(): void
     {
         $this->recordedReading('2026-09-18', 1200, 1290);
-        $lowUsage = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'initial_reading' => 5000, 'full_name' => 'Aaa']);
+        $lowUsage = Subscription::factory()->create(['branch_id' => $this->branch->id, 'initial_reading' => 5000, 'full_name' => 'Aaa']);
         MeterReading::factory()->create([
-            'subscriber_id' => $lowUsage->id,
+            'subscription_id' => $lowUsage->id,
             'week_start' => '2026-09-18',
             'week_end' => '2026-09-24',
             'previous_reading' => 5000,
             'current_reading' => 5010,
             'consumption' => 10,
         ]);
-        $notEntered = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'initial_reading' => 300, 'full_name' => 'Zzz']);
+        $notEntered = Subscription::factory()->create(['branch_id' => $this->branch->id, 'initial_reading' => 300, 'full_name' => 'Zzz']);
 
         $sortedIds = fn (string $sort, string $direction) => $this->actingAs($this->dataEntry)
             ->get(route('meter-readings.index', ['sort' => $sort, 'direction' => $direction]))
@@ -573,11 +573,11 @@ class MeterReadingTest extends TestCase
             ->viewData('page')['props']['rows']['data'];
 
         $this->assertSame(
-            [$this->subscriber->id, $lowUsage->id],
+            [$this->subscription->id, $lowUsage->id],
             array_slice(array_column($sortedIds('consumption', 'desc'), 'id'), 0, 2),
         );
         $this->assertSame(
-            [$notEntered->id, $this->subscriber->id, $lowUsage->id],
+            [$notEntered->id, $this->subscription->id, $lowUsage->id],
             array_column($sortedIds('last_reading', 'asc'), 'id'),
         );
     }
@@ -590,26 +590,26 @@ class MeterReadingTest extends TestCase
             'name_suffix' => $suffix,
             'box_number' => $number,
         ])->id;
-        $this->subscriber->update(['meter_box_id' => $box('Camp', '2', 'BOX-1')]);
-        $campTen = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $box('Camp', null, 'BOX-10')]);
-        $campNine = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $box('Camp', null, 'BOX-9')]);
-        $alley = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $box('Alley', null, 'BOX-50')]);
-        $noBox = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => null]);
+        $this->subscription->update(['meter_box_id' => $box('Camp', '2', 'BOX-1')]);
+        $campTen = Subscription::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $box('Camp', null, 'BOX-10')]);
+        $campNine = Subscription::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $box('Camp', null, 'BOX-9')]);
+        $alley = Subscription::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => $box('Alley', null, 'BOX-50')]);
+        $noBox = Subscription::factory()->create(['branch_id' => $this->branch->id, 'meter_box_id' => null]);
 
         $rows = $this->actingAs($this->dataEntry)
             ->get(route('meter-readings.index', ['sort' => 'meter_box', 'direction' => 'asc']))
             ->assertOk()
             ->viewData('page')['props']['rows']['data'];
 
-        $this->assertSame([$alley->id, $campNine->id, $campTen->id, $this->subscriber->id, $noBox->id], array_column($rows, 'id'));
+        $this->assertSame([$alley->id, $campNine->id, $campTen->id, $this->subscription->id, $noBox->id], array_column($rows, 'id'));
         $this->assertSame('Camp 2', $rows[3]['meterBoxName']);
-        $this->assertSame($this->subscriber->contactPhone(), $rows[3]['phone']);
+        $this->assertSame($this->subscription->contactPhone(), $rows[3]['phone']);
     }
 
     public function test_the_reading_sheet_filters_by_the_meter_boxs_sub_area(): void
     {
         $subArea = SubArea::factory()->create();
-        $inSubArea = Subscriber::factory()->create([
+        $inSubArea = Subscription::factory()->create([
             'branch_id' => $this->branch->id,
             'meter_box_id' => MeterBox::factory()->create(['branch_id' => $this->branch->id, 'sub_area_id' => $subArea->id])->id,
         ]);
@@ -622,7 +622,7 @@ class MeterReadingTest extends TestCase
                 ->where('rows.data.0.id', $inSubArea->id));
     }
 
-    public function test_the_subscriber_statement_includes_their_readings(): void
+    public function test_the_subscription_statement_includes_their_readings(): void
     {
         $this->recordedReading('2026-09-11', 1200, 1250, MeterReadingStatus::Approved)
             ->update(['reading_fee' => 150, 'minimum_payment' => 20]);
@@ -630,26 +630,26 @@ class MeterReadingTest extends TestCase
             ->update(['mobile_operation_id' => '12345678-1234-4123-8123-123456789012', 'reading_fee' => 10, 'minimum_payment' => 20]);
 
         $this->actingAs($this->dataEntry)
-            ->get(route('subscribers.index'))
+            ->get(route('subscriptions.index'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('subscribers.data.0.id', $this->subscriber->id)
-                ->where('subscribers.data.0.lastReading', 1290)
-                ->where('subscribers.data.0.lastReadingWeekStart', '2026-09-18')
-                ->where('subscribers.data.0.canRecordReading', true)
-                ->has('subscribers.data.0.meterReadings', 2)
-                ->where('subscribers.data.0.meterReadings.0.weekStart', '2026-09-18')
-                ->where('subscribers.data.0.meterReadings.0.consumption', 40)
-                ->where('subscribers.data.0.meterReadings.0.discountAmount', '0.00')
-                ->where('subscribers.data.0.meterReadings.0.minimumPayment', '20.00')
-                ->has('subscribers.data.0.meterReadings.0.unitPrice')
-                ->where('subscribers.data.0.meterReadings.0.recordedSource', 'app')
-                ->where('subscribers.data.0.meterReadings.0.minimumApplied', true)
-                ->where('subscribers.data.0.meterReadings.1.recordedSource', 'web')
-                ->where('subscribers.data.0.meterReadings.1.minimumApplied', false)
-                ->where('subscribers.data.0.meterReadings.1.status', 'approved')
-                ->where('subscribers.data.0.meterReadings.0.canUpdate', true)
-                ->where('subscribers.data.0.meterReadings.1.canUpdate', false)
+                ->where('subscriptions.data.0.id', $this->subscription->id)
+                ->where('subscriptions.data.0.lastReading', 1290)
+                ->where('subscriptions.data.0.lastReadingWeekStart', '2026-09-18')
+                ->where('subscriptions.data.0.canRecordReading', true)
+                ->has('subscriptions.data.0.meterReadings', 2)
+                ->where('subscriptions.data.0.meterReadings.0.weekStart', '2026-09-18')
+                ->where('subscriptions.data.0.meterReadings.0.consumption', 40)
+                ->where('subscriptions.data.0.meterReadings.0.discountAmount', '0.00')
+                ->where('subscriptions.data.0.meterReadings.0.minimumPayment', '20.00')
+                ->has('subscriptions.data.0.meterReadings.0.unitPrice')
+                ->where('subscriptions.data.0.meterReadings.0.recordedSource', 'app')
+                ->where('subscriptions.data.0.meterReadings.0.minimumApplied', true)
+                ->where('subscriptions.data.0.meterReadings.1.recordedSource', 'web')
+                ->where('subscriptions.data.0.meterReadings.1.minimumApplied', false)
+                ->where('subscriptions.data.0.meterReadings.1.status', 'approved')
+                ->where('subscriptions.data.0.meterReadings.0.canUpdate', true)
+                ->where('subscriptions.data.0.meterReadings.1.canUpdate', false)
                 ->has('readingWeekOptions', 1)
                 ->where('readingWeekOptions.0.value', '2026-09-18'));
     }
@@ -666,10 +666,10 @@ class MeterReadingTest extends TestCase
         ]);
 
         $this->actingAs($this->dataEntry)
-            ->get(route('subscribers.index'))
+            ->get(route('subscriptions.index'))
             ->assertInertia(fn ($page) => $page
-                ->where('subscribers.data.0.meterReadings.0.minimumApplied', false)
-                ->where('subscribers.data.0.meterReadings.0.amountDue', '2.70'));
+                ->where('subscriptions.data.0.meterReadings.0.minimumApplied', false)
+                ->where('subscriptions.data.0.meterReadings.0.amountDue', '2.70'));
     }
 
     public function test_a_collector_is_not_offered_reading_entry_on_the_statement(): void
@@ -677,15 +677,15 @@ class MeterReadingTest extends TestCase
         $collector = User::factory()->collector()->create(['branch_id' => $this->branch->id]);
         $collector->permissions()->attach(
             Permission::firstOrCreate(
-                ['key' => PermissionKey::ViewSubscribers->value],
-                ['label' => PermissionKey::ViewSubscribers->label()],
+                ['key' => PermissionKey::ViewSubscriptions->value],
+                ['label' => PermissionKey::ViewSubscriptions->label()],
             ),
         );
 
         $this->actingAs($collector)
-            ->get(route('subscribers.index'))
+            ->get(route('subscriptions.index'))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->where('subscribers.data.0.canRecordReading', false));
+            ->assertInertia(fn ($page) => $page->where('subscriptions.data.0.canRecordReading', false));
     }
 
     public function test_a_pending_reading_can_be_corrected(): void
@@ -767,7 +767,7 @@ class MeterReadingTest extends TestCase
     private function payload(array $overrides = []): array
     {
         return [
-            'subscriber_id' => $this->subscriber->id,
+            'subscription_id' => $this->subscription->id,
             'week_start' => '2026-09-18',
             'current_reading' => 1250,
             ...$overrides,
@@ -790,7 +790,7 @@ class MeterReadingTest extends TestCase
     private function recordedReading(string $weekStart, int $previous, int $current, MeterReadingStatus $status = MeterReadingStatus::Pending): MeterReading
     {
         return MeterReading::factory()->create([
-            'subscriber_id' => $this->subscriber->id,
+            'subscription_id' => $this->subscription->id,
             'week_start' => $weekStart,
             'week_end' => now()->parse($weekStart)->addDays(6),
             'previous_reading' => $previous,

@@ -14,8 +14,8 @@ use App\Models\Permission;
 use App\Models\PrintTemplate;
 use App\Models\ReadingEntrySetting;
 use App\Models\SubArea;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\Tariff;
 use App\Models\User;
 use App\Models\UserType;
@@ -69,11 +69,11 @@ class HandleInertiaRequests extends Middleware
             ] : null,
             'can' => $user ? [
                 'viewBranches' => $user->can('viewAny', Branch::class),
-                'viewSubscribers' => $user->can('viewAny', Subscriber::class),
-                'viewLedger' => $user->can('viewAny', SubscriberTransaction::class),
-                'viewBranchPerformance' => $user->can('viewBranchPerformance', SubscriberTransaction::class),
-                'viewDebtAging' => $user->can('viewDebtAging', SubscriberTransaction::class),
-                'viewTransactionAudit' => $user->can('viewTransactionAudit', SubscriberTransaction::class),
+                'viewSubscriptions' => $user->can('viewAny', Subscription::class),
+                'viewLedger' => $user->can('viewAny', SubscriptionTransaction::class),
+                'viewBranchPerformance' => $user->can('viewBranchPerformance', SubscriptionTransaction::class),
+                'viewDebtAging' => $user->can('viewDebtAging', SubscriptionTransaction::class),
+                'viewTransactionAudit' => $user->can('viewTransactionAudit', SubscriptionTransaction::class),
                 'viewClosings' => $user->can('viewAny', Closing::class),
                 'viewUsers' => $user->can('viewAny', User::class),
                 'viewUserTypes' => $user->can('viewAny', UserType::class),

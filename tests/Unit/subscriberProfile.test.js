@@ -5,12 +5,12 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { rolldown } from 'rolldown';
 
-let SubscriberDetailsModal;
+let SubscriptionDetailsModal;
 let AccountTab;
 
 before(async () => {
     const bundle = await rolldown({
-        input: path.resolve(import.meta.dirname, '../../resources/js/Pages/Subscribers/SubscriberDetailsModal.jsx'),
+        input: path.resolve(import.meta.dirname, '../../resources/js/Pages/Subscriptions/SubscriptionDetailsModal.jsx'),
         platform: 'node',
         transform: { jsx: 'react-jsx' },
         resolve: { alias: { '@': path.resolve(import.meta.dirname, '../../resources/js') } },
@@ -41,19 +41,19 @@ before(async () => {
     try {
         const { output } = await bundle.generate({ format: 'esm' });
         const component = await import(`data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`);
-        SubscriberDetailsModal = component.default;
+        SubscriptionDetailsModal = component.default;
         AccountTab = component.AccountTab;
     } finally {
         await bundle.close();
     }
 });
 
-function renderProfile(subscriber = {}, options = {}) {
-    return renderToStaticMarkup(createElement(SubscriberDetailsModal, {
-        subscriber: {
+function renderProfile(subscription = {}, options = {}) {
+    return renderToStaticMarkup(createElement(SubscriptionDetailsModal, {
+        subscription: {
             id: 1, display_name: 'اشتراك المتجر', full_name: 'صاحب المتجر', subscriber_number: '000041',
             account_number: '202600041', status: 'active', statusLabel: 'نشط', outstandingBalance: '0.00',
-            initial_reading: 0, lastReading: 0, meterReadings: [], ...subscriber,
+            initial_reading: 0, lastReading: 0, meterReadings: [], ...subscription,
         },
         onClose() {}, onEdit() {}, onEditPersonal() {}, onOpenStatement() {}, onLoadStatement() {}, onOpenReadings() {},
         ...options,
@@ -106,7 +106,7 @@ test('profile shows actual credit and status without inventing disconnection rea
     assert.doesNotMatch(html, /تأخر بالدفع|14 يوم|377/);
 });
 
-test('profile escapes subscriber-entered text', () => {
+test('profile escapes subscription-entered text', () => {
     const html = renderProfile({ display_name: '<script>alert(1)</script>', notes: '<img src=x onerror=alert(1)>' });
 
     assert.doesNotMatch(html, /<script>|<img src=x/);

@@ -25,7 +25,7 @@ test('a week is billed consumption × kilo price, less its standing discount', (
     });
 });
 
-test('the weekly minimum is due when the week comes to less, unless the subscriber has a standing discount', () => {
+test('the weekly minimum is due when the week comes to less, unless the subscription has a standing discount', () => {
     assert.deepEqual(weeklyCharges(0.5, '30.00', '20.00'), { readingFee: 15, discountAmount: 0, amountDue: 20, minimumApplies: true });
     assert.deepEqual(weeklyCharges(2, '30.00', '20.00', { method: 'kilowatt', value: '3' }), {
         readingFee: 60,

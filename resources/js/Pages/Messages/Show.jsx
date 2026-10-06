@@ -12,7 +12,7 @@ import { ChannelLabel, DeliveryCounts, KIND_ICONS, MessageStatusPill, MessageTex
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' });
 
 /**
- * One send: its wording, how many went out, and every subscriber's own
+ * One send: its wording, how many went out, and every subscription's own
  * message. A WhatsApp send is sent from here one message at a time — the
  * button opens WhatsApp with the text written and marks it sent. Failed
  * SMS can be sent again.
@@ -95,7 +95,7 @@ export default function Show({ batch, messages, canUpdate, filters, filterOption
                 total={messages.total}
                 filterMenu={
                     <DataTableFilterMenu
-                        tableKey="subscriber-messages"
+                        tableKey="subscription-messages"
                         groups={filterOptions}
                         values={filterValues}
                         onChange={setFilter}
@@ -127,7 +127,7 @@ export default function Show({ batch, messages, canUpdate, filters, filterOption
                             messages.data.map((message) => (
                                 <tr key={message.id}>
                                     <td>
-                                        <div className="font-semibold text-gray-900">{message.subscriberName ?? '—'}</div>
+                                        <div className="font-semibold text-gray-900">{message.subscriptionName ?? '—'}</div>
                                         {message.accountNumber && <div className="text-xs text-gray-500">{message.accountNumber}</div>}
                                     </td>
                                     <td dir="ltr" className="text-gray-700">
@@ -147,7 +147,7 @@ export default function Show({ batch, messages, canUpdate, filters, filterOption
                                             <button
                                                 type="button"
                                                 onClick={() => openWhatsApp(message)}
-                                                aria-label={`${message.status === 'sent' ? 'فتح المحادثة مجددًا مع' : 'إرسال عبر واتساب إلى'} ${message.subscriberName ?? message.phone}`}
+                                                aria-label={`${message.status === 'sent' ? 'فتح المحادثة مجددًا مع' : 'إرسال عبر واتساب إلى'} ${message.subscriptionName ?? message.phone}`}
                                                 title={message.status === 'sent' ? 'أُرسلت — افتح المحادثة مجددًا' : 'افتح واتساب والرسالة مكتوبة'}
                                                 className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-control px-3 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 ${
                                                     message.status === 'sent'

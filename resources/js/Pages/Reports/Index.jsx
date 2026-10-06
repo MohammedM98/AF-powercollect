@@ -30,7 +30,7 @@ function periodLabel(mode, details) {
 
 /**
  * The reports page: a branch's day (or a stretch of days, or every branch)
- * before it is closed — how what the subscribers owe moved, where the
+ * before it is closed — how what the subscriptions owe moved, where the
  * payments came in, the readings, each day's closing, and every line.
  */
 export default function Index({ branches, filters, scopeLabel, presets, today, cutoff, kinds, flow, collections, readings, days, check, transactions, period, branchSummary, canExport }) {
@@ -659,7 +659,7 @@ function Transactions({ transactions, kinds, filters, showDay, showBranch, onKin
                                     <span className="num">{line.voucherNumber ?? '—'}</span>
                                 </td>
                                 <td>
-                                    <b>{line.subscriberName}</b>
+                                    <b>{line.subscriptionName}</b>
                                     <small className="muted num" style={{ display: 'block' }}>
                                         {line.accountNumber}
                                         {line.meterBoxNumber && ` · ${line.meterBoxNumber}`}

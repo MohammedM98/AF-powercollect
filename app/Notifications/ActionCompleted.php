@@ -8,7 +8,7 @@ use Illuminate\Notifications\Notification;
 /**
  * A record of something the user just saved, listed under the bell in the
  * top bar. `action` is the same key the save flashes as its status (e.g.
- * `subscriber-created`), so both are worded by the frontend's one list of
+ * `subscription-created`), so both are worded by the frontend's one list of
  * messages; `subject` names the record, when there is one.
  */
 class ActionCompleted extends Notification

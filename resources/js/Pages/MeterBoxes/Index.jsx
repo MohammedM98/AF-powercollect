@@ -15,7 +15,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import MeterBoxModal from './MeterBoxModal';
-import MeterBoxSubscribers from './MeterBoxSubscribers';
+import MeterBoxSubscriptions from './MeterBoxSubscriptions';
 import './meter-boxes.css';
 
 function MeterBoxSummary({ summary }) {
@@ -25,7 +25,7 @@ function MeterBoxSummary({ summary }) {
                 <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-spectrum" />
                 <p className="text-sm text-white/70">الطبلونات ضمن نتائج البحث والتصفية</p>
                 <p className="mt-1 font-display text-4xl font-bold">{formatNumber(summary.total)} <span className="text-sm font-semibold text-white/70">طبلون</span></p>
-                <div className="mt-4 flex items-center gap-2 border-t border-white/15 pt-3 text-xs text-white/70"><Icon name="users" className="h-4 w-4" />المشتركون <b className="font-display text-sm text-white">{formatNumber(summary.subscribers)}</b></div>
+                <div className="mt-4 flex items-center gap-2 border-t border-white/15 pt-3 text-xs text-white/70"><Icon name="users" className="h-4 w-4" />المشتركون <b className="font-display text-sm text-white">{formatNumber(summary.subscriptions)}</b></div>
             </div>
             {[
                 { icon: 'currency', label: 'ديون المشتركين', value: summary.debt === null ? '—' : `${formatMoney(summary.debt)} ₪`, hint: summary.debt === null ? 'يتطلب صلاحية عرض المشتركين' : 'مجموع الأرصدة المستحقة، دون خصم أرصدة الدائنين', tone: 'text-red-600 dark:text-red-400' },
@@ -53,7 +53,7 @@ export default function Index({
     filters,
     filterOptions,
     summary,
-    canViewSubscribers,
+    canViewSubscriptions,
     canRecordReadings,
     canSendMessages,
 }) {
@@ -70,7 +70,7 @@ export default function Index({
                 <>
                     <div className="min-w-0">
                         <h2 className="text-3xl font-bold text-gray-900">الطبلونات</h2>
-                        <p className="mt-1 text-sm text-gray-500">{canViewSubscribers ? 'كل طبلون برقمه وموقعه. افتح الصف لعرض المشتركين والأرصدة.' : 'طبلونات الفرع وأرقامها ومواقعها.'}</p>
+                        <p className="mt-1 text-sm text-gray-500">{canViewSubscriptions ? 'كل طبلون برقمه وموقعه. افتح الصف لعرض المشتركين والأرصدة.' : 'طبلونات الفرع وأرقامها ومواقعها.'}</p>
                     </div>
                     {canCreate && (
                         <div className="shrink-0">
@@ -110,8 +110,8 @@ export default function Index({
                             <SortableTh column="box_number" label="الطبلون" sortState={filters} onSort={sort} />
                             <th>الموقع / المنطقة</th>
                             <th>الفرع</th>
-                            <SortableTh column="subscribers_count" label="المشتركون" sortState={filters} onSort={sort} />
-                            {canViewSubscribers ? <SortableTh column="debt" label="الديون" sortState={filters} onSort={sort} /> : <th>الديون</th>}
+                            <SortableTh column="subscriptions_count" label="المشتركون" sortState={filters} onSort={sort} />
+                            {canViewSubscriptions ? <SortableTh column="debt" label="الديون" sortState={filters} onSort={sort} /> : <th>الديون</th>}
                             <ActionsTh />
                         </tr>
                     </thead>
@@ -125,7 +125,7 @@ export default function Index({
                         ) : (
                             meterBoxes.data.map((meterBox) => (
                                 <Fragment key={meterBox.id}>
-                                <tr className={expandedId === meterBox.id ? 'meter-box-expanded' : undefined} {...rowClick(canViewSubscribers ? () => setExpandedId(expandedId === meterBox.id ? null : meterBox.id) : meterBox.canUpdate ? () => setModalMeterBox(meterBox) : null)}>
+                                <tr className={expandedId === meterBox.id ? 'meter-box-expanded' : undefined} {...rowClick(canViewSubscriptions ? () => setExpandedId(expandedId === meterBox.id ? null : meterBox.id) : meterBox.canUpdate ? () => setModalMeterBox(meterBox) : null)}>
                                     <td data-label="الطبلون">
                                         <RowIdentity icon="table" name={meterBox.box_number} subtitle={meterBox.display_name} />
                                     </td>
@@ -135,10 +135,10 @@ export default function Index({
                                     </td>
                                     <td data-label="الفرع" className="text-gray-600">{meterBox.branchName}</td>
                                     <td data-label="المشتركون">
-                                        <p className="text-sm font-semibold text-gray-900"><b className="font-display">{formatNumber(meterBox.subscribersCount)}</b> مشترك</p>
-                                        {meterBox.subscribersCount > 0 && <>
-                                            <div className="my-1.5 flex h-1.5 w-28 overflow-hidden rounded-full bg-gray-100" aria-hidden="true"><span className="bg-emerald-500" style={{ width: `${meterBox.activeSubscribersCount / meterBox.subscribersCount * 100}%` }} /></div>
-                                            <p className="text-xs text-gray-500">{meterBox.activeSubscribersCount} فعّال · {meterBox.subscribersCount - meterBox.activeSubscribersCount} غير فعّال</p>
+                                        <p className="text-sm font-semibold text-gray-900"><b className="font-display">{formatNumber(meterBox.subscriptionsCount)}</b> مشترك</p>
+                                        {meterBox.subscriptionsCount > 0 && <>
+                                            <div className="my-1.5 flex h-1.5 w-28 overflow-hidden rounded-full bg-gray-100" aria-hidden="true"><span className="bg-emerald-500" style={{ width: `${meterBox.activeSubscriptionsCount / meterBox.subscriptionsCount * 100}%` }} /></div>
+                                            <p className="text-xs text-gray-500">{meterBox.activeSubscriptionsCount} فعّال · {meterBox.subscriptionsCount - meterBox.activeSubscriptionsCount} غير فعّال</p>
                                         </>}
                                     </td>
                                     <td data-label="الديون" className="whitespace-nowrap">
@@ -146,7 +146,7 @@ export default function Index({
                                     </td>
                                     <td data-actions="" className="text-end">
                                         <div className="flex items-center justify-end gap-2">
-                                        {canViewSubscribers && <button type="button" className="row-action row-action-quiet" aria-expanded={expandedId === meterBox.id} aria-controls={`meter-box-subscribers-${meterBox.id}`} aria-label={`${expandedId === meterBox.id ? 'إخفاء' : 'عرض'} مشتركي ${meterBox.box_number}`} title="المشتركون" onClick={() => setExpandedId(expandedId === meterBox.id ? null : meterBox.id)}><Icon name="chevron-down" className={`h-4 w-4 transition-transform ${expandedId === meterBox.id ? 'rotate-180' : ''}`} /></button>}
+                                        {canViewSubscriptions && <button type="button" className="row-action row-action-quiet" aria-expanded={expandedId === meterBox.id} aria-controls={`meter-box-subscriptions-${meterBox.id}`} aria-label={`${expandedId === meterBox.id ? 'إخفاء' : 'عرض'} مشتركي ${meterBox.box_number}`} title="المشتركون" onClick={() => setExpandedId(expandedId === meterBox.id ? null : meterBox.id)}><Icon name="chevron-down" className={`h-4 w-4 transition-transform ${expandedId === meterBox.id ? 'rotate-180' : ''}`} /></button>}
                                         {(meterBox.canUpdate || meterBox.canDelete) && (
                                             <RowActionsMenu>
                                                 {meterBox.canDelete && (
@@ -158,8 +158,8 @@ export default function Index({
                                         </div>
                                     </td>
                                 </tr>
-                                {canViewSubscribers && expandedId === meterBox.id && <tr className="meter-box-detail"><td colSpan={6}>
-                                    <MeterBoxSubscribers key={`${meterBox.id}-${meterBox.subscribersCount}-${filters.search}-${filters.sort}`} meterBox={meterBox} canRecordReadings={canRecordReadings} canSendMessages={canSendMessages} />
+                                {canViewSubscriptions && expandedId === meterBox.id && <tr className="meter-box-detail"><td colSpan={6}>
+                                    <MeterBoxSubscriptions key={`${meterBox.id}-${meterBox.subscriptionsCount}-${filters.search}-${filters.sort}`} meterBox={meterBox} canRecordReadings={canRecordReadings} canSendMessages={canSendMessages} />
                                 </td></tr>}
                                 </Fragment>
                             ))

@@ -48,7 +48,7 @@ export function readingDiscount(discount, consumption, unitPrice) {
 
 /**
  * What a week's consumption costs: consumption × kilo price, but never
- * less than the minimum payment. With a standing discount the subscriber
+ * less than the minimum payment. With a standing discount the subscription
  * pays the fee less the discount instead, with no minimum: only the kilos
  * the discount leaves are paid for. `discountAmount` is what the discount
  * took off and `minimumApplies` whether the minimum payment is what is due.
@@ -69,24 +69,24 @@ export function weeklyCharges(consumption, unitPrice, minimumPayment, discount =
 }
 
 /**
- * A subscriber row of the subscribers list as the reading form's
- * `fixedSubscriber`: who it is and the reading the new week starts from.
+ * A subscription row of the subscriptions list as the reading form's
+ * `fixedSubscription`: who it is and the reading the new week starts from.
  */
-export function readingOptionFor(subscriber) {
+export function readingOptionFor(subscription) {
     return {
-        value: String(subscriber.id),
-        label: `${subscriber.account_number} — ${(subscriber.display_name ?? subscriber.full_name)}`,
-        lastReading: subscriber.lastReading,
-        lastWeekStart: subscriber.lastReadingWeekStart,
+        value: String(subscription.id),
+        label: `${subscription.account_number} — ${(subscription.display_name ?? subscription.full_name)}`,
+        lastReading: subscription.lastReading,
+        lastWeekStart: subscription.lastReadingWeekStart,
     };
 }
 
 /**
- * Whether the subscriber's reading for the latest ended week (the first of
+ * Whether the subscription's reading for the latest ended week (the first of
  * `weekOptions`) has been entered already.
  */
-export function hasLatestWeekReading(subscriber, weekOptions) {
-    const latestReading = subscriber.meterReadings?.[0];
+export function hasLatestWeekReading(subscription, weekOptions) {
+    const latestReading = subscription.meterReadings?.[0];
 
     return Boolean(latestReading && latestReading.weekStart === weekOptions[0]?.value);
 }

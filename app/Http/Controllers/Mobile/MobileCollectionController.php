@@ -7,8 +7,8 @@ use App\Enums\PermissionKey;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMobileCollectionRequest;
 use App\Models\Closing;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Support\ArabicSearch;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
@@ -16,18 +16,18 @@ use Illuminate\Http\Request;
 
 class MobileCollectionController extends Controller
 {
-    /** How many of the latest statement lines the subscriber page shows. */
+    /** How many of the latest statement lines the subscription page shows. */
     private const RECENT_TRANSACTIONS = 10;
 
-    public function subscribers(Request $request): JsonResponse
+    public function subscriptions(Request $request): JsonResponse
     {
         abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
 
         $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
         $search = trim($validated['search'] ?? '');
-        // Any subscriber of the branch can pay, as on the website: a
+        // Any subscription of the branch can pay, as on the website: a
         // suspended or disconnected one may still be settling their debt.
-        $subscribers = Subscriber::query()
+        $subscriptions = Subscription::query()
             ->visibleTo($request->user())
             ->with('meterBox:id,box_number')
             ->withSum('transactions as balance', 'amount')
@@ -39,41 +39,41 @@ class MobileCollectionController extends Controller
             ->paginate(25);
 
         return response()->json([
-            'data' => $subscribers->getCollection()->map(fn (Subscriber $subscriber): array => [
-                'id' => $subscriber->id,
-                'full_name' => $subscriber->displayName(),
-                'account_number' => $subscriber->account_number,
-                'meter_box_number' => $subscriber->meterBox?->box_number,
-                'balance' => $subscriber->balance ?? '0.00',
-                'status' => $subscriber->status->value,
-                'status_label' => __($subscriber->status->label()),
+            'data' => $subscriptions->getCollection()->map(fn (Subscription $subscription): array => [
+                'id' => $subscription->id,
+                'full_name' => $subscription->displayName(),
+                'account_number' => $subscription->account_number,
+                'meter_box_number' => $subscription->meterBox?->box_number,
+                'balance' => $subscription->balance ?? '0.00',
+                'status' => $subscription->status->value,
+                'status_label' => __($subscription->status->label()),
             ])->all(),
-            'current_page' => $subscribers->currentPage(),
-            'last_page' => $subscribers->lastPage(),
+            'current_page' => $subscriptions->currentPage(),
+            'last_page' => $subscriptions->lastPage(),
         ]);
     }
 
     /**
-     * One subscriber's account as the collector sees it before taking a
+     * One subscription's account as the collector sees it before taking a
      * payment: who they are, what they owe, their last payment and the
      * latest lines of their statement, newest first.
      */
-    public function show(Request $request, string $subscriber): JsonResponse
+    public function show(Request $request, string $subscription): JsonResponse
     {
         abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
 
-        $subscriber = Subscriber::query()
+        $subscription = Subscription::query()
             ->visibleTo($request->user())
             ->with('meterBox:id,box_number,name,name_suffix,location')
-            ->findOrFail($subscriber);
-        $balanceInCents = Closing::cents($subscriber->balance());
-        $lastPayment = $subscriber->transactions()
-            ->where('type', SubscriberTransaction::TYPE_PAYMENT)
+            ->findOrFail($subscription);
+        $balanceInCents = Closing::cents($subscription->balance());
+        $lastPayment = $subscription->transactions()
+            ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
             ->whereNull('cancelled_at')
             ->latest()
             ->latest('id')
             ->first();
-        $recentTransactions = $subscriber->transactions()
+        $recentTransactions = $subscription->transactions()
             ->with(['meterReading', 'referenceTransaction'])
             ->latest()
             ->latest('id')
@@ -82,7 +82,7 @@ class MobileCollectionController extends Controller
 
         // Walk back from the current balance, so each line shows the balance it left.
         $balanceAfterInCents = $balanceInCents;
-        $transactions = $recentTransactions->map(function (SubscriberTransaction $transaction) use (&$balanceAfterInCents): array {
+        $transactions = $recentTransactions->map(function (SubscriptionTransaction $transaction) use (&$balanceAfterInCents): array {
             $entry = [
                 'id' => $transaction->id,
                 'date' => $transaction->created_at->toDateString(),
@@ -100,20 +100,20 @@ class MobileCollectionController extends Controller
         });
 
         return response()->json([
-            'subscriber' => [
-                'id' => $subscriber->id,
-                'full_name' => $subscriber->displayName(),
-                'account_number' => $subscriber->account_number,
-                'meter_box_number' => $subscriber->meterBox?->box_number,
-                'meter_box_name' => $subscriber->meterBox?->displayName(),
-                'meter_box_location' => $subscriber->meterBox?->location,
-                'phone' => $subscriber->contactPhone(),
-                'address' => $subscriber->address,
+            'subscription' => [
+                'id' => $subscription->id,
+                'full_name' => $subscription->displayName(),
+                'account_number' => $subscription->account_number,
+                'meter_box_number' => $subscription->meterBox?->box_number,
+                'meter_box_name' => $subscription->meterBox?->displayName(),
+                'meter_box_location' => $subscription->meterBox?->location,
+                'phone' => $subscription->contactPhone(),
+                'address' => $subscription->address,
                 'balance' => Closing::money($balanceInCents),
-                'status' => $subscriber->status->value,
-                'status_label' => __($subscriber->status->label()),
+                'status' => $subscription->status->value,
+                'status_label' => __($subscription->status->label()),
             ],
-            'last_payment' => $lastPayment ? $this->collectionData($lastPayment->setRelation('subscriber', $subscriber)) : null,
+            'last_payment' => $lastPayment ? $this->collectionData($lastPayment->setRelation('subscription', $subscription)) : null,
             'transactions' => $transactions->all(),
         ]);
     }
@@ -122,21 +122,21 @@ class MobileCollectionController extends Controller
     {
         abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
 
-        $collections = SubscriberTransaction::query()
+        $collections = SubscriptionTransaction::query()
             ->where('recorded_by', $request->user()->id)
-            ->where('type', SubscriberTransaction::TYPE_PAYMENT)
+            ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
             ->whereDate('created_at', today())
-            ->with('subscriber:id,full_name,subscription_name,account_number')
+            ->with('subscription:id,full_name,subscription_name,account_number')
             ->latest()
             ->latest('id')
             ->get();
 
         // Totals are in shekels, as the account is, whatever currency each payment came in.
         return response()->json([
-            'total' => $collections->sum(fn (SubscriberTransaction $transaction): float => -(float) $transaction->amount),
-            'cash_total' => $collections->filter(fn (SubscriberTransaction $transaction): bool => $transaction->payment_method === PaymentMethod::Cash)
-                ->sum(fn (SubscriberTransaction $transaction): float => -(float) $transaction->amount),
-            'data' => $collections->map(fn (SubscriberTransaction $transaction): array => $this->collectionData($transaction))->all(),
+            'total' => $collections->sum(fn (SubscriptionTransaction $transaction): float => -(float) $transaction->amount),
+            'cash_total' => $collections->filter(fn (SubscriptionTransaction $transaction): bool => $transaction->payment_method === PaymentMethod::Cash)
+                ->sum(fn (SubscriptionTransaction $transaction): float => -(float) $transaction->amount),
+            'data' => $collections->map(fn (SubscriptionTransaction $transaction): array => $this->collectionData($transaction))->all(),
         ]);
     }
 
@@ -146,12 +146,12 @@ class MobileCollectionController extends Controller
             return response()->json($this->recordedCollectionData($existingTransaction), 201);
         }
 
-        $subscriber = Subscriber::query()->visibleTo($request->user())->findOrFail($request->integer('subscriber_id'));
-        $this->authorize('recordPayment', $subscriber);
+        $subscription = Subscription::query()->visibleTo($request->user())->findOrFail($request->integer('subscription_id'));
+        $this->authorize('recordPayment', $subscription);
         $validated = $request->validated();
 
         try {
-            $transaction = SubscriberTransaction::recordPayment($subscriber, $request->user(), [
+            $transaction = SubscriptionTransaction::recordPayment($subscription, $request->user(), [
                 'mobile_operation_id' => $validated['mobile_operation_id'],
                 'amount' => $validated['amount'],
                 'currency' => $validated['currency'],
@@ -180,18 +180,18 @@ class MobileCollectionController extends Controller
     }
 
     /**
-     * A payment just recorded, with the subscriber's balance after it, as
+     * A payment just recorded, with the subscription's balance after it, as
      * the website's receipt shows it.
      *
      * @return array<string, mixed>
      */
-    private function recordedCollectionData(SubscriberTransaction $transaction): array
+    private function recordedCollectionData(SubscriptionTransaction $transaction): array
     {
-        $transaction->load('subscriber');
+        $transaction->load('subscription');
 
         return [
             ...$this->collectionData($transaction),
-            'balance_after' => number_format($transaction->subscriber->balance(), 2, '.', ''),
+            'balance_after' => number_format($transaction->subscription->balance(), 2, '.', ''),
         ];
     }
 
@@ -199,13 +199,13 @@ class MobileCollectionController extends Controller
      * The amount is in the currency it was paid in; `amount_in_shekels` is
      * what it took off the balance.
      *
-     * @return array{id: int, subscriber: string, amount: string, currency: string, exchange_rate: ?string, amount_in_shekels: string, payment_method: string, bank_name: ?string, sender_bank_name: ?string, status: string, recorded_at: string, voucher_number: ?string}
+     * @return array{id: int, subscription: string, amount: string, currency: string, exchange_rate: ?string, amount_in_shekels: string, payment_method: string, bank_name: ?string, sender_bank_name: ?string, status: string, recorded_at: string, voucher_number: ?string}
      */
-    private function collectionData(SubscriberTransaction $transaction): array
+    private function collectionData(SubscriptionTransaction $transaction): array
     {
         return [
             'id' => $transaction->id,
-            'subscriber' => $transaction->subscriber->displayName(),
+            'subscription' => $transaction->subscription->displayName(),
             'amount' => $transaction->currency_amount,
             'currency' => $transaction->currency->value,
             'exchange_rate' => $transaction->exchange_rate,

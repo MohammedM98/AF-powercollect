@@ -15,7 +15,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { formatClock, formatDayLabel, formatMoney, formatNumber, formatShortDay } from '@/lib/format';
-import StatementModal from '@/Pages/Subscribers/StatementModal';
+import StatementModal from '@/Pages/Subscriptions/StatementModal';
 
 const STATUS_DOTS = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
@@ -149,7 +149,7 @@ function DayHeader({ day, totals, isToday }) {
 }
 
 /**
- * The financial log: every line of the subscribers' accounts, newest
+ * The financial log: every line of the subscriptions' accounts, newest
  * first and grouped by day, with the period's totals, a daily chart and
  * the totals per branch. Every figure follows the period, the search and
  * the filters.
@@ -189,14 +189,14 @@ export default function Index({
         );
     }
 
-    /** A line's subscriber, in the shape the statement window's header reads. */
+    /** A line's subscription, in the shape the statement window's header reads. */
     function openStatement(entry) {
         statementWindow.open({
-            id: entry.subscriberId,
-            fullName: entry.subscriberName,
-            accountNumber: entry.subscriberAccountNumber,
-            status: entry.subscriberStatus,
-            statusLabel: entry.subscriberStatusLabel,
+            id: entry.subscriptionId,
+            fullName: entry.subscriptionName,
+            accountNumber: entry.subscriptionAccountNumber,
+            status: entry.subscriptionStatus,
+            statusLabel: entry.subscriptionStatusLabel,
             branchName: entry.branchName,
         });
     }
@@ -309,7 +309,7 @@ export default function Index({
                                         {groupedByDay && entry.day !== entries.data[index - 1]?.day && (
                                             <DayHeader day={entry.day} totals={dayTotals[entry.day]} isToday={entry.day === today} />
                                         )}
-                                        <tr {...rowClick(can?.viewSubscribers ? () => openStatement(entry) : null)}>
+                                        <tr {...rowClick(can?.viewSubscriptions ? () => openStatement(entry) : null)}>
                                             <td className="whitespace-nowrap">
                                                 <span className="inline-flex items-center gap-1.5 font-semibold text-gray-900">
                                                     <Icon name="clock" className="h-4 w-4 text-gray-400" />
@@ -320,10 +320,10 @@ export default function Index({
                                             </td>
                                             <td>
                                                 <RowIdentity
-                                                    name={entry.subscriberName}
-                                                    subtitle={entry.subscriberPhone}
+                                                    name={entry.subscriptionName}
+                                                    subtitle={entry.subscriptionPhone}
                                                     subtitleDir="ltr"
-                                                    status={STATUS_DOTS[entry.subscriberStatus]}
+                                                    status={STATUS_DOTS[entry.subscriptionStatus]}
                                                 />
                                             </td>
                                             <td className="text-gray-600">{entry.branchName}</td>
@@ -384,10 +384,10 @@ export default function Index({
                 <Pagination meta={entries} filters={filters} baseUrl="/ledger" extraParams={{ period }} />
             </div>
 
-            {statementWindow.subscriber && (
+            {statementWindow.subscription && (
                 <StatementModal
-                    key={statementWindow.subscriber.id}
-                    subscriber={statementWindow.subscriber}
+                    key={statementWindow.subscription.id}
+                    subscription={statementWindow.subscription}
                     statement={statementWindow.statement}
                     initialForm={statementWindow.form}
                     onSwitch={(header) => statementWindow.open(header)}

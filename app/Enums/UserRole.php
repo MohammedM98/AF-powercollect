@@ -63,9 +63,9 @@ enum UserRole: string
         return match ($this) {
             self::BranchAdmin => [
                 PermissionKey::ViewUsers, PermissionKey::CreateUsers, PermissionKey::UpdateUsers,
-                PermissionKey::ViewSubscribers, PermissionKey::CreateSubscribers, PermissionKey::UpdateSubscribers,
-                PermissionKey::UpdateSubscriberMinimumCharge,
-                PermissionKey::BulkUpdateSubscribers,
+                PermissionKey::ViewSubscriptions, PermissionKey::CreateSubscriptions, PermissionKey::UpdateSubscriptions,
+                PermissionKey::UpdateSubscriptionMinimumCharge,
+                PermissionKey::BulkUpdateSubscriptions,
                 PermissionKey::ViewMeterBoxes, PermissionKey::CreateMeterBoxes, PermissionKey::UpdateMeterBoxes,
                 PermissionKey::ViewSubAreas, PermissionKey::CreateSubAreas, PermissionKey::UpdateSubAreas,
                 PermissionKey::ViewMeterReadings, PermissionKey::RecordMeterReadings, PermissionKey::ApproveMeterReadings,
@@ -81,12 +81,12 @@ enum UserRole: string
                 PermissionKey::ViewMessages, PermissionKey::SendMessages,
             ],
             self::DataEntry => [
-                PermissionKey::ViewSubscribers, PermissionKey::CreateSubscribers, PermissionKey::UpdateSubscribers,
+                PermissionKey::ViewSubscriptions, PermissionKey::CreateSubscriptions, PermissionKey::UpdateSubscriptions,
                 PermissionKey::ViewMeterReadings, PermissionKey::RecordMeterReadings,
-                PermissionKey::CorrectMeterReadings, PermissionKey::BulkUpdateSubscribers,
+                PermissionKey::CorrectMeterReadings, PermissionKey::BulkUpdateSubscriptions,
             ],
             self::Accountant => [
-                PermissionKey::ViewSubscribers,
+                PermissionKey::ViewSubscriptions,
                 PermissionKey::ViewMeterReadings, PermissionKey::ApproveMeterReadings,
                 PermissionKey::AdjustBalances,
                 PermissionKey::PrepareClosings,

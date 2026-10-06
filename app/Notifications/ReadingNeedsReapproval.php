@@ -14,7 +14,7 @@ class ReadingNeedsReapproval extends Notification
 {
     use Queueable;
 
-    public function __construct(public string $subscriberName, public string $editorName) {}
+    public function __construct(public string $subscriptionName, public string $editorName) {}
 
     /**
      * Get the notification's delivery channels.
@@ -35,7 +35,7 @@ class ReadingNeedsReapproval extends Notification
     {
         return [
             'action' => 'meter-reading-needs-reapproval',
-            'subject' => "{$this->subscriberName} — عدّلها {$this->editorName}",
+            'subject' => "{$this->subscriptionName} — عدّلها {$this->editorName}",
         ];
     }
 }

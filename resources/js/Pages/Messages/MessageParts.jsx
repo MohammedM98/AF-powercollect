@@ -62,7 +62,7 @@ export function DeliveryCounts({ batch }) {
 
 /**
  * A message's text with each `{placeholder}` still in it shown as a
- * highlighted tag, so it reads as "filled in for each subscriber" rather
+ * highlighted tag, so it reads as "filled in for each subscription" rather
  * than as a typo.
  */
 export function MessageText({ text }) {
@@ -78,7 +78,7 @@ export function MessageText({ text }) {
 }
 
 /**
- * The text a subscriber gets: every `{placeholder}` replaced by their own
+ * The text a subscription gets: every `{placeholder}` replaced by their own
  * value, the same way the server fills it in (MessageComposer::render()).
  */
 export function renderMessage(body, variables) {

@@ -48,7 +48,7 @@ class LocationSeeder extends Seeder
     }
 
     /**
-     * The مخيم 2 branch the area's boxes and subscribers belong to: the one
+     * The مخيم 2 branch the area's boxes and subscriptions belong to: the one
      * named «مخيم 2» (or whose name contains it), else the one working in
      * the area. If there is none yet, it is created.
      */

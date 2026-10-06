@@ -21,7 +21,7 @@ function Shekels({ amount, className = 'text-gray-900' }) {
     );
 }
 
-/** The branch's subscribers split by status: one bar, then each status in words. */
+/** The branch's subscriptions split by status: one bar, then each status in words. */
 function StatusMix({ statusCounts }) {
     const shown = statusCounts.filter((status) => status.count > 0);
 
@@ -146,7 +146,7 @@ function TeamTable({ team }) {
     );
 }
 
-/** The last two weeks, newest first: each day's new subscribers, entries, charges and busiest member. */
+/** The last two weeks, newest first: each day's new subscriptions, entries, charges and busiest member. */
 function WorkLog({ days }) {
     return (
         <section className="xl:col-span-2">
@@ -173,7 +173,7 @@ function WorkLog({ days }) {
                                         )}
                                     </span>
                                 </td>
-                                <td className="font-display font-semibold text-gray-900">{formatNumber(day.newSubscribers)}</td>
+                                <td className="font-display font-semibold text-gray-900">{formatNumber(day.newSubscriptions)}</td>
                                 <td className="font-display font-semibold text-gray-900">{formatNumber(day.entries)}</td>
                                 <td>
                                     {day.chargesCount === 0 ? (
@@ -195,8 +195,8 @@ function WorkLog({ days }) {
     );
 }
 
-/** The newest subscribers, as a timeline: who registered them, and when. */
-function LatestRegistrations({ subscribers }) {
+/** The newest subscriptions, as a timeline: who registered them, and when. */
+function LatestRegistrations({ subscriptions }) {
     return (
         <section className="rise-in self-start rounded-panel border border-gray-100 bg-surface p-6 shadow-card">
             <div className="flex items-baseline justify-between gap-3">
@@ -204,28 +204,28 @@ function LatestRegistrations({ subscribers }) {
                 <span className="text-xs text-gray-500">أحدث المشتركين المسجلين</span>
             </div>
 
-            {subscribers.length === 0 ? (
+            {subscriptions.length === 0 ? (
                 <p className="py-12 text-center text-sm text-gray-500">لا مشتركين في هذا الفرع بعد.</p>
             ) : (
                 <ol className="relative mt-5 space-y-5 before:absolute before:inset-y-2 before:start-[5px] before:w-px before:bg-gray-200">
-                    {subscribers.map((subscriber) => (
-                        <li key={subscriber.id} className="relative ps-7">
+                    {subscriptions.map((subscription) => (
+                        <li key={subscription.id} className="relative ps-7">
                             <span
-                                className={`absolute start-0 top-2 h-[11px] w-[11px] rounded-full ring-4 ring-surface ${TIMELINE_DOTS[subscriber.status]}`}
+                                className={`absolute start-0 top-2 h-[11px] w-[11px] rounded-full ring-4 ring-surface ${TIMELINE_DOTS[subscription.status]}`}
                                 aria-hidden="true"
                             />
                             <div className="flex items-baseline justify-between gap-3">
-                                <p className="min-w-0 break-words font-semibold text-gray-900">{subscriber.name}</p>
-                                <time dateTime={subscriber.createdAt} className="shrink-0 whitespace-nowrap text-xs text-gray-500">
-                                    {timeAgo(subscriber.createdAt)}
+                                <p className="min-w-0 break-words font-semibold text-gray-900">{subscription.name}</p>
+                                <time dateTime={subscription.createdAt} className="shrink-0 whitespace-nowrap text-xs text-gray-500">
+                                    {timeAgo(subscription.createdAt)}
                                 </time>
                             </div>
                             <p className="mt-0.5 flex flex-wrap gap-x-1.5 text-xs text-gray-500">
-                                {subscriber.registeredByName && <span>بواسطة {subscriber.registeredByName}</span>}
-                                {subscriber.registeredByName && subscriber.phone && <span aria-hidden="true">·</span>}
-                                {subscriber.phone && (
+                                {subscription.registeredByName && <span>بواسطة {subscription.registeredByName}</span>}
+                                {subscription.registeredByName && subscription.phone && <span aria-hidden="true">·</span>}
+                                {subscription.phone && (
                                     <span dir="ltr" className="tabular-nums">
-                                        {subscriber.phone}
+                                        {subscription.phone}
                                     </span>
                                 )}
                             </p>
@@ -238,9 +238,9 @@ function LatestRegistrations({ subscribers }) {
 }
 
 /**
- * One branch's work: its subscribers by status, what it charged, its
+ * One branch's work: its subscriptions by status, what it charged, its
  * staff's entries over the last month, each member of staff, the last
- * two weeks day by day and its newest subscribers. The Super Admin gets
+ * two weeks day by day and its newest subscriptions. The Super Admin gets
  * here from the branch cards; a branch's staff land here directly.
  */
 export default function Show({ branch, canCompareBranches, dailyRegistrations, dailyCharges, team, workLog, latestRegistrations }) {
@@ -289,7 +289,7 @@ export default function Show({ branch, canCompareBranches, dailyRegistrations, d
             <Head title={`أداء ${branch.name}`} />
 
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                <KpiTile hero className="sm:col-span-2" label="المشتركون" value={formatNumber(branch.subscribers)}>
+                <KpiTile hero className="sm:col-span-2" label="المشتركون" value={formatNumber(branch.subscriptions)}>
                     <StatusMix statusCounts={branch.statusCounts} />
                 </KpiTile>
                 <KpiTile
@@ -329,7 +329,7 @@ export default function Show({ branch, canCompareBranches, dailyRegistrations, d
 
             <div className="mt-5 grid items-start gap-5 xl:grid-cols-3">
                 <WorkLog days={workLog} />
-                <LatestRegistrations subscribers={latestRegistrations} />
+                <LatestRegistrations subscriptions={latestRegistrations} />
             </div>
         </AuthenticatedLayout>
     );

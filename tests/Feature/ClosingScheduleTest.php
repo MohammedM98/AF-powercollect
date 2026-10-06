@@ -7,8 +7,8 @@ use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingSetting;
 use App\Models\Permission;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -73,8 +73,8 @@ class ClosingScheduleTest extends TestCase
         Closing::openForActiveBranches('2026-09-29');
         Closing::openForActiveBranches('2026-09-30');
 
-        $this->assertSame([$before->id], Closing::where('branch_id', $branch->id)->whereDate('period_start', '2026-09-29')->sole()->lines()->pluck('subscriber_transaction_id')->all());
-        $this->assertSame([$after->id], Closing::where('branch_id', $branch->id)->whereDate('period_start', '2026-09-30')->sole()->lines()->pluck('subscriber_transaction_id')->all());
+        $this->assertSame([$before->id], Closing::where('branch_id', $branch->id)->whereDate('period_start', '2026-09-29')->sole()->lines()->pluck('subscription_transaction_id')->all());
+        $this->assertSame([$after->id], Closing::where('branch_id', $branch->id)->whereDate('period_start', '2026-09-30')->sole()->lines()->pluck('subscription_transaction_id')->all());
     }
 
     public function test_with_automatic_opening_off_closings_open_only_by_hand(): void
@@ -91,10 +91,10 @@ class ClosingScheduleTest extends TestCase
         $this->assertSame(Branch::where('is_active', true)->count(), Closing::count());
     }
 
-    private function payment(Branch $branch, string $at): SubscriberTransaction
+    private function payment(Branch $branch, string $at): SubscriptionTransaction
     {
         $this->travelTo(Carbon::parse($at, 'Asia/Gaza'));
-        $payment = SubscriberTransaction::recordPayment(Subscriber::factory()->create(['branch_id' => $branch->id]), User::factory()->create(), [
+        $payment = SubscriptionTransaction::recordPayment(Subscription::factory()->create(['branch_id' => $branch->id]), User::factory()->create(), [
             'amount' => '10', 'currency' => 'ILS', 'payment_method' => 'cash',
         ]);
         $this->travelTo(Carbon::parse('2026-10-01 10:00', 'Asia/Gaza'));

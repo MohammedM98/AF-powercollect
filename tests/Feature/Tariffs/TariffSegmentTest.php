@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Tariffs;
 
-use App\Models\Subscriber;
+use App\Models\Subscription;
 use App\Models\Tariff;
 use App\Models\TariffSegment;
 use App\Models\User;
@@ -59,13 +59,13 @@ class TariffSegmentTest extends TestCase
         $this->assertDatabaseCount('tariff_segments', 1);
     }
 
-    public function test_the_tariffs_page_lists_the_segments_with_their_subscriber_counts_across_tariffs(): void
+    public function test_the_tariffs_page_lists_the_segments_with_their_subscription_counts_across_tariffs(): void
     {
         $residential = Tariff::factory()->residential()->create();
         $commercial = Tariff::factory()->commercial()->create();
         $segment = TariffSegment::factory()->create(['name' => 'مساجد']);
-        Subscriber::factory()->create(['tariff_id' => $residential->id, 'tariff_segment_id' => $segment->id]);
-        Subscriber::factory()->create(['tariff_id' => $commercial->id, 'tariff_segment_id' => $segment->id]);
+        Subscription::factory()->create(['tariff_id' => $residential->id, 'tariff_segment_id' => $segment->id]);
+        Subscription::factory()->create(['tariff_id' => $commercial->id, 'tariff_segment_id' => $segment->id]);
 
         $this->actingAs(User::factory()->superAdmin()->create())
             ->get(route('tariffs.index'))
@@ -73,7 +73,7 @@ class TariffSegmentTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('canCreateSegment', true)
                 ->where('segments.0.name', 'مساجد')
-                ->where('segments.0.subscribersCount', 2)
+                ->where('segments.0.subscriptionsCount', 2)
                 ->where('segments.0.canUpdate', true));
     }
 }

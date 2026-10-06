@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('transaction_amendments', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('transaction_id')->constrained('subscriber_transactions')->cascadeOnDelete();
+            $table->foreignId('transaction_id')->constrained('subscription_transactions')->cascadeOnDelete();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->json('changes');
             $table->text('reason');

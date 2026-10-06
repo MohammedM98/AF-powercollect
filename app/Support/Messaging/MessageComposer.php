@@ -4,21 +4,21 @@ namespace App\Support\Messaging;
 
 use App\Enums\MessageKind;
 use App\Enums\MeterReadingStatus;
-use App\Models\Subscriber;
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
- * Who a message to subscribers goes to, and its text for each of them: the
- * wording's `{placeholders}` are filled in with the subscriber's own
+ * Who a message to subscriptions goes to, and its text for each of them: the
+ * wording's `{placeholders}` are filled in with the subscription's own
  * details — their name, balance, and for a weekly reading message that
  * week's reading.
  */
 class MessageComposer
 {
     /**
-     * The most subscribers one send can reach.
+     * The most subscriptions one send can reach.
      */
     public const MAX_RECIPIENTS = 5000;
 
@@ -42,16 +42,16 @@ class MessageComposer
     ];
 
     /**
-     * The subscribers the actor may write to that match the criteria, by
+     * The subscriptions the actor may write to that match the criteria, by
      * name: for a weekly reading those with a reading for the week, for a
      * balance reminder those who owe more than the minimum balance.
      *
-     * @param  array{week_start?: ?string, approved_only?: bool, min_balance?: float|string|null, branch_id?: int|string|null, status?: ?string, meter_box_name?: ?string, meter_box_id?: int|string|null, circuit_breaker_id?: int|string|null, search?: ?string, subscriber_ids?: array<int, int|string>|null}  $criteria
-     * @return Collection<int, Subscriber>
+     * @param  array{week_start?: ?string, approved_only?: bool, min_balance?: float|string|null, branch_id?: int|string|null, status?: ?string, meter_box_name?: ?string, meter_box_id?: int|string|null, circuit_breaker_id?: int|string|null, search?: ?string, subscription_ids?: array<int, int|string>|null}  $criteria
+     * @return Collection<int, Subscription>
      */
     public function recipients(MessageKind $kind, User $actor, array $criteria): Collection
     {
-        $query = Subscriber::query()
+        $query = Subscription::query()
             ->visibleTo($actor)
             ->with(['branch', 'meterBox'])
             ->withSum('transactions as balance', 'amount')
@@ -71,7 +71,7 @@ class MessageComposer
 
         if ($kind === MessageKind::BalanceReminder) {
             $query->whereRaw(
-                '(select coalesce(sum(amount), 0) from subscriber_transactions where subscriber_transactions.subscriber_id = subscribers.id) > CAST(? AS DECIMAL(12, 2))',
+                '(select coalesce(sum(amount), 0) from subscription_transactions where subscription_transactions.subscription_id = subscriptions.id) > CAST(? AS DECIMAL(12, 2))',
                 [(float) ($criteria['min_balance'] ?? 0)],
             );
         }
@@ -80,24 +80,24 @@ class MessageComposer
     }
 
     /**
-     * The subscriber's own value for each placeholder the kind of message
+     * The subscription's own value for each placeholder the kind of message
      * can use. Recipients come from recipients(), with their balance and
      * (for a weekly reading) the week's reading loaded.
      *
      * @return array<string, string>
      */
-    public function variables(Subscriber $subscriber, MessageKind $kind): array
+    public function variables(Subscription $subscription, MessageKind $kind): array
     {
         $variables = [
-            'الاسم' => $subscriber->displayName(),
-            'رقم_الاشتراك' => (string) $subscriber->account_number,
-            'الطبلون' => $subscriber->meterBox?->displayName() ?? '',
-            'الفرع' => $subscriber->branch?->name ?? '',
-            'الرصيد' => self::money((float) ($subscriber->balance ?? $subscriber->balance())),
+            'الاسم' => $subscription->displayName(),
+            'رقم_الاشتراك' => (string) $subscription->account_number,
+            'الطبلون' => $subscription->meterBox?->displayName() ?? '',
+            'الفرع' => $subscription->branch?->name ?? '',
+            'الرصيد' => self::money((float) ($subscription->balance ?? $subscription->balance())),
         ];
 
         if ($kind === MessageKind::WeeklyReading) {
-            $reading = $subscriber->relationLoaded('meterReadings') ? $subscriber->meterReadings->first() : null;
+            $reading = $subscription->relationLoaded('meterReadings') ? $subscription->meterReadings->first() : null;
 
             $variables += [
                 'تاريخ_القراءة' => ($reading?->week_end ?? $reading?->week_start)?->format('j/n/Y') ?? '',
@@ -164,8 +164,8 @@ class MessageComposer
             $query->whereHas('meterBox', fn (Builder $box) => $box->where('name', $criteria['meter_box_name']));
         }
 
-        if (filled($criteria['subscriber_ids'] ?? null)) {
-            $query->whereIn('id', array_map('intval', (array) $criteria['subscriber_ids']));
+        if (filled($criteria['subscription_ids'] ?? null)) {
+            $query->whereIn('id', array_map('intval', (array) $criteria['subscription_ids']));
         }
 
         $search = trim((string) ($criteria['search'] ?? ''));

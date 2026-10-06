@@ -2,7 +2,7 @@
 
 ## Goal
 
-In the subscriber row "more" menu (بيانات المشترك، تعديل البيانات الشخصية، إضافة اشتراك، إرسال رسالة، تسجيل دفعة، إضافة تحميل، إضافة خصم، …) every icon tile is plain grey until the item is hovered or focused. Make each icon tile **coloured all the time**, in its own tone, so the actions are easy to tell apart at a glance.
+In the subscription row "more" menu (بيانات المشترك، تعديل البيانات الشخصية، إضافة اشتراك، إرسال رسالة، تسجيل دفعة، إضافة تحميل، إضافة خصم، …) every icon tile is plain grey until the item is hovered or focused. Make each icon tile **coloured all the time**, in its own tone, so the actions are easy to tell apart at a glance.
 
 - **At rest:** a soft tinted tile in the item's tone with a tone-coloured icon (e.g. a light-green tile with a green banknote for تسجيل دفعة).
 - **On hover / keyboard focus:** keep the current behaviour: a solid tile in the tone with a white icon.
@@ -21,7 +21,7 @@ unavailable
     : `bg-gray-100 text-gray-700 group-hover/item:text-white group-focus-visible/item:text-white ${TONES[item.tone] ?? TONES.graphite}`
 ```
 
-The menu items and their tones are declared in `resources/js/Pages/Subscribers/Index.jsx` (`tone: 'graphite' | 'blue' | 'indigo' | 'sky' | 'emerald' | 'amber' | 'violet' | 'teal' | 'brand'`). **Do not change that file.** The tones are already set there; only the rendering changes.
+The menu items and their tones are declared in `resources/js/Pages/Subscriptions/Index.jsx` (`tone: 'graphite' | 'blue' | 'indigo' | 'sky' | 'emerald' | 'amber' | 'violet' | 'teal' | 'brand'`). **Do not change that file.** The tones are already set there; only the rendering changes.
 
 ## Implementation
 
@@ -109,7 +109,7 @@ const tone = TONES[item.tone] ?? TONES.graphite;
 
 ## Done when
 
-- Opening the row menu on the Subscribers page (`/subscribers`, the "…" button on a row) shows every available item's icon tile tinted in its tone. In the screenshot set: بيانات المشترك grey, تعديل البيانات الشخصية blue, إضافة اشتراك indigo, إرسال رسالة sky, تسجيل دفعة green, إضافة تحميل amber, إضافة خصم violet.
+- Opening the row menu on the Subscriptions page (`/subscriptions`, the "…" button on a row) shows every available item's icon tile tinted in its tone. In the screenshot set: بيانات المشترك grey, تعديل البيانات الشخصية blue, إضافة اشتراك indigo, إرسال رسالة sky, تسجيل دفعة green, إضافة تحميل amber, إضافة خصم violet.
 - Hovering or arrowing onto an item still fills its tile solid with a white icon.
 - Items shown with "بدون صلاحية" or a disabled hint stay grey and faded.
 - Looks right in both light and dark themes, and on the phone bottom-sheet layout.

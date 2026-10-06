@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * One send to a group of subscribers, with a message for each of them.
+ * One send to a group of subscriptions, with a message for each of them.
  * `branch_id` is empty when a Super Admin wrote to several branches at once.
  */
 #[Fillable(['branch_id', 'kind', 'channel', 'body', 'week_start', 'created_by'])]
@@ -45,7 +45,7 @@ class MessageBatch extends Model
 
     public function messages(): HasMany
     {
-        return $this->hasMany(SubscriberMessage::class);
+        return $this->hasMany(SubscriptionMessage::class);
     }
 
     /**

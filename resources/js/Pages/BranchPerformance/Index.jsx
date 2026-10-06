@@ -10,7 +10,7 @@ import BranchMark, { branchPlace } from './BranchMark';
 
 const SORTS = [
     { value: 'revenue', label: 'الإيرادات' },
-    { value: 'subscribers', label: 'المشتركون' },
+    { value: 'subscriptions', label: 'المشتركون' },
     { value: 'activity', label: 'النشاط' },
 ];
 
@@ -25,11 +25,11 @@ function MiniStat({ label, value }) {
 
 /**
  * One branch: its place in the order, what it charged, how many of its
- * subscribers are active, its entries over two weeks, and its staff. The
+ * subscriptions are active, its entries over two weeks, and its staff. The
  * whole card opens the branch.
  */
 function BranchCard({ branch, style }) {
-    const activeShare = percentOf(branch.activeSubscribers, branch.subscribers);
+    const activeShare = percentOf(branch.activeSubscriptions, branch.subscriptions);
 
     return (
         <article
@@ -74,12 +74,12 @@ function BranchCard({ branch, style }) {
             <div className="mt-5">
                 <div className="flex items-baseline justify-between gap-3 text-xs">
                     <span className="text-gray-500">
-                        <b className="font-display text-sm text-gray-900">{formatNumber(branch.activeSubscribers)}</b> نشط من{' '}
-                        {formatNumber(branch.subscribers)}
+                        <b className="font-display text-sm text-gray-900">{formatNumber(branch.activeSubscriptions)}</b> نشط من{' '}
+                        {formatNumber(branch.subscriptions)}
                     </span>
                     <b className="font-display text-gray-700">{activeShare}%</b>
                 </div>
-                <MeterBar value={branch.activeSubscribers} max={branch.subscribers} className="mt-2" />
+                <MeterBar value={branch.activeSubscriptions} max={branch.subscriptions} className="mt-2" />
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-2.5">
@@ -137,8 +137,8 @@ export default function Index({ sort, summary, branches }) {
                 <KpiTile
                     icon="users"
                     label="المشتركون النشطون"
-                    value={formatNumber(summary.activeSubscribers)}
-                    hint={`${percentOf(summary.activeSubscribers, summary.subscribers)}% من ${formatNumber(summary.subscribers)} مشترك`}
+                    value={formatNumber(summary.activeSubscriptions)}
+                    hint={`${percentOf(summary.activeSubscriptions, summary.subscriptions)}% من ${formatNumber(summary.subscriptions)} مشترك`}
                 />
                 <KpiTile
                     icon="chart"

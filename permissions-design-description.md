@@ -16,7 +16,7 @@ Each resource has its own clearly labeled row. The available actions follow the 
 
 | Resource | Available actions |
 | --- | --- |
-| Subscribers (المشتركون) | View, add, edit; separate sensitive permission to edit the minimum charge |
+| Subscriptions (المشتركون) | View, add, edit; separate sensitive permission to edit the minimum charge |
 | Meter readings (قراءات العدادات) | View, record |
 | Collections (التحصيل) | View, record, confirm |
 | Users (المستخدمون) | View, add, edit |

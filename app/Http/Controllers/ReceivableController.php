@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\SubscriberStatus;
-use App\Http\Concerns\BuildsSubscriberStatement;
+use App\Enums\SubscriptionStatus;
+use App\Http\Concerns\BuildsSubscriptionStatement;
 use App\Http\Concerns\FiltersDataTable;
 use App\Models\Branch;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Support\DailySeries;
 use App\Support\DebtAging;
@@ -19,14 +19,14 @@ use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 /**
- * The debts report (أعمار الديون): every subscriber the user may see who
+ * The debts report (أعمار الديون): every subscription the user may see who
  * owes money, with how old their debt is (see DebtAging), the totals per
  * age and the oldest debts first to chase. Read-only; a row opens the
- * subscriber's statement over the page.
+ * subscription's statement over the page.
  */
 class ReceivableController extends Controller
 {
-    use BuildsSubscriberStatement, FiltersDataTable;
+    use BuildsSubscriptionStatement, FiltersDataTable;
 
     private const DEFAULT_PER_PAGE = 25;
 
@@ -43,10 +43,10 @@ class ReceivableController extends Controller
 
     public function index(Request $request): InertiaResponse
     {
-        $this->authorize('viewDebtAging', SubscriberTransaction::class);
+        $this->authorize('viewDebtAging', SubscriptionTransaction::class);
 
         $actor = $request->user();
-        $debtors = $this->withAgeFilter((new DebtAging(DailySeries::today()))->debtors($this->filteredSubscribers($request, $actor)), $request);
+        $debtors = $this->withAgeFilter((new DebtAging(DailySeries::today()))->debtors($this->filteredSubscriptions($request, $actor)), $request);
         $perPage = $this->dataTablePerPage($request, self::DEFAULT_PER_PAGE);
         $page = max(1, (int) $request->input('page', 1));
         $sorted = $this->sortDebtors($debtors, $request);
@@ -73,23 +73,23 @@ class ReceivableController extends Controller
     }
 
     /**
-     * The subscribers the user may see — in their own branch (any branch
+     * The subscriptions the user may see — in their own branch (any branch
      * for the Super Admin) — narrowed by the search box, the branch and
      * the status.
      *
-     * @return Builder<Subscriber>
+     * @return Builder<Subscription>
      */
-    private function filteredSubscribers(Request $request, User $actor): Builder
+    private function filteredSubscriptions(Request $request, User $actor): Builder
     {
         $search = $this->searchTerm($request);
         $branchId = $actor->isSuperAdmin() ? $this->filterValue($request, 'branch_id') : null;
-        $status = SubscriberStatus::tryFrom((string) $this->filterValue($request, 'status'));
+        $status = SubscriptionStatus::tryFrom((string) $this->filterValue($request, 'status'));
 
-        return Subscriber::query()
+        return Subscription::query()
             ->visibleTo($actor)
             ->with('branch')
-            ->when($branchId, fn (Builder $query) => $query->where('subscribers.branch_id', $branchId))
-            ->when($status, fn (Builder $query) => $query->where('subscribers.status', $status->value))
+            ->when($branchId, fn (Builder $query) => $query->where('subscriptions.branch_id', $branchId))
+            ->when($status, fn (Builder $query) => $query->where('subscriptions.status', $status->value))
             ->when($search !== '', fn (Builder $query) => $query->matchingSearch($search));
     }
 
@@ -133,7 +133,7 @@ class ReceivableController extends Controller
             'oldest_days' => $debtor['oldestDays'],
             // Never paid sorts as the longest wait.
             'last_payment_days' => $debtor['lastPaymentDays'] ?? PHP_INT_MAX,
-            'name' => $debtor['subscriber']->displayName(),
+            'name' => $debtor['subscription']->displayName(),
             default => $debtor['buckets'][$sort],
         };
 
@@ -141,7 +141,7 @@ class ReceivableController extends Controller
             ->sort(function (array $first, array $second) use ($value, $direction): int {
                 $order = $value($first) <=> $value($second);
 
-                return ($direction === 'desc' ? -$order : $order) ?: $first['subscriber']->id <=> $second['subscriber']->id;
+                return ($direction === 'desc' ? -$order : $order) ?: $first['subscription']->id <=> $second['subscription']->id;
             })
             ->values();
     }
@@ -178,21 +178,21 @@ class ReceivableController extends Controller
     }
 
     /**
-     * @param  array{subscriber: Subscriber, balance: int, buckets: array<string, int>, oldestDate: ?string, oldestDays: int, lastPaymentDate: ?string, lastPaymentDays: ?int}  $debtor
+     * @param  array{subscription: Subscription, balance: int, buckets: array<string, int>, oldestDate: ?string, oldestDays: int, lastPaymentDate: ?string, lastPaymentDays: ?int}  $debtor
      * @return array<string, mixed>
      */
     private function row(array $debtor): array
     {
-        $subscriber = $debtor['subscriber'];
+        $subscription = $debtor['subscription'];
 
         return [
-            'id' => $subscriber->id,
-            'name' => $subscriber->displayName(),
-            'accountNumber' => $subscriber->account_number,
-            'phone' => $subscriber->contactPhone(),
-            'status' => $subscriber->status->value,
-            'statusLabel' => __($subscriber->status->label()),
-            'branchName' => $subscriber->branch->name,
+            'id' => $subscription->id,
+            'name' => $subscription->displayName(),
+            'accountNumber' => $subscription->account_number,
+            'phone' => $subscription->contactPhone(),
+            'status' => $subscription->status->value,
+            'statusLabel' => __($subscription->status->label()),
+            'branchName' => $subscription->branch->name,
             'balance' => self::shekels($debtor['balance']),
             'buckets' => array_map(fn (int $cents): float => self::shekels($cents), $debtor['buckets']),
             'oldestDate' => $debtor['oldestDate'],
@@ -220,7 +220,7 @@ class ReceivableController extends Controller
     /**
      * The filters: the branch (the Super Admin's only — everyone else's
      * report is their own branch), how old the debt is, and the
-     * subscriber's status.
+     * subscription's status.
      *
      * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string}>}>
      */
@@ -229,7 +229,7 @@ class ReceivableController extends Controller
         $groups = $actor->isSuperAdmin() ? [$this->branchFilterGroup()] : [];
 
         $groups[] = $this->filterGroup('age', 'عمر الدين', collect(self::AGE_FILTERS)->map(fn (string $label, string $days): array => ['value' => $days, 'label' => $label])->values());
-        $groups[] = $this->filterGroup('status', 'حالة المشترك', SubscriberStatus::options());
+        $groups[] = $this->filterGroup('status', 'حالة المشترك', SubscriptionStatus::options());
 
         return $groups;
     }

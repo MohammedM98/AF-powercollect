@@ -66,7 +66,7 @@ class MeterReadingPolicy
     }
 
     /**
-     * Approving charges the reading to the subscriber, so it takes its own
+     * Approving charges the reading to the subscription, so it takes its own
      * permission; only pending readings in the actor's own branch (any
      * branch for the Super Admin) can be approved.
      */

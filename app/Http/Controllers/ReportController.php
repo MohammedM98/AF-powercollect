@@ -6,7 +6,7 @@ use App\Http\Concerns\PresentsClosings;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingSetting;
-use App\Models\SubscriberTransaction;
+use App\Models\SubscriptionTransaction;
 use App\Support\BranchReport;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
@@ -23,7 +23,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * The reports page (التقارير): a branch's day — or any stretch of days, or
  * every branch the user may see — before it is closed: how what the
- * subscribers owe moved, where the payments came in, the readings, each
+ * subscriptions owe moved, where the payments came in, the readings, each
  * day's closing, and every line, which download as a CSV. Read-only, for
  * whoever may open the closings, over the same branches.
  */
@@ -76,12 +76,12 @@ class ReportController extends Controller
             'days' => $chosen->isEmpty() ? [] : $report->days(),
             'check' => $oneBranchDay ? $report->dayCheck() : null,
             'transactions' => $report->lines($kind)
-                ->with(['subscriber.branch', 'subscriber.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading'])
-                ->orderByDesc('subscriber_transactions.created_at')
-                ->orderByDesc('subscriber_transactions.id')
+                ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading'])
+                ->orderByDesc('subscription_transactions.created_at')
+                ->orderByDesc('subscription_transactions.id')
                 ->paginate(self::PER_PAGE)
                 ->withQueryString()
-                ->through(fn (SubscriberTransaction $line): array => $this->row($line)),
+                ->through(fn (SubscriptionTransaction $line): array => $this->row($line)),
         ]);
     }
 
@@ -94,9 +94,9 @@ class ReportController extends Controller
         $this->authorize('export', Closing::class);
         ['chosen' => $chosen, 'from' => $from, 'to' => $to, 'kind' => $kind] = $this->filters($request, $this->visibleBranches($request->user()));
         $lines = (new BranchReport($chosen, $from, $to))->lines($kind)
-            ->with(['subscriber.branch', 'subscriber.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading'])
-            ->orderBy('subscriber_transactions.created_at')
-            ->orderBy('subscriber_transactions.id');
+            ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading'])
+            ->orderBy('subscription_transactions.created_at')
+            ->orderBy('subscription_transactions.id');
         $columns = ['التاريخ', 'الوقت', 'الفرع', 'رقم السند', 'المشترك', 'رقم الحساب', 'الطبلون', 'النوع', 'البيان', 'طريقة الدفع', 'الحساب', 'العملة', 'المبلغ بالعملة', 'عليه', 'له', 'سجّله', 'ملغى'];
 
         return response()->streamDownload(function () use ($lines, $columns): void {
@@ -107,7 +107,7 @@ class ReportController extends Controller
             foreach ($lines->lazy(500) as $line) {
                 $row = $this->row($line);
                 fputcsv($file, [
-                    $row['day'], $row['time'], $row['branchName'], $row['voucherNumber'], $row['subscriberName'], $row['accountNumber'], $row['meterBoxNumber'],
+                    $row['day'], $row['time'], $row['branchName'], $row['voucherNumber'], $row['subscriptionName'], $row['accountNumber'], $row['meterBoxNumber'],
                     $row['typeLabel'], $row['description'], $row['methodLabel'], $row['account'], $row['currency'], $row['currencyAmount'],
                     $row['isCredit'] ? '' : $row['amount'], $row['isCredit'] ? $row['amount'] : '', $row['recordedBy'], $row['isCancelled'] ? 'نعم' : '',
                 ]);
@@ -184,7 +184,7 @@ class ReportController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function row(SubscriberTransaction $line): array
+    private function row(SubscriptionTransaction $line): array
     {
         $isPayment = $line->isPayment();
 
@@ -192,18 +192,18 @@ class ReportController extends Controller
             'id' => $line->id,
             'day' => ClosingPeriods::dayOf($line->created_at),
             'time' => DailySeries::localTime($line->created_at),
-            'branchName' => $line->subscriber->branch?->name,
+            'branchName' => $line->subscription->branch?->name,
             'voucherNumber' => $line->printedVoucherNumber(),
-            'subscriberName' => $line->subscriber->displayName(),
-            'accountNumber' => $line->subscriber->account_number,
-            'meterBoxNumber' => $line->subscriber->meterBox?->box_number,
+            'subscriptionName' => $line->subscription->displayName(),
+            'accountNumber' => $line->subscription->account_number,
+            'meterBoxNumber' => $line->subscription->meterBox?->box_number,
             'type' => $line->type,
             'typeLabel' => $line->typeLabel(),
             'description' => $line->description(),
             'methodLabel' => $isPayment && $line->payment_method ? __($line->payment_method->label()) : null,
             'account' => $isPayment ? ($line->bank_name ?? 'الصندوق النقدي') : null,
             'currency' => $isPayment ? $line->currency?->value : null,
-            'currencyAmount' => $isPayment && $line->currency_amount !== null ? SubscriberTransaction::formatAmount($line->currency_amount) : null,
+            'currencyAmount' => $isPayment && $line->currency_amount !== null ? SubscriptionTransaction::formatAmount($line->currency_amount) : null,
             'isCredit' => $line->isCredit(),
             'isCancelled' => $line->isCancelled() || $line->isReversal(),
             'amount' => ltrim((string) $line->amount, '-'),

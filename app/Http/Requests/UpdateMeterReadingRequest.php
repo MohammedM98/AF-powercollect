@@ -19,7 +19,7 @@ class UpdateMeterReadingRequest extends FormRequest
 
     /**
      * Only the reading itself and its notes can be corrected — the
-     * subscriber and week stay fixed.
+     * subscription and week stay fixed.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -34,7 +34,7 @@ class UpdateMeterReadingRequest extends FormRequest
     }
 
     /**
-     * A reading can only be corrected while it is the subscriber's latest
+     * A reading can only be corrected while it is the subscription's latest
      * week, since the following week starts from it.
      *
      * @return array<int, callable>
@@ -51,7 +51,7 @@ class UpdateMeterReadingRequest extends FormRequest
                 $meterReading = $this->route('meter_reading');
 
                 $hasLaterWeek = MeterReading::query()
-                    ->where('subscriber_id', $meterReading->subscriber_id)
+                    ->where('subscription_id', $meterReading->subscription_id)
                     ->where('week_start', '>', $meterReading->week_start)
                     ->exists();
 

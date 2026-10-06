@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('meter_readings', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('subscriber_id')->constrained()->restrictOnDelete();
+            $table->foreignId('subscription_id')->constrained()->restrictOnDelete();
             $table->foreignId('branch_id')->constrained();
 
             $table->date('week_start');
@@ -26,7 +26,7 @@ return new class extends Migration
             $table->decimal('reading_fee', 10, 2)->default(0);
             $table->decimal('minimum_payment', 10, 2)->default(0);
 
-            // The subscriber's standing discount, copied the same way.
+            // The subscription's standing discount, copied the same way.
             $table->string('discount_method')->nullable();
             $table->decimal('discount_value', 12, 2)->nullable();
             $table->string('discount_segment', 100)->nullable();
@@ -37,7 +37,7 @@ return new class extends Migration
             $table->string('status')->default('pending');
             $table->foreignId('recorded_by')->constrained('users')->restrictOnDelete();
 
-            // Who approved a reading and when — the moment its charge reaches the subscriber's transactions.
+            // Who approved a reading and when — the moment its charge reaches the subscription's transactions.
             $table->foreignId('approved_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamp('approved_at')->nullable();
 
@@ -45,7 +45,7 @@ return new class extends Migration
             $table->uuid('mobile_operation_id')->nullable()->unique();
             $table->timestamps();
 
-            $table->unique(['subscriber_id', 'week_start']);
+            $table->unique(['subscription_id', 'week_start']);
             $table->index(['branch_id', 'week_start']);
         });
     }

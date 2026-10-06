@@ -5,16 +5,16 @@ namespace App\Enums;
 use App\Enums\Concerns\HasOptions;
 
 /**
- * How a discount (خصم) on a subscriber's account is given.
+ * How a discount (خصم) on a subscription's account is given.
  */
 enum DiscountMethod: string
 {
     use HasOptions;
 
-    /** A percentage of what the subscriber owes. */
+    /** A percentage of what the subscription owes. */
     case Percentage = 'percentage';
 
-    /** Kilowatts at the subscriber's kilo price. */
+    /** Kilowatts at the subscription's kilo price. */
     case Kilowatt = 'kilowatt';
 
     /** A fixed amount in shekels. */

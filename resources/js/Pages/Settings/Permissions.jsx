@@ -13,7 +13,7 @@ import { filterSections, individualChanges, levelOf, permissionEntries, samePerm
 
 /** The icon and one-line description of each section (keyed like PermissionKey::resourceGroups()). */
 const SECTION_DETAILS = {
-    subscribers: { icon: 'users', description: 'بيانات المشتركين' },
+    subscriptions: { icon: 'users', description: 'بيانات المشتركين' },
     meter_boxes: { icon: 'table', description: 'الطبلونات ومواقعها' },
     circuit_breakers: { icon: 'bolt', description: 'القواطع وأمبيراتها' },
     tariffs: { icon: 'dollar', description: 'أسعار الكيلو والحد الأدنى' },
@@ -33,7 +33,7 @@ const SECTION_DETAILS = {
 
 /** The sections in the order the editor groups them; any section not named here goes last. */
 const SECTION_GROUPS = [
-    { title: 'البيانات الأساسية', hint: 'المشتركون وأدوات العمل اليومي', keys: ['subscribers', 'meter_boxes', 'circuit_breakers', 'tariffs'] },
+    { title: 'البيانات الأساسية', hint: 'المشتركون وأدوات العمل اليومي', keys: ['subscriptions', 'meter_boxes', 'circuit_breakers', 'tariffs'] },
     { title: 'المال والتحصيل', hint: 'كل ما يغيّر أرصدة المشتركين أو يعرضها', keys: ['meter_readings', 'collections', 'closings', 'reports'] },
     { title: 'التواصل والطباعة', hint: 'الرسائل وقوالب الطباعة', keys: ['messages', 'print_templates'] },
     { title: 'الإدارة والمواقع', hint: 'الموظفون والفروع والتقسيمات الجغرافية', keys: ['users', 'user_types', 'branches', 'governorates', 'areas', 'sub_areas'] },

@@ -32,7 +32,7 @@ export const SENSITIVE = {
     adjust: { label: 'إضافة تحميل أو خصم أو تسوية', hint: 'يشمل الخصم الدائم وتسوية الرصيد — لا يمنح تعديل الحركات أو حذفها', danger: true },
     correct: { label: 'تعديل مبلغ الحركة', hint: 'تصحيح مبلغ تحميل أو دفعة من مسار التصحيح، مع حفظ السبب والأثر المالي', danger: true },
     'meter_readings.correct': { label: 'تصحيح القراءة الأسبوعية', hint: 'يعدّل قراءة الأسبوع المتاح؛ القراءة المعتمدة تعود للاعتماد', danger: true },
-    'subscribers.bulk_update': { label: 'تعديل المشتركين جماعيًا', hint: 'تعديل الحالة أو الحد الأدنى لمجموعة، مع صلاحية تعديل الحقل نفسه', danger: true },
+    'subscriptions.bulk_update': { label: 'تعديل المشتركين جماعيًا', hint: 'تعديل الحالة أو الحد الأدنى لمجموعة، مع صلاحية تعديل الحقل نفسه', danger: true },
     'collections.amend': { label: 'تعديل بيانات الدفعة', hint: 'تعديل البنك والمرسل والملاحظات؛ لا يغيّر المبلغ أو رقم المرجع', danger: true },
     'collections.refund': { label: 'ردّ الدفعة', hint: 'يردّ المبلغ بقيد مرتبط؛ تبقى الدفعة وسجل الردّ ظاهرين', danger: true },
     'collections.delete': { label: 'إلغاء الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف', danger: true },

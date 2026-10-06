@@ -90,7 +90,7 @@ void main() {
 
       await restored.queueReading({
         'mobile_operation_id': 'operation-1',
-        'subscriber_id': 1,
+        'subscription_id': 1,
         'current_reading': '1250',
       });
       expect(restored.readingDrafts, isEmpty);
@@ -153,7 +153,7 @@ void main() {
     expect(store.queuedReadings, isEmpty);
     await tester.tap(find.text('حفظ قراءة واحدة وإرسالها للمراجعة'));
     await tester.pumpAndSettle();
-    expect(store.queuedReadings.single['subscriber_id'], 2);
+    expect(store.queuedReadings.single['subscription_id'], 2);
     expect(store.queuedReadings.single['current_reading'], '350');
     await tester.pumpWidget(const SizedBox());
   });
@@ -163,7 +163,7 @@ void main() {
     final store = readerStore(queued: [
       {
         'mobile_operation_id': 'operation-1',
-        'subscriber_id': 1,
+        'subscription_id': 1,
         'week_start': '2026-09-21',
         'current_reading': '1290',
       }

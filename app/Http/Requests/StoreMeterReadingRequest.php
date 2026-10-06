@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\SubscriberStatus;
+use App\Enums\SubscriptionStatus;
 use App\Models\MeterReading;
-use App\Models\Subscriber;
+use App\Models\Subscription;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
@@ -24,7 +24,7 @@ class StoreMeterReadingRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * Only active subscribers in the actor's own branch (any branch for a
+     * Only active subscriptions in the actor's own branch (any branch for a
      * Super Admin) can have readings recorded.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
@@ -34,10 +34,10 @@ class StoreMeterReadingRequest extends FormRequest
         $actor = $this->user();
 
         return [
-            'subscriber_id' => [
+            'subscription_id' => [
                 'required',
-                Rule::exists('subscribers', 'id')
-                    ->where('status', SubscriberStatus::Active->value)
+                Rule::exists('subscriptions', 'id')
+                    ->where('status', SubscriptionStatus::Active->value)
                     ->when(! $actor->isSuperAdmin(), fn ($rule) => $rule->where('branch_id', $actor->branch_id)),
             ],
             'week_start' => ['required', 'date', 'before_or_equal:today'],
@@ -49,7 +49,7 @@ class StoreMeterReadingRequest extends FormRequest
     /**
      * Readings must be entered week after week, once the week has ended:
      * only for the latest week (any week for the Super Admin), one per
-     * subscriber per week, never before a week already recorded, and never
+     * subscription per week, never before a week already recorded, and never
      * lower than the reading the week starts from.
      *
      * @return array<int, callable>
@@ -62,7 +62,7 @@ class StoreMeterReadingRequest extends FormRequest
                     return;
                 }
 
-                $subscriber = Subscriber::findOrFail($this->integer('subscriber_id'));
+                $subscription = Subscription::findOrFail($this->integer('subscription_id'));
                 $weekStart = $this->weekStart();
 
                 if ($weekStart->greaterThan(MeterReading::latestEndedWeekStart())) {
@@ -77,7 +77,7 @@ class StoreMeterReadingRequest extends FormRequest
                     return;
                 }
 
-                $latestWeekStart = $subscriber->meterReadings()->max('week_start');
+                $latestWeekStart = $subscription->meterReadings()->max('week_start');
 
                 if ($latestWeekStart !== null && Carbon::parse($latestWeekStart)->gte($weekStart)) {
                     $validator->errors()->add('week_start', Carbon::parse($latestWeekStart)->equalTo($weekStart)
@@ -87,7 +87,7 @@ class StoreMeterReadingRequest extends FormRequest
                     return;
                 }
 
-                $previousReading = $subscriber->previousReadingBefore($weekStart);
+                $previousReading = $subscription->previousReadingBefore($weekStart);
 
                 if ($this->float('current_reading') < $previousReading) {
                     $validator->errors()->add('current_reading', "القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة ({$previousReading}).");

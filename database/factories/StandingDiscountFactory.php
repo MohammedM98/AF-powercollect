@@ -4,7 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\DiscountMethod;
 use App\Models\StandingDiscount;
-use App\Models\Subscriber;
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -21,7 +21,7 @@ class StandingDiscountFactory extends Factory
     public function definition(): array
     {
         return [
-            'subscriber_id' => Subscriber::factory(),
+            'subscription_id' => Subscription::factory(),
             'method' => DiscountMethod::Percentage,
             'value' => fake()->numberBetween(5, 50),
             'granted_by' => User::factory(),

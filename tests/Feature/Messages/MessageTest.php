@@ -6,13 +6,13 @@ use App\Enums\MessageChannel;
 use App\Enums\MessageKind;
 use App\Enums\MessageStatus;
 use App\Enums\PermissionKey;
-use App\Jobs\SendSubscriberMessage;
+use App\Jobs\SendSubscriptionMessage;
 use App\Models\MessageBatch;
 use App\Models\MeterReading;
 use App\Models\Permission;
-use App\Models\Subscriber;
-use App\Models\SubscriberMessage;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionMessage;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -55,13 +55,13 @@ class MessageTest extends TestCase
         $this->actingAs($collector)->get(route('messages.create'))->assertForbidden();
     }
 
-    public function test_the_weekly_reading_preview_lists_only_subscribers_with_an_approved_reading_that_week(): void
+    public function test_the_weekly_reading_preview_lists_only_subscriptions_with_an_approved_reading_that_week(): void
     {
         $this->freezeTime();
         $branchAdmin = User::factory()->branchAdmin()->create();
-        $approved = Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id, 'full_name' => 'Approved Reading']);
-        $pending = Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id]);
-        Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        $approved = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id, 'full_name' => 'Approved Reading']);
+        $pending = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
         MeterReading::factory()->approved()->for($approved)->create([
             'week_start' => $this->weekStart(),
             'previous_reading' => 100,
@@ -82,14 +82,14 @@ class MessageTest extends TestCase
                 ->where('recipients.0.variables.قيمة_القراءة', '75')));
     }
 
-    public function test_the_balance_reminder_preview_lists_only_subscribers_owing_more_than_the_minimum(): void
+    public function test_the_balance_reminder_preview_lists_only_subscriptions_owing_more_than_the_minimum(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
-        $owing = Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id]);
-        $owingLittle = Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id]);
-        Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id]);
-        SubscriberTransaction::factory()->for($owing)->create(['amount' => '120.50']);
-        SubscriberTransaction::factory()->for($owingLittle)->create(['amount' => '10.00']);
+        $owing = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        $owingLittle = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        SubscriptionTransaction::factory()->for($owing)->create(['amount' => '120.50']);
+        SubscriptionTransaction::factory()->for($owingLittle)->create(['amount' => '10.00']);
 
         $this->actingAs($branchAdmin)
             ->get(route('messages.create', ['kind' => 'balance_reminder', 'min_balance' => 20]))
@@ -99,62 +99,62 @@ class MessageTest extends TestCase
                 ->where('recipients.0.variables.الرصيد', '120.50')));
     }
 
-    public function test_sending_an_sms_fills_in_each_subscribers_details_and_queues_one_message_each(): void
+    public function test_sending_an_sms_fills_in_each_subscriptions_details_and_queues_one_message_each(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
-        $first = Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id, 'full_name' => 'Ali Hasan', 'phone' => '0599000001']);
-        $second = Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id, 'full_name' => 'Sara Omar', 'phone' => '0599000002']);
-        Queue::fake([SendSubscriberMessage::class]);
+        $first = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id, 'full_name' => 'Ali Hasan', 'phone' => '0599000001']);
+        $second = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id, 'full_name' => 'Sara Omar', 'phone' => '0599000002']);
+        Queue::fake([SendSubscriptionMessage::class]);
 
         $response = $this->actingAs($branchAdmin)->post(route('messages.store'), [
             'kind' => MessageKind::Custom->value,
             'channel' => MessageChannel::Sms->value,
             'body' => 'مرحبا {الاسم}، اشتراكك {رقم_الاشتراك}.',
-            'subscriber_ids' => [$first->id, $second->id],
+            'subscription_ids' => [$first->id, $second->id],
         ]);
 
         $batch = MessageBatch::sole();
         $response->assertRedirect(route('messages.show', $batch))->assertSessionHas('status', 'messages-queued');
         $this->assertSame($branchAdmin->branch_id, $batch->branch_id);
-        $this->assertDatabaseHas('subscriber_messages', [
-            'subscriber_id' => $first->id,
+        $this->assertDatabaseHas('subscription_messages', [
+            'subscription_id' => $first->id,
             'phone' => '0599000001',
             'body' => 'مرحبا Ali Hasan، اشتراكك '.$first->fresh()->account_number.'.',
             'status' => MessageStatus::Pending->value,
         ]);
-        Queue::assertPushed(SendSubscriberMessage::class, 2);
+        Queue::assertPushed(SendSubscriptionMessage::class, 2);
     }
 
-    public function test_subscribers_without_a_phone_are_left_out_of_a_send(): void
+    public function test_subscriptions_without_a_phone_are_left_out_of_a_send(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
-        $withPhone = Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id]);
-        $withoutPhone = Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id, 'phone' => null]);
-        Queue::fake([SendSubscriberMessage::class]);
+        $withPhone = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        $withoutPhone = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id, 'phone' => null]);
+        Queue::fake([SendSubscriptionMessage::class]);
 
         $this->actingAs($branchAdmin)->post(route('messages.store'), [
             'kind' => MessageKind::Custom->value,
             'channel' => MessageChannel::Sms->value,
             'body' => 'تحديث',
-            'subscriber_ids' => [$withPhone->id, $withoutPhone->id],
+            'subscription_ids' => [$withPhone->id, $withoutPhone->id],
         ]);
 
-        $this->assertDatabaseHas('subscriber_messages', ['subscriber_id' => $withPhone->id]);
-        $this->assertDatabaseMissing('subscriber_messages', ['subscriber_id' => $withoutPhone->id]);
+        $this->assertDatabaseHas('subscription_messages', ['subscription_id' => $withPhone->id]);
+        $this->assertDatabaseMissing('subscription_messages', ['subscription_id' => $withoutPhone->id]);
     }
 
-    public function test_a_branch_admin_cannot_message_another_branchs_subscribers(): void
+    public function test_a_branch_admin_cannot_message_another_branchs_subscriptions(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
-        $foreign = Subscriber::factory()->create();
-        Queue::fake([SendSubscriberMessage::class]);
+        $foreign = Subscription::factory()->create();
+        Queue::fake([SendSubscriptionMessage::class]);
 
         $this->actingAs($branchAdmin)->post(route('messages.store'), [
             'kind' => MessageKind::Custom->value,
             'channel' => MessageChannel::Sms->value,
             'body' => 'تحديث',
-            'subscriber_ids' => [$foreign->id],
-        ])->assertSessionHasErrors(['subscriber_ids' => 'لا يوجد بين المختارين من لديه رقم هاتف ويطابق شروط الرسالة.']);
+            'subscription_ids' => [$foreign->id],
+        ])->assertSessionHasErrors(['subscription_ids' => 'لا يوجد بين المختارين من لديه رقم هاتف ويطابق شروط الرسالة.']);
 
         $this->assertDatabaseCount('message_batches', 0);
         Queue::assertNothingPushed();
@@ -168,7 +168,7 @@ class MessageTest extends TestCase
             ->post(route('messages.store'), ['kind' => MessageKind::Custom->value, 'channel' => MessageChannel::Sms->value])
             ->assertSessionHasErrors([
                 'body' => 'اكتب نص الرسالة.',
-                'subscriber_ids' => 'اختر مستلمًا واحدًا على الأقل.',
+                'subscription_ids' => 'اختر مستلمًا واحدًا على الأقل.',
             ]);
     }
 
@@ -177,9 +177,9 @@ class MessageTest extends TestCase
         config(['services.sms.driver' => 'http', 'services.sms.http.url' => 'https://sms.example.test/send', 'services.sms.http.success_match' => 'OK']);
         Http::preventStrayRequests();
         Http::fake(['https://sms.example.test/send' => Http::response('OK:123')]);
-        $message = SubscriberMessage::factory()->create(['phone' => '0599123456', 'body' => 'مرحبا']);
+        $message = SubscriptionMessage::factory()->create(['phone' => '0599123456', 'body' => 'مرحبا']);
 
-        SendSubscriberMessage::dispatchSync($message);
+        SendSubscriptionMessage::dispatchSync($message);
 
         $this->assertSame(MessageStatus::Sent, $message->fresh()->status);
         Http::assertSent(fn ($request) => $request['to'] === '970599123456' && $request['message'] === 'مرحبا');
@@ -190,9 +190,9 @@ class MessageTest extends TestCase
         config(['services.sms.driver' => 'http', 'services.sms.http.url' => 'https://sms.example.test/send']);
         Http::preventStrayRequests();
         Http::fake(['https://sms.example.test/send' => Http::response('Insufficient balance', 402)]);
-        $message = SubscriberMessage::factory()->create();
+        $message = SubscriptionMessage::factory()->create();
 
-        SendSubscriberMessage::dispatchSync($message);
+        SendSubscriptionMessage::dispatchSync($message);
 
         $message->refresh();
         $this->assertSame(MessageStatus::Failed, $message->status);
@@ -203,24 +203,24 @@ class MessageTest extends TestCase
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
         $batch = MessageBatch::factory()->create(['branch_id' => $branchAdmin->branch_id]);
-        $subscriber = Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id]);
-        $failed = SubscriberMessage::factory()->failed()->for($batch, 'batch')->for($subscriber)->create();
-        SubscriberMessage::factory()->for($batch, 'batch')->for($subscriber)->create(['status' => MessageStatus::Sent]);
-        Queue::fake([SendSubscriberMessage::class]);
+        $subscription = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        $failed = SubscriptionMessage::factory()->failed()->for($batch, 'batch')->for($subscription)->create();
+        SubscriptionMessage::factory()->for($batch, 'batch')->for($subscription)->create(['status' => MessageStatus::Sent]);
+        Queue::fake([SendSubscriptionMessage::class]);
 
         $this->actingAs($branchAdmin)->post(route('messages.retry', $batch))->assertSessionHas('status', 'messages-retried');
 
         $this->assertSame(MessageStatus::Pending, $failed->fresh()->status);
-        Queue::assertPushed(SendSubscriberMessage::class, 1);
-        Queue::assertPushed(SendSubscriberMessage::class, fn (SendSubscriberMessage $job) => $job->message->is($failed));
+        Queue::assertPushed(SendSubscriptionMessage::class, 1);
+        Queue::assertPushed(SendSubscriptionMessage::class, fn (SendSubscriptionMessage $job) => $job->message->is($failed));
     }
 
     public function test_opening_a_whatsapp_message_marks_it_sent_by_the_staff_member(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
         $batch = MessageBatch::factory()->whatsApp()->create(['branch_id' => $branchAdmin->branch_id]);
-        $subscriber = Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id]);
-        $message = SubscriberMessage::factory()->for($batch, 'batch')->for($subscriber)->create();
+        $subscription = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        $message = SubscriptionMessage::factory()->for($batch, 'batch')->for($subscription)->create();
 
         $this->actingAs($branchAdmin)->put(route('messages.sent', [$batch, $message]))->assertRedirect();
 
@@ -233,7 +233,7 @@ class MessageTest extends TestCase
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
         $foreignBatch = MessageBatch::factory()->whatsApp()->create();
-        $message = SubscriberMessage::factory()->for($foreignBatch, 'batch')->create();
+        $message = SubscriptionMessage::factory()->for($foreignBatch, 'batch')->create();
 
         $this->actingAs($branchAdmin)->get(route('messages.show', $foreignBatch))->assertForbidden();
         $this->actingAs($branchAdmin)->put(route('messages.sent', [$foreignBatch, $message]))->assertForbidden();
@@ -245,8 +245,8 @@ class MessageTest extends TestCase
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
         $batch = MessageBatch::factory()->whatsApp()->create(['branch_id' => $branchAdmin->branch_id]);
-        $subscriber = Subscriber::factory()->create(['branch_id' => $branchAdmin->branch_id]);
-        SubscriberMessage::factory()->for($batch, 'batch')->for($subscriber)->create(['phone' => '0599123456', 'body' => 'مرحبا علي']);
+        $subscription = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        SubscriptionMessage::factory()->for($batch, 'batch')->for($subscription)->create(['phone' => '0599123456', 'body' => 'مرحبا علي']);
 
         $this->actingAs($branchAdmin)->get(route('messages.show', $batch))
             ->assertInertia(fn ($page) => $page->where('messages.data.0.whatsAppLink', 'https://wa.me/970599123456?text='.rawurlencode('مرحبا علي')));

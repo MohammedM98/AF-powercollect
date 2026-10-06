@@ -6,8 +6,8 @@ use App\Enums\ChargeType;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Permission;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Support\DebtAging;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,7 +23,7 @@ class ReceivablesTest extends TestCase
 
     private User $branchAdmin;
 
-    private Subscriber $subscriber;
+    private Subscription $subscription;
 
     protected function setUp(): void
     {
@@ -33,7 +33,7 @@ class ReceivablesTest extends TestCase
         $this->travelTo('2026-09-20 12:00:00');
         $this->branch = Branch::factory()->create(['name' => 'فرع الكرادة']);
         $this->branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id]);
-        $this->subscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Ahmad Nasser']);
+        $this->subscription = Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Ahmad Nasser']);
     }
 
     public function test_guests_are_sent_to_log_in(): void
@@ -55,10 +55,10 @@ class ReceivablesTest extends TestCase
 
     public function test_payments_settle_the_oldest_charges_first_so_the_debt_is_the_newest_charges(): void
     {
-        $this->line($this->subscriber, 'penalty', '100.00', '2026-05-23 12:00:00');
-        $this->line($this->subscriber, 'penalty', '50.00', '2026-08-06 12:00:00');
-        $this->line($this->subscriber, 'penalty', '30.00', '2026-09-10 12:00:00');
-        $this->line($this->subscriber, 'payment', '-120.00', '2026-09-15 12:00:00');
+        $this->line($this->subscription, 'penalty', '100.00', '2026-05-23 12:00:00');
+        $this->line($this->subscription, 'penalty', '50.00', '2026-08-06 12:00:00');
+        $this->line($this->subscription, 'penalty', '30.00', '2026-09-10 12:00:00');
+        $this->line($this->subscription, 'payment', '-120.00', '2026-09-15 12:00:00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('receivables.index'))
@@ -82,21 +82,21 @@ class ReceivablesTest extends TestCase
     public function test_a_cancelled_charge_is_never_aged_and_a_partial_refund_brings_back_the_old_debt_it_paid(): void
     {
         $this->travelTo('2026-05-23 12:00:00');
-        SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::Penalty, '100', null);
+        SubscriptionTransaction::recordCharge($this->subscription, $this->branchAdmin, ChargeType::Penalty, '100', null);
         $this->travelTo('2026-06-12 12:00:00');
-        $payment = SubscriberTransaction::recordPayment($this->subscriber, $this->branchAdmin, ['amount' => '100', 'currency' => 'ILS', 'payment_method' => 'cash']);
+        $payment = SubscriptionTransaction::recordPayment($this->subscription, $this->branchAdmin, ['amount' => '100', 'currency' => 'ILS', 'payment_method' => 'cash']);
         $this->travelTo('2026-07-12 12:00:00');
-        $charge = SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::Penalty, '20', null);
+        $charge = SubscriptionTransaction::recordCharge($this->subscription, $this->branchAdmin, ChargeType::Penalty, '20', null);
         $this->actingAs($this->branchAdmin)
-            ->delete(route('subscribers.transactions.destroy', [$this->subscriber, $charge]), ['correction_reason' => 'duplicate', 'correction_notes' => 'مكررة'])
+            ->delete(route('subscriptions.transactions.destroy', [$this->subscription, $charge]), ['correction_reason' => 'duplicate', 'correction_notes' => 'مكررة'])
             ->assertSessionHasNoErrors();
         $this->travelTo('2026-09-15 12:00:00');
         // A partial refund, as one was recorded before refunds became whole-payment only.
-        $this->subscriber->transactions()->create([
+        $this->subscription->transactions()->create([
             'recorded_by' => $this->branchAdmin->id,
             'reverses_id' => $payment->id,
             'reference_transaction_id' => $payment->id,
-            'type' => SubscriberTransaction::TYPE_REFUND,
+            'type' => SubscriptionTransaction::TYPE_REFUND,
             'source_key' => 'refund:'.$payment->id.':legacy',
             'amount' => '40.00',
             'currency_amount' => '40.00',
@@ -112,28 +112,28 @@ class ReceivablesTest extends TestCase
                 ->where('debtors.data.0.lastPaymentDate', '2026-06-12'));
     }
 
-    public function test_settled_and_in_credit_subscribers_are_not_listed(): void
+    public function test_settled_and_in_credit_subscriptions_are_not_listed(): void
     {
-        $settled = Subscriber::factory()->create(['branch_id' => $this->branch->id]);
+        $settled = Subscription::factory()->create(['branch_id' => $this->branch->id]);
         $this->line($settled, 'penalty', '50.00');
         $this->line($settled, 'payment', '-50.00');
-        $inCredit = Subscriber::factory()->create(['branch_id' => $this->branch->id]);
+        $inCredit = Subscription::factory()->create(['branch_id' => $this->branch->id]);
         $this->line($inCredit, 'payment', '-20.00');
-        $this->line($this->subscriber, 'penalty', '10.00');
+        $this->line($this->subscription, 'penalty', '10.00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('receivables.index'))
             ->assertInertia(fn ($page) => $page
                 ->has('debtors.data', 1)
-                ->where('debtors.data.0.id', $this->subscriber->id)
+                ->where('debtors.data.0.id', $this->subscription->id)
                 ->where('debtors.data.0.lastPaymentDate', null));
     }
 
     public function test_branch_staff_see_only_their_own_branchs_debtors_and_the_super_admin_can_pick_a_branch(): void
     {
         $otherBranch = Branch::factory()->create(['name' => 'فرع المنصور']);
-        $otherDebtor = Subscriber::factory()->create(['branch_id' => $otherBranch->id]);
-        $this->line($this->subscriber, 'penalty', '10.00');
+        $otherDebtor = Subscription::factory()->create(['branch_id' => $otherBranch->id]);
+        $this->line($this->subscription, 'penalty', '10.00');
         $this->line($otherDebtor, 'penalty', '75.00');
 
         $this->actingAs($this->branchAdmin)
@@ -141,7 +141,7 @@ class ReceivablesTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('scopeLabel', 'فرع الكرادة')
                 ->has('debtors.data', 1)
-                ->where('debtors.data.0.id', $this->subscriber->id));
+                ->where('debtors.data.0.id', $this->subscription->id));
 
         $superAdmin = User::factory()->superAdmin()->create();
 
@@ -159,17 +159,17 @@ class ReceivablesTest extends TestCase
 
     public function test_the_age_filter_keeps_only_debtors_owing_something_older_and_the_table_sorts_by_a_bucket(): void
     {
-        $recentDebtor = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Recent']);
+        $recentDebtor = Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Recent']);
         $this->line($recentDebtor, 'penalty', '500.00', '2026-09-18 12:00:00');
-        $smallOldDebtor = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Small old']);
+        $smallOldDebtor = Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Small old']);
         $this->line($smallOldDebtor, 'penalty', '20.00', '2026-05-01 12:00:00');
-        $this->line($this->subscriber, 'penalty', '90.00', '2026-04-01 12:00:00');
+        $this->line($this->subscription, 'penalty', '90.00', '2026-04-01 12:00:00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('receivables.index', ['filter' => ['age' => '90'], 'sort' => 'older', 'direction' => 'desc']))
             ->assertInertia(fn ($page) => $page
                 ->has('debtors.data', 2)
-                ->where('debtors.data.0.id', $this->subscriber->id)
+                ->where('debtors.data.0.id', $this->subscription->id)
                 ->where('debtors.data.1.id', $smallOldDebtor->id)
                 ->where('summary.total', 110));
 
@@ -182,7 +182,7 @@ class ReceivablesTest extends TestCase
 
     public function test_malformed_query_values_fall_back_to_the_defaults(): void
     {
-        $this->line($this->subscriber, 'penalty', '10.00');
+        $this->line($this->subscription, 'penalty', '10.00');
 
         $this->actingAs($this->branchAdmin)
             ->get('/receivables?filter[age][]=90&filter[status][]=active&filter[branch_id][]=1&sort=balance;drop&statement[]=1')
@@ -202,9 +202,9 @@ class ReceivablesTest extends TestCase
         $this->assertSame($bucket, DebtAging::bucketFor($days));
     }
 
-    private function line(Subscriber $subscriber, string $type, string $amount, ?string $at = null): SubscriberTransaction
+    private function line(Subscription $subscription, string $type, string $amount, ?string $at = null): SubscriptionTransaction
     {
-        return SubscriberTransaction::factory()->for($subscriber)->create([
+        return SubscriptionTransaction::factory()->for($subscription)->create([
             'type' => $type,
             'source_key' => $type.':'.Str::ulid(),
             'amount' => $amount,

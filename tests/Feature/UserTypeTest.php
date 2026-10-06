@@ -259,7 +259,7 @@ class UserTypeTest extends TestCase
     {
         $actor = User::factory()->superAdmin()->create();
         $employee = User::factory()->create(['role' => $role]);
-        $employee->permissions()->sync(Permission::idsFor([PermissionKey::ViewSubscribers]));
+        $employee->permissions()->sync(Permission::idsFor([PermissionKey::ViewSubscriptions]));
         $type = UserType::factory()->create(['name' => 'فني']);
         $payload = $this->userPayload();
         unset($payload['role']);
@@ -272,7 +272,7 @@ class UserTypeTest extends TestCase
 
         $this->assertSame($role, $employee->fresh()->role->value);
         $this->assertSame($type->id, $employee->fresh()->user_type_id);
-        $this->assertSame(['subscribers.view'], $employee->permissions()->pluck('key')->all());
+        $this->assertSame(['subscriptions.view'], $employee->permissions()->pluck('key')->all());
     }
 
     public function test_the_default_types_can_be_seeded_without_duplicates(): void

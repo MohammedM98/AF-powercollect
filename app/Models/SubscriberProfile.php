@@ -45,6 +45,6 @@ class SubscriberProfile extends Model
 
     public function subscriptions(): HasMany
     {
-        return $this->hasMany(Subscriber::class);
+        return $this->hasMany(Subscription::class);
     }
 }

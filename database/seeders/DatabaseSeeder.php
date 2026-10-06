@@ -40,11 +40,11 @@ class DatabaseSeeder extends Seeder
             MeterBoxSeeder::class,
         ]);
 
-        // Demo subscribers (and the branch/meter-box/circuit-breaker chain
-        // they need) are local-only — SubscriberSeeder itself refuses to
+        // Demo subscriptions (and the branch/meter-box/circuit-breaker chain
+        // they need) are local-only — SubscriptionSeeder itself refuses to
         // run in production.
         if (! app()->environment('production')) {
-            $this->call(SubscriberSeeder::class);
+            $this->call(SubscriptionSeeder::class);
         }
     }
 }

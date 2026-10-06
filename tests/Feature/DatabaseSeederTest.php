@@ -6,7 +6,7 @@ use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
-use App\Models\Subscriber;
+use App\Models\Subscription;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,20 +16,20 @@ class DatabaseSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_database_seeder_creates_a_super_admin_and_demo_subscribers(): void
+    public function test_database_seeder_creates_a_super_admin_and_demo_subscriptions(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $this->assertTrue(User::where('role', UserRole::SuperAdmin)->exists());
-        $this->assertGreaterThan(0, Subscriber::count());
+        $this->assertGreaterThan(0, Subscription::count());
     }
 
-    public function test_every_seeded_subscriber_gets_a_unique_account_number(): void
+    public function test_every_seeded_subscription_gets_a_unique_account_number(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertSame(0, Subscriber::whereNull('account_number')->count());
-        $this->assertSame(Subscriber::count(), Subscriber::distinct()->count('account_number'));
+        $this->assertSame(0, Subscription::whereNull('account_number')->count());
+        $this->assertSame(Subscription::count(), Subscription::distinct()->count('account_number'));
     }
 
     public function test_database_seeder_spreads_demo_data_across_several_branches(): void
@@ -45,13 +45,13 @@ class DatabaseSeederTest extends TestCase
             );
         }
 
-        foreach (['فرع الكرادة' => 25, 'فرع المنصور' => 18, 'فرع العشار' => 20] as $name => $subscriberCount) {
+        foreach (['فرع الكرادة' => 25, 'فرع المنصور' => 18, 'فرع العشار' => 20] as $name => $subscriptionCount) {
             $branch = Branch::where('name', $name)->sole();
-            $this->assertSame($subscriberCount, $branch->subscribers()->count(), "Demo branch [{$name}] has the wrong subscriber count.");
+            $this->assertSame($subscriptionCount, $branch->subscriptions()->count(), "Demo branch [{$name}] has the wrong subscription count.");
         }
     }
 
-    public function test_demo_subscribers_reuse_the_seeded_unique_breaker_sizes_and_their_minimum_payments(): void
+    public function test_demo_subscriptions_reuse_the_seeded_unique_breaker_sizes_and_their_minimum_payments(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -67,7 +67,7 @@ class DatabaseSeederTest extends TestCase
 
         $branchAdmin = User::where('role', UserRole::BranchAdmin)->firstOrFail();
         $dataEntry = User::where('role', UserRole::DataEntry)->firstOrFail();
-        $this->assertTrue($branchAdmin->hasPermission(PermissionKey::CreateSubscribers));
+        $this->assertTrue($branchAdmin->hasPermission(PermissionKey::CreateSubscriptions));
         $this->assertTrue($branchAdmin->hasPermission(PermissionKey::ViewTariffs));
         $this->assertFalse($branchAdmin->hasPermission(PermissionKey::CreateTariffs));
         $this->assertTrue($dataEntry->hasPermission(PermissionKey::RecordMeterReadings));

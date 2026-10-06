@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Mobile;
 
 use App\Enums\MeterReadingStatus;
-use App\Enums\SubscriberStatus;
+use App\Enums\SubscriptionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMobileMeterReadingRequest;
 use App\Models\MeterReading;
-use App\Models\Subscriber;
+use App\Models\Subscription;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -28,9 +28,9 @@ class MobileReadingController extends Controller
             : MeterReading::latestEndedWeekStart();
         $week = $weekStart->toDateString();
         $search = trim($validated['search'] ?? '');
-        $subscribers = Subscriber::query()
+        $subscriptions = Subscription::query()
             ->visibleTo($request->user())
-            ->where('status', SubscriberStatus::Active)
+            ->where('status', SubscriptionStatus::Active)
             ->with([
                 'meterBox:id,box_number',
                 'meterReadings' => fn ($query) => $query->visibleTo($request->user())
@@ -43,25 +43,25 @@ class MobileReadingController extends Controller
             'week_start' => $week,
             'week_end' => MeterReading::weekEndFor($weekStart)->toDateString(),
             'week_options' => MeterReading::recentWeekOptions(),
-            'data' => $subscribers->getCollection()->map(function (Subscriber $subscriber) use ($week): array {
-                $latest = $subscriber->meterReadings->first();
+            'data' => $subscriptions->getCollection()->map(function (Subscription $subscription) use ($week): array {
+                $latest = $subscription->meterReadings->first();
                 $reading = $latest?->week_start->toDateString() === $week ? $latest : null;
 
                 return [
-                    'id' => $subscriber->id,
-                    'full_name' => $subscriber->displayName(),
-                    'account_number' => $subscriber->account_number,
-                    'meter_box_number' => $subscriber->meterBox?->box_number,
-                    'previous_reading' => $reading?->previous_reading ?? $latest?->current_reading ?? $subscriber->initial_reading,
+                    'id' => $subscription->id,
+                    'full_name' => $subscription->displayName(),
+                    'account_number' => $subscription->account_number,
+                    'meter_box_number' => $subscription->meterBox?->box_number,
+                    'previous_reading' => $reading?->previous_reading ?? $latest?->current_reading ?? $subscription->initial_reading,
                     'current_reading' => $reading?->current_reading,
                     'consumption' => $reading?->consumption,
                     'amount_due' => $reading?->amount_due,
                     'status' => $reading?->status->value,
                 ];
             })->all(),
-            'current_page' => $subscribers->currentPage(),
-            'last_page' => $subscribers->lastPage(),
-            'total' => $subscribers->total(),
+            'current_page' => $subscriptions->currentPage(),
+            'last_page' => $subscriptions->lastPage(),
+            'total' => $subscriptions->total(),
         ]);
     }
 
@@ -71,29 +71,29 @@ class MobileReadingController extends Controller
             return $this->responseFor($existingReading);
         }
 
-        $subscriber = Subscriber::with(['tariff', 'circuitBreaker', 'standingDiscount'])
-            ->findOrFail($request->integer('subscriber_id'));
+        $subscription = Subscription::with(['tariff', 'circuitBreaker', 'standingDiscount'])
+            ->findOrFail($request->integer('subscription_id'));
         $weekStart = $request->weekStart();
-        $previousReading = $subscriber->previousReadingBefore($weekStart);
+        $previousReading = $subscription->previousReadingBefore($weekStart);
         $currentReading = $request->float('current_reading');
         $consumption = MeterReading::consumptionBetween($previousReading, $currentReading);
-        $discount = $subscriber->standingDiscount;
-        $unitPrice = (string) $subscriber->tariff->rate;
+        $discount = $subscription->standingDiscount;
+        $unitPrice = (string) $subscription->tariff->rate;
 
         $reading = MeterReading::create([
-            'subscriber_id' => $subscriber->id,
-            'branch_id' => $subscriber->branch_id,
+            'subscription_id' => $subscription->id,
+            'branch_id' => $subscription->branch_id,
             'week_start' => $weekStart,
             'week_end' => MeterReading::weekEndFor($weekStart),
             'previous_reading' => $previousReading,
             'current_reading' => $currentReading,
             'consumption' => $consumption,
             'unit_price' => $unitPrice,
-            'minimum_payment' => $subscriber->weeklyMinimumPayment(),
+            'minimum_payment' => $subscription->weeklyMinimumPayment(),
             'discount_method' => $discount?->method,
             'discount_value' => $discount?->value,
             'discount_segment' => $discount?->segment,
-            ...MeterReading::chargesFor($consumption, $unitPrice, $subscriber->weeklyMinimumPayment(), $discount?->method, $discount?->value),
+            ...MeterReading::chargesFor($consumption, $unitPrice, $subscription->weeklyMinimumPayment(), $discount?->method, $discount?->value),
             'status' => MeterReadingStatus::Pending,
             'recorded_by' => $request->user()->id,
             'notes' => $request->input('notes'),

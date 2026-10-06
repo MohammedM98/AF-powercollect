@@ -10,7 +10,7 @@ use App\Enums\PaymentMethod;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\MeterReading;
-use App\Models\SubscriberTransaction;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,7 +18,7 @@ use Illuminate\Support\Collection;
 
 /**
  * What moved through one branch, or several, between two business days
- * (by the closing cut-off): what the subscribers owed at the start, what
+ * (by the closing cut-off): what the subscriptions owed at the start, what
  * was charged, paid, discounted and cleared, what was cancelled, and what
  * they owe at the end — which always adds up, since it is the same lines
  * summed both ways. Also where the payments came in (cash drawer, bank,
@@ -35,12 +35,12 @@ class BranchReport
 {
     /**
      * The types that are neither a charge nor a payment: given off what a
-     * subscriber owes.
+     * subscription owes.
      */
     private const DISCOUNT_TYPES = [
-        SubscriberTransaction::TYPE_DISCOUNT,
-        SubscriberTransaction::TYPE_READING_DISCOUNT,
-        SubscriberTransaction::TYPE_CLEARING,
+        SubscriptionTransaction::TYPE_DISCOUNT,
+        SubscriptionTransaction::TYPE_READING_DISCOUNT,
+        SubscriptionTransaction::TYPE_CLEARING,
     ];
 
     /**
@@ -60,22 +60,22 @@ class BranchReport
     ) {}
 
     /**
-     * The period's account lines of the branches' subscribers, unordered,
+     * The period's account lines of the branches' subscriptions, unordered,
      * narrowed to one kind: payments, charges, discounts (discounts and
      * clearings), corrections (cancelled lines and reversals), or all.
      *
-     * @return Builder<SubscriberTransaction>
+     * @return Builder<SubscriptionTransaction>
      */
     public function lines(string $kind = 'all'): Builder
     {
         [$start, $end] = $this->utcRange();
 
-        return SubscriberTransaction::query()
-            ->whereHas('subscriber', fn (Builder $subscriber) => $subscriber->whereIn('branch_id', $this->branchIds()))
-            ->where('subscriber_transactions.created_at', '>=', $start)
-            ->where('subscriber_transactions.created_at', '<', $end)
-            ->when($kind === 'payments', fn (Builder $query) => $query->where('type', SubscriberTransaction::TYPE_PAYMENT))
-            ->when($kind === 'charges', fn (Builder $query) => $query->whereNotIn('type', [...SubscriberTransaction::CREDIT_TYPES, SubscriberTransaction::TYPE_REVERSAL]))
+        return SubscriptionTransaction::query()
+            ->whereHas('subscription', fn (Builder $subscription) => $subscription->whereIn('branch_id', $this->branchIds()))
+            ->where('subscription_transactions.created_at', '>=', $start)
+            ->where('subscription_transactions.created_at', '<', $end)
+            ->when($kind === 'payments', fn (Builder $query) => $query->where('type', SubscriptionTransaction::TYPE_PAYMENT))
+            ->when($kind === 'charges', fn (Builder $query) => $query->whereNotIn('type', [...SubscriptionTransaction::CREDIT_TYPES, SubscriptionTransaction::TYPE_REVERSAL]))
             ->when($kind === 'discounts', fn (Builder $query) => $query->whereIn('type', self::DISCOUNT_TYPES))
             ->when($kind === 'corrections', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner->whereNotNull('cancelled_at')->orWhereNotNull('reverses_id')));
     }
@@ -105,7 +105,7 @@ class BranchReport
      */
     public function flow(): array
     {
-        $labels = SubscriberTransaction::typeLabels();
+        $labels = SubscriptionTransaction::typeLabels();
         $opening = $this->openingBalance();
         $charges = [];
         $credits = [];
@@ -115,13 +115,13 @@ class BranchReport
             $cents = Closing::cents($row->amount);
 
             if ($this->isCorrection($row)) {
-                $corrections['count'] += $row->type === SubscriberTransaction::TYPE_REVERSAL ? 1 : 0;
+                $corrections['count'] += $row->type === SubscriptionTransaction::TYPE_REVERSAL ? 1 : 0;
                 $corrections['total'] += $cents;
 
                 continue;
             }
 
-            if (in_array($row->type, SubscriberTransaction::CREDIT_TYPES, true)) {
+            if (in_array($row->type, SubscriptionTransaction::CREDIT_TYPES, true)) {
                 $credits[$row->type] = ['count' => ($credits[$row->type]['count'] ?? 0) + 1, 'total' => ($credits[$row->type]['total'] ?? 0) - $cents];
             } else {
                 $charges[$row->type] = ['count' => ($charges[$row->type]['count'] ?? 0) + 1, 'total' => ($charges[$row->type]['total'] ?? 0) + $cents];
@@ -141,7 +141,7 @@ class BranchReport
             'opening' => Closing::money($opening),
             'charges' => $list($charges, array_keys($labels)),
             'chargesTotal' => Closing::money($chargesTotal),
-            'credits' => $list($credits, SubscriberTransaction::CREDIT_TYPES),
+            'credits' => $list($credits, SubscriptionTransaction::CREDIT_TYPES),
             'creditsTotal' => Closing::money($creditsTotal),
             'corrections' => ['count' => $corrections['count'], 'total' => Closing::money($corrections['total'])],
             'closing' => Closing::money($closing),
@@ -159,7 +159,7 @@ class BranchReport
     public function collections(): array
     {
         $payments = $this->rows()
-            ->filter(fn (object $row): bool => $row->type === SubscriberTransaction::TYPE_PAYMENT && ! $this->isCorrection($row))
+            ->filter(fn (object $row): bool => $row->type === SubscriptionTransaction::TYPE_PAYMENT && ! $this->isCorrection($row))
             ->map(fn (object $row): object => (object) [...(array) $row, 'cents' => -Closing::cents($row->amount), 'isCash' => $row->payment_method === PaymentMethod::Cash->value]);
         $collectors = User::query()->whereKey($payments->pluck('recorded_by')->filter()->unique()->values())->pluck('name', 'id');
         $group = fn (Collection $rows): array => ['count' => $rows->count(), 'total' => Closing::money($rows->sum('cents'))];
@@ -224,7 +224,7 @@ class BranchReport
 
     /**
      * One row per day: what was charged, paid, discounted and corrected,
-     * what the subscribers owed at the end of it, and its closings.
+     * what the subscriptions owed at the end of it, and its closings.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -243,7 +243,7 @@ class BranchReport
                 $cents = Closing::cents($row->amount);
                 $key = match (true) {
                     $this->isCorrection($row) => 'corrections',
-                    $row->type === SubscriberTransaction::TYPE_PAYMENT => 'payments',
+                    $row->type === SubscriptionTransaction::TYPE_PAYMENT => 'payments',
                     in_array($row->type, self::DISCOUNT_TYPES, true) => 'discounts',
                     default => 'charges',
                 };
@@ -289,7 +289,7 @@ class BranchReport
         $branch = $this->branches->first();
         $day = $this->from->toDateString();
         $cash = $this->rows()
-            ->filter(fn (object $row): bool => $row->type === SubscriberTransaction::TYPE_PAYMENT && $row->payment_method === PaymentMethod::Cash->value && ! $this->isCorrection($row))
+            ->filter(fn (object $row): bool => $row->type === SubscriptionTransaction::TYPE_PAYMENT && $row->payment_method === PaymentMethod::Cash->value && ! $this->isCorrection($row))
             ->sum(fn (object $row): int => -Closing::cents($row->amount));
 
         if (! ClosingPeriods::hasEnded($day)) {
@@ -320,7 +320,7 @@ class BranchReport
     }
 
     /**
-     * What the branches' subscribers owed when the period started: every
+     * What the branches' subscriptions owed when the period started: every
      * line recorded before it, cancelled or not, since a cancellation's
      * reversal takes its amount back off when it is recorded.
      */
@@ -328,9 +328,9 @@ class BranchReport
     {
         [$start] = $this->utcRange();
 
-        return Closing::cents((string) SubscriberTransaction::query()
-            ->whereHas('subscriber', fn (Builder $subscriber) => $subscriber->whereIn('branch_id', $this->branchIds()))
-            ->where('subscriber_transactions.created_at', '<', $start)
+        return Closing::cents((string) SubscriptionTransaction::query()
+            ->whereHas('subscription', fn (Builder $subscription) => $subscription->whereIn('branch_id', $this->branchIds()))
+            ->where('subscription_transactions.created_at', '<', $start)
             ->sum('amount'));
     }
 
@@ -350,8 +350,8 @@ class BranchReport
     private function rows(): Collection
     {
         return $this->rows ??= $this->lines()->toBase()->get([
-            'subscriber_transactions.id', 'type', 'amount', 'payment_method', 'bank_name', 'currency', 'currency_amount',
-            'recorded_by', 'reverses_id', 'cancelled_at', 'subscriber_transactions.created_at',
+            'subscription_transactions.id', 'type', 'amount', 'payment_method', 'bank_name', 'currency', 'currency_amount',
+            'recorded_by', 'reverses_id', 'cancelled_at', 'subscription_transactions.created_at',
         ]);
     }
 

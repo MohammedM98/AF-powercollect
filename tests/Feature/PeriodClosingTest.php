@@ -8,8 +8,8 @@ use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\Permission;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -59,7 +59,7 @@ class PeriodClosingTest extends TestCase
         $this->assertSame(ClosingType::Weekly, $week->type);
         $this->assertSame(ClosingStatus::Approved, $week->status);
         $this->assertSame($this->reviewer->id, $week->reviewed_by);
-        $this->assertSame(0, SubscriberTransaction::whereNot('type', SubscriberTransaction::TYPE_PAYMENT)->count());
+        $this->assertSame(0, SubscriptionTransaction::whereNot('type', SubscriptionTransaction::TYPE_PAYMENT)->count());
         $this->post(route('period-closings.store'), ['period' => 'weekly', 'date' => '2026-09-30'])->assertSessionHasErrors('period');
     }
 
@@ -91,7 +91,7 @@ class PeriodClosingTest extends TestCase
     private function payment(string $amount, string $at): void
     {
         $this->travelTo(Carbon::parse($at, 'Asia/Gaza'));
-        SubscriberTransaction::recordPayment(Subscriber::factory()->create(['branch_id' => $this->branch->id]), User::factory()->create(), [
+        SubscriptionTransaction::recordPayment(Subscription::factory()->create(['branch_id' => $this->branch->id]), User::factory()->create(), [
             'amount' => $amount, 'currency' => 'ILS', 'payment_method' => 'cash',
         ]);
         $this->travelTo(Carbon::parse('2026-10-05 10:00', 'Asia/Gaza'));

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Saved wordings for messages to subscribers, one list for the whole
+     * Saved wordings for messages to subscriptions, one list for the whole
      * company, starting with one ready-made wording for each kind.
      */
     public function up(): void

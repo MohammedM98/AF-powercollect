@@ -28,7 +28,7 @@ class ApiClient {
 
   Future<Map<String, dynamic>> me() => _request('GET', '/api/mobile/me');
   Future<Map<String, dynamic>> rosterPage(int page) =>
-      _request('GET', '/api/mobile/subscribers', query: {'page': '$page'});
+      _request('GET', '/api/mobile/subscriptions', query: {'page': '$page'});
   Future<Map<String, dynamic>> sendReading(Map<String, dynamic> reading) =>
       _request('POST', '/api/mobile/readings', body: reading);
   Future<Map<String, dynamic>> weeklyReadings(
@@ -40,10 +40,10 @@ class ApiClient {
       });
   Future<Map<String, dynamic>> findCollectionSubscribers(String search,
           {int page = 1}) =>
-      _request('GET', '/api/mobile/collections/subscribers',
+      _request('GET', '/api/mobile/collections/subscriptions',
           query: {'search': search, 'page': '$page'});
   Future<Map<String, dynamic>> collectionSubscriber(int id) =>
-      _request('GET', '/api/mobile/collections/subscribers/$id');
+      _request('GET', '/api/mobile/collections/subscriptions/$id');
   Future<Map<String, dynamic>> collectionsToday() =>
       _request('GET', '/api/mobile/collections');
   Future<Map<String, dynamic>> sendCollection(

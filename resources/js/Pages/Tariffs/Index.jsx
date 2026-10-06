@@ -146,7 +146,7 @@ function RateEditor({ tariff, dark, onDone }) {
             )}
             <p className={`flex items-start gap-2 text-[13px] leading-relaxed ${muted}`}>
                 <Icon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
-                يُطبَّق السعر الجديد على القراءات التي تُسجَّل من الآن، لـ {formatNumber(tariff.subscribersCount)} مشترك. القراءات السابقة تبقى على
+                يُطبَّق السعر الجديد على القراءات التي تُسجَّل من الآن، لـ {formatNumber(tariff.subscriptionsCount)} مشترك. القراءات السابقة تبقى على
                 سعرها.
             </p>
 
@@ -202,7 +202,7 @@ function TariffCard({ tariff, dark, editing, onEdit, onDoneEditing, onDelete }) 
                 </span>
                 <div className="min-w-0">
                     <h3 className="font-luxe text-[22px] font-bold">{tariff.categoryLabel}</h3>
-                    <small className={`block text-[13.5px] ${muted}`}>{formatNumber(tariff.subscribersCount)} مشترك على هذه التعرفة</small>
+                    <small className={`block text-[13.5px] ${muted}`}>{formatNumber(tariff.subscriptionsCount)} مشترك على هذه التعرفة</small>
                 </div>
                 <div className="ms-auto flex items-center gap-2">
                     {tariff.canDelete && !editing && (
@@ -256,7 +256,7 @@ function TariffCard({ tariff, dark, editing, onEdit, onDoneEditing, onDelete }) 
             </div>
 
             <div className="relative grid grid-cols-3 gap-2 sm:gap-2.5">
-                <Stat dark={dark} label="المشتركون" value={formatNumber(tariff.subscribersCount)} />
+                <Stat dark={dark} label="المشتركون" value={formatNumber(tariff.subscriptionsCount)} />
                 <Stat
                     dark={dark}
                     label="متوسط الاستهلاك"
@@ -379,14 +379,14 @@ function SegmentInput({ initial = '', placeholder, onSave, onCancel }) {
 
 /**
  * The customer segments (mosques, schools…), one list for every tariff:
- * for grouping and reports only, and any subscriber can be given any of
+ * for grouping and reports only, and any subscription can be given any of
  * them. Renamed, added and removed in place.
  */
 function Segments({ segments, canCreateSegment, onDelete }) {
     // A segment's id while renaming it, 'new' while adding one.
     const [editing, setEditing] = useState(null);
     const visitOptions = { preserveScroll: true, onSuccess: () => setEditing(null) };
-    const busiest = Math.max(1, ...segments.map((segment) => segment.subscribersCount));
+    const busiest = Math.max(1, ...segments.map((segment) => segment.subscriptionsCount));
 
     return (
         <section aria-label="تصنيف الزبائن" className="mt-4 overflow-hidden rounded-card border border-gray-100 bg-surface shadow-card">
@@ -412,9 +412,9 @@ function Segments({ segments, canCreateSegment, onDelete }) {
                             className="inline-flex h-[38px] items-center gap-2 rounded-full border border-gray-100 bg-gray-50 pe-1.5 ps-3.5 text-sm font-semibold text-gray-900"
                         >
                             {segment.name}
-                            <span className="font-display text-xs font-semibold text-gray-500">{segment.subscribersCount} مشترك</span>
+                            <span className="font-display text-xs font-semibold text-gray-500">{segment.subscriptionsCount} مشترك</span>
                             <span className="h-[5px] w-11 overflow-hidden rounded-full bg-gray-200" aria-hidden="true">
-                                <i className="block h-full rounded-full bg-gray-700" style={{ width: `${(segment.subscribersCount / busiest) * 100}%` }} />
+                                <i className="block h-full rounded-full bg-gray-700" style={{ width: `${(segment.subscriptionsCount / busiest) * 100}%` }} />
                             </span>
                             {segment.canUpdate && (
                                 <button
@@ -426,7 +426,7 @@ function Segments({ segments, canCreateSegment, onDelete }) {
                                     <Icon name="pencil" className="h-[15px] w-[15px]" />
                                 </button>
                             )}
-                            {segment.canDelete && segment.subscribersCount === 0 && (
+                            {segment.canDelete && segment.subscriptionsCount === 0 && (
                                 <button
                                     type="button"
                                     onClick={() => onDelete(segment)}

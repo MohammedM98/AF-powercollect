@@ -3,7 +3,7 @@
 namespace Tests\Feature\Tariffs;
 
 use App\Models\MeterReading;
-use App\Models\Subscriber;
+use App\Models\Subscription;
 use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,18 +32,18 @@ class TariffCardsTest extends TestCase
                 ->where('tariffs.0.history.0.rate', '3.00'));
     }
 
-    public function test_a_card_shows_its_subscribers_and_their_recent_average_weekly_consumption(): void
+    public function test_a_card_shows_its_subscriptions_and_their_recent_average_weekly_consumption(): void
     {
         $tariff = Tariff::factory()->residential()->create();
-        $subscribers = Subscriber::factory()->count(2)->create(['tariff_id' => $tariff->id]);
-        MeterReading::factory()->approved()->create(['subscriber_id' => $subscribers[0]->id, 'branch_id' => $subscribers[0]->branch_id, 'consumption' => 30]);
-        MeterReading::factory()->approved()->create(['subscriber_id' => $subscribers[1]->id, 'branch_id' => $subscribers[1]->branch_id, 'consumption' => 45]);
-        MeterReading::factory()->create(['subscriber_id' => $subscribers[1]->id, 'branch_id' => $subscribers[1]->branch_id, 'consumption' => 900, 'week_start' => now()->subWeek()->startOfWeek()]);
+        $subscriptions = Subscription::factory()->count(2)->create(['tariff_id' => $tariff->id]);
+        MeterReading::factory()->approved()->create(['subscription_id' => $subscriptions[0]->id, 'branch_id' => $subscriptions[0]->branch_id, 'consumption' => 30]);
+        MeterReading::factory()->approved()->create(['subscription_id' => $subscriptions[1]->id, 'branch_id' => $subscriptions[1]->branch_id, 'consumption' => 45]);
+        MeterReading::factory()->create(['subscription_id' => $subscriptions[1]->id, 'branch_id' => $subscriptions[1]->branch_id, 'consumption' => 900, 'week_start' => now()->subWeek()->startOfWeek()]);
 
         $this->actingAs(User::factory()->superAdmin()->create())
             ->get(route('tariffs.index'))
             ->assertInertia(fn ($page) => $page
-                ->where('tariffs.0.subscribersCount', 2)
+                ->where('tariffs.0.subscriptionsCount', 2)
                 ->where('tariffs.0.averageConsumption', 37.5)
                 ->where('canCreate', true)
                 ->where('categoryOptions', [['value' => 'commercial', 'label' => 'تجاري']]));

@@ -359,7 +359,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           await widget.api.sendReading({...reading}..remove('sync_error'));
           final subscribers = widget.store.subscribers;
           for (final subscriber in subscribers) {
-            if (subscriber['id'] == reading['subscriber_id']) {
+            if (subscriber['id'] == reading['subscription_id']) {
               subscriber['current_reading'] = reading['current_reading'];
               subscriber['reading_status'] = 'pending';
             }
@@ -591,7 +591,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     setState(() {
       section = FieldSection.readings;
       message = null;
-      focusSubscriberId = reading['subscriber_id'] as int;
+      focusSubscriberId = reading['subscription_id'] as int;
     });
   }
 
@@ -753,7 +753,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
         .where((subscriber) =>
             subscriber['reading_status'] != null ||
             queued.any((reading) =>
-                reading['subscriber_id'] == subscriber['id'] &&
+                reading['subscription_id'] == subscriber['id'] &&
                 reading['week_start'] == widget.store.state['week_start']))
         .length;
     final drafts = widget.store.readingDrafts.length;

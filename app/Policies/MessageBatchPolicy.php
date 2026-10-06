@@ -17,7 +17,7 @@ class MessageBatchPolicy
     }
 
     /**
-     * A send to their own branch's subscribers; a Super Admin sees every one.
+     * A send to their own branch's subscriptions; a Super Admin sees every one.
      */
     public function view(User $user, MessageBatch $batch): bool
     {
@@ -29,7 +29,7 @@ class MessageBatchPolicy
     }
 
     /**
-     * Writing to subscribers takes its own permission.
+     * Writing to subscriptions takes its own permission.
      */
     public function create(User $user): bool
     {
@@ -45,7 +45,7 @@ class MessageBatchPolicy
     }
 
     /**
-     * Sends stay as the record of what subscribers were told.
+     * Sends stay as the record of what subscriptions were told.
      */
     public function delete(User $user, MessageBatch $batch): bool
     {

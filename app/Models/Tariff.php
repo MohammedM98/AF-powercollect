@@ -24,9 +24,9 @@ class Tariff extends Model
         ];
     }
 
-    public function subscribers(): HasMany
+    public function subscriptions(): HasMany
     {
-        return $this->hasMany(Subscriber::class);
+        return $this->hasMany(Subscription::class);
     }
 
     /**
@@ -55,7 +55,7 @@ class Tariff extends Model
     public function deletionBlocker(): ?string
     {
         return DeletionBlocker::describe('التعرفة', [
-            'المشتركون' => $this->subscribers()->count(),
+            'المشتركون' => $this->subscriptions()->count(),
         ]);
     }
 }

@@ -64,9 +64,9 @@ function Card({ icon, title, description, children, actions = null }) {
 }
 
 /**
- * Write a message to subscribers: pick what it's about, who gets it, the
+ * Write a message to subscriptions: pick what it's about, who gets it, the
  * wording (from a saved template or typed, with placeholders for each
- * subscriber's own details) and how it goes out, check each recipient's
+ * subscription's own details) and how it goes out, check each recipient's
  * own text, untick anyone it shouldn't reach, then send.
  */
 export default function Create({
@@ -98,7 +98,7 @@ export default function Create({
         meter_box_id: initialCriteria.meter_box_id ?? '',
         circuit_breaker_id: initialCriteria.circuit_breaker_id ?? '',
         search: initialCriteria.search ?? '',
-        subscriber_ids: initialCriteria.subscriber_ids ?? [],
+        subscription_ids: initialCriteria.subscription_ids ?? [],
     });
     const kindTemplates = templates.filter((template) => template.kind === kind);
     const [templateId, setTemplateId] = useState(() => kindTemplates[0]?.id ?? '');
@@ -123,8 +123,8 @@ export default function Create({
             }
         }
 
-        if (criteria.subscriber_ids.length > 0) {
-            data.subscriber_ids = criteria.subscriber_ids;
+        if (criteria.subscription_ids.length > 0) {
+            data.subscription_ids = criteria.subscription_ids;
         }
 
         if (kind === 'weekly_reading') {
@@ -153,9 +153,9 @@ export default function Create({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loadedRecipients]);
 
-    // Opened for one subscriber (from the subscribers list): show them straight away.
+    // Opened for one subscription (from the subscriptions list): show them straight away.
     useEffect(() => {
-        if (criteria.subscriber_ids.length > 0) {
+        if (criteria.subscription_ids.length > 0) {
             loadRecipients();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -238,7 +238,7 @@ export default function Create({
         setSending(true);
         router.post(
             '/messages',
-            { ...requestData, approved_only: Boolean(requestData.approved_only), channel, body, subscriber_ids: [...selected] },
+            { ...requestData, approved_only: Boolean(requestData.approved_only), channel, body, subscription_ids: [...selected] },
             { preserveScroll: true, onFinish: () => setSending(false) },
         );
     }
@@ -428,12 +428,12 @@ export default function Create({
                             </Field>
                         </div>
 
-                        {criteria.subscriber_ids.length > 0 && (
+                        {criteria.subscription_ids.length > 0 && (
                             <div className="mt-4 flex items-center justify-between gap-3 rounded-control bg-gray-50 px-3 py-2 text-sm text-gray-600">
                                 <span>الرسالة لمشترك محدد من قائمة المشتركين.</span>
                                 <button
                                     type="button"
-                                    onClick={() => setCriterion('subscriber_ids', [])}
+                                    onClick={() => setCriterion('subscription_ids', [])}
                                     className={`rounded font-semibold text-brand-600 hover:underline ${FOCUS_RING}`}
                                 >
                                     إلغاء التحديد
@@ -607,7 +607,7 @@ export default function Create({
                         {recipients !== null && recipients.length >= maxRecipients && (
                             <p className="mb-3 text-sm text-amber-700">تُعرض أول {maxRecipients.toLocaleString('en')} مشترك فقط؛ ضيّق الشروط.</p>
                         )}
-                        <InputError message={errors.subscriber_ids} className="mb-3" />
+                        <InputError message={errors.subscription_ids} className="mb-3" />
 
                         {recipients !== null && recipients.length === 0 && (
                             <p className="py-6 text-center text-sm text-gray-500">لا يوجد مشتركون يطابقون الشروط.</p>

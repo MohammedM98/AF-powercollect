@@ -20,7 +20,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 #[Fillable([
-    'subscriber_id', 'branch_id', 'week_start', 'week_end', 'previous_reading', 'current_reading',
+    'subscription_id', 'branch_id', 'week_start', 'week_end', 'previous_reading', 'current_reading',
     'consumption', 'unit_price', 'reading_fee', 'minimum_payment', 'discount_method', 'discount_value', 'discount_segment', 'discount_amount',
     'amount_due', 'status', 'recorded_by', 'notes', 'approved_by', 'approved_at', 'mobile_operation_id',
 ])]
@@ -131,7 +131,7 @@ class MeterReading extends Model
 
     /**
      * What a week's consumption costs: consumption × kilowatt price, but
-     * never less than the minimum payment. A subscriber with a standing
+     * never less than the minimum payment. A subscription with a standing
      * discount pays the fee less the discount instead, with no minimum:
      * only the kilos the discount leaves are paid for. `discount_amount`
      * is what the discount took off the week's bill.
@@ -164,7 +164,7 @@ class MeterReading extends Model
 
     /**
      * Approve the reading: it is locked from then on, and its amount is
-     * charged to the subscriber's transactions — the week's full bill, with
+     * charged to the subscription's transactions — the week's full bill, with
      * its standing discount beside it as a line of its own (خصم القراءات الأسبوعية). A
      * reading that is already approved is left as it is.
      */
@@ -191,11 +191,11 @@ class MeterReading extends Model
     }
 
     /**
-     * Bill the reading with the subscriber's standing discount as it is now
+     * Bill the reading with the subscription's standing discount as it is now
      * (none when it was stopped), at the prices the reading was recorded
      * with. An approved reading's lines are rebilled to match — the old ones
      * cancelled with a reversal, kept on the statement, and the new ones
-     * recorded under them — so the subscriber's transactions show the change
+     * recorded under them — so the subscription's transactions show the change
      * straight away; a pending one's shows when it is approved.
      */
     public function applyStandingDiscount(?StandingDiscount $discount, User $recorder): void
@@ -211,8 +211,8 @@ class MeterReading extends Model
             ]);
 
             if (! $reading->isPending()) {
-                $charge = $reading->currentLine(SubscriberTransaction::TYPE_METER_READING);
-                $discountLine = $reading->currentLine(SubscriberTransaction::TYPE_READING_DISCOUNT);
+                $charge = $reading->currentLine(SubscriptionTransaction::TYPE_METER_READING);
+                $discountLine = $reading->currentLine(SubscriptionTransaction::TYPE_READING_DISCOUNT);
                 $chargeNeedsRebilling = $charge && $charge->amount !== $reading->amountBeforeDiscount();
 
                 if ($chargeNeedsRebilling) {
@@ -233,7 +233,7 @@ class MeterReading extends Model
     }
 
     /**
-     * Charge the reading's week to the subscriber's account: the full bill,
+     * Charge the reading's week to the subscription's account: the full bill,
      * before its standing discount.
      */
     private function recordChargeLine(User $recorder): void
@@ -242,11 +242,11 @@ class MeterReading extends Model
             return;
         }
 
-        $this->subscriber->transactions()->create([
+        $this->subscription->transactions()->create([
             'recorded_by' => $recorder->id,
             'meter_reading_id' => $this->id,
-            'corrects_id' => $this->lastCancelledLineId(SubscriberTransaction::TYPE_METER_READING),
-            'type' => SubscriberTransaction::TYPE_METER_READING,
+            'corrects_id' => $this->lastCancelledLineId(SubscriptionTransaction::TYPE_METER_READING),
+            'type' => SubscriptionTransaction::TYPE_METER_READING,
             'source_key' => $this->chargeSourceKey(),
             'amount' => $this->amountBeforeDiscount(),
             'currency_amount' => $this->amountBeforeDiscount(),
@@ -254,7 +254,7 @@ class MeterReading extends Model
     }
 
     /**
-     * Take the reading's standing discount off the subscriber's account as
+     * Take the reading's standing discount off the subscription's account as
      * a line of its own (خصم القراءات الأسبوعية) beside the reading's charge, naming the
      * customer segment it was given to in its details; a reading billed
      * without one takes nothing off.
@@ -263,15 +263,15 @@ class MeterReading extends Model
     {
         if ((float) $this->discount_amount <= 0
             || $this->sourceWasBilled($this->discountSourceKey())
-            || $this->currentLine(SubscriberTransaction::TYPE_METER_READING, lockForUpdate: true) === null) {
+            || $this->currentLine(SubscriptionTransaction::TYPE_METER_READING, lockForUpdate: true) === null) {
             return;
         }
 
-        $this->subscriber->transactions()->create([
+        $this->subscription->transactions()->create([
             'recorded_by' => $recorder->id,
             'meter_reading_id' => $this->id,
-            'corrects_id' => $this->lastCancelledLineId(SubscriberTransaction::TYPE_READING_DISCOUNT),
-            'type' => SubscriberTransaction::TYPE_READING_DISCOUNT,
+            'corrects_id' => $this->lastCancelledLineId(SubscriptionTransaction::TYPE_READING_DISCOUNT),
+            'type' => SubscriptionTransaction::TYPE_READING_DISCOUNT,
             'source_key' => $this->discountSourceKey(),
             'amount' => number_format(-(float) $this->discount_amount, 2, '.', ''),
             'currency_amount' => $this->discount_amount,
@@ -288,16 +288,16 @@ class MeterReading extends Model
      */
     private function sourceWasBilled(string $sourceKey): bool
     {
-        return SubscriberTransaction::query()->where('source_key', $sourceKey)->exists();
+        return SubscriptionTransaction::query()->where('source_key', $sourceKey)->exists();
     }
 
     /**
      * The reading's charge or standing-discount line that stands on the
-     * subscriber's account, if it has been billed.
+     * subscription's account, if it has been billed.
      */
-    private function currentLine(string $type, bool $lockForUpdate = false): ?SubscriberTransaction
+    private function currentLine(string $type, bool $lockForUpdate = false): ?SubscriptionTransaction
     {
-        return SubscriberTransaction::query()
+        return SubscriptionTransaction::query()
             ->where('meter_reading_id', $this->id)
             ->where('type', $type)
             ->whereNull('cancelled_at')
@@ -311,7 +311,7 @@ class MeterReading extends Model
      */
     private function lastCancelledLineId(string $type): ?int
     {
-        return SubscriberTransaction::query()
+        return SubscriptionTransaction::query()
             ->where('meter_reading_id', $this->id)
             ->where('type', $type)
             ->whereNotNull('cancelled_at')
@@ -334,7 +334,7 @@ class MeterReading extends Model
             $consumption = self::consumptionBetween($this->previous_reading, $currentReading);
 
             if ($wasApproved) {
-                foreach ([SubscriberTransaction::TYPE_METER_READING, SubscriberTransaction::TYPE_READING_DISCOUNT] as $type) {
+                foreach ([SubscriptionTransaction::TYPE_METER_READING, SubscriptionTransaction::TYPE_READING_DISCOUNT] as $type) {
                     $this->currentLine($type)?->cancelForReading($editor, CorrectionReason::ReadingCorrected);
                 }
             }
@@ -395,9 +395,9 @@ class MeterReading extends Model
         return number_format((float) $this->amount_due + (float) $this->discount_amount, 2, '.', '');
     }
 
-    public function subscriber(): BelongsTo
+    public function subscription(): BelongsTo
     {
-        return $this->belongsTo(Subscriber::class);
+        return $this->belongsTo(Subscription::class);
     }
 
     public function recordedBy(): BelongsTo

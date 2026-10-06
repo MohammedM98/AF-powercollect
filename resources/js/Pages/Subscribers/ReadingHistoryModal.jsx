@@ -4,12 +4,15 @@ import Modal from '@/Components/Modal';
 import { downloadCsv } from '@/lib/csv';
 import { formatMoney, formatNumber } from '@/lib/format';
 import { groupReadingsByMonth, readingHistoryCsv, readingTotals, readingsInPeriod } from '@/lib/readingHistory';
+import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
+import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import './ReadingHistoryModal.css';
 
 const PERIODS = [['12', 'آخر 12 أسبوعًا'], ['26', '6 أشهر'], ['52', 'سنة'], ['all', 'الكل']];
 const STATUSES = [['all', 'الكل'], ['approved', 'معتمدة'], ['pending', 'قيد المراجعة']];
 const MONTH = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const money = (value) => Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const CHART_OPEN_KEY = 'reading-history-chart-open';
 const shortDate = (date) => date ? `${date.slice(8, 10)}/${date.slice(5, 7)}` : '—';
 
 function HistoryIcon({ name }) {
@@ -29,9 +32,31 @@ function Figure({ label, value, unit, children }) {
 
 function HistoryChart({ readings, average }) {
     const hatchId = useId();
+    const plotId = useId();
     const plotRef = useRef(null);
     const [width, setWidth] = useState(1000);
     const [activeId, setActiveId] = useState(null);
+    const [open, setOpen] = useState(() => {
+        try {
+            return window.localStorage.getItem(CHART_OPEN_KEY) !== '0';
+        } catch {
+            return true;
+        }
+    });
+
+    function toggle() {
+        const next = !open;
+
+        setOpen(next);
+        setActiveId(null);
+
+        try {
+            window.localStorage.setItem(CHART_OPEN_KEY, next ? '1' : '0');
+        } catch {
+            // The choice is only a convenience; it just isn't remembered.
+        }
+    }
+
     useEffect(() => {
         const observer = new ResizeObserver(([entry]) => setWidth(Math.max(1, entry.contentRect.width)));
         observer.observe(plotRef.current);
@@ -48,8 +73,8 @@ function HistoryChart({ readings, average }) {
 
     return (
         <section className="rh-chart">
-            <div className="rh-chart-heading"><h3>الاستهلاك الأسبوعي</h3><span>{formatNumber(points.length)} أسبوعًا، الأقدم على اليمين</span><span className="rh-average"><i />المتوسط</span></div>
-            <div className="rh-plot" ref={plotRef} onPointerLeave={() => setActiveId(null)}>
+            <div className="rh-chart-heading"><h3>الاستهلاك الأسبوعي</h3><span>{formatNumber(points.length)} أسبوعًا، الأقدم على اليمين</span>{open && <span className="rh-average"><i />المتوسط</span>}<button type="button" className="rh-chart-toggle" onClick={toggle} aria-expanded={open} aria-controls={plotId}>{open ? 'طي الرسم' : 'عرض الرسم'}<Icon name="chevron-down" className={`h-4 w-4 transition ${open ? 'rotate-180' : ''}`} /></button></div>
+            <div id={plotId} className="rh-plot" ref={plotRef} style={open ? undefined : { display: 'none' }} onPointerLeave={() => setActiveId(null)}>
                 {points.length > 0 ? <svg viewBox={`0 0 ${width} 170`} preserveAspectRatio="none" role="group" aria-label="الاستهلاك الأسبوعي بالكيلو">
                     <defs><pattern id={hatchId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" className="rh-hatch-background" /><path d="M0 0V6" className="rh-hatch-line" strokeWidth="2.2" /></pattern></defs>
                     <line x1="0" x2={width} y1="146" y2="146" className="rh-baseline" />
@@ -76,8 +101,9 @@ function HistoryChart({ readings, average }) {
 }
 
 /** The selected subscriber's recorded history, presented using the supplied design. */
-export default function ReadingHistoryModal({ subscriber, onClose }) {
+export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOptions = [] }) {
     const titleId = useId();
+    const [enteringReading, setEnteringReading] = useState(false);
     const [period, setPeriod] = useState('12');
     const [status, setStatus] = useState('all');
     const allReadings = readingsInPeriod(subscriber?.meterReadings ?? [], 'all');
@@ -91,6 +117,8 @@ export default function ReadingHistoryModal({ subscriber, onClose }) {
     const previousAverage = previousWeeks.length ? readingTotals(previousWeeks).consumption / previousWeeks.length : 0;
     const change = previousAverage > 0 ? Math.round((Number(latest.consumption) - previousAverage) / previousAverage * 100) : null;
     const maximum = Math.max(1, ...visibleReadings.map((reading) => Number(reading.consumption)));
+
+    const currentWeekRecorded = subscriber ? hasLatestWeekReading(subscriber, readingWeekOptions) : false;
 
     function exportReadings() {
         downloadCsv(readingHistoryCsv(visibleReadings), `readings-${subscriber.account_number}.csv`);
@@ -112,6 +140,7 @@ export default function ReadingHistoryModal({ subscriber, onClose }) {
                         </div>
                     </div>
                     <div className="rh-actions">
+                        {subscriber.canRecordReading && <button type="button" className="rh-enter" onClick={() => setEnteringReading(true)} disabled={currentWeekRecorded} title={currentWeekRecorded ? 'تم إدخال قراءة هذا الأسبوع' : 'تسجيل قراءة جديدة'}><Icon name="gauge" />{currentWeekRecorded ? 'قراءة هذا الأسبوع مسجّلة' : 'إدخال قراءة'}</button>}
                         <button type="button" onClick={exportReadings} disabled={!visibleReadings.length} title="تصدير القراءات المعروضة بصيغة CSV المتوافقة مع Excel"><HistoryIcon name="excel" />تصدير Excel</button>
                         <button type="button" onClick={() => window.print()} disabled={!visibleReadings.length}><HistoryIcon name="print" />طباعة</button>
                         <button type="button" className="rh-close" onClick={onClose} aria-label="إغلاق"><Icon name="close" /></button>
@@ -136,15 +165,17 @@ export default function ReadingHistoryModal({ subscriber, onClose }) {
                     </p>
                     <div className="rh-table-wrap">
                         <table className="rh-table">
-                            <thead><tr><th scope="col">الأسبوع</th><th scope="col" className="rh-previous">السابقة</th><th scope="col" className="rh-current">الحالية</th><th scope="col">الاستهلاك</th><th scope="col" className="rh-discount">الخصم</th><th scope="col">المستحق</th><th scope="col">الحالة</th><th scope="col" className="rh-recorder">سجّلها</th></tr></thead>
+                            <thead><tr><th scope="col">الأسبوع</th><th scope="col" className="rh-previous">السابقة</th><th scope="col" className="rh-current">الحالية</th><th scope="col">الاستهلاك</th><th scope="col" className="rh-price">سعر الكيلو</th><th scope="col" className="rh-minimum">الحد الأدنى</th><th scope="col" className="rh-discount">الخصم</th><th scope="col">المستحق</th><th scope="col">الحالة</th><th scope="col" className="rh-recorder">سجّلها</th></tr></thead>
                             <tbody>{groupReadingsByMonth(visibleReadings).map((group) => <Fragment key={group.month}>
-                                <tr className="rh-month"><th scope="rowgroup" colSpan={8}><b>{MONTH.format(new Date(`${group.month}-01T00:00:00Z`))}</b>{formatNumber(group.readings.length)} قراءة · <span>{formatMoney(group.totals.consumption)}</span> كيلو · <span>{money(group.totals.due)}</span> ₪</th></tr>
+                                <tr className="rh-month"><th scope="rowgroup" colSpan={10}><b>{MONTH.format(new Date(`${group.month}-01T00:00:00Z`))}</b>{formatNumber(group.readings.length)} قراءة · <span>{formatMoney(group.totals.consumption)}</span> كيلو · <span>{money(group.totals.due)}</span> ₪</th></tr>
                                 {group.readings.map((reading) => {
                                     const difference = average > 0 ? Math.round((Number(reading.consumption) - average) / average * 100) : 0;
                                     return <tr key={reading.id}>
                                         <td className="rh-week"><b dir="ltr" title={`${reading.weekStart} – ${reading.weekEnd}`}>{shortDate(reading.weekStart)} ← {shortDate(reading.weekEnd)}</b>{reading.notes && <span className="rh-note">{reading.notes}</span>}</td>
                                         <td className="rh-previous rh-number">{formatMoney(reading.previous_reading)}</td><td className="rh-current rh-number">{formatMoney(reading.current_reading)}</td>
                                         <td className="rh-consumption"><div><b>{formatMoney(reading.consumption)}</b><span className="rh-meter"><i style={{ width: `${Number(reading.consumption) / maximum * 100}%` }} /></span><span className={`rh-delta ${Math.abs(difference) < 10 ? '' : difference > 0 ? 'rh-up' : 'rh-down'}`} dir="ltr" title="الفرق عن متوسط الفترة">{Math.abs(difference) < 10 ? '≈' : `${difference > 0 ? '+' : ''}${difference}٪`}</span></div></td>
+                                        <td className="rh-price rh-number" dir="ltr">{reading.unitPrice != null ? money(reading.unitPrice) : '—'}</td>
+                                        <td className="rh-minimum rh-number" dir="ltr">{reading.minimumPayment != null ? money(reading.minimumPayment) : '—'}</td>
                                         <td className="rh-discount">{Number(reading.discountAmount) > 0 ? <span className="rh-discount-value" dir="ltr">−{money(reading.discountAmount)}</span> : <span className="rh-muted">—</span>}</td>
                                         <td className="rh-due"><b dir="ltr">{money(reading.amountDue)} <em>₪</em></b>{reading.minimumApplied && <small>الحد الأدنى</small>}</td>
                                         <td className="rh-status"><span className={`rh-pill ${reading.status === 'approved' ? 'is-approved' : 'is-pending'}`}><i />{reading.status === 'pending' ? 'قيد المراجعة' : reading.statusLabel}</span></td>
@@ -152,12 +183,13 @@ export default function ReadingHistoryModal({ subscriber, onClose }) {
                                     </tr>;
                                 })}
                             </Fragment>)}</tbody>
-                            {visibleReadings.length > 0 && <tfoot><tr><td>مجموع الفترة</td><td className="rh-previous rh-hide-mobile" /><td className="rh-current rh-hide-mobile" /><td><b className="rh-number">{formatMoney(totals.consumption)}</b> كيلو</td><td className="rh-discount"><span className="rh-discount-value" dir="ltr">{totals.discount > 0 ? `−${money(totals.discount)}` : '—'}</span></td><td className="rh-due"><b dir="ltr">{money(totals.due)} <em>₪</em></b></td><td className="rh-hide-mobile" /><td className="rh-recorder rh-hide-mobile" /></tr></tfoot>}
+                            {visibleReadings.length > 0 && <tfoot><tr><td>مجموع الفترة</td><td className="rh-previous rh-hide-mobile" /><td className="rh-current rh-hide-mobile" /><td><b className="rh-number">{formatMoney(totals.consumption)}</b> كيلو</td><td className="rh-price rh-hide-mobile" /><td className="rh-minimum rh-hide-mobile" /><td className="rh-discount"><span className="rh-discount-value" dir="ltr">{totals.discount > 0 ? `−${money(totals.discount)}` : '—'}</span></td><td className="rh-due"><b dir="ltr">{money(totals.due)} <em>₪</em></b></td><td className="rh-hide-mobile" /><td className="rh-recorder rh-hide-mobile" /></tr></tfoot>}
                         </table>
                         {!visibleReadings.length && <div className="rh-empty"><b>لا توجد قراءات</b>{allReadings.length ? 'لا توجد قراءات بهذه الحالة في الفترة المختارة.' : 'لا توجد قراءات لهذا المشترك بعد.'}</div>}
                     </div>
                 </div>
             </div>}
+            {enteringReading && subscriber && <MeterReadingModal show onClose={() => setEnteringReading(false)} reading={null} fixedSubscriber={readingOptionFor(subscriber)} weekOptions={readingWeekOptions} />}
         </Modal>
     );
 }

@@ -44,14 +44,14 @@ test('monthly groups use the week end and distinguish the same month in differen
 test('Excel export contains only the selected records and protects user text', () => {
     const reading = {
         weekStart: '2026-09-18', weekEnd: '2026-09-24', previous_reading: 100.25, current_reading: 101.5,
-        consumption: 1.25, discountAmount: 0, amountDue: 20, status: 'approved', statusLabel: 'معتمدة',
+        consumption: 1.25, unitPrice: 30, minimumPayment: 20, discountAmount: 0, amountDue: 20, status: 'approved', statusLabel: 'معتمدة',
         recordedByName: '=1+1', recordedAt: '2026-09-24 12:00', notes: 'ملاحظة "خاصة",\nسطر ثان',
     };
     const hiddenReading = { ...reading, status: 'pending', notes: 'not exported' };
     const csv = readingHistoryCsv([reading, hiddenReading].filter((row) => row.status === 'approved'));
 
     assert.ok(csv.startsWith('\uFEFF'));
-    assert.ok(csv.includes('"100.25","101.5","1.25","0","20"'));
+    assert.ok(csv.includes('"100.25","101.5","1.25","30","20","0","20"'));
     assert.ok(csv.includes('"\'=1+1"'));
     assert.ok(csv.includes('"ملاحظة ""خاصة"",\nسطر ثان"'));
     assert.ok(!csv.includes('not exported'));

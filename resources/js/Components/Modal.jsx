@@ -57,8 +57,8 @@ export default function Modal({ show, onClose, children, maxWidth = 'md', center
     }[maxWidth];
 
     return createPortal(
-        <div className={`fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-6 ${centered ? 'flex items-center' : ''}`} onClick={onClose}>
-            <div className="animate-modal-backdrop fixed inset-0 bg-graphite-900/60 backdrop-blur-sm" />
+        <div className={`modal-scroll fixed inset-0 z-50 overflow-y-auto bg-graphite-900/60 px-4 py-6 sm:px-6 ${centered ? 'flex items-center' : ''}`} onClick={onClose}>
+            <div className="animate-modal-backdrop fixed inset-0 backdrop-blur-sm" />
             <div
                 className={`animate-modal-panel relative mx-auto mb-6 mt-6 w-full transform overflow-hidden rounded-panel bg-surface shadow-2xl ring-1 ring-black/5 transition-all ${maxWidthClass} ${panelClassName}`}
                 onClick={(e) => e.stopPropagation()}

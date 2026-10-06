@@ -542,14 +542,16 @@ export default function SubscriberForm({
                             {subAreasInArea.length === 0 ? (
                                 <p className="text-sm text-gray-500">لا توجد منطقة 2 في هذه المنطقة بعد.</p>
                             ) : (
-                                <select className="block w-full" value={subAreaId} onChange={(e) => onSubAreaChange(e.target.value)}>
-                                    <option value="">{isEdit ? '— بلا منطقة 2 —' : '— اختر منطقة 2 —'}</option>
-                                    {subAreasInArea.map((subArea) => (
-                                        <option key={subArea.id} value={subArea.id}>
-                                            {subArea.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <SearchableSelect
+                                    id="sub_area_id"
+                                    value={subAreaId}
+                                    onChange={onSubAreaChange}
+                                    options={subAreasInArea.map((subArea) => ({ value: String(subArea.id), label: subArea.name }))}
+                                    placeholder={isEdit ? '— بلا منطقة 2 —' : '— اختر منطقة 2 —'}
+                                    searchPlaceholder="بحث في المناطق..."
+                                    emptyLabel="لا توجد مناطق مطابقة"
+                                    active={Boolean(subAreaId)}
+                                />
                             )}
                         </Field>
                     )}

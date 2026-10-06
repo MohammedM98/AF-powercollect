@@ -131,6 +131,21 @@ class SubscriberStatementTest extends TestCase
         $this->assertSame('1.0000', $payment->exchange_rate);
     }
 
+    public function test_only_cash_payments_get_a_voucher_number_and_transfers_leave_the_sequence_alone(): void
+    {
+        $this->recordPayment(['amount' => '10'])->assertSessionHasNoErrors();
+        $this->recordPayment(['amount' => '20', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad', 'reference_number' => 'TR-1'])->assertSessionHasNoErrors();
+        $this->recordPayment(['amount' => '30', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad', 'reference_number' => 'TR-2'])->assertSessionHasNoErrors();
+        $this->recordPayment(['amount' => '40'])->assertSessionHasNoErrors();
+
+        $this->assertSame([1, null, null, 2], SubscriberTransaction::orderBy('id')->pluck('voucher_number')->all());
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscribers.statement', $this->subscriber))
+            ->assertInertia(fn ($page) => $page
+                ->where('entries', fn ($entries): bool => collect($entries)->pluck('voucherNumber')->all() === ['000001', null, null, '000002']));
+    }
+
     #[TestWith(['USD', '3.7'])]
     #[TestWith(['JOD', '5.215'])]
     public function test_a_payment_in_another_currency_is_refused(string $currency, string $rate): void
@@ -199,7 +214,7 @@ class SubscriberStatementTest extends TestCase
         ];
 
         $this->recordPayment($duplicate)->assertSessionHasErrors([
-            'reference_number' => 'هذا الرقم المرجعي مسجَّل مسبقًا على دفعة أخرى — السند '.$existing->printedVoucherNumber().' للمشترك Mona.',
+            'reference_number' => 'هذا الرقم المرجعي مسجَّل مسبقًا على دفعة أخرى للمشترك Mona.',
         ]);
         $this->assertDatabaseCount('subscriber_transactions', 1);
 

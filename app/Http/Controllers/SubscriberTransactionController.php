@@ -50,7 +50,7 @@ class SubscriberTransactionController extends Controller
 
         $request->user()->notify(new ActionCompleted(
             'transaction-amended',
-            sprintf('%s — دفعة · السند %s', $subscriber->displayName(), $transaction->printedVoucherNumber()),
+            sprintf('%s — دفعة%s', $subscriber->displayName(), $transaction->printedVoucherNumber() ? ' · السند '.$transaction->printedVoucherNumber() : ''),
         ));
 
         return back()->with('status', 'transaction-amended');

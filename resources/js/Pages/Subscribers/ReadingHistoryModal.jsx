@@ -102,11 +102,12 @@ function HistoryChart({ readings, average }) {
 }
 
 /**
- * The latest week's reading, entered or corrected right here as on the readings sheet:
- * the last reading, the new one, and what it comes to as it is typed. Enter or the
- * save button saves it; correcting an approved reading asks first.
+ * The latest week's line in the table, entered or corrected right where it is read, as on the
+ * readings sheet: the last reading beside the new one, and what it comes to as it is typed.
+ * Enter or leaving the field saves it, Escape puts the saved number back; correcting an
+ * approved reading asks first. `reading` is null while the week's reading is still to be entered.
  */
-function ReadingEntry({ subscriber, week, reading }) {
+function LiveRow({ subscriber, week, reading, maximum, average }) {
     const savedValue = reading ? String(reading.current_reading) : '';
     const [value, setValue] = useState(savedValue);
     const [error, setError] = useState(null);
@@ -119,13 +120,23 @@ function ReadingEntry({ subscriber, week, reading }) {
         setError(null);
     }, [savedValue]);
 
+    useEffect(() => {
+        if (!reading) {
+            inputRef.current?.focus();
+        }
+    }, [reading?.id]);
+
     const previous = reading ? reading.previous_reading : subscriber.lastReading;
     const isDraft = value !== savedValue;
     const typed = value !== '' && !Number.isNaN(Number(value));
     const consumption = typed ? consumptionBetween(previous, value) : null;
-    const draft = typed ? weeklyCharges(consumption, reading?.unitPrice ?? subscriber.tariffRate, reading?.minimumPayment ?? subscriber.weeklyMinimumPayment, reading ? null : subscriber.standingDiscount) : null;
-    const showing = reading && !isDraft ? { consumption: Number(reading.consumption), amountDue: Number(reading.amountDue) } : draft && { consumption, amountDue: draft.amountDue };
-    const negative = showing !== null && showing !== undefined && showing.consumption < 0;
+    const negative = consumption !== null && consumption < 0;
+    const unitPrice = reading?.unitPrice ?? subscriber.tariffRate;
+    const minimumPayment = reading?.minimumPayment ?? subscriber.weeklyMinimumPayment;
+    const charges = reading && !isDraft
+        ? { consumption: Number(reading.consumption), discountAmount: Number(reading.discountAmount), amountDue: Number(reading.amountDue), minimumApplies: reading.minimumApplied }
+        : typed && !negative ? { consumption, ...weeklyCharges(consumption, unitPrice, minimumPayment, reading ? null : subscriber.standingDiscount) } : null;
+    const difference = charges && average > 0 ? Math.round((charges.consumption - average) / average * 100) : 0;
 
     function save(confirmed = false) {
         if (!typed || !isDraft || saving || negative) {
@@ -153,25 +164,31 @@ function ReadingEntry({ subscriber, week, reading }) {
         }
     }
 
-    return <section className="rh-entry" aria-label="قراءة الأسبوع">
-        <div className="rh-entry-heading">
-            <div><h3>{reading ? 'قراءة هذا الأسبوع' : 'إدخال قراءة'}</h3><span>{week.label}</span></div>
-            {reading ? <span className={`rh-pill ${reading.status === 'approved' ? 'is-approved' : 'is-pending'}`}><i />{reading.status === 'pending' ? 'قيد المراجعة' : reading.statusLabel}</span> : <span className="rh-pill is-missing"><i />لم تُدخل</span>}
-        </div>
-        <div className="rh-entry-fields">
-            <div className="rh-entry-field"><small>آخر قراءة للعداد</small><b className="rh-number" dir="ltr">{formatMoney(previous)}</b></div>
-            <label className="rh-entry-field rh-entry-input"><small>القراءة الجديدة</small>
-                <span><input ref={inputRef} type="number" inputMode="decimal" step="0.01" min={previous} dir="ltr" value={value} placeholder="أدخل القراءة" disabled={saving} aria-invalid={Boolean(error) || negative}
-                    onChange={(event) => { setValue(event.target.value); setError(null); }}
-                    onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); save(); } }} />
-                <button type="button" onClick={() => save()} disabled={!typed || !isDraft || saving || negative}>{saving ? 'جارٍ الحفظ...' : reading ? 'حفظ التعديل' : 'حفظ القراءة'}</button></span>
-            </label>
-            <div className="rh-entry-field"><small>الاستهلاك</small><b className={`rh-number ${negative ? 'rh-bad' : ''}`} dir="ltr">{showing ? formatMoney(showing.consumption) : '—'}<em>كيلو</em></b></div>
-            <div className="rh-entry-field"><small>المستحق</small><b className="rh-number" dir="ltr">{showing && !negative ? money(showing.amountDue) : '—'}<em>₪</em></b></div>
-        </div>
-        {(error || negative) && <p className="rh-entry-error" role="alert">{error ?? `القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة (${formatMoney(previous)}).`}</p>}
-        <ConfirmDialog show={confirming} onConfirm={() => { setConfirming(false); save(true); }} onCancel={() => { setConfirming(false); setValue(savedValue); }} title="تعديل قراءة معتمدة؟" message={`قراءة ${subscriber.display_name} معتمدة. تعديلها يعيدها إلى قيد المراجعة ويزيل مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`} confirmLabel="نعم، عدّل" cancelLabel="تراجع عن التعديل" icon="alert" />
-    </section>;
+    return <tr className={`rh-live ${reading ? '' : 'is-new'}`}>
+        <td className="rh-week"><b dir="ltr" title={week.label}>{shortDate(week.value)} ← {shortDate(week.end)}</b><span className="rh-note">{reading ? 'يمكن تعديل القراءة هنا' : 'قراءة جديدة — أدخلها هنا'}</span></td>
+        <td className="rh-previous rh-number">{formatMoney(previous)}</td>
+        <td className="rh-current rh-live-current">
+            <input ref={inputRef} type="number" inputMode="decimal" step="0.01" min={previous} dir="ltr" value={value} placeholder="أدخل القراءة" disabled={saving}
+                aria-label="القراءة الجديدة" aria-invalid={Boolean(error) || negative} title={error ?? (negative ? `لا يمكن أن تقل عن القراءة السابقة (${formatMoney(previous)})` : undefined)}
+                onChange={(event) => { setValue(event.target.value); setError(null); }}
+                onBlur={() => save()}
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter') { event.preventDefault(); save(); }
+                    if (event.key === 'Escape' && isDraft) { event.stopPropagation(); setValue(savedValue); }
+                }} />
+            {(error || negative) && <small className="rh-live-error" role="alert">{error ?? `أقل من السابقة (${formatMoney(previous)})`}</small>}
+        </td>
+        <td className="rh-consumption"><div><b>{charges ? formatMoney(charges.consumption) : '—'}</b>{charges && <><span className="rh-meter"><i style={{ width: `${Math.min(100, Math.max(0, charges.consumption) / Math.max(maximum, charges.consumption, 1) * 100)}%` }} /></span><span className={`rh-delta ${Math.abs(difference) < 10 ? '' : difference > 0 ? 'rh-up' : 'rh-down'}`} dir="ltr">{Math.abs(difference) < 10 ? '≈' : `${difference > 0 ? '+' : ''}${difference}٪`}</span></>}</div></td>
+        <td className="rh-price rh-number"><span dir="ltr">{money(unitPrice)}</span></td>
+        <td className="rh-minimum rh-number"><span dir="ltr">{money(minimumPayment)}</span></td>
+        <td className="rh-discount">{charges && charges.discountAmount > 0 ? <span className="rh-discount-value" dir="ltr">−{money(charges.discountAmount)}</span> : <span className="rh-muted">—</span>}</td>
+        <td className="rh-due">{charges ? <b dir="ltr">{money(charges.amountDue)} <em>₪</em></b> : <b>—</b>}{charges?.minimumApplies && <small>الحد الأدنى</small>}</td>
+        <td className="rh-status">
+            {saving ? <span className="rh-saving">جارٍ الحفظ...</span> : reading ? <span className={`rh-pill ${reading.status === 'approved' ? 'is-approved' : 'is-pending'}`}><i />{reading.status === 'pending' ? 'قيد المراجعة' : reading.statusLabel}</span> : <span className="rh-pill is-missing"><i />لم تُدخل</span>}
+            <ConfirmDialog show={confirming} onConfirm={() => { setConfirming(false); save(true); }} onCancel={() => { setConfirming(false); setValue(savedValue); }} title="تعديل قراءة معتمدة؟" message={`قراءة ${subscriber.display_name} معتمدة. تعديلها يعيدها إلى قيد المراجعة ويزيل مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`} confirmLabel="نعم، عدّل" cancelLabel="تراجع عن التعديل" icon="alert" />
+        </td>
+        <td className="rh-recorder">{reading ? <>{reading.recordedByName ?? '—'}<small><HistoryIcon name={reading.recordedSource === 'app' ? 'app' : 'web'} /><span>{reading.recordedSource === 'app' ? 'التطبيق' : 'الموقع'}</span> · <span dir="ltr">{reading.recordedAt}</span></small></> : '—'}</td>
+    </tr>;
 }
 
 /** The selected subscriber's recorded history, presented using the supplied design. */
@@ -194,6 +211,10 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
     // The latest ended week, which readings are entered for: this week's reading if it is recorded already.
     const entryWeek = readingWeekOptions[0] ?? null;
     const entryReading = entryWeek && latest?.weekStart === entryWeek.value ? latest : null;
+    // The new week's line is entered in the table (the line itself, once it is recorded and may still be corrected).
+    const canEnter = Boolean(subscriber?.canRecordReading && entryWeek);
+    const newLine = canEnter && !entryReading && status === 'all';
+    const editableId = canEnter && entryReading?.canUpdate ? entryReading.id : null;
 
     function exportReadings() {
         downloadCsv(readingHistoryCsv(visibleReadings), `readings-${subscriber.account_number}.csv`);
@@ -227,7 +248,6 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
                         <Figure label="أعلى استهلاك" value={formatMoney(busiest?.consumption ?? 0)} unit="كيلو">{busiest && `أسبوع ${shortDate(busiest.weekStart)} – ${shortDate(busiest.weekEnd)}`}</Figure>
                         <Figure label="آخر قراءة للعداد" value={formatMoney(subscriber.lastReading)}>{latest ? <>أسبوع {shortDate(latest.weekEnd)}{change !== null && <> · <span className={change > 0 ? 'rh-up' : 'rh-down'}>{change > 0 ? '▲' : change < 0 ? '▼' : '≈'} {Math.abs(change)}٪</span> عن متوسط {formatNumber(previousWeeks.length)} أسابيع</>}</> : 'قراءة العداد عند الاشتراك'}</Figure>
                     </div>
-                    {subscriber.canRecordReading && entryWeek && (!entryReading || entryReading.canUpdate) && <ReadingEntry subscriber={subscriber} week={entryWeek} reading={entryReading} />}
                     <HistoryChart readings={periodReadings} average={average} />
                     <div className="rh-toolbar">
                         <div className="rh-segments" role="group" aria-label="الفترة">{PERIODS.map(([value, label]) => <button type="button" key={value} aria-pressed={period === value} onClick={() => setPeriod(value)}>{label}</button>)}</div>
@@ -241,9 +261,13 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
                     <div className="rh-table-wrap">
                         <table className="rh-table">
                             <thead><tr><th scope="col">الأسبوع</th><th scope="col" className="rh-previous">السابقة</th><th scope="col" className="rh-current">الحالية</th><th scope="col">الاستهلاك</th><th scope="col" className="rh-price">سعر الكيلو</th><th scope="col" className="rh-minimum">الحد الأدنى</th><th scope="col" className="rh-discount">الخصم</th><th scope="col">المستحق</th><th scope="col">الحالة</th><th scope="col" className="rh-recorder">سجّلها</th></tr></thead>
-                            <tbody>{groupReadingsByMonth(visibleReadings).map((group) => <Fragment key={group.month}>
+                            <tbody>{newLine && <LiveRow subscriber={subscriber} week={entryWeek} reading={null} maximum={maximum} average={average} />}{groupReadingsByMonth(visibleReadings).map((group) => <Fragment key={group.month}>
                                 <tr className="rh-month"><th scope="rowgroup" colSpan={10}><b>{MONTH.format(new Date(`${group.month}-01T00:00:00Z`))}</b>{formatNumber(group.readings.length)} قراءة · <span>{formatMoney(group.totals.consumption)}</span> كيلو · <span>{money(group.totals.due)}</span> ₪</th></tr>
                                 {group.readings.map((reading) => {
+                                    if (reading.id === editableId) {
+                                        return <LiveRow key={reading.id} subscriber={subscriber} week={entryWeek} reading={reading} maximum={maximum} average={average} />;
+                                    }
+
                                     const difference = average > 0 ? Math.round((Number(reading.consumption) - average) / average * 100) : 0;
                                     return <tr key={reading.id}>
                                         <td className="rh-week"><b dir="ltr" title={`${reading.weekStart} – ${reading.weekEnd}`}>{shortDate(reading.weekStart)} ← {shortDate(reading.weekEnd)}</b>{reading.notes && <span className="rh-note">{reading.notes}</span>}</td>
@@ -260,7 +284,7 @@ export default function ReadingHistoryModal({ subscriber, onClose, readingWeekOp
                             </Fragment>)}</tbody>
                             {visibleReadings.length > 0 && <tfoot><tr><td>مجموع الفترة</td><td className="rh-previous rh-hide-mobile" /><td className="rh-current rh-hide-mobile" /><td><b className="rh-number">{formatMoney(totals.consumption)}</b> كيلو</td><td className="rh-price rh-hide-mobile" /><td className="rh-minimum rh-hide-mobile" /><td className="rh-discount"><span className="rh-discount-value" dir="ltr">{totals.discount > 0 ? `−${money(totals.discount)}` : '—'}</span></td><td className="rh-due"><b dir="ltr">{money(totals.due)} <em>₪</em></b></td><td className="rh-hide-mobile" /><td className="rh-recorder rh-hide-mobile" /></tr></tfoot>}
                         </table>
-                        {!visibleReadings.length && <div className="rh-empty"><b>لا توجد قراءات</b>{allReadings.length ? 'لا توجد قراءات بهذه الحالة في الفترة المختارة.' : 'لا توجد قراءات لهذا المشترك بعد.'}</div>}
+                        {!visibleReadings.length && !newLine && <div className="rh-empty"><b>لا توجد قراءات</b>{allReadings.length ? 'لا توجد قراءات بهذه الحالة في الفترة المختارة.' : 'لا توجد قراءات لهذا المشترك بعد.'}</div>}
                     </div>
                 </div>
             </div>}

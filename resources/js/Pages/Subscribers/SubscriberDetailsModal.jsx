@@ -5,6 +5,7 @@ import { chainColor, compactStatementEntries, describeBalance, filterStatementEn
 import { groupReadingsByMonth } from '@/lib/readingHistory';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
+import StopStandingDiscountButton from './StopStandingDiscountButton';
 import './SubscriberDetailsModal.css';
 
 const TABS = [['details', 'البيانات'], ['transactions', 'الحساب'], ['consumption', 'الاستهلاك']];
@@ -208,7 +209,7 @@ export default function SubscriberDetailsModal({ subscriber, onClose, onEdit, on
                             <Section title="الاشتراك والقاطع" icon="bolt" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
                                 <Field label="نوع الاشتراك" value={<span className="sp-chip"><Icon name="bolt" />{subscriber.tariffCategoryLabel}</span>} /><Field label="تصنيف الزبائن" value={subscriber.tariffSegmentName} />
                                 <Field label="القاطع" value={subscriber.circuitBreakerAmpere ? `${subscriber.circuitBreakerAmpere} أمبير` : null} /><Field label="سعر الكيلو" value={money(subscriber.tariffRate)} numeric />
-                                <Field label="الحد الأدنى" value={money(subscriber.minimum_charge)} numeric /><Field label="خصم القراءات الأسبوعية" value={subscriber.standingDiscountSummary} />
+                                <Field label="الحد الأدنى" value={money(subscriber.minimum_charge)} numeric /><Field label="خصم القراءات الأسبوعية" value={subscriber.standingDiscountSummary && <>{subscriber.standingDiscountSummary}{subscriber.canAdjustBalance && <StopStandingDiscountButton subscriberId={subscriber.id} subscriberName={subscriber.full_name} discountLabel={subscriber.standingDiscountSummary} className="ms-2" />}</>} />
                             </dl></Section>
                             <Section title="الموقع والعداد" icon="pin" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
                                 <Field label="الفرع" value={subscriber.branchName} /><Field label="المحافظة" value={subscriber.governorateName} />

@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AccountStatement from './AccountStatement';
 import { StandingDiscountBadge } from './AccountSummary';
+import StopStandingDiscountButton from './StopStandingDiscountButton';
 import { StatementActions, StatementForms } from './StatementForms';
 import SubscriptionSwitcher from './SubscriptionSwitcher';
 
@@ -30,8 +31,15 @@ export default function Statement(statement) {
                             {subscriber.meterBoxNumber && ` · طبلون ${subscriber.meterBoxNumber}`} · {subscriber.branchName}
                         </p>
                         {subscriber.standingDiscount && (
-                            <div className="mt-2">
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
                                 <StandingDiscountBadge discount={subscriber.standingDiscount} />
+                                {canAdjustBalance && (
+                                    <StopStandingDiscountButton
+                                        subscriberId={subscriber.id}
+                                        subscriberName={subscriber.fullName}
+                                        discountLabel={subscriber.standingDiscount.segment ? `${subscriber.standingDiscount.terms} · ${subscriber.standingDiscount.segment}` : subscriber.standingDiscount.terms}
+                                    />
+                                )}
                             </div>
                         )}
                     </div>

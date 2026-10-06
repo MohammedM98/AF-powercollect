@@ -117,7 +117,7 @@ class TransactionHistoryInvariantsTest extends TestCase
 
     private function recordSomething(int $step): void
     {
-        $kind = mt_rand(1, 5);
+        $kind = mt_rand(1, 7);
         $amount = (string) mt_rand(5, 300);
 
         match ($kind) {
@@ -125,6 +125,8 @@ class TransactionHistoryInvariantsTest extends TestCase
             2 => $this->note($step, 'payment transfer '.$amount, SubscriberTransaction::recordPayment($this->subscriber, $this->actor, ['amount' => $amount, 'currency' => 'ILS', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad', 'reference_number' => 'REF-'.$step.'-'.mt_rand()])),
             3 => $this->note($step, 'penalty '.$amount, SubscriberTransaction::recordCharge($this->subscriber, $this->actor, ChargeType::Penalty, $amount, 'غرامة')),
             4 => $this->note($step, 'clearing '.$amount, SubscriberTransaction::recordClearing($this->subscriber, $this->actor, $amount, 'تصفية')),
+            5 => $this->note($step, 'payment cash in dollars '.$amount, SubscriberTransaction::recordPayment($this->subscriber, $this->actor, ['amount' => $amount, 'currency' => 'USD', 'exchange_rate' => '3.6700', 'payment_method' => 'cash'])),
+            6 => $this->note($step, 'payment transfer in dinars '.$amount, SubscriberTransaction::recordPayment($this->subscriber, $this->actor, ['amount' => $amount, 'currency' => 'JOD', 'exchange_rate' => '5.1500', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad', 'reference_number' => 'JOD-'.$step.'-'.mt_rand()])),
             default => $this->recordDiscountWithinBalance($step),
         };
     }

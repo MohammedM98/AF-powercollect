@@ -18,19 +18,17 @@ const CURRENCY_ORDER = ['ILS', 'USD', 'JOD'];
 const CURRENCY_SYMBOLS = { ILS: '₪', USD: '$', JOD: 'JD' };
 const QUICK_AMOUNTS = [50, 100, 200];
 
-/** Each transfer bank or e-wallet's logo, color and kind; one not listed here gets a plain tile. */
+/**
+ * Each transfer bank or e-wallet's logo, color and kind; one not listed here gets a plain tile.
+ * Every logo is a square image with its own padding, so all marks share one size and fit.
+ */
 const BANKS = {
     'بنك فلسطين': { logo: '/images/banks/bank-of-palestine.webp', color: '#b8007a', kind: 'تحويل بنكي' },
     'جوال باي': { logo: '/images/banks/jawwal-pay.webp', color: '#7cb342', kind: 'محفظة' },
     'محفظة بالباي': { logo: '/images/banks/palpay.webp', color: '#9b30e0', kind: 'محفظة' },
-    'البنك الإسلامي الفلسطيني': {
-        logo: '/images/banks/palestine-islamic-bank.jpeg',
-        color: '#173d69',
-        kind: 'تحويل بنكي',
-        logoClassName: 'absolute left-[-19px] top-[-15px] h-auto w-[120px] max-w-none',
-    },
-    'بنك القدس': { logo: '/images/banks/quds-bank.png', color: '#74bd44', kind: 'تحويل بنكي' },
-    'البنك الإسلامي العربي': { logo: '/images/banks/arab-islamic-bank.png', color: '#7b2d8e', kind: 'تحويل بنكي' },
+    'البنك الإسلامي الفلسطيني': { logo: '/images/banks/palestine-islamic-bank.webp', color: '#173d69', kind: 'تحويل بنكي' },
+    'البنك الإسلامي العربي': { logo: '/images/banks/arab-islamic-bank.webp', color: '#7b2d8e', kind: 'تحويل بنكي' },
+    'بنك القدس': { logo: '/images/banks/quds-bank.webp', color: '#74bd44', kind: 'تحويل بنكي' },
 };
 
 const inputClass =
@@ -80,20 +78,20 @@ function BankMark({ bank }) {
     }
 
     return (
-        <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-[0_4px_10px_-6px_rgb(0_0_0/0.4)]">
-            <img src={look.logo} alt="" className={look.logoClassName ?? 'h-full w-full object-cover'} />
+        <span className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-[0_4px_10px_-6px_rgb(0_0_0/0.4)]">
+            <img src={look.logo} alt="" className="h-full w-full object-contain" />
         </span>
     );
 }
 
-/** A bank or e-wallet, with a consistently sized brand mark. */
-function BankTile({ bank, checked, name, onChange, required = false }) {
+/** A bank or e-wallet as a radio row: brand mark, name, kind, and the choice indicator. */
+function BankRow({ bank, checked, name, onChange, required = false }) {
     const look = BANKS[bank];
     const color = look?.color;
 
     return (
         <label
-            className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-[14px] border-[1.5px] bg-surface px-1.5 py-2.5 text-center text-[14.5px] font-semibold text-gray-900 transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-gray-900 sm:flex-row sm:gap-2.5 sm:px-3 sm:text-start ${
+            className={`flex min-h-[58px] cursor-pointer items-center gap-3 rounded-[14px] border-[1.5px] bg-surface px-3 py-2 transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-gray-900 ${
                 checked ? (color ? '' : 'border-gray-900') : 'border-gray-100 hover:border-gray-300'
             }`}
             style={checked && color ? { borderColor: color, boxShadow: `0 0 0 3px ${color}29`, backgroundColor: `${color}0d` } : undefined}
@@ -101,8 +99,16 @@ function BankTile({ bank, checked, name, onChange, required = false }) {
             <input type="radio" name={name} value={bank} required={required} checked={checked} onChange={() => onChange(bank)} className="sr-only" />
             <BankMark bank={bank} />
             <span className="min-w-0">
-                {bank}
+                <b className="block truncate text-[14.5px] text-gray-900">{bank}</b>
                 <small className="block text-xs font-medium text-gray-500">{look?.kind ?? 'تحويل'}</small>
+            </span>
+            <span
+                className={`ms-auto flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition ${
+                    checked ? 'border-gray-900 bg-gray-900' : 'border-gray-300'
+                }`}
+                aria-hidden="true"
+            >
+                {checked && <span className="h-2 w-2 rounded-full bg-surface" />}
             </span>
         </label>
     );
@@ -824,9 +830,9 @@ export default function PaymentModal({
                                                 <legend className="mb-2 text-[14.5px] font-semibold text-gray-700">
                                                     البنك المستلم (إلى) <span className="text-brand-600">*</span>
                                                 </legend>
-                                                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                                                <div className="grid gap-2">
                                                     {transferBanks.map((bank) => (
-                                                        <BankTile
+                                                        <BankRow
                                                             key={bank}
                                                             bank={bank}
                                                             checked={data.bank_name === bank}
@@ -890,7 +896,7 @@ export default function PaymentModal({
                                                         placeholder="مثال: TRX-48213"
                                                         value={data.reference_number}
                                                         onChange={(e) => setData((current) => ({ ...current, reference_number: e.target.value, confirm_duplicate_reference: false }))}
-                                                        className={`${inputClass} text-end font-display`}
+                                                        className={`${inputClass} text-end font-display placeholder:font-sans placeholder:font-normal`}
                                                     />
                                                     <InputError message={errors.reference_number} className="mt-2" />
                                                     {referenceCheck.processing && <p className="mt-2 text-xs text-gray-500">جارٍ التحقق من الرقم المرجعي...</p>}
@@ -942,7 +948,7 @@ export default function PaymentModal({
                                                     placeholder="مثال: 00412"
                                                     value={data.manual_voucher_number}
                                                     onChange={(e) => setData('manual_voucher_number', e.target.value)}
-                                                    className={`${inputClass} text-end font-display`}
+                                                    className={`${inputClass} text-end font-display placeholder:font-sans placeholder:font-normal`}
                                                 />
                                                 <InputError message={errors.manual_voucher_number} className="mt-2" />
                                             </div>

@@ -225,6 +225,7 @@ class SubscriberController extends Controller
             'tariffRate' => $subscriber->tariff->rate,
             'circuitBreakerAmpere' => $subscriber->circuitBreaker?->ampere,
             'standingDiscountSummary' => $subscriber->standingDiscount?->summary(),
+            'standingDiscount' => $subscriber->standingDiscount ? ['method' => $subscriber->standingDiscount->method->value, 'value' => $subscriber->standingDiscount->value] : null,
             'statusLabel' => __($subscriber->status->label()),
             'registeredByName' => $subscriber->registeredBy?->name,
             'outstandingBalance' => $subscriber->outstanding_balance ?? '0.00',

@@ -26,7 +26,7 @@ class StoreSubscriberPaymentRequest extends FormRequest
     }
 
     /**
-     * A shekel payment needs no exchange rate; a bank transfer needs one of
+     * A payment is taken in shekels only; a bank transfer needs one of
      * the transfer banks and who sent it (its reference number is optional) (the subscriber or
      * someone else); the cash box and the paper voucher only apply to cash.
      *
@@ -47,8 +47,7 @@ class StoreSubscriberPaymentRequest extends FormRequest
     {
         return [
             'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'],
-            'currency' => ['required', Rule::enum(Currency::class)],
-            'exchange_rate' => ['exclude_if:currency,'.Currency::Shekel->value, 'required', 'numeric', 'decimal:0,4', 'gt:0', 'max:1000'],
+            'currency' => ['required', Rule::in([Currency::Shekel->value])],
             'payment_method' => ['required', Rule::enum(PaymentMethod::class)->only(PaymentMethod::offered())],
             'bank_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'required', Rule::in(config('powercollect.transfer_banks'))],
             'sender_bank_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'nullable', Rule::in(config('powercollect.sender_banks'))],
@@ -76,6 +75,7 @@ class StoreSubscriberPaymentRequest extends FormRequest
     public static function paymentMessages(): array
     {
         return [
+            'currency.in' => 'تُسجَّل الدفعات بالشيكل فقط.',
             'bank_name.required' => 'اختر البنك أو المحفظة التي حُوّل إليها المبلغ.',
             'bank_name.in' => 'اختر أحد البنوك أو المحافظ المتاحة.',
             'sender_bank_name.in' => 'اختر أحد البنوك أو المحافظ المتاحة للتحويل منه.',

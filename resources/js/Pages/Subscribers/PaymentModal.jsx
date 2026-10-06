@@ -14,8 +14,6 @@ import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/
 import { balanceText, FieldLabel, SubscriberStrip } from './AccountFormParts';
 import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './CorrectionFields';
 
-const CURRENCY_ORDER = ['ILS', 'USD', 'JOD'];
-const CURRENCY_SYMBOLS = { ILS: '₪', USD: '$', JOD: 'JD' };
 const QUICK_AMOUNTS = [50, 100, 200];
 
 /**
@@ -236,7 +234,7 @@ function BankDropdown({ banks, id, name, onChange, value }) {
 }
 
 /** The dark panel beside the form: what will be recorded and what it does to the balance, before saving. */
-function PaymentSummary({ amount, symbol, currencyLabel, isShekel, rate, inShekels, balance, methodText, collector }) {
+function PaymentSummary({ amount, inShekels, balance, methodText, collector }) {
     const before = describeBalance(balance);
     const after = inShekels === null ? null : describeBalance(Number(balance) - inShekels);
     const owed = Number(balance) > 0 ? Number(balance) : 0;
@@ -264,15 +262,8 @@ function PaymentSummary({ amount, symbol, currencyLabel, isShekel, rate, inSheke
                 <p className="text-[13px] text-white/60">المبلغ</p>
                 <p className="text-end font-display text-[34px] font-extrabold leading-tight sm:text-[40px]" dir="ltr">
                     {formatMoney(amount || 0)}
-                    <span className="ms-1.5 text-lg font-semibold text-white/70">{symbol}</span>
+                    <span className="ms-1.5 text-lg font-semibold text-white/70">₪</span>
                 </p>
-                {!isShekel && (
-                    <p className="mt-0.5 text-[13px] text-white/60">
-                        {inShekels === null
-                            ? 'أدخل سعر الصرف لتحويل المبلغ إلى شيكل'
-                            : `= ${formatMoney(inShekels)} شيكل على سعر ${rate} لكل ${currencyLabel}`}
-                    </p>
-                )}
             </div>
 
             <dl className="relative grid gap-2.5 rounded-[18px] border border-white/10 bg-white/5 p-3.5 text-sm text-white/75">
@@ -335,8 +326,7 @@ function PaymentReceipt({ receipt, subscriberName, title, onAnother, onDone }) {
     const after = describeBalance(receipt.balanceAfter);
     const rows = [
         ['رقم السند', receipt.voucherNumber ?? '—'],
-        ['المبلغ', `${formatMoney(receipt.amount)} ${receipt.symbol}`],
-        ...(receipt.isShekel ? [] : [['بالشيكل', `${formatMoney(receipt.inShekels)} ₪`]]),
+        ['المبلغ', `${formatMoney(receipt.amount)} ₪`],
         ['الطريقة', receipt.methodText],
         ['الرصيد بعد الدفعة', balanceText(after)],
     ];
@@ -348,7 +338,7 @@ function PaymentReceipt({ receipt, subscriberName, title, onAnother, onDone }) {
             </span>
             <h3 className="font-luxe text-[26px] font-bold text-gray-900">{title}</h3>
             <p className="mt-1.5 text-gray-600">
-                {formatMoney(receipt.amount)} {receipt.currencyLabel} من {subscriberName} · الرصيد الجديد {balanceText(after)}
+                {formatMoney(receipt.amount)} شيكل من {subscriberName} · الرصيد الجديد {balanceText(after)}
             </p>
             <dl className="mx-auto mt-6 w-full max-w-[420px] rounded-[20px] border border-gray-100 bg-gray-50 px-[18px] py-1.5 text-start">
                 {rows.map(([label, value]) => (
@@ -384,8 +374,8 @@ function PaymentReceipt({ receipt, subscriberName, title, onAnother, onDone }) {
 }
 
 /**
- * Record a payment on a subscriber's account: how much, in which currency
- * (at what rate, for dollars and dinars) and how it was paid — in cash, or
+ * Record a payment on a subscriber's account: how much, in shekels, and
+ * how it was paid — in cash, or
  * by a transfer to one of the company's banks or e-wallets, with who sent
  * it and its reference. A dark panel beside the form shows what it does to
  * the balance before saving; once saved, the window shows the receipt with
@@ -401,7 +391,6 @@ export default function PaymentModal({
     onClose,
     subscriber,
     balance,
-    currencies,
     paymentMethods,
     transferBanks,
     senderBanks,
@@ -417,9 +406,9 @@ export default function PaymentModal({
         correcting,
         recorded
             ? {
-                  amount: recorded.amount,
-                  currency: recorded.currency,
-                  exchange_rate: recorded.exchange_rate,
+                  amount: String(paymentInShekels(recorded.amount, recorded.currency, recorded.exchange_rate) ?? recorded.amount),
+                  // Payments are taken in shekels only; one taken in another currency is corrected at what it came to in shekels.
+                  currency: 'ILS',
                   payment_method: paymentMethods.some((method) => method.value === recorded.payment_method)
                       ? recorded.payment_method
                       : 'bank_transfer',
@@ -436,7 +425,6 @@ export default function PaymentModal({
             : {
                   amount: '',
                   currency: 'ILS',
-                  exchange_rate: '',
                   payment_method: 'bank_transfer',
                   bank_name: '',
                   sender_bank_name: '',
@@ -458,19 +446,14 @@ export default function PaymentModal({
     const [referenceStatus, setReferenceStatus] = useState(null);
     const referenceCheck = useHttp();
 
-    const isShekel = data.currency === 'ILS';
     const throughBank = data.payment_method === 'bank_transfer';
-    const inShekels = paymentInShekels(data.amount, data.currency, data.exchange_rate);
-    const currencyLabel = currencies.find((currency) => currency.value === data.currency)?.label ?? data.currency;
-    const symbol = CURRENCY_SYMBOLS[data.currency] ?? data.currency;
+    const inShekels = paymentInShekels(data.amount, 'ILS');
     const owed = Number(balance) > 0 ? Number(balance) : 0;
-    const rate = isShekel ? 1 : Number(data.exchange_rate);
     const methodText = throughBank
         ? data.bank_name
             ? `تحويل ${data.sender_bank_name ? `من ${data.sender_bank_name} ` : ''}إلى ${data.bank_name}`
             : 'تحويل بنكي'
         : 'نقد';
-    const sortedCurrencies = [...currencies].sort((a, b) => rank(a.value) - rank(b.value));
     const methods = ['bank_transfer', 'cash'].filter((method) => paymentMethods.some((option) => option.value === method));
     const detailErrors = Boolean(errors.notes);
 
@@ -507,12 +490,6 @@ export default function PaymentModal({
             referenceCheck.cancel();
         };
     }, [show, throughBank, data.reference_number, data.amount, data.currency, data.sender_name, correcting?.id, subscriber.id]);
-
-    function rank(currency) {
-        const index = CURRENCY_ORDER.indexOf(currency);
-
-        return index === -1 ? CURRENCY_ORDER.length : index;
-    }
 
     function close() {
         setDiscarding(false);
@@ -583,7 +560,7 @@ export default function PaymentModal({
     function save() {
         setConfirmingSave(false);
 
-        const recorded = { amount: data.amount, symbol, currencyLabel, isShekel, inShekels, methodText };
+        const recorded = { amount: data.amount, inShekels, methodText };
 
         form.save({
             preserveScroll: true,
@@ -667,7 +644,7 @@ export default function PaymentModal({
                                 {correcting && <OriginalLine entry={correcting} />}
 
                                 <div>
-                                    <FieldLabel htmlFor="amount" required hint="بالعملة التي استُلم بها">
+                                    <FieldLabel htmlFor="amount" required hint="بالشيكل">
                                         المبلغ المستلم
                                     </FieldLabel>
                                     <div
@@ -693,42 +670,9 @@ export default function PaymentModal({
                                                 onChange={(e) => setData('amount', normalizeDecimalInput(e.target.value))}
                                                 className="min-w-0 flex-1 border-0 bg-transparent p-0 text-end font-display text-[38px] font-extrabold leading-tight text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-0 sm:text-[44px]"
                                             />
-                                            <div
-                                                role="radiogroup"
-                                                aria-label="العملة"
-                                                className="flex shrink-0 gap-0.5 rounded-[14px] border border-gray-100 bg-gray-100 p-1"
-                                            >
-                                                {sortedCurrencies.map((currency) => {
-                                                    const checked = data.currency === currency.value;
-
-                                                    return (
-                                                        <label
-                                                            key={currency.value}
-                                                            className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[14.5px] font-bold transition focus-within:outline focus-within:outline-2 focus-within:outline-gray-900 ${
-                                                                checked
-                                                                    ? 'bg-surface text-gray-900 shadow-sm ring-1 ring-gray-100'
-                                                                    : 'text-gray-500 hover:text-gray-900'
-                                                            }`}
-                                                        >
-                                                            <input
-                                                                type="radio"
-                                                                name="currency"
-                                                                value={currency.value}
-                                                                checked={checked}
-                                                                onChange={() => {
-                                                                    setData('currency', currency.value);
-                                                                    amountInput.current?.focus();
-                                                                }}
-                                                                className="sr-only"
-                                                            />
-                                                            <span className="font-display text-[15px]" aria-hidden="true">
-                                                                {CURRENCY_SYMBOLS[currency.value] ?? currency.value}
-                                                            </span>
-                                                            {currency.label}
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
+                                            <span className="shrink-0 font-display text-[28px] font-bold text-gray-400" aria-hidden="true">
+                                                ₪
+                                            </span>
                                         </div>
                                         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-gray-200 pt-3">
                                             {QUICK_AMOUNTS.map((quick) => (
@@ -744,38 +688,11 @@ export default function PaymentModal({
                                             {owed > 0 && (
                                                 <button
                                                     type="button"
-                                                    disabled={!(rate > 0)}
-                                                    title={rate > 0 ? undefined : 'أدخل سعر الصرف أولًا'}
-                                                    onClick={() => setAmount(String(Number((owed / rate).toFixed(2))))}
-                                                    className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-[13.5px] font-semibold text-emerald-700 transition hover:bg-emerald-500/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-400"
+                                                    onClick={() => setAmount(String(Number(owed.toFixed(2))))}
+                                                    className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-[13.5px] font-semibold text-emerald-700 transition hover:bg-emerald-500/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 dark:text-emerald-400"
                                                 >
                                                     تسديد كامل الدين
                                                 </button>
-                                            )}
-                                            {!isShekel && (
-                                                <span className="flex w-full items-center gap-1.5 text-[13.5px] text-gray-500 sm:ms-auto sm:w-auto">
-                                                    <label htmlFor="exchange_rate">سعر الصرف</label>
-                                                    <input
-                                                        id="exchange_rate"
-                                                        name="exchange_rate"
-                                                        required
-                                                        inputMode="decimal"
-                                                        autoComplete="off"
-                                                        dir="ltr"
-                                                        title={`كم شيكل يساوي 1 ${currencyLabel}`}
-                                                        value={data.exchange_rate}
-                                                        onChange={(e) => setData('exchange_rate', normalizeDecimalInput(e.target.value, 4))}
-                                                        className="h-[30px] w-[74px] rounded-[9px] border border-gray-200 bg-surface text-center font-display text-sm font-semibold text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-                                                    />
-                                                    {inShekels !== null && (
-                                                        <>
-                                                            · يُسجَّل{' '}
-                                                            <b className="font-display text-gray-900" dir="ltr">
-                                                                {formatMoney(inShekels)} ₪
-                                                            </b>
-                                                        </>
-                                                    )}
-                                                </span>
                                             )}
                                         </div>
                                     </div>
@@ -789,7 +706,6 @@ export default function PaymentModal({
                                             {errors.amount}
                                         </p>
                                     )}
-                                    <InputError message={errors.exchange_rate} className="mt-2" />
                                     <InputError message={errors.currency} className="mt-2" />
                                 </div>
 
@@ -997,10 +913,6 @@ export default function PaymentModal({
 
                             <PaymentSummary
                                 amount={data.amount}
-                                symbol={symbol}
-                                currencyLabel={currencyLabel}
-                                isShekel={isShekel}
-                                rate={data.exchange_rate}
                                 inShekels={inShekels}
                                 balance={balance}
                                 methodText={methodText}
@@ -1033,7 +945,7 @@ export default function PaymentModal({
                                     : correcting
                                       ? 'حفظ التصحيح'
                                       : Number(data.amount) > 0
-                                        ? `تسجيل ${formatMoney(data.amount)} ${currencyLabel}`
+                                        ? `تسجيل ${formatMoney(data.amount)} ₪`
                                         : 'تسجيل الدفعة'}
                             </PrimaryButton>
                         </div>
@@ -1058,7 +970,7 @@ export default function PaymentModal({
                 onConfirm={save}
                 onCancel={() => setConfirmingSave(false)}
                 title={correcting ? 'تأكيد حفظ التصحيح؟' : 'تأكيد تسجيل الدفعة؟'}
-                message={`${correcting ? 'ستُصحَّح الدفعة إلى' : 'ستُسجَّل دفعة'} ${formatMoney(data.amount)} ${symbol}${isShekel ? '' : ` (${formatMoney(inShekels ?? 0)} ₪)`} ${methodText} على حساب ${subscriber.fullName}. هل تريد المتابعة؟`}
+                message={`${correcting ? 'ستُصحَّح الدفعة إلى' : 'ستُسجَّل دفعة'} ${formatMoney(data.amount)} ₪ ${methodText} على حساب ${subscriber.fullName}. هل تريد المتابعة؟`}
                 confirmLabel={correcting ? 'نعم، احفظ التصحيح' : 'نعم، سجّل الدفعة'}
                 cancelLabel="رجوع للمراجعة"
                 icon="check"

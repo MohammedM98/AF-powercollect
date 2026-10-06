@@ -202,7 +202,6 @@ export function StatementForms({ statement, openForm, onClose, onOpen = null }) 
                     onClose={onClose}
                     subscriber={subscriber}
                     balance={summary.balance}
-                    currencies={statement.currencies}
                     paymentMethods={statement.paymentMethods}
                     transferBanks={statement.transferBanks}
                     senderBanks={statement.senderBanks}

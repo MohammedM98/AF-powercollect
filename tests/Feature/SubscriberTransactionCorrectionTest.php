@@ -129,6 +129,22 @@ class SubscriberTransactionCorrectionTest extends TestCase
                 ->where('entries.3.recorded.cash_box', '4554'));
     }
 
+    public function test_a_payment_taken_in_dollars_before_is_corrected_in_shekels_only(): void
+    {
+        $payment = $this->recordPayment(['amount' => '20', 'currency' => 'USD', 'exchange_rate' => '3.7', 'payment_method' => 'cash']);
+
+        $this->correct($payment, ['amount' => '20', 'currency' => 'USD', 'exchange_rate' => '3.7', 'payment_method' => 'cash', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'اختبار'])
+            ->assertSessionHasErrors('currency');
+        $this->assertFalse($payment->fresh()->isCancelled());
+
+        $this->correct($payment, ['amount' => '74', 'currency' => 'ILS', 'payment_method' => 'cash', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'اختبار'])
+            ->assertSessionHasNoErrors();
+
+        $replacement = SubscriberTransaction::where('corrects_id', $payment->id)->sole();
+        $this->assertSame(['-74.00', 'ILS'], [$replacement->amount, $replacement->currency->value]);
+        $this->assertTrue($payment->fresh()->isCancelled());
+    }
+
     public function test_the_reversal_stays_under_its_line_and_the_correction_comes_last_after_the_lines_between(): void
     {
         $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash']);

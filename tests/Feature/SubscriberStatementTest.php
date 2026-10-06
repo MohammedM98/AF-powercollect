@@ -51,7 +51,7 @@ class SubscriberStatementTest extends TestCase
         ])->approve($this->branchAdmin);
 
         $this->travelTo('2026-08-30 12:40:00');
-        $this->recordPayment(['amount' => '20', 'currency' => 'USD', 'exchange_rate' => '3.7', 'cash_box' => '3', 'manual_voucher_number' => '4471'])
+        $this->recordPayment(['amount' => '74', 'cash_box' => '3', 'manual_voucher_number' => '4471'])
             ->assertSessionHasNoErrors();
 
         $this->actingAs($this->branchAdmin)
@@ -75,9 +75,9 @@ class SubscriberStatementTest extends TestCase
                         'systemVoucherNumber' => '000001',
                         'manualVoucherNumber' => '4471',
                         'isCredit' => true,
-                        'amount' => '20.00',
-                        'currencyLabel' => 'دولار',
-                        'exchangeRate' => '3.7',
+                        'amount' => '74.00',
+                        'currencyLabel' => 'شيكل',
+                        'exchangeRate' => '1',
                         'paymentMethodLabel' => 'نقد',
                         'cashBox' => '3',
                         'recordedByName' => 'Mohammed',
@@ -100,35 +100,45 @@ class SubscriberStatementTest extends TestCase
                 ->where('canRecordPayment', true));
     }
 
-    public function test_a_payment_lowers_the_balance_at_its_exchange_rate_and_gets_the_next_voucher_number(): void
+    public function test_a_payment_lowers_the_balance_and_gets_the_next_voucher_number(): void
     {
         SubscriberTransaction::factory()->for($this->subscriber)->create(['amount' => '100.00']);
 
-        $this->recordPayment(['amount' => '20', 'currency' => 'USD', 'exchange_rate' => '3.7'])
+        $this->recordPayment(['amount' => '26'])
             ->assertSessionHasNoErrors()
             ->assertSessionHas('status', 'payment-recorded')
             ->assertRedirect(route('subscribers.statement', $this->subscriber));
-        $this->recordPayment(['amount' => '4', 'currency' => 'JOD', 'exchange_rate' => '5.215']);
+        $this->recordPayment(['amount' => '20.86']);
 
-        $this->assertSame(['-74.00', '-20.86'], SubscriberTransaction::where('type', 'payment')->orderBy('id')->pluck('amount')->all());
+        $this->assertSame(['-26.00', '-20.86'], SubscriberTransaction::where('type', 'payment')->orderBy('id')->pluck('amount')->all());
         $this->assertSame([1, 2], SubscriberTransaction::where('type', 'payment')->orderBy('id')->pluck('voucher_number')->all());
         $this->assertSame(
-            ['action' => 'payment-recorded', 'subject' => 'Ahmad — 74 شيكل'],
+            ['action' => 'payment-recorded', 'subject' => 'Ahmad — 26 شيكل'],
             $this->branchAdmin->notifications()->oldest()->first()->data,
         );
 
         $this->actingAs($this->branchAdmin)
             ->get(route('subscribers.index'))
-            ->assertInertia(fn ($page) => $page->where('subscribers.data.0.outstandingBalance', fn ($balance): bool => round((float) $balance, 2) === 5.14));
+            ->assertInertia(fn ($page) => $page->where('subscribers.data.0.outstandingBalance', fn ($balance): bool => round((float) $balance, 2) === 53.14));
     }
 
-    public function test_a_shekel_payment_is_always_taken_at_a_rate_of_one(): void
+    public function test_a_payment_is_taken_in_shekels_at_a_rate_of_one(): void
     {
         $this->recordPayment(['amount' => '30', 'currency' => 'ILS', 'exchange_rate' => '5'])->assertSessionHasNoErrors();
 
         $payment = SubscriberTransaction::sole();
         $this->assertSame('-30.00', $payment->amount);
         $this->assertSame('1.0000', $payment->exchange_rate);
+    }
+
+    #[TestWith(['USD', '3.7'])]
+    #[TestWith(['JOD', '5.215'])]
+    public function test_a_payment_in_another_currency_is_refused(string $currency, string $rate): void
+    {
+        $this->recordPayment(['amount' => '20', 'currency' => $currency, 'exchange_rate' => $rate])
+            ->assertSessionHasErrors(['currency' => 'تُسجَّل الدفعات بالشيكل فقط.']);
+
+        $this->assertDatabaseCount('subscriber_transactions', 0);
     }
 
     public function test_a_bank_transfer_needs_one_of_the_transfer_banks_and_sender_and_keeps_no_cash_box_or_paper_voucher(): void
@@ -344,7 +354,7 @@ class SubscriberStatementTest extends TestCase
         SubscriberTransaction::factory()->for($this->subscriber)->create(['amount' => '50.00', 'recorded_by' => $this->branchAdmin->id]);
 
         $this->followingRedirects()
-            ->recordPayment(['amount' => '20', 'currency' => 'USD', 'exchange_rate' => '3.7'])
+            ->recordPayment(['amount' => '74'])
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Subscribers/Statement')
@@ -369,7 +379,7 @@ class SubscriberStatementTest extends TestCase
     #[TestWith([['amount' => '0'], 'amount'])]
     #[TestWith([['amount' => '10.555'], 'amount'])]
     #[TestWith([['currency' => 'EUR'], 'currency'])]
-    #[TestWith([['currency' => 'USD', 'exchange_rate' => ''], 'exchange_rate'])]
+    #[TestWith([['currency' => 'USD', 'exchange_rate' => '3.7'], 'currency'])]
     #[TestWith([['payment_method' => 'gold'], 'payment_method'])]
     #[TestWith([['payment_method' => 'cheque', 'bank_name' => 'بنك فلسطين', 'reference_number' => '77'], 'payment_method'])]
     #[TestWith([['payment_method' => 'e_wallet'], 'payment_method'])]

@@ -62,6 +62,7 @@ class ImportSubscribers extends Command
 
         $imported = $skipped = 0;
         $failures = [];
+        $seen = [];
 
         for ($line = 2; ($values = fgetcsv($handle)) !== false; $line++) {
             if ($values === [null]) {
@@ -71,6 +72,15 @@ class ImportSubscribers extends Command
             $row = array_combine($header, array_pad(array_slice($values, 0, count($header)), count($header), null));
 
             try {
+                // A number used twice in the file is two different people: the second is left out, not mistaken for one already imported.
+                $legacyNumber = trim((string) $row['subscription_number']);
+
+                if ($legacyNumber !== '' && isset($seen[$legacyNumber])) {
+                    throw new RuntimeException("The subscription number is already used on line {$seen[$legacyNumber]}.");
+                }
+
+                $seen[$legacyNumber] = $line;
+
                 if ($this->option('dry-run')) {
                     $this->check($row);
                     $imported++;
@@ -114,6 +124,10 @@ class ImportSubscribers extends Command
 
         $tariff = $this->tariffFor($row);
         $balance = $this->balanceOf($row);
+
+        if (MeterBox::query()->where('box_number', $legacyNumber)->exists()) {
+            throw new RuntimeException('A meter box already has this number.');
+        }
 
         DB::transaction(function () use ($row, $user, $legacyNumber, $tariff, $balance): void {
             $subArea = $this->subAreaFor(trim((string) $row['area']), $user);

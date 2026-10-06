@@ -334,6 +334,7 @@ class SubscriberController extends Controller
             'tariff_segment_id' => $subscriber->tariff_segment_id,
             'branch_id' => $subscriber->branch_id,
             'status' => $subscriber->status->value,
+            'accounting_type' => $subscriber->accounting_type->value,
             'circuit_breaker_id' => $subscriber->circuit_breaker_id,
             'minimum_charge' => $subscriber->minimum_charge,
             'initial_reading' => $subscriber->initial_reading,

@@ -81,6 +81,30 @@ class SubscriberAuthorizationTest extends TestCase
         ]);
     }
 
+    public function test_a_subscriber_is_accounted_weekly_unless_monthly_is_chosen(): void
+    {
+        $branch = Branch::factory()->create();
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $branch->id]);
+        $tariff = Tariff::factory()->residential()->create();
+        $payload = [
+            'full_name' => 'New Customer',
+            'national_id' => '123456789',
+            'initial_reading' => 100,
+            'phone' => '0590000000',
+            'tariff_id' => $tariff->id,
+            'status' => SubscriberStatus::Active->value,
+            'minimum_charge' => 10,
+        ];
+
+        $this->actingAs($dataEntry)->post(route('subscribers.store'), $payload)->assertSessionHasNoErrors();
+        $this->actingAs($dataEntry)->post(route('subscribers.store'), [...$payload, 'national_id' => '987654321', 'accounting_type' => 'monthly'])->assertSessionHasNoErrors();
+        $this->actingAs($dataEntry)->post(route('subscribers.store'), [...$payload, 'national_id' => '555555555', 'accounting_type' => 'daily'])->assertSessionHasErrors('accounting_type');
+
+        $this->assertDatabaseHas('subscribers', ['national_id' => '123456789', 'accounting_type' => 'weekly']);
+        $this->assertDatabaseHas('subscribers', ['national_id' => '987654321', 'accounting_type' => 'monthly']);
+        $this->assertDatabaseMissing('subscribers', ['national_id' => '555555555']);
+    }
+
     public function test_create_form_exposes_the_own_branch_area_subarea_and_meter_boxes_only(): void
     {
         $area = Area::factory()->create();

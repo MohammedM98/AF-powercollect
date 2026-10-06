@@ -99,6 +99,15 @@ class ImportSubscribersCommandTest extends TestCase
         $this->assertSame(['129601'], Subscriber::query()->pluck('legacy_number')->all());
     }
 
+    public function test_a_number_used_twice_in_the_file_fails_the_second_row_only(): void
+    {
+        $this->import("129600,اسامة,0599013094,10,منزلي - أسبوعي,20,\n129600,محمد,0592674067,5,منزلي - أسبوعي,20,\n")
+            ->expectsOutputToContain('Line 3 (129600): The subscription number is already used on line 2.')
+            ->assertFailed();
+
+        $this->assertSame(['اسامة'], Subscriber::query()->pluck('full_name')->all());
+    }
+
     public function test_a_sub_area_that_belongs_to_another_area_fails_that_row(): void
     {
         SubArea::factory()->create(['name' => 'درويش', 'area_id' => Area::factory()->create()->id]);

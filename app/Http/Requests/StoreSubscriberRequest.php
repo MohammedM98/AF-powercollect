@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\AccountingType;
 use App\Enums\SubscriberStatus;
 use App\Models\Subscriber;
 use App\Models\SubscriberProfile;
@@ -56,6 +57,8 @@ class StoreSubscriberRequest extends FormRequest
             // Optional, and any customer segment, whatever the tariff.
             'tariff_segment_id' => ['nullable', Rule::exists('tariff_segments', 'id')],
             'status' => ['required', Rule::enum(SubscriberStatus::class)],
+            // Weekly unless chosen otherwise: a request without it keeps the subscriber's current type.
+            'accounting_type' => ['sometimes', 'required', Rule::enum(AccountingType::class)],
             'circuit_breaker_id' => ['nullable', Rule::exists('circuit_breakers', 'id')],
             'minimum_charge' => ['required', 'numeric', 'min:0'],
             // The meter's reading when the subscriber is connected: it may wait while they are not

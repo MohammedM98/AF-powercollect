@@ -18,10 +18,7 @@ return new class extends Migration
             $table->unsignedInteger('last_number');
         });
 
-        DB::table('payment_voucher_sequences')->insert([
-            'id' => 1,
-            'last_number' => (int) DB::table('subscriber_transactions')->max('voucher_number'),
-        ]);
+        DB::table('payment_voucher_sequences')->insert(['id' => 1, 'last_number' => 0]);
     }
 
     /**

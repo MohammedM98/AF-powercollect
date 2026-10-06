@@ -18,6 +18,7 @@ return new class extends Migration
             $table->foreignId('subscriber_id')->unique()->constrained()->cascadeOnDelete();
             $table->string('method');
             $table->decimal('value', 12, 2);
+            $table->string('segment', 100)->nullable();
             $table->text('notes')->nullable();
             $table->foreignId('granted_by')->constrained('users')->restrictOnDelete();
             $table->timestamps();

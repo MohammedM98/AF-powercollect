@@ -20,7 +20,7 @@ class PermissionsTest extends TestCase
 
     private function seedPermissions(): void
     {
-        // Migrations may already have added some (e.g. "Approve Meter Readings").
+        // Permission rows come from the seeder, one per PermissionKey.
         foreach (PermissionKey::cases() as $key) {
             Permission::firstOrCreate(['key' => $key->value], ['label' => $key->label()]);
         }
@@ -28,6 +28,7 @@ class PermissionsTest extends TestCase
 
     public function test_permanent_transaction_deletion_permission_is_installed_without_a_default_grant(): void
     {
+        $this->seedPermissions();
         $branchAdmin = User::factory()->branchAdmin()->create();
 
         $this->assertDatabaseHas('permissions', [

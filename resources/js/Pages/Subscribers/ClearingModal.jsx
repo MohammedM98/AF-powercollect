@@ -35,7 +35,7 @@ const notesClass =
  * Record a clearing (مقاصة): a service for a service. The subscriber gets
  * electricity and gives the company a service in return — the service's
  * value comes off what they owe, like a payment made in work instead of
- * money, and may leave them in credit. The service must be named; it shows
+ * money, and can be at most what they owe. The service must be named; it shows
  * on the statement. A dark panel beside the form shows the balance it
  * leaves; once saved, the window shows what was recorded. Keys: Ctrl +
  * Enter saves.
@@ -59,8 +59,20 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
 
     const owed = Math.max(Number(balance), 0);
     const amount = Number(data.amount) > 0 ? Number(data.amount) : 0;
-    const balanceAfter = amount > 0 ? Number(balance) - amount : null;
     const missingService = !data.notes.trim();
+
+    // Like a discount, a clearing cannot be worth more than what is owed.
+    let invalid = null;
+
+    if (amount > 0) {
+        if (owed <= 0) {
+            invalid = 'لا يوجد رصيد مستحق على المشترك لتُقاصّ منه.';
+        } else if (amount > owed) {
+            invalid = `لا يمكن أن تزيد المقاصة (${formatMoney(amount)} ₪) عن الرصيد المستحق (${formatMoney(owed)} ₪).`;
+        }
+    }
+
+    const balanceAfter = amount > 0 && !invalid ? Number(balance) - amount : null;
 
     function close() {
         setDiscarding(false);
@@ -86,7 +98,7 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
     function submit(event) {
         event.preventDefault();
 
-        if (!validateFormFields(event.currentTarget, form)) {
+        if (!validateFormFields(event.currentTarget, form) || invalid) {
             return;
         }
 
@@ -190,7 +202,7 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
                                         unit="₪"
                                         placeholder="0.00"
                                         label="قيمة المقاصة"
-                                        error={Boolean(errors.amount)}
+                                        error={Boolean(errors.amount || invalid)}
                                     >
                                         {QUICK_AMOUNTS.map((quick) => (
                                             <QuickPick key={quick} onClick={() => setAmount(String(quick))}>
@@ -203,14 +215,9 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
                                             </QuickPick>
                                         )}
                                     </AmountBox>
-                                    <InputError message={errors.amount} className="mt-2" />
+                                    <InputError message={errors.amount ?? invalid} className="mt-2" />
                                     {amount > LARGE_CLEARING && (
                                         <FieldWarning>مبلغ كبير. تأكد أنه صحيح قبل الحفظ، فهو يظهر في كشف حساب المشترك.</FieldWarning>
-                                    )}
-                                    {amount > owed && (
-                                        <FieldWarning>
-                                            قيمة الخدمة أكبر مما على المشترك، فيبقى له رصيد {formatMoney(amount - owed)} ₪ يُخصم من قراءاته القادمة.
-                                        </FieldWarning>
                                     )}
                                 </div>
 
@@ -232,7 +239,7 @@ export default function ClearingModal({ show, onClose, subscriber, balance, corr
                         <FormFooter
                             onCancel={requestClose}
                             tone={correcting ? 'amber' : 'green'}
-                            disabled={amount <= 0 || missingService}
+                            disabled={amount <= 0 || missingService || Boolean(invalid)}
                             processing={form.processing}
                             submitLabel={correcting ? 'حفظ التصحيح' : amount > 0 ? `مقاصة ${formatMoney(amount)} ₪ من الحساب` : 'تسجيل المقاصة'}
                         />

@@ -101,14 +101,27 @@ class SubscriberChargesAndDiscountsTest extends TestCase
                 ->where('summary.clearingsCount', 1));
     }
 
-    public function test_a_clearing_worth_more_than_the_subscriber_owes_leaves_them_in_credit(): void
+    public function test_a_clearing_worth_more_than_the_subscriber_owes_is_refused(): void
     {
         $this->subscriberOwes('30.00');
 
         $this->postAs($this->branchAdmin, route('subscribers.clearings.store', $this->subscriber), ['amount' => '50', 'notes' => 'تأجير السطح'])
-            ->assertSessionHasNoErrors();
+            ->assertSessionHasErrors(['amount' => 'لا يمكن أن تزيد المقاصة (50 شيكل) عن الرصيد المستحق (30 شيكل).']);
 
-        $this->assertSame(-20.0, $this->subscriber->balance());
+        $this->assertSame(30.0, $this->subscriber->balance());
+        $this->assertDatabaseMissing('subscriber_transactions', ['type' => 'clearing']);
+    }
+
+    public function test_a_clearing_for_the_whole_debt_is_accepted_but_not_when_nothing_is_owed(): void
+    {
+        $this->subscriberOwes('30.00');
+
+        $this->postAs($this->branchAdmin, route('subscribers.clearings.store', $this->subscriber), ['amount' => '30', 'notes' => 'تأجير السطح'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(0.0, $this->subscriber->balance());
+
+        $this->postAs($this->branchAdmin, route('subscribers.clearings.store', $this->subscriber), ['amount' => '1', 'notes' => 'تأجير السطح'])
+            ->assertSessionHasErrors(['amount' => 'لا يوجد رصيد مستحق على المشترك لتُقاصّ منه.']);
     }
 
     public function test_a_clearing_must_name_the_service_and_its_value(): void

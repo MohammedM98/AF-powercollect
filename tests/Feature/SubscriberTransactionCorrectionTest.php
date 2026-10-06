@@ -372,6 +372,20 @@ class SubscriberTransactionCorrectionTest extends TestCase
         $this->assertSame(135.0, $this->subscriber->balance());
     }
 
+    public function test_a_corrected_clearing_is_checked_against_the_balance_without_the_one_it_replaces(): void
+    {
+        $clearing = SubscriberTransaction::recordClearing($this->subscriber, $this->branchAdmin, '60', 'صيانة المولد');
+
+        // Without it the subscriber owes 200: a clearing of 201 is too much, 200 is the whole debt.
+        $this->correct($clearing, ['amount' => '201', 'notes' => 'صيانة', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'اختبار'])
+            ->assertSessionHasErrors(['amount' => 'لا يمكن أن تزيد المقاصة (201 شيكل) عن الرصيد المستحق (200 شيكل).']);
+        $this->assertFalse($clearing->fresh()->isCancelled());
+
+        $this->correct($clearing, ['amount' => '200', 'notes' => 'صيانة', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'اختبار'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(0.0, $this->subscriber->balance());
+    }
+
     public function test_a_subscription_fee_recorded_later_can_be_corrected_with_an_audit_trail(): void
     {
         $charge = SubscriberTransaction::recordCharge($this->subscriber, $this->branchAdmin, ChargeType::SubscriptionFee, '50', null);

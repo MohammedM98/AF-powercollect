@@ -641,6 +641,8 @@ class MeterReadingTest extends TestCase
                 ->where('subscribers.data.0.meterReadings.0.weekStart', '2026-09-18')
                 ->where('subscribers.data.0.meterReadings.0.consumption', 40)
                 ->where('subscribers.data.0.meterReadings.0.discountAmount', '0.00')
+                ->where('subscribers.data.0.meterReadings.0.minimumPayment', '20.00')
+                ->has('subscribers.data.0.meterReadings.0.unitPrice')
                 ->where('subscribers.data.0.meterReadings.0.recordedSource', 'app')
                 ->where('subscribers.data.0.meterReadings.0.minimumApplied', true)
                 ->where('subscribers.data.0.meterReadings.1.recordedSource', 'web')

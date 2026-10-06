@@ -538,6 +538,7 @@ export default function Index({
             <ReadingHistoryModal
                 key={`history-${historySubscriber?.id ?? 'closed'}`}
                 subscriber={historySubscriber}
+                readingWeekOptions={readingWeekOptions}
                 onClose={() => setHistorySubscriberId(null)}
             />
 

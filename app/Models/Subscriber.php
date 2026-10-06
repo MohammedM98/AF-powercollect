@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AccountingType;
 use App\Enums\SubscriberStatus;
 use App\Models\Concerns\BelongsToBranch;
 use App\Support\ArabicSearch;
@@ -20,8 +21,8 @@ use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'tariff_segment_id', 'branch_id',
-    'registered_by', 'status', 'circuit_breaker_id', 'minimum_charge', 'initial_reading', 'subscription_fee',
-    'subscription_date', 'activated_at', 'subscription_name', 'subscription_phone', 'notes',
+    'registered_by', 'status', 'accounting_type', 'circuit_breaker_id', 'minimum_charge', 'initial_reading', 'subscription_fee',
+    'subscription_date', 'activated_at', 'subscription_name', 'subscription_phone', 'legacy_number', 'notes',
 ])]
 class Subscriber extends Model
 {
@@ -73,7 +74,7 @@ class Subscriber extends Model
     }
 
     /**
-     * Subscribers whose name, account name, account number or meter box
+     * Subscribers whose name, account name, account number, old system number or meter box
      * number contains every word of the search, however its Arabic is
      * spelled (see ArabicSearch).
      */
@@ -82,7 +83,7 @@ class Subscriber extends Model
     {
         foreach (ArabicSearch::terms($search) as $term) {
             $query->where(function (Builder $matching) use ($term): void {
-                foreach (['full_name', 'subscription_name', 'account_number'] as $column) {
+                foreach (['full_name', 'subscription_name', 'account_number', 'legacy_number'] as $column) {
                     ArabicSearch::orWhereContains($matching, $column, $term);
                 }
 
@@ -129,6 +130,7 @@ class Subscriber extends Model
     {
         return [
             'status' => SubscriberStatus::class,
+            'accounting_type' => AccountingType::class,
             'subscription_date' => 'date',
             'activated_at' => 'datetime',
             'subscription_fee' => 'decimal:2',

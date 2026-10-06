@@ -19,6 +19,11 @@ const STATUS_OPTIONS = [
     { value: 'disconnected', label: 'مفصول', dot: 'gray' },
 ];
 
+const ACCOUNTING_TYPE_OPTIONS = [
+    { value: 'weekly', label: 'أسبوعي' },
+    { value: 'monthly', label: 'شهري' },
+];
+
 const STATUS_DOTS = {
     active: 'bg-emerald-500',
     suspended: 'bg-amber-500',
@@ -141,6 +146,7 @@ export function subscriberFormData(subscriber, sourceSubscriber = null) {
         tariff_id: subscriber?.tariff_id ?? '',
         tariff_segment_id: subscriber?.tariff_segment_id ?? '',
         status: subscriber?.status ?? 'suspended',
+        accounting_type: subscriber?.accounting_type ?? 'weekly',
         branch_id: subscriber?.branch_id ?? '',
         circuit_breaker_id: subscriber?.circuit_breaker_id ?? '',
         minimum_charge: subscriber?.minimum_charge != null ? Number(subscriber.minimum_charge) : '',
@@ -406,6 +412,10 @@ export default function SubscriberForm({
             </FormSection>
 
             <FormSection icon="bolt" title="نوع الاشتراك والقاطع" description="سعر الكيلو والحد الأدنى يُحسبان تلقائيًا من اختيارك">
+                <Field id="accounting_type" label="نوع المحاسبة" error={errors.accounting_type} span="sm:col-span-2 lg:col-span-3">
+                    <ChoiceChips label="نوع المحاسبة" value={data.accounting_type} onChange={(value) => setData('accounting_type', value)} options={ACCOUNTING_TYPE_OPTIONS} />
+                </Field>
+
                 <Field id="tariff_id" label="نوع الاشتراك" required error={errors.tariff_id} span="sm:col-span-2">
                     <SearchableSelect
                         name="tariff_id"

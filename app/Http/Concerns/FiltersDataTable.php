@@ -198,7 +198,9 @@ trait FiltersDataTable
             'sub_area_id' => $box->sub_area_id,
             'area_id' => $box->subArea?->area_id,
         ];
-        $names = $boxes->groupBy('name')
+        // A box without a name has nothing to pick it by: listing it would add a blank option whose empty value is also "no filter", so it would show as ticked.
+        $names = $boxes->filter(fn (MeterBox $box): bool => filled($box->name))
+            ->groupBy('name')
             ->sortKeys(SORT_NATURAL | SORT_FLAG_CASE)
             ->map(fn (EloquentCollection $named, string $name) => [
                 'value' => $name,

@@ -31,7 +31,7 @@ return new class extends Migration
 
         Schema::create('subscription_bulk_change_items', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('subscription_bulk_change_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('subscription_bulk_change_id')->constrained(indexName: 'bulk_change_items_change_id_foreign')->cascadeOnDelete();
             $table->foreignId('subscription_id')->constrained()->cascadeOnDelete();
             $table->string('old_value')->nullable();
             $table->string('new_value')->nullable();

@@ -187,11 +187,13 @@ function LiveRow({ subscriber, week, reading, maximum, average }) {
                     onKeyDown={(event) => {
                         if (event.key === 'Enter') { event.preventDefault(); save(); }
                         if (event.key === 'Escape' && isDraft) { event.stopPropagation(); setValue(savedValue); }
-                        // The + and − keys (and the up and down arrows) step the reading like the buttons, instead of typing a sign.
+                        // The + and − keys step the reading like the buttons, instead of typing a sign. The arrows are for
+                        // moving around, so they never change the number (the field's own 0.01 stepping is switched off).
                         if (!event.ctrlKey && !event.metaKey && !event.altKey) {
-                            if (event.key === '+' || event.key === 'ArrowUp') { event.preventDefault(); step(1); }
-                            if (event.key === '-' || event.key === 'ArrowDown') { event.preventDefault(); step(-1); }
+                            if (event.key === '+') { event.preventDefault(); step(1); }
+                            if (event.key === '-') { event.preventDefault(); step(-1); }
                         }
+                        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); }
                     }} />
                 <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => step(1)} disabled={saving} aria-label="زيادة القراءة">+</button>
             </div>

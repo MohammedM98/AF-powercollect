@@ -67,7 +67,7 @@ class PrintTemplateTest extends TestCase
     public function test_the_page_lists_every_template_under_its_list(): void
     {
         PrintTemplate::factory()->create(['page' => '/meter-readings', 'name' => 'حسب الطبلون', 'layout' => $this->layout()]);
-        PrintTemplate::factory()->create(['page' => '/subscribers', 'name' => 'أرقام الجوال']);
+        PrintTemplate::factory()->create(['page' => '/subscriptions', 'name' => 'أرقام الجوال']);
 
         $this->actingAs($this->manager())->get(route('settings.print-templates.index'))
             ->assertOk()
@@ -77,7 +77,7 @@ class PrintTemplateTest extends TestCase
                 ->where('pages.0.templates.0.name', 'حسب الطبلون')
                 ->where('pages.0.templates.0.columnCount', 2)
                 ->where('pages.0.templates.0.orientation', 'landscape')
-                ->where('pages.1.path', '/subscribers')
+                ->where('pages.1.path', '/subscriptions')
                 ->where('pages.1.templates.0.name', 'أرقام الجوال'));
     }
 
@@ -85,7 +85,7 @@ class PrintTemplateTest extends TestCase
     {
         $manager = $this->manager();
         $previous = PrintTemplate::factory()->create(['page' => '/meter-readings', 'is_default' => true]);
-        $otherList = PrintTemplate::factory()->create(['page' => '/subscribers', 'is_default' => true]);
+        $otherList = PrintTemplate::factory()->create(['page' => '/subscriptions', 'is_default' => true]);
 
         $this->actingAs($manager)
             ->post(route('print-templates.store'), ['page' => '/meter-readings', 'name' => 'حسب الطبلون', 'layout' => $this->layout(), 'is_default' => true])
@@ -109,7 +109,7 @@ class PrintTemplateTest extends TestCase
             ->post(route('print-templates.store'), ['page' => '/meter-readings', 'name' => 'شهري', 'layout' => $this->layout()])
             ->assertSessionHasErrors(['name' => 'يوجد قالب بهذا الاسم لهذه القائمة، اختر اسمًا آخر.']);
         $this->actingAs($manager)
-            ->post(route('print-templates.store'), ['page' => '/subscribers', 'name' => 'شهري', 'layout' => $this->layout()])
+            ->post(route('print-templates.store'), ['page' => '/subscriptions', 'name' => 'شهري', 'layout' => $this->layout()])
             ->assertSessionHasNoErrors();
 
         $this->assertDatabaseCount('print_templates', 2);
@@ -169,7 +169,7 @@ class PrintTemplateTest extends TestCase
         $dataEntry = User::factory()->dataEntry()->create();
         PrintTemplate::factory()->create(['page' => '/meter-readings', 'name' => 'أ']);
         PrintTemplate::factory()->create(['page' => '/meter-readings', 'name' => 'ي', 'is_default' => true]);
-        PrintTemplate::factory()->create(['page' => '/subscribers', 'name' => 'مشتركون']);
+        PrintTemplate::factory()->create(['page' => '/subscriptions', 'name' => 'مشتركون']);
 
         $this->actingAs($dataEntry)->get(route('meter-readings.index', ['print' => 1]))
             ->assertInertia(fn ($page) => $page

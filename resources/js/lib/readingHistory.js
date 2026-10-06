@@ -1,7 +1,7 @@
 import { csvText } from './csv.js';
 import { roundToCents } from './currency.js';
 
-/** Periods are measured back from the subscriber's latest recorded week. */
+/** Periods are measured back from the subscription's latest recorded week. */
 export function readingsInPeriod(readings, period) {
     const sorted = [...readings].sort((a, b) => b.weekEnd.localeCompare(a.weekEnd));
 

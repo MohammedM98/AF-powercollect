@@ -46,7 +46,7 @@ class CollectorApi extends ApiClient {
 
   @override
   Future<Map<String, dynamic>> collectionSubscriber(int id) async => {
-        'subscriber': {
+        'subscription': {
           'id': id,
           'full_name': 'Collector Subscriber',
           'account_number': 'A42',
@@ -89,7 +89,7 @@ void main() {
 
       await restored.queueReading({
         'mobile_operation_id': newOperationId(),
-        'subscriber_id': 7,
+        'subscription_id': 7,
       });
       await expectLater(
         restored.saveSession({'id': 1, 'username': 'reader-a'}, 'token-a'),
@@ -110,9 +110,9 @@ void main() {
       final store = FieldStore(directory: directory);
       await Future.wait([
         store.queueReading(
-            {'mobile_operation_id': newOperationId(), 'subscriber_id': 1}),
+            {'mobile_operation_id': newOperationId(), 'subscription_id': 1}),
         store.queueReading(
-            {'mobile_operation_id': newOperationId(), 'subscriber_id': 2}),
+            {'mobile_operation_id': newOperationId(), 'subscription_id': 2}),
       ]);
       final restored = FieldStore(directory: directory);
       await restored.load();
@@ -131,7 +131,7 @@ void main() {
       final id = newOperationId();
       await store.queueReading({
         'mobile_operation_id': id,
-        'subscriber_id': 42,
+        'subscription_id': 42,
         'week_start': '2026-09-21',
         'current_reading': '1250',
       });
@@ -179,7 +179,7 @@ void main() {
       'queued_readings': [
         {
           'mobile_operation_id': newOperationId(),
-          'subscriber_id': 42,
+          'subscription_id': 42,
           'week_start': '2026-09-21',
           'current_reading': '1250',
         }

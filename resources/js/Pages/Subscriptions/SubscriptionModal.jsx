@@ -1,0 +1,54 @@
+import FormModal from '@/Components/FormModal';
+import { useResourceForm } from '@/hooks/useResourceForm';
+import SubscriptionForm, { subscriptionFormData } from './SubscriptionForm';
+
+export default function SubscriptionModal({
+    show,
+    onClose,
+    subscription,
+    sourceSubscription = null,
+    branches,
+    meterBoxes,
+    tariffs,
+    segments,
+    circuitBreakers,
+    subAreas,
+    canChooseBranch,
+    currentBranchAreaId,
+    currentBranchAreaName,
+    canEditMinimumCharge,
+}) {
+    const form = useResourceForm('/subscriptions', subscription, subscriptionFormData(subscription, sourceSubscription));
+
+    return (
+        <FormModal
+            show={show}
+            onClose={onClose}
+            form={form}
+            title={form.isEdit ? 'تعديل المشترك' : sourceSubscription ? 'إضافة اشتراك' : 'إنشاء مشترك'}
+            icon="user"
+            maxWidth="5xl"
+            bodyClassName="bg-gray-50"
+        >
+            <SubscriptionForm
+                data={form.data}
+                setData={form.setData}
+                errors={form.errors}
+                clearErrors={form.clearErrors}
+                branches={branches}
+                meterBoxes={meterBoxes}
+                tariffs={tariffs}
+                segments={segments}
+                circuitBreakers={circuitBreakers}
+                subAreas={subAreas}
+                canChooseBranch={canChooseBranch}
+                currentBranchAreaId={currentBranchAreaId}
+                currentBranchAreaName={currentBranchAreaName}
+                canEditMinimumCharge={canEditMinimumCharge}
+                sharedPersonalDetails={Boolean(sourceSubscription)}
+                isEdit={form.isEdit}
+                subscriptionCount={subscription?.subscriptionCount ?? 1}
+            />
+        </FormModal>
+    );
+}

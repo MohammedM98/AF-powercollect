@@ -7,10 +7,10 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * One send to a group of subscribers: what it was about, how it went
-     * out, and the wording it used. Its messages, one per subscriber, are
-     * in subscriber_messages. The branch is empty when a Super Admin wrote
-     * to subscribers of several branches at once.
+     * One send to a group of subscriptions: what it was about, how it went
+     * out, and the wording it used. Its messages, one per subscription, are
+     * in subscription_messages. The branch is empty when a Super Admin wrote
+     * to subscriptions of several branches at once.
      */
     public function up(): void
     {

@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\MeterReadingStatus;
 use App\Enums\PermissionKey;
 use App\Enums\ReadingEntryMode;
-use App\Enums\SubscriberStatus;
+use App\Enums\SubscriptionStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\ApproveMeterReadingsRequest;
 use App\Http\Requests\StoreMeterReadingRequest;
@@ -16,7 +16,7 @@ use App\Models\MeterReading;
 use App\Models\ReadingEntrySetting;
 use App\Models\StandingDiscount;
 use App\Models\SubArea;
-use App\Models\Subscriber;
+use App\Models\Subscription;
 use App\Models\Tariff;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
@@ -42,7 +42,7 @@ class MeterReadingController extends Controller
     private const SORTABLE = ['full_name', 'account_number', 'meter_box_number', 'last_reading', 'current_reading', 'consumption', 'amount_due'];
 
     /**
-     * The weekly reading sheet: one row per active subscriber for the
+     * The weekly reading sheet: one row per active subscription for the
      * chosen week, with their last reading, this week's reading (if
      * entered), and what that week costs them.
      */
@@ -54,7 +54,7 @@ class MeterReadingController extends Controller
         $weekStart = $this->selectedWeek($request);
         $week = $weekStart->toDateString();
 
-        $query = $this->subscribersInScope($actor)
+        $query = $this->subscriptionsInScope($actor)
             ->with([
                 'tariff',
                 'circuitBreaker',
@@ -68,7 +68,7 @@ class MeterReadingController extends Controller
         $this->withSheetColumns($query, $week);
         $this->applyMeterBoxSort($query, $request);
         $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'account_number', 'phone', 'subscription_phone'], self::SORTABLE, 'full_name');
-        $query->orderBy('subscribers.id');
+        $query->orderBy('subscriptions.id');
         $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
         $this->applyMeterBoxNameFilter($query, $request);
         $this->applySheetFilters($query, $request, $week, includeStatus: false);
@@ -79,9 +79,9 @@ class MeterReadingController extends Controller
 
         $rows = $query->paginate($this->dataTablePerPage($request, 25))
             ->withQueryString()
-            ->through(fn (Subscriber $subscriber) => $this->sheetRow($subscriber, $weekStart, $actor));
+            ->through(fn (Subscription $subscription) => $this->sheetRow($subscription, $weekStart, $actor));
 
-        $scope = $this->subscribersInScope($actor);
+        $scope = $this->subscriptionsInScope($actor);
         $canApprove = $actor->can('approveAny', MeterReading::class);
 
         return Inertia::render('MeterReadings/Index', [
@@ -94,7 +94,7 @@ class MeterReadingController extends Controller
                 'total' => (clone $scope)->count(),
                 'entered' => (clone $scope)->whereHas('meterReadings', $enteredThisWeek)->count(),
                 'amountDue' => number_format((float) MeterReading::query()
-                    ->whereIn('subscriber_id', (clone $scope)->select('id'))
+                    ->whereIn('subscription_id', (clone $scope)->select('id'))
                     ->whereDate('week_start', $week)
                     ->sum('amount_due'), 2, '.', ''),
             ],
@@ -112,23 +112,23 @@ class MeterReadingController extends Controller
 
     /**
      * Store a newly created resource in storage. The reading records the
-     * meter and what the week costs, with the subscriber's standing
-     * discount taken off, but does not charge the subscriber's balance.
+     * meter and what the week costs, with the subscription's standing
+     * discount taken off, but does not charge the subscription's balance.
      */
     public function store(StoreMeterReadingRequest $request): RedirectResponse
     {
-        $subscriber = Subscriber::with(['tariff', 'circuitBreaker', 'standingDiscount'])->findOrFail($request->integer('subscriber_id'));
+        $subscription = Subscription::with(['tariff', 'circuitBreaker', 'standingDiscount'])->findOrFail($request->integer('subscription_id'));
         $weekStart = $request->weekStart();
-        $previousReading = $subscriber->previousReadingBefore($weekStart);
+        $previousReading = $subscription->previousReadingBefore($weekStart);
         $currentReading = $request->float('current_reading');
         $consumption = MeterReading::consumptionBetween($previousReading, $currentReading);
-        $unitPrice = (string) $subscriber->tariff->rate;
-        $minimumPayment = $subscriber->weeklyMinimumPayment();
-        $discount = $subscriber->standingDiscount;
+        $unitPrice = (string) $subscription->tariff->rate;
+        $minimumPayment = $subscription->weeklyMinimumPayment();
+        $discount = $subscription->standingDiscount;
 
         MeterReading::create([
-            'subscriber_id' => $subscriber->id,
-            'branch_id' => $subscriber->branch_id,
+            'subscription_id' => $subscription->id,
+            'branch_id' => $subscription->branch_id,
             'week_start' => $weekStart,
             'week_end' => MeterReading::weekEndFor($weekStart),
             'previous_reading' => $previousReading,
@@ -145,7 +145,7 @@ class MeterReadingController extends Controller
             'notes' => $request->input('notes'),
         ]);
 
-        $request->user()->notify(new ActionCompleted('meter-reading-created', $subscriber->displayName()));
+        $request->user()->notify(new ActionCompleted('meter-reading-created', $subscription->displayName()));
 
         return back()->with('status', 'meter-reading-created');
     }
@@ -176,7 +176,7 @@ class MeterReadingController extends Controller
             return [$wentBackToReview, $approvedAgain];
         });
 
-        $actor->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscriber->displayName()));
+        $actor->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscription->displayName()));
 
         if ($approvedAgain) {
             return back()->with('status', 'meter-reading-corrected-approved');
@@ -188,7 +188,7 @@ class MeterReadingController extends Controller
 
         Notification::send(
             $meterReading->approvers()->reject(fn (User $approver) => $approver->is($actor)),
-            new ReadingNeedsReapproval($meterReading->subscriber->displayName(), $actor->name),
+            new ReadingNeedsReapproval($meterReading->subscription->displayName(), $actor->name),
         );
 
         return back()->with('status', 'meter-reading-reopened');
@@ -196,8 +196,8 @@ class MeterReadingController extends Controller
 
     /**
      * Approve the ticked readings, or `all` pending readings of the given
-     * week among the subscribers matching the sheet's search and filters.
-     * Approving locks a reading and charges it to the subscriber's
+     * week among the subscriptions matching the sheet's search and filters.
+     * Approving locks a reading and charges it to the subscription's
      * transactions; readings the actor may not approve, or that are no
      * longer pending, are skipped.
      */
@@ -209,7 +209,7 @@ class MeterReadingController extends Controller
             : $this->pendingReadings($actor)->whereKey($request->validated('reading_ids'));
 
         $approved = 0;
-        $query->with('subscriber')->chunkById(200, function (Collection $readings) use ($actor, &$approved): void {
+        $query->with('subscription')->chunkById(200, function (Collection $readings) use ($actor, &$approved): void {
             foreach ($readings as $reading) {
                 $reading->approve($actor);
                 $approved++;
@@ -254,22 +254,22 @@ class MeterReadingController extends Controller
     }
 
     /**
-     * The week's pending readings for the subscribers the sheet shows with
+     * The week's pending readings for the subscriptions the sheet shows with
      * the request's search and filters.
      *
      * @return Builder<MeterReading>
      */
     private function pendingInSheet(Request $request, User $actor, string $week): Builder
     {
-        $subscribers = $this->subscribersInScope($actor);
-        $this->applyDataTableFilters($subscribers, $request, ['full_name', 'subscription_name', 'account_number', 'phone', 'subscription_phone'], [], 'full_name');
-        $this->applyDataTableFilterSelects($subscribers, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
-        $this->applyMeterBoxNameFilter($subscribers, $request);
-        $this->applySheetFilters($subscribers, $request, $week);
+        $subscriptions = $this->subscriptionsInScope($actor);
+        $this->applyDataTableFilters($subscriptions, $request, ['full_name', 'subscription_name', 'account_number', 'phone', 'subscription_phone'], [], 'full_name');
+        $this->applyDataTableFilterSelects($subscriptions, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
+        $this->applyMeterBoxNameFilter($subscriptions, $request);
+        $this->applySheetFilters($subscriptions, $request, $week);
 
         return $this->pendingReadings($actor)
             ->whereDate('week_start', $week)
-            ->whereIn('subscriber_id', $subscribers->reorder()->select('subscribers.id'));
+            ->whereIn('subscription_id', $subscriptions->reorder()->select('subscriptions.id'));
     }
 
     /**
@@ -293,15 +293,15 @@ class MeterReadingController extends Controller
     }
 
     /**
-     * Active subscribers the actor may see readings for.
+     * Active subscriptions the actor may see readings for.
      *
-     * @return Builder<Subscriber>
+     * @return Builder<Subscription>
      */
-    private function subscribersInScope(User $actor): Builder
+    private function subscriptionsInScope(User $actor): Builder
     {
-        return Subscriber::query()
+        return Subscription::query()
             ->visibleTo($actor)
-            ->where('status', SubscriberStatus::Active);
+            ->where('status', SubscriptionStatus::Active);
     }
 
     /**
@@ -314,25 +314,25 @@ class MeterReadingController extends Controller
     {
         $thisWeek = fn (string $column) => MeterReading::query()
             ->select($column)
-            ->whereColumn('meter_readings.subscriber_id', 'subscribers.id')
+            ->whereColumn('meter_readings.subscription_id', 'subscriptions.id')
             ->whereDate('week_start', $week)
             ->limit(1);
 
         $lastBefore = MeterReading::query()
             ->select('current_reading')
-            ->whereColumn('meter_readings.subscriber_id', 'subscribers.id')
+            ->whereColumn('meter_readings.subscription_id', 'subscriptions.id')
             ->whereDate('week_start', '<', $week)
             ->orderByDesc('week_start')
             ->limit(1);
 
         $thisWeekPrevious = $thisWeek('previous_reading');
 
-        $query->select('subscribers.*')
-            ->selectSub(MeterBox::query()->select('box_number')->whereColumn('meter_boxes.id', 'subscribers.meter_box_id'), 'meter_box_number')
-            ->selectSub(MeterBox::query()->select('name')->whereColumn('meter_boxes.id', 'subscribers.meter_box_id'), 'meter_box_name')
-            ->selectSub(MeterBox::query()->select('name_suffix')->whereColumn('meter_boxes.id', 'subscribers.meter_box_id'), 'meter_box_suffix')
+        $query->select('subscriptions.*')
+            ->selectSub(MeterBox::query()->select('box_number')->whereColumn('meter_boxes.id', 'subscriptions.meter_box_id'), 'meter_box_number')
+            ->selectSub(MeterBox::query()->select('name')->whereColumn('meter_boxes.id', 'subscriptions.meter_box_id'), 'meter_box_name')
+            ->selectSub(MeterBox::query()->select('name_suffix')->whereColumn('meter_boxes.id', 'subscriptions.meter_box_id'), 'meter_box_suffix')
             ->selectRaw(
-                "COALESCE(({$thisWeekPrevious->toSql()}), ({$lastBefore->toSql()}), subscribers.initial_reading, 0) as last_reading",
+                "COALESCE(({$thisWeekPrevious->toSql()}), ({$lastBefore->toSql()}), subscriptions.initial_reading, 0) as last_reading",
                 [...$thisWeekPrevious->getBindings(), ...$lastBefore->getBindings()],
             )
             ->selectSub($thisWeek('current_reading'), 'current_reading')
@@ -343,7 +343,7 @@ class MeterReadingController extends Controller
     /**
      * `?sort=meter_box`: by meter box — its name, then its suffix, then its
      * number, numbers in numeric order (BOX-9 before BOX-10) — with
-     * subscribers without a box last. Applied before the table's own sort,
+     * subscriptions without a box last. Applied before the table's own sort,
      * which then only breaks ties (by name).
      */
     private function applyMeterBoxSort(Builder $query, Request $request): void
@@ -398,7 +398,7 @@ class MeterReadingController extends Controller
 
     /**
      * Filters that need a join rather than a plain column match: the
-     * area/sub-area a subscriber's meter box sits in, whether this week's
+     * area/sub-area a subscription's meter box sits in, whether this week's
      * reading has been entered yet, and whether it has been approved.
      */
     private function applySheetFilters(Builder $query, Request $request, string $week, bool $includeStatus = true): void
@@ -446,7 +446,7 @@ class MeterReadingController extends Controller
     private function statusSummary(Builder $query, string $week): array
     {
         $counts = MeterReading::query()
-            ->whereIn('subscriber_id', (clone $query)->reorder()->select('subscribers.id'))
+            ->whereIn('subscription_id', (clone $query)->reorder()->select('subscriptions.id'))
             ->whereDate('week_start', $week)
             ->selectRaw('status, COUNT(*) as reading_count')
             ->groupBy('status')
@@ -461,30 +461,30 @@ class MeterReadingController extends Controller
     /**
      * One sheet row. A reading already entered for the week shows the
      * prices and standing discount captured with it; otherwise the
-     * subscriber's current price, minimum and discount are shown for the
+     * subscription's current price, minimum and discount are shown for the
      * live calculation.
      *
      * @return array<string, mixed>
      */
-    private function sheetRow(Subscriber $subscriber, Carbon $weekStart, User $actor): array
+    private function sheetRow(Subscription $subscription, Carbon $weekStart, User $actor): array
     {
-        $reading = $subscriber->meterReadings->first(fn (MeterReading $r) => $r->week_start->equalTo($weekStart));
-        $lastBefore = $subscriber->meterReadings->first(fn (MeterReading $r) => $r->week_start->lessThan($weekStart));
+        $reading = $subscription->meterReadings->first(fn (MeterReading $r) => $r->week_start->equalTo($weekStart));
+        $lastBefore = $subscription->meterReadings->first(fn (MeterReading $r) => $r->week_start->lessThan($weekStart));
         [$discountMethod, $discountValue, $discountSegment] = $reading
             ? [$reading->discount_method, $reading->discount_value, $reading->discount_segment]
-            : [$subscriber->standingDiscount?->method, $subscriber->standingDiscount?->value, $subscriber->standingDiscount?->segment];
+            : [$subscription->standingDiscount?->method, $subscription->standingDiscount?->value, $subscription->standingDiscount?->segment];
 
         return [
-            'id' => $subscriber->id,
-            'accountNumber' => $subscriber->account_number,
-            'fullName' => $subscriber->displayName(),
-            'meterBoxNumber' => $subscriber->meterBox?->box_number,
-            'meterBoxName' => $subscriber->meterBox?->displayName(),
-            'phone' => $subscriber->contactPhone(),
-            'subAreaName' => $subscriber->meterBox?->subArea?->name,
-            'previousReading' => $reading?->previous_reading ?? (float) ($lastBefore?->current_reading ?? $subscriber->initial_reading ?? 0),
-            'unitPrice' => (string) ($reading?->unit_price ?? $subscriber->tariff->rate),
-            'minimumPayment' => (string) ($reading?->minimum_payment ?? $subscriber->weeklyMinimumPayment()),
+            'id' => $subscription->id,
+            'accountNumber' => $subscription->account_number,
+            'fullName' => $subscription->displayName(),
+            'meterBoxNumber' => $subscription->meterBox?->box_number,
+            'meterBoxName' => $subscription->meterBox?->displayName(),
+            'phone' => $subscription->contactPhone(),
+            'subAreaName' => $subscription->meterBox?->subArea?->name,
+            'previousReading' => $reading?->previous_reading ?? (float) ($lastBefore?->current_reading ?? $subscription->initial_reading ?? 0),
+            'unitPrice' => (string) ($reading?->unit_price ?? $subscription->tariff->rate),
+            'minimumPayment' => (string) ($reading?->minimum_payment ?? $subscription->weeklyMinimumPayment()),
             'discount' => $discountMethod ? [
                 'method' => $discountMethod->value,
                 'value' => $discountValue,
@@ -506,11 +506,11 @@ class MeterReadingController extends Controller
                 'approvedByName' => $reading->approvedBy?->name,
                 'approvedAt' => $reading->approved_at?->timezone(config('app.business_timezone'))->format('d/m H:i'),
             ] : null,
-            'hasLaterWeek' => (bool) $subscriber->has_later_week,
+            'hasLaterWeek' => (bool) $subscription->has_later_week,
             'canApprove' => $reading !== null && $actor->can('approve', $reading),
             'canEdit' => $reading
-                ? ! $subscriber->has_later_week && $actor->can('update', $reading)
-                : ! $subscriber->has_later_week && $actor->can('create', [MeterReading::class, $weekStart]),
+                ? ! $subscription->has_later_week && $actor->can('update', $reading)
+                : ! $subscription->has_later_week && $actor->can('create', [MeterReading::class, $weekStart]),
         ];
     }
 

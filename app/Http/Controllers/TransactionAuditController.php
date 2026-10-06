@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TransactionAction;
-use App\Http\Concerns\BuildsSubscriberStatement;
+use App\Http\Concerns\BuildsSubscriptionStatement;
 use App\Http\Concerns\FiltersDataTable;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\TransactionAmendment;
 use App\Models\TransactionDeletion;
 use App\Models\User;
@@ -20,15 +20,15 @@ use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 /**
- * The audit log (سجل التدقيق): every change made to the subscribers' account
+ * The audit log (سجل التدقيق): every change made to the subscriptions' account
  * lines after they were recorded, newest first — details edited in place,
  * lines cancelled or corrected, payments refunded and lines deleted for
  * good — with who did it, when and why. Read-only; a row opens the
- * subscriber's statement over the page.
+ * subscription's statement over the page.
  */
 class TransactionAuditController extends Controller
 {
-    use BuildsSubscriberStatement, FiltersDataTable;
+    use BuildsSubscriptionStatement, FiltersDataTable;
 
     /**
      * The period tabs, as the number of days each covers (null: since the
@@ -55,7 +55,7 @@ class TransactionAuditController extends Controller
 
     public function index(Request $request): InertiaResponse
     {
-        $this->authorize('viewTransactionAudit', SubscriberTransaction::class);
+        $this->authorize('viewTransactionAudit', SubscriptionTransaction::class);
 
         $actor = $request->user();
         $period = $this->period($request);
@@ -84,15 +84,15 @@ class TransactionAuditController extends Controller
             'scopeLabel' => $actor->isSuperAdmin() ? 'كل الفروع' : ($actor->branch?->name ?? '—'),
             'filters' => $this->dataTableState($request, 'happened_at', 'desc', self::DEFAULT_PER_PAGE),
             'filterOptions' => $this->filterOptions($actor),
-            // A row's subscriber's statement, opened over the log.
+            // A row's subscription's statement, opened over the log.
             'statement' => fn () => $this->requestedStatement($request, $actor),
         ]);
     }
 
     /**
      * Every change as one list — `kind`, `event_id` (the row of its own
-     * table), `happened_at`, `user_id` (who made it) and `subscriber_id` —
-     * of subscribers the user may see, narrowed by the search box, the
+     * table), `happened_at`, `user_id` (who made it) and `subscription_id` —
+     * of subscriptions the user may see, narrowed by the search box, the
      * branch and who made it. Unordered, so it can be counted.
      */
     private function filteredEvents(Request $request, User $actor): QueryBuilder
@@ -100,31 +100,31 @@ class TransactionAuditController extends Controller
         $search = $this->searchTerm($request);
         $branchId = $actor->isSuperAdmin() ? $this->filterValue($request, 'branch_id') : null;
         $userId = $this->filterValue($request, 'user_id');
-        $narrowsSubscribers = ! $actor->isSuperAdmin() || $branchId !== null || $search !== '';
+        $narrowsSubscriptions = ! $actor->isSuperAdmin() || $branchId !== null || $search !== '';
 
         $amendments = DB::table('transaction_amendments')
-            ->join('subscriber_transactions', 'subscriber_transactions.id', '=', 'transaction_amendments.transaction_id')
-            ->selectRaw("'amendment' as kind, transaction_amendments.id as event_id, transaction_amendments.created_at as happened_at, transaction_amendments.user_id as user_id, subscriber_transactions.subscriber_id as subscriber_id");
+            ->join('subscription_transactions', 'subscription_transactions.id', '=', 'transaction_amendments.transaction_id')
+            ->selectRaw("'amendment' as kind, transaction_amendments.id as event_id, transaction_amendments.created_at as happened_at, transaction_amendments.user_id as user_id, subscription_transactions.subscription_id as subscription_id");
 
-        $reversals = DB::table('subscriber_transactions as reversal')
-            ->whereIn('reversal.type', SubscriberTransaction::REVERSAL_TYPES)
+        $reversals = DB::table('subscription_transactions as reversal')
+            ->whereIn('reversal.type', SubscriptionTransaction::REVERSAL_TYPES)
             ->selectRaw(
                 "case when reversal.type = ? then 'refund' "
-                ."when reversal.type = ? and exists (select 1 from subscriber_transactions as replacement where replacement.corrects_id = reversal.reverses_id) then 'correction' "
-                ."else 'cancellation' end as kind, reversal.id as event_id, reversal.created_at as happened_at, reversal.recorded_by as user_id, reversal.subscriber_id as subscriber_id",
-                [SubscriberTransaction::TYPE_REFUND, SubscriberTransaction::TYPE_REVERSAL],
+                ."when reversal.type = ? and exists (select 1 from subscription_transactions as replacement where replacement.corrects_id = reversal.reverses_id) then 'correction' "
+                ."else 'cancellation' end as kind, reversal.id as event_id, reversal.created_at as happened_at, reversal.recorded_by as user_id, reversal.subscription_id as subscription_id",
+                [SubscriptionTransaction::TYPE_REFUND, SubscriptionTransaction::TYPE_REVERSAL],
             );
 
         $deletions = DB::table('transaction_deletions')
-            ->selectRaw("'deletion' as kind, id as event_id, created_at as happened_at, user_id, subscriber_id");
+            ->selectRaw("'deletion' as kind, id as event_id, created_at as happened_at, user_id, subscription_id");
 
         return DB::query()
             ->fromSub($amendments->unionAll($reversals)->unionAll($deletions), 'events')
-            ->when($narrowsSubscribers, fn (QueryBuilder $query) => $query->whereIn('subscriber_id', Subscriber::query()
+            ->when($narrowsSubscriptions, fn (QueryBuilder $query) => $query->whereIn('subscription_id', Subscription::query()
                 ->visibleTo($actor)
-                ->when($branchId, fn (Builder $subscribers) => $subscribers->where('branch_id', $branchId))
-                ->when($search !== '', fn (Builder $subscribers) => $subscribers->matchingSearch($search))
-                ->select('subscribers.id')))
+                ->when($branchId, fn (Builder $subscriptions) => $subscriptions->where('branch_id', $branchId))
+                ->when($search !== '', fn (Builder $subscriptions) => $subscriptions->matchingSearch($search))
+                ->select('subscriptions.id')))
             ->when($userId, fn (QueryBuilder $query) => $query->where('user_id', $userId));
     }
 
@@ -149,12 +149,12 @@ class TransactionAuditController extends Controller
     private function rows(Collection $events): Collection
     {
         $ids = fn (array $kinds): array => $events->whereIn('kind', $kinds)->pluck('event_id')->all();
-        $amendments = TransactionAmendment::query()->with(['user', 'transaction.subscriber.branch'])->findMany($ids(['amendment']))->keyBy('id');
-        $reversals = SubscriberTransaction::query()
-            ->with(['recordedBy', 'subscriber.branch', 'reverses.correction'])
+        $amendments = TransactionAmendment::query()->with(['user', 'transaction.subscription.branch'])->findMany($ids(['amendment']))->keyBy('id');
+        $reversals = SubscriptionTransaction::query()
+            ->with(['recordedBy', 'subscription.branch', 'reverses.correction'])
             ->findMany($ids(['cancellation', 'correction', 'refund']))
             ->keyBy('id');
-        $deletions = TransactionDeletion::query()->with(['user', 'subscriber.branch'])->findMany($ids(['deletion']))->keyBy('id');
+        $deletions = TransactionDeletion::query()->with(['user', 'subscription.branch'])->findMany($ids(['deletion']))->keyBy('id');
 
         return $events
             ->map(fn (object $event): ?array => match ($event->kind) {
@@ -174,7 +174,7 @@ class TransactionAuditController extends Controller
         $line = $amendment->transaction;
 
         return [
-            ...$this->eventBase('amendment', $amendment->id, $amendment->created_at, $amendment->user, $line->subscriber),
+            ...$this->eventBase('amendment', $amendment->id, $amendment->created_at, $amendment->user, $line->subscription),
             'lines' => [$this->lineSummary($line->type, $line->amount, $line->displayVoucherNumber())],
             'changes' => collect($amendment->changes)->map(fn (array $values, string $field): array => [
                 'label' => $this->amendmentFieldLabel($field),
@@ -192,19 +192,19 @@ class TransactionAuditController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function reversalRow(string $kind, SubscriberTransaction $reversal): array
+    private function reversalRow(string $kind, SubscriptionTransaction $reversal): array
     {
         $original = $reversal->reverses;
-        $isFullRefund = $kind === 'refund' && $original?->status === SubscriberTransaction::STATUS_LINKED_CANCELLATION;
+        $isFullRefund = $kind === 'refund' && $original?->status === SubscriptionTransaction::STATUS_LINKED_CANCELLATION;
 
         return [
-            ...$this->eventBase($kind, $reversal->id, $reversal->created_at, $reversal->recordedBy, $reversal->subscriber),
+            ...$this->eventBase($kind, $reversal->id, $reversal->created_at, $reversal->recordedBy, $reversal->subscription),
             'kindNote' => $kind === 'refund' ? ($isFullRefund ? 'كامل' : 'جزئي') : null,
             'lines' => [
                 $original
                     ? $this->lineSummary($original->type, $original->amount, $original->displayVoucherNumber())
                     : $this->lineSummary($reversal->type, $reversal->amount, null),
-                ...($kind === 'refund' ? [['label' => 'المبلغ المُرجع', 'amount' => SubscriberTransaction::formatAmount(abs((float) $reversal->amount)), 'voucherNumber' => null]] : []),
+                ...($kind === 'refund' ? [['label' => 'المبلغ المُرجع', 'amount' => SubscriptionTransaction::formatAmount(abs((float) $reversal->amount)), 'voucherNumber' => null]] : []),
             ],
             'changes' => [],
             // A partial refund leaves the payment standing, without a reason of its own.
@@ -219,7 +219,7 @@ class TransactionAuditController extends Controller
     private function deletionRow(TransactionDeletion $deletion): array
     {
         return [
-            ...$this->eventBase('deletion', $deletion->id, $deletion->created_at, $deletion->user, $deletion->subscriber),
+            ...$this->eventBase('deletion', $deletion->id, $deletion->created_at, $deletion->user, $deletion->subscription),
             'kindNote' => match ($deletion->action) {
                 TransactionAction::DeleteReversal->value => 'الإلغاء فقط، وعادت الحركة الأصلية',
                 TransactionAction::DeleteTree->value => 'الحركة وكل ما ارتبط بها',
@@ -246,7 +246,7 @@ class TransactionAuditController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function eventBase(string $kind, int $id, mixed $at, ?User $user, ?Subscriber $subscriber): array
+    private function eventBase(string $kind, int $id, mixed $at, ?User $user, ?Subscription $subscription): array
     {
         return [
             'key' => $kind.'-'.$id,
@@ -256,13 +256,13 @@ class TransactionAuditController extends Controller
             'day' => DailySeries::localDate($at),
             'time' => DailySeries::localTime($at),
             'userName' => $user?->name,
-            'subscriber' => $subscriber ? [
-                'id' => $subscriber->id,
-                'name' => $subscriber->displayName(),
-                'accountNumber' => $subscriber->account_number,
-                'status' => $subscriber->status->value,
-                'statusLabel' => __($subscriber->status->label()),
-                'branchName' => $subscriber->branch->name,
+            'subscription' => $subscription ? [
+                'id' => $subscription->id,
+                'name' => $subscription->displayName(),
+                'accountNumber' => $subscription->account_number,
+                'status' => $subscription->status->value,
+                'statusLabel' => __($subscription->status->label()),
+                'branchName' => $subscription->branch->name,
             ] : null,
         ];
     }
@@ -276,8 +276,8 @@ class TransactionAuditController extends Controller
     private function lineSummary(string $type, string $amount, ?string $voucherNumber): array
     {
         return [
-            'label' => SubscriberTransaction::typeLabels()[$type] ?? 'حركة',
-            'amount' => SubscriberTransaction::formatAmount(abs((float) $amount)),
+            'label' => SubscriptionTransaction::typeLabels()[$type] ?? 'حركة',
+            'amount' => SubscriptionTransaction::formatAmount(abs((float) $amount)),
             'voucherNumber' => $voucherNumber,
         ];
     }

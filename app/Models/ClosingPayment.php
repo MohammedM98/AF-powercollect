@@ -9,10 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A payment as it sits in a daily closing. The payment keeps its own ID,
- * subscriber and voucher; this only says which closing it belongs to and,
+ * subscription and voucher; this only says which closing it belongs to and,
  * for a transfer, whether it was found in the receiving account.
  */
-#[Fillable(['closing_id', 'subscriber_transaction_id', 'match_status', 'matched_by', 'matched_at'])]
+#[Fillable(['closing_id', 'subscription_transaction_id', 'match_status', 'matched_by', 'matched_at'])]
 class ClosingPayment extends Model
 {
     protected function casts(): array
@@ -30,7 +30,7 @@ class ClosingPayment extends Model
 
     public function payment(): BelongsTo
     {
-        return $this->belongsTo(SubscriberTransaction::class, 'subscriber_transaction_id');
+        return $this->belongsTo(SubscriptionTransaction::class, 'subscription_transaction_id');
     }
 
     public function matchedBy(): BelongsTo

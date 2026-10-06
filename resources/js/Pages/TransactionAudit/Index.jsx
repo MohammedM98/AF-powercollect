@@ -12,7 +12,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { formatClock, formatDayLabel, formatNumber } from '@/lib/format';
-import StatementModal from '@/Pages/Subscribers/StatementModal';
+import StatementModal from '@/Pages/Subscriptions/StatementModal';
 
 const STATUS_DOTS = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
@@ -69,7 +69,7 @@ function ChangeDetails({ event }) {
 }
 
 /**
- * The audit log: every change made to the subscribers' account lines after
+ * The audit log: every change made to the subscriptions' account lines after
  * they were recorded — edits, cancellations, corrections, refunds and
  * permanent deletions — newest first and grouped by day, with who made it
  * and why. The figures follow the period, the search and the filters.
@@ -90,15 +90,15 @@ export default function Index({ events, period, counts, today, scopeLabel, filte
         );
     }
 
-    /** A row's subscriber, in the shape the statement window's header reads. */
-    function openStatement(subscriber) {
+    /** A row's subscription, in the shape the statement window's header reads. */
+    function openStatement(subscription) {
         statementWindow.open({
-            id: subscriber.id,
-            fullName: subscriber.name,
-            accountNumber: subscriber.accountNumber,
-            status: subscriber.status,
-            statusLabel: subscriber.statusLabel,
-            branchName: subscriber.branchName,
+            id: subscription.id,
+            fullName: subscription.name,
+            accountNumber: subscription.accountNumber,
+            status: subscription.status,
+            statusLabel: subscription.statusLabel,
+            branchName: subscription.branchName,
         });
     }
 
@@ -179,7 +179,7 @@ export default function Index({ events, period, counts, today, scopeLabel, filte
                                     return (
                                         <Fragment key={event.key}>
                                             {event.day !== events.data[index - 1]?.day && <DayHeader day={event.day} isToday={event.day === today} />}
-                                            <tr {...rowClick(can?.viewSubscribers && event.subscriber ? () => openStatement(event.subscriber) : null)}>
+                                            <tr {...rowClick(can?.viewSubscriptions && event.subscription ? () => openStatement(event.subscription) : null)}>
                                                 <td className="whitespace-nowrap">
                                                     <span className="inline-flex items-center gap-1.5 font-semibold text-gray-900">
                                                         <Icon name="clock" className="h-4 w-4 text-gray-400" />
@@ -196,11 +196,11 @@ export default function Index({ events, period, counts, today, scopeLabel, filte
                                                     {event.kindNote && <span className="mt-1 block text-xs text-gray-500">{event.kindNote}</span>}
                                                 </td>
                                                 <td>
-                                                    {event.subscriber ? (
+                                                    {event.subscription ? (
                                                         <RowIdentity
-                                                            name={event.subscriber.name}
-                                                            subtitle={`${event.subscriber.accountNumber} · ${event.subscriber.branchName}`}
-                                                            status={STATUS_DOTS[event.subscriber.status]}
+                                                            name={event.subscription.name}
+                                                            subtitle={`${event.subscription.accountNumber} · ${event.subscription.branchName}`}
+                                                            status={STATUS_DOTS[event.subscription.status]}
                                                         />
                                                     ) : (
                                                         <span className="text-gray-500">مشترك محذوف</span>
@@ -239,10 +239,10 @@ export default function Index({ events, period, counts, today, scopeLabel, filte
                 <Pagination meta={events} filters={filters} baseUrl="/transaction-audit" extraParams={{ period }} />
             </div>
 
-            {statementWindow.subscriber && (
+            {statementWindow.subscription && (
                 <StatementModal
-                    key={statementWindow.subscriber.id}
-                    subscriber={statementWindow.subscriber}
+                    key={statementWindow.subscription.id}
+                    subscription={statementWindow.subscription}
                     statement={statementWindow.statement}
                     initialForm={statementWindow.form}
                     onSwitch={(header) => statementWindow.open(header)}

@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('transaction_deletions', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('subscriber_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('subscription_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('branch_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->string('action', 30);
@@ -21,7 +21,7 @@ return new class extends Migration
             $table->json('transactions');
             $table->timestamp('created_at')->useCurrent();
 
-            $table->index(['subscriber_id', 'created_at']);
+            $table->index(['subscription_id', 'created_at']);
             $table->index('created_at');
         });
     }

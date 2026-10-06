@@ -9,8 +9,8 @@ use App\Models\Branch;
 use App\Models\Governorate;
 use App\Models\MeterBox;
 use App\Models\Permission;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\Tariff;
 use App\Models\TariffSegment;
 use App\Models\User;
@@ -35,62 +35,62 @@ class RecordDeletionTest extends TestCase
         $this->superAdmin = User::factory()->superAdmin()->create(['name' => 'Sami']);
     }
 
-    public function test_a_subscriber_added_by_mistake_is_deleted_with_their_subscription_fee(): void
+    public function test_a_subscription_added_by_mistake_is_deleted_with_their_subscription_fee(): void
     {
-        $subscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Ahmad']);
-        SubscriberTransaction::factory()->for($subscriber)->create();
+        $subscription = Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Ahmad']);
+        SubscriptionTransaction::factory()->for($subscription)->create();
 
-        $this->deleteAs($this->superAdmin, route('subscribers.destroy', $subscriber))
+        $this->deleteAs($this->superAdmin, route('subscriptions.destroy', $subscription))
             ->assertSessionHasNoErrors()
-            ->assertSessionHas('status', 'subscriber-deleted')
-            ->assertRedirect(route('subscribers.index'));
+            ->assertSessionHas('status', 'subscription-deleted')
+            ->assertRedirect(route('subscriptions.index'));
 
-        $this->assertModelMissing($subscriber);
-        $this->assertDatabaseCount('subscriber_transactions', 0);
-        $this->assertSame(['action' => 'subscriber-deleted', 'subject' => 'Ahmad'], $this->superAdmin->notifications()->sole()->data);
+        $this->assertModelMissing($subscription);
+        $this->assertDatabaseCount('subscription_transactions', 0);
+        $this->assertSame(['action' => 'subscription-deleted', 'subject' => 'Ahmad'], $this->superAdmin->notifications()->sole()->data);
     }
 
-    public function test_a_subscriber_with_payments_is_kept_and_the_user_is_told_why(): void
+    public function test_a_subscription_with_payments_is_kept_and_the_user_is_told_why(): void
     {
-        $subscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id]);
-        SubscriberTransaction::factory()->for($subscriber)->create();
-        SubscriberTransaction::recordPayment($subscriber, $this->superAdmin, ['amount' => '20', 'currency' => 'ILS', 'payment_method' => 'cash']);
+        $subscription = Subscription::factory()->create(['branch_id' => $this->branch->id]);
+        SubscriptionTransaction::factory()->for($subscription)->create();
+        SubscriptionTransaction::recordPayment($subscription, $this->superAdmin, ['amount' => '20', 'currency' => 'ILS', 'payment_method' => 'cash']);
 
-        $this->deleteAs($this->superAdmin, route('subscribers.destroy', $subscriber))
+        $this->deleteAs($this->superAdmin, route('subscriptions.destroy', $subscription))
             ->assertSessionHasErrors(['delete' => 'لا يمكن حذف المشترك لوجود سجلات مرتبطة به — الحركات المالية: 1. يمكنك تغيير حالته إلى «مفصول» بدلًا من حذفه.']);
 
-        $this->assertModelExists($subscriber);
-        $this->assertDatabaseCount('subscriber_transactions', 2);
+        $this->assertModelExists($subscription);
+        $this->assertDatabaseCount('subscription_transactions', 2);
     }
 
-    public function test_a_subscriber_with_a_subscription_fee_loaded_later_cannot_be_deleted(): void
+    public function test_a_subscription_with_a_subscription_fee_loaded_later_cannot_be_deleted(): void
     {
-        $subscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id]);
-        SubscriberTransaction::recordCharge($subscriber, $this->superAdmin, ChargeType::SubscriptionFee, '50', null);
+        $subscription = Subscription::factory()->create(['branch_id' => $this->branch->id]);
+        SubscriptionTransaction::recordCharge($subscription, $this->superAdmin, ChargeType::SubscriptionFee, '50', null);
 
-        $this->deleteAs($this->superAdmin, route('subscribers.destroy', $subscriber))
+        $this->deleteAs($this->superAdmin, route('subscriptions.destroy', $subscription))
             ->assertSessionHasErrors(['delete' => 'لا يمكن حذف المشترك لوجود سجلات مرتبطة به — الحركات المالية: 1. يمكنك تغيير حالته إلى «مفصول» بدلًا من حذفه.']);
 
-        $this->assertModelExists($subscriber);
-        $this->assertDatabaseCount('subscriber_transactions', 1);
+        $this->assertModelExists($subscription);
+        $this->assertDatabaseCount('subscription_transactions', 1);
     }
 
     public function test_deleting_takes_the_delete_permission_within_the_users_own_branch(): void
     {
-        $subscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id]);
+        $subscription = Subscription::factory()->create(['branch_id' => $this->branch->id]);
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id]);
         $otherBranchAdmin = User::factory()->branchAdmin()->create();
-        $otherBranchAdmin->permissions()->attach(Permission::idsFor([PermissionKey::DeleteSubscribers]));
+        $otherBranchAdmin->permissions()->attach(Permission::idsFor([PermissionKey::DeleteSubscriptions]));
 
-        $this->deleteAs($branchAdmin, route('subscribers.destroy', $subscriber))->assertForbidden();
-        $this->deleteAs($otherBranchAdmin, route('subscribers.destroy', $subscriber))->assertForbidden();
+        $this->deleteAs($branchAdmin, route('subscriptions.destroy', $subscription))->assertForbidden();
+        $this->deleteAs($otherBranchAdmin, route('subscriptions.destroy', $subscription))->assertForbidden();
 
-        $branchAdmin->permissions()->attach(Permission::idsFor([PermissionKey::DeleteSubscribers]));
+        $branchAdmin->permissions()->attach(Permission::idsFor([PermissionKey::DeleteSubscriptions]));
         $this->actingAs($branchAdmin->fresh())
-            ->get(route('subscribers.index'))
-            ->assertInertia(fn ($page) => $page->where('subscribers.data.0.canDelete', true));
-        $this->deleteAs($branchAdmin->fresh(), route('subscribers.destroy', $subscriber))->assertSessionHasNoErrors();
-        $this->assertModelMissing($subscriber);
+            ->get(route('subscriptions.index'))
+            ->assertInertia(fn ($page) => $page->where('subscriptions.data.0.canDelete', true));
+        $this->deleteAs($branchAdmin->fresh(), route('subscriptions.destroy', $subscription))->assertSessionHasNoErrors();
+        $this->assertModelMissing($subscription);
     }
 
     public function test_an_unused_user_account_is_deleted_and_signed_out(): void
@@ -110,7 +110,7 @@ class RecordDeletionTest extends TestCase
     public function test_a_user_who_recorded_work_is_kept_and_nobody_deletes_their_own_account(): void
     {
         $collector = User::factory()->collector()->create(['branch_id' => $this->branch->id]);
-        Subscriber::factory()->create(['branch_id' => $this->branch->id, 'registered_by' => $collector->id]);
+        Subscription::factory()->create(['branch_id' => $this->branch->id, 'registered_by' => $collector->id]);
 
         $this->deleteAs($this->superAdmin, route('users.destroy', $collector))
             ->assertSessionHasErrors(['delete' => 'لا يمكن حذف المستخدم لوجود سجلات مرتبطة به — المشتركون المسجّلون: 1. يمكنك إيقاف حسابه بدلًا من حذفه.']);
@@ -123,7 +123,7 @@ class RecordDeletionTest extends TestCase
     {
         $tariff = Tariff::factory()->create();
         $segment = TariffSegment::factory()->create();
-        Subscriber::factory()->create(['tariff_id' => $tariff->id, 'tariff_segment_id' => $segment->id]);
+        Subscription::factory()->create(['tariff_id' => $tariff->id, 'tariff_segment_id' => $segment->id]);
         $unusedSegment = TariffSegment::factory()->create();
 
         $this->deleteAs($this->superAdmin, route('tariffs.destroy', $tariff))
@@ -158,6 +158,6 @@ class RecordDeletionTest extends TestCase
 
     private function deleteAs(User $user, string $uri): TestResponse
     {
-        return $this->actingAs($user)->from(route('subscribers.index'))->delete($uri);
+        return $this->actingAs($user)->from(route('subscriptions.index'))->delete($uri);
     }
 }

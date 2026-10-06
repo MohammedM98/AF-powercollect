@@ -11,13 +11,13 @@ function urlWithoutStatement() {
 
 /**
  * The statement window of a page whose controller sends the `statement`
- * prop (BuildsSubscriberStatement::requestedStatement): a subscriber's
+ * prop (BuildsSubscriptionStatement::requestedStatement): a subscription's
  * financial history shown over the page. It is open while a statement is
- * loading or once one is in the page props; the subscriber is kept in the
+ * loading or once one is in the page props; the subscription is kept in the
  * address (?statement=…) so the window stays open after a payment, charge
  * or discount is saved in it, and Back closes it.
  *
- * Returns `subscriber` (the header to show, or null when closed), `form`
+ * Returns `subscription` (the header to show, or null when closed), `form`
  * (the form to open at once, if any), `open(header, form?)` and `close()`.
  * `header` is { id, fullName, … } as StatementModal reads it.
  */
@@ -52,12 +52,12 @@ export function useStatementWindow(statement) {
         });
     }
 
-    const subscriber = loading ?? statement?.subscriber ?? null;
+    const subscription = loading ?? statement?.subscription ?? null;
 
     return {
-        subscriber,
+        subscription,
         // The loaded statement, once it is the one asked for.
-        statement: subscriber && statement?.subscriber.id === subscriber.id ? statement : null,
+        statement: subscription && statement?.subscription.id === subscription.id ? statement : null,
         form,
         open,
         close,

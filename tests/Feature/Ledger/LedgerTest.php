@@ -5,8 +5,8 @@ namespace Tests\Feature\Ledger;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Permission;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -21,7 +21,7 @@ class LedgerTest extends TestCase
 
     private User $branchAdmin;
 
-    private Subscriber $subscriber;
+    private Subscription $subscription;
 
     protected function setUp(): void
     {
@@ -31,7 +31,7 @@ class LedgerTest extends TestCase
         $this->travelTo('2026-09-20 12:00:00');
         $this->branch = Branch::factory()->create(['name' => 'فرع الكرادة']);
         $this->branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id, 'name' => 'Mohammed']);
-        $this->subscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Ahmad Nasser', 'phone' => '0591234567']);
+        $this->subscription = Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Ahmad Nasser', 'phone' => '0591234567']);
     }
 
     public function test_guests_are_sent_to_log_in(): void
@@ -50,15 +50,15 @@ class LedgerTest extends TestCase
 
     public function test_branch_staff_see_only_their_own_branchs_lines(): void
     {
-        $this->line($this->subscriber, 'subscription_fee', '50.00');
-        $this->line(Subscriber::factory()->create(['full_name' => 'Other Branch Subscriber']), 'subscription_fee', '75.00');
+        $this->line($this->subscription, 'subscription_fee', '50.00');
+        $this->line(Subscription::factory()->create(['full_name' => 'Other Branch Subscription']), 'subscription_fee', '75.00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index'))
             ->assertInertia(fn ($page) => $page
                 ->component('Ledger/Index')
                 ->where('scopeLabel', 'فرع الكرادة')
-                ->where('entries.data', fn ($entries): bool => collect($entries)->pluck('subscriberName')->all() === ['Ahmad Nasser'])
+                ->where('entries.data', fn ($entries): bool => collect($entries)->pluck('subscriptionName')->all() === ['Ahmad Nasser'])
                 ->where('summary.total', 50)
                 ->where('filterOptions', fn ($groups): bool => ! collect($groups)->contains('key', 'branch_id')));
     }
@@ -66,8 +66,8 @@ class LedgerTest extends TestCase
     public function test_the_super_admin_sees_every_branch_and_can_narrow_to_one(): void
     {
         $otherBranch = Branch::factory()->create(['name' => 'فرع المنصور']);
-        $this->line($this->subscriber, 'subscription_fee', '50.00');
-        $this->line(Subscriber::factory()->create(['branch_id' => $otherBranch->id]), 'subscription_fee', '75.00');
+        $this->line($this->subscription, 'subscription_fee', '50.00');
+        $this->line(Subscription::factory()->create(['branch_id' => $otherBranch->id]), 'subscription_fee', '75.00');
         $superAdmin = User::factory()->superAdmin()->create();
 
         $this->actingAs($superAdmin)
@@ -87,10 +87,10 @@ class LedgerTest extends TestCase
 
     public function test_the_headline_sums_the_charges_and_reports_what_was_collected_beside_them(): void
     {
-        $this->line($this->subscriber, 'meter_reading', '120.00');
-        $this->line($this->subscriber, 'subscription_fee', '30.00');
-        $this->line($this->subscriber, 'payment', '-100.00');
-        $this->line($this->subscriber, 'discount', '-10.00');
+        $this->line($this->subscription, 'meter_reading', '120.00');
+        $this->line($this->subscription, 'subscription_fee', '30.00');
+        $this->line($this->subscription, 'payment', '-100.00');
+        $this->line($this->subscription, 'discount', '-10.00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index'))
@@ -114,11 +114,11 @@ class LedgerTest extends TestCase
     #[TestWith(['reading_discount', 'credit', [6, 1]])]
     public function test_the_type_filter_picks_the_lines_and_the_side_the_headline_sums(string $type, string $side, array $expected): void
     {
-        $this->line($this->subscriber, 'meter_reading', '120.00');
-        $this->line($this->subscriber, 'subscription_fee', '30.00');
-        $this->line($this->subscriber, 'payment', '-100.00');
-        $this->line($this->subscriber, 'discount', '-10.00');
-        $this->line($this->subscriber, 'reading_discount', '-6.00');
+        $this->line($this->subscription, 'meter_reading', '120.00');
+        $this->line($this->subscription, 'subscription_fee', '30.00');
+        $this->line($this->subscription, 'payment', '-100.00');
+        $this->line($this->subscription, 'discount', '-10.00');
+        $this->line($this->subscription, 'reading_discount', '-6.00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index', ['filter' => ['type' => $type]]))
@@ -130,10 +130,10 @@ class LedgerTest extends TestCase
 
     public function test_the_period_counts_whole_business_days_and_compares_with_the_days_before(): void
     {
-        $this->line($this->subscriber, 'subscription_fee', '40.00', '2026-09-20 08:00:00');
+        $this->line($this->subscription, 'subscription_fee', '40.00', '2026-09-20 08:00:00');
         // 00:30 on 20 September in Gaza: today there, still yesterday in UTC.
-        $this->line($this->subscriber, 'subscription_fee', '10.00', '2026-09-19 21:30:00');
-        $this->line($this->subscriber, 'subscription_fee', '25.00', '2026-09-19 20:30:00');
+        $this->line($this->subscription, 'subscription_fee', '10.00', '2026-09-19 21:30:00');
+        $this->line($this->subscription, 'subscription_fee', '25.00', '2026-09-19 20:30:00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index', ['period' => 'today']))
@@ -148,8 +148,8 @@ class LedgerTest extends TestCase
 
     public function test_an_unknown_period_falls_back_to_thirty_days_and_all_time_has_nothing_to_compare_with(): void
     {
-        $this->line($this->subscriber, 'subscription_fee', '40.00', '2026-08-01 10:00:00');
-        $this->line($this->subscriber, 'subscription_fee', '10.00');
+        $this->line($this->subscription, 'subscription_fee', '40.00', '2026-08-01 10:00:00');
+        $this->line($this->subscription, 'subscription_fee', '10.00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index', ['period' => 'forever']))
@@ -165,9 +165,9 @@ class LedgerTest extends TestCase
 
     public function test_the_daily_chart_counts_each_business_day_of_the_headline_side(): void
     {
-        $this->line($this->subscriber, 'meter_reading', '120.00', '2026-09-18 09:00:00');
-        $this->line($this->subscriber, 'subscription_fee', '30.00', '2026-09-18 10:00:00');
-        $this->line($this->subscriber, 'payment', '-100.00', '2026-09-18 11:00:00');
+        $this->line($this->subscription, 'meter_reading', '120.00', '2026-09-18 09:00:00');
+        $this->line($this->subscription, 'subscription_fee', '30.00', '2026-09-18 10:00:00');
+        $this->line($this->subscription, 'payment', '-100.00', '2026-09-18 11:00:00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index', ['period' => '7']))
@@ -179,9 +179,9 @@ class LedgerTest extends TestCase
 
     public function test_each_listed_day_carries_its_full_charges_and_credits(): void
     {
-        $this->line($this->subscriber, 'meter_reading', '120.00', '2026-09-20 09:00:00');
-        $this->line($this->subscriber, 'payment', '-100.00', '2026-09-20 10:00:00');
-        $this->line($this->subscriber, 'subscription_fee', '30.00', '2026-09-19 10:00:00');
+        $this->line($this->subscription, 'meter_reading', '120.00', '2026-09-20 09:00:00');
+        $this->line($this->subscription, 'payment', '-100.00', '2026-09-20 10:00:00');
+        $this->line($this->subscription, 'subscription_fee', '30.00', '2026-09-19 10:00:00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index', ['per_page' => 15]))
@@ -196,12 +196,12 @@ class LedgerTest extends TestCase
     public function test_the_search_and_the_recorder_filter_narrow_the_lines(): void
     {
         $collector = User::factory()->collector()->create(['branch_id' => $this->branch->id, 'name' => 'Collector']);
-        $this->line($this->subscriber, 'payment', '-20.00', null, $collector);
-        $this->line(Subscriber::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Sara Khalil']), 'subscription_fee', '50.00');
+        $this->line($this->subscription, 'payment', '-20.00', null, $collector);
+        $this->line(Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Sara Khalil']), 'subscription_fee', '50.00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index', ['search' => '0591234']))
-            ->assertInertia(fn ($page) => $page->where('entries.data', fn ($entries): bool => collect($entries)->pluck('subscriberName')->all() === ['Ahmad Nasser']));
+            ->assertInertia(fn ($page) => $page->where('entries.data', fn ($entries): bool => collect($entries)->pluck('subscriptionName')->all() === ['Ahmad Nasser']));
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index', ['filter' => ['recorded_by' => $collector->id]]))
@@ -212,9 +212,9 @@ class LedgerTest extends TestCase
 
     public function test_sorting_by_amount_goes_by_the_size_of_each_line_and_ungroups_the_days(): void
     {
-        $this->line($this->subscriber, 'subscription_fee', '30.00');
-        $this->line($this->subscriber, 'payment', '-100.00');
-        $this->line($this->subscriber, 'meter_reading', '60.00');
+        $this->line($this->subscription, 'subscription_fee', '30.00');
+        $this->line($this->subscription, 'payment', '-100.00');
+        $this->line($this->subscription, 'meter_reading', '60.00');
 
         $this->actingAs($this->branchAdmin)
             ->get(route('ledger.index', ['sort' => 'amount', 'direction' => 'desc']))
@@ -223,18 +223,18 @@ class LedgerTest extends TestCase
                 ->where('dayTotals', []));
     }
 
-    public function test_a_lines_subscriber_statement_opens_over_the_log(): void
+    public function test_a_lines_subscription_statement_opens_over_the_log(): void
     {
-        $this->line($this->subscriber, 'subscription_fee', '50.00');
+        $this->line($this->subscription, 'subscription_fee', '50.00');
 
         $this->actingAs($this->branchAdmin)
-            ->get(route('ledger.index', ['statement' => $this->subscriber->id]))
-            ->assertInertia(fn ($page) => $page->where('statement.subscriber.fullName', 'Ahmad Nasser')->where('statement.summary.balance', '50.00'));
+            ->get(route('ledger.index', ['statement' => $this->subscription->id]))
+            ->assertInertia(fn ($page) => $page->where('statement.subscription.fullName', 'Ahmad Nasser')->where('statement.summary.balance', '50.00'));
     }
 
     public function test_malformed_parameters_are_ignored(): void
     {
-        $this->line($this->subscriber, 'subscription_fee', '50.00');
+        $this->line($this->subscription, 'subscription_fee', '50.00');
 
         $this->actingAs($this->branchAdmin)
             ->get('/ledger?period[]=7&filter[type][]=payment&filter[recorded_by][]=1&sort=amount;drop&statement[]=1')
@@ -248,19 +248,19 @@ class LedgerTest extends TestCase
         $viewer->permissions()->attach(Permission::idsFor([PermissionKey::ViewBranchPerformance]));
         $otherBranch = Branch::factory()->create();
 
-        $this->assertTrue(User::factory()->superAdmin()->create()->can('viewForBranch', [SubscriberTransaction::class, $otherBranch]));
-        $this->assertTrue($viewer->can('viewForBranch', [SubscriberTransaction::class, $this->branch]));
-        $this->assertFalse($viewer->can('viewForBranch', [SubscriberTransaction::class, $otherBranch]));
-        $this->assertFalse(User::factory()->dataEntry()->create(['branch_id' => $this->branch->id])->can('viewForBranch', [SubscriberTransaction::class, $this->branch]));
+        $this->assertTrue(User::factory()->superAdmin()->create()->can('viewForBranch', [SubscriptionTransaction::class, $otherBranch]));
+        $this->assertTrue($viewer->can('viewForBranch', [SubscriptionTransaction::class, $this->branch]));
+        $this->assertFalse($viewer->can('viewForBranch', [SubscriptionTransaction::class, $otherBranch]));
+        $this->assertFalse(User::factory()->dataEntry()->create(['branch_id' => $this->branch->id])->can('viewForBranch', [SubscriptionTransaction::class, $this->branch]));
     }
 
     /**
-     * A line on the subscriber's account, recorded at `$at` (UTC; now when
+     * A line on the subscription's account, recorded at `$at` (UTC; now when
      * null). Payments and discounts are negative, as the app stores them.
      */
-    private function line(Subscriber $subscriber, string $type, string $amount, ?string $at = null, ?User $recordedBy = null): SubscriberTransaction
+    private function line(Subscription $subscription, string $type, string $amount, ?string $at = null, ?User $recordedBy = null): SubscriptionTransaction
     {
-        return SubscriberTransaction::factory()->for($subscriber)->create([
+        return SubscriptionTransaction::factory()->for($subscription)->create([
             'type' => $type,
             'source_key' => $type.':'.Str::ulid(),
             'amount' => $amount,

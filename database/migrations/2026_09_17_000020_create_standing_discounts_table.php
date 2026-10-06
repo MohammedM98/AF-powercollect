@@ -7,15 +7,15 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * A subscriber's standing discount (خصم دائم): taken off every weekly
+     * A subscription's standing discount (خصم دائم): taken off every weekly
      * reading recorded while it lasts, by percentage, free kilowatts or
-     * shekels off the kilo price. A subscriber has one at most.
+     * shekels off the kilo price. A subscription has one at most.
      */
     public function up(): void
     {
         Schema::create('standing_discounts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('subscriber_id')->unique()->constrained()->cascadeOnDelete();
+            $table->foreignId('subscription_id')->unique()->constrained()->cascadeOnDelete();
             $table->string('method');
             $table->decimal('value', 12, 2);
             $table->string('segment', 100)->nullable();

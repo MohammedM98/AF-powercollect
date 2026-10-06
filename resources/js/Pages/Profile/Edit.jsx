@@ -26,7 +26,7 @@ function PermissionGroup({ group }) {
 }
 
 function Permissions({ groups }) {
-    const coreKeys = ['subscribers', 'meter_readings', 'collections'];
+    const coreKeys = ['subscriptions', 'meter_readings', 'collections'];
     const core = coreKeys.map((key) => groups.find((group) => group.key === key)).filter(Boolean);
     const settings = groups.filter((group) => !coreKeys.includes(group.key));
     const granted = settings.filter((group) => group.permissions.some((permission) => permission.granted)).length;

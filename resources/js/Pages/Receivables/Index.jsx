@@ -11,7 +11,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { formatMoney, formatNumber, formatShortDay } from '@/lib/format';
-import StatementModal from '@/Pages/Subscribers/StatementModal';
+import StatementModal from '@/Pages/Subscriptions/StatementModal';
 
 const STATUS_DOTS = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
@@ -82,10 +82,10 @@ function AgeBreakdown({ buckets, summary }) {
 }
 
 /**
- * The debts report: every subscriber who owes money, with their debt
+ * The debts report: every subscription who owes money, with their debt
  * split by how old it is, the totals per age, and the oldest debt and
  * last payment of each. Every figure follows the search and the filters;
- * a row opens the subscriber's statement over the page.
+ * a row opens the subscription's statement over the page.
  */
 export default function Index({ debtors, summary, buckets, scopeLabel, filters, filterOptions, statement }) {
     const { can } = usePage().props;
@@ -189,7 +189,7 @@ export default function Index({ debtors, summary, buckets, scopeLabel, filters, 
                                 </tr>
                             ) : (
                                 debtors.data.map((debtor) => (
-                                    <tr key={debtor.id} {...rowClick(can?.viewSubscribers ? () => openStatement(debtor) : null)}>
+                                    <tr key={debtor.id} {...rowClick(can?.viewSubscriptions ? () => openStatement(debtor) : null)}>
                                         <td>
                                             <RowIdentity
                                                 name={debtor.name}
@@ -252,10 +252,10 @@ export default function Index({ debtors, summary, buckets, scopeLabel, filters, 
                 <Pagination meta={debtors} filters={filters} baseUrl="/receivables" />
             </div>
 
-            {statementWindow.subscriber && (
+            {statementWindow.subscription && (
                 <StatementModal
-                    key={statementWindow.subscriber.id}
-                    subscriber={statementWindow.subscriber}
+                    key={statementWindow.subscription.id}
+                    subscription={statementWindow.subscription}
                     statement={statementWindow.statement}
                     initialForm={statementWindow.form}
                     onSwitch={(header) => statementWindow.open(header)}

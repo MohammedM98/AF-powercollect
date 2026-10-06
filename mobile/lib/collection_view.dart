@@ -239,7 +239,7 @@ class _CollectionViewState extends State<CollectionView> {
                   : AppIdentity.muted,
               AppIdentity.sunken,
               size: 44),
-      title: AppRowTitle('${payment['subscriber']}'),
+      title: AppRowTitle('${payment['subscription']}'),
       subtitle: AppRowNote(
           '${payment['payment_method'] == 'cash' ? 'نقد' : 'تحويل${payment['bank_name'] == null ? '' : ' إلى ${payment['bank_name']}'}'} · سند ${payment['voucher_number'] ?? '—'}'),
       trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [

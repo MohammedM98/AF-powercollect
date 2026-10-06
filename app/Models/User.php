@@ -80,9 +80,9 @@ class User extends Authenticatable
         $this->unsetRelation('permissions');
     }
 
-    public function registeredSubscribers(): HasMany
+    public function registeredSubscriptions(): HasMany
     {
-        return $this->hasMany(Subscriber::class, 'registered_by');
+        return $this->hasMany(Subscription::class, 'registered_by');
     }
 
     public function isSuperAdmin(): bool
@@ -155,8 +155,8 @@ class User extends Authenticatable
     public function deletionBlocker(): ?string
     {
         return DeletionBlocker::describe('المستخدم', [
-            'المشتركون المسجّلون' => $this->registeredSubscribers()->count(),
-            'الحركات المالية' => SubscriberTransaction::query()->where('recorded_by', $this->id)->orWhere('cancelled_by', $this->id)->count(),
+            'المشتركون المسجّلون' => $this->registeredSubscriptions()->count(),
+            'الحركات المالية' => SubscriptionTransaction::query()->where('recorded_by', $this->id)->orWhere('cancelled_by', $this->id)->count(),
             'القراءات' => MeterReading::query()->where('recorded_by', $this->id)->orWhere('approved_by', $this->id)->count(),
             'خصومات القراءات الأسبوعية' => StandingDiscount::query()->where('granted_by', $this->id)->count(),
         ], 'يمكنك إيقاف حسابه بدلًا من حذفه.');

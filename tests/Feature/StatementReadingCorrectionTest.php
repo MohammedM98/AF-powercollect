@@ -5,8 +5,8 @@ namespace Tests\Feature;
 use App\Enums\MeterReadingStatus;
 use App\Models\Branch;
 use App\Models\MeterReading;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Notifications\ReadingNeedsReapproval;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,7 +19,7 @@ class StatementReadingCorrectionTest extends TestCase
 
     private User $branchAdmin;
 
-    private Subscriber $subscriber;
+    private Subscription $subscription;
 
     private MeterReading $reading;
 
@@ -31,7 +31,7 @@ class StatementReadingCorrectionTest extends TestCase
         $this->travelTo('2026-08-28 10:00:00');
         $branch = Branch::factory()->create();
         $this->branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
-        $this->subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $this->subscription = Subscription::factory()->create(['branch_id' => $branch->id]);
         $this->reading = $this->approvedReading('2026-08-21', '2026-08-27', 1000, 1179, '53.70');
     }
 
@@ -40,7 +40,7 @@ class StatementReadingCorrectionTest extends TestCase
         $line = $this->readingLine();
 
         $this->actingAs($this->branchAdmin)
-            ->get(route('subscribers.statement', $this->subscriber))
+            ->get(route('subscriptions.statement', $this->subscription))
             ->assertInertia(fn ($page) => $page
                 ->where('entries.0.id', $line->id)
                 ->where('entries.0.available_actions', [])
@@ -59,7 +59,7 @@ class StatementReadingCorrectionTest extends TestCase
         $line = $this->readingLine();
 
         $this->actingAs($this->branchAdmin)
-            ->post(route('subscribers.transactions.actions.store', [$this->subscriber, $line]), ['action' => 'edit', 'amount' => '10', 'amendment_reason' => 'خطأ'])
+            ->post(route('subscriptions.transactions.actions.store', [$this->subscription, $line]), ['action' => 'edit', 'amount' => '10', 'amendment_reason' => 'خطأ'])
             ->assertSessionHasErrors(['action' => 'هذا الإجراء غير مسموح لهذه الحركة.']);
 
         $this->assertSame('53.70', $line->refresh()->amount);
@@ -70,21 +70,21 @@ class StatementReadingCorrectionTest extends TestCase
         $line = $this->readingLine();
 
         $this->actingAs($this->branchAdmin)
-            ->from(route('subscribers.statement', $this->subscriber))
+            ->from(route('subscriptions.statement', $this->subscription))
             ->put(route('meter-readings.update', $this->reading), ['current_reading' => '1100'])
-            ->assertRedirect(route('subscribers.statement', $this->subscriber))
+            ->assertRedirect(route('subscriptions.statement', $this->subscription))
             ->assertSessionHas('status', 'meter-reading-reopened');
 
         $this->assertNotNull($line->refresh()->cancelled_at);
-        $this->assertSame(0.0, $this->subscriber->balance());
+        $this->assertSame(0.0, $this->subscription->balance());
         $this->assertSame(MeterReadingStatus::Pending, $this->reading->refresh()->status);
 
         $this->reading->approve($this->branchAdmin);
 
-        $replacement = SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->sole();
+        $replacement = SubscriptionTransaction::query()->where('type', SubscriptionTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->sole();
         $this->assertSame($line->id, $replacement->corrects_id);
         $this->assertSame((float) $this->reading->refresh()->amountBeforeDiscount(), (float) $replacement->amount);
-        $this->assertSame(round((float) $replacement->amount, 2), $this->subscriber->balance());
+        $this->assertSame(round((float) $replacement->amount, 2), $this->subscription->balance());
     }
 
     public function test_a_reading_followed_by_a_later_week_cannot_be_corrected(): void
@@ -93,7 +93,7 @@ class StatementReadingCorrectionTest extends TestCase
         $this->approvedReading('2026-08-28', '2026-09-03', 1179, 1250, '21.30');
 
         $this->actingAs(User::factory()->superAdmin()->create())
-            ->get(route('subscribers.statement', $this->subscriber))
+            ->get(route('subscriptions.statement', $this->subscription))
             ->assertInertia(fn ($page) => $page
                 ->where('entries.0.reading.canCorrect', false)
                 ->where('entries.0.reading.correctUnavailableReason', 'توجد قراءة لأسبوع لاحق')
@@ -102,11 +102,11 @@ class StatementReadingCorrectionTest extends TestCase
 
     public function test_users_who_do_not_record_readings_are_not_offered_the_correction(): void
     {
-        $accountant = User::factory()->accountant()->create(['branch_id' => $this->subscriber->branch_id]);
+        $accountant = User::factory()->accountant()->create(['branch_id' => $this->subscription->branch_id]);
 
         $this->assertFalse($accountant->can('create', MeterReading::class));
         $this->actingAs($accountant)
-            ->get(route('subscribers.statement', $this->subscriber))
+            ->get(route('subscriptions.statement', $this->subscription))
             ->assertInertia(fn ($page) => $page->where('entries.0.reading', null));
     }
 
@@ -116,31 +116,31 @@ class StatementReadingCorrectionTest extends TestCase
         $line = $this->readingLine();
 
         $this->actingAs($this->branchAdmin)
-            ->get(route('subscribers.statement', $this->subscriber))
+            ->get(route('subscriptions.statement', $this->subscription))
             ->assertInertia(fn ($page) => $page->where('entries.0.reading.canApprove', true));
 
         $this->actingAs($this->branchAdmin)
-            ->from(route('subscribers.statement', $this->subscriber))
+            ->from(route('subscriptions.statement', $this->subscription))
             ->put(route('meter-readings.update', $this->reading), ['current_reading' => '1100', 'approve' => true])
-            ->assertRedirect(route('subscribers.statement', $this->subscriber))
+            ->assertRedirect(route('subscriptions.statement', $this->subscription))
             ->assertSessionHas('status', 'meter-reading-corrected-approved');
 
         $this->assertNotNull($line->refresh()->cancelled_at);
         $this->assertSame(MeterReadingStatus::Approved, $this->reading->refresh()->status);
-        $replacement = SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->sole();
+        $replacement = SubscriptionTransaction::query()->where('type', SubscriptionTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->sole();
         $this->assertSame($line->id, $replacement->corrects_id);
         $this->assertSame((float) $this->reading->amountBeforeDiscount(), (float) $replacement->amount);
-        $this->assertSame(round((float) $replacement->amount, 2), $this->subscriber->balance());
+        $this->assertSame(round((float) $replacement->amount, 2), $this->subscription->balance());
         Notification::assertNotSentTo($this->reading->approvers(), ReadingNeedsReapproval::class);
     }
 
     public function test_asking_to_approve_without_the_permission_still_sends_the_reading_back_for_approval(): void
     {
-        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->subscriber->branch_id]);
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->subscription->branch_id]);
         $line = $this->readingLine();
 
         $this->actingAs($dataEntry)
-            ->get(route('subscribers.statement', $this->subscriber))
+            ->get(route('subscriptions.statement', $this->subscription))
             ->assertInertia(fn ($page) => $page->where('entries.0.reading.canCorrect', true)->where('entries.0.reading.canApprove', false));
 
         $this->actingAs($dataEntry)
@@ -149,13 +149,13 @@ class StatementReadingCorrectionTest extends TestCase
 
         $this->assertNotNull($line->refresh()->cancelled_at);
         $this->assertSame(MeterReadingStatus::Pending, $this->reading->refresh()->status);
-        $this->assertSame(0, SubscriberTransaction::query()->where('type', SubscriberTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->count());
+        $this->assertSame(0, SubscriptionTransaction::query()->where('type', SubscriptionTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->count());
     }
 
     private function approvedReading(string $weekStart, string $weekEnd, int $previous, int $current, string $amountDue): MeterReading
     {
         $reading = MeterReading::factory()->create([
-            'subscriber_id' => $this->subscriber->id,
+            'subscription_id' => $this->subscription->id,
             'week_start' => $weekStart,
             'week_end' => $weekEnd,
             'previous_reading' => $previous,
@@ -168,8 +168,8 @@ class StatementReadingCorrectionTest extends TestCase
         return $reading;
     }
 
-    private function readingLine(): SubscriberTransaction
+    private function readingLine(): SubscriptionTransaction
     {
-        return SubscriberTransaction::query()->where('meter_reading_id', $this->reading->id)->where('type', SubscriberTransaction::TYPE_METER_READING)->sole();
+        return SubscriptionTransaction::query()->where('meter_reading_id', $this->reading->id)->where('type', SubscriptionTransaction::TYPE_METER_READING)->sole();
     }
 }

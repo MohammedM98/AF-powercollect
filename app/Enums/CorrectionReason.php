@@ -3,10 +3,10 @@
 namespace App\Enums;
 
 use App\Enums\Concerns\HasOptions;
-use App\Models\SubscriberTransaction;
+use App\Models\SubscriptionTransaction;
 
 /**
- * Why a line of a subscriber's account was corrected (cancelled and
+ * Why a line of a subscription's account was corrected (cancelled and
  * entered again) or deleted (cancelled only).
  */
 enum CorrectionReason: string
@@ -18,7 +18,7 @@ enum CorrectionReason: string
     case WrongCurrency = 'wrong_currency';
     case WrongType = 'wrong_type';
     case WrongDetails = 'wrong_details';
-    case WrongSubscriber = 'wrong_subscriber';
+    case WrongSubscription = 'wrong_subscription';
     case Duplicate = 'duplicate';
     case NotReceived = 'not_received';
     case PaymentRefunded = 'payment_refunded';
@@ -40,10 +40,10 @@ enum CorrectionReason: string
             self::WrongCurrency => 'Wrong currency or exchange rate',
             self::WrongType => 'Wrong type',
             self::WrongDetails => 'Wrong details',
-            self::WrongSubscriber => 'Recorded on the wrong subscriber',
+            self::WrongSubscription => 'Recorded on the wrong subscription',
             self::Duplicate => 'Duplicate entry',
             self::NotReceived => 'Money not received',
-            self::PaymentRefunded => 'Payment refunded to the subscriber',
+            self::PaymentRefunded => 'Payment refunded to the subscription',
             self::WrongReading => 'Reading entered wrongly',
             self::FeeCancelled => 'Fee cancelled',
             self::Other => 'Other reason',
@@ -57,7 +57,7 @@ enum CorrectionReason: string
      *
      * @return array<int, self>
      */
-    public static function forCorrectionOf(SubscriberTransaction $line): array
+    public static function forCorrectionOf(SubscriptionTransaction $line): array
     {
         return $line->isPayment() ? self::forPaymentCorrection() : self::forAdjustmentCorrection();
     }
@@ -87,13 +87,13 @@ enum CorrectionReason: string
      *
      * @return array<int, self>
      */
-    public static function forDeletionOf(SubscriberTransaction $line): array
+    public static function forDeletionOf(SubscriptionTransaction $line): array
     {
         return match (true) {
-            $line->isPayment() => [self::WrongSubscriber, self::Duplicate, self::NotReceived, self::PaymentRefunded, self::Other],
-            in_array($line->type, [SubscriberTransaction::TYPE_METER_READING, SubscriberTransaction::TYPE_READING_DISCOUNT], true) => [self::WrongReading, self::WrongSubscriber, self::Duplicate, self::Other],
-            $line->isRegistrationFee() => [self::FeeCancelled, self::WrongAmount, self::WrongSubscriber, self::Duplicate, self::Other],
-            default => [self::WrongSubscriber, self::Duplicate, self::Other],
+            $line->isPayment() => [self::WrongSubscription, self::Duplicate, self::NotReceived, self::PaymentRefunded, self::Other],
+            in_array($line->type, [SubscriptionTransaction::TYPE_METER_READING, SubscriptionTransaction::TYPE_READING_DISCOUNT], true) => [self::WrongReading, self::WrongSubscription, self::Duplicate, self::Other],
+            $line->isRegistrationFee() => [self::FeeCancelled, self::WrongAmount, self::WrongSubscription, self::Duplicate, self::Other],
+            default => [self::WrongSubscription, self::Duplicate, self::Other],
         };
     }
 }

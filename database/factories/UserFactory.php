@@ -71,7 +71,7 @@ class UserFactory extends Factory
     }
 
     /**
-     * Indicate that the user registers subscribers and enters readings.
+     * Indicate that the user registers subscriptions and enters readings.
      */
     public function dataEntry(): static
     {

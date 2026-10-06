@@ -31,7 +31,7 @@ class QueuedReadingsList extends StatelessWidget {
 
   Widget _tile(Map<String, dynamic> reading) {
     final subscriber = subscribers
-        .where((item) => item['id'] == reading['subscriber_id'])
+        .where((item) => item['id'] == reading['subscription_id'])
         .firstOrNull;
     final rejected = reading['sync_error'] != null;
     final color = rejected ? AppIdentity.bad : AppIdentity.warning;
@@ -51,7 +51,7 @@ class QueuedReadingsList extends StatelessWidget {
               borderRadius: BorderRadius.circular(15)),
           child: AppIcon(rejected ? 'err' : 'clock', color: color)),
       title: AppRowTitle(
-          '${subscriber?['full_name'] ?? 'مشترك #${reading['subscriber_id']}'}'),
+          '${subscriber?['full_name'] ?? 'مشترك #${reading['subscription_id']}'}'),
       subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         AppRowNote([
           'الجديدة ${AppIdentity.reading(reading['current_reading'])}',

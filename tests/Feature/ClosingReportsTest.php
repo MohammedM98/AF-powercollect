@@ -6,8 +6,8 @@ use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\Permission;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -121,7 +121,7 @@ class ClosingReportsTest extends TestCase
     private function payment(Branch $branch, string $amount, string $at): void
     {
         $this->travelTo(Carbon::parse($at, 'Asia/Gaza'));
-        SubscriberTransaction::recordPayment(Subscriber::factory()->create(['branch_id' => $branch->id]), User::factory()->create(), [
+        SubscriptionTransaction::recordPayment(Subscription::factory()->create(['branch_id' => $branch->id]), User::factory()->create(), [
             'amount' => $amount, 'currency' => 'ILS', 'payment_method' => 'cash',
         ]);
         $this->travelTo(Carbon::parse('2026-10-01 10:00', 'Asia/Gaza'));

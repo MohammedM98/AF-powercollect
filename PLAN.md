@@ -4,7 +4,7 @@
 
 Besides the normal "delete" (cancel with a reversal and a reason, which keeps a
 trace), a user holding a separate permission can erase **one** line of a
-subscriber's account entirely: nothing stays on the statement, and the balance
+subscription's account entirely: nothing stays on the statement, and the balance
 is as if it was never recorded.
 
 ## Permission
@@ -37,8 +37,8 @@ is as if it was never recorded.
 
 ## Where
 
-`PermissionKey`, `SubscriberTransactionPolicy::forceDelete`,
-`SubscriberTransaction::isErasable()` / `erase()`,
-`SubscriberTransactionController::forceDestroy`,
-`ForceDeleteSubscriberTransactionRequest`, route
-`subscribers.transactions.force-destroy`, `ForceDeleteTransactionModal.jsx`.
+`PermissionKey`, `SubscriptionTransactionPolicy::forceDelete`,
+`SubscriptionTransaction::isErasable()` / `erase()`,
+`SubscriptionTransactionController::forceDestroy`,
+`ForceDeleteSubscriptionTransactionRequest`, route
+`subscriptions.transactions.force-destroy`, `ForceDeleteTransactionModal.jsx`.

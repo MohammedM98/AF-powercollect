@@ -260,7 +260,7 @@ class _PaymentPageState extends State<PaymentPage> {
       submission ??= {
         'mobile_operation_id': newOperationId(),
         'collector_confirmed': true,
-        'subscriber_id': widget.subscriber['id'],
+        'subscription_id': widget.subscriber['id'],
         'amount': amount.text.trim().replaceFirst(RegExp(r'\.$'), ''),
         'currency': currency,
         if (!isShekel) 'exchange_rate': rate.text.trim(),

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { groupReadingsByMonth, readingHistoryCsv, readingTotals, readingsInPeriod } from '../../resources/js/lib/readingHistory.js';
 
-test('history periods use calendar weeks and preserve the subscriber input order', () => {
+test('history periods use calendar weeks and preserve the subscription input order', () => {
     const readings = [
         { id: 1, weekEnd: '2026-07-02' },
         { id: 2, weekEnd: '2026-07-09' },

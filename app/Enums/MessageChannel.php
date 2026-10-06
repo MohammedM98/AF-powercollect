@@ -5,7 +5,7 @@ namespace App\Enums;
 use App\Enums\Concerns\HasOptions;
 
 /**
- * How a message reaches the subscriber.
+ * How a message reaches the subscription.
  */
 enum MessageChannel: string
 {

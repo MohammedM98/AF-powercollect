@@ -7,8 +7,8 @@ use App\Enums\CorrectionReason;
 use App\Enums\DiscountMethod;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -17,7 +17,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
- * Random sequences of every operation on a subscriber's transaction history
+ * Random sequences of every operation on a subscription's transaction history
  * (recording, the seven canonical actions, correcting, cancelling, erasing),
  * checking the ledger's invariants after each step and that every action
  * the statement offers can really be applied.
@@ -28,7 +28,7 @@ class TransactionHistoryInvariantsTest extends TestCase
 
     private User $actor;
 
-    private Subscriber $subscriber;
+    private Subscription $subscription;
 
     /** @var array<int, string> */
     private array $trace = [];
@@ -46,7 +46,7 @@ class TransactionHistoryInvariantsTest extends TestCase
             PermissionKey::RefundPayments,
             PermissionKey::AdjustBalances,
         ])->create(['branch_id' => $branch->id]);
-        $this->subscriber = Subscriber::factory()->create(['branch_id' => $branch->id]);
+        $this->subscription = Subscription::factory()->create(['branch_id' => $branch->id]);
     }
 
     /**
@@ -86,27 +86,27 @@ class TransactionHistoryInvariantsTest extends TestCase
     public function test_erasing_the_last_line_keeps_the_running_balance_of_a_reversal_recorded_after_it(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-10-01 08:00:00'));
-        $penalty = SubscriberTransaction::recordCharge($this->subscriber, $this->actor, ChargeType::Penalty, '50', 'غرامة');
+        $penalty = SubscriptionTransaction::recordCharge($this->subscription, $this->actor, ChargeType::Penalty, '50', 'غرامة');
         Carbon::setTestNow(now()->addMinute());
-        $payment = SubscriberTransaction::recordPayment($this->subscriber, $this->actor, ['amount' => '226', 'currency' => 'ILS', 'payment_method' => 'cash']);
+        $payment = SubscriptionTransaction::recordPayment($this->subscription, $this->actor, ['amount' => '226', 'currency' => 'ILS', 'payment_method' => 'cash']);
         Carbon::setTestNow(now()->addMinute());
 
         $this->actingAs($this->actor)
-            ->post(route('subscribers.transactions.actions.store', [$this->subscriber, $penalty]), ['action' => 'cancel', 'correction_reason' => 'other', 'correction_notes' => 'اختبار'])
+            ->post(route('subscriptions.transactions.actions.store', [$this->subscription, $penalty]), ['action' => 'cancel', 'correction_reason' => 'other', 'correction_notes' => 'اختبار'])
             ->assertSessionHasNoErrors();
         $this->actingAs($this->actor)
-            ->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $payment]), ['correction_notes' => 'اختبار'])
+            ->delete(route('subscriptions.transactions.force-destroy', [$this->subscription, $payment]), ['correction_notes' => 'اختبار'])
             ->assertSessionHasNoErrors();
 
-        $this->assertSame(0.0, $this->subscriber->balance());
-        $this->assertSame(['50.00', '0.00'], $this->subscriber->transactions()->orderBy('id')->pluck('balance_after')->all());
+        $this->assertSame(0.0, $this->subscription->balance());
+        $this->assertSame(['50.00', '0.00'], $this->subscription->transactions()->orderBy('id')->pluck('balance_after')->all());
     }
 
     private function performRandomStep(int $step): void
     {
         $roll = mt_rand(1, 100);
 
-        if ($roll <= 35 || $this->subscriber->transactions()->count() === 0) {
+        if ($roll <= 35 || $this->subscription->transactions()->count() === 0) {
             $this->recordSomething($step);
 
             return;
@@ -121,35 +121,35 @@ class TransactionHistoryInvariantsTest extends TestCase
         $amount = (string) mt_rand(5, 300);
 
         match ($kind) {
-            1 => $this->note($step, 'payment cash '.$amount, SubscriberTransaction::recordPayment($this->subscriber, $this->actor, ['amount' => $amount, 'currency' => 'ILS', 'payment_method' => 'cash'])),
-            2 => $this->note($step, 'payment transfer '.$amount, SubscriberTransaction::recordPayment($this->subscriber, $this->actor, ['amount' => $amount, 'currency' => 'ILS', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad', 'reference_number' => 'REF-'.$step.'-'.mt_rand()])),
-            3 => $this->note($step, 'penalty '.$amount, SubscriberTransaction::recordCharge($this->subscriber, $this->actor, ChargeType::Penalty, $amount, 'غرامة')),
-            4 => $this->note($step, 'clearing '.$amount, SubscriberTransaction::recordClearing($this->subscriber, $this->actor, $amount, 'تصفية')),
-            5 => $this->note($step, 'payment cash in dollars '.$amount, SubscriberTransaction::recordPayment($this->subscriber, $this->actor, ['amount' => $amount, 'currency' => 'USD', 'exchange_rate' => '3.6700', 'payment_method' => 'cash'])),
-            6 => $this->note($step, 'payment transfer in dinars '.$amount, SubscriberTransaction::recordPayment($this->subscriber, $this->actor, ['amount' => $amount, 'currency' => 'JOD', 'exchange_rate' => '5.1500', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad', 'reference_number' => 'JOD-'.$step.'-'.mt_rand()])),
+            1 => $this->note($step, 'payment cash '.$amount, SubscriptionTransaction::recordPayment($this->subscription, $this->actor, ['amount' => $amount, 'currency' => 'ILS', 'payment_method' => 'cash'])),
+            2 => $this->note($step, 'payment transfer '.$amount, SubscriptionTransaction::recordPayment($this->subscription, $this->actor, ['amount' => $amount, 'currency' => 'ILS', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad', 'reference_number' => 'REF-'.$step.'-'.mt_rand()])),
+            3 => $this->note($step, 'penalty '.$amount, SubscriptionTransaction::recordCharge($this->subscription, $this->actor, ChargeType::Penalty, $amount, 'غرامة')),
+            4 => $this->note($step, 'clearing '.$amount, SubscriptionTransaction::recordClearing($this->subscription, $this->actor, $amount, 'تصفية')),
+            5 => $this->note($step, 'payment cash in dollars '.$amount, SubscriptionTransaction::recordPayment($this->subscription, $this->actor, ['amount' => $amount, 'currency' => 'USD', 'exchange_rate' => '3.6700', 'payment_method' => 'cash'])),
+            6 => $this->note($step, 'payment transfer in dinars '.$amount, SubscriptionTransaction::recordPayment($this->subscription, $this->actor, ['amount' => $amount, 'currency' => 'JOD', 'exchange_rate' => '5.1500', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad', 'reference_number' => 'JOD-'.$step.'-'.mt_rand()])),
             default => $this->recordDiscountWithinBalance($step),
         };
     }
 
     private function recordDiscountWithinBalance(int $step): void
     {
-        if ($this->subscriber->balance() <= 0) {
-            $this->note($step, 'penalty 50 (no balance to discount)', SubscriberTransaction::recordCharge($this->subscriber, $this->actor, ChargeType::Penalty, '50', 'غرامة'));
+        if ($this->subscription->balance() <= 0) {
+            $this->note($step, 'penalty 50 (no balance to discount)', SubscriptionTransaction::recordCharge($this->subscription, $this->actor, ChargeType::Penalty, '50', 'غرامة'));
 
             return;
         }
 
-        $this->note($step, 'discount 10%', SubscriberTransaction::recordDiscount($this->subscriber, $this->actor, DiscountMethod::Percentage, '10', null));
+        $this->note($step, 'discount 10%', SubscriptionTransaction::recordDiscount($this->subscription, $this->actor, DiscountMethod::Percentage, '10', null));
     }
 
-    private function note(int $step, string $what, SubscriberTransaction $line): void
+    private function note(int $step, string $what, SubscriptionTransaction $line): void
     {
         $this->trace[] = "#{$step} record {$what} => line {$line->id}";
     }
 
     private function applyOfferedAction(int $step): void
     {
-        $lines = $this->subscriber->transactions()->orderBy('id')->get();
+        $lines = $this->subscription->transactions()->orderBy('id')->get();
         $offers = [];
 
         foreach ($lines as $line) {
@@ -180,15 +180,15 @@ class TransactionHistoryInvariantsTest extends TestCase
         $this->trace[] = "#{$step} {$action} on line {$line->id} ({$line->type}, {$line->amount}, {$line->status})";
 
         $response = match ($action) {
-            'legacy-delete' => $this->actingAs($this->actor)->delete(route('subscribers.transactions.destroy', [$this->subscriber, $line]), [
+            'legacy-delete' => $this->actingAs($this->actor)->delete(route('subscriptions.transactions.destroy', [$this->subscription, $line]), [
                 'correction_reason' => CorrectionReason::forDeletionOf($line)[0]->value,
                 'correction_notes' => 'اختبار',
             ]),
-            'legacy-correct' => $this->actingAs($this->actor)->put(route('subscribers.transactions.update', [$this->subscriber, $line]), $line->isPayment()
+            'legacy-correct' => $this->actingAs($this->actor)->put(route('subscriptions.transactions.update', [$this->subscription, $line]), $line->isPayment()
                 ? ['amount' => '33', 'currency' => 'ILS', 'payment_method' => 'cash', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'اختبار']
                 : ['type' => 'penalty', 'amount' => '44', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'اختبار']),
-            'legacy-erase' => $this->actingAs($this->actor)->delete(route('subscribers.transactions.force-destroy', [$this->subscriber, $line]), ['correction_notes' => 'اختبار']),
-            default => $this->actingAs($this->actor)->post(route('subscribers.transactions.actions.store', [$this->subscriber, $line]), $this->payloadFor($action, $step)),
+            'legacy-erase' => $this->actingAs($this->actor)->delete(route('subscriptions.transactions.force-destroy', [$this->subscription, $line]), ['correction_notes' => 'اختبار']),
+            default => $this->actingAs($this->actor)->post(route('subscriptions.transactions.actions.store', [$this->subscription, $line]), $this->payloadFor($action, $step)),
         };
 
         $bag = session('errors');
@@ -218,8 +218,8 @@ class TransactionHistoryInvariantsTest extends TestCase
 
     private function assertLedgerIsSound(): void
     {
-        $lines = SubscriberTransaction::query()
-            ->where('subscriber_id', $this->subscriber->id)
+        $lines = SubscriptionTransaction::query()
+            ->where('subscription_id', $this->subscription->id)
             ->orderBy('created_at')
             ->orderBy('id')
             ->get();
@@ -235,7 +235,7 @@ class TransactionHistoryInvariantsTest extends TestCase
             );
         }
 
-        $this->assertSame(round($running / 100, 2), $this->subscriber->balance(), $this->failure('balance() differs from the lines'));
+        $this->assertSame(round($running / 100, 2), $this->subscription->balance(), $this->failure('balance() differs from the lines'));
 
         $byId = $lines->keyBy('id');
 
@@ -261,7 +261,7 @@ class TransactionHistoryInvariantsTest extends TestCase
         $references = $lines->where('status', 'active')->pluck('active_reference')->filter();
         $this->assertSame($references->count(), $references->unique()->count(), $this->failure('two active payments share a reference'));
 
-        $statement = $this->actingAs($this->actor)->get(route('subscribers.statement', $this->subscriber));
+        $statement = $this->actingAs($this->actor)->get(route('subscriptions.statement', $this->subscription));
         $statement->assertOk();
         $props = $statement->inertiaProps();
         $this->assertSame(number_format($running / 100, 2, '.', ''), (string) $props['summary']['balance'], $this->failure('the statement balance differs from the ledger'));

@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\SubscriberStatus;
+use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Http\Concerns\ProvidesFormOptions;
 use App\Models\Branch;
 use App\Models\MeterBox;
-use App\Models\Subscriber;
+use App\Models\Subscription;
 use App\Models\Tariff;
 use App\Models\User;
 use Inertia\Inertia;
@@ -38,8 +38,8 @@ class DashboardController extends Controller
             $sections['users'] = $this->usersSection($actor);
         }
 
-        if ($actor->can('viewAny', Subscriber::class)) {
-            $sections['subscribers'] = $this->subscribersSection($actor);
+        if ($actor->can('viewAny', Subscription::class)) {
+            $sections['subscriptions'] = $this->subscriptionsSection($actor);
         }
 
         if ($actor->can('viewAny', MeterBox::class)) {
@@ -118,20 +118,20 @@ class DashboardController extends Controller
     /**
      * @return array{total: int, active: int, activePct: int, recent: array<int, array{id: int, name: string, subtitle: ?string}>}
      */
-    private function subscribersSection(User $actor): array
+    private function subscriptionsSection(User $actor): array
     {
-        $subscribers = fn () => Subscriber::query()->visibleTo($actor);
-        $total = $subscribers()->count();
-        $active = $subscribers()->where('status', SubscriberStatus::Active)->count();
+        $subscriptions = fn () => Subscription::query()->visibleTo($actor);
+        $total = $subscriptions()->count();
+        $active = $subscriptions()->where('status', SubscriptionStatus::Active)->count();
 
         return [
             'total' => $total,
             'active' => $active,
             'activePct' => $this->percentage($active, $total),
-            'recent' => $subscribers()->latest()->latest('id')->take(5)->get()->map(fn (Subscriber $subscriber) => [
-                'id' => $subscriber->id,
-                'name' => $subscriber->displayName(),
-                'subtitle' => $subscriber->contactPhone(),
+            'recent' => $subscriptions()->latest()->latest('id')->take(5)->get()->map(fn (Subscription $subscription) => [
+                'id' => $subscription->id,
+                'name' => $subscription->displayName(),
+                'subtitle' => $subscription->contactPhone(),
             ])->all(),
         ];
     }

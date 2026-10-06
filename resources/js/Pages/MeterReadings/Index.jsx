@@ -89,7 +89,7 @@ function focusReadingInput(currentInput, step = 1) {
 }
 
 /**
- * One subscriber's line for the week. `approvable` (the actor may approve
+ * One subscription's line for the week. `approvable` (the actor may approve
  * readings) adds a tick box, enabled when this row's reading can be approved.
  */
 function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
@@ -98,7 +98,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const inputRef = useRef(null);
-    // Set when the arrows or Enter move on from the field: skipping a subscriber that way is on purpose.
+    // Set when the arrows or Enter move on from the field: skipping a subscription that way is on purpose.
     const skippedByKey = useRef(false);
     // Set when the field was clicked into and left empty; shown in orange until it is entered or clicked again.
     const [missed, setMissed] = useState(false);
@@ -159,7 +159,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
         if (row.reading) {
             router.put(`/meter-readings/${row.reading.id}`, { current_reading: value }, options);
         } else {
-            router.post('/meter-readings', { subscriber_id: row.id, week_start: week, current_reading: value }, options);
+            router.post('/meter-readings', { subscription_id: row.id, week_start: week, current_reading: value }, options);
         }
     }
 
@@ -238,7 +238,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                             step(e.key === '+' ? 1 : -1);
                         }
 
-                        // Enter and the down arrow go to the next subscriber, the up arrow to the previous one.
+                        // Enter and the down arrow go to the next subscription, the up arrow to the previous one.
                         if (e.key === 'Enter' || e.key === 'ArrowDown') {
                             e.preventDefault();
                             skippedByKey.current = true;

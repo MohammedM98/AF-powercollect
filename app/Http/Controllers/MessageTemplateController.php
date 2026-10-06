@@ -9,7 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 /**
- * Saved wordings for messages to subscribers, kept from the compose page.
+ * Saved wordings for messages to subscriptions, kept from the compose page.
  */
 class MessageTemplateController extends Controller
 {

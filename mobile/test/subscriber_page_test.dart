@@ -27,7 +27,7 @@ class SubscriberApi extends ApiClient {
       throw const ApiException('لا يمكن الوصول إلى خادم Laravel.', 0);
     }
     return {
-      'subscriber': {
+      'subscription': {
         ...listed,
         'balance': balance,
         'meter_box_number': 'B7',

@@ -5,9 +5,9 @@ namespace App\Enums;
 use App\Enums\Concerns\HasOptions;
 
 /**
- * A charge (تحميل) recorded by hand on a subscriber's account. Weekly
+ * A charge (تحميل) recorded by hand on a subscription's account. Weekly
  * readings are charged on their own. A clearing
- * (مقاصة) is in the subscriber's favour, so it is not a charge.
+ * (مقاصة) is in the subscription's favour, so it is not a charge.
  */
 enum ChargeType: string
 {

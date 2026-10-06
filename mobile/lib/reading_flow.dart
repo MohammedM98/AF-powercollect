@@ -155,7 +155,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
 
   Map<String, dynamic>? _queued(Map<String, dynamic> subscriber) {
     for (final reading in widget.store.queuedReadings) {
-      if (reading['subscriber_id'] == subscriber['id'] &&
+      if (reading['subscription_id'] == subscriber['id'] &&
           reading['week_start'] == widget.store.state['week_start']) {
         return reading;
       }
@@ -348,10 +348,10 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
     await widget.store.reopenReading(reading['mobile_operation_id'] as String);
     if (!mounted) return;
     final subscriber = widget.store.subscribers
-        .where((item) => item['id'] == reading['subscriber_id'])
+        .where((item) => item['id'] == reading['subscription_id'])
         .firstOrNull;
     setState(() {
-      drafts[reading['subscriber_id'] as int] = '${reading['current_reading']}';
+      drafts[reading['subscription_id'] as int] = '${reading['current_reading']}';
       if (subscriber != null) {
         boxKey = _boxKey(subscriber);
         selectedId = subscriber['id'] as int;
@@ -411,7 +411,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
     final readings = ready
         .map((subscriber) => <String, dynamic>{
               'mobile_operation_id': newOperationId(),
-              'subscriber_id': subscriber['id'],
+              'subscription_id': subscriber['id'],
               'week_start': widget.store.state['week_start'],
               'current_reading': drafts[subscriber['id']],
               'notes': '',

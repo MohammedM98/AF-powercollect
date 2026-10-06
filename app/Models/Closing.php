@@ -117,20 +117,20 @@ class Closing extends Model
 
     /**
      * The confirmed payments a branch received on a business day: every
-     * payment line that has not been cancelled, by the subscriber's branch.
+     * payment line that has not been cancelled, by the subscription's branch.
      *
-     * @return Builder<SubscriberTransaction>
+     * @return Builder<SubscriptionTransaction>
      */
     public static function paymentsReceived(int $branchId, CarbonInterface|string $first, CarbonInterface|string $last): Builder
     {
         [$from, $until] = ClosingPeriods::utcRange($first, $last);
 
-        return SubscriberTransaction::query()
-            ->where('type', SubscriberTransaction::TYPE_PAYMENT)
+        return SubscriptionTransaction::query()
+            ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
             ->whereNull('cancelled_at')
             ->where('created_at', '>=', $from)
             ->where('created_at', '<', $until)
-            ->whereHas('subscriber', fn (Builder $subscriber) => $subscriber->where('branch_id', $branchId));
+            ->whereHas('subscription', fn (Builder $subscription) => $subscription->where('branch_id', $branchId));
     }
 
     /**
@@ -147,15 +147,15 @@ class Closing extends Model
         $payments = static::paymentsReceived($this->branch_id, $this->period_start, $this->period_end)->get(['id', 'payment_method']);
 
         DB::transaction(function () use ($payments): void {
-            $this->lines()->whereNotIn('subscriber_transaction_id', $payments->modelKeys())->delete();
-            $linked = ClosingPayment::query()->whereIn('subscriber_transaction_id', $payments->modelKeys())->pluck('subscriber_transaction_id')->all();
+            $this->lines()->whereNotIn('subscription_transaction_id', $payments->modelKeys())->delete();
+            $linked = ClosingPayment::query()->whereIn('subscription_transaction_id', $payments->modelKeys())->pluck('subscription_transaction_id')->all();
             $now = now();
 
             ClosingPayment::query()->insertOrIgnore($payments
-                ->reject(fn (SubscriberTransaction $payment): bool => in_array($payment->id, $linked, true))
-                ->map(fn (SubscriberTransaction $payment): array => [
+                ->reject(fn (SubscriptionTransaction $payment): bool => in_array($payment->id, $linked, true))
+                ->map(fn (SubscriptionTransaction $payment): array => [
                     'closing_id' => $this->id,
-                    'subscriber_transaction_id' => $payment->id,
+                    'subscription_transaction_id' => $payment->id,
                     'match_status' => $payment->payment_method === PaymentMethod::Cash ? null : ClosingMatchStatus::Pending->value,
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -239,7 +239,7 @@ class Closing extends Model
      */
     public function paymentLines(): Collection
     {
-        $this->loadMissing(['lines.payment.subscriber.meterBox', 'lines.payment.recordedBy']);
+        $this->loadMissing(['lines.payment.subscription.meterBox', 'lines.payment.recordedBy']);
 
         return $this->lines->sortBy(fn (ClosingPayment $line) => [$line->payment->created_at, $line->payment->id])->values();
     }
@@ -311,7 +311,7 @@ class Closing extends Model
         ]);
 
         if ($status === ClosingMatchStatus::Unconfirmed) {
-            $this->record($actor, 'unconfirmed', sprintf('نُقلت الدفعة #%d إلى الإيصالات المعلّقة: لم تظهر في حركة %s', $line->subscriber_transaction_id, $line->payment->bank_name));
+            $this->record($actor, 'unconfirmed', sprintf('نُقلت الدفعة #%d إلى الإيصالات المعلّقة: لم تظهر في حركة %s', $line->subscription_transaction_id, $line->payment->bank_name));
         }
     }
 

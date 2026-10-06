@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A customer segment, such as mosques or schools. It only groups
- * subscribers: any subscriber on any tariff can be given any segment, and
+ * subscriptions: any subscription on any tariff can be given any segment, and
  * they still pay their tariff's rate.
  */
 #[Fillable(['name'])]
@@ -20,9 +20,9 @@ class TariffSegment extends Model
     /** @use HasFactory<TariffSegmentFactory> */
     use HasFactory;
 
-    public function subscribers(): HasMany
+    public function subscriptions(): HasMany
     {
-        return $this->hasMany(Subscriber::class);
+        return $this->hasMany(Subscription::class);
     }
 
     /**
@@ -39,6 +39,6 @@ class TariffSegment extends Model
      */
     public function deletionBlocker(): ?string
     {
-        return DeletionBlocker::describe('التصنيف', ['المشتركون' => $this->subscribers()->count()]);
+        return DeletionBlocker::describe('التصنيف', ['المشتركون' => $this->subscriptions()->count()]);
     }
 }

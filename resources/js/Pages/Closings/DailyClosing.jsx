@@ -200,7 +200,7 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                                             </td>
                                             <td className="c-sub">
                                                 <span className="psub">
-                                                    <b>{line.subscriberName}</b>
+                                                    <b>{line.subscriptionName}</b>
                                                     {line.meterBoxNumber && <small>الطبلون {line.meterBoxNumber}</small>}
                                                 </span>
                                             </td>
@@ -296,7 +296,7 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                                         </span>
                                         <div>
                                             <b>
-                                                #{line.paymentId} · {line.subscriberName}
+                                                #{line.paymentId} · {line.subscriptionName}
                                             </b>
                                             <span className="why">إيصال غير مؤكد: لم يظهر في حركة {line.accountLabel} بعد</span>
                                         </div>

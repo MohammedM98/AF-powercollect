@@ -96,7 +96,7 @@ class MeterBoxValidationTest extends TestCase
         $this->assertSame('9897', $second->fresh()->box_number);
     }
 
-    public function test_search_and_subscriber_options_show_the_name_suffix_and_independent_box_number(): void
+    public function test_search_and_subscription_options_show_the_name_suffix_and_independent_box_number(): void
     {
         $admin = User::factory()->branchAdmin()->create();
         $box = MeterBox::factory()->create(['branch_id' => $admin->branch_id, 'name' => 'camp', 'name_suffix' => '2A', 'box_number' => '9897']);
@@ -110,7 +110,7 @@ class MeterBoxValidationTest extends TestCase
                 ->where('meterBoxes.data.0.box_number', '9897')
                 ->where('meterBoxes.data.0.name_suffix', '2A'));
 
-        $this->actingAs($admin)->get(route('subscribers.create'))
+        $this->actingAs($admin)->get(route('subscriptions.create'))
             ->assertInertia(fn ($page) => $page->where('meterBoxes.0.label', 'camp 2A - (9897)'));
     }
 

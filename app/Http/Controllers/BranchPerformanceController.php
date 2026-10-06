@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\SubscriberStatus;
+use App\Enums\SubscriptionStatus;
 use App\Models\Branch;
 use App\Models\MeterReading;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Support\DailySeries;
 use Carbon\CarbonImmutable;
@@ -18,9 +18,9 @@ use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 /**
- * How each branch is doing: what it charged its subscribers (the lines
- * on their accounts, عليه), its subscribers, and its staff's entries —
- * subscribers registered and weekly readings entered — and when. The
+ * How each branch is doing: what it charged its subscriptions (the lines
+ * on their accounts, عليه), its subscriptions, and its staff's entries —
+ * subscriptions registered and weekly readings entered — and when. The
  * Super Admin compares every branch; a branch's own staff go straight to
  * their branch. Read-only.
  */
@@ -31,7 +31,7 @@ class BranchPerformanceController extends Controller
      */
     private const SORTS = [
         'revenue' => 'chargesTotal',
-        'subscribers' => 'activeSubscribers',
+        'subscriptions' => 'activeSubscriptions',
         'activity' => 'weekEntries',
     ];
 
@@ -45,7 +45,7 @@ class BranchPerformanceController extends Controller
 
     public function index(Request $request): InertiaResponse|RedirectResponse
     {
-        $this->authorize('viewBranchPerformance', SubscriberTransaction::class);
+        $this->authorize('viewBranchPerformance', SubscriptionTransaction::class);
 
         $actor = $request->user();
 
@@ -73,8 +73,8 @@ class BranchPerformanceController extends Controller
                 'branches' => $branches->count(),
                 'activeBranches' => $branches->where('is_active', true)->count(),
                 'chargesTotal' => round($summaries->sum('chargesTotal'), 2),
-                'subscribers' => $summaries->sum('subscribers'),
-                'activeSubscribers' => $summaries->sum('activeSubscribers'),
+                'subscriptions' => $summaries->sum('subscriptions'),
+                'activeSubscriptions' => $summaries->sum('activeSubscriptions'),
                 'weekEntries' => $summaries->sum('weekEntries'),
                 'todayEntries' => $summaries->sum('todayEntries'),
                 'staff' => $summaries->sum('staff'),
@@ -85,12 +85,12 @@ class BranchPerformanceController extends Controller
 
     public function show(Request $request, Branch $branch): InertiaResponse
     {
-        $this->authorize('viewForBranch', [SubscriberTransaction::class, $branch]);
+        $this->authorize('viewForBranch', [SubscriptionTransaction::class, $branch]);
 
         $branch = $this->withFigures(Branch::query())->with(['governorate', 'area'])->findOrFail($branch->id);
         $entries = $this->entriesPerDay([$branch->id], self::CHART_DAYS)[$branch->id] ?? [];
-        $charges = fn (): Builder => SubscriberTransaction::query()->charges()->whereHas('subscriber', fn (Builder $query) => $query->where('branch_id', $branch->id));
-        $statusCounts = $branch->subscribers()->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $charges = fn (): Builder => SubscriptionTransaction::query()->charges()->whereHas('subscription', fn (Builder $query) => $query->where('branch_id', $branch->id));
+        $statusCounts = $branch->subscriptions()->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
 
         return Inertia::render('BranchPerformance/Show', [
             'branch' => [
@@ -99,39 +99,39 @@ class BranchPerformanceController extends Controller
                 'statusCounts' => array_map(fn (array $status): array => [
                     ...$status,
                     'count' => (int) ($statusCounts[$status['value']] ?? 0),
-                ], SubscriberStatus::options()),
+                ], SubscriptionStatus::options()),
                 'monthChargesTotal' => round((float) $charges()
-                    ->where('subscriber_transactions.created_at', '>=', DailySeries::startOfDay(self::CHART_DAYS - 1))
+                    ->where('subscription_transactions.created_at', '>=', DailySeries::startOfDay(self::CHART_DAYS - 1))
                     ->toBase()
                     ->selectRaw('coalesce(sum(abs(amount)), 0) as total')
                     ->value('total'), 2),
                 'monthEntries' => array_sum($entries),
             ],
             'canCompareBranches' => $request->user()->isSuperAdmin(),
-            'dailyRegistrations' => DailySeries::counts(Subscriber::query()->where('branch_id', $branch->id), 'subscribers.created_at', self::CHART_DAYS),
-            'dailyCharges' => DailySeries::sums($charges(), 'subscriber_transactions.created_at', 'subscriber_transactions.amount', self::CHART_DAYS),
+            'dailyRegistrations' => DailySeries::counts(Subscription::query()->where('branch_id', $branch->id), 'subscriptions.created_at', self::CHART_DAYS),
+            'dailyCharges' => DailySeries::sums($charges(), 'subscription_transactions.created_at', 'subscription_transactions.amount', self::CHART_DAYS),
             'team' => $this->team($branch),
             'workLog' => $this->workLog($branch, $charges()),
-            'latestRegistrations' => $branch->subscribers()
+            'latestRegistrations' => $branch->subscriptions()
                 ->with('registeredBy')
                 ->latest()
                 ->latest('id')
                 ->take(self::LATEST_REGISTRATIONS)
                 ->get()
-                ->map(fn (Subscriber $subscriber): array => [
-                    'id' => $subscriber->id,
-                    'name' => $subscriber->displayName(),
-                    'phone' => $subscriber->contactPhone(),
-                    'status' => $subscriber->status->value,
-                    'registeredByName' => $subscriber->registeredBy?->name,
-                    'createdAt' => $subscriber->created_at->toIso8601String(),
+                ->map(fn (Subscription $subscription): array => [
+                    'id' => $subscription->id,
+                    'name' => $subscription->displayName(),
+                    'phone' => $subscription->contactPhone(),
+                    'status' => $subscription->status->value,
+                    'registeredByName' => $subscription->registeredBy?->name,
+                    'createdAt' => $subscription->created_at->toIso8601String(),
                 ]),
         ]);
     }
 
     /**
-     * Adds each branch's subscriber and staff counts, what it charged its
-     * subscribers, and when its last subscriber and reading were entered.
+     * Adds each branch's subscription and staff counts, what it charged its
+     * subscriptions, and when its last subscription and reading were entered.
      *
      * @param  Builder<Branch>  $query
      * @return Builder<Branch>
@@ -140,12 +140,12 @@ class BranchPerformanceController extends Controller
     {
         return $query
             ->withCount([
-                'subscribers',
-                'subscribers as active_subscribers_count' => fn (Builder $subscribers) => $subscribers->where('status', SubscriberStatus::Active),
+                'subscriptions',
+                'subscriptions as active_subscriptions_count' => fn (Builder $subscriptions) => $subscriptions->where('status', SubscriptionStatus::Active),
                 'users as staff_count' => fn (Builder $users) => $users->where('is_active', true),
             ])
             ->withSum(['transactions as charges_total' => fn (Builder $lines) => $lines->charges()], 'amount')
-            ->withMax('subscribers as last_registration_at', 'created_at')
+            ->withMax('subscriptions as last_registration_at', 'created_at')
             ->withMax('meterReadings as last_reading_at', 'created_at');
     }
 
@@ -165,8 +165,8 @@ class BranchPerformanceController extends Controller
             'governorateName' => $branch->governorate?->name,
             'areaName' => $branch->area?->name,
             'chargesTotal' => round((float) $branch->charges_total, 2),
-            'subscribers' => $branch->subscribers_count,
-            'activeSubscribers' => $branch->active_subscribers_count,
+            'subscriptions' => $branch->subscriptions_count,
+            'activeSubscriptions' => $branch->active_subscriptions_count,
             'staff' => $branch->staff_count,
             'todayEntries' => $entries[DailySeries::today()->toDateString()] ?? 0,
             'weekEntries' => array_sum(array_slice($sparkline, -7)),
@@ -176,7 +176,7 @@ class BranchPerformanceController extends Controller
     }
 
     /**
-     * How many entries — subscribers registered and readings entered — each
+     * How many entries — subscriptions registered and readings entered — each
      * branch made on each of the last `$days` business days.
      *
      * @param  array<int, int>  $branchIds
@@ -210,19 +210,19 @@ class BranchPerformanceController extends Controller
             ->get()
             ->keyBy('user_id');
 
-        $registrations = $perMember(Subscriber::query()->where('branch_id', $branch->id), 'registered_by');
+        $registrations = $perMember(Subscription::query()->where('branch_id', $branch->id), 'registered_by');
         $readings = $perMember(MeterReading::query()->where('branch_id', $branch->id), 'recorded_by');
-        $credit = implode(', ', array_fill(0, count(SubscriberTransaction::CREDIT_TYPES), '?'));
-        $recorded = SubscriberTransaction::query()
+        $credit = implode(', ', array_fill(0, count(SubscriptionTransaction::CREDIT_TYPES), '?'));
+        $recorded = SubscriptionTransaction::query()
             ->counted()
             ->whereIn('recorded_by', $members->modelKeys())
-            ->whereHas('subscriber', fn (Builder $query) => $query->where('branch_id', $branch->id))
+            ->whereHas('subscription', fn (Builder $query) => $query->where('branch_id', $branch->id))
             ->toBase()
             ->selectRaw(
                 "recorded_by as user_id, count(*) as entries, max(created_at) as last_at,
                     sum(case when type in ({$credit}) then 0 else abs(amount) end) as charged,
                     sum(case when type in ({$credit}) then abs(amount) else 0 end) as credited",
-                [...SubscriberTransaction::CREDIT_TYPES, ...SubscriberTransaction::CREDIT_TYPES],
+                [...SubscriptionTransaction::CREDIT_TYPES, ...SubscriptionTransaction::CREDIT_TYPES],
             )
             ->groupBy('recorded_by')
             ->get()
@@ -255,11 +255,11 @@ class BranchPerformanceController extends Controller
     }
 
     /**
-     * The last two weeks, newest first: the day's new subscribers and
+     * The last two weeks, newest first: the day's new subscriptions and
      * entries, what was charged, and who made the most entries.
      *
-     * @param  Builder<SubscriberTransaction>  $charges
-     * @return array<int, array{date: string, newSubscribers: int, entries: int, chargesCount: int, chargesTotal: float, topEntrant: string|null}>
+     * @param  Builder<SubscriptionTransaction>  $charges
+     * @return array<int, array{date: string, newSubscriptions: int, entries: int, chargesCount: int, chargesTotal: float, topEntrant: string|null}>
      */
     private function workLog(Branch $branch, Builder $charges): array
     {
@@ -267,7 +267,7 @@ class BranchPerformanceController extends Controller
         $byDay = fn (Collection $rows): Collection => $rows->groupBy(fn (object $row): string => DailySeries::localDate($row->created_at));
 
         $entries = $byDay($this->entries([$branch->id], $since));
-        $charged = $byDay($charges->where('subscriber_transactions.created_at', '>=', $since)->toBase()->get(['subscriber_transactions.created_at', 'amount']));
+        $charged = $byDay($charges->where('subscription_transactions.created_at', '>=', $since)->toBase()->get(['subscription_transactions.created_at', 'amount']));
         $names = User::query()->whereIn('id', $entries->flatten()->pluck('user_id')->unique())->pluck('name', 'id');
 
         return array_map(function (string $day) use ($entries, $charged, $names): array {
@@ -276,7 +276,7 @@ class BranchPerformanceController extends Controller
 
             return [
                 'date' => $day,
-                'newSubscribers' => $dayEntries->where('kind', 'registration')->count(),
+                'newSubscriptions' => $dayEntries->where('kind', 'registration')->count(),
                 'entries' => $dayEntries->count(),
                 'chargesCount' => ($charged[$day] ?? collect())->count(),
                 'chargesTotal' => round(($charged[$day] ?? collect())->sum(fn (object $line): float => abs((float) $line->amount)), 2),
@@ -286,7 +286,7 @@ class BranchPerformanceController extends Controller
     }
 
     /**
-     * Every entry made in the given branches since `$since`: subscribers
+     * Every entry made in the given branches since `$since`: subscriptions
      * registered and readings entered, each with its branch, who made it
      * and when.
      *
@@ -295,7 +295,7 @@ class BranchPerformanceController extends Controller
      */
     private function entries(array $branchIds, CarbonImmutable $since): Collection
     {
-        $registrations = Subscriber::query()
+        $registrations = Subscription::query()
             ->whereIn('branch_id', $branchIds)
             ->where('created_at', '>=', $since)
             ->toBase()

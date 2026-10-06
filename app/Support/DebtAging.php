@@ -2,15 +2,15 @@
 
 namespace App\Support;
 
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
- * How old each subscriber's debt is (أعمار الديون). Payments, discounts and
- * clearings settle the oldest charges first, so what a subscriber still
+ * How old each subscription's debt is (أعمار الديون). Payments, discounts and
+ * clearings settle the oldest charges first, so what a subscription still
  * owes is their newest charges, adding up to their balance. Each part of
  * it is aged by the business-time day its charge was made, into the
  * buckets below.
@@ -43,7 +43,7 @@ class DebtAging
     ];
 
     /**
-     * Subscribers are aged this many at a time, to keep each query's list
+     * Subscriptions are aged this many at a time, to keep each query's list
      * of ids short.
      */
     private const CHUNK = 500;
@@ -51,19 +51,19 @@ class DebtAging
     public function __construct(private CarbonImmutable $today) {}
 
     /**
-     * Every subscriber the query finds who owes money (a balance above
+     * Every subscription the query finds who owes money (a balance above
      * zero), with their debt split by age, the day of the oldest charge
      * still unpaid, and the day of their last payment.
      *
-     * @param  Builder<Subscriber>  $subscribers
-     * @return Collection<int, array{subscriber: Subscriber, balance: int, buckets: array<string, int>, oldestDate: ?string, oldestDays: int, lastPaymentDate: ?string, lastPaymentDays: ?int}>
+     * @param  Builder<Subscription>  $subscriptions
+     * @return Collection<int, array{subscription: Subscription, balance: int, buckets: array<string, int>, oldestDate: ?string, oldestDays: int, lastPaymentDate: ?string, lastPaymentDays: ?int}>
      */
-    public function debtors(Builder $subscribers): Collection
+    public function debtors(Builder $subscriptions): Collection
     {
-        $balance = '(select coalesce(sum(owed.amount), 0) from subscriber_transactions as owed where owed.subscriber_id = subscribers.id)';
+        $balance = '(select coalesce(sum(owed.amount), 0) from subscription_transactions as owed where owed.subscription_id = subscriptions.id)';
 
-        $debtors = $subscribers
-            ->select('subscribers.*')
+        $debtors = $subscriptions
+            ->select('subscriptions.*')
             ->selectRaw("{$balance} as balance")
             ->whereRaw("{$balance} > 0.004")
             ->get();
@@ -76,7 +76,7 @@ class DebtAging
                 $lastPayments = $this->lastPayments($ids);
 
                 return $chunk
-                    ->map(fn (Subscriber $subscriber): array => $this->age($subscriber, $charges->get($subscriber->id, collect()), $lastPayments[$subscriber->id] ?? null))
+                    ->map(fn (Subscription $subscription): array => $this->age($subscription, $charges->get($subscription->id, collect()), $lastPayments[$subscription->id] ?? null))
                     ->all();
             })
             ->values();
@@ -101,11 +101,11 @@ class DebtAging
      * first.
      *
      * @param  Collection<int, object{created_at: string, amount: string}>  $charges  newest first
-     * @return array{subscriber: Subscriber, balance: int, buckets: array<string, int>, oldestDate: ?string, oldestDays: int, lastPaymentDate: ?string, lastPaymentDays: ?int}
+     * @return array{subscription: Subscription, balance: int, buckets: array<string, int>, oldestDate: ?string, oldestDays: int, lastPaymentDate: ?string, lastPaymentDays: ?int}
      */
-    private function age(Subscriber $subscriber, Collection $charges, ?string $lastPaidAt): array
+    private function age(Subscription $subscription, Collection $charges, ?string $lastPaidAt): array
     {
-        $balance = self::cents((string) $subscriber->balance);
+        $balance = self::cents((string) $subscription->balance);
         $remaining = $balance;
         $buckets = array_fill_keys(array_keys(self::BUCKETS), 0);
         $oldestDate = null;
@@ -130,7 +130,7 @@ class DebtAging
         $lastPaymentDate = $lastPaidAt ? DailySeries::localDate($lastPaidAt) : null;
 
         return [
-            'subscriber' => $subscriber,
+            'subscription' => $subscription,
             'balance' => $balance,
             'buckets' => $buckets,
             'oldestDate' => $oldestDate,
@@ -142,41 +142,41 @@ class DebtAging
 
     /**
      * The charges that count (no cancelled line, no reversal) of the given
-     * subscribers, by subscriber, newest first.
+     * subscriptions, by subscription, newest first.
      *
-     * @param  array<int, int>  $subscriberIds
+     * @param  array<int, int>  $subscriptionIds
      * @return Collection<int, Collection<int, object>>
      */
-    private function chargesNewestFirst(array $subscriberIds): Collection
+    private function chargesNewestFirst(array $subscriptionIds): Collection
     {
-        return SubscriberTransaction::query()
+        return SubscriptionTransaction::query()
             ->charges()
             ->where('amount', '>', 0)
-            ->whereIn('subscriber_id', $subscriberIds)
+            ->whereIn('subscription_id', $subscriptionIds)
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->toBase()
-            ->get(['subscriber_id', 'created_at', 'amount'])
-            ->groupBy('subscriber_id');
+            ->get(['subscription_id', 'created_at', 'amount'])
+            ->groupBy('subscription_id');
     }
 
     /**
-     * When each of the given subscribers last paid, by subscriber: their
+     * When each of the given subscriptions last paid, by subscription: their
      * latest payment that still stands.
      *
-     * @param  array<int, int>  $subscriberIds
+     * @param  array<int, int>  $subscriptionIds
      * @return array<int, string>
      */
-    private function lastPayments(array $subscriberIds): array
+    private function lastPayments(array $subscriptionIds): array
     {
-        return SubscriberTransaction::query()
+        return SubscriptionTransaction::query()
             ->counted()
-            ->where('type', SubscriberTransaction::TYPE_PAYMENT)
-            ->whereIn('subscriber_id', $subscriberIds)
-            ->groupBy('subscriber_id')
+            ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
+            ->whereIn('subscription_id', $subscriptionIds)
+            ->groupBy('subscription_id')
             ->toBase()
-            ->selectRaw('subscriber_id, max(created_at) as last_paid_at')
-            ->pluck('last_paid_at', 'subscriber_id')
+            ->selectRaw('subscription_id, max(created_at) as last_paid_at')
+            ->pluck('last_paid_at', 'subscription_id')
             ->all();
     }
 

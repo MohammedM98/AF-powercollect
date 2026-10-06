@@ -9,8 +9,8 @@ use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingPayment;
 use App\Models\Permission;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -22,7 +22,7 @@ class ClosingTest extends TestCase
 
     private Branch $branch;
 
-    private Subscriber $subscriber;
+    private Subscription $subscription;
 
     protected function setUp(): void
     {
@@ -30,7 +30,7 @@ class ClosingTest extends TestCase
         config(['app.business_timezone' => 'Asia/Gaza']);
         $this->travelTo(Carbon::parse('2026-10-01 10:00', 'Asia/Gaza'));
         $this->branch = Branch::factory()->create(['name' => 'فرع النصيرات']);
-        $this->subscriber = Subscriber::factory()->create(['branch_id' => $this->branch->id]);
+        $this->subscription = Subscription::factory()->create(['branch_id' => $this->branch->id]);
     }
 
     public function test_the_daily_closing_groups_the_branchs_confirmed_payments_of_that_day_only(): void
@@ -40,7 +40,7 @@ class ClosingTest extends TestCase
         $bank = $this->payment('600', 'bank_transfer', '2026-09-30 10:42', 'بنك فلسطين');
         $this->payment('500', 'cash', '2026-09-29 22:00');
         $this->payment('400', 'cash', '2026-10-01 00:05');
-        $this->payment('300', 'cash', '2026-09-30 11:00', subscriber: Subscriber::factory()->create());
+        $this->payment('300', 'cash', '2026-09-30 11:00', subscription: Subscription::factory()->create());
         $cancelled = $this->payment('250', 'cash', '2026-09-30 12:00');
         $cancelled->forceFill(['cancelled_at' => now()])->save();
 
@@ -152,7 +152,7 @@ class ClosingTest extends TestCase
 
         $closing->fresh()->syncPayments();
 
-        $this->assertDatabaseHas('closing_payments', ['closing_id' => $closing->id, 'subscriber_transaction_id' => $payment->id]);
+        $this->assertDatabaseHas('closing_payments', ['closing_id' => $closing->id, 'subscription_transaction_id' => $payment->id]);
         $this->actingAs($accountant)->put(route('closings.lines.match', [$closing, $closing->lines()->sole()]), ['status' => 'matched'])->assertForbidden();
     }
 
@@ -193,7 +193,7 @@ class ClosingTest extends TestCase
         $secondBranch = Branch::factory()->create();
         $stoppedBranch = Branch::factory()->create(['is_active' => false]);
         $first = $this->payment('1000', 'cash', '2026-09-30 09:14');
-        $second = $this->payment('300', 'cash', '2026-09-30 11:00', subscriber: Subscriber::factory()->create(['branch_id' => $secondBranch->id]));
+        $second = $this->payment('300', 'cash', '2026-09-30 11:00', subscription: Subscription::factory()->create(['branch_id' => $secondBranch->id]));
         $activeBranches = Branch::where('is_active', true)->count();
 
         $this->artisan('closings:open')->assertSuccessful();
@@ -201,8 +201,8 @@ class ClosingTest extends TestCase
 
         $this->assertSame($activeBranches, Closing::count());
         $this->assertDatabaseMissing('closings', ['branch_id' => $stoppedBranch->id]);
-        $this->assertSame([$first->id], Closing::where('branch_id', $this->branch->id)->sole()->lines()->pluck('subscriber_transaction_id')->all());
-        $this->assertSame([$second->id], Closing::where('branch_id', $secondBranch->id)->sole()->lines()->pluck('subscriber_transaction_id')->all());
+        $this->assertSame([$first->id], Closing::where('branch_id', $this->branch->id)->sole()->lines()->pluck('subscription_transaction_id')->all());
+        $this->assertSame([$second->id], Closing::where('branch_id', $secondBranch->id)->sole()->lines()->pluck('subscription_transaction_id')->all());
         $this->artisan('closings:open', ['--date' => '2026-10-01'])->assertFailed();
     }
 
@@ -224,15 +224,15 @@ class ClosingTest extends TestCase
         return $closing->fresh();
     }
 
-    private function payment(string $amount, string $method, string $at, ?string $bank = null, ?Subscriber $subscriber = null): SubscriberTransaction
+    private function payment(string $amount, string $method, string $at, ?string $bank = null, ?Subscription $subscription = null): SubscriptionTransaction
     {
         $this->travelTo(Carbon::parse($at, 'Asia/Gaza'));
-        $payment = SubscriberTransaction::recordPayment($subscriber ?? $this->subscriber, User::factory()->create(), [
+        $payment = SubscriptionTransaction::recordPayment($subscription ?? $this->subscription, User::factory()->create(), [
             'amount' => $amount,
             'currency' => 'ILS',
             'payment_method' => $method,
             'bank_name' => $bank,
-            'sender_name' => 'Subscriber',
+            'sender_name' => 'Subscription',
             'reference_number' => $bank ? 'REF-'.$amount : null,
         ]);
         $this->travelTo(Carbon::parse('2026-10-01 10:00', 'Asia/Gaza'));

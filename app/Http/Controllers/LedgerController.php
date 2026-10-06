@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Concerns\BuildsSubscriberStatement;
+use App\Http\Concerns\BuildsSubscriptionStatement;
 use App\Http\Concerns\FiltersDataTable;
 use App\Models\Branch;
-use App\Models\SubscriberTransaction;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Support\DailySeries;
 use Carbon\CarbonImmutable;
@@ -16,7 +16,7 @@ use Inertia\Response as InertiaResponse;
 
 /**
  * The financial log (السجل المالي): every line of the accounts of the
- * subscribers the user may see, newest first and grouped by day, with the
+ * subscriptions the user may see, newest first and grouped by day, with the
  * period's totals, a daily chart and the totals per branch. Read-only.
  *
  * The figures sum one side of the accounts: the charges (عليه) unless the
@@ -27,7 +27,7 @@ use Inertia\Response as InertiaResponse;
  */
 class LedgerController extends Controller
 {
-    use BuildsSubscriberStatement, FiltersDataTable;
+    use BuildsSubscriptionStatement, FiltersDataTable;
 
     /**
      * The period tabs, as the number of days each covers (null: since the
@@ -56,7 +56,7 @@ class LedgerController extends Controller
 
     public function index(Request $request): InertiaResponse
     {
-        $this->authorize('viewAny', SubscriberTransaction::class);
+        $this->authorize('viewAny', SubscriptionTransaction::class);
 
         $actor = $request->user();
         $period = $this->period($request);
@@ -65,13 +65,13 @@ class LedgerController extends Controller
         $side = $this->headlineSide($request);
 
         $ledger = fn (): Builder => $this->filteredLedger($request, $actor);
-        $inPeriod = fn (): Builder => $ledger()->when($from, fn (Builder $query) => $query->where('subscriber_transactions.created_at', '>=', $from));
+        $inPeriod = fn (): Builder => $ledger()->when($from, fn (Builder $query) => $query->where('subscription_transactions.created_at', '>=', $from));
         $onSide = fn (Builder $query): Builder => $side === self::CREDIT ? $query->credits() : $query->charges();
 
-        $entries = $this->sortEntries($inPeriod()->with(['subscriber.branch', 'recordedBy']), $request)
+        $entries = $this->sortEntries($inPeriod()->with(['subscription.branch', 'recordedBy']), $request)
             ->paginate($this->dataTablePerPage($request, self::DEFAULT_PER_PAGE))
             ->withQueryString()
-            ->through(fn (SubscriberTransaction $transaction): array => $this->row($transaction));
+            ->through(fn (SubscriptionTransaction $transaction): array => $this->row($transaction));
 
         $groupedByDay = ! $this->sortedByAmount($request);
 
@@ -83,8 +83,8 @@ class LedgerController extends Controller
             'dayTotals' => $groupedByDay ? $this->dayTotals($inPeriod(), collect($entries->items())->pluck('day')->unique()->all()) : [],
             'dailyTotals' => DailySeries::sums(
                 $onSide($ledger()),
-                'subscriber_transactions.created_at',
-                'subscriber_transactions.amount',
+                'subscription_transactions.created_at',
+                'subscription_transactions.amount',
                 $days === null ? self::OPEN_CHART_DAYS : max($days, self::MIN_CHART_DAYS),
             ),
             'branchTotals' => $this->branchTotals($onSide($inPeriod())),
@@ -92,17 +92,17 @@ class LedgerController extends Controller
             'scopeLabel' => $this->scopeLabel($request, $actor),
             'filters' => $this->dataTableState($request, 'created_at', 'desc', self::DEFAULT_PER_PAGE),
             'filterOptions' => $this->filterOptions($actor),
-            // A line's subscriber's statement, opened over the log.
+            // A line's subscription's statement, opened over the log.
             'statement' => fn () => $this->requestedStatement($request, $actor),
         ]);
     }
 
     /**
-     * The lines the user may see — of subscribers in their own branch (any
+     * The lines the user may see — of subscriptions in their own branch (any
      * branch for the Super Admin) — narrowed by the search box and the
      * filters. Unordered, so it can be totalled.
      *
-     * @return Builder<SubscriberTransaction>
+     * @return Builder<SubscriptionTransaction>
      */
     private function filteredLedger(Request $request, User $actor): Builder
     {
@@ -111,8 +111,8 @@ class LedgerController extends Controller
         $type = $this->filterValue($request, 'type');
         $recordedBy = $this->filterValue($request, 'recorded_by');
 
-        return SubscriberTransaction::query()
-            ->whereHas('subscriber', fn (Builder $subscribers) => $subscribers
+        return SubscriptionTransaction::query()
+            ->whereHas('subscription', fn (Builder $subscriptions) => $subscriptions
                 ->visibleTo($actor)
                 ->when($branchId, fn (Builder $query) => $query->where('branch_id', $branchId))
                 ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
@@ -124,7 +124,7 @@ class LedgerController extends Controller
             ->when($type === self::DEBIT, fn (Builder $query) => $query->charges())
             ->when($type === self::CREDIT, fn (Builder $query) => $query->credits())
             ->when(
-                ! in_array($type, [self::DEBIT, self::CREDIT], true) && array_key_exists((string) $type, SubscriberTransaction::typeLabels()),
+                ! in_array($type, [self::DEBIT, self::CREDIT], true) && array_key_exists((string) $type, SubscriptionTransaction::typeLabels()),
                 fn (Builder $query) => $query->where('type', $type),
             )
             ->when($recordedBy, fn (Builder $query) => $query->where('recorded_by', $recordedBy));
@@ -134,17 +134,17 @@ class LedgerController extends Controller
      * Newest first unless a column header asks otherwise; "amount" sorts by
      * the size of the line, whichever side it is on.
      *
-     * @param  Builder<SubscriberTransaction>  $query
-     * @return Builder<SubscriberTransaction>
+     * @param  Builder<SubscriptionTransaction>  $query
+     * @return Builder<SubscriptionTransaction>
      */
     private function sortEntries(Builder $query, Request $request): Builder
     {
         $direction = $request->input('sort') !== null && $request->string('direction')->lower()->value() === 'asc' ? 'asc' : 'desc';
 
         return ($this->sortedByAmount($request)
-            ? $query->orderByRaw('abs(subscriber_transactions.amount) '.$direction)
-            : $query->orderBy('subscriber_transactions.created_at', $direction))
-            ->orderBy('subscriber_transactions.id', $direction);
+            ? $query->orderByRaw('abs(subscription_transactions.amount) '.$direction)
+            : $query->orderBy('subscription_transactions.created_at', $direction))
+            ->orderBy('subscription_transactions.id', $direction);
     }
 
     private function sortedByAmount(Request $request): bool
@@ -157,9 +157,9 @@ class LedgerController extends Controller
      * largest line — and the same total over as many days just before it.
      * `collected` is what was paid in the period, shown beside the charges.
      *
-     * @param  Builder<SubscriberTransaction>  $headline  the period's lines on the headline side
-     * @param  Builder<SubscriberTransaction>|null  $ledger  every line on that side, for the period before
-     * @param  Builder<SubscriberTransaction>  $inPeriod  every line of the period, both sides
+     * @param  Builder<SubscriptionTransaction>  $headline  the period's lines on the headline side
+     * @param  Builder<SubscriptionTransaction>|null  $ledger  every line on that side, for the period before
+     * @param  Builder<SubscriptionTransaction>  $inPeriod  every line of the period, both sides
      * @return array{total: float, count: int, average: float, largest: float, previousTotal: float|null, changePct: int|null, collected: float}
      */
     private function summary(Builder $headline, ?Builder $ledger, ?CarbonImmutable $from, ?int $days, Builder $inPeriod): array
@@ -170,8 +170,8 @@ class LedgerController extends Controller
 
         $previousTotal = $ledger && $from && $days
             ? round((float) $ledger
-                ->where('subscriber_transactions.created_at', '>=', $from->subDays($days))
-                ->where('subscriber_transactions.created_at', '<', $from)
+                ->where('subscription_transactions.created_at', '>=', $from->subDays($days))
+                ->where('subscription_transactions.created_at', '<', $from)
                 ->toBase()
                 ->selectRaw('coalesce(sum(abs(amount)), 0) as total')
                 ->value('total'), 2)
@@ -184,7 +184,7 @@ class LedgerController extends Controller
             'largest' => round((float) $totals->largest, 2),
             'previousTotal' => $previousTotal,
             'changePct' => $previousTotal ? (int) round(($total - $previousTotal) / $previousTotal * 100) : null,
-            'collected' => round(-(float) $inPeriod->counted()->where('type', SubscriberTransaction::TYPE_PAYMENT)->sum('amount'), 2),
+            'collected' => round(-(float) $inPeriod->counted()->where('type', SubscriptionTransaction::TYPE_PAYMENT)->sum('amount'), 2),
         ];
     }
 
@@ -193,7 +193,7 @@ class LedgerController extends Controller
      * shows — for the headers that group the table by day: how many lines,
      * and the charges and the credits that day.
      *
-     * @param  Builder<SubscriberTransaction>  $inPeriod
+     * @param  Builder<SubscriptionTransaction>  $inPeriod
      * @param  array<int, string>  $days
      * @return array<string, array{count: int, charged: float, credited: float}>
      */
@@ -208,16 +208,16 @@ class LedgerController extends Controller
 
         return $inPeriod
             ->counted()
-            ->where('subscriber_transactions.created_at', '>=', $from)
-            ->where('subscriber_transactions.created_at', '<', $until)
+            ->where('subscription_transactions.created_at', '>=', $from)
+            ->where('subscription_transactions.created_at', '<', $until)
             ->toBase()
-            ->get(['subscriber_transactions.created_at as moment', 'amount', 'type'])
+            ->get(['subscription_transactions.created_at as moment', 'amount', 'type'])
             ->groupBy(fn (object $line): string => DailySeries::localDate($line->moment))
             ->only($days)
             ->map(fn ($lines): array => [
                 'count' => $lines->count(),
-                'charged' => round($lines->reject(fn (object $line): bool => in_array($line->type, SubscriberTransaction::CREDIT_TYPES, true))->sum('amount'), 2),
-                'credited' => round(-$lines->filter(fn (object $line): bool => in_array($line->type, SubscriberTransaction::CREDIT_TYPES, true))->sum('amount'), 2),
+                'charged' => round($lines->reject(fn (object $line): bool => in_array($line->type, SubscriptionTransaction::CREDIT_TYPES, true))->sum('amount'), 2),
+                'credited' => round(-$lines->filter(fn (object $line): bool => in_array($line->type, SubscriptionTransaction::CREDIT_TYPES, true))->sum('amount'), 2),
             ])
             ->all();
     }
@@ -225,16 +225,16 @@ class LedgerController extends Controller
     /**
      * The period's headline total and line count per branch, largest first.
      *
-     * @param  Builder<SubscriberTransaction>  $headline
+     * @param  Builder<SubscriptionTransaction>  $headline
      * @return array<int, array{id: int, name: string, total: float, count: int}>
      */
     private function branchTotals(Builder $headline): array
     {
         $totals = $headline
-            ->join('subscribers', 'subscribers.id', '=', 'subscriber_transactions.subscriber_id')
+            ->join('subscriptions', 'subscriptions.id', '=', 'subscription_transactions.subscription_id')
             ->toBase()
-            ->selectRaw('subscribers.branch_id, sum(abs(subscriber_transactions.amount)) as total, count(*) as entries')
-            ->groupBy('subscribers.branch_id')
+            ->selectRaw('subscriptions.branch_id, sum(abs(subscription_transactions.amount)) as total, count(*) as entries')
+            ->groupBy('subscriptions.branch_id')
             ->get();
 
         $names = Branch::query()->whereIn('id', $totals->pluck('branch_id'))->pluck('name', 'id');
@@ -254,19 +254,19 @@ class LedgerController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function row(SubscriberTransaction $transaction): array
+    private function row(SubscriptionTransaction $transaction): array
     {
         return [
             'id' => $transaction->id,
             'day' => DailySeries::localDate($transaction->created_at),
             'time' => DailySeries::localTime($transaction->created_at),
-            'subscriberId' => $transaction->subscriber_id,
-            'subscriberName' => $transaction->subscriber->displayName(),
-            'subscriberAccountNumber' => $transaction->subscriber->account_number,
-            'subscriberPhone' => $transaction->subscriber->contactPhone(),
-            'subscriberStatus' => $transaction->subscriber->status->value,
-            'subscriberStatusLabel' => __($transaction->subscriber->status->label()),
-            'branchName' => $transaction->subscriber->branch->name,
+            'subscriptionId' => $transaction->subscription_id,
+            'subscriptionName' => $transaction->subscription->displayName(),
+            'subscriptionAccountNumber' => $transaction->subscription->account_number,
+            'subscriptionPhone' => $transaction->subscription->contactPhone(),
+            'subscriptionStatus' => $transaction->subscription->status->value,
+            'subscriptionStatusLabel' => __($transaction->subscription->status->label()),
+            'branchName' => $transaction->subscription->branch->name,
             'type' => $transaction->type,
             'typeLabel' => $transaction->typeLabel(),
             'isCredit' => $transaction->isCredit(),
@@ -306,13 +306,13 @@ class LedgerController extends Controller
         $groups[] = $this->filterGroup('type', 'نوع القيد', [
             ['value' => self::DEBIT, 'label' => 'كل ما عليه (تحميل)'],
             ['value' => self::CREDIT, 'label' => 'كل ما له (تسديد وخصم ومقاصة)'],
-            ...collect(SubscriberTransaction::typeLabels())->map(fn (string $label, string $type): array => ['value' => $type, 'label' => $label])->values(),
+            ...collect(SubscriptionTransaction::typeLabels())->map(fn (string $label, string $type): array => ['value' => $type, 'label' => $label])->values(),
         ]);
 
         $groups[] = $this->filterGroup('recorded_by', 'سجّله', $this->staffOptions(
             User::query()
-                ->whereIn('id', SubscriberTransaction::query()
-                    ->whereHas('subscriber', fn (Builder $subscribers) => $subscribers->visibleTo($actor))
+                ->whereIn('id', SubscriptionTransaction::query()
+                    ->whereHas('subscription', fn (Builder $subscriptions) => $subscriptions->visibleTo($actor))
                     ->select('recorded_by'))
                 ->orderBy('name')
                 ->get(),
@@ -329,7 +329,7 @@ class LedgerController extends Controller
     {
         $type = $this->filterValue($request, 'type');
 
-        return $type === self::CREDIT || in_array($type, SubscriberTransaction::CREDIT_TYPES, true) ? self::CREDIT : self::DEBIT;
+        return $type === self::CREDIT || in_array($type, SubscriptionTransaction::CREDIT_TYPES, true) ? self::CREDIT : self::DEBIT;
     }
 
     private function period(Request $request): string

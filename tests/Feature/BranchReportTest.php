@@ -11,8 +11,8 @@ use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\MeterReading;
 use App\Models\Permission;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -26,7 +26,7 @@ class BranchReportTest extends TestCase
 
     private Branch $south;
 
-    private Subscriber $subscriber;
+    private Subscription $subscription;
 
     private User $collector;
 
@@ -37,20 +37,20 @@ class BranchReportTest extends TestCase
         $this->travelTo(Carbon::parse('2026-10-01 10:00', 'Asia/Gaza'));
         $this->north = Branch::factory()->create(['name' => 'North']);
         $this->south = Branch::factory()->create(['name' => 'South']);
-        $this->subscriber = Subscriber::factory()->create(['branch_id' => $this->north->id]);
+        $this->subscription = Subscription::factory()->create(['branch_id' => $this->north->id]);
         $this->collector = User::factory()->collector()->create(['name' => 'Sami', 'branch_id' => $this->north->id]);
     }
 
     public function test_the_days_flow_adds_up_from_what_was_owed_to_what_is_owed(): void
     {
-        $this->at('2026-09-30 09:00', fn () => SubscriberTransaction::recordCharge($this->subscriber, $this->collector, ChargeType::Penalty, '100', 'late'));
-        $this->at('2026-10-01 08:00', fn () => SubscriberTransaction::recordCharge($this->subscriber, $this->collector, ChargeType::DisconnectionFee, '30', null));
+        $this->at('2026-09-30 09:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '100', 'late'));
+        $this->at('2026-10-01 08:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::DisconnectionFee, '30', null));
         $this->at('2026-10-01 08:10', fn () => $this->pay('40'));
         $this->at('2026-10-01 08:20', fn () => $this->pay('25', ['payment_method' => 'bank_transfer', 'bank_name' => 'Bank of Palestine', 'reference_number' => 'T-1']));
-        $this->at('2026-10-01 08:30', fn () => SubscriberTransaction::recordDiscount($this->subscriber, $this->collector, DiscountMethod::Shekel, '5', null));
+        $this->at('2026-10-01 08:30', fn () => SubscriptionTransaction::recordDiscount($this->subscription, $this->collector, DiscountMethod::Shekel, '5', null));
         $mistake = $this->at('2026-10-01 08:40', fn () => $this->pay('15'));
         $this->at('2026-10-01 08:45', fn () => $mistake->cancel($this->collector, CorrectionReason::Duplicate, null));
-        $this->at('2026-10-01 09:00', fn () => $this->pay('999', [], Subscriber::factory()->create(['branch_id' => $this->south->id])));
+        $this->at('2026-10-01 09:00', fn () => $this->pay('999', [], Subscription::factory()->create(['branch_id' => $this->south->id])));
 
         $this->actingAs($this->preparer())->get(route('reports.index'))->assertInertia(fn ($page) => $page
             ->component('Reports/Index')
@@ -115,9 +115,9 @@ class BranchReportTest extends TestCase
 
     public function test_the_readings_entered_approved_and_still_pending_are_counted(): void
     {
-        MeterReading::factory()->for($this->subscriber)->create(['consumption' => 40]);
-        MeterReading::factory()->for($this->subscriber)->approved()->create(['week_start' => '2026-09-18', 'week_end' => '2026-09-24', 'consumption' => 10, 'amount_due' => '25.50', 'approved_at' => now()]);
-        MeterReading::factory()->for(Subscriber::factory()->create(['branch_id' => $this->south->id]))->create();
+        MeterReading::factory()->for($this->subscription)->create(['consumption' => 40]);
+        MeterReading::factory()->for($this->subscription)->approved()->create(['week_start' => '2026-09-18', 'week_end' => '2026-09-24', 'consumption' => 10, 'amount_due' => '25.50', 'approved_at' => now()]);
+        MeterReading::factory()->for(Subscription::factory()->create(['branch_id' => $this->south->id]))->create();
 
         $this->actingAs($this->preparer())->get(route('reports.index'))->assertInertia(fn ($page) => $page
             ->where('readings', ['entered' => 2, 'consumption' => 50, 'approved' => 1, 'billed' => '25.50', 'pending' => 1]));
@@ -126,7 +126,7 @@ class BranchReportTest extends TestCase
     public function test_a_preparer_reports_only_on_their_own_branch_and_an_auditor_on_all(): void
     {
         $this->at('2026-10-01 08:00', fn () => $this->pay('10'));
-        $this->at('2026-10-01 08:00', fn () => $this->pay('20', [], Subscriber::factory()->create(['branch_id' => $this->south->id])));
+        $this->at('2026-10-01 08:00', fn () => $this->pay('20', [], Subscription::factory()->create(['branch_id' => $this->south->id])));
 
         $this->actingAs($this->preparer())->get(route('reports.index', ['branch' => $this->south->id]))->assertInertia(fn ($page) => $page
             ->where('filters.branch', $this->north->id)
@@ -151,7 +151,7 @@ class BranchReportTest extends TestCase
 
     public function test_the_lines_download_as_csv_narrowed_to_one_kind(): void
     {
-        $this->at('2026-10-01 08:00', fn () => SubscriberTransaction::recordCharge($this->subscriber, $this->collector, ChargeType::Penalty, '100', 'late'));
+        $this->at('2026-10-01 08:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '100', 'late'));
         $payment = $this->at('2026-10-01 08:10', fn () => $this->pay('40'));
         $this->actingAs($this->preparer());
 
@@ -200,9 +200,9 @@ class BranchReportTest extends TestCase
     /**
      * @param  array<string, string>  $details
      */
-    private function pay(string $amount, array $details = [], ?Subscriber $subscriber = null): SubscriberTransaction
+    private function pay(string $amount, array $details = [], ?Subscription $subscription = null): SubscriptionTransaction
     {
-        return SubscriberTransaction::recordPayment($subscriber ?? $this->subscriber, $this->collector, [
+        return SubscriptionTransaction::recordPayment($subscription ?? $this->subscription, $this->collector, [
             'amount' => $amount, 'currency' => 'ILS', 'payment_method' => 'cash', ...$details,
         ]);
     }

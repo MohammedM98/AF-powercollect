@@ -50,9 +50,9 @@ class MeterBox extends Model
         return $this->belongsTo(SubArea::class);
     }
 
-    public function subscribers(): HasMany
+    public function subscriptions(): HasMany
     {
-        return $this->hasMany(Subscriber::class);
+        return $this->hasMany(Subscription::class);
     }
 
     /**
@@ -61,6 +61,6 @@ class MeterBox extends Model
      */
     public function deletionBlocker(): ?string
     {
-        return DeletionBlocker::describe('الطبلون', ['المشتركون' => $this->subscribers()->count()]);
+        return DeletionBlocker::describe('الطبلون', ['المشتركون' => $this->subscriptions()->count()]);
     }
 }

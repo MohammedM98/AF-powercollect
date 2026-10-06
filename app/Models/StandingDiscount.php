@@ -10,13 +10,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A subscriber's standing discount (خصم القراءات الأسبوعية): an advantage taken off every
+ * A subscription's standing discount (خصم القراءات الأسبوعية): an advantage taken off every
  * weekly reading recorded while it lasts — a percentage of the reading,
  * free kilowatts of its consumption, or shekels off the kilo price — given
  * to a customer segment typed with it, such as موظفو أبو زايد. Each reading
  * keeps the discount it was recorded with.
  */
-#[Fillable(['subscriber_id', 'method', 'value', 'segment', 'notes', 'granted_by'])]
+#[Fillable(['subscription_id', 'method', 'value', 'segment', 'notes', 'granted_by'])]
 class StandingDiscount extends Model
 {
     /** @use HasFactory<StandingDiscountFactory> */
@@ -36,7 +36,7 @@ class StandingDiscount extends Model
      */
     public static function termsFor(DiscountMethod $method, float|string $value): string
     {
-        $value = SubscriberTransaction::formatAmount($value);
+        $value = SubscriptionTransaction::formatAmount($value);
 
         return match ($method) {
             DiscountMethod::Percentage => $value.'%',
@@ -52,7 +52,7 @@ class StandingDiscount extends Model
 
     /**
      * Its terms and the customer segment it was given to, as listed with
-     * the subscriber: "3 كيلو · موظفو أبو زايد".
+     * the subscription: "3 كيلو · موظفو أبو زايد".
      */
     public function summary(): string
     {
@@ -75,9 +75,9 @@ class StandingDiscount extends Model
             ->all();
     }
 
-    public function subscriber(): BelongsTo
+    public function subscription(): BelongsTo
     {
-        return $this->belongsTo(Subscriber::class);
+        return $this->belongsTo(Subscription::class);
     }
 
     public function grantedBy(): BelongsTo

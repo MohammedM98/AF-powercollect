@@ -3,12 +3,12 @@
 namespace Tests\Feature\BranchPerformance;
 
 use App\Enums\PermissionKey;
-use App\Enums\SubscriberStatus;
+use App\Enums\SubscriptionStatus;
 use App\Models\Branch;
 use App\Models\MeterReading;
 use App\Models\Permission;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -88,8 +88,8 @@ class BranchPerformanceTest extends TestCase
                     'branches' => 2,
                     'activeBranches' => 1,
                     'chargesTotal' => 700,
-                    'subscribers' => 4,
-                    'activeSubscribers' => 3,
+                    'subscriptions' => 4,
+                    'activeSubscriptions' => 3,
                     'weekEntries' => 3,
                     'todayEntries' => 2,
                     'staff' => 3,
@@ -99,8 +99,8 @@ class BranchPerformanceTest extends TestCase
                 ->where('branches.1', fn ($branch): bool => $branch['name'] === 'فرع الكرادة'
                     && $branch['rank'] === 2
                     && $branch['chargesTotal'] == 200
-                    && $branch['subscribers'] === 3
-                    && $branch['activeSubscribers'] === 2
+                    && $branch['subscriptions'] === 3
+                    && $branch['activeSubscriptions'] === 2
                     && $branch['staff'] === 2
                     && $branch['todayEntries'] === 2
                     && $branch['weekEntries'] === 3
@@ -116,7 +116,7 @@ class BranchPerformanceTest extends TestCase
      * @param  array<int, string>  $order
      */
     #[TestWith(['revenue', ['فرع المنصور', 'فرع الكرادة']])]
-    #[TestWith(['subscribers', ['فرع الكرادة', 'فرع المنصور']])]
+    #[TestWith(['subscriptions', ['فرع الكرادة', 'فرع المنصور']])]
     #[TestWith(['activity', ['فرع الكرادة', 'فرع المنصور']])]
     #[TestWith(['nonsense', ['فرع المنصور', 'فرع الكرادة']])]
     public function test_the_branches_are_ranked_by_the_chosen_figure(string $sort, array $order): void
@@ -131,7 +131,7 @@ class BranchPerformanceTest extends TestCase
                     && collect($branches)->pluck('rank')->all() === [1, 2]));
     }
 
-    public function test_a_branch_page_shows_its_subscribers_charges_and_entries_over_the_last_month(): void
+    public function test_a_branch_page_shows_its_subscriptions_charges_and_entries_over_the_last_month(): void
     {
         $this->seedActivity();
 
@@ -184,28 +184,28 @@ class BranchPerformanceTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->has('workLog', 14)
                 ->where('workLog.0', [
-                    'date' => '2026-09-20', 'newSubscribers' => 1, 'entries' => 2, 'chargesCount' => 1, 'chargesTotal' => 50, 'topEntrant' => 'Karrada Clerk',
+                    'date' => '2026-09-20', 'newSubscriptions' => 1, 'entries' => 2, 'chargesCount' => 1, 'chargesTotal' => 50, 'topEntrant' => 'Karrada Clerk',
                 ])
                 ->where('workLog.3', [
-                    'date' => '2026-09-17', 'newSubscribers' => 1, 'entries' => 1, 'chargesCount' => 0, 'chargesTotal' => 0, 'topEntrant' => 'Karrada Admin',
+                    'date' => '2026-09-17', 'newSubscriptions' => 1, 'entries' => 1, 'chargesCount' => 0, 'chargesTotal' => 0, 'topEntrant' => 'Karrada Admin',
                 ])
                 ->where('workLog.10', [
-                    'date' => '2026-09-10', 'newSubscribers' => 0, 'entries' => 1, 'chargesCount' => 1, 'chargesTotal' => 120, 'topEntrant' => 'Karrada Admin',
+                    'date' => '2026-09-10', 'newSubscriptions' => 0, 'entries' => 1, 'chargesCount' => 1, 'chargesTotal' => 120, 'topEntrant' => 'Karrada Admin',
                 ])
                 ->where('workLog.13.date', '2026-09-07')
                 ->where('workLog.13.topEntrant', null)
-                ->where('latestRegistrations', fn ($subscribers): bool => collect($subscribers)
-                    ->map(fn (array $subscriber): string => $subscriber['name'].' / '.$subscriber['registeredByName'])
+                ->where('latestRegistrations', fn ($subscriptions): bool => collect($subscriptions)
+                    ->map(fn (array $subscription): string => $subscription['name'].' / '.$subscription['registeredByName'])
                     ->all() === ['Registered Today / Karrada Clerk', 'Registered This Week / Karrada Admin', 'Registered Long Ago / Karrada Clerk']));
     }
 
     public function test_entries_fall_on_the_business_day_they_were_made(): void
     {
         // 01:30 on the 20th in Gaza, though still the 19th in UTC.
-        $this->reading($this->subscriber(SubscriberStatus::Active, $this->clerk, '2026-08-01 09:00:00'), $this->clerk, '2026-09-19 22:30:00');
+        $this->reading($this->subscription(SubscriptionStatus::Active, $this->clerk, '2026-08-01 09:00:00'), $this->clerk, '2026-09-19 22:30:00');
         // The last second of the 13th in Gaza (outside the 7 days), then the first of the 14th (inside).
-        $this->subscriber(SubscriberStatus::Active, $this->clerk, '2026-09-13 20:59:59');
-        $this->subscriber(SubscriberStatus::Active, $this->clerk, '2026-09-13 21:00:00');
+        $this->subscription(SubscriptionStatus::Active, $this->clerk, '2026-09-13 20:59:59');
+        $this->subscription(SubscriptionStatus::Active, $this->clerk, '2026-09-13 21:00:00');
 
         $this->actingAs($this->admin)
             ->get(route('branch-performance.show', $this->karrada))
@@ -213,21 +213,21 @@ class BranchPerformanceTest extends TestCase
                 ->where('branch.todayEntries', 1)
                 ->where('branch.weekEntries', 2)
                 ->where('workLog.0.entries', 1)
-                ->where('workLog.6', fn ($day): bool => $day['date'] === '2026-09-14' && $day['newSubscribers'] === 1));
+                ->where('workLog.6', fn ($day): bool => $day['date'] === '2026-09-14' && $day['newSubscriptions'] === 1));
     }
 
     /**
-     * Karrada: three subscribers (one registered today, one three days ago,
+     * Karrada: three subscriptions (one registered today, one three days ago,
      * one fifty days ago and since suspended), a reading today and one ten
      * days ago, 200 shekels charged (170 of it in the last 30 days), plus a
-     * payment and a discount. Mansour, closed: one subscriber and a 500
+     * payment and a discount. Mansour, closed: one subscription and a 500
      * shekel fee, both forty days old.
      */
     private function seedActivity(): void
     {
-        $today = $this->subscriber(SubscriberStatus::Active, $this->clerk, '2026-09-20 08:00:00', 'Registered Today');
-        $thisWeek = $this->subscriber(SubscriberStatus::Active, $this->admin, '2026-09-17 07:00:00', 'Registered This Week');
-        $longAgo = $this->subscriber(SubscriberStatus::Suspended, $this->clerk, '2026-08-01 07:00:00', 'Registered Long Ago');
+        $today = $this->subscription(SubscriptionStatus::Active, $this->clerk, '2026-09-20 08:00:00', 'Registered Today');
+        $thisWeek = $this->subscription(SubscriptionStatus::Active, $this->admin, '2026-09-17 07:00:00', 'Registered This Week');
+        $longAgo = $this->subscription(SubscriptionStatus::Suspended, $this->clerk, '2026-08-01 07:00:00', 'Registered Long Ago');
 
         $this->reading($longAgo, $this->clerk, '2026-09-20 09:30:00');
         $this->reading($thisWeek, $this->admin, '2026-09-10 10:00:00');
@@ -239,18 +239,18 @@ class BranchPerformanceTest extends TestCase
         $this->line($thisWeek, 'discount', '-10.00', $this->admin, '2026-09-20 10:00:00');
 
         $mansourAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->mansour->id]);
-        $mansourSubscriber = Subscriber::factory()->create([
+        $mansourSubscription = Subscription::factory()->create([
             'branch_id' => $this->mansour->id,
             'registered_by' => $mansourAdmin->id,
             'meter_box_id' => null,
             'created_at' => '2026-08-11 09:00:00',
         ]);
-        $this->line($mansourSubscriber, 'subscription_fee', '500.00', $mansourAdmin, '2026-08-11 09:00:00');
+        $this->line($mansourSubscription, 'subscription_fee', '500.00', $mansourAdmin, '2026-08-11 09:00:00');
     }
 
-    private function subscriber(SubscriberStatus $status, User $registeredBy, string $at, ?string $name = null): Subscriber
+    private function subscription(SubscriptionStatus $status, User $registeredBy, string $at, ?string $name = null): Subscription
     {
-        return Subscriber::factory()->create([
+        return Subscription::factory()->create([
             'branch_id' => $this->karrada->id,
             'registered_by' => $registeredBy->id,
             'meter_box_id' => null,
@@ -260,18 +260,18 @@ class BranchPerformanceTest extends TestCase
         ]);
     }
 
-    private function reading(Subscriber $subscriber, User $recordedBy, string $at): MeterReading
+    private function reading(Subscription $subscription, User $recordedBy, string $at): MeterReading
     {
-        return MeterReading::factory()->for($subscriber)->create([
-            'branch_id' => $subscriber->branch_id,
+        return MeterReading::factory()->for($subscription)->create([
+            'branch_id' => $subscription->branch_id,
             'recorded_by' => $recordedBy->id,
             'created_at' => $at,
         ]);
     }
 
-    private function line(Subscriber $subscriber, string $type, string $amount, User $recordedBy, string $at): SubscriberTransaction
+    private function line(Subscription $subscription, string $type, string $amount, User $recordedBy, string $at): SubscriptionTransaction
     {
-        return SubscriberTransaction::factory()->for($subscriber)->create([
+        return SubscriptionTransaction::factory()->for($subscription)->create([
             'type' => $type,
             'source_key' => $type.':'.Str::ulid(),
             'amount' => $amount,

@@ -15,7 +15,7 @@ return new class extends Migration
         Schema::create('closing_payments', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('closing_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('subscriber_transaction_id')->unique()->constrained()->restrictOnDelete();
+            $table->foreignId('subscription_transaction_id')->unique()->constrained()->restrictOnDelete();
             $table->string('match_status')->nullable();
             $table->foreignId('matched_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('matched_at')->nullable();

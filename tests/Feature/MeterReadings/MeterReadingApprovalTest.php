@@ -7,8 +7,8 @@ use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\MeterReading;
 use App\Models\Permission;
-use App\Models\Subscriber;
-use App\Models\SubscriberTransaction;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -31,7 +31,7 @@ class MeterReadingApprovalTest extends TestCase
         $this->accountant = User::factory()->accountant()->create(['branch_id' => $this->branch->id]);
     }
 
-    public function test_the_accountant_approves_the_ticked_readings_and_charges_their_subscribers(): void
+    public function test_the_accountant_approves_the_ticked_readings_and_charges_their_subscriptions(): void
     {
         $approved = $this->pendingReading('2026-09-18', '42.50');
         $untouched = $this->pendingReading('2026-09-18', '10.00');
@@ -49,15 +49,15 @@ class MeterReadingApprovalTest extends TestCase
         $this->assertTrue($approved->approved_at->equalTo(now()));
         $this->assertSame(MeterReadingStatus::Pending, $untouched->fresh()->status);
 
-        $transaction = SubscriberTransaction::sole();
-        $this->assertSame($approved->subscriber_id, $transaction->subscriber_id);
-        $this->assertSame(SubscriberTransaction::TYPE_METER_READING, $transaction->type);
+        $transaction = SubscriptionTransaction::sole();
+        $this->assertSame($approved->subscription_id, $transaction->subscription_id);
+        $this->assertSame(SubscriptionTransaction::TYPE_METER_READING, $transaction->type);
         $this->assertSame('42.50', $transaction->amount);
         $this->assertTrue($transaction->recordedBy->is($this->accountant));
 
         $this->actingAs($this->accountant)
-            ->get(route('subscribers.index', ['search' => $approved->subscriber->full_name]))
-            ->assertInertia(fn ($page) => $page->where('subscribers.data.0.outstandingBalance', fn ($balance): bool => (float) $balance === 42.5));
+            ->get(route('subscriptions.index', ['search' => $approved->subscription->full_name]))
+            ->assertInertia(fn ($page) => $page->where('subscriptions.data.0.outstandingBalance', fn ($balance): bool => (float) $balance === 42.5));
     }
 
     public function test_approve_all_takes_the_weeks_pending_readings_matching_the_sheets_search_in_the_accountants_branch(): void
@@ -66,7 +66,7 @@ class MeterReadingApprovalTest extends TestCase
         $otherName = $this->pendingReading('2026-09-18', '7.00', 'Sara');
         $earlierWeek = $this->pendingReading('2026-09-11', '8.00', 'Ahmad Three');
         $otherBranch = MeterReading::factory()->create([
-            'subscriber_id' => Subscriber::factory()->create(['full_name' => 'Ahmad Elsewhere']),
+            'subscription_id' => Subscription::factory()->create(['full_name' => 'Ahmad Elsewhere']),
             'week_start' => '2026-09-18',
         ]);
 
@@ -80,7 +80,7 @@ class MeterReadingApprovalTest extends TestCase
         foreach ([$otherName, $earlierWeek, $otherBranch] as $reading) {
             $this->assertSame(MeterReadingStatus::Pending, $reading->fresh()->status);
         }
-        $this->assertDatabaseCount('subscriber_transactions', 2);
+        $this->assertDatabaseCount('subscription_transactions', 2);
     }
 
     public function test_a_reading_is_charged_only_once_and_another_branchs_reading_is_skipped(): void
@@ -93,7 +93,7 @@ class MeterReadingApprovalTest extends TestCase
         $this->post(route('meter-readings.approve'), ['reading_ids' => [$reading->id, $otherBranch->id]])
             ->assertSessionHasErrors(['reading_ids' => 'لا توجد قراءات بانتظار الاعتماد ضمن اختيارك.']);
 
-        $this->assertDatabaseCount('subscriber_transactions', 1);
+        $this->assertDatabaseCount('subscription_transactions', 1);
         $this->assertSame(MeterReadingStatus::Pending, $otherBranch->fresh()->status);
     }
 
@@ -195,16 +195,16 @@ class MeterReadingApprovalTest extends TestCase
         $this->assertSame('40.00', $reading->amount_due);
 
         // The charge stays on the statement, cancelled by a reversal, so it no longer counts.
-        $charge = SubscriberTransaction::where('type', SubscriberTransaction::TYPE_METER_READING)->sole();
+        $charge = SubscriptionTransaction::where('type', SubscriptionTransaction::TYPE_METER_READING)->sole();
         $this->assertSame(['reading_corrected', $dataEntry->id], [$charge->cancellation_reason->value, $charge->cancelled_by]);
-        $this->assertSame('-42.50', SubscriberTransaction::where('reverses_id', $charge->id)->sole()->amount);
-        $this->assertSame(0.0, $reading->subscriber->balance());
+        $this->assertSame('-42.50', SubscriptionTransaction::where('reverses_id', $charge->id)->sole()->amount);
+        $this->assertSame(0.0, $reading->subscription->balance());
 
         // Approving it again charges the corrected amount, as the correction of the cancelled line.
         $reading->approve($this->accountant);
-        $corrected = SubscriberTransaction::where('type', SubscriberTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->sole();
+        $corrected = SubscriptionTransaction::where('type', SubscriptionTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->sole();
         $this->assertSame(['40.00', $charge->id], [$corrected->amount, $corrected->corrects_id]);
-        $this->assertSame(40.0, $reading->subscriber->balance());
+        $this->assertSame(40.0, $reading->subscription->balance());
     }
 
     public function test_the_people_who_approve_are_told_when_an_approved_reading_is_corrected(): void
@@ -254,17 +254,17 @@ class MeterReadingApprovalTest extends TestCase
     {
         $pending = $this->pendingReading('2026-09-18', '5.00', 'Ahmad Pending');
         $approved = $this->pendingReading('2026-09-18', '6.00', 'Ahmad Approved');
-        $approved->subscriber->update(['meter_box_id' => $pending->subscriber->meter_box_id]);
+        $approved->subscription->update(['meter_box_id' => $pending->subscription->meter_box_id]);
         $approved->approve($this->accountant);
-        Subscriber::factory()->create([
+        Subscription::factory()->create([
             'branch_id' => $this->branch->id,
-            'meter_box_id' => $pending->subscriber->meter_box_id,
+            'meter_box_id' => $pending->subscription->meter_box_id,
             'full_name' => 'Ahmad Missing',
         ]);
         $this->pendingReading('2026-09-18', '7.00', 'Sara');
         $this->pendingReading('2026-09-18', '8.00', 'Ahmad Another Box');
         MeterReading::factory()->create([
-            'subscriber_id' => Subscriber::factory()->create(['full_name' => 'Ahmad Another Branch']),
+            'subscription_id' => Subscription::factory()->create(['full_name' => 'Ahmad Another Branch']),
             'week_start' => '2026-09-18',
         ]);
         $this->actingAs($this->accountant);
@@ -275,7 +275,7 @@ class MeterReadingApprovalTest extends TestCase
                 'search' => 'Ahmad',
                 'per_page' => 15,
                 'filter' => [
-                    'meter_box_id' => $pending->subscriber->meter_box_id,
+                    'meter_box_id' => $pending->subscription->meter_box_id,
                     'entry' => $status === 'missing' ? 'missing' : '',
                     'approval' => $status === 'missing' ? '' : $status,
                 ],
@@ -309,10 +309,10 @@ class MeterReadingApprovalTest extends TestCase
                 ->where('rows.data.0.reading.approvedAt', '24/09 13:00'));
     }
 
-    private function pendingReading(string $weekStart, string $amountDue, ?string $subscriberName = null): MeterReading
+    private function pendingReading(string $weekStart, string $amountDue, ?string $subscriptionName = null): MeterReading
     {
         return MeterReading::factory()->create([
-            'subscriber_id' => Subscriber::factory()->create(array_filter(['branch_id' => $this->branch->id, 'full_name' => $subscriberName])),
+            'subscription_id' => Subscription::factory()->create(array_filter(['branch_id' => $this->branch->id, 'full_name' => $subscriptionName])),
             'week_start' => $weekStart,
             'week_end' => now()->parse($weekStart)->addDays(6),
             'amount_due' => $amountDue,

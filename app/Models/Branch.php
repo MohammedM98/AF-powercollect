@@ -44,9 +44,9 @@ class Branch extends Model
         return $this->hasMany(MeterBox::class);
     }
 
-    public function subscribers(): HasMany
+    public function subscriptions(): HasMany
     {
-        return $this->hasMany(Subscriber::class);
+        return $this->hasMany(Subscription::class);
     }
 
     public function meterReadings(): HasMany
@@ -55,11 +55,11 @@ class Branch extends Model
     }
 
     /**
-     * Every line on the accounts of the branch's subscribers.
+     * Every line on the accounts of the branch's subscriptions.
      */
     public function transactions(): HasManyThrough
     {
-        return $this->hasManyThrough(SubscriberTransaction::class, Subscriber::class);
+        return $this->hasManyThrough(SubscriptionTransaction::class, Subscription::class);
     }
 
     /**
@@ -69,7 +69,7 @@ class Branch extends Model
     public function deletionBlocker(): ?string
     {
         return DeletionBlocker::describe('الفرع', [
-            'المشتركون' => $this->subscribers()->count(),
+            'المشتركون' => $this->subscriptions()->count(),
             'المستخدمون' => $this->users()->count(),
             'الطبلونات' => $this->meterBoxes()->count(),
             'القراءات' => $this->meterReadings()->count(),

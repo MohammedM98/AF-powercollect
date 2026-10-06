@@ -103,7 +103,7 @@ class FieldStore {
       state['queued_readings'] = queue;
       final drafts = readingDrafts;
       for (final reading in readings) {
-        drafts.remove(reading['subscriber_id']);
+        drafts.remove(reading['subscription_id']);
       }
       _putDrafts(drafts);
     });
@@ -138,7 +138,7 @@ class FieldStore {
       state['queued_readings'] = queue;
       _putDrafts({
         ...readingDrafts,
-        reading['subscriber_id'] as int: '${reading['current_reading']}',
+        reading['subscription_id'] as int: '${reading['current_reading']}',
       });
     });
   }

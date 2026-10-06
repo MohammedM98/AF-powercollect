@@ -9,7 +9,7 @@ namespace App\Support\Messaging;
 interface SmsGateway
 {
     /**
-     * Send the text to the phone number (as the subscriber's record has it).
+     * Send the text to the phone number (as the subscription's record has it).
      *
      * @throws SmsDeliveryFailed when the gateway doesn't accept it
      */

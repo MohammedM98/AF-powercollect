@@ -22,7 +22,7 @@ class TransactionAmendment extends Model
 
     public function transaction(): BelongsTo
     {
-        return $this->belongsTo(SubscriberTransaction::class);
+        return $this->belongsTo(SubscriptionTransaction::class);
     }
 
     public function user(): BelongsTo

@@ -50,7 +50,7 @@ class CashTransferTest extends TestCase
         $this->assertSame('950.00', $transfer->amount);
         $this->assertSame($this->treasurer->id, $transfer->recipient_id);
         Storage::disk('local')->assertExists($transfer->proof_path);
-        $this->assertDatabaseCount('subscriber_transactions', 0);
+        $this->assertDatabaseCount('subscription_transactions', 0);
         $this->get(route('closings.index', ['tab' => 'handover', 'date' => $closing->period_start->toDateString()]))
             ->assertInertia(fn ($page) => $page
                 ->where('handover.branchCash', '0.00')

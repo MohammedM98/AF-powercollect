@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\MessageChannel;
 use App\Enums\MessageKind;
-use App\Enums\SubscriberStatus;
+use App\Enums\SubscriptionStatus;
 use App\Models\MessageBatch;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -21,7 +21,7 @@ class StoreMessageBatchRequest extends FormRequest
     }
 
     /**
-     * The message, how it goes out, and who gets it: the subscribers picked
+     * The message, how it goes out, and who gets it: the subscriptions picked
      * from the preview, still checked against the same criteria (see
      * MessageComposer::recipients()).
      *
@@ -37,12 +37,12 @@ class StoreMessageBatchRequest extends FormRequest
             'approved_only' => ['boolean'],
             'min_balance' => ['nullable', 'numeric', 'min:0'],
             'branch_id' => ['nullable', 'integer'],
-            'status' => ['nullable', Rule::enum(SubscriberStatus::class)],
+            'status' => ['nullable', Rule::enum(SubscriptionStatus::class)],
             'meter_box_name' => ['nullable', 'string', 'max:255'],
             'meter_box_id' => ['nullable', 'integer'],
             'circuit_breaker_id' => ['nullable', 'regex:/^(none|\d+)$/'],
-            'subscriber_ids' => ['required', 'array', 'min:1'],
-            'subscriber_ids.*' => ['integer'],
+            'subscription_ids' => ['required', 'array', 'min:1'],
+            'subscription_ids.*' => ['integer'],
         ];
     }
 
@@ -53,8 +53,8 @@ class StoreMessageBatchRequest extends FormRequest
     {
         return [
             'body.required' => 'اكتب نص الرسالة.',
-            'subscriber_ids.required' => 'اختر مستلمًا واحدًا على الأقل.',
-            'subscriber_ids.min' => 'اختر مستلمًا واحدًا على الأقل.',
+            'subscription_ids.required' => 'اختر مستلمًا واحدًا على الأقل.',
+            'subscription_ids.min' => 'اختر مستلمًا واحدًا على الأقل.',
             'week_start.required' => 'اختر أسبوع القراءة.',
         ];
     }

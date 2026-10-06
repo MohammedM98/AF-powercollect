@@ -4,33 +4,33 @@ import { changesBetween, filterSections, individualChanges, levelOf, samePermiss
 
 const entry = (action, id, label = action) => ({ action, permission: id === null ? null : { id, label } });
 
-const subscribers = sectionModel({
-    key: 'subscribers',
+const subscriptions = sectionModel({
+    key: 'subscriptions',
     label: 'المشتركون',
     actions: [entry('view', 1), entry('create', 2), entry('update', 3), entry('delete', 4), entry('minimum_charge', 5)],
 });
 
 test('a section climbs view, add, edit, with delete and special permissions set apart', () => {
-    assert.deepEqual(subscribers.ladder.ids, [1, 2, 3]);
-    assert.deepEqual(subscribers.ladder.levels, ['بدون', 'عرض', 'إضافة', 'تعديل']);
-    assert.deepEqual(subscribers.sensitive.map((item) => [item.id, item.label]), [[4, 'الحذف'], [5, 'تعديل الحد الأدنى للدفع']]);
-    assert.deepEqual(subscribers.switches, []);
-    assert.deepEqual(sectionIds(subscribers).sort(), [1, 2, 3, 4, 5]);
+    assert.deepEqual(subscriptions.ladder.ids, [1, 2, 3]);
+    assert.deepEqual(subscriptions.ladder.levels, ['بدون', 'عرض', 'إضافة', 'تعديل']);
+    assert.deepEqual(subscriptions.sensitive.map((item) => [item.id, item.label]), [[4, 'الحذف'], [5, 'تعديل الحد الأدنى للدفع']]);
+    assert.deepEqual(subscriptions.switches, []);
+    assert.deepEqual(sectionIds(subscriptions).sort(), [1, 2, 3, 4, 5]);
 });
 
 test('a level is held only when exactly the permissions up to it are', () => {
-    assert.equal(levelOf(subscribers.ladder, []), 0);
-    assert.equal(levelOf(subscribers.ladder, [1]), 1);
-    assert.equal(levelOf(subscribers.ladder, [1, 2, 4]), 2);
-    assert.equal(levelOf(subscribers.ladder, [1, 2, 3]), 3);
+    assert.equal(levelOf(subscriptions.ladder, []), 0);
+    assert.equal(levelOf(subscriptions.ladder, [1]), 1);
+    assert.equal(levelOf(subscriptions.ladder, [1, 2, 4]), 2);
+    assert.equal(levelOf(subscriptions.ladder, [1, 2, 3]), 3);
     // Edit without add, or add without view, sits on no level: it is custom.
-    assert.equal(levelOf(subscribers.ladder, [1, 3]), null);
-    assert.equal(levelOf(subscribers.ladder, [2]), null);
+    assert.equal(levelOf(subscriptions.ladder, [1, 3]), null);
+    assert.equal(levelOf(subscriptions.ladder, [2]), null);
 });
 
 test('setting a level changes only that ladder, leaving delete and other sections as they were', () => {
-    assert.deepEqual(withLevel(subscribers.ladder, [3, 4, 99], 2).sort((a, b) => a - b), [1, 2, 4, 99]);
-    assert.deepEqual(withLevel(subscribers.ladder, [1, 2, 3, 4], 0), [4]);
+    assert.deepEqual(withLevel(subscriptions.ladder, [3, 4, 99], 2).sort((a, b) => a - b), [1, 2, 4, 99]);
+    assert.deepEqual(withLevel(subscriptions.ladder, [1, 2, 3, 4], 0), [4]);
     assert.deepEqual(withToggled([1, 4], 4, false), [1]);
     assert.deepEqual(withToggled([1], 4, true), [1, 4]);
 });
@@ -52,12 +52,12 @@ test('closings have no ladder: preparing and viewing every branch are separate s
 });
 
 test('the changes name each new level and each permission turned on or off', () => {
-    assert.deepEqual(changesBetween([subscribers], [1], [1, 2, 4]), [
+    assert.deepEqual(changesBetween([subscriptions], [1], [1, 2, 4]), [
         { text: 'المشتركون: إضافة', added: true },
         { text: 'المشتركون: الحذف', added: true },
     ]);
-    assert.deepEqual(changesBetween([subscribers], [1, 2, 3], [1]), [{ text: 'المشتركون: عرض', added: false }]);
-    assert.deepEqual(changesBetween([subscribers], [1, 2], [2, 1]), []);
+    assert.deepEqual(changesBetween([subscriptions], [1, 2, 3], [1]), [{ text: 'المشتركون: عرض', added: false }]);
+    assert.deepEqual(changesBetween([subscriptions], [1, 2], [2, 1]), []);
     assert.ok(samePermissions([1, 2], [2, 1]));
     assert.ok(!samePermissions([1, 2], [1]));
 });
@@ -76,7 +76,7 @@ test('each report is its own switch, explained in a line', () => {
 });
 
 test('review lists exact additions and removals when a custom level swaps actions', () => {
-    const changes = individualChanges([subscribers], [1, 2, 4], [1, 3, 5]);
+    const changes = individualChanges([subscriptions], [1, 2, 4], [1, 3, 5]);
     assert.deepEqual(changes.map(({ id, added, sensitive }) => ({ id, added, sensitive })), [
         { id: 2, added: false, sensitive: false }, { id: 3, added: true, sensitive: false },
         { id: 4, added: false, sensitive: true }, { id: 5, added: true, sensitive: true },
@@ -98,9 +98,9 @@ test('payment permissions use action names and keep edit, refund, cancel and per
 test('search and filters reveal relevant actions without mutating selected grants', () => {
     const readings = sectionModel({ key: 'meter_readings', label: 'القراءات', actions: [entry('view', 10), entry('record', 11), entry('correct', 12)] });
     const selected = [1, 4, 10];
-    assert.deepEqual(filterSections([subscribers, readings], selected, [1, 10], 'تصحيح', 'all').map((item) => item.key), ['meter_readings']);
-    assert.deepEqual(filterSections([subscribers, readings], selected, [1, 10], '', 'changed').map((item) => item.key), ['subscribers']);
-    assert.equal(filterSections([subscribers, readings], [], [], '', 'enabled').length, 0);
+    assert.deepEqual(filterSections([subscriptions, readings], selected, [1, 10], 'تصحيح', 'all').map((item) => item.key), ['meter_readings']);
+    assert.deepEqual(filterSections([subscriptions, readings], selected, [1, 10], '', 'changed').map((item) => item.key), ['subscriptions']);
+    assert.equal(filterSections([subscriptions, readings], [], [], '', 'enabled').length, 0);
     assert.deepEqual(selected, [1, 4, 10]);
 });
 

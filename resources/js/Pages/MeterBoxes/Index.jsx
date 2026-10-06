@@ -127,7 +127,7 @@ export default function Index({
                                 <Fragment key={meterBox.id}>
                                 <tr className={expandedId === meterBox.id ? 'meter-box-expanded' : undefined} {...rowClick(canViewSubscriptions ? () => setExpandedId(expandedId === meterBox.id ? null : meterBox.id) : meterBox.canUpdate ? () => setModalMeterBox(meterBox) : null)}>
                                     <td data-label="الطبلون">
-                                        <RowIdentity icon="table" name={meterBox.box_number} subtitle={meterBox.display_name} />
+                                        <RowIdentity icon="table" name={meterBox.display_name || meterBox.box_number} subtitle={meterBox.display_name ? meterBox.box_number : undefined} />
                                     </td>
                                     <td data-label="الموقع / المنطقة">
                                         <p className="text-sm font-semibold text-gray-700">{meterBox.location || meterBox.subAreaName || '—'}</p>

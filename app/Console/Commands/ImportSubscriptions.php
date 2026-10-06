@@ -31,7 +31,8 @@ class ImportSubscriptions extends Command
      * Each row becomes a subscription of the user's branch, found later by
      * its old number. A row already imported is skipped, so the file can be
      * run again. The area becomes a sub-area of the branch's area, holding a
-     * meter box of the subscription's own. A positive balance is what the
+     * meter box of the subscription's own, named after the area (a row
+     * without an area gets no box). A positive balance is what the
      * subscription owes; a negative one is credit in their favour.
      */
     public function handle(): int
@@ -125,18 +126,21 @@ class ImportSubscriptions extends Command
         $tariff = $this->tariffFor($row);
         $balance = $this->balanceOf($row);
 
-        if (MeterBox::query()->where('box_number', $legacyNumber)->exists()) {
+        $area = trim((string) $row['area']);
+
+        if ($area !== '' && MeterBox::query()->where('box_number', $legacyNumber)->exists()) {
             throw new RuntimeException('A meter box already has this number.');
         }
 
-        DB::transaction(function () use ($row, $user, $legacyNumber, $tariff, $balance): void {
-            $subArea = $this->subAreaFor(trim((string) $row['area']), $user);
+        DB::transaction(function () use ($row, $user, $legacyNumber, $tariff, $balance, $area): void {
+            $subArea = $this->subAreaFor($area, $user);
 
-            $meterBox = MeterBox::create([
-                'name' => trim($row['name']),
+            // A box is named after the place, as the existing ones are, never after the person. A row without an area gets none.
+            $meterBox = $subArea === null ? null : MeterBox::create([
+                'name' => $area,
                 'box_number' => $legacyNumber,
                 'branch_id' => $user->branch_id,
-                'sub_area_id' => $subArea?->id,
+                'sub_area_id' => $subArea->id,
             ]);
 
             $subscription = Subscription::create([
@@ -144,7 +148,7 @@ class ImportSubscriptions extends Command
                 'full_name' => trim($row['name']),
                 'phone' => filled($row['phone_number']) ? trim($row['phone_number']) : null,
                 'branch_id' => $user->branch_id,
-                'meter_box_id' => $meterBox->id,
+                'meter_box_id' => $meterBox?->id,
                 'tariff_id' => $tariff->id,
                 'minimum_charge' => is_numeric($row['minimum_limit']) ? $row['minimum_limit'] : null,
                 'status' => SubscriptionStatus::Active,

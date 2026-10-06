@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\AccountingType;
 use App\Models\Area;
 use App\Models\Branch;
+use App\Models\MeterBox;
 use App\Models\SubArea;
 use App\Models\Subscription;
 use App\Models\Tariff;
@@ -61,14 +62,29 @@ class ImportSubscriptionsCommandTest extends TestCase
         $this->assertSame($this->area->id, $first->meterBox->subArea->area_id);
         $this->assertSame('شواقفة حارة الشافعي', $first->meterBox->subArea->name);
         $this->assertSame('129600', $first->meterBox->box_number);
+        $this->assertSame('شواقفة حارة الشافعي', $first->meterBox->name);
         $this->assertSame(AccountingType::Weekly, $first->accounting_type);
 
         $credit = Subscription::query()->where('legacy_number', '129608')->sole();
         $this->assertSame(-0.10, $credit->balance());
-        $this->assertNull($credit->meterBox->sub_area_id);
+        $this->assertNull($credit->meter_box_id);
 
         $this->assertSame(0, Subscription::query()->where('legacy_number', '129620')->sole()->transactions()->count());
         $this->assertSame(1, SubArea::query()->count());
+    }
+
+    public function test_imported_meter_boxes_carry_the_place_name_so_the_box_filter_lists_places_not_people(): void
+    {
+        $this->import("129600,اسامة فضل,0599013094,10,منزلي - أسبوعي,20,درويش\n129601,محمد يوسف,0592674067,5,منزلي - أسبوعي,20,درويش\n129602,عماد نويجع,0594106569,5,منزلي - أسبوعي,20,\n")
+            ->assertSuccessful();
+
+        $this->assertSame(['درويش'], MeterBox::query()->pluck('name')->unique()->values()->all());
+        $this->assertSame(2, MeterBox::query()->count());
+
+        $this->actingAs($this->user)->get(route('subscriptions.index'))->assertInertia(function ($page): void {
+            $groups = collect($page->toArray()['props']['filterOptions']);
+            $this->assertSame(['درويش'], collect($groups->firstWhere('key', 'meter_box_name')['options'])->pluck('label')->all());
+        });
     }
 
     public function test_a_monthly_subscription_type_sets_the_accounting_type_and_weekly_is_the_default(): void

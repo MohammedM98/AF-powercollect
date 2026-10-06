@@ -162,13 +162,13 @@ class SubscriberTransactionCorrectionTest extends TestCase
         $this->correct($payment, [
             ...$this->transfer('30'),
             'bank_name' => 'البنك الإسلامي الفلسطيني',
-            'sender_bank_name' => 'البنك الوطني الإسلامي',
+            'sender_bank_name' => 'البنك الإسلامي العربي',
             'correction_reason' => 'wrong_amount',
             'correction_notes' => 'تصحيح المبلغ والبنك',
         ])->assertSessionHasNoErrors();
 
         $this->assertSame('جوال باي', $payment->fresh()->sender_bank_name);
-        $this->assertSame('البنك الوطني الإسلامي', $payment->fresh()->correction->sender_bank_name);
+        $this->assertSame('البنك الإسلامي العربي', $payment->fresh()->correction->sender_bank_name);
 
         $this->actingAs($this->branchAdmin)
             ->get(route('subscribers.statement', $this->subscriber))
@@ -179,9 +179,9 @@ class SubscriberTransactionCorrectionTest extends TestCase
                 ->where('entries.2.bankName', 'بنك فلسطين')
                 ->where('entries.2.senderBankName', 'جوال باي')
                 ->where('entries.3.bankName', 'البنك الإسلامي الفلسطيني')
-                ->where('entries.3.senderBankName', 'البنك الوطني الإسلامي')
+                ->where('entries.3.senderBankName', 'البنك الإسلامي العربي')
                 ->where('entries.3.recorded.bank_name', 'البنك الإسلامي الفلسطيني')
-                ->where('entries.3.recorded.sender_bank_name', 'البنك الوطني الإسلامي'));
+                ->where('entries.3.recorded.sender_bank_name', 'البنك الإسلامي العربي'));
     }
 
     public function test_amending_payment_details_keeps_the_financial_line_and_records_every_change(): void
@@ -206,7 +206,7 @@ class SubscriberTransactionCorrectionTest extends TestCase
 
         $this->amend($payment, [
             'bank_name' => 'البنك الإسلامي الفلسطيني',
-            'sender_bank_name' => 'البنك الوطني الإسلامي',
+            'sender_bank_name' => 'البنك الإسلامي العربي',
             'sender_name' => 'أحمد محمد',
             'notes' => 'تم تدقيق الحوالة',
             'amendment_reason' => 'اختير البنك الخطأ عند التسجيل',
@@ -219,7 +219,7 @@ class SubscriberTransactionCorrectionTest extends TestCase
         $this->assertSame($recordedAt, $payment->created_at->toJSON());
         $this->assertSame($balance, $this->subscriber->balance());
         $this->assertSame(
-            ['البنك الإسلامي الفلسطيني', 'البنك الوطني الإسلامي', 'أحمد محمد', 'TR-1', 'تم تدقيق الحوالة'],
+            ['البنك الإسلامي الفلسطيني', 'البنك الإسلامي العربي', 'أحمد محمد', 'TR-1', 'تم تدقيق الحوالة'],
             [$payment->bank_name, $payment->sender_bank_name, $payment->sender_name, $payment->reference_number, $payment->notes],
         );
 
@@ -231,7 +231,7 @@ class SubscriberTransactionCorrectionTest extends TestCase
 
         $this->amend($payment, [
             'bank_name' => 'البنك الإسلامي الفلسطيني',
-            'sender_bank_name' => 'البنك الوطني الإسلامي',
+            'sender_bank_name' => 'البنك الإسلامي العربي',
             'sender_name' => 'أحمد محمد',
             'reference_number' => 'TR-201',
             'notes' => 'تم تدقيق الحوالة',
@@ -241,7 +241,7 @@ class SubscriberTransactionCorrectionTest extends TestCase
 
         $this->amend($payment, [
             'bank_name' => 'البنك الإسلامي الفلسطيني',
-            'sender_bank_name' => 'البنك الوطني الإسلامي',
+            'sender_bank_name' => 'البنك الإسلامي العربي',
             'sender_name' => 'أحمد محمد',
             'notes' => 'ملاحظة جديدة',
             'amendment_reason' => 'تحديث الملاحظة',

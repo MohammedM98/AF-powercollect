@@ -60,6 +60,7 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
     );
     const { data, setData, errors } = form;
     const [discarding, setDiscarding] = useState(false);
+    const [confirmingSave, setConfirmingSave] = useState(false);
     const [receipt, setReceipt] = useState(null);
 
     const type = chargeTypes.find((option) => option.value === data.type) ?? chargeTypes[0];
@@ -116,6 +117,12 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
         if (!validateFormFields(event.currentTarget, form)) {
             return;
         }
+
+        setConfirmingSave(true);
+    }
+
+    function save() {
+        setConfirmingSave(false);
 
         const recorded = { typeLabel: type.label, amount, notes: data.notes.trim(), balanceAfter };
 
@@ -294,6 +301,17 @@ export default function ChargeModal({ show, onClose, subscriber, balance, charge
                 cancelLabel="البقاء ومتابعة الإدخال"
                 icon="alert"
                 tone="danger"
+            />
+
+            <ConfirmDialog
+                show={show && confirmingSave}
+                onConfirm={save}
+                onCancel={() => setConfirmingSave(false)}
+                title={correcting ? 'تأكيد حفظ التصحيح؟' : 'تأكيد إضافة التحميل؟'}
+                message={`${correcting ? 'سيُصحَّح التحميل إلى' : 'سيُضاف تحميل'} ${type.label} بقيمة ${formatMoney(amount)} ₪ على حساب ${subscriber.fullName}. هل تريد المتابعة؟`}
+                confirmLabel={correcting ? 'نعم، احفظ التصحيح' : 'نعم، أضف التحميل'}
+                cancelLabel="رجوع للمراجعة"
+                icon="check"
             />
         </>
     );

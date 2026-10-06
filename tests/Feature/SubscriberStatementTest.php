@@ -257,7 +257,7 @@ class SubscriberStatementTest extends TestCase
     #[TestWith(['محفظة بالباي'])]
     #[TestWith(['جوال باي'])]
     #[TestWith(['البنك الإسلامي الفلسطيني'])]
-    #[TestWith(['البنك الوطني الإسلامي'])]
+    #[TestWith(['البنك الإسلامي العربي'])]
     public function test_each_offered_bank_can_be_a_transfer_source_and_destination(string $bank): void
     {
         $this->recordPayment([

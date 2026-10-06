@@ -1172,6 +1172,8 @@ class SubscriberTransaction extends Model
             self::query()->where('corrects_id', $target->id)->update(['corrects_id' => null]);
             $reversals->each->delete();
             $target->delete();
+            // A reversal of an older line may have been recorded after the erased one, so its running balance moves too.
+            self::recalculateBalances($target->subscriber_id);
             TransactionDeletion::record($actor, TransactionDeletion::ACTION_ERASE, $reason, $erasedTransactions);
 
             Log::warning('Transaction erased for good', [

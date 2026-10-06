@@ -32,7 +32,7 @@ class AmendSubscriberTransactionRequest extends FormRequest
                 ? ['required', Rule::in(config('powercollect.transfer_banks'))]
                 : ['prohibited'],
             'sender_bank_name' => $throughBank
-                ? ['nullable', Rule::in(config('powercollect.transfer_banks'))]
+                ? ['nullable', Rule::in(config('powercollect.sender_banks'))]
                 : ['prohibited'],
             'sender_name' => $throughBank ? ['nullable', 'string', 'max:255'] : ['prohibited'],
             // A payment's reference number is never changed after it is recorded.

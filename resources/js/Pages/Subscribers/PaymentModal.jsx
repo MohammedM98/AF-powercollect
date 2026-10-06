@@ -29,6 +29,7 @@ const BANKS = {
         kind: 'تحويل بنكي',
         logoClassName: 'absolute left-[-19px] top-[-15px] h-auto w-[120px] max-w-none',
     },
+    'بنك القدس': { logo: '/images/banks/quds-bank.png', color: '#74bd44', kind: 'تحويل بنكي' },
     'البنك الإسلامي العربي': { logo: '/images/banks/arab-islamic-bank.png', color: '#7b2d8e', kind: 'تحويل بنكي' },
 };
 
@@ -397,6 +398,7 @@ export default function PaymentModal({
     currencies,
     paymentMethods,
     transferBanks,
+    senderBanks,
     correcting = null,
     correctionReasons = [],
 }) {
@@ -842,7 +844,7 @@ export default function PaymentModal({
                                                     البنك المحوّل منه (من)
                                                 </FieldLabel>
                                                 <BankDropdown
-                                                    banks={transferBanks}
+                                                    banks={senderBanks}
                                                     id="sender_bank_name"
                                                     name="sender_bank_name"
                                                     value={data.sender_bank_name}

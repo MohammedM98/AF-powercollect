@@ -289,47 +289,32 @@ class SubscriberStandingDiscountTest extends TestCase
         $this->assertSame(['180.00', '90.00', '90.00'], [$reading->reading_fee, $reading->discount_amount, $reading->amount_due]);
     }
 
-    public function test_giving_a_discount_rebills_the_latest_weeks_pending_reading_at_once(): void
+    public function test_giving_a_discount_leaves_readings_already_recorded_as_they_were(): void
     {
         $this->recordReading(1205);
 
         $this->giveDiscount(['method' => 'kilowatt', 'value' => '3', 'segment' => 'مساجد'])->assertSessionHasNoErrors();
 
         $reading = MeterReading::sole();
-        $this->assertSame([DiscountMethod::Kilowatt, '3.00', 'مساجد'], [$reading->discount_method, $reading->discount_value, $reading->discount_segment]);
-        $this->assertSame(['150.00', '90.00', '60.00'], [$reading->reading_fee, $reading->discount_amount, $reading->amount_due]);
+        $this->assertSame([null, '0.00', '150.00'], [$reading->discount_method, $reading->discount_amount, $reading->amount_due]);
         $this->assertSame(MeterReadingStatus::Pending, $reading->status);
         $this->assertDatabaseCount('subscriber_transactions', 0);
     }
 
-    public function test_a_discount_given_after_the_latest_week_was_approved_goes_to_the_transactions_at_once_and_earlier_weeks_keep_theirs(): void
+    public function test_a_discount_given_after_the_latest_week_was_approved_applies_only_to_the_next_readings(): void
     {
-        $earlierWeek = MeterReading::factory()->approved()->for($this->subscriber)->create([
-            'week_start' => '2026-09-11',
-            'week_end' => '2026-09-17',
-            'previous_reading' => 1195,
-            'current_reading' => 1200,
-            'consumption' => 5,
-            'unit_price' => '30.00',
-            'minimum_payment' => '20.00',
-            'reading_fee' => '150.00',
-            'amount_due' => '150.00',
-        ]);
         $this->recordReading(1205);
-        $latestWeek = MeterReading::whereDate('week_start', '2026-09-18')->sole();
+        $latestWeek = MeterReading::sole();
         $latestWeek->approve($this->branchAdmin);
 
         $this->giveDiscount(['method' => 'kilowatt', 'value' => '3'])->assertSessionHasNoErrors();
 
-        $discountLine = SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->sole();
-        $this->assertSame(['-90.00', $latestWeek->id], [$discountLine->amount, $discountLine->meter_reading_id]);
-        $this->assertSame(60.0, $this->subscriber->balance());
-        $this->assertSame(['90.00', '60.00'], [$latestWeek->fresh()->discount_amount, $latestWeek->fresh()->amount_due]);
-        $earlierWeek->refresh();
-        $this->assertSame([null, '150.00'], [$earlierWeek->discount_method, $earlierWeek->amount_due]);
+        $this->assertSame(0, SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->count());
+        $this->assertSame(150.0, $this->subscriber->balance());
+        $this->assertSame([null, '150.00'], [$latestWeek->fresh()->discount_method, $latestWeek->fresh()->amount_due]);
     }
 
-    public function test_changing_the_discount_replaces_the_approved_latest_weeks_discount_line(): void
+    public function test_changing_the_discount_keeps_the_discount_the_approved_reading_was_recorded_with(): void
     {
         StandingDiscount::factory()->for($this->subscriber)->kilowatts(3)->create();
         $this->recordReading(1205);
@@ -337,13 +322,11 @@ class SubscriberStandingDiscountTest extends TestCase
 
         $this->giveDiscount(['method' => 'percentage', 'value' => '10'])->assertSessionHasNoErrors();
 
-        $this->assertSame(['-15.00'], SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->whereNull('cancelled_at')->pluck('amount')->all());
-        $old = SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->whereNotNull('cancelled_at')->sole();
-        $this->assertSame(['-90.00', 'standing_discount_changed'], [$old->amount, $old->cancellation_reason->value]);
-        $this->assertSame(135.0, $this->subscriber->balance());
+        $this->assertSame(['-90.00'], SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->whereNull('cancelled_at')->pluck('amount')->all());
+        $this->assertSame(60.0, $this->subscriber->balance());
     }
 
-    public function test_stopping_the_discount_takes_it_off_the_latest_weeks_reading_and_the_transactions(): void
+    public function test_stopping_the_discount_keeps_the_discount_the_approved_reading_was_recorded_with(): void
     {
         StandingDiscount::factory()->for($this->subscriber)->kilowatts(3)->create();
         $this->recordReading(1205);
@@ -353,56 +336,10 @@ class SubscriberStandingDiscountTest extends TestCase
             ->delete(route('subscribers.standing-discount.destroy', $this->subscriber))
             ->assertSessionHasNoErrors();
 
-        $this->assertSame(0, SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->whereNull('cancelled_at')->count());
-        $this->assertSame(1, SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->whereNotNull('cancelled_at')->count());
-        $this->assertSame(150.0, $this->subscriber->balance());
-        $reading = MeterReading::sole();
-        $this->assertSame([null, '0.00', '150.00'], [$reading->discount_method, $reading->discount_amount, $reading->amount_due]);
-    }
-
-    public function test_stopping_the_discount_rebills_an_approved_week_the_minimum_now_applies_to_and_keeps_the_old_lines(): void
-    {
-        // 1 kilo at 30 shekels with 2 free kilos: nothing to pay; without the discount the weekly minimum of 50 is due.
-        $this->subscriber->update(['minimum_charge' => 50]);
-        StandingDiscount::factory()->for($this->subscriber)->kilowatts(2)->create();
-        $this->recordReading(1201);
-        $reading = MeterReading::sole();
-        $reading->approve($this->branchAdmin);
-        $this->assertSame(0.0, $this->subscriber->balance());
-
-        $this->actingAs($this->branchAdmin)
-            ->delete(route('subscribers.standing-discount.destroy', $this->subscriber))
-            ->assertSessionHasNoErrors();
-
-        $this->assertSame(50.0, $this->subscriber->balance());
-        $charge = SubscriberTransaction::where('type', SubscriberTransaction::TYPE_METER_READING)->whereNull('cancelled_at')->sole();
-        $this->assertSame('50.00', $charge->amount);
-        $this->assertNotNull($charge->corrects_id);
-        $lastEntry = $this->subscriber->transactions()->count() - 1;
-
-        $this->actingAs($this->branchAdmin)
-            ->get(route('subscribers.statement', $this->subscriber))
-            ->assertInertia(fn ($page) => $page
-                ->where('entries.0.cancellation.wasCorrected', true)
-                ->where('entries.0.cancellation.reasonLabel', 'تغيير خصم القراءات الأسبوعية')
-                ->where('entries.1.type', 'reading_discount')
-                ->where('entries.2.type', 'reversal')
-                ->where('entries.2.groupId', $charge->corrects_id)
-                ->where("entries.{$lastEntry}.id", $charge->id)
-                ->where('summary.balance', '50.00'));
-    }
-
-    public function test_the_statement_tells_the_discount_form_about_the_latest_weeks_reading(): void
-    {
-        $this->recordReading(1205);
-
-        $this->actingAs($this->branchAdmin)
-            ->get(route('subscribers.statement', $this->subscriber))
-            ->assertInertia(fn ($page) => $page
-                ->where('subscriber.latestWeekReading.consumption', 5)
-                ->where('subscriber.latestWeekReading.unitPrice', '30.00')
-                ->where('subscriber.latestWeekReading.minimumPayment', '20.00')
-                ->where('subscriber.latestWeekReading.isApproved', false));
+        $this->assertDatabaseMissing('standing_discounts', ['subscriber_id' => $this->subscriber->id]);
+        $this->assertSame(1, SubscriberTransaction::where('type', SubscriberTransaction::TYPE_READING_DISCOUNT)->whereNull('cancelled_at')->count());
+        $this->assertSame(60.0, $this->subscriber->balance());
+        $this->assertSame(MeterReadingStatus::Approved, MeterReading::sole()->status);
     }
 
     public function test_the_reading_sheet_bills_a_row_with_its_readings_discount_or_else_the_subscribers(): void

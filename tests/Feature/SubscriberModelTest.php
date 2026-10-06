@@ -10,6 +10,7 @@ use App\Models\Subscriber;
 use App\Models\Tariff;
 use App\Models\User;
 use Database\Seeders\TariffSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -59,6 +60,24 @@ class SubscriberModelTest extends TestCase
         $subscriber = Subscriber::factory()->create(['meter_box_id' => null]);
 
         $this->assertNull($subscriber->meterBox);
+    }
+
+    public function test_a_subscriber_can_be_found_by_the_number_from_the_old_system(): void
+    {
+        $imported = Subscriber::factory()->create(['legacy_number' => '129600']);
+        Subscriber::factory()->create(['legacy_number' => '129601']);
+        Subscriber::factory()->create();
+
+        $this->assertSame([$imported->id], Subscriber::query()->matchingSearch('129600')->pluck('id')->all());
+    }
+
+    public function test_two_subscribers_cannot_share_an_old_system_number(): void
+    {
+        Subscriber::factory()->create(['legacy_number' => '129600']);
+
+        $this->expectException(QueryException::class);
+
+        Subscriber::factory()->create(['legacy_number' => '129600']);
     }
 
     public function test_new_subscribers_get_sequential_account_numbers_for_the_current_year(): void

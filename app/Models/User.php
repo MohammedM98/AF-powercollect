@@ -204,6 +204,7 @@ class User extends Authenticatable
             'الحركات المالية' => $named(SubscriptionTransaction::class, 'recorded_by', 'employee_id', 'cancelled_by'),
             'تعديلات الدفعات' => $named(TransactionAmendment::class, 'user_id'),
             'الحذف النهائي' => $named(TransactionDeletion::class, 'user_id'),
+            'سجل تعديل البيانات الشخصية' => $named(SubscriberProfileChange::class, 'user_id'),
             'القراءات' => $named(MeterReading::class, 'recorded_by', 'approved_by'),
             'خصومات القراءات الأسبوعية' => $named(StandingDiscount::class, 'granted_by'),
             'كشوف الإغلاق' => $named(Closing::class, 'prepared_by', 'reviewed_by'),

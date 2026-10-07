@@ -26,6 +26,7 @@ use App\Http\Controllers\ReadNotificationController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SubAreaController;
+use App\Http\Controllers\SubscriberProfileHistoryController;
 use App\Http\Controllers\SubscriptionBulkChangeController;
 use App\Http\Controllers\SubscriptionChargeController;
 use App\Http\Controllers\SubscriptionClearingController;
@@ -86,6 +87,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/subscriptions/bulk-changes/{change}/undo', [SubscriptionBulkChangeController::class, 'undo'])->name('subscriptions.bulk-changes.undo');
     Route::patch('/subscriptions/{subscription}/phone', [SubscriptionPhoneController::class, 'update'])->name('subscriptions.phone.update');
     Route::patch('/subscriptions/{subscription}/personal-details', [SubscriptionPersonalDetailsController::class, 'update'])->name('subscriptions.personal-details.update');
+    Route::get('/subscriptions/{subscription}/personal-details/history', [SubscriberProfileHistoryController::class, 'show'])->name('subscriptions.personal-details.history');
     Route::resource('subscriptions', SubscriptionController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('/subscriptions/{subscription}/statement', [SubscriptionStatementController::class, 'show'])->name('subscriptions.statement');
     Route::get('/subscriptions/{subscription}/payments/reference-status', [SubscriptionPaymentController::class, 'referenceStatus'])->name('subscriptions.payments.reference-status');

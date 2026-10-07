@@ -21,7 +21,7 @@ return new class extends Migration
             $table->json('changes');
             $table->timestamp('created_at')->useCurrent();
 
-            $table->index(['subscriber_profile_id', 'created_at']);
+            $table->index(['subscriber_profile_id', 'created_at'], 'profile_changes_profile_created_index');
         });
     }
 

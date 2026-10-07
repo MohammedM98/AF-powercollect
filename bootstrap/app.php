@@ -7,6 +7,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Inertia\ExceptionResponse;
+use Inertia\Inertia;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -28,4 +30,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // No permission, not found, expired and the like are Arabic pages in the app's own layout, with a way back.
+        Inertia::handleExceptionsUsing(function (ExceptionResponse $response) {
+            $showsPage = in_array($response->statusCode(), [403, 404, 419, 429], true)
+                || (in_array($response->statusCode(), [500, 503], true) && ! config('app.debug'));
+
+            if ($showsPage && ! $response->request->is('api/*') && ! $response->request->expectsJson()) {
+                return $response->render('Error', ['status' => $response->statusCode()])->withSharedData();
+            }
+        });
     })->create();

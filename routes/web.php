@@ -137,3 +137,6 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+// An address that matches nothing (outside the mobile API) is still answered inside the web group, so a signed-in user's 404 page knows who they are.
+Route::any('{fallbackPlaceholder}', fn () => abort(404))->where('fallbackPlaceholder', '(?!api(?:/|$)).*')->fallback();

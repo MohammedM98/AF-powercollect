@@ -7,6 +7,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\Validator;
 
 class UpdateUserRequest extends FormRequest
 {
@@ -49,5 +50,22 @@ class UpdateUserRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * Nobody stops their own account: whoever does so would be shut out
+     * with no one left to turn it back on.
+     *
+     * @return array<int, callable>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if ($this->has('is_active') && ! $this->boolean('is_active') && $this->route('user')->is($this->user())) {
+                    $validator->errors()->add('is_active', 'لا يمكنك إيقاف حسابك بنفسك.');
+                }
+            },
+        ];
     }
 }

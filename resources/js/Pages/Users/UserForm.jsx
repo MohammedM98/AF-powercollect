@@ -137,6 +137,7 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                 />
                 <InputLabel htmlFor="is_active" value="نشط" className="!mb-0 ms-2" />
             </div>
+            <InputError message={errors.is_active} className="mt-2" />
         </>
     );
 }

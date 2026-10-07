@@ -8,7 +8,6 @@ export default function SubscriptionModal({
     subscription,
     sourceSubscription = null,
     branches,
-    meterBoxes,
     tariffs,
     segments,
     circuitBreakers,
@@ -36,7 +35,7 @@ export default function SubscriptionModal({
                 errors={form.errors}
                 clearErrors={form.clearErrors}
                 branches={branches}
-                meterBoxes={meterBoxes}
+                meterBox={subscription?.meter_box ?? null}
                 tariffs={tariffs}
                 segments={segments}
                 circuitBreakers={circuitBreakers}

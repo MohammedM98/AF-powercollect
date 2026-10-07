@@ -5,7 +5,6 @@ import SubscriptionForm, { subscriptionFormData } from './SubscriptionForm';
 export default function Edit({
     subscription,
     branches,
-    meterBoxes,
     tariffs,
     segments,
     circuitBreakers,
@@ -25,7 +24,7 @@ export default function Edit({
                 errors={form.errors}
                 clearErrors={form.clearErrors}
                 branches={branches}
-                meterBoxes={meterBoxes}
+                meterBox={subscription.meter_box ?? null}
                 tariffs={tariffs}
                 segments={segments}
                 circuitBreakers={circuitBreakers}

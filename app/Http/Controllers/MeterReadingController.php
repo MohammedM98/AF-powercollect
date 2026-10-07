@@ -106,7 +106,7 @@ class MeterReadingController extends Controller
             'weekIsViewOnly' => $actor->can('create', MeterReading::class) && ! $actor->can('create', [MeterReading::class, $weekStart]),
             'entryWindow' => $this->entryWindow($actor),
             'filters' => $this->dataTableState($request, 'full_name', 'asc', 25),
-            'filterOptions' => $this->filterOptions($actor),
+            'filterOptions' => $this->filterOptions($actor, $request),
         ]);
     }
 
@@ -519,7 +519,7 @@ class MeterReadingController extends Controller
      *
      * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string}>}>
      */
-    private function filterOptions(User $actor): array
+    private function filterOptions(User $actor, Request $request): array
     {
         $groups = [];
 
@@ -530,7 +530,7 @@ class MeterReadingController extends Controller
 
         $groups[] = $this->subAreaFilterGroup(SubArea::visibleTo($actor)->orderBy('name')->get());
 
-        array_push($groups, ...$this->meterBoxFilterGroups(MeterBox::query()->visibleTo($actor)->with('subArea')->get()));
+        array_push($groups, ...$this->meterBoxFilterGroupsFor($actor, $request));
         $groups[] = $this->circuitBreakerFilterGroup();
 
         $groups[] = $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(

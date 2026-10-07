@@ -40,7 +40,6 @@ function renderForm(data, options = {}) {
         setData() {},
         errors: {},
         branches: [],
-        meterBoxes: [],
         tariffs: [],
         circuitBreakers: [],
         subAreas: [],

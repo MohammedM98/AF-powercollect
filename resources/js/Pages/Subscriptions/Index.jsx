@@ -72,7 +72,6 @@ export default function Index({
     canCreate,
     canRecordReadings,
     branches,
-    meterBoxes,
     tariffs,
     segments,
     circuitBreakers,
@@ -265,7 +264,6 @@ export default function Index({
 
     const modalProps = {
         branches,
-        meterBoxes,
         tariffs,
         segments,
         circuitBreakers,

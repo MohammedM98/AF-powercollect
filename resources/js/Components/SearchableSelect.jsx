@@ -6,6 +6,12 @@ import Icon from '@/Components/Icon';
  * `hint` is a quiet second part (a price, say) shown beside the label,
  * in the list and on the closed field, and searched with it. `required`
  * (with `name`) makes the form's own check report a missing choice.
+ *
+ * For a list too long to send with the page, pass `loadOptions(search)`,
+ * which resolves `{ options, hasMore }`: the list is then fetched as the
+ * box opens and as the user types, instead of filtered here. `options`
+ * is what shows before any search, such as the option already chosen.
+ * `onChange` also gets the option picked, so a caller can read its extras.
  */
 export default function SearchableSelect({
     id,
@@ -20,19 +26,70 @@ export default function SearchableSelect({
     disabled = false,
     active = false,
     className = '',
+    loadOptions = null,
 }) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
+    // With loadOptions: what the last search found (null before any), whether more matched, and whether one is under way or failed.
+    const [found, setFound] = useState(null);
+    const [hasMore, setHasMore] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [failed, setFailed] = useState(false);
+    const [chosen, setChosen] = useState(null);
+    const requestNumber = useRef(0);
     const containerRef = useRef(null);
     const searchRef = useRef(null);
     const buttonRef = useRef(null);
 
-    const selected = options.find((option) => String(option.value) === String(value));
+    const isMatch = (option) => String(option.value) === String(value);
+    const selected = options.find(isMatch) ?? found?.find(isMatch) ?? (chosen && isMatch(chosen) ? chosen : undefined);
 
     const filtered = useMemo(() => {
+        if (loadOptions) {
+            return found ?? [];
+        }
+
         const q = query.trim().toLowerCase();
         return q ? options.filter((option) => `${option.label} ${option.hint ?? ''}`.toLowerCase().includes(q)) : options;
-    }, [options, query]);
+    }, [options, query, loadOptions, found]);
+
+    // A new way of searching (another branch picked, say) makes the old results stale.
+    useEffect(() => {
+        setFound(null);
+    }, [loadOptions]);
+
+    // Search as the box opens and as the user types; only the latest search counts.
+    useEffect(() => {
+        if (!loadOptions || !open) {
+            return undefined;
+        }
+
+        const request = ++requestNumber.current;
+        setLoading(true);
+        setFailed(false);
+
+        const timeout = setTimeout(
+            () => {
+                Promise.resolve(loadOptions(query.trim()))
+                    .then((result) => {
+                        if (request === requestNumber.current) {
+                            setFound(result.options);
+                            setHasMore(Boolean(result.hasMore));
+                            setLoading(false);
+                        }
+                    })
+                    .catch(() => {
+                        if (request === requestNumber.current) {
+                            setFailed(true);
+                            setLoading(false);
+                        }
+                    });
+            },
+            query ? 250 : 0,
+        );
+
+        return () => clearTimeout(timeout);
+    }, [open, query, loadOptions]);
 
     useEffect(() => {
         if (!open) {
@@ -68,7 +125,8 @@ export default function SearchableSelect({
     }, [open]);
 
     function select(option) {
-        onChange(option ? String(option.value) : '');
+        setChosen(option);
+        onChange(option ? String(option.value) : '', option);
         setOpen(false);
         setQuery('');
     }
@@ -130,7 +188,11 @@ export default function SearchableSelect({
                                 {placeholder}
                             </button>
                         </li>
-                        {filtered.length === 0 ? (
+                        {failed ? (
+                            <li className="px-3 py-2 text-red-600">تعذّر تحميل الخيارات، حاول مرة أخرى.</li>
+                        ) : loading && found === null ? (
+                            <li className="px-3 py-2 text-gray-400">جارٍ التحميل...</li>
+                        ) : filtered.length === 0 ? (
                             <li className="px-3 py-2 text-gray-400">{emptyLabel}</li>
                         ) : (
                             filtered.map((option) => {
@@ -156,6 +218,9 @@ export default function SearchableSelect({
                             })
                         )}
                     </ul>
+                    {loadOptions && hasMore && !failed && (
+                        <p className="border-t border-gray-100 px-3 py-2 text-xs text-gray-500">اكتب للبحث عن المزيد من النتائج.</p>
+                    )}
                 </div>
             )}
         </div>

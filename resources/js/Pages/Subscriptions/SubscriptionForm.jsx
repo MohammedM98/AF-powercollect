@@ -1,4 +1,5 @@
-import { cloneElement, useEffect, useRef, useState } from 'react';
+import { cloneElement, useCallback, useEffect, useRef, useState } from 'react';
+import { useHttp } from '@inertiajs/react';
 import Affix from '@/Components/Affix';
 import ChoiceChips from '@/Components/ChoiceChips';
 import ConfirmDialog from '@/Components/ConfirmDialog';
@@ -181,7 +182,7 @@ export default function SubscriptionForm({
     setData,
     errors,
     clearErrors,
-    meterBoxes,
+    meterBox = null,
     tariffs,
     segments = [],
     circuitBreakers,
@@ -214,25 +215,28 @@ export default function SubscriptionForm({
     const resolvedAreaId = canChooseBranch ? (selectedBranch?.area_id ?? '') : (currentBranchAreaId ?? '');
     const resolvedAreaName = selectedBranch?.area?.name ?? '';
 
-    // Seeded from the already-assigned meter box's own sub-area, if any, so
-    // editing a subscription shows its meter box pre-selected instead of
-    // hiding it behind an unmade sub-area choice.
-    const [subAreaId, setSubAreaId] = useState(() => {
-        const currentBox = meterBoxes.find((box) => String(box.id) === String(data.meter_box_id));
-        return currentBox?.sub_area_id ? String(currentBox.sub_area_id) : '';
-    });
+    // The meter box chosen (the subscription's own when editing, which the page carries) and its sub-area:
+    // seeding the sub-area from it shows an edited subscription's box pre-selected instead of
+    // hiding it behind an unmade sub-area choice. The other boxes are found as the user types.
+    const [selectedBox, setSelectedBox] = useState(meterBox);
+    const [subAreaId, setSubAreaId] = useState(() => (meterBox?.sub_area_id ? String(meterBox.sub_area_id) : ''));
 
     const subAreasInArea = resolvedAreaId ? subAreas.filter((subArea) => String(subArea.area_id) === String(resolvedAreaId)) : [];
 
-    const meterBoxesInScope = meterBoxes.filter((box) => {
-        if (canChooseBranch && String(box.branch_id) !== String(data.branch_id)) {
-            return false;
-        }
+    // A Super Admin's boxes are those of the branch chosen; a branch's staff already get only their own.
+    const boxBranchId = canChooseBranch ? data.branch_id : '';
+    const http = useHttp();
+    const httpRef = useRef(http);
+    httpRef.current = http;
+    const loadMeterBoxes = useCallback(
+        async (search) => {
+            const query = new URLSearchParams({ search, ...(boxBranchId ? { branch_id: boxBranchId } : {}), ...(subAreaId ? { sub_area_id: subAreaId } : {}) });
+            const response = await httpRef.current.get(`/meter-boxes/options?${query}`);
 
-        return !subAreaId || String(box.sub_area_id) === String(subAreaId);
-    });
-
-    const meterBoxOptions = meterBoxesInScope.map((box) => ({ value: box.id, label: box.label ?? `${box.box_number} — ${box.name}` }));
+            return { options: response.data, hasMore: response.hasMore };
+        },
+        [boxBranchId, subAreaId],
+    );
 
     const showMeterBoxField = !canChooseBranch || Boolean(data.branch_id);
 
@@ -286,25 +290,25 @@ export default function SubscriptionForm({
 
     function onBranchChange(value) {
         setSubAreaId('');
+        setSelectedBox(null);
         setData((current) => ({ ...current, branch_id: value, meter_box_id: '' }));
     }
 
     function onSubAreaChange(value) {
         setSubAreaId(value);
-        const selectedBox = meterBoxes.find((box) => String(box.id) === String(data.meter_box_id));
 
         if (selectedBox && value && String(selectedBox.sub_area_id) !== String(value)) {
+            setSelectedBox(null);
             setData('meter_box_id', '');
         }
     }
 
-    function onMeterBoxChange(value) {
-        const selectedBox = meterBoxes.find((box) => String(box.id) === String(value));
-
+    function onMeterBoxChange(value, option) {
         setData('meter_box_id', value);
+        setSelectedBox(option ? { value: option.value, label: option.label, sub_area_id: option.sub_area_id } : null);
 
-        if (selectedBox?.sub_area_id) {
-            setSubAreaId(String(selectedBox.sub_area_id));
+        if (option?.sub_area_id) {
+            setSubAreaId(String(option.sub_area_id));
         }
     }
 
@@ -568,17 +572,14 @@ export default function SubscriptionForm({
 
                     {showMeterBoxField && (
                         <Field id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
-                            {meterBoxesInScope.length === 0 ? (
-                                <p className="text-sm text-gray-500">لا توجد طبلونات في النطاق المحدد بعد.</p>
-                            ) : (
-                                <SearchableSelect
-                                    value={data.meter_box_id}
-                                    onChange={onMeterBoxChange}
-                                    options={meterBoxOptions}
-                                    searchPlaceholder="بحث عن طبلون..."
-                                    emptyLabel="لا توجد طبلونات مطابقة"
-                                />
-                            )}
+                            <SearchableSelect
+                                value={data.meter_box_id}
+                                onChange={onMeterBoxChange}
+                                options={selectedBox ? [selectedBox] : []}
+                                loadOptions={loadMeterBoxes}
+                                searchPlaceholder="بحث عن طبلون..."
+                                emptyLabel="لا توجد طبلونات مطابقة"
+                            />
                         </Field>
                     )}
                 </div>

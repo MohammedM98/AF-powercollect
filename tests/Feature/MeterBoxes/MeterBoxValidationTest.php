@@ -110,8 +110,8 @@ class MeterBoxValidationTest extends TestCase
                 ->where('meterBoxes.data.0.box_number', '9897')
                 ->where('meterBoxes.data.0.name_suffix', '2A'));
 
-        $this->actingAs($admin)->get(route('subscriptions.create'))
-            ->assertInertia(fn ($page) => $page->where('meterBoxes.0.label', 'camp 2A - (9897)'));
+        $this->actingAs($admin)->getJson(route('meter-boxes.options', ['search' => 'camp 2A']))
+            ->assertJsonPath('data.0.label', 'camp 2A - (9897)');
     }
 
     public function test_the_database_prevents_duplicate_name_suffixes_with_different_box_numbers(): void

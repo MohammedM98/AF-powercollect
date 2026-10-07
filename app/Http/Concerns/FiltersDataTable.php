@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 /**
  * Adds search, sort, filter, and adjustable page-size support to an index
@@ -186,6 +187,10 @@ trait FiltersDataTable
      * sub-area and area their boxes are in (`scope`), so picking one of
      * those lists only its boxes.
      *
+     * This lists every box it is given, so it suits only a short list; a
+     * page that reloads with each filter change uses
+     * meterBoxFilterGroupsFor(), which never grows with the boxes.
+     *
      * @param  iterable<int, MeterBox>  $boxes
      * @param  (Closure(MeterBox): string)|null  $context  extra text after a box, e.g. its branch
      * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string, parent?: string, scope?: array<string, string|array<int, string>>}>, dependsOn?: string}>
@@ -193,37 +198,134 @@ trait FiltersDataTable
     protected function meterBoxFilterGroups(iterable $boxes, ?Closure $context = null): array
     {
         $boxes = (new EloquentCollection(collect($boxes)->all()))->loadMissing('subArea');
-        $boxScope = fn (MeterBox $box): array => [
-            'branch_id' => $box->branch_id,
-            'sub_area_id' => $box->sub_area_id,
-            'area_id' => $box->subArea?->area_id,
-        ];
         // A box without a name has nothing to pick it by: listing it would add a blank option whose empty value is also "no filter", so it would show as ticked.
-        $names = $boxes->filter(fn (MeterBox $box): bool => filled($box->name))
-            ->groupBy('name')
-            ->sortKeys(SORT_NATURAL | SORT_FLAG_CASE)
-            ->map(fn (EloquentCollection $named, string $name) => [
-                'value' => $name,
-                'label' => $name,
-                'scope' => $this->filterScope([
-                    'branch_id' => $named->pluck('branch_id')->all(),
-                    'sub_area_id' => $named->pluck('sub_area_id')->all(),
-                    'area_id' => $named->map(fn (MeterBox $box) => $box->subArea?->area_id)->all(),
-                ]),
-            ]);
-        $numbers = $boxes
-            ->sortBy([['name_suffix', 'asc'], ['box_number', 'asc']], SORT_NATURAL)
-            ->map(fn (MeterBox $box) => [
-                'value' => (string) $box->getKey(),
-                'label' => ltrim($box->name_suffix.' ('.$box->box_number.')').($context ? ' — '.$context($box) : ''),
-                'parent' => $box->name,
-                'scope' => $this->filterScope($boxScope($box)),
+        $placements = $boxes->filter(fn (MeterBox $box): bool => filled($box->name))
+            ->map(fn (MeterBox $box): object => (object) [
+                'name' => $box->name,
+                'branch_id' => $box->branch_id,
+                'sub_area_id' => $box->sub_area_id,
+                'area_id' => $box->subArea?->area_id,
             ]);
 
+        return $this->linkedMeterBoxGroups($this->meterBoxNameOptions($placements), $this->meterBoxNumberOptions($boxes, $context));
+    }
+
+    /**
+     * The meter box filter for a page that reloads with every filter
+     * change: every box name (one query over the distinct names and where
+     * they are, not every box), and the box numbers of the picked name only
+     * — or of the picked box's name, for a link that carries just the box.
+     * So what a page sends never grows with the number of boxes: a company
+     * with thousands of boxes lists the names, and a name's own boxes once
+     * it is picked.
+     *
+     * @param  (Closure(MeterBox): string)|null  $context  extra text after a box, e.g. its branch
+     * @return array<int, array{key: string, label: string, options: array<int, array<string, mixed>>, dependsOn?: string}>
+     */
+    protected function meterBoxFilterGroupsFor(User $actor, Request $request, ?Closure $context = null): array
+    {
+        $placements = MeterBox::query()
+            ->visibleTo($actor)
+            ->whereNotNull('meter_boxes.name')
+            ->where('meter_boxes.name', '!=', '')
+            ->leftJoin('sub_areas', 'sub_areas.id', '=', 'meter_boxes.sub_area_id')
+            ->distinct()
+            ->toBase()
+            ->get(['meter_boxes.name', 'meter_boxes.branch_id', 'meter_boxes.sub_area_id', 'sub_areas.area_id']);
+        $pickedName = $this->pickedMeterBoxName($actor, $request);
+        $boxes = $pickedName === null
+            ? new EloquentCollection
+            : MeterBox::query()->visibleTo($actor)->with(['branch', 'subArea'])->where('name', $pickedName)->get();
+
+        return $this->linkedMeterBoxGroups($this->meterBoxNameOptions($placements), $this->meterBoxNumberOptions($boxes, $context));
+    }
+
+    /**
+     * The box name the filter shows boxes of: `?filter[meter_box_name]`, or
+     * else the name of the box `?filter[meter_box_id]` picks. Null for none.
+     */
+    private function pickedMeterBoxName(User $actor, Request $request): ?string
+    {
+        $filter = (array) $request->input('filter', []);
+        $name = $filter['meter_box_name'] ?? null;
+
+        if (is_string($name) && $name !== '') {
+            return $name;
+        }
+
+        $boxId = $filter['meter_box_id'] ?? null;
+
+        if (! is_string($boxId) || ! ctype_digit($boxId)) {
+            return null;
+        }
+
+        $boxName = MeterBox::query()->visibleTo($actor)->whereKey((int) $boxId)->value('name');
+
+        return filled($boxName) ? $boxName : null;
+    }
+
+    /**
+     * The box name and box number dropdowns, the numbers shown beside the name.
+     *
+     * @param  Collection<int, array<string, mixed>>  $names
+     * @param  Collection<int, array<string, mixed>>  $numbers
+     * @return array<int, array{key: string, label: string, options: array<int, array<string, mixed>>, dependsOn?: string}>
+     */
+    private function linkedMeterBoxGroups(Collection $names, Collection $numbers): array
+    {
         return [
             $this->filterGroup('meter_box_name', 'الطبلون', $names),
             [...$this->filterGroup('meter_box_id', 'رقم الطبلون', $numbers), 'dependsOn' => 'meter_box_name'],
         ];
+    }
+
+    /**
+     * One option per box name, each with the branches, sub-areas and areas
+     * its boxes are in.
+     *
+     * @param  Collection<int, object{name: string, branch_id: int|null, sub_area_id: int|null, area_id: int|null}>  $placements  where each box is
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function meterBoxNameOptions(Collection $placements): Collection
+    {
+        return $placements
+            ->groupBy('name')
+            ->sortKeys(SORT_NATURAL | SORT_FLAG_CASE)
+            ->map(fn (Collection $named, int|string $name): array => [
+                'value' => (string) $name,
+                'label' => (string) $name,
+                'scope' => $this->filterScope([
+                    'branch_id' => $named->pluck('branch_id')->all(),
+                    'sub_area_id' => $named->pluck('sub_area_id')->all(),
+                    'area_id' => $named->pluck('area_id')->all(),
+                ]),
+            ])
+            ->values();
+    }
+
+    /**
+     * One option per box, by suffix and number, naming its box name as
+     * `parent` and where it is as `scope`.
+     *
+     * @param  iterable<int, MeterBox>  $boxes
+     * @param  (Closure(MeterBox): string)|null  $context  extra text after a box, e.g. its branch
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function meterBoxNumberOptions(iterable $boxes, ?Closure $context): Collection
+    {
+        return collect($boxes)
+            ->sortBy([['name_suffix', 'asc'], ['box_number', 'asc']], SORT_NATURAL)
+            ->map(fn (MeterBox $box): array => [
+                'value' => (string) $box->getKey(),
+                'label' => ltrim($box->name_suffix.' ('.$box->box_number.')').($context ? ' — '.$context($box) : ''),
+                'parent' => $box->name,
+                'scope' => $this->filterScope([
+                    'branch_id' => $box->branch_id,
+                    'sub_area_id' => $box->sub_area_id,
+                    'area_id' => $box->subArea?->area_id,
+                ]),
+            ])
+            ->values();
     }
 
     /**

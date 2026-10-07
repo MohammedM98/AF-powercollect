@@ -230,6 +230,17 @@ class Subscription extends Model
     }
 
     /**
+     * Whether a payment of `$amount` against `$owed` (what the subscription
+     * owes, never below zero) is so far above it that it is probably a slip,
+     * and so is saved only once the collector confirms it.
+     */
+    public static function overpaymentNeedsConfirmation(float $amount, float $owed): bool
+    {
+        return $amount > $owed * (float) config('powercollect.payments.overpayment_multiplier')
+            && $amount - $owed >= (float) config('powercollect.payments.overpayment_confirmation_minimum');
+    }
+
+    /**
      * Why the subscription can't be deleted yet — readings or account lines
      * beyond the subscription fee charged when they were added — or null
      * when they can: a subscription added by mistake.

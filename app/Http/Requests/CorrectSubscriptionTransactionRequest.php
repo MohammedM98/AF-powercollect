@@ -54,7 +54,22 @@ class CorrectSubscriptionTransactionRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                if ($validator->errors()->isNotEmpty() || ! ($this->line()->isDiscount() || $this->line()->isClearing())) {
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
+                }
+
+                // A corrected payment is checked against what the subscription would owe without the one it replaces.
+                if ($this->line()->isPayment()) {
+                    /** @var Subscription $subscription */
+                    $subscription = $this->route('subscription');
+                    $owed = max(round($subscription->balance() - (float) $this->line()->amount, 2), 0.0);
+
+                    StoreSubscriptionPaymentRequest::checkOverpayment($validator, $this->input('amount'), $owed, $this->boolean('confirm_overpayment'));
+
+                    return;
+                }
+
+                if (! ($this->line()->isDiscount() || $this->line()->isClearing())) {
                     return;
                 }
 

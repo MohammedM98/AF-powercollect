@@ -9,6 +9,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import Switch from '@/Components/Switch';
 import { useResourceForm } from '@/hooks/useResourceForm';
 import { describeBalance, paymentInShekels } from '@/lib/accountStatement';
+import { overpaymentLevel } from '@/lib/overpayment';
 import { formatClock, formatMoney, normalizeDecimalInput } from '@/lib/format';
 import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/formValidation';
 import { balanceText, FieldLabel, SubscriptionStrip } from './AccountFormParts';
@@ -417,6 +418,7 @@ export default function PaymentModal({
                   sender_name: recorded.sender_name || subscription.fullName,
                   reference_number: recorded.reference_number,
                   confirm_duplicate_reference: false,
+                  confirm_overpayment: false,
                   cash_box: recorded.cash_box,
                   manual_voucher_number: recorded.manual_voucher_number,
                   notes: recorded.notes,
@@ -432,6 +434,7 @@ export default function PaymentModal({
                   sender_name: subscription.fullName,
                   reference_number: '',
                   confirm_duplicate_reference: false,
+                  confirm_overpayment: false,
                   cash_box: '',
                   manual_voucher_number: '',
                   notes: '',
@@ -449,6 +452,8 @@ export default function PaymentModal({
     const throughBank = data.payment_method === 'bank_transfer';
     const inShekels = paymentInShekels(data.amount, 'ILS');
     const owed = Number(balance) > 0 ? Number(balance) : 0;
+    // More than is owed leaves the subscription in credit; far more is probably a slip and must be confirmed.
+    const overpayment = overpaymentLevel(data.amount, owed);
     const methodText = throughBank
         ? data.bank_name
             ? `تحويل ${data.sender_bank_name ? `من ${data.sender_bank_name} ` : ''}إلى ${data.bank_name}`
@@ -509,7 +514,7 @@ export default function PaymentModal({
     }
 
     function setAmount(value) {
-        setData('amount', value);
+        setData((current) => ({ ...current, amount: value, confirm_overpayment: false }));
         form.clearErrors('amount');
         amountInput.current?.focus();
     }
@@ -667,7 +672,7 @@ export default function PaymentModal({
                                                 dir="ltr"
                                                 aria-describedby={errors.amount ? `${titleId}-amount-error` : undefined}
                                                 value={data.amount}
-                                                onChange={(e) => setData('amount', normalizeDecimalInput(e.target.value))}
+                                                onChange={(e) => setData((current) => ({ ...current, amount: normalizeDecimalInput(e.target.value), confirm_overpayment: false }))}
                                                 className="min-w-0 flex-1 border-0 bg-transparent p-0 text-end font-display text-[38px] font-extrabold leading-tight text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-0 sm:text-[44px]"
                                             />
                                             <span className="shrink-0 font-display text-[28px] font-bold text-gray-400" aria-hidden="true">
@@ -705,6 +710,38 @@ export default function PaymentModal({
                                             <Icon name="info" className="h-[18px] w-[18px]" />
                                             {errors.amount}
                                         </p>
+                                    )}
+                                    {overpayment !== 'none' && (
+                                        <div
+                                            role={overpayment === 'confirm' ? 'alert' : 'status'}
+                                            className={`mt-3 rounded-xl border px-4 py-3 text-sm ${
+                                                overpayment === 'confirm'
+                                                    ? 'border-brand-500/40 bg-brand-500/[0.07] text-gray-900'
+                                                    : 'border-amber-500/40 bg-amber-500/[0.08] text-gray-800'
+                                            }`}
+                                        >
+                                            <p className="flex items-start gap-2 font-medium">
+                                                <Icon name="alert" className="mt-0.5 h-[18px] w-[18px] shrink-0" />
+                                                <span>
+                                                    {overpayment === 'confirm' ? 'المبلغ أكبر بكثير من المستحق' : 'المبلغ أكبر من المستحق'} على المشترك (
+                                                    <bdi className="font-display">{formatMoney(owed)}</bdi> ₪)، وسيبقى له رصيد دائن قدره{' '}
+                                                    <bdi className="font-display font-bold">{formatMoney((inShekels ?? 0) - owed)}</bdi> ₪.
+                                                    {overpayment === 'confirm' && ' تأكد أنك لم تكتب رقمًا زائدًا بالخطأ.'}
+                                                </span>
+                                            </p>
+                                            {overpayment === 'confirm' && (
+                                                <label className="mt-2 flex cursor-pointer items-center gap-2 font-semibold">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                                                        checked={data.confirm_overpayment}
+                                                        onChange={(e) => setData('confirm_overpayment', e.target.checked)}
+                                                    />
+                                                    أؤكد أن المبلغ <bdi className="font-display">{formatMoney(data.amount)}</bdi> ₪ صحيح
+                                                </label>
+                                            )}
+                                            <InputError message={errors.confirm_overpayment} className="mt-2" />
+                                        </div>
                                     )}
                                     <InputError message={errors.currency} className="mt-2" />
                                 </div>
@@ -937,7 +974,12 @@ export default function PaymentModal({
                             </span>
                             <PrimaryButton
                                 type="submit"
-                                disabled={!(Number(data.amount) > 0) || form.processing || (Boolean(referenceStatus?.conflict) && !data.confirm_duplicate_reference)}
+                                disabled={
+                                    !(Number(data.amount) > 0) ||
+                                    form.processing ||
+                                    (Boolean(referenceStatus?.conflict) && !data.confirm_duplicate_reference) ||
+                                    (overpayment === 'confirm' && !data.confirm_overpayment)
+                                }
                                 className={`ms-auto h-12 min-w-0 flex-1 rounded-[14px] px-5 text-[15.5px] font-bold sm:min-w-[230px] sm:flex-none ${
                                     correcting ? '!bg-none !bg-amber-600 !shadow-[0_12px_26px_-12px_rgb(180_83_9)]' : ''
                                 }`}

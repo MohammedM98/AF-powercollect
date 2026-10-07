@@ -3,9 +3,11 @@
 namespace App\Http\Requests;
 
 use App\Enums\PermissionKey;
+use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreMobileCollectionRequest extends FormRequest
 {
@@ -38,6 +40,26 @@ class StoreMobileCollectionRequest extends FormRequest
                     ->when(! $this->user()->isSuperAdmin(), fn ($rule) => $rule->where('branch_id', $this->user()->branch_id))],
                 ...StoreSubscriptionPaymentRequest::paymentRules($this->input('payment_method')),
             ]),
+        ];
+    }
+
+    /**
+     * An amount far above what the subscription owes needs the collector's
+     * confirmation, as on the website. A retry of a payment already recorded
+     * is answered as it was.
+     *
+     * @return array<int, callable>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $subscription = $this->existingTransaction() ? null : Subscription::query()->visibleTo($this->user())->find($this->input('subscription_id'));
+
+                if ($subscription !== null) {
+                    StoreSubscriptionPaymentRequest::checkOverpayment($validator, $this->input('amount'), max($subscription->balance(), 0.0), $this->boolean('confirm_overpayment'));
+                }
+            },
         ];
     }
 

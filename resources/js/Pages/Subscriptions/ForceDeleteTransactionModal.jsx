@@ -63,6 +63,13 @@ export default function ForceDeleteTransactionModal({ onClose, subscription, bal
                 </div>
             )}
 
+            {action === 'delete' && entry.isCorrection && entry.corrects && (
+                <p className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm text-gray-700">
+                    هذه الحركة صحّحت الحركة رقم <b className="font-display">{entry.corrects.lineNumber}</b>. بحذفها يُلغى التصحيح كله: تعود الحركة الأصلية
+                    فعّالة ويُحذف قيد إلغائها، فلا يضيع المبلغ من حساب المشترك.
+                </p>
+            )}
+
             {action === 'delete' && entry.readingDiscount && (
                 <p className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm text-gray-700">
                     لهذه القراءة خصم أسبوعي بقيمة <b className="font-display">{entry.readingDiscount}</b> شيكل. يُحذف معها، لأنه لا يقوم إلا على فاتورة

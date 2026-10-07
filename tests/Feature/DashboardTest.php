@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Governorate;
 use App\Models\User;
@@ -52,6 +53,29 @@ class DashboardTest extends TestCase
     {
         $this->get(route('dashboard'))
             ->assertRedirect(route('login'));
+    }
+
+    public function test_a_field_user_with_nothing_to_see_is_pointed_to_the_field_app(): void
+    {
+        config(['powercollect.mobile_app_url' => 'https://example.test/app.apk']);
+        $collector = User::factory()->collector()->withPermissions([PermissionKey::RecordCollections])->create();
+
+        $this->actingAs($collector)->get(route('dashboard'))->assertInertia(fn ($page) => $page
+            ->where('sections', [])
+            ->where('fieldApp.url', 'https://example.test/app.apk'));
+
+        config(['powercollect.mobile_app_url' => null]);
+        $this->get(route('dashboard'))->assertInertia(fn ($page) => $page->where('fieldApp.url', null));
+    }
+
+    public function test_the_field_app_notice_is_only_for_field_users_who_have_nothing_else_to_see(): void
+    {
+        $nothing = User::factory()->collector()->create();
+        $nothing->permissions()->sync([]);
+        $this->actingAs($nothing)->get(route('dashboard'))->assertInertia(fn ($page) => $page->where('fieldApp', null));
+
+        $branchAdmin = User::factory()->branchAdmin()->withPermissions([PermissionKey::RecordCollections])->create();
+        $this->actingAs($branchAdmin)->get(route('dashboard'))->assertInertia(fn ($page) => $page->where('fieldApp', null));
     }
 
     public function test_the_new_branch_pop_up_loads_its_options_only_when_opened(): void

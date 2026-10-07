@@ -144,4 +144,17 @@ return [
         'usual_minimum_readings' => 3,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Field App Download
+    |--------------------------------------------------------------------------
+    |
+    | Where collectors download the field app. A collector who signs in to the
+    | website has little to do there, so the dashboard points them to the app,
+    | with this link when it is set.
+    |
+    */
+
+    'mobile_app_url' => env('MOBILE_APP_URL'),
+
 ];

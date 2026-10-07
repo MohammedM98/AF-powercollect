@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PermissionKey;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Http\Concerns\ProvidesFormOptions;
@@ -61,6 +62,10 @@ class DashboardController extends Controller
             'greeting' => $greeting,
             'scopedToBranch' => $scopedToBranch,
             'sections' => $sections,
+            // Someone whose work is in the field app and who has nothing to see here is told so.
+            'fieldApp' => $sections === [] && ($actor->hasPermission(PermissionKey::RecordCollections) || $actor->hasPermission(PermissionKey::RecordMeterReadings))
+                ? ['url' => config('powercollect.mobile_app_url')]
+                : null,
             'canCreateBranch' => $actor->can('create', Branch::class),
             'canCreateUser' => $actor->can('create', User::class),
             // The "new branch/user" pop-up's dropdowns, loaded only when its button is clicked.

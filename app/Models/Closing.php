@@ -37,6 +37,9 @@ class Closing extends Model
     /** @use HasFactory<ClosingFactory> */
     use HasFactory;
 
+    /** The cash count's key for the agorot counted beyond whole shekels (0–99). */
+    public const AGOROT = 'agorot';
+
     protected function casts(): array
     {
         return [
@@ -333,19 +336,20 @@ class Closing extends Model
     }
 
     /**
-     * Record the cash count: how many of each note and coin, and why the
-     * count differs from the expected cash when it does.
+     * Record the cash count: how many of each note and coin (and how many
+     * agorot, under `agorot`, for the part of a shekel that no coin here
+     * is), and why the count differs from the expected cash when it does.
      *
      * @param  array<string, int>  $denominations
      */
     public function recordCount(User $actor, array $denominations, ?ClosingDifferenceReason $reason, ?string $notes): void
     {
         $this->ensureEditable();
-        $counted = collect($denominations)->sum(fn (int $count, string|int $value): int => (int) $value * $count);
+        $countedCents = collect($denominations)->sum(fn (int $count, string|int $value): int => $value === self::AGOROT ? $count : (int) $value * $count * 100);
 
         $this->update([
             'denominations' => $denominations,
-            'counted_cash' => number_format($counted, 2, '.', ''),
+            'counted_cash' => number_format($countedCents / 100, 2, '.', ''),
             'difference_reason' => $reason,
             'difference_notes' => $notes,
             'prepared_by' => $actor->id,

@@ -65,6 +65,35 @@ class ClosingTest extends TestCase
         $this->assertDatabaseCount('closing_payments', 2);
     }
 
+    public function test_the_cash_count_takes_agorot_so_a_payment_with_them_counts_to_the_cent(): void
+    {
+        $accountant = $this->preparer();
+        $this->payment('150.55', 'cash', '2026-09-30 09:14');
+        $closing = $this->closingFor('2026-09-30', $accountant);
+        $this->actingAs($accountant);
+
+        $this->put(route('closings.count', $closing), ['denominations' => ['100' => 1, '50' => 1, 'agorot' => 55]])->assertSessionHasNoErrors();
+
+        $this->put(route('closings.count', $closing), ['denominations' => ['100' => 1, '50' => 1, 'agorot' => 55]]);
+        $closing->refresh();
+        $this->assertSame('150.55', $closing->counted_cash);
+        $this->assertEquals(['100' => 1, '50' => 1, 'agorot' => 55], $closing->denominations);
+        $this->post(route('closings.submit', $closing))->assertSessionHasNoErrors();
+        $this->assertSame(0, $closing->fresh()->cashFigures()['difference']);
+    }
+
+    public function test_the_agorot_of_a_cash_count_are_less_than_a_shekel(): void
+    {
+        $accountant = $this->preparer();
+        $this->payment('100', 'cash', '2026-09-30 09:14');
+        $closing = $this->closingFor('2026-09-30', $accountant);
+
+        $this->actingAs($accountant)->put(route('closings.count', $closing), ['denominations' => ['100' => 1, 'agorot' => 100]])->assertSessionHasErrors('denominations.agorot');
+        $this->put(route('closings.count', $closing), ['denominations' => ['100' => 1, 'agorot' => -1]])->assertSessionHasErrors('denominations.agorot');
+        $this->put(route('closings.count', $closing), ['denominations' => ['100' => 1, 'agorot' => 'x']])->assertSessionHasErrors('denominations.agorot');
+        $this->assertNull($closing->fresh()->counted_cash);
+    }
+
     public function test_today_cannot_be_closed_before_the_day_ends(): void
     {
         $this->actingAs($this->preparer())->get(route('closings.index', ['date' => '2026-10-01']))

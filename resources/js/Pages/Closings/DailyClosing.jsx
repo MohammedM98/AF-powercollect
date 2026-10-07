@@ -377,6 +377,23 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                                     </span>
                                 </label>
                             ))}
+                            <label className="coin">
+                                كسور
+                                <span className="v">
+                                    <em>أغورة</em>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="99"
+                                        inputMode="numeric"
+                                        aria-label="عدد الأغورات"
+                                        value={denominations.agorot ?? ''}
+                                        placeholder="0"
+                                        disabled={!editable}
+                                        onChange={(event) => setDenominations({ ...denominations, agorot: event.target.value })}
+                                    />
+                                </span>
+                            </label>
                         </div>
 
                         <div className={`cnt ${check?.tone ?? ''}`}>
@@ -566,7 +583,8 @@ function cleanCount(denominations) {
         Object.entries(denominations ?? {})
             .filter(([, count]) => Number(count) > 0)
             .map(([value, count]) => [value, Number(count)])
-            .sort(([a], [b]) => Number(b) - Number(a)),
+            // Notes and coins from the largest down, the agorot (not a face value) last.
+            .sort(([a], [b]) => (a === 'agorot') - (b === 'agorot') || Number(b) - Number(a)),
     );
 }
 

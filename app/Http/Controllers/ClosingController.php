@@ -143,10 +143,12 @@ class ClosingController extends Controller
     public function count(Request $request, Closing $closing): RedirectResponse
     {
         $this->authorize('prepare', $closing);
-        $values = array_map('strval', [...config('powercollect.closing.notes'), ...config('powercollect.closing.coins')]);
+        $values = array_map('strval', [...config('powercollect.closing.notes'), ...config('powercollect.closing.coins'), Closing::AGOROT]);
         $validated = $request->validate([
             'denominations' => ['required', 'array'],
             'denominations.*' => ['integer', 'min:0', 'max:100000'],
+            // No coin is smaller than a shekel here, so the part of a shekel is counted in agorot, under a hundred.
+            'denominations.'.Closing::AGOROT => ['integer', 'min:0', 'max:99'],
             'difference_reason' => ['nullable', Rule::enum(ClosingDifferenceReason::class)],
             'difference_notes' => ['nullable', 'string', 'max:1000'],
         ]);

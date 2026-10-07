@@ -10,9 +10,18 @@ export function closingMoney(amount) {
     return Number(amount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/** The shekels the counted notes and coins add up to: { '200': 4, '50': 1 } → 850. */
+/**
+ * The shekels the counted notes and coins add up to: { '200': 4, '50': 1 } → 850.
+ * `agorot` is the part of a shekel counted beyond them (55 → 0.55), added in
+ * whole agorot so the sum has no floating-point drift.
+ */
 export function countedCash(denominations) {
-    return Object.entries(denominations ?? {}).reduce((sum, [value, count]) => sum + Number(value) * (Number(count) || 0), 0);
+    const agorot = Object.entries(denominations ?? {}).reduce(
+        (sum, [value, count]) => sum + (value === 'agorot' ? 1 : Number(value) * 100) * (Number(count) || 0),
+        0,
+    );
+
+    return agorot / 100;
 }
 
 /** Whether any note or coin has been counted. */

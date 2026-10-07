@@ -33,6 +33,15 @@ test('money gets thousands separators and decimals only when it has them', () =>
     assert.equal(formatNumber(1234.6), '1,235');
 });
 
+test('balances show a minus for subscriber credit and no plus for company debt', () => {
+    assert.equal(formatMoney('1255.50'), '1,255.50');
+    assert.equal(formatMoney('-1255.50'), '-1,255.50');
+    assert.equal(formatMoney('0.00'), '0');
+    assert.equal(formatMoney('-0.004'), '0');
+    assert.equal(formatMoney(-0), '0');
+    assert.equal(formatMoney('-50.00'), '-50');
+});
+
 test('a share is a whole percentage, and nothing of an empty whole', () => {
     assert.equal(percentOf(96, 159), 60);
     assert.equal(percentOf(0, 12), 0);

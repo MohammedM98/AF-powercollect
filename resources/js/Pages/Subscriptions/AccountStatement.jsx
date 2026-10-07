@@ -7,7 +7,6 @@ import { COMPANY_NAME } from '@/Layouts/GuestLayout';
 import {
     chainColor,
     compactStatementEntries,
-    describeBalance,
     filterStatementEntries,
     netOfReadingDiscount,
     relatedLineChains,
@@ -19,12 +18,7 @@ import {
 } from '@/lib/accountStatement';
 import { downloadCsv } from '@/lib/csv';
 import { formatAmount } from '@/lib/currency';
-
-const BALANCE_PILLS = {
-    owes: 'red',
-    credit: 'green',
-    settled: 'gray',
-};
+import { formatMoney } from '@/lib/format';
 
 const COLUMNS = [
     '#',
@@ -404,7 +398,8 @@ function StatementRow({
     onJump,
     onAction,
 }) {
-    const entryBalance = describeBalance(entry.balance);
+    const balanceInCents = Math.round(Number(entry.balance) * 100);
+    const balanceColor = balanceInCents < 0 ? 'text-red-700 dark:text-red-400' : balanceInCents > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900';
     const showsHistory = isCompact && !isHistory && entry.history?.length > 0;
     const color = chainColor(chain);
 
@@ -512,10 +507,7 @@ function StatementRow({
                         <Dash />
                     </span>
                 ) : (
-                    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <b className="font-display tabular-nums text-gray-900">{entryBalance.amount}</b>
-                        <StatusPill tone={BALANCE_PILLS[entryBalance.tone]} label={entryBalance.label} />
-                    </span>
+                    <b className={`font-display tabular-nums ${balanceColor}`}><bdi dir="ltr">{formatMoney(entry.balance)}</bdi></b>
                 )}
             </td>
             <td data-label="اسم المستخدم" className="text-gray-700">
@@ -533,8 +525,8 @@ function StatementRow({
 function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
     const styles = {
         default: ['border-gray-200 bg-surface', 'text-gray-500', 'text-gray-900'],
-        owes: ['border-brand-100 bg-brand-50', 'text-brand-700', 'text-brand-700'],
-        credit: ['border-emerald-500/25 bg-emerald-500/10', 'text-emerald-700 dark:text-emerald-400', 'text-emerald-700 dark:text-emerald-400'],
+        subscriber: ['border-red-500/25 bg-red-500/10', 'text-red-700 dark:text-red-400', 'text-red-700 dark:text-red-400'],
+        company: ['border-emerald-500/25 bg-emerald-500/10', 'text-emerald-700 dark:text-emerald-400', 'text-emerald-700 dark:text-emerald-400'],
         paid: ['border-gray-200 bg-surface', 'text-gray-500', 'text-emerald-700 dark:text-emerald-400'],
     }[tone];
 
@@ -583,8 +575,8 @@ export default function AccountStatement({ subscription, entries, summary, payme
     const entriesById = useMemo(() => new Map(entries.map((entry) => [entry.id, entry])), [entries]);
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
-    const balance = describeBalance(summary.balance);
     const hasLineMenus = entries.some(hasLineMenu);
+    const balanceInCents = Math.round(Number(summary.balance) * 100);
     const columns = hasLineMenus ? [...COLUMNS, ''] : COLUMNS;
 
     function setFilter(key, value) {
@@ -689,11 +681,8 @@ export default function AccountStatement({ subscription, entries, summary, payme
             <div className="statement-summary mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <SummaryCard
                     label="الرصيد الحالي"
-                    value={`${balance.amount} شيكل`}
-                    hint={
-                        balance.tone === 'owes' ? 'عليه — مطلوب منه الدفع' : balance.tone === 'credit' ? 'له — رصيد لصالح المشترك' : 'مسدّد بالكامل'
-                    }
-                    tone={balance.tone === 'settled' ? 'default' : balance.tone}
+                    value={<><bdi dir="ltr">{formatMoney(summary.balance)}</bdi> شيكل</>}
+                    tone={balanceInCents < 0 ? 'subscriber' : balanceInCents > 0 ? 'company' : 'default'}
                     className="sm:col-span-2 lg:col-span-1"
                 />
                 <SummaryCard

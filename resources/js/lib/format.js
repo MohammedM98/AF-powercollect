@@ -46,7 +46,10 @@ export function formatMoney(amount) {
     const cents = Math.round(Number(amount ?? 0) * 100);
     const digits = cents % 100 === 0 ? 0 : 2;
 
-    return (cents / 100).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    return ((cents || 0) / 100).toLocaleString('en-US', {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+    });
 }
 
 /** A part of a whole as a whole percentage (96 of 159 → 60), or 0 when the whole is empty. */

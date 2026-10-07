@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PaymentMethod;
 use App\Http\Concerns\BuildsSubscriptionStatement;
 use App\Http\Concerns\FiltersDataTable;
 use App\Models\Branch;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * The financial log (السجل المالي): every line of the accounts of the
@@ -33,7 +35,7 @@ class LedgerController extends Controller
      * The period tabs, as the number of days each covers (null: since the
      * first entry).
      */
-    private const PERIODS = ['today' => 1, '7' => 7, '30' => 30, '90' => 90, 'all' => null];
+    private const PERIODS = ['today' => 1, 'yesterday' => 1, '7' => 7, '30' => 30, '90' => 90, 'month' => null, 'custom' => null, 'all' => null];
 
     private const DEFAULT_PERIOD = '30';
 
@@ -54,19 +56,24 @@ class LedgerController extends Controller
 
     private const CREDIT = 'credit';
 
-    public function index(Request $request): InertiaResponse
+    public function index(Request $request): InertiaResponse|StreamedResponse
     {
         $this->authorize('viewAny', SubscriptionTransaction::class);
 
         $actor = $request->user();
         $period = $this->period($request);
-        $days = self::PERIODS[$period];
-        $from = $days ? DailySeries::startOfDay($days - 1) : null;
+        [$from, $until, $days] = $this->dateWindow($request, $period);
         $side = $this->headlineSide($request);
 
         $ledger = fn (): Builder => $this->filteredLedger($request, $actor);
-        $inPeriod = fn (): Builder => $ledger()->when($from, fn (Builder $query) => $query->where('subscription_transactions.created_at', '>=', $from));
+        $inPeriod = fn (): Builder => $ledger()
+            ->when($from, fn (Builder $query) => $query->where('subscription_transactions.created_at', '>=', $from))
+            ->where('subscription_transactions.created_at', '<', $until);
         $onSide = fn (Builder $query): Builder => $side === self::CREDIT ? $query->credits() : $query->charges();
+
+        if ($request->query('format') === 'csv') {
+            return $this->export($this->sortEntries($inPeriod()->with(['subscription.branch', 'recordedBy']), $request));
+        }
 
         $entries = $this->sortEntries($inPeriod()->with(['subscription.branch', 'recordedBy']), $request)
             ->paginate($this->dataTablePerPage($request, self::DEFAULT_PER_PAGE))
@@ -78,10 +85,15 @@ class LedgerController extends Controller
         return Inertia::render('Ledger/Index', [
             'entries' => $entries,
             'period' => $period,
+            'dateRange' => [
+                'from' => $from?->setTimezone(config('app.business_timezone'))->toDateString(),
+                'to' => $until->setTimezone(config('app.business_timezone'))->subDay()->toDateString(),
+            ],
+            'ledgerTotals' => $this->ledgerTotals($inPeriod()),
             'side' => $side,
             'summary' => $this->summary($onSide($inPeriod()), $from && $days ? $onSide($ledger()) : null, $from, $days, $inPeriod()),
             'dayTotals' => $groupedByDay ? $this->dayTotals($inPeriod(), collect($entries->items())->pluck('day')->unique()->all()) : [],
-            'dailyTotals' => DailySeries::sums(
+            'dailyTotals' => in_array($period, ['yesterday', 'month', 'custom'], true) ? [] : DailySeries::sums(
                 $onSide($ledger()),
                 'subscription_transactions.created_at',
                 'subscription_transactions.amount',
@@ -114,20 +126,28 @@ class LedgerController extends Controller
         return SubscriptionTransaction::query()
             ->whereHas('subscription', fn (Builder $subscriptions) => $subscriptions
                 ->visibleTo($actor)
-                ->when($branchId, fn (Builder $query) => $query->where('branch_id', $branchId))
-                ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
+                ->when($branchId, fn (Builder $query) => $query->where('branch_id', $branchId)))
+            ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $matches) => $matches
+                ->whereHas('subscription', fn (Builder $subscriptions) => $subscriptions->where(fn (Builder $inner) => $inner
                     ->where('full_name', 'like', "%{$search}%")
                     ->orWhere('subscription_name', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%")
                     ->orWhere('subscription_phone', 'like', "%{$search}%")
-                    ->orWhere('account_number', 'like', "%{$search}%"))))
+                    ->orWhere('account_number', 'like', "%{$search}%")))
+                ->orWhere('voucher_number', 'like', "%{$search}%")
+                ->when(ctype_digit($search), fn (Builder $query) => $query->orWhere('voucher_number', ltrim($search, '0') ?: '0'))
+                ->orWhere('manual_voucher_number', 'like', "%{$search}%")
+                ->orWhere('reference_number', 'like', "%{$search}%")))
             ->when($type === self::DEBIT, fn (Builder $query) => $query->charges())
             ->when($type === self::CREDIT, fn (Builder $query) => $query->credits())
             ->when(
                 ! in_array($type, [self::DEBIT, self::CREDIT], true) && array_key_exists((string) $type, SubscriptionTransaction::typeLabels()),
                 fn (Builder $query) => $query->where('type', $type),
             )
-            ->when($recordedBy, fn (Builder $query) => $query->where('recorded_by', $recordedBy));
+            ->when($recordedBy, fn (Builder $query) => $query->where('recorded_by', $recordedBy))
+            ->when($this->filterValue($request, 'payment_method'), fn (Builder $query, string $method) => $query->where('payment_method', $method))
+            ->when($this->filterValue($request, 'bank_name'), fn (Builder $query, string $bank) => $query->where('bank_name', $bank))
+            ->when($this->filterValue($request, 'show_cancelled') === '0', fn (Builder $query) => $query->counted());
     }
 
     /**
@@ -274,6 +294,16 @@ class LedgerController extends Controller
             'isCancelled' => $transaction->isCancelled() || $transaction->isReversal(),
             'recordedByName' => $transaction->recordedBy?->name,
             'amount' => ltrim($transaction->amount, '-'),
+            'voucherNumber' => $transaction->displayVoucherNumber(),
+            'isManualVoucher' => (bool) $transaction->manual_voucher_number,
+            'paymentMethod' => $transaction->payment_method?->value,
+            'paymentMethodLabel' => $transaction->payment_method ? __($transaction->payment_method->label()) : null,
+            'bankName' => $transaction->bank_name,
+            'referenceNumber' => $transaction->reference_number,
+            'balanceAfter' => $transaction->balance_after,
+            'currency' => $transaction->currency,
+            'currencyAmount' => $transaction->currency_amount,
+            'exchangeRate' => $transaction->exchange_rate,
         ];
     }
 
@@ -309,6 +339,15 @@ class LedgerController extends Controller
             ...collect(SubscriptionTransaction::typeLabels())->map(fn (string $label, string $type): array => ['value' => $type, 'label' => $label])->values(),
         ]);
 
+        $groups[] = $this->filterGroup('payment_method', 'طريقة الدفع', collect(PaymentMethod::cases())
+            ->map(fn (PaymentMethod $method): array => ['value' => $method->value, 'label' => __($method->label())])->all());
+
+        $groups[] = $this->filterGroup('bank_name', 'البنك', SubscriptionTransaction::query()
+            ->whereHas('subscription', fn (Builder $subscriptions) => $subscriptions->visibleTo($actor))
+            ->whereNotNull('bank_name')->where('bank_name', '!=', '')
+            ->distinct()->orderBy('bank_name')->pluck('bank_name')
+            ->map(fn (string $bank): array => ['value' => $bank, 'label' => $bank])->all());
+
         $groups[] = $this->filterGroup('recorded_by', 'سجّله', $this->staffOptions(
             User::query()
                 ->whereIn('id', SubscriptionTransaction::query()
@@ -337,6 +376,76 @@ class LedgerController extends Controller
         $period = $request->query('period');
 
         return is_string($period) && array_key_exists($period, self::PERIODS) ? $period : self::DEFAULT_PERIOD;
+    }
+
+    /**
+     * @return array{CarbonImmutable|null, CarbonImmutable, int|null}
+     */
+    private function dateWindow(Request $request, string $period): array
+    {
+        $today = DailySeries::today();
+        $until = $today->addDay();
+        $days = self::PERIODS[$period];
+        $from = $days ? $today->subDays($days - 1) : null;
+
+        if ($period === 'yesterday') {
+            $from = $today->subDay();
+            $until = $today;
+        } elseif ($period === 'month') {
+            $from = $today->startOfMonth();
+            $days = $today->day;
+        } elseif ($period === 'custom') {
+            $dates = $request->validate([
+                'from' => ['required', 'date_format:Y-m-d'],
+                'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
+            ]);
+            $from = CarbonImmutable::parse($dates['from'], config('app.business_timezone'))->startOfDay();
+            $until = CarbonImmutable::parse($dates['to'], config('app.business_timezone'))->startOfDay()->addDay();
+            $days = (int) CarbonImmutable::parse($dates['from'], 'UTC')->diffInDays(CarbonImmutable::parse($dates['to'], 'UTC')) + 1;
+        }
+
+        return [$from?->utc(), $until->utc(), $days];
+    }
+
+    /**
+     * @param  Builder<SubscriptionTransaction>  $query
+     * @return array{charged: float, debitCount: int, credited: float, creditCount: int, net: float, cancelled: float, cancelledCount: int}
+     */
+    private function ledgerTotals(Builder $query): array
+    {
+        $aggregate = fn (Builder $lines): object => $lines->toBase()->selectRaw('count(*) as entries, coalesce(sum(abs(amount)), 0) as total')->first();
+        $debits = $aggregate((clone $query)->charges());
+        $credits = $aggregate((clone $query)->credits());
+        $cancelled = $aggregate((clone $query)->whereNotNull('cancelled_at')->whereNull('reverses_id'));
+        $charged = round((float) $debits->total, 2);
+        $credited = round((float) $credits->total, 2);
+
+        return [
+            'charged' => $charged, 'debitCount' => (int) $debits->entries,
+            'credited' => $credited, 'creditCount' => (int) $credits->entries,
+            'net' => round($charged - $credited, 2),
+            'cancelled' => round((float) $cancelled->total, 2), 'cancelledCount' => (int) $cancelled->entries,
+        ];
+    }
+
+    /**
+     * @param  Builder<SubscriptionTransaction>  $lines
+     */
+    private function export(Builder $lines): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($lines): void {
+            $file = fopen('php://output', 'w');
+            fwrite($file, "\xEF\xBB\xBF");
+            fputcsv($file, ['التاريخ', 'الوقت', 'المشترك', 'الحساب', 'الفرع', 'النوع', 'السند', 'الطريقة', 'البنك', 'المرجع', 'سجّله', 'عليه', 'له', 'الرصيد بعده', 'ملغاة']);
+
+            foreach ($lines->lazy(500) as $transaction) {
+                $row = $this->row($transaction);
+                $cells = [$row['day'], $row['time'], $row['subscriptionName'], $row['subscriptionAccountNumber'], $row['branchName'], $row['typeLabel'], $row['voucherNumber'], $row['paymentMethodLabel'], $row['bankName'], $row['referenceNumber'], $row['recordedByName'], $row['isCredit'] ? '' : (float) $row['amount'], $row['isCredit'] ? (float) $row['amount'] : '', $row['balanceAfter'] === null ? '' : (float) $row['balanceAfter'], $row['isCancelled'] ? 'نعم' : 'لا'];
+                fputcsv($file, array_map(fn ($cell) => is_string($cell) && preg_match('/^[=+@\-\t\r]/u', $cell) ? "'".$cell : $cell, $cells));
+            }
+
+            fclose($file);
+        }, 'ledger-'.DailySeries::today()->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /**

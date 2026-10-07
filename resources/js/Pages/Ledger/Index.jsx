@@ -1,399 +1,290 @@
-import { Fragment } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import BarChart from '@/Components/Charts/BarChart';
-import MeterBar from '@/Components/Charts/MeterBar';
-import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
-import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import Pagination from '@/Components/DataTable/Pagination';
-import RowIdentity from '@/Components/DataTable/RowIdentity';
-import SortableTh from '@/Components/DataTable/SortableTh';
 import Icon from '@/Components/Icon';
-import KpiTile from '@/Components/KpiTile';
-import PeriodTabs, { periodCaption } from '@/Components/PeriodTabs';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { formatClock, formatDayLabel, formatMoney, formatNumber, formatShortDay } from '@/lib/format';
+import { printUrl } from '@/lib/print';
 import StatementModal from '@/Pages/Subscriptions/StatementModal';
+import './Ledger.css';
 
-const STATUS_DOTS = { active: 'green', suspended: 'amber', disconnected: 'gray' };
+const PERIODS = [['today', 'اليوم'], ['yesterday', 'أمس'], ['7', '7 أيام'], ['30', '30 يوم'], ['month', 'هذا الشهر'], ['custom', 'مخصص']];
+const BANK_LOGOS = {
+    'بنك فلسطين': '/images/banks/bank-of-palestine.webp',
+    'جوال باي': '/images/banks/jawwal-pay.webp',
+    'محفظة بالباي': '/images/banks/palpay.webp',
+    'البنك الإسلامي الفلسطيني': '/images/banks/palestine-islamic-bank.webp',
+    'البنك الإسلامي العربي': '/images/banks/arab-islamic-bank.webp',
+    'بنك القدس': '/images/banks/quds-bank.webp',
+};
 
-/** The headline's name for the side of the accounts (and type of line) the figures sum. */
-function headlineLabel(side, type) {
-    if (side === 'credit') {
-        return (
-            { payment: 'إجمالي الدفعات', discount: 'إجمالي الخصومات', reading_discount: 'إجمالي خصومات القراءات الأسبوعية' }[type] ?? 'إجمالي التسديد والخصم'
-        );
+function Money({ amount, signed = false, credit = false, balance = false }) {
+    const balanceInCents = balance ? Math.round(Number(amount) * 100) : 0;
+    const balanceClass = balanceInCents < 0 ? 'balance-subscriber' : balanceInCents > 0 ? 'balance-company' : '';
+
+    return <bdi className={`num ${balanceClass}`} dir="ltr">{balance ? formatMoney(amount) : <>{signed && (credit ? '−' : '+')}{formatMoney(Math.abs(Number(amount)))}</>} <span>₪</span></bdi>;
+}
+
+function shortDate(value) {
+    return value ? value.split('-').reverse().join('/') : 'البداية';
+}
+
+function DateRange({ period, range, today, onChange, errors }) {
+    const [open, setOpen] = useState(false);
+    const [from, setFrom] = useState(range.from ?? today);
+    const [to, setTo] = useState(range.to);
+    const [error, setError] = useState('');
+    const root = useRef(null);
+    const trigger = useRef(null);
+    const firstInput = useRef(null);
+
+    useEffect(() => {
+        if (!open) { return; }
+        firstInput.current?.focus();
+        function dismiss(event) {
+            if (event.type === 'keydown' && event.key === 'Escape') {
+                setOpen(false);
+                trigger.current?.focus();
+            } else if (event.type === 'pointerdown' && !root.current?.contains(event.target)) {
+                setOpen(false);
+            }
+        }
+        document.addEventListener('pointerdown', dismiss);
+        document.addEventListener('keydown', dismiss);
+        return () => {
+            document.removeEventListener('pointerdown', dismiss);
+            document.removeEventListener('keydown', dismiss);
+        };
+    }, [open]);
+
+    function toggle() {
+        if (!open) {
+            setFrom(range.from ?? today);
+            setTo(range.to);
+            setError('');
+        }
+        setOpen(!open);
     }
 
-    return 'إجمالي القيود';
-}
-
-function Shekels({ amount, className = 'text-gray-900' }) {
-    return (
-        <span className={`whitespace-nowrap ${className}`}>
-            <b className="font-display font-bold">{formatMoney(amount)}</b> <span className="text-xs font-normal text-gray-500">شيكل</span>
-        </span>
-    );
-}
-
-/** "+8%" against the period before: green when the total grew. The card behind it is always graphite. */
-function ChangeBadge({ pct }) {
-    if (pct === null || pct === undefined) {
-        return null;
+    function quickRange(preset) {
+        const end = new Date(`${today}T12:00:00Z`);
+        const start = new Date(end);
+        if (preset === '7') {
+            start.setUTCDate(start.getUTCDate() - 6);
+        } else if (preset === 'month') {
+            start.setUTCDate(1);
+        } else {
+            start.setUTCDate(1);
+            end.setUTCDate(0);
+            start.setUTCMonth(start.getUTCMonth() - 1);
+        }
+        setFrom(start.toISOString().slice(0, 10));
+        setTo(end.toISOString().slice(0, 10));
+        setError('');
     }
 
-    const grew = pct >= 0;
+    function apply(event) {
+        event.preventDefault();
+        if (!from || !to || from > to) {
+            setError('اختر تاريخ بداية ونهاية، بحيث تكون البداية قبل النهاية أو مساوية لها.');
+            return;
+        }
+        onChange('custom', { from, to });
+        setOpen(false);
+        trigger.current?.focus();
+    }
 
     return (
-        <span
-            title="مقارنة بالفترة السابقة"
-            dir="ltr"
-            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 font-display text-xs font-bold ${
-                grew ? 'bg-emerald-500/15 text-emerald-300' : 'bg-brand-500/25 text-[#f3a4a9]'
-            }`}
-        >
-            <Icon name={grew ? 'trend-up' : 'trend-down'} className="h-3.5 w-3.5" strokeWidth={2} />
-            {grew ? '+' : '−'}
-            {Math.abs(pct)}%
-        </span>
-    );
-}
-
-/** The period's total per branch; the Super Admin can click a branch to narrow the whole page to it. */
-function BranchBreakdown({ branches, caption, selectedId, onSelect }) {
-    const max = Math.max(1, ...branches.map((branch) => branch.total));
-
-    return (
-        <section className="rise-in rounded-panel border border-gray-100 bg-surface p-6 shadow-card lg:col-span-2">
-            <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-lg font-bold text-gray-900">حسب الفرع</h3>
-                <span className="text-xs text-gray-500">{caption}</span>
+        <div className="per">
+            <div className="pt2" role="group" aria-label="الفترة">
+                {PERIODS.map(([value, label]) => (
+                    <button type="button" key={value} aria-pressed={period === value} onClick={() => value === 'custom' ? toggle() : onChange(value)}>{label}</button>
+                ))}
             </div>
-
-            {branches.length === 0 ? (
-                <p className="py-12 text-center text-sm text-gray-500">لا توجد قيود في هذه الفترة.</p>
-            ) : (
-                <ul className="-mx-3 mt-3 space-y-1">
-                    {branches.map((branch) => {
-                        const selected = String(branch.id) === String(selectedId ?? '');
-                        const content = (
-                            <>
-                                <span className="flex items-baseline justify-between gap-3">
-                                    <span className="truncate font-semibold text-gray-900">{branch.name}</span>
-                                    <b className="font-display text-gray-900">{formatMoney(branch.total)}</b>
-                                </span>
-                                <MeterBar value={branch.total} max={max} className="mt-2" />
-                                <span className="mt-1 block text-xs text-gray-500">{formatNumber(branch.count)} قيد</span>
-                            </>
-                        );
-
-                        return (
-                            <li key={branch.id}>
-                                {onSelect ? (
-                                    <button
-                                        type="button"
-                                        aria-pressed={selected}
-                                        title={selected ? 'إظهار كل الفروع' : `عرض قيود ${branch.name} فقط`}
-                                        onClick={() => onSelect(selected ? '' : String(branch.id))}
-                                        className={`block w-full rounded-xl px-3 py-2.5 text-start transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${
-                                            selected ? 'bg-brand-500/10 ring-1 ring-brand-500/25' : 'hover:bg-gray-50'
-                                        }`}
-                                    >
-                                        {content}
-                                    </button>
-                                ) : (
-                                    <div className="px-3 py-2.5">{content}</div>
-                                )}
-                            </li>
-                        );
-                    })}
-                </ul>
-            )}
-        </section>
+            <div className="range" ref={root}>
+                <button type="button" className="rbtn" ref={trigger} onClick={toggle} aria-expanded={open} aria-controls="ledger-date-range">
+                    <Icon name="calendar" /><small>الفترة</small><bdi className="num" dir="ltr">{shortDate(range.from)} — {shortDate(range.to)}</bdi>
+                </button>
+                {open && (
+                    <form id="ledger-date-range" className="rpop" onSubmit={apply}>
+                        <h3>فترة مخصصة</h3>
+                        <div className="two">
+                            <label htmlFor="ledger-from">من<input id="ledger-from" ref={firstInput} type="date" required value={from} onChange={(event) => setFrom(event.target.value)} /></label>
+                            <label htmlFor="ledger-to">إلى<input id="ledger-to" type="date" required min={from || undefined} value={to} onChange={(event) => setTo(event.target.value)} /></label>
+                        </div>
+                        <div className="qk">
+                            <button type="button" onClick={() => quickRange('7')}>آخر 7 أيام</button>
+                            <button type="button" onClick={() => quickRange('month')}>هذا الشهر</button>
+                            <button type="button" onClick={() => quickRange('previous')}>الشهر الماضي</button>
+                        </div>
+                        <p className="err" role="alert">{error || errors.from || errors.to}</p>
+                        <div className="ft">
+                            <button type="button" className="btn" onClick={() => { setOpen(false); trigger.current?.focus(); }}>إلغاء</button>
+                            <button type="submit" className="btn pr">تطبيق</button>
+                        </div>
+                    </form>
+                )}
+            </div>
+        </div>
     );
 }
 
-/** A day's header row: its date (with "اليوم" on today) and its full figures. */
-function DayHeader({ day, totals, isToday }) {
+function SummaryCards({ totals, summary, side }) {
+    const netSide = totals.net > 0 ? 'للشركة' : totals.net < 0 ? 'للمشترك' : 'مسدّد';
     return (
-        <tr className="data-table-group">
-            <td colSpan={6}>
-                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                    <span className="flex items-center gap-2 font-bold text-gray-900">
-                        {formatDayLabel(day)}
-                        {isToday && <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[12px] font-bold text-white">اليوم</span>}
-                    </span>
-                    {totals && (
-                        <span className="text-xs text-gray-500">
-                            {formatNumber(totals.count)} قيد
-                            {totals.charged > 0 && (
-                                <>
-                                    {' '}
-                                    · عليه <Shekels amount={totals.charged} />
-                                </>
-                            )}
-                            {totals.credited > 0 && (
-                                <>
-                                    {' '}
-                                    · له <Shekels amount={totals.credited} className="text-emerald-700 dark:text-emerald-400" />
-                                </>
-                            )}
-                        </span>
+        <div className="kp">
+            <section className="k hero" aria-label="إجمالي التحميل">
+                <small>إجمالي التحميل (عليه)
+                    {side === 'debit' && summary.changePct !== null && (
+                        <span className={`chg ${summary.changePct >= 0 ? 'up' : 'dn'}`} title="مقارنة بالفترة السابقة"><bdi dir="ltr">{summary.changePct >= 0 ? '+' : '−'}{Math.abs(summary.changePct)}%</bdi></span>
                     )}
+                </small>
+                <b><Money amount={totals.charged} /></b>
+                <p>{formatNumber(totals.debitCount)} قيد تحميل · ضمن الفترة والفلاتر</p>
+            </section>
+            <section className="k cr" aria-label="المحصّل">
+                <small><span className="dot bg-emerald-600 dark:bg-emerald-400" />المحصّل (له)</small>
+                <b><Money amount={totals.credited} /></b>
+                <p>{formatNumber(totals.creditCount)} قيد · دفعات وخصم ومقاصة</p>
+            </section>
+            <section className="k" aria-label="الصافي">
+                <small>الصافي (عليه − له)</small>
+                <b><Money amount={totals.net} balance /> <span>{netSide}</span></b>
+                <p>لنفس الفترة والفلاتر</p>
+            </section>
+            <section className="k cx" aria-label="القيود الملغاة">
+                <small><Icon name="close" />الملغاة</small>
+                <b><Money amount={totals.cancelled} /></b>
+                <p>{formatNumber(totals.cancelledCount)} قيد · خارج المجاميع</p>
+            </section>
+        </div>
+    );
+}
+
+function DayHeader({ day, totals, today }) {
+    return (
+        <tr className="data-table-group day-row"><td colSpan={9}>
+            <div className="day"><b>{formatDayLabel(day)}</b>{day === today && <span className="tod">اليوم</span>}
+                {totals && <span className="sum"><span>{formatNumber(totals.count)} قيد</span><span>عليه <em><Money amount={totals.charged} /></em></span><span>له <em className="g"><Money amount={totals.credited} /></em></span></span>}
+            </div>
+        </td></tr>
+    );
+}
+
+function TransactionRow({ entry, grouped, onOpen, rowClick }) {
+    const initials = entry.subscriptionName.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join('');
+    const balance = Number(entry.balanceAfter ?? 0);
+    const time = grouped ? formatClock(entry.time) : `${formatShortDay(entry.day)} · ${formatClock(entry.time)}`;
+    const payment = entry.bankName || entry.paymentMethodLabel;
+    return (
+        <tr className={`row ${entry.isCancelled ? 'cx' : ''}`} {...rowClick(onOpen)}>
+            <td className="t"><bdi className="desktop-time">{time}</bdi>
+                <div className="meta">
+                    <span><Icon name="clock" />{time}</span>
+                    {entry.voucherNumber && <span>سند <bdi>{entry.voucherNumber}</bdi>{entry.isManualVoucher && ' · يدوي'}</span>}
+                    {payment && <span>{payment}</span>}
+                    {entry.referenceNumber && <span>مرجع <bdi>{entry.referenceNumber}</bdi></span>}
+                    <span>سجّله: {entry.recordedByName ?? '—'}</span>
                 </div>
             </td>
+            <td className="who-c">
+                <div className="who"><span className="av" aria-hidden="true">{initials}</span><div>
+                    <b>{onOpen ? <button type="button" className="name-btn" onClick={onOpen} aria-label={`فتح كشف حساب ${entry.subscriptionName}`}>{entry.subscriptionName}</button> : entry.subscriptionName}</b>
+                    <small><bdi>{entry.subscriptionAccountNumber}</bdi> · {entry.branchName}</small>
+                </div></div>
+            </td>
+            <td className="ty-c"><span className={`ty ${entry.isCancelled ? 'rv' : entry.isCredit ? 'cr' : 'dr'}`}>{entry.typeLabel}</span>{entry.isCancelled && entry.type !== 'reversal' && <div><span className="cxb">ملغاة</span></div>}</td>
+            <td className="vch-c"><bdi className="vch">{entry.voucherNumber ?? '—'}</bdi>{entry.isManualVoucher && <span className="mb">يدوي</span>}</td>
+            <td className="mth-c">{payment ? <div className="mth">{BANK_LOGOS[entry.bankName] ? <img src={BANK_LOGOS[entry.bankName]} alt="" /> : <span className="ci"><Icon name={entry.paymentMethod === 'cash' ? 'wallet' : 'bank'} /></span>}<span title={payment}>{payment}</span></div> : '—'}</td>
+            <td className="ref" title={entry.referenceNumber ?? undefined}><bdi>{entry.referenceNumber ?? '—'}</bdi></td>
+            <td className="by" title={entry.recordedByName ?? undefined}>{entry.recordedByName ?? '—'}</td>
+            <td className="am-c"><span className={`am ${entry.isCredit ? 'cr' : 'dr'}`}><Money amount={entry.amount} signed credit={entry.isCredit} />
+                {entry.currency && entry.currency !== 'ILS' && <small><bdi dir="ltr">{formatMoney(entry.currencyAmount)} {entry.currency}{entry.exchangeRate && ` × ${formatMoney(entry.exchangeRate)}`}</bdi></small>}
+            </span></td>
+            <td className="bal-c"><span className="blc">{entry.balanceAfter === null ? '—' : <><Money amount={balance} balance /><i>{balance > 0 ? 'للشركة' : balance < 0 ? 'للمشترك' : 'مسدّد'}</i></>}</span></td>
         </tr>
     );
 }
 
-/**
- * The financial log: every line of the subscriptions' accounts, newest
- * first and grouped by day, with the period's totals, a daily chart and
- * the totals per branch. Every figure follows the period, the search and
- * the filters.
- */
-export default function Index({
-    entries,
-    period,
-    side,
-    summary,
-    dayTotals,
-    dailyTotals,
-    branchTotals,
-    today,
-    scopeLabel,
-    filters,
-    filterOptions,
-    statement,
-}) {
-    const { can } = usePage().props;
-    const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/ledger', filters, { period });
+export default function Index({ entries, period, side, summary, ledgerTotals, dateRange, dayTotals, today, scopeLabel, filters, filterOptions, statement }) {
+    const { can, errors = {} } = usePage().props;
+    const extraParams = { period, ...(period === 'custom' ? dateRange : {}) };
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/ledger', filters, extraParams);
+    const [filtersOpen, setFiltersOpen] = useState(false);
     const rowClick = useRowClick();
     const statementWindow = useStatementWindow(statement);
-    const caption = periodCaption(period);
-    const label = headlineLabel(side, filterValues.type);
-    const groupedByDay = filters.sort !== 'amount';
-    const canPickBranch = filterOptions.some((group) => group.key === 'branch_id');
-    // Cancelled lines and their reversals cancel each other out, so the page's totals leave both out.
-    const countedEntries = entries.data.filter((entry) => !entry.isCancelled);
-    const pageCharged = countedEntries.filter((entry) => !entry.isCredit).reduce((total, entry) => total + Number(entry.amount), 0);
-    const pageCredited = countedEntries.filter((entry) => entry.isCredit).reduce((total, entry) => total + Number(entry.amount), 0);
+    const grouped = filters.sort !== 'amount';
+    const activeFilters = Object.values(filterValues).filter((value) => value !== '' && value !== null && value !== undefined).length;
 
-    function changePeriod(next) {
-        router.get(
-            '/ledger',
-            { search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page, filter: filterValues, period: next },
-            { preserveState: true, preserveScroll: true, replace: true },
-        );
+    function changePeriod(next, dates = {}) {
+        router.get('/ledger', { search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page, filter: filterValues, period: next, ...dates }, { preserveState: true, preserveScroll: true, replace: true });
     }
 
-    /** A line's subscription, in the shape the statement window's header reads. */
-    function openStatement(entry) {
-        statementWindow.open({
-            id: entry.subscriptionId,
-            fullName: entry.subscriptionName,
-            accountNumber: entry.subscriptionAccountNumber,
-            status: entry.subscriptionStatus,
-            statusLabel: entry.subscriptionStatusLabel,
-            branchName: entry.branchName,
+    function exportCsv() {
+        const url = new URL('/ledger', window.location.origin);
+        Object.entries({ ...extraParams, search, sort: filters.sort, direction: filters.direction, format: 'csv' }).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) { url.searchParams.set(key, value); }
         });
+        Object.entries(filterValues).forEach(([key, value]) => {
+            if (value !== '' && value !== undefined && value !== null) { url.searchParams.set(`filter[${key}]`, value); }
+        });
+        window.location.assign(url.toString());
     }
 
-    const comparison =
-        summary.previousTotal === null
-            ? null
-            : summary.previousTotal > 0
-              ? `مقارنة بالفترة السابقة (${formatMoney(summary.previousTotal)} شيكل)`
-              : 'لا قيود في الفترة السابقة';
+    function openStatement(entry) {
+        statementWindow.open({ id: entry.subscriptionId, fullName: entry.subscriptionName, accountNumber: entry.subscriptionAccountNumber, status: entry.subscriptionStatus, statusLabel: entry.subscriptionStatusLabel, branchName: entry.branchName });
+    }
+
+    function sortHeading(column, label) {
+        return <th scope="col" aria-sort={filters.sort === column ? filters.direction === 'asc' ? 'ascending' : 'descending' : 'none'}><button type="button" onClick={() => sort(column)}>{label}{filters.sort === column && <Icon name="chevron-down" className={filters.direction === 'asc' ? 'rotate-180' : ''} />}</button></th>;
+    }
 
     return (
-        <AuthenticatedLayout
-            header={
-                <>
-                    <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-500">{scopeLabel}</p>
-                        <h2 className="mt-1 text-3xl font-bold text-gray-900">السجل المالي</h2>
-                        <p className="mt-1 text-sm text-gray-500">كل القيود المالية المسجلة على المشتركين، مرتبة حسب اليوم.</p>
-                    </div>
-                    <PeriodTabs period={period} onChange={changePeriod} />
-                </>
-            }
-        >
+        <AuthenticatedLayout>
             <Head title="السجل المالي" />
-
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                <KpiTile
-                    hero
-                    className="sm:col-span-2"
-                    label={`${label} · ${caption}`}
-                    value={formatMoney(summary.total)}
-                    unit="شيكل"
-                    badge={<ChangeBadge pct={summary.changePct} />}
-                    hint={
-                        <>
-                            {formatNumber(summary.count)} قيد
-                            {comparison && ` · ${comparison}`}
-                            {side === 'debit' && summary.collected > 0 && (
-                                <span className="mt-1 block">المحصّل في الفترة نفسها: {formatMoney(summary.collected)} شيكل</span>
-                            )}
-                        </>
-                    }
-                />
-                <KpiTile icon="layers" label="متوسط القيد" value={formatMoney(summary.average)} unit="شيكل" hint="المبلغ ÷ عدد القيود" />
-                <KpiTile icon="wallet" label="أكبر قيد" value={formatMoney(summary.largest)} unit="شيكل" hint={caption} />
-            </div>
-
-            <div className="mt-5 grid gap-5 lg:grid-cols-5">
-                <section className="rise-in rounded-panel border border-gray-100 bg-surface p-6 shadow-card lg:col-span-3">
-                    <div className="mb-7 flex items-baseline justify-between gap-3">
-                        <h3 className="text-lg font-bold text-gray-900">{side === 'credit' ? 'التسديد اليومي' : 'القيود اليومية'}</h3>
-                        <span className="text-xs text-gray-500">بالشيكل · آخر {formatNumber(dailyTotals.length)} يوم</span>
+            <div className="ledger-page">
+                <div className="ph">
+                    <div><p className="scope">{scopeLabel}</p><h1>السجل المالي</h1><p>كل قيد على المشتركين، مرتبة حسب اليوم.</p></div>
+                    <div className="acts">
+                        <button type="button" className="btn" title="تنزيل ملف CSV يفتح في Excel" onClick={exportCsv}><Icon name="arrow-down-tray" />تصدير Excel</button>
+                        <a className="btn" href={printUrl('السجل المالي')} target="_blank" rel="noopener noreferrer"><Icon name="printer" />طباعة</a>
                     </div>
-                    <BarChart
-                        data={dailyTotals}
-                        label={`${label} لكل يوم، بالشيكل`}
-                        formatValue={(value) => `${formatMoney(value)} شيكل`}
-                        countLabel="قيد"
-                    />
-                </section>
-                <BranchBreakdown
-                    branches={branchTotals}
-                    caption={caption}
-                    selectedId={filterValues.branch_id}
-                    onSelect={canPickBranch ? (branchId) => setFilter('branch_id', branchId) : null}
-                />
-            </div>
-
-            <div className="mt-5">
-                <DataTableToolbar
-                    search={search}
-                    onSearchChange={setSearch}
-                    placeholder="بحث باسم المشترك أو رقم الهاتف أو رقم الاشتراك..."
-                    perPage={filters.per_page}
-                    onPerPageChange={setPerPage}
-                    total={entries.total}
-                    filterMenu={
-                        <DataTableFilterMenu
-                            tableKey="ledger"
-                            groups={filterOptions}
-                            values={filterValues}
-                            onChange={setFilter}
-                            onChangeMany={setFilters}
-                            onClear={clearFilters}
-                        />
-                    }
-                />
-
-                <div className="data-table-container">
-                    <table className="data-table w-full text-start text-sm">
-                        <thead>
-                            <tr>
-                                <SortableTh column="created_at" label="الوقت" sortState={filters} onSort={sort} />
-                                <th>المشترك</th>
-                                <th>الفرع</th>
-                                <th>النوع</th>
-                                <th>سجّله</th>
-                                <SortableTh column="amount" label="المبلغ" sortState={filters} onSort={sort} />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {entries.data.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6}>لا توجد قيود مطابقة في هذه الفترة.</td>
-                                </tr>
-                            ) : (
-                                entries.data.map((entry, index) => (
-                                    <Fragment key={entry.id}>
-                                        {groupedByDay && entry.day !== entries.data[index - 1]?.day && (
-                                            <DayHeader day={entry.day} totals={dayTotals[entry.day]} isToday={entry.day === today} />
-                                        )}
-                                        <tr {...rowClick(can?.viewSubscriptions ? () => openStatement(entry) : null)}>
-                                            <td className="whitespace-nowrap">
-                                                <span className="inline-flex items-center gap-1.5 font-semibold text-gray-900">
-                                                    <Icon name="clock" className="h-4 w-4 text-gray-400" />
-                                                    {groupedByDay
-                                                        ? formatClock(entry.time)
-                                                        : `${formatShortDay(entry.day)} · ${formatClock(entry.time)}`}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <RowIdentity
-                                                    name={entry.subscriptionName}
-                                                    subtitle={entry.subscriptionPhone}
-                                                    subtitleDir="ltr"
-                                                    status={STATUS_DOTS[entry.subscriptionStatus]}
-                                                />
-                                            </td>
-                                            <td className="text-gray-600">{entry.branchName}</td>
-                                            <td>
-                                                <span
-                                                    className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                                                        entry.isCredit
-                                                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                                                            : 'border-gray-200 bg-gray-50 text-gray-600'
-                                                    }`}
-                                                >
-                                                    {entry.typeLabel}
-                                                </span>
-                                                {entry.isCancelled && entry.type !== 'reversal' && (
-                                                    <span className="ms-1.5 inline-flex whitespace-nowrap rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-semibold text-gray-500">
-                                                        ملغاة
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="text-gray-600">{entry.recordedByName ?? '—'}</td>
-                                            <td>
-                                                <Shekels
-                                                    amount={entry.amount}
-                                                    className={
-                                                        entry.isCancelled
-                                                            ? 'text-gray-400 line-through'
-                                                            : entry.isCredit
-                                                              ? 'text-emerald-700 dark:text-emerald-400'
-                                                              : 'text-gray-900'
-                                                    }
-                                                />
-                                            </td>
-                                        </tr>
-                                    </Fragment>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
                 </div>
-
-                {entries.data.length > 0 && (
-                    <div className="data-table-totals text-sm text-gray-500">
-                        <span>
-                            مجموع هذه الصفحة: عليه <Shekels amount={pageCharged} />
-                            {pageCredited > 0 && (
-                                <>
-                                    {' '}
-                                    · له <Shekels amount={pageCredited} className="text-emerald-700 dark:text-emerald-400" />
-                                </>
-                            )}
-                        </span>
-                        <span>
-                            {label} · {caption}: <Shekels amount={summary.total} className="text-brand-600" />
-                        </span>
+                <DateRange period={period} range={dateRange} today={today} onChange={changePeriod} errors={errors} />
+                {!errors.from && !errors.to ? null : <p role="alert" className="err">{errors.from || errors.to}</p>}
+                <SummaryCards totals={ledgerTotals} summary={summary} side={side} />
+                <section className="pn" aria-label="القيود المالية">
+                    <div className="tb">
+                        <div className="srch">
+                            <Icon name="search" className="search-icon" />
+                            <label htmlFor="ledger-search" className="sr-only">البحث في السجل المالي</label>
+                            <input id="ledger-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث بالاسم، الهاتف، رقم الحساب، رقم السند أو الرقم المرجعي…" autoComplete="off" aria-describedby="ledger-search-hint" />
+                            <div className="hint" id="ledger-search-hint">البحث يشمل: <span>الاسم</span><span>الهاتف</span><span>الحساب</span><span>السند</span><span>المرجع</span></div>
+                        </div>
+                        <button type="button" className="btn fbtn" onClick={() => setFiltersOpen(!filtersOpen)} aria-expanded={filtersOpen} aria-controls="ledger-filters"><Icon name="filter" />الفلاتر{activeFilters > 0 && <span className="num">{activeFilters}</span>}</button>
                     </div>
-                )}
-
-                <Pagination meta={entries} filters={filters} baseUrl="/ledger" extraParams={{ period }} />
+                    <div className={`fb ${filtersOpen ? 'open' : ''}`} id="ledger-filters">
+                        {filterOptions.map((group) => <div className="sel" key={group.key}><select className={filterValues[group.key] ? 'on' : ''} aria-label={group.label} value={filterValues[group.key] ?? ''} onChange={(event) => setFilter(group.key, event.target.value)}><option value="">{group.label}: الكل</option>{group.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>)}
+                        <label className="tg"><input type="checkbox" checked={filterValues.show_cancelled !== '0'} onChange={(event) => setFilter('show_cancelled', event.target.checked ? '' : '0')} />إظهار الملغاة</label>
+                        {activeFilters > 0 && <button type="button" className="clr" onClick={clearFilters}>مسح الفلاتر</button>}
+                    </div>
+                    <table className="ledger-table" aria-label="السجل المالي">
+                        <thead><tr>{sortHeading('created_at', 'الوقت')}<th scope="col">المشترك</th><th scope="col">النوع</th><th scope="col">السند</th><th scope="col">الطريقة والبنك</th><th scope="col">المرجع</th><th scope="col">سجّله</th>{sortHeading('amount', 'المبلغ')}<th scope="col">الرصيد بعده</th></tr></thead>
+                        <tbody>{entries.data.length === 0 ? <tr className="empty"><td colSpan={9}><b>لا توجد قيود مطابقة</b>جرّب فترة أخرى أو غيّر البحث والفلاتر.</td></tr> : entries.data.map((entry, index) => <Fragment key={entry.id}>{grouped && entry.day !== entries.data[index - 1]?.day && <DayHeader day={entry.day} totals={dayTotals[entry.day]} today={today} />}<TransactionRow entry={entry} grouped={grouped} rowClick={rowClick} onOpen={can?.viewSubscriptions ? () => openStatement(entry) : null} /></Fragment>)}</tbody>
+                    </table>
+                    <div className="foot data-table-totals">
+                        <div>إجمالي التحميل<b><Money amount={ledgerTotals.charged} /></b></div>
+                        <div>المحصّل<b className="g"><Money amount={ledgerTotals.credited} /></b></div>
+                        <div>الصافي<b><Money amount={ledgerTotals.net} balance /> <span>{ledgerTotals.net > 0 ? 'للشركة' : ledgerTotals.net < 0 ? 'للمشترك' : 'مسدّد'}</span></b></div>
+                        <span className="r">{formatNumber(entries.total)} قيد مطابق · الملغاة خارج المجاميع</span>
+                    </div>
+                    <div className="ledger-pagination"><label className="sel"><span className="sr-only">عدد القيود في الصفحة</span><select aria-label="عدد القيود في الصفحة" value={filters.per_page} onChange={(event) => setPerPage(event.target.value)}>{[15, 25, 50, 100].map((count) => <option key={count} value={count}>{count} قيد / صفحة</option>)}</select></label><Pagination meta={entries} filters={filters} baseUrl="/ledger" extraParams={extraParams} /></div>
+                </section>
             </div>
-
-            {statementWindow.subscription && (
-                <StatementModal
-                    key={statementWindow.subscription.id}
-                    subscription={statementWindow.subscription}
-                    statement={statementWindow.statement}
-                    initialForm={statementWindow.form}
-                    onSwitch={(header) => statementWindow.open(header)}
-                    onClose={statementWindow.close}
-                />
-            )}
+            {statementWindow.subscription && <StatementModal key={statementWindow.subscription.id} subscription={statementWindow.subscription} statement={statementWindow.statement} initialForm={statementWindow.form} onSwitch={(header) => statementWindow.open(header)} onClose={statementWindow.close} />}
         </AuthenticatedLayout>
     );
 }

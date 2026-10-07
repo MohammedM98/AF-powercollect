@@ -1,8 +1,8 @@
 /**
  * Every page in the sidebar and the Ctrl+K search. `can` names the flag in
  * the shared `can` props (HandleInertiaRequests) that must be true for the
- * link to show; links without it are always shown. In the sidebar the
- * settings pages sit in a "الإعدادات" group that opens to show them.
+ * link to show; links without it are always shown. The sidebar and search
+ * share task groups while retaining the same permission flags.
  */
 export const MAIN_LINKS = [
     { href: '/dashboard', label: 'لوحة التحكم', icon: 'grid' },
@@ -29,6 +29,24 @@ export const SETTINGS_LINKS = [
     { href: '/settings/closing-schedule', label: 'مواعيد الإغلاق', icon: 'clock', can: 'manageClosingSchedule' },
     { href: '/settings/print-templates', label: 'قوالب الطباعة', icon: 'printer', can: 'managePrintTemplates' },
 ];
+
+const linksByHref = new Map([...MAIN_LINKS, ...SETTINGS_LINKS].map((link) => [link.href, link]));
+
+export const NAVIGATION_GROUPS = [
+    { id: 'daily', label: 'العمل اليومي', icon: 'users', defaultOpen: true, hrefs: ['/subscriptions', '/meter-readings', '/messages'] },
+    { id: 'finance', label: 'المالية والتحصيل', icon: 'wallet', defaultOpen: true, hrefs: ['/ledger', '/receivables', '/closings'] },
+    { id: 'reports', label: 'التقارير والرقابة', icon: 'trend', hrefs: ['/reports', '/branch-performance', '/transaction-audit'] },
+    { id: 'infrastructure', label: 'الفروع والبنية الكهربائية', icon: 'bolt', hrefs: ['/branches', '/governorates', '/meter-boxes', '/circuit-breakers'] },
+    { id: 'administration', label: 'الإدارة والإعدادات', icon: 'cog', hrefs: ['/users', '/settings/permissions', '/tariffs', '/settings/reading-schedule', '/settings/closing-schedule', '/settings/print-templates'] },
+];
+
+/** Task groups containing only the pages the current user may open. */
+export function allowedNavigationGroups(can) {
+    return NAVIGATION_GROUPS.map(({ hrefs, ...group }) => ({
+        ...group,
+        links: allowedLinks(hrefs.map((href) => linksByHref.get(href)), can),
+    })).filter((group) => group.links.length > 0);
+}
 
 /** The links the current user may open. */
 export function allowedLinks(links, can) {

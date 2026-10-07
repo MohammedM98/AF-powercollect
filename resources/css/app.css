@@ -247,8 +247,16 @@
         @apply inline-block whitespace-nowrap rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 font-mono text-xs text-gray-700;
     }
 
-    /* The sidebar's current page: a burgundy edge on the graphite pill. */
+    /* The sidebar's current page: a burgundy edge, alongside its tinted fill. */
     .nav-link-active {
+        box-shadow: inset -3px 0 0 rgb(var(--brand-600));
+    }
+
+    /* Keep the section's graphite treatment while it is in use or contains the current page. */
+    .sidebar-group:hover > .sidebar-group-heading,
+    .sidebar-group:focus-within > .sidebar-group-heading,
+    .sidebar-group-heading[data-active='true'] {
+        @apply bg-graphite-gradient text-white dark:ring-1 dark:ring-white/10;
         box-shadow:
             inset -3px 0 0 rgb(var(--brand-500)),
             0 14px 26px -14px rgb(16 24 40 / 0.55);

@@ -199,7 +199,7 @@
 
 .ledger-page .ledger-table, .ledger-page .ledger-table thead, .ledger-page .ledger-table tbody { display: block; }
 .ledger-page .name-btn { min-height: 24px; }
-.ledger-page .num.balance-subscriber,
-.ledger-page .num.balance-subscriber > span { color: var(--ledger-danger); }
-.ledger-page .num.balance-company,
-.ledger-page .num.balance-company > span { color: var(--ledger-success); }
+.ledger-page .num.balance-owes,
+.ledger-page .num.balance-owes > span { color: var(--ledger-danger); }
+.ledger-page .num.balance-credit,
+.ledger-page .num.balance-credit > span { color: var(--ledger-success); }

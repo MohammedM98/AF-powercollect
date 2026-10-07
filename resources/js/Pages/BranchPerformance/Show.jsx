@@ -49,7 +49,7 @@ function StatusMix({ statusCounts }) {
 
 function ChartCard({ title, caption, children }) {
     return (
-        <section className="rise-in rounded-panel border border-gray-100 bg-surface p-6 shadow-card">
+        <section className="rise-in min-w-0 rounded-panel border border-gray-100 bg-surface p-6 shadow-card">
             <div className="mb-7 flex items-baseline justify-between gap-3">
                 <h3 className="text-lg font-bold text-gray-900">{title}</h3>
                 <span className="text-xs text-gray-500">{caption}</span>
@@ -149,7 +149,7 @@ function TeamTable({ team }) {
 /** The last two weeks, newest first: each day's new subscriptions, entries, charges and busiest member. */
 function WorkLog({ days }) {
     return (
-        <section className="xl:col-span-2">
+        <section className="min-w-0 xl:col-span-2">
             <TableHeading title="سجل العمل اليومي" caption={`آخر ${formatNumber(days.length)} يوم`} />
             <div className="data-table-container">
                 <table className="data-table w-full text-start text-sm">
@@ -198,7 +198,7 @@ function WorkLog({ days }) {
 /** The newest subscriptions, as a timeline: who registered them, and when. */
 function LatestRegistrations({ subscriptions }) {
     return (
-        <section className="rise-in self-start rounded-panel border border-gray-100 bg-surface p-6 shadow-card">
+        <section className="rise-in min-w-0 self-start rounded-panel border border-gray-100 bg-surface p-6 shadow-card">
             <div className="flex items-baseline justify-between gap-3">
                 <h3 className="text-lg font-bold text-gray-900">آخر الإدخالات</h3>
                 <span className="text-xs text-gray-500">أحدث المشتركين المسجلين</span>

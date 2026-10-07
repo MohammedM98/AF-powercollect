@@ -33,7 +33,7 @@ function BranchCard({ branch, style }) {
 
     return (
         <article
-            className="rise-in group relative flex flex-col rounded-panel border border-gray-100 bg-surface p-6 shadow-card transition-shadow hover:border-gray-200 hover:shadow-lift focus-within:ring-2 focus-within:ring-gray-900"
+            className="rise-in group relative flex min-w-0 flex-col rounded-panel border border-gray-100 bg-surface p-6 shadow-card transition-shadow hover:border-gray-200 hover:shadow-lift focus-within:ring-2 focus-within:ring-gray-900"
             style={style}
         >
             <header className="flex items-start gap-3.5">
@@ -57,11 +57,11 @@ function BranchCard({ branch, style }) {
                 </span>
             </header>
 
-            <div className="mt-6 flex items-end justify-between gap-4">
+            <div className="mt-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
                 <div className="min-w-0">
                     <p className="text-xs text-gray-500">إجمالي القيود</p>
                     <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
-                        <span className="font-display text-4xl font-bold text-gray-900">{formatMoney(branch.chargesTotal)}</span>
+                        <span className="font-display text-3xl font-bold text-gray-900 sm:text-4xl">{formatMoney(branch.chargesTotal)}</span>
                         <span className="text-sm text-gray-500">شيكل</span>
                     </p>
                 </div>

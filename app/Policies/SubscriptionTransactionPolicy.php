@@ -78,7 +78,8 @@ class SubscriptionTransactionPolicy
     /**
      * Correcting a line takes the "Edit Transactions" permission, for a
      * subscription of the user's own branch (any branch for the Super Admin),
-     * and only while the line can still be corrected.
+     * and only while the line can still be corrected: never once a closing
+     * has been sent for review or approved with it in.
      */
     public function update(User $user, SubscriptionTransaction $subscriptionTransaction): bool
     {
@@ -96,6 +97,8 @@ class SubscriptionTransactionPolicy
     /**
      * Cancellation and refunding require their own permissions. Permanent
      * deletion never implies either, including through the legacy endpoint.
+     * A payment a submitted or approved closing counted is only undone by a
+     * refund, which the closing of the day it is paid out accounts for.
      */
     public function delete(User $user, SubscriptionTransaction $subscriptionTransaction): bool
     {
@@ -105,12 +108,15 @@ class SubscriptionTransactionPolicy
 
         return $canDelete
             && $subscriptionTransaction->isCancellable()
+            && ! $subscriptionTransaction->isInClosedDay()
             && $this->inBranchOf($user, $subscriptionTransaction);
     }
 
     private function mayChange(User $user, SubscriptionTransaction $subscriptionTransaction): bool
     {
-        return $subscriptionTransaction->isCorrectable() && $this->inBranchOf($user, $subscriptionTransaction);
+        return $subscriptionTransaction->isCorrectable()
+            && ! $subscriptionTransaction->isInClosedDay()
+            && $this->inBranchOf($user, $subscriptionTransaction);
     }
 
     private function inBranchOf(User $user, SubscriptionTransaction $subscriptionTransaction): bool

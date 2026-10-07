@@ -404,10 +404,18 @@ trait BuildsSubscriptionStatement
             'canForceDelete' => $canForceDelete,
             'amendUnavailableReason' => $hasAmendPermission && ! $canAmend ? ($transaction->amendmentUnavailableReason() ?? 'غير متاح الآن') : null,
             'correctUnavailableReason' => $hasEditPermission && ! $canCorrect
-                ? ($transaction->isCancelled() || $transaction->isReversal() ? 'الحركة ملغاة' : 'لا ينطبق على هذه الحركة')
+                ? match (true) {
+                    $transaction->isCancelled() || $transaction->isReversal() => 'الحركة ملغاة',
+                    $transaction->isPayment() && $transaction->isInClosedDay() => 'بعد إغلاق اليوم',
+                    default => 'لا ينطبق على هذه الحركة',
+                }
                 : null,
             'deleteUnavailableReason' => $mayCancel && ! $canDelete
-                ? ($transaction->isCancelled() || $transaction->isReversal() ? 'الحركة ملغاة' : 'لا يمكن إلغاؤها الآن')
+                ? match (true) {
+                    $transaction->isCancelled() || $transaction->isReversal() => 'الحركة ملغاة',
+                    $transaction->isPayment() && $transaction->isInClosedDay() => 'بعد إغلاق اليوم',
+                    default => 'لا يمكن إلغاؤها الآن',
+                }
                 : null,
             'forceDeleteUnavailableReason' => $hasForceDeletePermission && ! $canForceDelete
                 ? match (true) {

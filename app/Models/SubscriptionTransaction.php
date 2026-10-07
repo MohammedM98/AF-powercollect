@@ -309,11 +309,16 @@ class SubscriptionTransaction extends Model
      * a reversal that takes its amount back off the balance.
      * Returns the reversal.
      *
-     * @throws ValidationException when the line was cancelled meanwhile
+     * @throws ValidationException when the line was cancelled meanwhile, or
+     *                             a submitted or approved closing counted it
      */
     public function cancel(User $actor, CorrectionReason $reason, ?string $notes): self
     {
         return DB::transaction(function () use ($actor, $reason, $notes): self {
+            if ($this->isInClosedDay(lockForUpdate: true)) {
+                throw ValidationException::withMessages(['reason' => 'لا يمكن إلغاء دفعة ضمن كشف إغلاق أُرسل للتدقيق أو اعتُمد؛ أرجِعها بإرجاع الدفعة.']);
+            }
+
             $reversal = $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCancellable());
 
             // A weekly reading's standing discount only stands beside its charge.

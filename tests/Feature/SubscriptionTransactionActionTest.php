@@ -68,6 +68,26 @@ class SubscriptionTransactionActionTest extends TestCase
         ]);
     }
 
+    public function test_an_edited_charge_cannot_be_more_than_the_other_forms_allow(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
+        $subscription = Subscription::factory()->create(['branch_id' => $branch->id]);
+        $invoice = SubscriptionTransaction::recordCharge($subscription, $actor, ChargeType::Penalty, '50', 'غرامة');
+        $edit = fn (string $amount) => $this->actingAs($actor)->post(route('subscriptions.transactions.actions.store', [$subscription, $invoice]), [
+            'action' => 'edit',
+            'amount' => $amount,
+            'amendment_reason' => 'المبلغ الصحيح في المستند',
+        ]);
+
+        $edit('99999999')->assertSessionHasErrors('amount');
+        $edit('1000000.01')->assertSessionHasErrors('amount');
+        $this->assertSame('50.00', $invoice->fresh()->amount);
+
+        $edit('1000000')->assertSessionHasNoErrors();
+        $this->assertSame('1000000.00', $invoice->fresh()->amount);
+    }
+
     public function test_a_refund_always_returns_the_whole_payment_and_links_both_rows(): void
     {
         $branch = Branch::factory()->create();

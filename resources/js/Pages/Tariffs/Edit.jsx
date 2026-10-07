@@ -7,7 +7,7 @@ export default function Edit({ tariff, categoryOptions }) {
     const form = useResourceForm('/tariffs', tariff, tariffFormData(tariff, categoryOptions));
 
     return (
-        <FormPage layout={SettingsLayout} title="تعديل التعرفة" form={form} cancelHref="/tariffs">
+        <FormPage layout={SettingsLayout} title="تعديل التعرفة" form={form} cancelHref="/tariffs" widthClass="max-w-4xl">
             <TariffForm data={form.data} setData={form.setData} errors={form.errors} categoryOptions={categoryOptions} />
         </FormPage>
     );

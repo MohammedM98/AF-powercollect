@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import InputLabel from '@/Components/InputLabel';
+import FormField from '@/Components/Form/FormField';
+import FormPreview, { countFilled } from '@/Components/Form/FormPreview';
+import FormSelect, { namedOptions } from '@/Components/Form/FormSelect';
+import FormSection from '@/Components/Form/FormSection';
+import Icon from '@/Components/Icon';
 import TextInput from '@/Components/TextInput';
-import InputError from '@/Components/InputError';
 
 /**
  * The form's starting values: the meter box's own when editing,
@@ -34,6 +37,10 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
 
     const subAreasInArea = effectiveAreaId ? subAreas.filter((subArea) => String(subArea.area_id) === String(effectiveAreaId)) : [];
 
+    const displayName = [data.name.trim(), data.name_suffix.trim()].filter(Boolean).join(' ');
+    const subArea = subAreasInArea.find((option) => String(option.id) === String(data.sub_area_id));
+    const requiredFields = ['name', 'box_number', ...(canChooseBranch ? ['branch_id'] : [])];
+
     function onGovernorateChange(value) {
         setGovernorateId(value);
         setAreaId('');
@@ -46,142 +53,108 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
     }
 
     return (
-        <>
-            <div>
-                <div className="flex items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                        <InputLabel htmlFor="name" value="اسم الطبلون" />
-                        <TextInput id="name" className="mt-1 block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
-                        <InputError message={errors.name} className="mt-2" />
-                    </div>
-                    <div className="w-24 shrink-0">
-                        <InputLabel htmlFor="name_suffix" value="لاحقة (اختياري)" />
+        <div className="space-y-4">
+            <FormPreview
+                avatar={<Icon name="grid" className="h-6 w-6 text-white/70" />}
+                title={displayName || 'طبلون جديد'}
+                subtitle={data.box_number.trim() ? `رقم ${data.box_number.trim()}` : null}
+                subtitleDir="auto"
+                chips={[subArea?.name].filter(Boolean)}
+                filled={countFilled(data, requiredFields)}
+                total={requiredFields.length}
+            />
+
+            <FormSection icon="grid" title="بيانات الطبلون" description="اسمه ورقمه كما يظهران في القوائم" columns={2}>
+                <div className="flex items-start gap-3 sm:col-span-2">
+                    <FormField id="name" label="اسم الطبلون" required error={errors.name} span="min-w-0 flex-1">
+                        <TextInput className="block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
+                    </FormField>
+                    <FormField id="name_suffix" label="لاحقة (اختياري)" error={errors.name_suffix} span="w-28 shrink-0">
                         <TextInput
-                            id="name_suffix"
                             name="name_suffix"
                             maxLength={50}
                             placeholder="2 / 2A"
                             dir="auto"
-                            className="mt-1 block w-full text-center"
+                            className="block w-full text-center"
                             value={data.name_suffix}
                             onChange={(e) => setData('name_suffix', e.target.value)}
                         />
-                        <InputError message={errors.name_suffix} className="mt-2" />
-                    </div>
+                    </FormField>
                 </div>
-                {data.name.trim() && (
-                    <p className="mt-2 text-sm text-gray-500">
-                        يظهر باسم: <bdi>{[data.name.trim(), data.name_suffix.trim()].filter(Boolean).join(' ')}{data.box_number && ` - (${data.box_number})`}</bdi>
-                    </p>
-                )}
-            </div>
 
-            <div className="mt-4">
-                <InputLabel htmlFor="box_number" value="رقم الطبلون" />
-                <TextInput
+                <FormField
                     id="box_number"
-                    dir="ltr"
-                    className="mt-1 block w-full"
-                    value={data.box_number}
-                    onChange={(e) => setData('box_number', e.target.value)}
-                />
-                <InputError message={errors.box_number} className="mt-2" />
-            </div>
+                    label="رقم الطبلون"
+                    required
+                    error={errors.box_number}
+                    hint={
+                        data.name.trim() ? (
+                            <>
+                                يظهر باسم: <bdi>{displayName}{data.box_number && ` - (${data.box_number})`}</bdi>
+                            </>
+                        ) : undefined
+                    }
+                >
+                    <TextInput dir="ltr" className="block w-full" value={data.box_number} onChange={(e) => setData('box_number', e.target.value)} />
+                </FormField>
+            </FormSection>
 
-            {canChooseBranch ? (
-                <>
-                    <div className="mt-4">
-                        <InputLabel htmlFor="governorate_id" value="المحافظة" />
-                        {governorates.length === 0 ? (
-                            <p className="mt-1 text-sm text-gray-500">لا توجد محافظات بعد.</p>
-                        ) : (
-                            <select
-                                id="governorate_id"
-                                className="mt-1 block w-full"
-                                value={governorateId}
-                                onChange={(e) => onGovernorateChange(e.target.value)}
-                            >
-                                <option value="">— اختر محافظة —</option>
-                                {governorates.map((governorate) => (
-                                    <option key={governorate.id} value={governorate.id}>
-                                        {governorate.name}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
-                    </div>
-
-                    <div className="mt-4">
-                        <InputLabel htmlFor="area_id" value="المنطقة" />
-                        {!governorateId ? (
-                            <p className="mt-1 text-sm text-gray-500">اختر محافظة أولاً لعرض مناطقها.</p>
-                        ) : areasInGovernorate.length === 0 ? (
-                            <p className="mt-1 text-sm text-gray-500">لا توجد مناطق في هذه المحافظة بعد.</p>
-                        ) : (
-                            <select id="area_id" className="mt-1 block w-full" value={areaId} onChange={(e) => onAreaChange(e.target.value)}>
-                                <option value="">— اختر منطقة —</option>
-                                {areasInGovernorate.map((area) => (
-                                    <option key={area.id} value={area.id}>
-                                        {area.name}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
-                    </div>
-
-                    <div className="mt-4">
-                        <InputLabel htmlFor="branch_id" value="الفرع" />
-                        {!areaId ? (
-                            <p className="mt-1 text-sm text-gray-500">اختر منطقة أولاً لعرض فروعها.</p>
-                        ) : branchesInArea.length === 0 ? (
-                            <p className="mt-1 text-sm text-gray-500">لا توجد فروع في هذه المنطقة بعد.</p>
-                        ) : (
-                            <select
-                                id="branch_id"
-                                className="mt-1 block w-full"
-                                value={data.branch_id}
-                                onChange={(e) => setData('branch_id', e.target.value)}
-                            >
-                                <option value="">— اختر فرعًا —</option>
-                                {branchesInArea.map((branch) => (
-                                    <option key={branch.id} value={branch.id}>
-                                        {branch.name}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
-                        <InputError message={errors.branch_id} className="mt-2" />
-                    </div>
-                </>
-            ) : (
-                <p className="mt-4 text-sm text-gray-500">سينتمي هذا الطبلون إلى فرعك.</p>
-            )}
-
-            <div className="mt-4">
-                <InputLabel htmlFor="sub_area_id" value="منطقة 2" />
-                {!effectiveAreaId ? (
-                    <p className="mt-1 text-sm text-gray-500">
-                        {canChooseBranch ? 'اختر منطقة أولاً لعرض مناطق 2 التابعة لها.' : 'فرعك غير مرتبط بمنطقة بعد.'}
-                    </p>
-                ) : subAreasInArea.length === 0 ? (
-                    <p className="mt-1 text-sm text-gray-500">لا توجد منطقة 2 في هذه المنطقة بعد.</p>
+            <FormSection
+                icon="pin"
+                title="الموقع"
+                description={canChooseBranch ? 'المحافظة فالمنطقة فالفرع، ثم منطقة 2 إن وُجدت' : 'يتبع الطبلون فرعك، اختر منطقة 2 إن وُجدت'}
+                columns={2}
+            >
+                {canChooseBranch ? (
+                    <>
+                        <FormSelect
+                            id="governorate_id"
+                            label="المحافظة"
+                            value={governorateId}
+                            onChange={onGovernorateChange}
+                            options={namedOptions(governorates)}
+                            placeholder="— اختر محافظة —"
+                            emptyMessage="لا توجد محافظات بعد"
+                        />
+                        <FormSelect
+                            id="area_id"
+                            label="المنطقة"
+                            value={areaId}
+                            onChange={onAreaChange}
+                            options={namedOptions(areasInGovernorate)}
+                            placeholder="— اختر منطقة —"
+                            blockedMessage={governorateId ? null : 'اختر محافظة أولاً'}
+                            emptyMessage="لا توجد مناطق في هذه المحافظة بعد"
+                        />
+                        <FormSelect
+                            id="branch_id"
+                            label="الفرع"
+                            required
+                            value={data.branch_id}
+                            onChange={(value) => setData('branch_id', value)}
+                            options={namedOptions(branchesInArea)}
+                            placeholder="— اختر فرعًا —"
+                            blockedMessage={areaId ? null : 'اختر منطقة أولاً'}
+                            emptyMessage="لا توجد فروع في هذه المنطقة بعد"
+                            error={errors.branch_id}
+                        />
+                    </>
                 ) : (
-                    <select
-                        id="sub_area_id"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                        value={data.sub_area_id}
-                        onChange={(e) => setData('sub_area_id', e.target.value)}
-                    >
-                        <option value="">— بلا منطقة 2 —</option>
-                        {subAreasInArea.map((subArea) => (
-                            <option key={subArea.id} value={subArea.id}>
-                                {subArea.name}
-                            </option>
-                        ))}
-                    </select>
+                    <p className="text-sm text-gray-500 sm:col-span-2">سينتمي هذا الطبلون إلى فرعك.</p>
                 )}
-                <InputError message={errors.sub_area_id} className="mt-2" />
-            </div>
-        </>
+
+                <FormSelect
+                    id="sub_area_id"
+                    label="منطقة 2"
+                    value={data.sub_area_id}
+                    onChange={(value) => setData('sub_area_id', value)}
+                    options={namedOptions(subAreasInArea)}
+                    placeholder="— بلا منطقة 2 —"
+                    blockedMessage={effectiveAreaId ? null : canChooseBranch ? 'اختر منطقة أولاً' : 'فرعك غير مرتبط بمنطقة بعد'}
+                    emptyMessage="لا توجد منطقة 2 في هذه المنطقة بعد"
+                    error={errors.sub_area_id}
+                />
+            </FormSection>
+        </div>
     );
 }

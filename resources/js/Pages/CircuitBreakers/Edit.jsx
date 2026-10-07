@@ -7,7 +7,7 @@ export default function Edit({ circuitBreaker }) {
     const form = useResourceForm('/circuit-breakers', circuitBreaker, circuitBreakerFormData(circuitBreaker));
 
     return (
-        <FormPage layout={SettingsLayout} title="تعديل القاطع" form={form} cancelHref="/circuit-breakers">
+        <FormPage layout={SettingsLayout} title="تعديل القاطع" form={form} cancelHref="/circuit-breakers" widthClass="max-w-4xl">
             <CircuitBreakerForm data={form.data} setData={form.setData} errors={form.errors} />
         </FormPage>
     );

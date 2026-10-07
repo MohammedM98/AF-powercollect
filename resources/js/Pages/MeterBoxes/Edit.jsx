@@ -7,7 +7,7 @@ export default function Edit({ meterBox, branches, canChooseBranch, governorates
     const form = useResourceForm('/meter-boxes', meterBox, meterBoxFormData(meterBox));
 
     return (
-        <FormPage layout={SettingsLayout} title="تعديل الطبلون" form={form} cancelHref="/meter-boxes">
+        <FormPage layout={SettingsLayout} title="تعديل الطبلون" form={form} cancelHref="/meter-boxes" widthClass="max-w-4xl">
             <MeterBoxForm
                 data={form.data}
                 setData={form.setData}

@@ -7,7 +7,7 @@ export default function Create() {
     const form = useResourceForm('/circuit-breakers', null, circuitBreakerFormData(null));
 
     return (
-        <FormPage layout={SettingsLayout} title="إنشاء قاطع" form={form} cancelHref="/circuit-breakers">
+        <FormPage layout={SettingsLayout} title="إنشاء قاطع" form={form} cancelHref="/circuit-breakers" widthClass="max-w-4xl">
             <CircuitBreakerForm data={form.data} setData={form.setData} errors={form.errors} />
         </FormPage>
     );

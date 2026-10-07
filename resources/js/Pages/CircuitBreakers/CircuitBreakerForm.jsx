@@ -1,6 +1,8 @@
-import InputLabel from '@/Components/InputLabel';
+import FormField from '@/Components/Form/FormField';
+import FormPreview, { countFilled } from '@/Components/Form/FormPreview';
+import FormSection from '@/Components/Form/FormSection';
+import Icon from '@/Components/Icon';
 import TextInput from '@/Components/TextInput';
-import InputError from '@/Components/InputError';
 
 /**
  * The form's starting values: the circuit breaker's own when editing,
@@ -11,36 +13,36 @@ export function circuitBreakerFormData(circuitBreaker) {
 }
 
 export default function CircuitBreakerForm({ data, setData, errors }) {
+    const ampere = String(data.ampere).trim();
+    const minimum = String(data.minimum_payment).trim();
+
     return (
-        <>
-            <div>
-                <InputLabel htmlFor="ampere" value="الأمبير" />
-                <TextInput
-                    id="ampere"
-                    type="number"
-                    min={2}
-                    step={1}
-                    required
-                    className="mt-1 block w-full"
-                    value={data.ampere}
-                    onChange={(event) => setData('ampere', event.target.value)}
-                />
-                <InputError message={errors.ampere} className="mt-2" />
-            </div>
-            <div className="mt-4">
-                <InputLabel htmlFor="minimum_payment" value="الحد الأدنى للدفع (شيكل)" />
-                <TextInput
-                    id="minimum_payment"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    required
-                    className="mt-1 block w-full"
-                    value={data.minimum_payment}
-                    onChange={(event) => setData('minimum_payment', event.target.value)}
-                />
-                <InputError message={errors.minimum_payment} className="mt-2" />
-            </div>
-        </>
+        <div className="space-y-4">
+            <FormPreview
+                avatar={<Icon name="bolt" className="h-6 w-6 text-white/70" />}
+                title={ampere === '' ? 'قاطع جديد' : `قاطع ${ampere} أمبير`}
+                subtitle={minimum === '' ? null : `الحد الأدنى للدفع ${minimum} شيكل`}
+                filled={countFilled(data, ['ampere', 'minimum_payment'])}
+                total={2}
+            />
+
+            <FormSection icon="bolt" title="بيانات القاطع" description="قدرته والحد الأدنى الذي يُحمَّل على اشتراكه" columns={2}>
+                <FormField id="ampere" label="الأمبير" required error={errors.ampere}>
+                    <TextInput type="number" min={2} step={1} required className="block w-full" value={data.ampere} onChange={(event) => setData('ampere', event.target.value)} />
+                </FormField>
+
+                <FormField id="minimum_payment" label="الحد الأدنى للدفع (شيكل)" required error={errors.minimum_payment}>
+                    <TextInput
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        required
+                        className="block w-full"
+                        value={data.minimum_payment}
+                        onChange={(event) => setData('minimum_payment', event.target.value)}
+                    />
+                </FormField>
+            </FormSection>
+        </div>
     );
 }

@@ -11,10 +11,10 @@ use App\Models\SubscriptionBulkChange;
 use App\Models\SubscriptionBulkChangeItem;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
-use App\Support\DailySeries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -117,26 +117,32 @@ class SubscriptionBulkChangeController extends Controller
                 'changed_count' => $changes->count(),
             ]);
 
+            $items = [];
+
             foreach ($changes as $change) {
-                // Becoming active starts the subscription, as it does when the subscription is edited.
-                $startsSubscription = $field === 'status'
+                $subscription = $change['subscription'];
+                // Becoming active starts the subscription (or connects it again), as it does when the subscription is edited.
+                $becomesActive = $field === 'status'
                     && $change['new'] === SubscriptionStatus::Active->value
                     && $change['old'] !== SubscriptionStatus::Active->value;
+                $sideEffects = $becomesActive ? $this->activationEffects($subscription) : [];
 
-                Subscription::query()->whereKey($change['subscription']->id)->update([
+                Subscription::query()->whereKey($subscription->id)->update([
                     $field => $change['new'],
-                    ...($startsSubscription ? ['subscription_date' => DailySeries::today()->toDateString()] : []),
-                    ...($field === 'status' && $change['new'] === SubscriptionStatus::Active->value && $change['subscription']->activated_at === null ? ['activated_at' => now()] : []),
+                    ...collect($sideEffects)->map(fn (array $effect): ?string => $effect['new'])->all(),
                 ]);
-            }
 
-            foreach ($changes->chunk(500) as $chunk) {
-                SubscriptionBulkChangeItem::insert($chunk->map(fn (array $change) => [
+                $items[] = [
                     'subscription_bulk_change_id' => $bulkChange->id,
-                    'subscription_id' => $change['subscription']->id,
+                    'subscription_id' => $subscription->id,
                     'old_value' => $change['old'],
                     'new_value' => $change['new'],
-                ])->all());
+                    'side_effects' => $sideEffects === [] ? null : json_encode($sideEffects),
+                ];
+            }
+
+            foreach (array_chunk($items, 250) as $chunk) {
+                SubscriptionBulkChangeItem::insert($chunk);
             }
 
             return $bulkChange;
@@ -166,7 +172,10 @@ class SubscriptionBulkChangeController extends Controller
             $restored = 0;
             $change->items()->with('subscription')->lockForUpdate()->get()->each(function (SubscriptionBulkChangeItem $item) use ($change, &$restored): void {
                 if ($item->subscription !== null && $this->currentValue($item->subscription, $change->field) === $item->new_value) {
-                    Subscription::query()->whereKey($item->subscription_id)->update([$change->field => $item->old_value]);
+                    Subscription::query()->whereKey($item->subscription_id)->update([
+                        $change->field => $item->old_value,
+                        ...$this->effectsToPutBack($item),
+                    ]);
                     $restored++;
                 }
             });
@@ -234,7 +243,42 @@ class SubscriptionBulkChangeController extends Controller
             && ($change['old'] === SubscriptionStatus::Active->value || $change['subscription']->activated_at !== null);
     }
 
-    /** The subscription's stored value of the field, as a bulk change keeps it. */
+    /**
+     * What activating a subscription also sets on them (the dates), with each
+     * field's value before and after, so that an undo can put them back.
+     *
+     * @return array<string, array{old: ?string, new: string}>
+     */
+    private function activationEffects(Subscription $subscription): array
+    {
+        $effects = collect($subscription->datesWhenActivated())
+            ->map(fn (string $date, string $field): array => ['old' => $subscription->getRawOriginal($field), 'new' => $date]);
+
+        return $subscription->activated_at === null
+            ? $effects->put('activated_at', ['old' => null, 'new' => now()->toDateTimeString()])->all()
+            : $effects->all();
+    }
+
+    /**
+     * The dates an activation set that are still as it left them, with the
+     * value they had before; one edited since stays as it is.
+     *
+     * @return array<string, ?string>
+     */
+    private function effectsToPutBack(SubscriptionBulkChangeItem $item): array
+    {
+        return collect($item->side_effects ?? [])
+            ->filter(fn (array $effect, string $field): bool => $this->moment($item->subscription->getRawOriginal($field)) === $this->moment($effect['new']))
+            ->map(fn (array $effect): ?string => $effect['old'])
+            ->all();
+    }
+
+    /** A stored date or time in one form, whatever form the database kept it in. */
+    private function moment(?string $value): ?string
+    {
+        return $value === null ? null : Carbon::parse($value)->format('Y-m-d H:i:s');
+    }
+
     /**
      * Whether the change would make a subscription active before their
      * starting reading has been entered.

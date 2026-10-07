@@ -22,10 +22,10 @@ use App\Models\Tariff;
 use App\Models\TariffSegment;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
-use App\Support\DailySeries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -173,11 +173,12 @@ class SubscriptionController extends Controller
         // Only a subscription without the fee on the account is validated for charging it.
         $chargeSubscriptionFee = (bool) $request->validated('charge_subscription_fee', false);
 
-        // Activating a subscription who was not active starts their subscription today, unless a date was picked.
-        if ($data['status'] === SubscriptionStatus::Active->value
-            && $subscription->status !== SubscriptionStatus::Active
-            && ($data['subscription_date'] ?? null) === $subscription->subscription_date?->format('Y-m-d')) {
-            $data['subscription_date'] = DailySeries::today()->toDateString();
+        // Activating a subscription who was not active starts their subscription today, unless a date was picked;
+        // one who had been active before is connected again, keeping the day they first subscribed.
+        if ($data['status'] === SubscriptionStatus::Active->value && $subscription->status !== SubscriptionStatus::Active) {
+            $dates = $subscription->datesWhenActivated();
+            $datePicked = ($data['subscription_date'] ?? null) !== $subscription->subscription_date?->format('Y-m-d');
+            $data = [...$data, ...($datePicked ? Arr::except($dates, 'subscription_date') : $dates)];
         }
 
         DB::transaction(function () use ($subscription, $data, $chargeSubscriptionFee, $request): void {
@@ -350,6 +351,7 @@ class SubscriptionController extends Controller
             'has_been_active' => $subscription->activated_at !== null,
             'subscription_fee_charged' => (bool) ($subscription->has_subscription_fee ?? $subscription->hasSubscriptionFeeCharge()),
             'subscription_date' => $subscription->subscription_date?->format('Y-m-d'),
+            'reconnected_at' => $subscription->reconnected_at?->format('Y-m-d'),
             'notes' => $subscription->notes,
         ];
     }

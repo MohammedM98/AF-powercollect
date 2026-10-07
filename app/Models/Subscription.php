@@ -6,6 +6,7 @@ use App\Enums\AccountingType;
 use App\Enums\SubscriptionStatus;
 use App\Models\Concerns\BelongsToBranch;
 use App\Support\ArabicSearch;
+use App\Support\DailySeries;
 use App\Support\DeletionBlocker;
 use Database\Factories\SubscriptionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -22,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 #[Fillable([
     'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'tariff_segment_id', 'branch_id',
     'registered_by', 'status', 'accounting_type', 'circuit_breaker_id', 'minimum_charge', 'initial_reading', 'subscription_fee',
-    'subscription_date', 'activated_at', 'subscription_name', 'subscription_phone', 'legacy_number', 'notes',
+    'subscription_date', 'reconnected_at', 'activated_at', 'subscription_name', 'subscription_phone', 'legacy_number', 'notes',
 ])]
 class Subscription extends Model
 {
@@ -132,6 +133,7 @@ class Subscription extends Model
             'status' => SubscriptionStatus::class,
             'accounting_type' => AccountingType::class,
             'subscription_date' => 'date',
+            'reconnected_at' => 'date',
             'activated_at' => 'datetime',
             'subscription_fee' => 'decimal:2',
             'initial_reading' => 'float',
@@ -254,6 +256,25 @@ class Subscription extends Model
                     ->orWhere('source_key', 'like', 'charge:%');
             })->count(),
         ], 'يمكنك تغيير حالته إلى «مفصول» بدلًا من حذفه.');
+    }
+
+    /**
+     * The dates that being activated sets on this subscription, who is not
+     * active now. A first connection starts the subscription today; a
+     * reconnection keeps the day they first subscribed and notes today as the
+     * day they were connected again.
+     *
+     * @return array{subscription_date?: string, reconnected_at?: string}
+     */
+    public function datesWhenActivated(): array
+    {
+        $today = DailySeries::today()->toDateString();
+        $wasActiveBefore = $this->activated_at !== null;
+
+        return [
+            ...($wasActiveBefore ? ['reconnected_at' => $today] : []),
+            ...(! $wasActiveBefore || $this->subscription_date === null ? ['subscription_date' => $today] : []),
+        ];
     }
 
     /**

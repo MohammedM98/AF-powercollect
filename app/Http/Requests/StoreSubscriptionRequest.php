@@ -9,6 +9,7 @@ use App\Models\Subscription;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreSubscriptionRequest extends FormRequest
 {
@@ -102,6 +103,35 @@ class StoreSubscriptionRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [fn (Validator $validator) => $this->refuseChangedChargedFee($validator)];
+    }
+
+    /**
+     * Once the fee is on the account its amount is that line's: changing the
+     * field here would leave the two disagreeing, so an edit may only send
+     * the same amount back (the form always sends it).
+     */
+    private function refuseChangedChargedFee(Validator $validator): void
+    {
+        $subscription = $this->route('subscription');
+
+        if (! $subscription || ! $this->has('subscription_fee') || $validator->errors()->has('subscription_fee') || ! $subscription->hasSubscriptionFeeCharge()) {
+            return;
+        }
+
+        $stored = $subscription->subscription_fee === null ? null : (float) $subscription->subscription_fee;
+        $sent = $this->filled('subscription_fee') ? (float) $this->input('subscription_fee') : null;
+
+        if ($sent !== $stored) {
+            $validator->errors()->add('subscription_fee', 'رسوم الاشتراك حُمّلت على الحساب ولا يمكن تغيير مبلغها من هنا.');
+        }
     }
 
     /**

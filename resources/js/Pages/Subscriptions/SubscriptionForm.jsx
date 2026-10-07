@@ -158,6 +158,7 @@ export function subscriptionFormData(subscription, sourceSubscription = null) {
         subscription_date: subscription?.subscription_date ?? '',
         // Only read by the form: it is not a field the server takes.
         has_been_active: subscription?.has_been_active ?? false,
+        subscription_fee_charged: subscription?.subscription_fee_charged ?? false,
         notes: subscription?.notes ?? '',
     };
 
@@ -249,7 +250,9 @@ export default function SubscriptionForm({
     const selectedTariff = tariffs.find((tariff) => String(tariff.id) === String(data.tariff_id));
     const selectedCircuitBreaker = circuitBreakers.find((circuitBreaker) => String(circuitBreaker.id) === String(data.circuit_breaker_id));
     const minimumChargeLocked = !canEditMinimumCharge || !minimumChargeUnlocked;
-    const subscriptionFeeLocked = 'charge_subscription_fee' in data && !data.charge_subscription_fee;
+    // A fee already on the account is that line's amount: it is changed from the transactions, not here.
+    const subscriptionFeeCharged = original.subscription_fee_charged;
+    const subscriptionFeeLocked = subscriptionFeeCharged || ('charge_subscription_fee' in data && !data.charge_subscription_fee);
 
     const contactRequiredFields = REQUIRED_FIELDS.map((field) => field === 'full_name' ? nameField : field === 'phone' ? phoneField : field);
     // Once active, a subscription is disconnected rather than put back to waiting.
@@ -271,8 +274,8 @@ export default function SubscriptionForm({
     /**
      * The starting reading is entered only for an active subscription.
      * Activating one who is not active yet starts their subscription today,
-     * from a reading entered now; choosing their old status again puts back
-     * what they had.
+     * from a reading entered now; one who had been active keeps the day they
+     * first subscribed. Choosing their old status again puts back what they had.
      */
     function chooseStatus(value) {
         const activating = isEdit && original.status !== 'active' && value === 'active';
@@ -282,7 +285,7 @@ export default function SubscriptionForm({
             status: value,
             initial_reading: value === 'active' ? (activating ? '' : current.initial_reading) : isEdit ? original.initial_reading : '',
             ...(isEdit && original.status !== 'active'
-                ? { subscription_date: activating ? new Date().toLocaleDateString('en-CA') : original.subscription_date }
+                ? { subscription_date: activating && !original.has_been_active ? new Date().toLocaleDateString('en-CA') : original.subscription_date }
                 : {}),
         }));
         clearErrors?.('status', 'initial_reading', 'subscription_date');
@@ -407,7 +410,9 @@ export default function SubscriptionForm({
                     span="sm:col-span-2 lg:col-span-3"
                     hint={
                         isEdit && original.status !== 'active' && data.status === 'active'
-                            ? 'عند التفعيل أدخل القراءة السابقة للعدّاد، ويُحدَّث تاريخ الاشتراك إلى تاريخ اليوم.'
+                            ? original.has_been_active
+                                ? 'عند إعادة التوصيل أدخل القراءة السابقة للعدّاد؛ يبقى تاريخ الاشتراك الأصلي ويُسجَّل اليوم كتاريخ إعادة التوصيل.'
+                                : 'عند التفعيل أدخل القراءة السابقة للعدّاد، ويُحدَّث تاريخ الاشتراك إلى تاريخ اليوم.'
                             : undefined
                     }
                 >
@@ -613,7 +618,7 @@ export default function SubscriptionForm({
                             type="number"
                             step="0.01"
                             disabled={subscriptionFeeLocked}
-                            title={subscriptionFeeLocked ? 'فعّل تحميل رسوم اشتراك لإدخال المبلغ' : undefined}
+                            title={subscriptionFeeCharged ? 'حُمّلت الرسوم على الحساب؛ عدّلها من سجل المعاملات.' : subscriptionFeeLocked ? 'فعّل تحميل رسوم اشتراك لإدخال المبلغ' : undefined}
                             className={`block w-full disabled:opacity-100 ${subscriptionFeeLocked ? 'bg-gray-50 text-gray-600' : ''}`}
                             required={data.charge_subscription_fee}
                             min={data.charge_subscription_fee ? '0.01' : '0'}

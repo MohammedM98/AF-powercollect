@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ChargeType;
 use App\Enums\ClosingMatchStatus;
 use App\Enums\ClosingStatus;
 use App\Enums\PermissionKey;
+use App\Enums\TransactionAction;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingPayment;
@@ -206,6 +208,103 @@ class ClosingTest extends TestCase
         $this->artisan('closings:open', ['--date' => '2026-10-01'])->assertFailed();
     }
 
+    public function test_a_cash_refund_comes_off_the_expected_cash_of_the_day_it_is_paid_out_not_the_day_it_was_collected(): void
+    {
+        $accountant = $this->preparer();
+        $refunded = $this->payment('100', 'cash', '2026-09-29 09:00');
+        $this->payment('50', 'cash', '2026-09-29 10:00', subscription: Subscription::factory()->create(['branch_id' => $this->branch->id]));
+        $first = $this->closingFor('2026-09-29', $accountant);
+        $first->recordCount($accountant, ['100' => 1, '50' => 1], null, null);
+        $first->submit($accountant);
+        $this->actingAs($this->reviewer())->post(route('closings.approve', $first));
+
+        $this->refund($refunded, '2026-09-30 11:00');
+
+        $this->assertSame(
+            ['receipts' => 15000, 'expenses' => 0, 'expected' => 15000, 'difference' => 0],
+            collect($first->fresh()->cashFigures())->only(['receipts', 'expenses', 'expected', 'difference'])->all(),
+        );
+        $this->assertSame([$refunded->id], $first->fresh()->lines()->orderBy('id')->pluck('subscription_transaction_id')->take(1)->all());
+        $this->actingAs($accountant)->get(route('closings.index', ['date' => '2026-09-30']))->assertInertia(fn ($page) => $page
+            ->where('daily.cash.opening', '150.00')
+            ->where('daily.cash.receipts', '0.00')
+            ->where('daily.cash.expenses', '100.00')
+            ->where('daily.cash.expected', '50.00')
+            ->where('daily.cashRefunds', fn ($refunds): bool => collect($refunds)->pluck('amount')->all() === ['100.00']));
+    }
+
+    public function test_a_refund_on_the_day_of_the_payment_leaves_the_expected_cash_at_zero_rather_than_taking_it_off_twice(): void
+    {
+        $accountant = $this->preparer();
+        $refunded = $this->payment('100', 'cash', '2026-09-30 09:00');
+        $this->refund($refunded, '2026-09-30 12:00');
+
+        $this->actingAs($accountant)->get(route('closings.index', ['date' => '2026-09-30']))->assertInertia(fn ($page) => $page
+            ->where('daily.cash.receipts', '0.00')
+            ->where('daily.cash.expenses', '0.00')
+            ->where('daily.cash.expected', '0.00')
+            ->has('daily.lines', 0));
+    }
+
+    public function test_a_payment_refunded_after_its_day_stays_in_that_days_draft_closing(): void
+    {
+        $accountant = $this->preparer();
+        $refunded = $this->payment('100', 'cash', '2026-09-29 09:00');
+        $draft = $this->closingFor('2026-09-29', $accountant);
+
+        $this->refund($refunded, '2026-09-30 11:00');
+        $draft->fresh()->syncPayments();
+
+        $this->assertSame([$refunded->id], $draft->fresh()->lines()->pluck('subscription_transaction_id')->all());
+        $this->assertSame(10000, $draft->fresh()->cashFigures()['receipts']);
+        $this->actingAs($accountant)->get(route('closings.index', ['date' => '2026-09-30']))->assertInertia(fn ($page) => $page
+            ->where('daily.cash.expenses', '100.00'));
+        $this->get(route('closings.index', ['date' => '2026-09-29']))->assertInertia(fn ($page) => $page
+            ->where('daily.total', '100.00'));
+        $this->get(route('closings.index', ['date' => '2026-09-29', 'tab' => 'period']))->assertInertia(fn ($page) => $page
+            ->where('periodView.levels.day.total', '100.00')
+            ->where('periodView.levels.day.count', 1));
+    }
+
+    public function test_a_payment_cancelled_by_mistake_is_still_dropped_from_the_draft_closing(): void
+    {
+        $accountant = $this->preparer();
+        $mistaken = $this->payment('100', 'cash', '2026-09-29 09:00');
+        $draft = $this->closingFor('2026-09-29', $accountant);
+        $mistaken->forceFill(['cancelled_at' => now(), 'status' => SubscriptionTransaction::STATUS_CANCELLED])->save();
+
+        $draft->fresh()->syncPayments();
+
+        $this->assertSame([], $draft->fresh()->lines()->pluck('id')->all());
+        $this->assertSame(0, $draft->fresh()->cashFigures()['expenses']);
+    }
+
+    public function test_refunding_a_bank_transfer_does_not_touch_the_cash_box(): void
+    {
+        $accountant = $this->preparer();
+        $transfer = $this->payment('100', 'bank_transfer', '2026-09-29 09:00', 'بنك فلسطين');
+
+        $this->refund($transfer, '2026-09-30 11:00');
+
+        $this->actingAs($accountant)->get(route('closings.index', ['date' => '2026-09-30']))->assertInertia(fn ($page) => $page
+            ->where('daily.cash.expenses', '0.00')
+            ->where('daily.cash.expected', '0.00')
+            ->has('daily.cashRefunds', 0));
+    }
+
+    public function test_cash_refunded_on_days_without_a_closing_comes_off_the_next_opening_cash(): void
+    {
+        $accountant = $this->preparer();
+        $refunded = $this->payment('100', 'cash', '2026-09-27 09:00');
+        $first = $this->closingFor('2026-09-27', $accountant);
+        $first->recordCount($accountant, ['100' => 1], null, null);
+        $this->refund($refunded, '2026-09-28 11:00');
+
+        $this->actingAs($accountant)->get(route('closings.index', ['date' => '2026-09-29']))->assertInertia(fn ($page) => $page
+            ->where('daily.cash.opening', '0.00')
+            ->where('daily.cash.expected', '0.00'));
+    }
+
     private function closingFor(string $day, User $actor): Closing
     {
         $closing = Closing::dailyFor($this->branch, $day);
@@ -238,6 +337,21 @@ class ClosingTest extends TestCase
         $this->travelTo(Carbon::parse('2026-10-01 10:00', 'Asia/Gaza'));
 
         return $payment;
+    }
+
+    /**
+     * Refund the whole payment at the given time, as a super admin would;
+     * a later charge keeps the payment from being the account's last line.
+     */
+    private function refund(SubscriptionTransaction $payment, string $at): SubscriptionTransaction
+    {
+        $actor = User::factory()->superAdmin()->create();
+        $this->travelTo(Carbon::parse($at, 'Asia/Gaza'));
+        SubscriptionTransaction::recordCharge($payment->subscription, $actor, ChargeType::Penalty, '1', null);
+        $payment->applyAction($actor, TransactionAction::Refund, []);
+        $this->travelTo(Carbon::parse('2026-10-01 10:00', 'Asia/Gaza'));
+
+        return SubscriptionTransaction::query()->where('type', SubscriptionTransaction::TYPE_REFUND)->latest('id')->firstOrFail();
     }
 
     private function preparer(): User

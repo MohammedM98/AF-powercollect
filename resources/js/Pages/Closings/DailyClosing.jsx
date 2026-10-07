@@ -340,6 +340,14 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                                 <span>− المصروفات والرديات النقدية</span>
                                 <b>{closingMoney(closing.cash.expenses)}</b>
                             </div>
+                            {closing.cashRefunds.map((refund) => (
+                                <div key={refund.id} className="row sub">
+                                    <span>
+                                        إرجاع دفعة{refund.voucherNumber ? ` · سند ${refund.voucherNumber}` : ''} · {refund.subscriptionName} · {refund.time}
+                                    </span>
+                                    <b>{closingMoney(refund.amount)}</b>
+                                </div>
+                            ))}
                             <div className="row">
                                 <span>− التسليمات للخزينة</span>
                                 <b>{closingMoney(closing.cash.handedOver)}</b>

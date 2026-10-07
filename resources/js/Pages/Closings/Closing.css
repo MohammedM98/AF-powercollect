@@ -873,6 +873,14 @@
     font: 600 14px Alexandria;
     direction: ltr;
 }
+.closing-page .formula .row.sub {
+    padding-inline-start: 14px;
+    font-size: 12px;
+}
+.closing-page .formula .row.sub b {
+    font-size: 12px;
+    font-weight: 500;
+}
 .closing-page .formula .row.t {
     border-top: 1.5px solid var(--cl-line);
     margin-top: 4px;

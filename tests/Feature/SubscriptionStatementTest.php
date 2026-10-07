@@ -219,7 +219,7 @@ class SubscriptionStatementTest extends TestCase
         $this->assertDatabaseCount('subscription_transactions', 1);
 
         $this->recordPayment([...$duplicate, 'confirm_duplicate_reference' => true])->assertSessionHasNoErrors();
-        $this->assertSame(['TR-42', 'TR-42'], SubscriptionTransaction::orderBy('id')->pluck('active_reference')->all());
+        $this->assertSame(['TR42', 'TR42'], SubscriptionTransaction::orderBy('id')->pluck('active_reference')->all());
     }
 
     public function test_live_reference_check_reports_conflicts_and_warns_about_same_day_duplicates(): void
@@ -275,7 +275,7 @@ class SubscriptionStatementTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $this->assertNull($payment->fresh()->active_reference);
-        $this->assertSame('REUSE-7', SubscriptionTransaction::whereNull('cancelled_at')->where('type', 'payment')->sole()->active_reference);
+        $this->assertSame('REUSE7', SubscriptionTransaction::whereNull('cancelled_at')->where('type', 'payment')->sole()->active_reference);
     }
 
     #[TestWith(['بنك فلسطين'])]

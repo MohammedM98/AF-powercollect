@@ -482,9 +482,13 @@ class SubscriptionTransaction extends Model
         });
     }
 
+    /**
+     * A bank reference as transfers are compared: upper case, without
+     * spaces, dashes, slashes or dots, so FT-100, ft 100 and FT/100 are one.
+     */
     public static function normalizeReference(mixed $reference): ?string
     {
-        $normalized = Str::upper((string) preg_replace('/\s+/u', '', trim((string) $reference)));
+        $normalized = Str::upper((string) preg_replace('/[\s\p{Pd}\/.]+/u', '', trim((string) $reference)));
 
         return $normalized !== '' ? $normalized : null;
     }

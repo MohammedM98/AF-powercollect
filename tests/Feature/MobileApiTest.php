@@ -307,6 +307,35 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('data.0.status', 'recorded');
     }
 
+    public function test_the_collectors_payments_today_follow_the_business_day_not_the_utc_date(): void
+    {
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id]);
+        $paymentAt = function (string $utc) use ($collector, $subscription): int {
+            $this->travelTo($utc);
+
+            return SubscriptionTransaction::recordPayment($subscription, $collector, ['amount' => '10', 'currency' => 'ILS', 'payment_method' => 'cash'])->id;
+        };
+        $paymentAt('2026-10-05 09:00:00'); // 12:00 on the 5th in Gaza
+        $paymentAt('2026-10-05 20:30:00'); // 23:30 on the 5th in Gaza
+        $afterMidnight = $paymentAt('2026-10-05 22:30:00'); // 01:30 on the 6th in Gaza, still the 5th in UTC
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
+        $today = function (string $utc) {
+            $this->travelTo($utc);
+
+            return $this->getJson(route('mobile.collections.index'))->assertOk();
+        };
+
+        // 23:45 on the 5th in Gaza: the day holds the two taken before midnight.
+        $today('2026-10-05 20:45:00')->assertJsonCount(2, 'data')->assertJsonPath('total', 20);
+        // 01:45 on the 6th in Gaza (the 5th in UTC): the new day holds only what was taken since midnight.
+        $today('2026-10-05 22:45:00')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $afterMidnight)->assertJsonPath('total', 10);
+        // Midday on the 7th: nothing yet.
+        $today('2026-10-07 09:00:00')->assertJsonCount(0, 'data')->assertJsonPath('total', 0);
+    }
+
     #[TestWith(['suspended', 'Suspended'])]
     #[TestWith(['disconnected', 'Disconnected'])]
     public function test_a_suspended_or_disconnected_subscription_can_pay_in_the_app_as_on_the_website(string $status, string $label): void

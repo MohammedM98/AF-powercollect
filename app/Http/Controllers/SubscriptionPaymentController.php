@@ -7,6 +7,7 @@ use App\Http\Requests\StoreSubscriptionPaymentRequest;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Notifications\ActionCompleted;
+use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -33,10 +34,14 @@ class SubscriptionPaymentController extends Controller
         $warning = null;
 
         if (! $conflict && isset($validated['amount'], $validated['currency'], $validated['sender_name'])) {
+            // "The same day" is the business day, not the UTC date.
+            $day = ClosingPeriods::dayOf(now());
+            [$from, $until] = ClosingPeriods::utcRange($day, $day);
             $possibleDuplicate = SubscriptionTransaction::query()
                 ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
                 ->whereNull('cancelled_at')
-                ->whereDate('created_at', today())
+                ->where('created_at', '>=', $from)
+                ->where('created_at', '<', $until)
                 ->where('currency_amount', $validated['amount'])
                 ->where('currency', $validated['currency'])
                 ->where('sender_name', trim($validated['sender_name']))

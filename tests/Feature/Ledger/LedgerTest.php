@@ -254,6 +254,120 @@ class LedgerTest extends TestCase
         $this->assertFalse(User::factory()->dataEntry()->create(['branch_id' => $this->branch->id])->can('viewForBranch', [SubscriptionTransaction::class, $this->branch]));
     }
 
+    public function test_the_four_cards_keep_charges_credits_and_cancelled_originals_separate(): void
+    {
+        $this->line($this->subscription, 'subscription_fee', '100.00');
+        $this->line($this->subscription, 'payment', '-30.00');
+        $this->line($this->subscription, 'discount', '-10.00');
+        $cancelled = $this->line($this->subscription, 'subscription_fee', '60.00');
+        $cancelled->update(['cancelled_at' => now()]);
+        $reversal = $this->line($this->subscription, 'reversal', '-60.00');
+        $reversal->update(['reverses_id' => $cancelled->id]);
+
+        $this->actingAs($this->branchAdmin)->get(route('ledger.index'))
+            ->assertInertia(fn ($page) => $page->where('ledgerTotals', [
+                'charged' => 100, 'debitCount' => 1, 'credited' => 40, 'creditCount' => 2,
+                'net' => 60, 'cancelled' => 60, 'cancelledCount' => 1,
+            ])->where('entries.total', 5));
+
+        $this->get(route('ledger.index', ['filter' => ['show_cancelled' => '0']]))
+            ->assertInertia(fn ($page) => $page->where('entries.total', 3)
+                ->where('ledgerTotals.charged', 100)->where('ledgerTotals.credited', 40)
+                ->where('ledgerTotals.cancelledCount', 0));
+    }
+
+    #[TestWith(['voucher_number', '314159'])]
+    #[TestWith(['voucher_number', '000042'])]
+    #[TestWith(['manual_voucher_number', 'R-2026-42'])]
+    #[TestWith(['reference_number', 'FT-26272-42'])]
+    public function test_receipt_and_reference_searches_cannot_expose_another_branch(string $field, string $search): void
+    {
+        $mine = $this->line($this->subscription, 'payment', '-20.00');
+        $mine->update([$field => $search]);
+        $other = $this->line(Subscription::factory()->create(), 'payment', '-80.00');
+        $other->update([$field => $search.'0']);
+
+        $this->actingAs($this->branchAdmin)->get(route('ledger.index', ['search' => $search]))
+            ->assertInertia(fn ($page) => $page->where('entries.total', 1)
+                ->where('entries.data.0.id', $mine->id)->where('ledgerTotals.credited', 20));
+    }
+
+    public function test_payment_details_and_filters_use_the_stored_transaction_fields(): void
+    {
+        $transfer = $this->line($this->subscription, 'payment', '-200.00');
+        $transfer->update([
+            'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين',
+            'reference_number' => 'FT26272', 'manual_voucher_number' => 'R-42',
+            'balance_after' => '-50.00', 'currency' => 'USD', 'currency_amount' => '50.00', 'exchange_rate' => '4.0000',
+        ]);
+        $cash = $this->line($this->subscription, 'payment', '-10.00');
+        $cash->update(['payment_method' => 'cash']);
+        $other = $this->line(Subscription::factory()->create(), 'payment', '-400.00');
+        $other->update(['payment_method' => 'bank_transfer', 'bank_name' => 'Hidden Bank']);
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('ledger.index', ['filter' => ['payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين']]))
+            ->assertInertia(fn ($page) => $page->where('entries.total', 1)
+                ->where('entries.data.0.voucherNumber', 'R-42')->where('entries.data.0.isManualVoucher', true)
+                ->where('entries.data.0.paymentMethod', 'bank_transfer')->where('entries.data.0.bankName', 'بنك فلسطين')
+                ->where('entries.data.0.referenceNumber', 'FT26272')->where('entries.data.0.balanceAfter', '-50.00')
+                ->where('entries.data.0.currency', 'USD')->where('ledgerTotals.credited', 200)
+                ->where('filterOptions', fn ($groups): bool => collect($groups)->firstWhere('key', 'bank_name')['options'] === [['value' => 'بنك فلسطين', 'label' => 'بنك فلسطين']]));
+    }
+
+    #[TestWith(['yesterday', null, null, 20, '2026-09-19', '2026-09-19'])]
+    #[TestWith(['month', null, null, 50, '2026-09-01', '2026-09-20'])]
+    #[TestWith(['custom', '2026-09-19', '2026-09-19', 20, '2026-09-19', '2026-09-19'])]
+    public function test_new_periods_include_whole_business_dates_and_exclude_the_next_day(string $period, ?string $from, ?string $to, int $total, string $expectedFrom, string $expectedTo): void
+    {
+        $this->line($this->subscription, 'subscription_fee', '40.00', '2026-08-31 20:59:59');
+        $this->line($this->subscription, 'subscription_fee', '10.00', '2026-08-31 21:00:00');
+        $this->line($this->subscription, 'subscription_fee', '15.00', '2026-09-18 21:00:00');
+        $this->line($this->subscription, 'subscription_fee', '5.00', '2026-09-19 20:59:59');
+        $this->line($this->subscription, 'subscription_fee', '20.00', '2026-09-19 21:00:00');
+        $this->line($this->subscription, 'subscription_fee', '80.00', '2026-09-20 21:00:00');
+
+        $this->actingAs($this->branchAdmin)->get(route('ledger.index', array_filter(['period' => $period, 'from' => $from, 'to' => $to])))
+            ->assertInertia(fn ($page) => $page->where('period', $period)
+                ->where('ledgerTotals.charged', $total)->where('dateRange', ['from' => $expectedFrom, 'to' => $expectedTo]));
+    }
+
+    #[TestWith([[], ['from', 'to']])]
+    #[TestWith([['from' => '20/09/2026', 'to' => '2026-09-20'], ['from']])]
+    #[TestWith([['from' => '2026-09-20', 'to' => '2026-09-19'], ['to']])]
+    public function test_custom_dates_reject_missing_malformed_and_reversed_ranges(array $dates, array $errors): void
+    {
+        $this->actingAs($this->branchAdmin)->get(route('ledger.index', ['period' => 'custom', ...$dates]))
+            ->assertRedirect()->assertSessionHasErrors($errors);
+    }
+
+    public function test_excel_csv_exports_all_matching_rows_with_scope_and_formula_protection(): void
+    {
+        $this->subscription->update(['full_name' => '=HYPERLINK("unsafe")']);
+        for ($index = 0; $index < 26; $index++) {
+            $line = $this->line($this->subscription, 'payment', '-20.00');
+            $line->update(['payment_method' => 'cash']);
+        }
+        $this->line($this->subscription, 'subscription_fee', '60.00');
+        $this->line(Subscription::factory()->create(['full_name' => 'Other branch']), 'payment', '-100.00');
+
+        $response = $this->actingAs($this->branchAdmin)->get(route('ledger.index', ['format' => 'csv', 'per_page' => 15, 'filter' => ['payment_method' => 'cash']]));
+        $response->assertOk()->assertDownload('ledger-2026-09-20.csv');
+        $csv = $response->streamedContent();
+        $rows = array_map(fn (string $row): array => str_getcsv($row), explode("\n", trim(substr($csv, 3))));
+        $this->assertCount(27, $rows);
+        $this->assertSame("'=HYPERLINK(\"unsafe\")", $rows[1][2]);
+        $this->assertSame('20', $rows[1][12]);
+        $this->assertStringNotContainsString('Other branch', $csv);
+    }
+
+    public function test_csv_export_requires_the_same_ledger_permission(): void
+    {
+        $this->get(route('ledger.index', ['format' => 'csv']))->assertRedirect(route('login'));
+        $this->actingAs(User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]))
+            ->get(route('ledger.index', ['format' => 'csv']))->assertForbidden();
+    }
+
     /**
      * A line on the subscription's account, recorded at `$at` (UTC; now when
      * null). Payments and discounts are negative, as the app stores them.

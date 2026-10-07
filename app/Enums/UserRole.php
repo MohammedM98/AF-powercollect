@@ -93,9 +93,11 @@ enum UserRole: string
                 PermissionKey::ViewOwnClosings,
                 PermissionKey::ExportFinancialReports,
             ],
-            // Sees every branch's closings and reports, read only.
-            self::FinancialAuditor => [PermissionKey::ViewAllClosings, PermissionKey::ExportFinancialReports],
-            self::SuperAdmin, self::Collector => [],
+            // Takes payments in the field app, and nothing else: the financial log stays with the branch's staff.
+            self::Collector => [PermissionKey::RecordCollections],
+            // Sees every branch's closings and reports, and reviews closings and receives the cash handed over (which only the company grants).
+            self::FinancialAuditor => [PermissionKey::ViewAllClosings, PermissionKey::AuditClosings, PermissionKey::ExportFinancialReports],
+            self::SuperAdmin => [],
         };
     }
 }

@@ -190,7 +190,7 @@ class PermissionsTest extends TestCase
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
         $viewSubscriptions = Permission::where('key', PermissionKey::ViewSubscriptions->value)->firstOrFail();
         $viewAreas = Permission::where('key', PermissionKey::ViewAreas->value)->firstOrFail();
-        $collector->permissions()->attach([$viewSubscriptions->id, $viewAreas->id]);
+        $collector->permissions()->sync([$viewSubscriptions->id, $viewAreas->id]);
 
         $response = $this->actingAs($branchAdmin)->get(route('settings.permissions.edit'));
 
@@ -287,7 +287,7 @@ class PermissionsTest extends TestCase
         User::factory()->collector()->create(['name' => 'Aaron Collector']);
         $selected = User::factory()->collector()->create(['name' => 'Zed Collector']);
         $viewBranches = Permission::where('key', PermissionKey::ViewBranches->value)->firstOrFail();
-        $selected->permissions()->attach($viewBranches);
+        $selected->permissions()->sync([$viewBranches->id]);
 
         $response = $this->actingAs($superAdmin)->get(route('settings.permissions.edit', ['selected' => $selected->id]));
 

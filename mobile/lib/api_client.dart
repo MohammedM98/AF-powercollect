@@ -2,8 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+/// The server the app talks to. A release build must be built with
+/// `--dart-define=API_BASE_URL=https://<domain>`; only a debug build falls back
+/// to the Android emulator's address of the development server, so a release
+/// can never ship pointing at a developer machine.
 const apiBaseUrl = String.fromEnvironment('API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000');
+    defaultValue:
+        bool.fromEnvironment('dart.vm.product') ? '' : 'http://10.0.2.2:8000');
 
 class ApiException implements Exception {
   const ApiException(this.message, this.statusCode);
@@ -75,6 +80,10 @@ class ApiClient {
 
   Future<Map<String, dynamic>> _request(String method, String path,
       {Map<String, String>? query, Map<String, dynamic>? body}) async {
+    if (apiBaseUrl.isEmpty) {
+      throw const ApiException(
+          'لم يُضبط عنوان الخادم في هذا الإصدار من التطبيق (API_BASE_URL).', 0);
+    }
     final uri =
         Uri.parse(apiBaseUrl).resolve(path).replace(queryParameters: query);
     try {

@@ -157,4 +157,37 @@ return [
 
     'mobile_app_url' => env('MOBILE_APP_URL'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Security Headers
+    |--------------------------------------------------------------------------
+    |
+    | In production the pages are sent with a Content-Security-Policy that
+    | lets only the app's own scripts run. `csp` is "enforce" (the default),
+    | "report-only" to see what it would block without blocking anything, or
+    | "off". It is never sent outside production.
+    |
+    */
+
+    'security' => [
+        'csp' => env('CSP_MODE', 'enforce'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Backups
+    |--------------------------------------------------------------------------
+    |
+    | `backup:run` (daily, from the scheduler) saves the database and the
+    | stored files under storage/app/private/backups. `disk` names a
+    | filesystem disk that is NOT this server (an S3 bucket, say) where the
+    | same files are copied, and `keep_days` how long backups are kept.
+    |
+    */
+
+    'backup' => [
+        'disk' => env('BACKUP_DISK'),
+        'keep_days' => (int) env('BACKUP_KEEP_DAYS', 14),
+    ],
+
 ];

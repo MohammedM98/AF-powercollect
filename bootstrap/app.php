@@ -3,6 +3,7 @@
 use App\Http\Middleware\AuthenticateMobileToken;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'mobile.auth' => AuthenticateMobileToken::class,
         ]);
+        // Every response, the API's and the error pages' too, carries the security headers.
+        $middleware->append(SecurityHeaders::class);
         $middleware->web(append: [
             EnsureAccountIsActive::class,
             HandleInertiaRequests::class,

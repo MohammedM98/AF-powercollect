@@ -5,7 +5,7 @@ import Icon from '@/Components/Icon';
 import { passwordStrength } from '@/lib/profilePassword';
 
 const STRENGTH_LABELS = ['—', 'ضعيفة', 'متوسطة', 'جيدة', 'قوية'];
-const RULE_LABELS = ['8 أحرف على الأقل', 'حرف واحد على الأقل', 'رقم واحد على الأقل', 'مختلفة عن الحالية'];
+const RULE_LABELS = ['10 أحرف على الأقل', 'حرف واحد على الأقل', 'رقم واحد على الأقل', 'مختلفة عن الحالية'];
 
 export default function UpdatePasswordForm() {
     const { data, setData, put, processing, errors, reset, recentlySuccessful } = useForm({

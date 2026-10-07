@@ -60,6 +60,7 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                     value={data.password}
                     onChange={(e) => setData('password', e.target.value)}
                 />
+                <p className="mt-1 text-xs text-gray-500">10 أحرف على الأقل، وتتضمن حروفًا وأرقامًا.</p>
                 <InputError message={errors.password} className="mt-2" />
             </div>
 

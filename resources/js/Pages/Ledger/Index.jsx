@@ -23,7 +23,7 @@ const BANK_LOGOS = {
 
 function Money({ amount, signed = false, credit = false, balance = false }) {
     const balanceInCents = balance ? Math.round(Number(amount) * 100) : 0;
-    const balanceClass = balanceInCents < 0 ? 'balance-subscriber' : balanceInCents > 0 ? 'balance-company' : '';
+    const balanceClass = balanceInCents > 0 ? 'balance-owes' : balanceInCents < 0 ? 'balance-credit' : '';
 
     return <bdi className={`num ${balanceClass}`} dir="ltr">{balance ? formatMoney(amount) : <>{signed && (credit ? '−' : '+')}{formatMoney(Math.abs(Number(amount)))}</>} <span>₪</span></bdi>;
 }
@@ -133,7 +133,7 @@ function DateRange({ period, range, today, onChange, errors }) {
 }
 
 function SummaryCards({ totals, summary, side }) {
-    const netSide = totals.net > 0 ? 'للشركة' : totals.net < 0 ? 'للمشترك' : 'مسدّد';
+    const netSide = totals.net > 0 ? 'عليه' : totals.net < 0 ? 'له' : 'مسدّد';
     return (
         <div className="kp">
             <section className="k hero" aria-label="إجمالي التحميل">
@@ -153,7 +153,7 @@ function SummaryCards({ totals, summary, side }) {
             <section className="k" aria-label="الصافي">
                 <small>الصافي (عليه − له)</small>
                 <b><Money amount={totals.net} balance /> <span>{netSide}</span></b>
-                <p>لنفس الفترة والفلاتر</p>
+                <p>عليه: المشترك مدين للشركة · له: رصيد للمشترك</p>
             </section>
             <section className="k cx" aria-label="القيود الملغاة">
                 <small><Icon name="close" />الملغاة</small>
@@ -204,7 +204,7 @@ function TransactionRow({ entry, grouped, onOpen, rowClick }) {
             <td className="am-c"><span className={`am ${entry.isCredit ? 'cr' : 'dr'}`}><Money amount={entry.amount} signed credit={entry.isCredit} />
                 {entry.currency && entry.currency !== 'ILS' && <small><bdi dir="ltr">{formatMoney(entry.currencyAmount)} {entry.currency}{entry.exchangeRate && ` × ${formatMoney(entry.exchangeRate)}`}</bdi></small>}
             </span></td>
-            <td className="bal-c"><span className="blc">{entry.balanceAfter === null ? '—' : <><Money amount={balance} balance /><i>{balance > 0 ? 'للشركة' : balance < 0 ? 'للمشترك' : 'مسدّد'}</i></>}</span></td>
+            <td className="bal-c"><span className="blc">{entry.balanceAfter === null ? '—' : <><Money amount={balance} balance /><i>{balance > 0 ? 'عليه' : balance < 0 ? 'له' : 'مسدّد'}</i></>}</span></td>
         </tr>
     );
 }
@@ -278,7 +278,7 @@ export default function Index({ entries, period, side, summary, ledgerTotals, da
                     <div className="foot data-table-totals">
                         <div>إجمالي التحميل<b><Money amount={ledgerTotals.charged} /></b></div>
                         <div>المحصّل<b className="g"><Money amount={ledgerTotals.credited} /></b></div>
-                        <div>الصافي<b><Money amount={ledgerTotals.net} balance /> <span>{ledgerTotals.net > 0 ? 'للشركة' : ledgerTotals.net < 0 ? 'للمشترك' : 'مسدّد'}</span></b></div>
+                        <div>الصافي<b><Money amount={ledgerTotals.net} balance /> <span>{ledgerTotals.net > 0 ? 'عليه' : ledgerTotals.net < 0 ? 'له' : 'مسدّد'}</span></b></div>
                         <span className="r">{formatNumber(entries.total)} قيد مطابق · الملغاة خارج المجاميع</span>
                     </div>
                     <div className="ledger-pagination"><label className="sel"><span className="sr-only">عدد القيود في الصفحة</span><select aria-label="عدد القيود في الصفحة" value={filters.per_page} onChange={(event) => setPerPage(event.target.value)}>{[15, 25, 50, 100].map((count) => <option key={count} value={count}>{count} قيد / صفحة</option>)}</select></label><Pagination meta={entries} filters={filters} baseUrl="/ledger" extraParams={extraParams} /></div>

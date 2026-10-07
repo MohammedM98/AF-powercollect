@@ -88,6 +88,7 @@ class MobileReadingController extends Controller
             'previous_reading' => $previousReading,
             'current_reading' => $currentReading,
             'consumption' => $consumption,
+            'usual_consumption' => MeterReading::usualConsumptionIfUnusual($subscription, $consumption, $weekStart),
             'unit_price' => $unitPrice,
             'minimum_payment' => $subscription->weeklyMinimumPayment(),
             'discount_method' => $discount?->method,
@@ -110,6 +111,8 @@ class MobileReadingController extends Controller
             'mobile_operation_id' => $reading->mobile_operation_id,
             'status' => $reading->status->value,
             'current_reading' => $reading->current_reading,
+            // Far above what the subscription usually uses: it waits for a reviewer to confirm it.
+            'unusual_consumption' => $reading->isUnusual(),
         ], 201);
     }
 }

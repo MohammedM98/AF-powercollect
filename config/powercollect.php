@@ -87,4 +87,29 @@ return [
         'coins' => [10, 5, 2, 1],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Weekly Readings
+    |--------------------------------------------------------------------------
+    |
+    | A week's consumption above `max_weekly_kwh` is refused when entered: no
+    | subscription uses that much, so the reading was mistyped. One that is at
+    | least `unusual_multiplier` times the subscription's usual (the average
+    | of its last `usual_readings` readings, once it has `usual_minimum_readings`)
+    | and at least `unusual_minimum_kwh` is saved but flagged: it is never
+    | approved in bulk, only one by one after the approver confirms it. A
+    | subscription with too few readings to have a usual is flagged from
+    | `unusual_without_history_kwh` instead.
+    |
+    */
+
+    'readings' => [
+        'max_weekly_kwh' => (float) env('READING_MAX_WEEKLY_KWH', 20000),
+        'unusual_multiplier' => 5,
+        'unusual_minimum_kwh' => 200,
+        'unusual_without_history_kwh' => 2000,
+        'usual_readings' => 8,
+        'usual_minimum_readings' => 3,
+    ],
+
 ];

@@ -30,6 +30,8 @@ class UpdateMeterReadingRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:1000'],
             // Approve it again straight away, when the corrector may (see MeterReadingController::update).
             'approve' => ['sometimes', 'boolean'],
+            // Approving an unusual reading again takes the corrector's say-so that it is right.
+            'confirm_unusual' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -63,6 +65,14 @@ class UpdateMeterReadingRequest extends FormRequest
 
                 if ($this->float('current_reading') < $meterReading->previous_reading) {
                     $validator->errors()->add('current_reading', "القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة ({$meterReading->previous_reading}).");
+
+                    return;
+                }
+
+                $consumption = MeterReading::consumptionBetween($meterReading->previous_reading, $this->float('current_reading'));
+
+                if (MeterReading::isImpossibleConsumption($consumption)) {
+                    $validator->errors()->add('current_reading', StoreMeterReadingRequest::impossibleConsumptionMessage($consumption));
                 }
             },
         ];

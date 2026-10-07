@@ -29,6 +29,8 @@ class ApproveMeterReadingsRequest extends FormRequest
             'week' => ['exclude_unless:all,true', 'required', 'date'],
             'reading_ids' => ['exclude_if:all,true', 'required', 'array', 'max:500'],
             'reading_ids.*' => ['integer', 'distinct'],
+            // The approver has looked at the unusual readings among the ticked ones and says they are right.
+            'confirm_unusual' => ['sometimes', 'boolean'],
         ];
     }
 

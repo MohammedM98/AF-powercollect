@@ -122,6 +122,7 @@ class MeterReadingController extends Controller
         $previousReading = $subscription->previousReadingBefore($weekStart);
         $currentReading = $request->float('current_reading');
         $consumption = MeterReading::consumptionBetween($previousReading, $currentReading);
+        $usualConsumption = MeterReading::usualConsumptionIfUnusual($subscription, $consumption, $weekStart);
         $unitPrice = (string) $subscription->tariff->rate;
         $minimumPayment = $subscription->weeklyMinimumPayment();
         $discount = $subscription->standingDiscount;
@@ -134,6 +135,7 @@ class MeterReadingController extends Controller
             'previous_reading' => $previousReading,
             'current_reading' => $currentReading,
             'consumption' => $consumption,
+            'usual_consumption' => $usualConsumption,
             'unit_price' => $unitPrice,
             'minimum_payment' => $minimumPayment,
             'discount_method' => $discount?->method,
@@ -147,7 +149,7 @@ class MeterReadingController extends Controller
 
         $request->user()->notify(new ActionCompleted('meter-reading-created', $subscription->displayName()));
 
-        return back()->with('status', 'meter-reading-created');
+        return back()->with('status', $usualConsumption === null ? 'meter-reading-created' : 'meter-reading-created-unusual');
     }
 
     /**
@@ -167,11 +169,11 @@ class MeterReadingController extends Controller
                 $request->has('notes') ? $request->input('notes') : $meterReading->notes,
                 $actor,
             );
-            $approvedAgain = $wentBackToReview && $request->boolean('approve') && $actor->can('approve', $meterReading);
-
-            if ($approvedAgain) {
-                $meterReading->approve($actor);
-            }
+            // A corrected reading that is now unusual waits for review unless the corrector confirms it.
+            $approvedAgain = $wentBackToReview
+                && $request->boolean('approve')
+                && $actor->can('approve', $meterReading)
+                && $meterReading->approve($actor, $request->boolean('confirm_unusual'));
 
             return [$wentBackToReview, $approvedAgain];
         });
@@ -208,28 +210,35 @@ class MeterReadingController extends Controller
             ? $this->pendingInSheet($request, $actor, MeterReading::weekStartFor($request->date('week'))->toDateString())
             : $this->pendingReadings($actor)->whereKey($request->validated('reading_ids'));
 
-        $approved = 0;
-        $query->with('subscription')->chunkById(200, function (Collection $readings) use ($actor, &$approved): void {
+        // An unusual reading is only approved when ticked on its own and confirmed, never as part of "all".
+        $confirmUnusual = ! $request->boolean('all') && $request->boolean('confirm_unusual');
+        $approved = $heldBack = 0;
+        $query->with('subscription')->chunkById(200, function (Collection $readings) use ($actor, $confirmUnusual, &$approved, &$heldBack): void {
             foreach ($readings as $reading) {
-                $reading->approve($actor);
-                $approved++;
+                if ($reading->approve($actor, $confirmUnusual)) {
+                    $approved++;
+                } elseif ($reading->isUnusual() && ! $confirmUnusual) {
+                    $heldBack++;
+                }
             }
         });
 
         if ($approved === 0) {
-            return back()->withErrors(['reading_ids' => 'لا توجد قراءات بانتظار الاعتماد ضمن اختيارك.']);
+            return back()->withErrors(['reading_ids' => $heldBack > 0
+                ? 'القراءات المختارة استهلاكها أعلى بكثير من المعتاد؛ راجعها، ثم حدّدها واعتمدها بعد تأكيدها.'
+                : 'لا توجد قراءات بانتظار الاعتماد ضمن اختيارك.']);
         }
 
         $actor->notify(new ActionCompleted('meter-readings-approved', "عدد القراءات: {$approved}"));
 
-        return back()->with('status', 'meter-readings-approved');
+        return back()->with('status', $heldBack > 0 ? 'meter-readings-approved-partly' : 'meter-readings-approved');
     }
 
     /**
      * How many of the week's readings on the sheet (search and filters
      * applied) still wait for approval, and what they add up to.
      *
-     * @return array{count: int, amountDue: string}
+     * @return array{count: int, unusualCount: int, amountDue: string}
      */
     private function pendingApprovalSummary(Request $request, User $actor, string $week): array
     {
@@ -237,6 +246,7 @@ class MeterReadingController extends Controller
 
         return [
             'count' => (clone $pending)->count(),
+            'unusualCount' => (clone $pending)->whereNotNull('usual_consumption')->count(),
             'amountDue' => number_format((float) $pending->sum('amount_due'), 2, '.', ''),
         ];
     }
@@ -500,6 +510,8 @@ class MeterReadingController extends Controller
                 'amountDue' => $reading->amount_due,
                 'status' => $reading->status->value,
                 'statusLabel' => __($reading->status->label()),
+                // Far above what the subscription usually uses: it is approved only after being looked at and confirmed.
+                'unusual' => $reading->isUnusual() ? ['usual' => $reading->usual_consumption] : null,
                 'recordedByName' => $reading->recordedBy?->name,
                 'recordedAt' => $reading->created_at?->timezone(config('app.business_timezone'))->format('d/m H:i'),
                 'recordedSource' => $reading->mobile_operation_id !== null ? 'app' : 'web',

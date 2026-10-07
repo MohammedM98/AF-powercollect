@@ -42,6 +42,8 @@ class ApplySubscriptionTransactionActionRequest extends FormRequest
             'amendment_reason' => ['required_if:action,edit,edit_metadata', 'nullable', 'string', 'max:1000'],
             'correction_reason' => ['nullable', Rule::enum(CorrectionReason::class)],
             'correction_notes' => ['required_if:action,delete,delete_reversal,delete_tree', 'nullable', 'string', 'max:1000'],
+            // Cancelling a weekly reading's bill: send the reading back for review (to correct and bill again) instead of waiving it.
+            'reopen_reading' => ['sometimes', 'boolean'],
             'subscription_id' => ['prohibited'],
             'type' => ['prohibited'],
             'status' => ['prohibited'],

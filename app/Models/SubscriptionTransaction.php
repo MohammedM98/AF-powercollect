@@ -310,20 +310,29 @@ class SubscriptionTransaction extends Model
      * a reversal that takes its amount back off the balance.
      * Returns the reversal.
      *
+     * A weekly reading's charge cancelled this way is a waiver: its reading
+     * stays approved and is never billed again. With `$reopenReading` the
+     * reading instead goes back for review, to be corrected and billed afresh.
+     *
      * @throws ValidationException when the line was cancelled meanwhile, or
      *                             a submitted or approved closing counted it
      */
-    public function cancel(User $actor, CorrectionReason $reason, ?string $notes): self
+    public function cancel(User $actor, CorrectionReason $reason, ?string $notes, bool $reopenReading = false): self
     {
-        return DB::transaction(function () use ($actor, $reason, $notes): self {
+        return DB::transaction(function () use ($actor, $reason, $notes, $reopenReading): self {
             if ($this->isInClosedDay(lockForUpdate: true)) {
                 throw ValidationException::withMessages(['reason' => 'لا يمكن إلغاء دفعة ضمن كشف إغلاق أُرسل للتدقيق أو اعتُمد؛ أرجِعها بإرجاع الدفعة.']);
             }
 
-            $reversal = $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCancellable());
+            // Cancelling a weekly reading's bill waives it for good (the key it is billed by stays) unless the reading is sent back for review.
+            $reversal = $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCancellable(), freeSourceKey: $reopenReading && $this->isBilledByReading());
 
             // A weekly reading's standing discount only stands beside its charge.
-            $this->readingDiscountStanding()?->reverse($actor, $reason, $notes, fn (self $line): bool => ! $line->isCancelled());
+            $this->readingDiscountStanding()?->reverse($actor, $reason, $notes, fn (self $line): bool => ! $line->isCancelled(), freeSourceKey: $reopenReading);
+
+            if ($reopenReading) {
+                $this->reopenReading();
+            }
 
             return $reversal;
         });
@@ -904,7 +913,29 @@ class SubscriptionTransaction extends Model
             $updates['active_reference'] = $reference;
         }
 
+        // A weekly reading's line gets back the key its reading bills it by, which cancelling it freed.
+        if ($this->isBilledByReading()) {
+            $updates['source_key'] = Str::before($this->source_key, ':cancelled:');
+        }
+
         $this->update($updates);
+
+        // A reading sent back for review when its charge was cancelled is approved again with the charge standing.
+        if ($this->type === self::TYPE_METER_READING && $this->isBilledByReading()) {
+            MeterReading::query()->lockForUpdate()->find($this->meter_reading_id)?->approveAgainAsBilled($this);
+        }
+    }
+
+    /**
+     * When this is a weekly reading's charge that no longer stands, send the
+     * reading back for approval, so its week can be corrected and billed
+     * afresh when it is approved again.
+     */
+    private function reopenReading(): void
+    {
+        if ($this->type === self::TYPE_METER_READING && $this->isBilledByReading()) {
+            MeterReading::query()->lockForUpdate()->find($this->meter_reading_id)?->reopen();
+        }
     }
 
     /** @param array<string, mixed> $data */
@@ -985,6 +1016,7 @@ class SubscriptionTransaction extends Model
             'cancellation_reason' => $reason,
             'cancellation_notes' => $data['correction_notes'] ?? null,
             'active_reference' => null,
+            ...($this->isBilledByReading() && ($data['reopen_reading'] ?? false) ? ['source_key' => $this->source_key.':cancelled:'.$this->id] : []),
         ]);
 
         $cancellation = $this->subscription->transactions()->create([
@@ -1003,6 +1035,10 @@ class SubscriptionTransaction extends Model
 
         // A weekly reading's standing discount only stands beside its charge, so it is cancelled with it.
         $this->readingDiscountStanding()?->applyCancellation($actor, $data);
+
+        if ($data['reopen_reading'] ?? false) {
+            $this->reopenReading();
+        }
 
         return $cancellation;
     }

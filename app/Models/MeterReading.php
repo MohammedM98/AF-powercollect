@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -253,6 +254,35 @@ class MeterReading extends Model
     }
 
     /**
+     * Send an approved reading back to review, as when its charge was
+     * cancelled with the reading reopened. Its week can then be corrected,
+     * and billed afresh once it is approved again. A reading still pending
+     * is left as it is.
+     */
+    public function reopen(): void
+    {
+        if ($this->isPending()) {
+            return;
+        }
+
+        $this->update(['status' => MeterReadingStatus::Pending, 'approved_by' => null, 'approved_at' => null]);
+    }
+
+    /**
+     * Approve the reading again as it was, when the cancellation of its
+     * charge is taken back and that charge stands once more: by whoever
+     * billed it, at the time they did.
+     */
+    public function approveAgainAsBilled(SubscriptionTransaction $charge): void
+    {
+        if (! $this->isPending()) {
+            return;
+        }
+
+        $this->update(['status' => MeterReadingStatus::Approved, 'approved_by' => $charge->recorded_by, 'approved_at' => $charge->created_at]);
+    }
+
+    /**
      * Bill the reading with the subscription's standing discount as it is now
      * (none when it was stopped), at the prices the reading was recorded
      * with. An approved reading's lines are rebilled to match — the old ones
@@ -461,6 +491,17 @@ class MeterReading extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);
+    }
+
+    /**
+     * The reading's charge on the subscription's account while it stands:
+     * none for a pending reading, or for one whose bill was cancelled.
+     */
+    public function chargeLine(): HasOne
+    {
+        return $this->hasOne(SubscriptionTransaction::class)
+            ->where('type', SubscriptionTransaction::TYPE_METER_READING)
+            ->whereNull('cancelled_at');
     }
 
     public function recordedBy(): BelongsTo

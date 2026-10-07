@@ -123,6 +123,8 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     const charges = !isDraft && row.reading ? { ...row.reading, minimumApplies: Number(row.reading.readingFee) < Number(row.minimumPayment) && !row.discount } : calculateCharges(value, row);
     const belowMinimum = charges?.minimumApplies;
     const isSaved = Boolean(row.reading) && !isDraft && !error;
+    // Approved, but its bill was cancelled from the subscription's statement: it is not charged to them.
+    const billCancelled = row.reading?.status === 'approved' && row.reading.billed === false;
     // What hovering the field says: why it was refused, that it was left empty, or what was saved.
     const hoverText = error
         ?? (missed ? 'لم تُدخل قراءة هذا المشترك' : null)
@@ -263,8 +265,9 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
             <td className={`re-min re-number ${belowMinimum ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
                 {formatCurrency(row.minimumPayment)}
             </td>
-            <td className="re-due re-number">
-                {charges && charges.consumption >= 0 ? formatCurrency(charges.amountDue) : '—'}
+            <td className={`re-due re-number ${billCancelled && !isDraft ? 'text-gray-400' : ''}`}>
+                {charges && charges.consumption >= 0 ? <span className={billCancelled && !isDraft ? 'line-through' : ''}>{formatCurrency(charges.amountDue)}</span> : '—'}
+                {billCancelled && !isDraft && <p className="text-xs font-normal text-gray-500">لم تُحمَّل على المشترك</p>}
                 {charges?.discountAmount > 0 && charges.consumption >= 0 && (
                     <p className="text-xs font-normal text-emerald-700 dark:text-emerald-400">بعد خصم {formatCurrency(charges.discountAmount)}</p>
                 )}
@@ -292,6 +295,11 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                 ) : row.reading ? (
                     <>
                         <span className={`re-pill ${row.reading.status}`}><i />{row.reading.status === 'pending' ? 'بانتظار الاعتماد' : row.reading.statusLabel}</span>
+                        {billCancelled && !isDraft && (
+                            <span className="re-pill unbilled" title="أُلغيت فاتورة هذه القراءة من كشف حساب المشترك، فلا تُحمَّل عليه.">
+                                <i />الفاتورة ملغاة
+                            </span>
+                        )}
                         {row.reading.unusual && (
                             <span
                                 className="re-pill unusual"

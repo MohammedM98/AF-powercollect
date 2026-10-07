@@ -61,7 +61,7 @@ class MeterReadingController extends Controller
                 'standingDiscount',
                 'meterBox.subArea',
                 'meterReadings' => fn ($q) => $q->whereDate('week_start', '<=', $week)->orderByDesc('week_start')
-                    ->with(['recordedBy:id,name', 'approvedBy:id,name']),
+                    ->with(['recordedBy:id,name', 'approvedBy:id,name', 'chargeLine:id,meter_reading_id']),
             ])
             ->withExists(['meterReadings as has_later_week' => fn ($q) => $q->whereDate('week_start', '>', $week)]);
 
@@ -510,6 +510,8 @@ class MeterReadingController extends Controller
                 'amountDue' => $reading->amount_due,
                 'status' => $reading->status->value,
                 'statusLabel' => __($reading->status->label()),
+                // An approved reading whose bill was cancelled from the statement is not billed any more.
+                'billed' => $reading->chargeLine !== null,
                 // Far above what the subscription usually uses: it is approved only after being looked at and confirmed.
                 'unusual' => $reading->isUnusual() ? ['usual' => $reading->usual_consumption] : null,
                 'recordedByName' => $reading->recordedBy?->name,

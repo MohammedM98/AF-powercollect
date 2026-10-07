@@ -28,6 +28,8 @@ class DeleteSubscriptionTransactionRequest extends FormRequest
         return [
             'correction_reason' => ['required', Rule::enum(CorrectionReason::class)->only(CorrectionReason::forDeletionOf($this->route('transaction')))],
             'correction_notes' => ['required', 'string', 'max:1000'],
+            // Cancelling a weekly reading's bill: send the reading back for review (to correct and bill again) instead of waiving it.
+            'reopen_reading' => ['sometimes', 'boolean'],
         ];
     }
 

@@ -104,6 +104,7 @@ class SubscriptionTransactionController extends Controller
             $request->user(),
             CorrectionReason::from($request->validated('correction_reason')),
             $request->validated('correction_notes'),
+            $request->boolean('reopen_reading'),
         );
 
         $request->user()->notify(new ActionCompleted(

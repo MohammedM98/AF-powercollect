@@ -34,9 +34,10 @@ class ApplySubscriptionTransactionActionRequest extends FormRequest
             'action' => ['required', Rule::enum(TransactionAction::class)],
             // A refund always returns the whole payment; a wrong amount is put right with a new payment.
             'amount' => ['required_if:action,edit', 'prohibited_if:action,refund', 'nullable', 'numeric', 'gt:0', 'decimal:0,2', 'max:1000000'],
-            'bank_name' => ['nullable', 'string', 'max:255'],
-            'sender_bank_name' => ['nullable', 'string', 'max:255'],
-            'sender_name' => ['nullable', 'string', 'max:255'],
+            // Editing a payment's details follows the amendment form's rules; no other action takes bank details.
+            ...($this->input('action') === TransactionAction::EditMetadata->value
+                ? AmendSubscriptionTransactionRequest::bankRules($this->transaction()->payment_method?->throughBank() ?? false)
+                : ['bank_name' => ['nullable', 'string', 'max:255'], 'sender_bank_name' => ['nullable', 'string', 'max:255'], 'sender_name' => ['nullable', 'string', 'max:255']]),
             'reference_number' => ['prohibited'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'amendment_reason' => ['required_if:action,edit,edit_metadata', 'nullable', 'string', 'max:1000'],

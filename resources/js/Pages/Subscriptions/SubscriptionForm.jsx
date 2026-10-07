@@ -627,6 +627,9 @@ export default function SubscriptionForm({
                     <TextInput
                         type="date"
                         className="block w-full"
+                        // The server accepts no date before 2000 or after today.
+                        min="2000-01-01"
+                        max={new Date().toLocaleDateString('en-CA')}
                         value={data.subscription_date}
                         onChange={(e) => setData('subscription_date', e.target.value)}
                     />

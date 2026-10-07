@@ -23,7 +23,7 @@ class UpdateSubscriptionPersonalDetailsRequest extends FormRequest
     {
         return [
             'full_name' => ['required', 'string', 'max:255'],
-            'national_id' => ['required', 'string', 'regex:/^\d{9}$/', Rule::unique('subscriber_profiles', 'national_id')->ignore($this->route('subscription')->subscriber_profile_id)],
+            'national_id' => ['required', 'string', 'regex:/^\d{9}$/', 'not_regex:/^0+$/', Rule::unique('subscriber_profiles', 'national_id')->ignore($this->route('subscription')->subscriber_profile_id)],
             'phone' => ['required', 'string', 'regex:/\A05[69][0-9]{7}\z/'],
             'address' => ['nullable', 'string', 'max:1000'],
         ];
@@ -36,6 +36,7 @@ class UpdateSubscriptionPersonalDetailsRequest extends FormRequest
     {
         return [
             'national_id.regex' => 'رقم الهوية يجب أن يتكون من 9 أرقام.',
+            'national_id.not_regex' => 'رقم الهوية غير صالح.',
             'national_id.unique' => 'رقم الهوية مسجل لشخص آخر.',
             'phone.regex' => 'رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056.',
         ];

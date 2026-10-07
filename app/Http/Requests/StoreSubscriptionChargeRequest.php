@@ -24,19 +24,22 @@ class StoreSubscriptionChargeRequest extends FormRequest
      */
     public function rules(): array
     {
-        return self::chargeRules();
+        return self::chargeRules($this->input('type'));
     }
 
     /**
-     * The charge's rules; shared with correcting a charge.
+     * The charge's rules, for a charge of `$type`; shared with correcting a
+     * charge. A subscription fee has the same limit as at registration.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
-    public static function chargeRules(): array
+    public static function chargeRules(mixed $type = null): array
     {
+        $most = $type === ChargeType::SubscriptionFee->value ? config('powercollect.limits.subscription_fee') : 1000000;
+
         return [
             'type' => ['required', Rule::enum(ChargeType::class)],
-            'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'],
+            'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:'.$most],
             'notes' => ['required_if:type,'.ChargeType::Penalty->value, 'nullable', 'string', 'max:1000'],
         ];
     }

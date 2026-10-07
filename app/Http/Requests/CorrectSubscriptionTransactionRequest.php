@@ -37,7 +37,7 @@ class CorrectSubscriptionTransactionRequest extends FormRequest
                 $line->isPayment() => StoreSubscriptionPaymentRequest::paymentRules($this->input('payment_method')),
                 $line->isDiscount() => StoreSubscriptionDiscountRequest::discountRules(),
                 $line->isClearing() => StoreSubscriptionClearingRequest::clearingRules(),
-                default => StoreSubscriptionChargeRequest::chargeRules(),
+                default => StoreSubscriptionChargeRequest::chargeRules($this->input('type')),
             },
             'correction_reason' => ['required', Rule::enum(CorrectionReason::class)->only(CorrectionReason::forCorrectionOf($line))],
             'correction_notes' => ['required', 'string', 'max:1000'],

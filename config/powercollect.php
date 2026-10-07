@@ -72,6 +72,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Limits
+    |--------------------------------------------------------------------------
+    |
+    | The most a subscription fee may be, whether charged when the subscription
+    | is registered or by hand later; anything above is a slip.
+    |
+    */
+
+    'limits' => [
+        'subscription_fee' => (float) env('SUBSCRIPTION_FEE_MAX', 1000),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Financial Closing
     |--------------------------------------------------------------------------
     |

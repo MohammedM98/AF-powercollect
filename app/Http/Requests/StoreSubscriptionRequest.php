@@ -4,8 +4,8 @@ namespace App\Http\Requests;
 
 use App\Enums\AccountingType;
 use App\Enums\SubscriptionStatus;
-use App\Models\Subscription;
 use App\Models\SubscriberProfile;
+use App\Models\Subscription;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -48,11 +48,12 @@ class StoreSubscriptionRequest extends FormRequest
         $rules = [
             'full_name' => ['required', 'string', 'max:255'],
             'subscription_name' => ['nullable', 'string', 'max:255'],
-            'national_id' => ['required', 'string', 'regex:/^\d{9}$/', Rule::unique('subscriber_profiles', 'national_id')->ignore($this->route('subscription')?->subscriber_profile_id)],
+            'national_id' => ['required', 'string', 'regex:/^\d{9}$/', 'not_regex:/^0+$/', Rule::unique('subscriber_profiles', 'national_id')->ignore($this->route('subscription')?->subscriber_profile_id)],
             'phone' => ['required', 'string', 'regex:/\A05[69][0-9]{7}\z/'],
             'subscription_phone' => ['nullable', 'string', 'regex:/\A05[69][0-9]{7}\z/'],
             'address' => ['nullable', 'string', 'max:1000'],
-            'meter_box_id' => ['nullable', Rule::exists('meter_boxes', 'id')],
+            // A subscription is on a box of its own branch: the user's, or the one a Super Admin chose.
+            'meter_box_id' => ['nullable', Rule::exists('meter_boxes', 'id')->where('branch_id', $this->boxBranchId())],
             'tariff_id' => ['required', Rule::exists('tariffs', 'id')],
             // Optional, and any customer segment, whatever the tariff.
             'tariff_segment_id' => ['nullable', Rule::exists('tariff_segments', 'id')],
@@ -60,12 +61,13 @@ class StoreSubscriptionRequest extends FormRequest
             // Weekly unless chosen otherwise: a request without it keeps the subscription's current type.
             'accounting_type' => ['sometimes', 'required', Rule::enum(AccountingType::class)],
             'circuit_breaker_id' => ['nullable', Rule::exists('circuit_breakers', 'id')],
-            'minimum_charge' => ['required', 'numeric', 'min:0'],
+            'minimum_charge' => ['required', 'numeric', 'min:0', 'max:10000'],
             // The meter's reading when the subscription is connected: it may wait while they are not
             // active yet, but billing counts from it, so an active subscription must have it.
-            'initial_reading' => [Rule::requiredIf($this->input('status') === SubscriptionStatus::Active->value), 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
-            'subscription_fee' => ['nullable', 'numeric', 'min:0'],
-            'subscription_date' => ['nullable', 'date'],
+            'initial_reading' => [Rule::requiredIf($this->input('status') === SubscriptionStatus::Active->value), 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999.99'],
+            'subscription_fee' => ['nullable', 'numeric', 'min:0', 'max:'.config('powercollect.limits.subscription_fee')],
+            // Nobody registered before 2000, or on a day still to come.
+            'subscription_date' => ['nullable', 'date', 'after_or_equal:2000-01-01', 'before_or_equal:today'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
 
@@ -95,17 +97,31 @@ class StoreSubscriptionRequest extends FormRequest
             $rules['charge_subscription_fee'] = ['sometimes', 'boolean'];
 
             if ($this->boolean('charge_subscription_fee')) {
-                $rules['subscription_fee'] = ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'];
+                $rules['subscription_fee'] = ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:'.config('powercollect.limits.subscription_fee')];
             }
         }
 
         return $rules;
     }
 
+    /**
+     * The branch the subscription's meter box must be in: the Super Admin's
+     * choice, otherwise the user's own.
+     */
+    private function boxBranchId(): mixed
+    {
+        return $this->user()->isSuperAdmin() ? $this->input('branch_id') : $this->user()->branch_id;
+    }
+
     /** @return array<string, string> */
     public function messages(): array
     {
         return [
+            'national_id.not_regex' => 'رقم الهوية غير صالح.',
+            'meter_box_id.exists' => 'اختر طبلونًا من طبلونات فرع المشترك.',
+            'subscription_date.after_or_equal' => 'تاريخ الاشتراك لا يمكن أن يسبق عام 2000.',
+            'subscription_date.before_or_equal' => 'تاريخ الاشتراك لا يمكن أن يكون في المستقبل.',
+            'subscription_fee.max' => 'رسوم الاشتراك لا تزيد عن :max شيكل.',
             'subscription_phone.regex' => 'رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056.',
             'status.not_in' => 'لا يمكن إعادة مشترك سبق تفعيله إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».',
             'initial_reading.required' => 'أدخل القراءة السابقة قبل تفعيل المشترك؛ منها يبدأ حساب استهلاكه.',

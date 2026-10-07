@@ -34,3 +34,6 @@ Artisan::command('closings:open {--date= : The business day (Y-m-d); the latest 
 
 // Each branch's closing is ready soon after the day's cut-off, whatever time it is set to.
 Schedule::command('closings:open')->everyFifteenMinutes();
+
+// The database and the cash hand-over proofs are backed up every night, and sent off the server when a backup disk is set.
+Schedule::command('backup:run')->dailyAt('02:30')->withoutOverlapping()->onFailure(fn () => report(new RuntimeException('The nightly backup failed; see the log.')));

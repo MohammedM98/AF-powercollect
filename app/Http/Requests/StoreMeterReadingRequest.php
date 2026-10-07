@@ -91,9 +91,27 @@ class StoreMeterReadingRequest extends FormRequest
 
                 if ($this->float('current_reading') < $previousReading) {
                     $validator->errors()->add('current_reading', "القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة ({$previousReading}).");
+
+                    return;
+                }
+
+                $consumption = MeterReading::consumptionBetween($previousReading, $this->float('current_reading'));
+
+                if (MeterReading::isImpossibleConsumption($consumption)) {
+                    $validator->errors()->add('current_reading', self::impossibleConsumptionMessage($consumption));
                 }
             },
         ];
+    }
+
+    /**
+     * Why a consumption above what any subscription could use in a week is refused.
+     */
+    public static function impossibleConsumptionMessage(float $consumption): string
+    {
+        $limit = number_format((float) config('powercollect.readings.max_weekly_kwh'), 0, '.', '');
+
+        return "الاستهلاك ({$consumption} ك.و.س) أكبر من أي استهلاك أسبوعي ممكن (الحد {$limit} ك.و.س)؛ تأكد من القراءة المُدخلة.";
     }
 
     /**

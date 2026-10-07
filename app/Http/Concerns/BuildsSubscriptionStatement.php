@@ -63,7 +63,7 @@ trait BuildsSubscriptionStatement
                 'reverses.closingLine.closing',
                 'referenceTransaction.closingLine.closing',
                 'linkedReversals',
-                'corrects',
+                'corrects.linkedReversals',
                 'correction',
                 'amendments.user',
                 'closingLine.closing',
@@ -295,6 +295,12 @@ trait BuildsSubscriptionStatement
         $refundedInCents = $linkedReversals
             ->where('type', SubscriptionTransaction::TYPE_REFUND)
             ->sum(fn (SubscriptionTransaction $refund): int => abs($this->cents($refund->amount)));
+        // Deleting what a correction recorded takes the correction back: the reversal that cancelled the corrected line goes too.
+        $correctionReversalInCents = $transaction->corrects_id !== null && ! $transaction->isReversal()
+            ? $transaction->corrects?->linkedReversals
+                ->where('type', SubscriptionTransaction::TYPE_REVERSAL)
+                ->sum(fn (SubscriptionTransaction $reversal): int => $this->cents($reversal->amount)) ?? 0
+            : 0;
 
         return [
             'id' => $transaction->id,
@@ -316,7 +322,7 @@ trait BuildsSubscriptionStatement
             'balance_after' => $transaction->balance_after ?? $this->money($balanceInCents),
             'available_actions' => $availableActions,
             'actionEffects' => [
-                'delete' => $transaction->amount,
+                'delete' => $this->money($this->cents($transaction->amount) + $correctionReversalInCents),
                 'delete_reversal' => $transaction->amount,
                 'delete_tree' => $this->money($treeEffectInCents),
             ],
@@ -404,10 +410,18 @@ trait BuildsSubscriptionStatement
             'canForceDelete' => $canForceDelete,
             'amendUnavailableReason' => $hasAmendPermission && ! $canAmend ? ($transaction->amendmentUnavailableReason() ?? 'غير متاح الآن') : null,
             'correctUnavailableReason' => $hasEditPermission && ! $canCorrect
-                ? ($transaction->isCancelled() || $transaction->isReversal() ? 'الحركة ملغاة' : 'لا ينطبق على هذه الحركة')
+                ? match (true) {
+                    $transaction->isCancelled() || $transaction->isReversal() => 'الحركة ملغاة',
+                    $transaction->isPayment() && $transaction->isInClosedDay() => 'بعد إغلاق اليوم',
+                    default => 'لا ينطبق على هذه الحركة',
+                }
                 : null,
             'deleteUnavailableReason' => $mayCancel && ! $canDelete
-                ? ($transaction->isCancelled() || $transaction->isReversal() ? 'الحركة ملغاة' : 'لا يمكن إلغاؤها الآن')
+                ? match (true) {
+                    $transaction->isCancelled() || $transaction->isReversal() => 'الحركة ملغاة',
+                    $transaction->isPayment() && $transaction->isInClosedDay() => 'بعد إغلاق اليوم',
+                    default => 'لا يمكن إلغاؤها الآن',
+                }
                 : null,
             'forceDeleteUnavailableReason' => $hasForceDeletePermission && ! $canForceDelete
                 ? match (true) {

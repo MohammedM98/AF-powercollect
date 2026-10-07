@@ -123,6 +123,8 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     const charges = !isDraft && row.reading ? { ...row.reading, minimumApplies: Number(row.reading.readingFee) < Number(row.minimumPayment) && !row.discount } : calculateCharges(value, row);
     const belowMinimum = charges?.minimumApplies;
     const isSaved = Boolean(row.reading) && !isDraft && !error;
+    // Approved, but its bill was cancelled from the subscription's statement: it is not charged to them.
+    const billCancelled = row.reading?.status === 'approved' && row.reading.billed === false;
     // What hovering the field says: why it was refused, that it was left empty, or what was saved.
     const hoverText = error
         ?? (missed ? 'لم تُدخل قراءة هذا المشترك' : null)
@@ -165,7 +167,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
 
     return (
         <tr
-            className={`re-row ${selected ? 'is-selected' : ''} ${error ? 'has-error' : ''} ${isDraft ? 'is-draft' : ''}`}
+            className={`re-row ${selected ? 'is-selected' : ''} ${error ? 'has-error' : ''} ${isDraft ? 'is-draft' : ''} ${row.reading?.unusual ? 'is-unusual' : ''}`}
             {...printRowProps(Object.fromEntries(PRINT_FIELDS.map((field) => [field.key, row[field.key]])))}
         >
             <td className="re-sub">
@@ -263,8 +265,9 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
             <td className={`re-min re-number ${belowMinimum ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
                 {formatCurrency(row.minimumPayment)}
             </td>
-            <td className="re-due re-number">
-                {charges && charges.consumption >= 0 ? formatCurrency(charges.amountDue) : '—'}
+            <td className={`re-due re-number ${billCancelled && !isDraft ? 'text-gray-400' : ''}`}>
+                {charges && charges.consumption >= 0 ? <span className={billCancelled && !isDraft ? 'line-through' : ''}>{formatCurrency(charges.amountDue)}</span> : '—'}
+                {billCancelled && !isDraft && <p className="text-xs font-normal text-gray-500">لم تُحمَّل على المشترك</p>}
                 {charges?.discountAmount > 0 && charges.consumption >= 0 && (
                     <p className="text-xs font-normal text-emerald-700 dark:text-emerald-400">بعد خصم {formatCurrency(charges.discountAmount)}</p>
                 )}
@@ -290,7 +293,22 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                 {saving ? (
                     <span className="text-xs text-gray-500">جارٍ الحفظ...</span>
                 ) : row.reading ? (
-                    <span className={`re-pill ${row.reading.status}`}><i />{row.reading.status === 'pending' ? 'بانتظار الاعتماد' : row.reading.statusLabel}</span>
+                    <>
+                        <span className={`re-pill ${row.reading.status}`}><i />{row.reading.status === 'pending' ? 'بانتظار الاعتماد' : row.reading.statusLabel}</span>
+                        {billCancelled && !isDraft && (
+                            <span className="re-pill unbilled" title="أُلغيت فاتورة هذه القراءة من كشف حساب المشترك، فلا تُحمَّل عليه.">
+                                <i />الفاتورة ملغاة
+                            </span>
+                        )}
+                        {row.reading.unusual && (
+                            <span
+                                className="re-pill unusual"
+                                title={`استهلاك ${row.reading.consumption} كيلو، والمعتاد لهذا المشترك ${row.reading.unusual.usual} كيلو في الأسبوع. تأكد من القراءة قبل اعتمادها.`}
+                            >
+                                <i />غير معتادة
+                            </span>
+                        )}
+                    </>
                 ) : (
                     <span className="re-pill missing"><i />لم تُدخل</span>
                 )}
@@ -390,6 +408,10 @@ export default function Index({
     const approvableRows = rows.data.filter((row) => row.canApprove);
     const selectedRows = approvableRows.filter((row) => selectedIds.has(row.reading.id));
     const selectedTotal = selectedRows.reduce((total, row) => total + Number(row.reading.amountDue), 0);
+    // Readings far above the subscription's usual are approved only when ticked and confirmed, never with "approve all".
+    const selectedUnusualCount = selectedRows.filter((row) => row.reading.unusual).length;
+    const unusualCount = pendingApproval?.unusualCount ?? 0;
+    const approvableAllCount = (pendingApproval?.count ?? 0) - unusualCount;
     const allOnPageSelected = approvableRows.length > 0 && selectedRows.length === approvableRows.length;
     const isFiltered = Boolean(search) || Object.values(filterValues).some(Boolean);
 
@@ -406,7 +428,9 @@ export default function Index({
     }
 
     function approve() {
-        const payload = confirming === 'all' ? { all: true, week, search, filter: filterValues } : { reading_ids: [...selectedIds] };
+        const payload = confirming === 'all'
+            ? { all: true, week, search, filter: filterValues }
+            : { reading_ids: [...selectedIds], ...(selectedUnusualCount > 0 ? { confirm_unusual: true } : {}) };
 
         setConfirming(null);
         setApproving(true);
@@ -509,6 +533,12 @@ export default function Index({
                                 مجموعها <span className="tabular-nums">{formatCurrency(pendingApproval.amountDue)}</span> — تظهر في المعاملات المالية
                                 للمشترك بعد اعتمادها.
                             </p>
+                            {unusualCount > 0 && (
+                                <p className="re-unusual-note">
+                                    منها {unusualCount.toLocaleString('en')} قراءة غير معتادة (استهلاكها أعلى بكثير من المعتاد) لا تدخل في «اعتماد الكل»؛ راجعها
+                                    وحدّدها لاعتمادها بعد التأكيد.
+                                </p>
+                            )}
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-4">
@@ -521,9 +551,9 @@ export default function Index({
                             />
                             تحديد قراءات هذه الصفحة
                         </label>
-                        <PrimaryButton type="button" onClick={() => setConfirming('all')} disabled={approving}>
+                        <PrimaryButton type="button" onClick={() => setConfirming('all')} disabled={approving || approvableAllCount === 0}>
                             <Icon name="check" className="h-4 w-4" strokeWidth={2} />
-                            {isFiltered ? 'اعتماد كل النتائج' : 'اعتماد كل قراءات الأسبوع'} ({pendingApproval.count.toLocaleString('en')})
+                            {isFiltered ? 'اعتماد كل النتائج' : 'اعتماد كل قراءات الأسبوع'} ({approvableAllCount.toLocaleString('en')})
                         </PrimaryButton>
                     </div>
                 </div>
@@ -639,8 +669,8 @@ export default function Index({
                 title={confirming === 'all' ? 'اعتماد كل القراءات؟' : 'اعتماد القراءات المحددة؟'}
                 message={
                     confirming === 'all'
-                        ? `سيتم اعتماد ${(pendingApproval?.count ?? 0).toLocaleString('en')} قراءة لهذا الأسبوع${isFiltered ? ' مطابقة للبحث والتصفية الحالية' : ''} بمجموع ${formatCurrency(pendingApproval?.amountDue)}، وتُضاف إلى المعاملات المالية للمشتركين. لا يمكن تعديل القراءة بعد اعتمادها.`
-                        : `سيتم اعتماد ${selectedRows.length.toLocaleString('en')} قراءة بمجموع ${formatCurrency(selectedTotal)}، وتُضاف إلى المعاملات المالية للمشتركين. لا يمكن تعديل القراءة بعد اعتمادها.`
+                        ? `سيتم اعتماد ${approvableAllCount.toLocaleString('en')} قراءة لهذا الأسبوع${isFiltered ? ' مطابقة للبحث والتصفية الحالية' : ''}، وتُضاف إلى المعاملات المالية للمشتركين.${unusualCount > 0 ? ` وتبقى ${unusualCount.toLocaleString('en')} قراءة غير معتادة بانتظار مراجعتها واعتمادها واحدة واحدة.` : ''} لا يمكن تعديل القراءة بعد اعتمادها.`
+                        : `سيتم اعتماد ${selectedRows.length.toLocaleString('en')} قراءة بمجموع ${formatCurrency(selectedTotal)}، وتُضاف إلى المعاملات المالية للمشتركين.${selectedUnusualCount > 0 ? ` منها ${selectedUnusualCount.toLocaleString('en')} قراءة غير معتادة استهلاكها أعلى بكثير من المعتاد، وباعتمادها تؤكد أنك راجعتها وأنها صحيحة.` : ''} لا يمكن تعديل القراءة بعد اعتمادها.`
                 }
                 confirmLabel="نعم، اعتمد"
                 cancelLabel="مراجعة القراءات"

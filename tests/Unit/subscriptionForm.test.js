@@ -40,7 +40,6 @@ function renderForm(data, options = {}) {
         setData() {},
         errors: {},
         branches: [],
-        meterBoxes: [],
         tariffs: [],
         circuitBreakers: [],
         subAreas: [],
@@ -106,4 +105,16 @@ test('editing a named subscription renders its own name and phone in the preview
     assert.match(html, /Mohammed Hamdan house/);
     assert.match(html, /0567654321/);
     assert.match(html, /id="subscription_name"/);
+});
+
+test('a subscription fee already charged to the account is shown locked, and one not yet charged can be edited', () => {
+    const feeInput = (html) => html.match(/<input(?=[^>]*id="subscription_fee")[^>]*>/)[0];
+    const charged = renderForm(subscriptionFormData({ full_name: 'A', status: 'active', subscription_fee: '150.00', subscription_fee_charged: true }), { isEdit: true });
+    const notCharged = renderForm(subscriptionFormData({ full_name: 'A', status: 'active', subscription_fee: '150.00', subscription_fee_charged: false }), { isEdit: true });
+
+    assert.match(feeInput(charged), /disabled=""/);
+    assert.match(charged, /حُمّلت الرسوم على الحساب/);
+    // Not charged yet: the field is open only once the switch to charge it is on.
+    assert.doesNotMatch(charged, /تحميل رسوم اشتراك/);
+    assert.match(notCharged, /تحميل رسوم اشتراك/);
 });

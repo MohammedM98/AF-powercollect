@@ -105,14 +105,12 @@ class SubscriptionAuthorizationTest extends TestCase
         $this->assertDatabaseMissing('subscriptions', ['national_id' => '555555555']);
     }
 
-    public function test_create_form_exposes_the_own_branch_area_subarea_and_meter_boxes_only(): void
+    public function test_create_form_exposes_the_own_branch_area_and_subarea_and_no_meter_box_list(): void
     {
         $area = Area::factory()->create();
         $branch = Branch::factory()->inArea($area)->create();
-        $otherBranch = Branch::factory()->inArea($area)->create();
         $subArea = SubArea::factory()->create(['area_id' => $area->id]);
-        $ownBox = MeterBox::factory()->create(['branch_id' => $branch->id, 'sub_area_id' => $subArea->id]);
-        $otherBox = MeterBox::factory()->create(['branch_id' => $otherBranch->id, 'sub_area_id' => $subArea->id]);
+        MeterBox::factory()->create(['branch_id' => $branch->id, 'sub_area_id' => $subArea->id]);
         $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $branch->id]);
 
         $this->actingAs($dataEntry)
@@ -122,11 +120,24 @@ class SubscriptionAuthorizationTest extends TestCase
                 ->where('currentBranchAreaName', $area->name)
                 ->has('subAreas', 1)
                 ->where('subAreas.0.id', $subArea->id)
-                ->has('meterBoxes', 1)
-                ->where('meterBoxes.0.id', $ownBox->id)
-                ->where('meterBoxes.0.sub_area_id', $subArea->id)
-                ->missing('meterBoxes.1')
-                ->where('meterBoxes.0.id', fn ($id): bool => $id !== $otherBox->id));
+                // The form finds boxes as the user types, so the page never carries them all.
+                ->missing('meterBoxes'));
+    }
+
+    public function test_the_edit_form_carries_the_box_the_subscription_is_on_and_none_when_it_has_no_box(): void
+    {
+        $branch = Branch::factory()->create();
+        $subArea = SubArea::factory()->create();
+        $box = MeterBox::factory()->create(['branch_id' => $branch->id, 'sub_area_id' => $subArea->id, 'name' => 'camp', 'name_suffix' => '2A', 'box_number' => '9897']);
+        $onBox = Subscription::factory()->create(['branch_id' => $branch->id, 'meter_box_id' => $box->id]);
+        $withoutBox = Subscription::factory()->create(['branch_id' => $branch->id, 'meter_box_id' => null]);
+        $admin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+
+        $this->actingAs($admin)->get(route('subscriptions.edit', $onBox))->assertInertia(fn ($page) => $page
+            ->where('subscription.meter_box', ['value' => (string) $box->id, 'label' => 'camp 2A - (9897)', 'sub_area_id' => $subArea->id]));
+        $this->get(route('subscriptions.edit', $withoutBox))->assertInertia(fn ($page) => $page->where('subscription.meter_box', null));
+        $this->get(route('subscriptions.index'))->assertInertia(fn ($page) => $page
+            ->where('subscriptions.data', fn ($rows): bool => collect($rows)->firstWhere('id', $onBox->id)['meter_box']['value'] === (string) $box->id));
     }
 
     public function test_data_entry_can_register_a_subscription_without_a_meter_box_yet(): void
@@ -244,7 +255,7 @@ class SubscriptionAuthorizationTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->has('subscriptions.data', 2)
-                ->where('filterOptions', function ($groups) use ($branch, $campOne, $campTwo, $club): bool {
+                ->where('filterOptions', function ($groups) use ($branch, $campOne, $campTwo): bool {
                     $groups = collect($groups);
                     $numbers = $groups->firstWhere('key', 'meter_box_id');
 
@@ -254,7 +265,6 @@ class SubscriptionAuthorizationTest extends TestCase
                         ['value' => 'camp', 'label' => 'camp'],
                         ['value' => 'club', 'label' => 'club'],
                     ] && $numbers['dependsOn'] === 'meter_box_name' && $withoutScope($numbers['options']) === [
-                        ['value' => (string) $club->id, 'label' => "(5000) — {$branch->name}", 'parent' => 'club'],
                         ['value' => (string) $campOne->id, 'label' => "1 (1234) — {$branch->name}", 'parent' => 'camp'],
                         ['value' => (string) $campTwo->id, 'label' => "2 (1243) — {$branch->name}", 'parent' => 'camp'],
                     ] && collect($numbers['options'])->every(fn (array $option): bool => $option['scope']['branch_id'] === (string) $branch->id);

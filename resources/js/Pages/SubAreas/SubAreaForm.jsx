@@ -1,6 +1,9 @@
-import InputLabel from '@/Components/InputLabel';
+import FormField from '@/Components/Form/FormField';
+import FormPreview, { countFilled } from '@/Components/Form/FormPreview';
+import FormSelect, { namedOptions } from '@/Components/Form/FormSelect';
+import FormSection from '@/Components/Form/FormSection';
+import Icon from '@/Components/Icon';
 import TextInput from '@/Components/TextInput';
-import InputError from '@/Components/InputError';
 
 /**
  * The form's starting values: the sub-area's own when editing, otherwise
@@ -15,30 +18,34 @@ export function subAreaFormData(subArea, defaultAreaId = '') {
  * sub-area outside any area, everyone else places it in their branch's.
  */
 export default function SubAreaForm({ data, setData, errors, areas, allowNoArea = true }) {
-    return (
-        <>
-            <div>
-                <InputLabel htmlFor="name" value="الاسم" />
-                <TextInput id="name" className="mt-1 block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
-                <InputError message={errors.name} className="mt-2" />
-            </div>
+    const area = areas.find((option) => String(option.id) === String(data.area_id));
 
-            <div className="mt-4">
-                <InputLabel htmlFor="area_id" value="المنطقة" />
-                {areas.length === 0 ? (
-                    <p className="mt-1 text-sm text-gray-500">لا توجد مناطق بعد.</p>
-                ) : (
-                    <select id="area_id" className="mt-1 block w-full" value={data.area_id} onChange={(e) => setData('area_id', e.target.value)}>
-                        {(allowNoArea || data.area_id === '') && <option value="">{allowNoArea ? '— بلا منطقة —' : '— اختر منطقة —'}</option>}
-                        {areas.map((area) => (
-                            <option key={area.id} value={area.id}>
-                                {area.name}
-                            </option>
-                        ))}
-                    </select>
-                )}
-                <InputError message={errors.area_id} className="mt-2" />
-            </div>
-        </>
+    return (
+        <div className="space-y-4">
+            <FormPreview
+                avatar={<Icon name="pin" className="h-6 w-6 text-white/70" />}
+                title={data.name.trim() || 'منطقة 2 جديدة'}
+                chips={area ? [area.name] : []}
+                filled={countFilled(data, ['name'])}
+                total={1}
+            />
+
+            <FormSection icon="pin" title="بيانات منطقة 2" description="اسمها والمنطقة التي تتبعها" columns={2}>
+                <FormField id="name" label="الاسم" required error={errors.name}>
+                    <TextInput className="block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
+                </FormField>
+
+                <FormSelect
+                    id="area_id"
+                    label="المنطقة"
+                    value={data.area_id}
+                    onChange={(value) => setData('area_id', value)}
+                    options={namedOptions(areas)}
+                    placeholder={allowNoArea ? '— بلا منطقة —' : '— اختر منطقة —'}
+                    emptyMessage="لا توجد مناطق بعد"
+                    error={errors.area_id}
+                />
+            </FormSection>
+        </div>
     );
 }

@@ -219,6 +219,7 @@ export default function SubscriptionDetailsModal({ subscription, onClose, onEdit
                             <Section title="الاشتراك" icon="calendar" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
                                 <Field label="اسم الاشتراك" value={subscription.display_name} /><Field label="رقم الاشتراك" value={subscription.account_number} numeric copy />
                                 <Field label="تاريخ الاشتراك" value={subscription.subscription_date} numeric /><Field label="رسوم الاشتراك" value={money(subscription.subscription_fee)} numeric />
+                                {subscription.reconnected_at && <Field label="تاريخ إعادة التوصيل" value={subscription.reconnected_at} numeric />}
                                 <Field label="القراءة الأولى" value={subscription.initial_reading == null ? 'لم تُدخل بعد' : number(subscription.initial_reading)} numeric={subscription.initial_reading != null} /><Field label="سجّله" value={subscription.registeredByName} />
                                 {subscription.subscription_phone && subscription.subscription_phone !== subscription.phone && <Field label="جوال الاشتراك" value={subscription.contact_phone} numeric copy />}
                                 <Field label="ملاحظات" value={subscription.notes} wide />

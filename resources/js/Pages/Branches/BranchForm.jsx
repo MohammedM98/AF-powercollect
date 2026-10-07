@@ -1,6 +1,11 @@
-import InputLabel from '@/Components/InputLabel';
-import TextInput from '@/Components/TextInput';
+import FormField from '@/Components/Form/FormField';
+import FormPreview, { countFilled } from '@/Components/Form/FormPreview';
+import FormSelect, { namedOptions } from '@/Components/Form/FormSelect';
+import FormSection from '@/Components/Form/FormSection';
+import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
+import Switch from '@/Components/Switch';
+import TextInput from '@/Components/TextInput';
 
 /**
  * The form's starting values: the branch's own when editing, otherwise
@@ -18,76 +23,66 @@ export function branchFormData(branch) {
 
 export default function BranchForm({ data, setData, errors, governorates, areas }) {
     const areasInGovernorate = data.governorate_id ? areas.filter((area) => String(area.governorate_id) === String(data.governorate_id)) : [];
+    const governorate = governorates.find((option) => String(option.id) === String(data.governorate_id));
+    const area = areasInGovernorate.find((option) => String(option.id) === String(data.area_id));
 
     function onGovernorateChange(value) {
         setData((prev) => ({ ...prev, governorate_id: value, area_id: '' }));
     }
 
     return (
-        <>
-            <div>
-                <InputLabel htmlFor="name" value="الاسم" />
-                <TextInput id="name" className="mt-1 block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
-                <InputError message={errors.name} className="mt-2" />
-            </div>
+        <div className="space-y-4">
+            <FormPreview
+                avatar={<Icon name="building" className="h-6 w-6 text-white/70" />}
+                dotClass={data.is_active ? 'bg-emerald-500' : 'bg-gray-400'}
+                title={data.name.trim() || 'فرع جديد'}
+                subtitle={data.phone.trim() || null}
+                subtitleDir="ltr"
+                chips={[governorate?.name, area?.name, data.is_active ? null : 'متوقف'].filter(Boolean)}
+                filled={countFilled(data, ['name'])}
+                total={1}
+            />
 
-            <div className="mt-4">
-                <InputLabel htmlFor="phone" value="الهاتف" />
-                <TextInput id="phone" dir="ltr" className="mt-1 block w-full" value={data.phone} onChange={(e) => setData('phone', e.target.value)} />
-                <InputError message={errors.phone} className="mt-2" />
-            </div>
+            <FormSection icon="building" title="بيانات الفرع" description="اسمه ورقم هاتفه وحالته" columns={2}>
+                <FormField id="name" label="الاسم" required error={errors.name}>
+                    <TextInput className="block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
+                </FormField>
 
-            <div className="mt-4">
-                <InputLabel htmlFor="governorate_id" value="المحافظة" />
-                {governorates.length === 0 ? (
-                    <p className="mt-1 text-sm text-gray-500">لا توجد محافظات بعد.</p>
-                ) : (
-                    <select
-                        id="governorate_id"
-                        className="mt-1 block w-full"
-                        value={data.governorate_id}
-                        onChange={(e) => onGovernorateChange(e.target.value)}
-                    >
-                        <option value="">— بلا محافظة —</option>
-                        {governorates.map((governorate) => (
-                            <option key={governorate.id} value={governorate.id}>
-                                {governorate.name}
-                            </option>
-                        ))}
-                    </select>
-                )}
-                <InputError message={errors.governorate_id} className="mt-2" />
-            </div>
+                <FormField id="phone" label="الهاتف" error={errors.phone}>
+                    <TextInput dir="ltr" className="block w-full" value={data.phone} onChange={(e) => setData('phone', e.target.value)} />
+                </FormField>
 
-            <div className="mt-4">
-                <InputLabel htmlFor="area_id" value="المنطقة" />
-                {!data.governorate_id ? (
-                    <p className="mt-1 text-sm text-gray-500">اختر محافظة أولاً لعرض مناطقها.</p>
-                ) : areasInGovernorate.length === 0 ? (
-                    <p className="mt-1 text-sm text-gray-500">لا توجد مناطق في هذه المحافظة بعد.</p>
-                ) : (
-                    <select id="area_id" className="mt-1 block w-full" value={data.area_id} onChange={(e) => setData('area_id', e.target.value)}>
-                        <option value="">— بلا منطقة —</option>
-                        {areasInGovernorate.map((area) => (
-                            <option key={area.id} value={area.id}>
-                                {area.name}
-                            </option>
-                        ))}
-                    </select>
-                )}
-                <InputError message={errors.area_id} className="mt-2" />
-            </div>
+                <div className="sm:col-span-2">
+                    <Switch checked={data.is_active} onChange={(checked) => setData('is_active', checked)} label="فرع نشط" ariaLabel="فرع نشط" />
+                    <p className="mt-1 text-xs text-gray-500">الفرع المتوقف لا يظهر بين الفروع الفعالة.</p>
+                    <InputError message={errors.is_active} className="mt-1" />
+                </div>
+            </FormSection>
 
-            <div className="mt-4 flex items-center">
-                <input
-                    type="checkbox"
-                    id="is_active"
-                    className="rounded text-brand-600"
-                    checked={data.is_active}
-                    onChange={(e) => setData('is_active', e.target.checked)}
+            <FormSection icon="pin" title="الموقع" description="المحافظة والمنطقة التي يخدمها الفرع" columns={2}>
+                <FormSelect
+                    id="governorate_id"
+                    label="المحافظة"
+                    value={data.governorate_id}
+                    onChange={onGovernorateChange}
+                    options={namedOptions(governorates)}
+                    placeholder="— بلا محافظة —"
+                    emptyMessage="لا توجد محافظات بعد"
+                    error={errors.governorate_id}
                 />
-                <InputLabel htmlFor="is_active" value="نشط" className="!mb-0 ms-2" />
-            </div>
-        </>
+
+                <FormSelect
+                    id="area_id"
+                    label="المنطقة"
+                    value={data.area_id}
+                    onChange={(value) => setData('area_id', value)}
+                    options={namedOptions(areasInGovernorate)}
+                    placeholder="— بلا منطقة —"
+                    blockedMessage={data.governorate_id ? null : 'اختر محافظة أولاً'}
+                    emptyMessage="لا توجد مناطق في هذه المحافظة بعد"
+                    error={errors.area_id}
+                />
+            </FormSection>
+        </div>
     );
 }

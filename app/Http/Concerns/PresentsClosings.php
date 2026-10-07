@@ -15,6 +15,7 @@ use App\Models\CashTransfer;
 use App\Models\Closing;
 use App\Models\ClosingEvent;
 use App\Models\ClosingPayment;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
@@ -62,6 +63,13 @@ trait PresentsClosings
             'total' => Closing::money($closing->confirmedTotalInCents()),
             'accounts' => $this->closingAccounts($lines, $cash),
             'cash' => array_map(fn (?int $cents): ?string => $cents === null ? null : Closing::money($cents), $cash),
+            'cashRefunds' => $closing->cashRefunds()->map(fn (SubscriptionTransaction $refund): array => [
+                'id' => $refund->id,
+                'voucherNumber' => $refund->referenceTransaction->printedVoucherNumber(),
+                'subscriptionName' => $refund->subscription->displayName(),
+                'time' => DailySeries::localTime($refund->created_at),
+                'amount' => Closing::money(Closing::cents($refund->amount)),
+            ])->values(),
             'denominations' => $closing->denominations ?? (object) [],
             'differenceReason' => $closing->difference_reason?->value,
             'differenceNotes' => $closing->difference_notes,

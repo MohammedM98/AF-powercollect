@@ -6,7 +6,7 @@ export default function Edit({ user, roleOptions, branches, canChooseBranch, use
     const form = useResourceForm('/users', user, userFormData(user));
 
     return (
-        <FormPage title="تعديل المستخدم" form={form} cancelHref="/users">
+        <FormPage title="تعديل المستخدم" form={form} cancelHref="/users" widthClass="max-w-4xl">
             <UserForm
                 data={form.data}
                 setData={form.setData}

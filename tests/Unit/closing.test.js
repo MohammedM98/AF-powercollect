@@ -17,6 +17,11 @@ test('the counted cash adds up the notes and coins', () => {
     assert.equal(countedCash({ 200: 4, 100: 1, 50: 1, 1: 3 }), 953);
     assert.equal(countedCash({ 200: '', 10: '2' }), 20);
     assert.equal(hasCount({ 200: 0 }), false);
+    // Agorot are counted as hundredths of a shekel, without floating-point drift.
+    assert.equal(countedCash({ 100: 1, 50: 1, agorot: 55 }), 150.55);
+    assert.equal(countedCash({ 1: 1, agorot: '7' }), 1.07);
+    assert.equal(countedCash({ agorot: 29 }), 0.29);
+    assert.equal(hasCount({ agorot: 5 }), true);
     assert.equal(hasCount({ 5: 1 }), true);
 });
 

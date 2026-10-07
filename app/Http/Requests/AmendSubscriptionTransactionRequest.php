@@ -25,16 +25,8 @@ class AmendSubscriptionTransactionRequest extends FormRequest
      */
     public function rules(): array
     {
-        $throughBank = $this->line()->payment_method?->throughBank() ?? false;
-
         return [
-            'bank_name' => $throughBank
-                ? ['required', Rule::in(config('powercollect.transfer_banks'))]
-                : ['prohibited'],
-            'sender_bank_name' => $throughBank
-                ? ['nullable', Rule::in(config('powercollect.sender_banks'))]
-                : ['prohibited'],
-            'sender_name' => $throughBank ? ['nullable', 'string', 'max:255'] : ['prohibited'],
+            ...self::bankRules($this->line()->payment_method?->throughBank() ?? false),
             // A payment's reference number is never changed after it is recorded.
             'reference_number' => ['prohibited'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -49,6 +41,26 @@ class AmendSubscriptionTransactionRequest extends FormRequest
             'voucher_number' => ['prohibited'],
             'manual_voucher_number' => ['prohibited'],
             'cash_box' => ['prohibited'],
+        ];
+    }
+
+    /**
+     * The rules for the bank fields of a payment's details: a transfer names
+     * one of the banks it was made to (and optionally from), and a cash
+     * payment has none of them.
+     *
+     * @return array<string, array<mixed>>
+     */
+    public static function bankRules(bool $throughBank): array
+    {
+        return [
+            'bank_name' => $throughBank
+                ? ['required', Rule::in(config('powercollect.transfer_banks'))]
+                : ['prohibited'],
+            'sender_bank_name' => $throughBank
+                ? ['nullable', Rule::in(config('powercollect.sender_banks'))]
+                : ['prohibited'],
+            'sender_name' => $throughBank ? ['nullable', 'string', 'max:255'] : ['prohibited'],
         ];
     }
 

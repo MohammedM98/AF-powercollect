@@ -169,8 +169,11 @@ function SidebarContent({ collapsed = false, onNavigate, onClose }) {
                     <>
                         <span className="h-9 w-px bg-gray-200" aria-hidden="true" />
                         <span className="min-w-0">
-                            <span className="block truncate text-lg font-bold leading-tight text-gray-900">{shortAppName(appName)}</span>
-                            <span className="block truncate text-xs text-gray-500">{auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}</span>
+                            {/* dir="auto": a Latin name is clipped at its end, not at its start as the Arabic page direction would. */}
+                            <span dir="auto" className="block truncate text-right text-lg font-bold leading-tight text-gray-900">{shortAppName(appName)}</span>
+                            <span dir="auto" title={auth?.user?.branchName ?? undefined} className="line-clamp-2 break-words text-right text-xs text-gray-500">
+                                {auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}
+                            </span>
                         </span>
                     </>
                 )}
@@ -208,8 +211,8 @@ function SidebarContent({ collapsed = false, onNavigate, onClose }) {
                     </span>
                     {!collapsed && (
                         <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold text-gray-900">{auth?.user?.name}</span>
-                            <span className="block truncate text-xs text-gray-500">{auth?.user?.roleLabel}</span>
+                            <span dir="auto" title={auth?.user?.name} className="block truncate text-right text-sm font-semibold text-gray-900">{auth?.user?.name}</span>
+                            <span dir="auto" className="block truncate text-right text-xs text-gray-500">{auth?.user?.roleLabel}</span>
                         </span>
                     )}
                 </Link>

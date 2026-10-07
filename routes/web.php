@@ -13,6 +13,7 @@ use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\MessageTemplateController;
 use App\Http\Controllers\MeterBoxController;
+use App\Http\Controllers\MeterBoxOptionController;
 use App\Http\Controllers\MeterBoxSubscriptionController;
 use App\Http\Controllers\MeterReadingController;
 use App\Http\Controllers\PeriodClosingController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\ReadNotificationController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SubAreaController;
+use App\Http\Controllers\SubscriberProfileHistoryController;
 use App\Http\Controllers\SubscriptionBulkChangeController;
 use App\Http\Controllers\SubscriptionChargeController;
 use App\Http\Controllers\SubscriptionClearingController;
@@ -41,6 +43,7 @@ use App\Http\Controllers\TariffSegmentController;
 use App\Http\Controllers\TransactionAuditController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserTypeController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -53,7 +56,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile/devices', [ProfileDeviceController::class, 'destroy'])->middleware('throttle:6,1')->name('profile.devices.destroy');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
     Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
@@ -86,6 +88,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/subscriptions/bulk-changes/{change}/undo', [SubscriptionBulkChangeController::class, 'undo'])->name('subscriptions.bulk-changes.undo');
     Route::patch('/subscriptions/{subscription}/phone', [SubscriptionPhoneController::class, 'update'])->name('subscriptions.phone.update');
     Route::patch('/subscriptions/{subscription}/personal-details', [SubscriptionPersonalDetailsController::class, 'update'])->name('subscriptions.personal-details.update');
+    Route::get('/subscriptions/{subscription}/personal-details/history', [SubscriberProfileHistoryController::class, 'show'])->name('subscriptions.personal-details.history');
     Route::resource('subscriptions', SubscriptionController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('/subscriptions/{subscription}/statement', [SubscriptionStatementController::class, 'show'])->name('subscriptions.statement');
     Route::get('/subscriptions/{subscription}/payments/reference-status', [SubscriptionPaymentController::class, 'referenceStatus'])->name('subscriptions.payments.reference-status');
@@ -105,6 +108,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('tariff-segments', TariffSegmentController::class)->only(['store', 'update', 'destroy']);
     Route::resource('circuit-breakers', CircuitBreakerController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('meter-boxes', MeterBoxController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+    Route::get('/meter-boxes/options', [MeterBoxOptionController::class, 'index'])->name('meter-boxes.options');
     Route::get('/meter-boxes/{meter_box}/subscriptions', [MeterBoxSubscriptionController::class, 'index'])->name('meter-boxes.subscriptions.index');
     Route::resource('meter-readings', MeterReadingController::class)->only(['index', 'store', 'update']);
     Route::post('/meter-readings/approve', [MeterReadingController::class, 'approve'])->name('meter-readings.approve');
@@ -134,3 +138,17 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+// An address that matches nothing (outside the mobile API) is still answered inside the web group, so a signed-in
+// user's 404 page knows who they are. Any method is caught, so a real address asked with a wrong one stays a 405.
+Route::any('{fallbackPlaceholder}', function (Request $request) {
+    $allowed = collect(Route::getRoutes()->getRoutes())
+        ->reject(fn ($route) => $route->isFallback)
+        ->filter(fn ($route) => $route->matches($request, false))
+        ->flatMap(fn ($route) => $route->methods())
+        ->unique()
+        ->values();
+
+    abort_if($allowed->isNotEmpty(), 405, headers: ['Allow' => $allowed->implode(', ')]);
+    abort(404);
+})->where('fallbackPlaceholder', '(?!api(?:/|$)).*')->fallback();

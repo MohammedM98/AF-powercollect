@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import FormModal from '@/Components/FormModal';
 import { describeBalance } from '@/lib/accountStatement';
@@ -25,7 +25,16 @@ export default function DeleteTransactionModal({ onClose, subscription, balance,
     const label = isRefund ? 'إرجاع الدفعة' : `إلغاء ${noun}`;
     const refundAmount = Number(entry.refundableAmount ?? entry.amount);
     const [recordNewPayment, setRecordNewPayment] = useState(Boolean(onRecordPayment));
-    const form = useForm({ ...EMPTY_CORRECTION, action });
+    const isReadingCharge = entry.type === 'meter_reading' && !isRefund;
+    const form = useForm({ ...EMPTY_CORRECTION, action, reopen_reading: false });
+
+    // A reading entered wrongly is meant to be corrected and billed again, so that reason suggests sending it back; any other waives its bill.
+    // The box stays the user's to change once a reason is picked.
+    useEffect(() => {
+        if (isReadingCharge) {
+            form.setData('reopen_reading', form.data.correction_reason === 'wrong_reading');
+        }
+    }, [form.data.correction_reason]);
     const deleteForm = {
         ...form,
         isEdit: true,
@@ -71,6 +80,24 @@ export default function DeleteTransactionModal({ onClose, subscription, balance,
                     لهذه القراءة خصم أسبوعي بقيمة <b className="font-display">{entry.readingDiscount}</b> شيكل. يُلغى معها تلقائيًا بالسبب نفسه، لأنه لا يقوم
                     إلا على فاتورة القراءة.
                 </p>
+            )}
+
+            {isReadingCharge && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm">
+                    <input
+                        type="checkbox"
+                        className="mt-1 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        checked={form.data.reopen_reading}
+                        onChange={(event) => form.setData('reopen_reading', event.target.checked)}
+                    />
+                    <span>
+                        <span className="block font-semibold text-gray-900">أعد القراءة إلى «بانتظار الاعتماد»</span>
+                        <span className="block text-xs text-gray-500">
+                            لتصحيح قيمتها ثم اعتمادها فتُحمَّل على المشترك من جديد. إن لم تحدّده تُلغى فاتورة هذا الأسبوع فقط وتبقى القراءة معتمدة،
+                            ولا تُحمَّل على المشترك ثانية.
+                        </span>
+                    </span>
+                </label>
             )}
 
             {isRefund && (

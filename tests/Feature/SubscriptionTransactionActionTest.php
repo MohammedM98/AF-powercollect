@@ -68,6 +68,26 @@ class SubscriptionTransactionActionTest extends TestCase
         ]);
     }
 
+    public function test_an_edited_charge_cannot_be_more_than_the_other_forms_allow(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::ForceDeleteTransactions])->create(['branch_id' => $branch->id]);
+        $subscription = Subscription::factory()->create(['branch_id' => $branch->id]);
+        $invoice = SubscriptionTransaction::recordCharge($subscription, $actor, ChargeType::Penalty, '50', 'غرامة');
+        $edit = fn (string $amount) => $this->actingAs($actor)->post(route('subscriptions.transactions.actions.store', [$subscription, $invoice]), [
+            'action' => 'edit',
+            'amount' => $amount,
+            'amendment_reason' => 'المبلغ الصحيح في المستند',
+        ]);
+
+        $edit('99999999')->assertSessionHasErrors('amount');
+        $edit('1000000.01')->assertSessionHasErrors('amount');
+        $this->assertSame('50.00', $invoice->fresh()->amount);
+
+        $edit('1000000')->assertSessionHasNoErrors();
+        $this->assertSame('1000000.00', $invoice->fresh()->amount);
+    }
+
     public function test_a_refund_always_returns_the_whole_payment_and_links_both_rows(): void
     {
         $branch = Branch::factory()->create();
@@ -213,6 +233,37 @@ class SubscriptionTransactionActionTest extends TestCase
         $this->assertSame('البيان الأصلي', $discount->refresh()->notes);
         $this->assertDatabaseCount('transaction_amendments', 0);
         $this->assertSame(30.0, $subscription->balance());
+    }
+
+    public function test_editing_details_through_the_actions_route_follows_the_same_bank_rules_as_the_amendment_form(): void
+    {
+        $branch = Branch::factory()->create();
+        $actor = User::factory()->branchAdmin()->withPermissions([PermissionKey::AmendTransactionDetails])->create(['branch_id' => $branch->id]);
+        $subscription = Subscription::factory()->create(['branch_id' => $branch->id]);
+        SubscriptionTransaction::recordCharge($subscription, $actor, ChargeType::Penalty, '100', 'غرامة');
+        $cash = SubscriptionTransaction::recordPayment($subscription, $actor, ['amount' => '20', 'currency' => 'ILS', 'payment_method' => 'cash']);
+        $transfer = SubscriptionTransaction::recordPayment($subscription, $actor, [
+            'amount' => '30', 'currency' => 'ILS', 'payment_method' => 'bank_transfer',
+            'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad', 'reference_number' => 'TR-1',
+        ]);
+        $edit = fn (SubscriptionTransaction $line, array $fields) => $this->actingAs($actor)->post(
+            route('subscriptions.transactions.actions.store', [$subscription, $line]),
+            ['action' => 'edit_metadata', 'amendment_reason' => 'تصحيح', ...$fields],
+        );
+
+        // A cash payment has no bank, whatever name is sent.
+        $edit($cash, ['bank_name' => 'بنك وهمي', 'notes' => 'ملاحظة'])->assertSessionHasErrors('bank_name');
+        $edit($cash, ['sender_name' => 'Someone', 'notes' => 'ملاحظة'])->assertSessionHasErrors('sender_name');
+        $this->assertNull($cash->refresh()->bank_name);
+        $edit($cash, ['notes' => 'ملاحظة'])->assertSessionHasNoErrors();
+        $this->assertSame('ملاحظة', $cash->refresh()->notes);
+
+        // A transfer's bank is one of the transfer banks, and is never left out.
+        $edit($transfer, ['bank_name' => 'بنك وهمي'])->assertSessionHasErrors('bank_name');
+        $edit($transfer, ['notes' => 'بلا بنك'])->assertSessionHasErrors('bank_name');
+        $edit($transfer, ['bank_name' => 'جوال باي', 'sender_bank_name' => 'بنك القدس'])->assertSessionHasNoErrors();
+        $this->assertSame(['جوال باي', 'بنك القدس'], [$transfer->refresh()->bank_name, $transfer->sender_bank_name]);
+        $edit($transfer, ['bank_name' => 'جوال باي', 'sender_bank_name' => 'بنك وهمي'])->assertSessionHasErrors('sender_bank_name');
     }
 
     public function test_full_refund_marks_the_original_as_linked_cancellation(): void

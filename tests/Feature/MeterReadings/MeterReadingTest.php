@@ -527,7 +527,7 @@ class MeterReadingTest extends TestCase
         $box = MeterBox::factory()->create(['branch_id' => $north->id, 'sub_area_id' => $subArea->id, 'name' => 'camp']);
 
         $this->actingAs(User::factory()->superAdmin()->create())
-            ->get(route('meter-readings.index'))
+            ->get(route('meter-readings.index', ['filter' => ['meter_box_name' => 'camp']]))
             ->assertInertia(fn ($page) => $page->where('filterOptions', function ($groups) use ($area, $north, $south, $subArea, $box): bool {
                 $option = fn (string $key, int|string $value): array => collect(collect($groups)->firstWhere('key', $key)['options'])->firstWhere('value', (string) $value);
 

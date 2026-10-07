@@ -4,7 +4,6 @@ import SubscriptionForm, { subscriptionFormData } from './SubscriptionForm';
 
 export default function Create({
     branches,
-    meterBoxes,
     tariffs,
     segments,
     circuitBreakers,
@@ -24,7 +23,6 @@ export default function Create({
                 errors={form.errors}
                 clearErrors={form.clearErrors}
                 branches={branches}
-                meterBoxes={meterBoxes}
                 tariffs={tariffs}
                 segments={segments}
                 circuitBreakers={circuitBreakers}

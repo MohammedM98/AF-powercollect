@@ -7,7 +7,7 @@ export default function Create({ branches, canChooseBranch, governorates, areas,
     const form = useResourceForm('/meter-boxes', null, meterBoxFormData(null));
 
     return (
-        <FormPage layout={SettingsLayout} title="إنشاء طبلون" form={form} cancelHref="/meter-boxes">
+        <FormPage layout={SettingsLayout} title="إنشاء طبلون" form={form} cancelHref="/meter-boxes" widthClass="max-w-4xl">
             <MeterBoxForm
                 data={form.data}
                 setData={form.setData}

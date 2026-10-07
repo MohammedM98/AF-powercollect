@@ -13,7 +13,7 @@
         <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@500;600;700;800&family=El+Messiri:wght@600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
         <!-- Theme and table density: apply the saved choices before the page paints, so there is no flash. -->
-        <script>
+        <script nonce="{{ Vite::cspNonce() }}">
             try {
                 const theme = localStorage.getItem('theme');
                 if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {

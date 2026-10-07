@@ -10,6 +10,7 @@ use App\Models\Closing;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Support\ArabicSearch;
+use App\Support\ClosingPeriods;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -122,10 +123,15 @@ class MobileCollectionController extends Controller
     {
         abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
 
+        // Today is the business day (in the business's time zone, up to the closing cut-off), not the UTC date.
+        $day = ClosingPeriods::dayOf(now());
+        [$from, $until] = ClosingPeriods::utcRange($day, $day);
+
         $collections = SubscriptionTransaction::query()
             ->where('recorded_by', $request->user()->id)
             ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
-            ->whereDate('created_at', today())
+            ->where('created_at', '>=', $from)
+            ->where('created_at', '<', $until)
             ->with('subscription:id,full_name,subscription_name,account_number')
             ->latest()
             ->latest('id')

@@ -340,6 +340,14 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                                 <span>− المصروفات والرديات النقدية</span>
                                 <b>{closingMoney(closing.cash.expenses)}</b>
                             </div>
+                            {closing.cashRefunds.map((refund) => (
+                                <div key={refund.id} className="row sub">
+                                    <span>
+                                        إرجاع دفعة{refund.voucherNumber ? ` · سند ${refund.voucherNumber}` : ''} · {refund.subscriptionName} · {refund.time}
+                                    </span>
+                                    <b>{closingMoney(refund.amount)}</b>
+                                </div>
+                            ))}
                             <div className="row">
                                 <span>− التسليمات للخزينة</span>
                                 <b>{closingMoney(closing.cash.handedOver)}</b>
@@ -369,6 +377,23 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                                     </span>
                                 </label>
                             ))}
+                            <label className="coin">
+                                كسور
+                                <span className="v">
+                                    <em>أغورة</em>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="99"
+                                        inputMode="numeric"
+                                        aria-label="عدد الأغورات"
+                                        value={denominations.agorot ?? ''}
+                                        placeholder="0"
+                                        disabled={!editable}
+                                        onChange={(event) => setDenominations({ ...denominations, agorot: event.target.value })}
+                                    />
+                                </span>
+                            </label>
                         </div>
 
                         <div className={`cnt ${check?.tone ?? ''}`}>
@@ -558,7 +583,8 @@ function cleanCount(denominations) {
         Object.entries(denominations ?? {})
             .filter(([, count]) => Number(count) > 0)
             .map(([value, count]) => [value, Number(count)])
-            .sort(([a], [b]) => Number(b) - Number(a)),
+            // Notes and coins from the largest down, the agorot (not a face value) last.
+            .sort(([a], [b]) => (a === 'agorot') - (b === 'agorot') || Number(b) - Number(a)),
     );
 }
 

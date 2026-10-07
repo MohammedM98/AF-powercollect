@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 #[Fillable(['name', 'username', 'password', 'role', 'branch_id', 'is_active', 'user_type_id'])]
 #[Hidden(['password', 'remember_token'])]
@@ -23,6 +24,9 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use BelongsToBranch, HasFactory, Notifiable;
+
+    /** Why the last active Super Admin cannot be deactivated, demoted or deleted. */
+    public const LAST_SUPER_ADMIN_MESSAGE = 'لا يمكن إيقاف آخر مدير نظام فعّال أو تغيير دوره أو حذفه؛ أضف مدير نظام آخر أولًا.';
 
     /**
      * A new user starts with their role's usual permissions ticked, and
@@ -35,6 +39,22 @@ class User extends Authenticatable
         static::updated(function (User $user): void {
             if ($user->wasChanged('role')) {
                 $user->resetToRoleStarterPermissions();
+            }
+        });
+
+        // However it is reached, the company must keep one active Super Admin, or nobody can get back in to fix anything.
+        static::updating(function (User $user): void {
+            $losesTheRole = $user->isDirty('role') && $user->role !== UserRole::SuperAdmin;
+            $losesAccess = $user->isDirty('is_active') && ! $user->is_active;
+
+            if (($losesTheRole || $losesAccess) && $user->isOnlyActiveSuperAdmin()) {
+                throw ValidationException::withMessages(['is_active' => self::LAST_SUPER_ADMIN_MESSAGE]);
+            }
+        });
+
+        static::deleting(function (User $user): void {
+            if ($user->isOnlyActiveSuperAdmin()) {
+                throw ValidationException::withMessages(['delete' => self::LAST_SUPER_ADMIN_MESSAGE]);
             }
         });
     }
@@ -88,6 +108,21 @@ class User extends Authenticatable
     public function isSuperAdmin(): bool
     {
         return $this->role === UserRole::SuperAdmin;
+    }
+
+    /**
+     * Whether, as stored, this is the only Super Admin who is active: the
+     * one account the company cannot lose.
+     */
+    public function isOnlyActiveSuperAdmin(): bool
+    {
+        return $this->getOriginal('role') === UserRole::SuperAdmin
+            && (bool) $this->getOriginal('is_active')
+            && ! self::query()
+                ->where('role', UserRole::SuperAdmin->value)
+                ->where('is_active', true)
+                ->whereKeyNot($this->getKey())
+                ->exists();
     }
 
     public function isBranchAdmin(): bool
@@ -149,16 +184,35 @@ class User extends Authenticatable
     }
 
     /**
-     * Why the user can't be deleted yet — the work recorded in their name —
-     * or null when they can: an account added by mistake.
+     * Why the user can't be deleted yet — everything that carries their
+     * name, so that who did what is never lost or erased — or null when
+     * they can: an account added by mistake. Stopping the account is the
+     * way to retire someone who has worked.
      */
     public function deletionBlocker(): ?string
     {
+        $named = fn (string $model, string ...$columns): int => $model::query()
+            ->where(function ($query) use ($columns): void {
+                foreach ($columns as $column) {
+                    $query->orWhere($column, $this->id);
+                }
+            })
+            ->count();
+
         return DeletionBlocker::describe('المستخدم', [
             'المشتركون المسجّلون' => $this->registeredSubscriptions()->count(),
-            'الحركات المالية' => SubscriptionTransaction::query()->where('recorded_by', $this->id)->orWhere('cancelled_by', $this->id)->count(),
-            'القراءات' => MeterReading::query()->where('recorded_by', $this->id)->orWhere('approved_by', $this->id)->count(),
-            'خصومات القراءات الأسبوعية' => StandingDiscount::query()->where('granted_by', $this->id)->count(),
+            'الحركات المالية' => $named(SubscriptionTransaction::class, 'recorded_by', 'employee_id', 'cancelled_by'),
+            'تعديلات الدفعات' => $named(TransactionAmendment::class, 'user_id'),
+            'الحذف النهائي' => $named(TransactionDeletion::class, 'user_id'),
+            'سجل تعديل البيانات الشخصية' => $named(SubscriberProfileChange::class, 'user_id'),
+            'القراءات' => $named(MeterReading::class, 'recorded_by', 'approved_by'),
+            'خصومات القراءات الأسبوعية' => $named(StandingDiscount::class, 'granted_by'),
+            'كشوف الإغلاق' => $named(Closing::class, 'prepared_by', 'reviewed_by'),
+            'سجل كشوف الإغلاق' => $named(ClosingEvent::class, 'user_id') + $named(ClosingPayment::class, 'matched_by'),
+            'تسليمات النقد' => $named(CashTransfer::class, 'sent_by', 'recipient_id', 'received_by'),
+            'التعديلات الجماعية' => $named(SubscriptionBulkChange::class, 'user_id', 'undone_by'),
+            'تغييرات الأسعار' => $named(TariffRateChange::class, 'changed_by'),
+            'الرسائل' => $named(MessageBatch::class, 'created_by') + $named(SubscriptionMessage::class, 'sent_by'),
         ], 'يمكنك إيقاف حسابه بدلًا من حذفه.');
     }
 

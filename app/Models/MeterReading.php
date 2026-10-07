@@ -16,12 +16,13 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'subscription_id', 'branch_id', 'week_start', 'week_end', 'previous_reading', 'current_reading',
-    'consumption', 'unit_price', 'reading_fee', 'minimum_payment', 'discount_method', 'discount_value', 'discount_segment', 'discount_amount',
+    'consumption', 'usual_consumption', 'unit_price', 'reading_fee', 'minimum_payment', 'discount_method', 'discount_value', 'discount_segment', 'discount_amount',
     'amount_due', 'status', 'recorded_by', 'notes', 'approved_by', 'approved_at', 'mobile_operation_id',
 ])]
 class MeterReading extends Model
@@ -37,6 +38,7 @@ class MeterReading extends Model
             'previous_reading' => 'float',
             'current_reading' => 'float',
             'consumption' => 'float',
+            'usual_consumption' => 'float',
             'status' => MeterReadingStatus::class,
             'unit_price' => 'decimal:2',
             'reading_fee' => 'decimal:2',
@@ -112,6 +114,64 @@ class MeterReading extends Model
     }
 
     /**
+     * Whether a week's consumption is more than any subscription could use:
+     * it is refused when entered, as a mistyped reading.
+     */
+    public static function isImpossibleConsumption(float $consumption): bool
+    {
+        return $consumption > (float) config('powercollect.readings.max_weekly_kwh');
+    }
+
+    /**
+     * What the subscription usually uses in a week: the average of its last
+     * readings before the given week, or null while it has too few to say.
+     */
+    public static function usualConsumptionOf(Subscription $subscription, CarbonInterface $weekStart): ?float
+    {
+        $consumptions = self::query()
+            ->where('subscription_id', $subscription->id)
+            ->whereDate('week_start', '<', $weekStart->toDateString())
+            ->orderByDesc('week_start')
+            ->limit((int) config('powercollect.readings.usual_readings'))
+            ->pluck('consumption');
+
+        return $consumptions->count() < (int) config('powercollect.readings.usual_minimum_readings')
+            ? null
+            : round((float) $consumptions->avg(), 2);
+    }
+
+    /**
+     * The usual consumption to keep with a reading when this week's is far
+     * above it — a multiple of it, and big enough to matter — so the reading
+     * is flagged for review; null when it is nothing unusual. A subscription
+     * with no usual yet has none to compare with (kept as 0), so only a
+     * very large week is flagged.
+     */
+    public static function usualConsumptionIfUnusual(Subscription $subscription, float $consumption, CarbonInterface $weekStart): ?float
+    {
+        $usual = self::usualConsumptionOf($subscription, $weekStart);
+
+        if ($usual === null) {
+            return $consumption >= (float) config('powercollect.readings.unusual_without_history_kwh') ? 0.0 : null;
+        }
+
+        if ($consumption < (float) config('powercollect.readings.unusual_minimum_kwh')) {
+            return null;
+        }
+
+        return $consumption > $usual * (float) config('powercollect.readings.unusual_multiplier') ? $usual : null;
+    }
+
+    /**
+     * Whether the reading was flagged when it was entered: far above what
+     * the subscription usually uses, so it needs a second look.
+     */
+    public function isUnusual(): bool
+    {
+        return $this->usual_consumption !== null;
+    }
+
+    /**
      * What a standing discount takes off a week's reading fee, in shekels:
      * a percentage of the fee, kilowatts of the consumption at the kilo
      * price, or shekels off the price of each kilo — never more than the fee.
@@ -166,15 +226,16 @@ class MeterReading extends Model
      * Approve the reading: it is locked from then on, and its amount is
      * charged to the subscription's transactions — the week's full bill, with
      * its standing discount beside it as a line of its own (خصم القراءات الأسبوعية). A
-     * reading that is already approved is left as it is.
+     * reading that is already approved is left as it is, and so is an unusual
+     * one the approver has not confirmed. Returns whether this approved it.
      */
-    public function approve(User $approver): void
+    public function approve(User $approver, bool $confirmUnusual = false): bool
     {
-        DB::transaction(function () use ($approver): void {
+        return DB::transaction(function () use ($approver, $confirmUnusual): bool {
             $reading = self::query()->lockForUpdate()->findOrFail($this->id);
 
-            if (! $reading->isPending()) {
-                return;
+            if (! $reading->isPending() || ($reading->isUnusual() && ! $confirmUnusual)) {
+                return false;
             }
 
             $reading->update([
@@ -187,7 +248,38 @@ class MeterReading extends Model
             $reading->recordDiscountLine($approver);
 
             $this->setRawAttributes($reading->getAttributes(), true);
+
+            return true;
         });
+    }
+
+    /**
+     * Send an approved reading back to review, as when its charge was
+     * cancelled with the reading reopened. Its week can then be corrected,
+     * and billed afresh once it is approved again. A reading still pending
+     * is left as it is.
+     */
+    public function reopen(): void
+    {
+        if ($this->isPending()) {
+            return;
+        }
+
+        $this->update(['status' => MeterReadingStatus::Pending, 'approved_by' => null, 'approved_at' => null]);
+    }
+
+    /**
+     * Approve the reading again as it was, when the cancellation of its
+     * charge is taken back and that charge stands once more: by whoever
+     * billed it, at the time they did.
+     */
+    public function approveAgainAsBilled(SubscriptionTransaction $charge): void
+    {
+        if (! $this->isPending()) {
+            return;
+        }
+
+        $this->update(['status' => MeterReadingStatus::Approved, 'approved_by' => $charge->recorded_by, 'approved_at' => $charge->created_at]);
     }
 
     /**
@@ -342,6 +434,7 @@ class MeterReading extends Model
             $this->update([
                 'current_reading' => $currentReading,
                 'consumption' => $consumption,
+                'usual_consumption' => self::usualConsumptionIfUnusual($this->subscription, $consumption, $this->week_start),
                 ...self::chargesFor($consumption, $this->unit_price, $this->minimum_payment, $this->discount_method, $this->discount_value),
                 'notes' => $notes,
                 ...($wasApproved ? ['status' => MeterReadingStatus::Pending, 'approved_by' => null, 'approved_at' => null] : []),
@@ -398,6 +491,17 @@ class MeterReading extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);
+    }
+
+    /**
+     * The reading's charge on the subscription's account while it stands:
+     * none for a pending reading, or for one whose bill was cancelled.
+     */
+    public function chargeLine(): HasOne
+    {
+        return $this->hasOne(SubscriptionTransaction::class)
+            ->where('type', SubscriptionTransaction::TYPE_METER_READING)
+            ->whereNull('cancelled_at');
     }
 
     public function recordedBy(): BelongsTo

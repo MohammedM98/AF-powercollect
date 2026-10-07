@@ -11,3 +11,8 @@ test('strong passwords support Arabic and do not rate reused passwords as strong
     assert.equal(passwordStrength('كلمةالمرور123!', 'old').score, 4);
     assert.ok(passwordStrength('كلمةالمرور123!', 'كلمةالمرور123!').score < 4);
 });
+
+test('a password needs ten characters, as the server requires', () => {
+    assert.equal(passwordStrength('abcd12345', 'old').checks[0], false);
+    assert.equal(passwordStrength('abcde12345', 'old').checks[0], true);
+});

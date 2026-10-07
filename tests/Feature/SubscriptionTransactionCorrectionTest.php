@@ -13,6 +13,7 @@ use App\Models\MeterReading;
 use App\Models\Permission;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
+use App\Models\TransactionDeletion;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
@@ -685,6 +686,57 @@ class SubscriptionTransactionCorrectionTest extends TestCase
         $this->assertDatabaseMissing('subscription_transactions', ['id' => $fee->id]);
     }
 
+    public function test_erasing_a_corrections_replacement_brings_the_corrected_payment_back(): void
+    {
+        $this->grantPermanentDeletionTo($this->branchAdmin);
+        [$original, $replacement, $reversal] = $this->correctedPayment();
+        $this->assertSame(50.0, $this->subscription->balance());
+
+        $this->actingAs($this->branchAdmin)
+            ->delete(route('subscriptions.transactions.force-destroy', [$this->subscription, $replacement]), ['correction_notes' => 'التصحيح كان خطأ'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertCorrectionTakenBack($original, $replacement, $reversal);
+    }
+
+    public function test_deleting_a_corrections_replacement_from_the_statement_brings_the_corrected_payment_back(): void
+    {
+        $this->grantPermanentDeletionTo($this->branchAdmin);
+        [$original, $replacement, $reversal] = $this->correctedPayment();
+
+        $this->actingAs($this->branchAdmin)
+            ->post(route('subscriptions.transactions.actions.store', [$this->subscription, $replacement]), ['action' => 'delete', 'correction_notes' => 'التصحيح كان خطأ'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertCorrectionTakenBack($original, $replacement, $reversal);
+    }
+
+    public function test_the_statement_previews_the_balance_a_correction_goes_back_to(): void
+    {
+        $this->grantPermanentDeletionTo($this->branchAdmin);
+        [, $replacement] = $this->correctedPayment();
+
+        $this->actingAs($this->branchAdmin)->get(route('subscriptions.statement', $this->subscription))
+            ->assertInertia(fn ($page) => $page->where('entries', fn ($entries): bool => collect($entries)->firstWhere('id', $replacement->id)['actionEffects']['delete'] === '-50.00'
+                && collect($entries)->firstWhere('id', $replacement->id)['balance'] === '50.00'));
+    }
+
+    public function test_a_correction_is_not_taken_back_when_the_original_transfer_reference_is_used_elsewhere(): void
+    {
+        $this->grantPermanentDeletionTo($this->branchAdmin);
+        $original = $this->recordPayment($this->transfer('100'));
+        $this->correct($original, [...$this->transfer('150'), 'reference_number' => 'TR-2', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'x']);
+        $replacement = $original->refresh()->correction;
+        $this->recordPaymentOn(Subscription::factory()->create(['branch_id' => $this->branch->id]), $this->transfer('40'));
+
+        $this->actingAs($this->branchAdmin)
+            ->post(route('subscriptions.transactions.actions.store', [$this->subscription, $replacement]), ['action' => 'delete', 'correction_notes' => 'x'])
+            ->assertSessionHasErrors('action');
+
+        $this->assertModelExists($replacement);
+        $this->assertTrue($original->refresh()->isCancelled());
+    }
+
     public function test_erasing_a_weekly_reading_charge_leaves_its_reading_approved(): void
     {
         $this->grantPermanentDeletionTo($this->branchAdmin);
@@ -819,6 +871,50 @@ class SubscriptionTransactionCorrectionTest extends TestCase
                 ->where('entries.total', 4)
                 ->where('summary.total', 200)
                 ->where('summary.collected', 100));
+    }
+
+    /**
+     * A cash payment of 100 corrected to 150: the original, then its
+     * replacement, with the original's reversal between them.
+     *
+     * @return array{0: SubscriptionTransaction, 1: SubscriptionTransaction, 2: SubscriptionTransaction}
+     */
+    private function correctedPayment(): array
+    {
+        $original = $this->recordPayment(['amount' => '100', 'payment_method' => 'cash']);
+
+        $this->correct($original, [
+            'amount' => '150',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+            'correction_reason' => 'wrong_amount',
+            'correction_notes' => 'المشترك دفع 150',
+        ])->assertSessionHasNoErrors();
+
+        return [$original->refresh(), $original->correction, SubscriptionTransaction::where('reverses_id', $original->id)->sole()];
+    }
+
+    private function assertCorrectionTakenBack(SubscriptionTransaction $original, SubscriptionTransaction $replacement, SubscriptionTransaction $reversal): void
+    {
+        $original->refresh();
+
+        $this->assertModelMissing($replacement);
+        $this->assertModelMissing($reversal);
+        $this->assertFalse($original->isCancelled());
+        $this->assertSame([SubscriptionTransaction::STATUS_ACTIVE, null, null, null], [$original->status, $original->cancelled_at, $original->cancelled_by, $original->cancellation_reason]);
+        // What the subscriber paid is back on the account: 200 owed less the 100 paid.
+        $this->assertSame(100.0, $this->subscription->balance());
+        $this->assertSame('100.00', $original->balance_after);
+        $this->assertSame(['-100.00'], SubscriptionTransaction::where('subscription_id', $this->subscription->id)->where('type', 'payment')->pluck('amount')->all());
+        $this->assertEqualsCanonicalizing([$replacement->id, $reversal->id], array_column(TransactionDeletion::query()->sole()->transactions, 'id'));
+    }
+
+    /**
+     * @param  array<string, string>  $details
+     */
+    private function recordPaymentOn(Subscription $subscription, array $details): SubscriptionTransaction
+    {
+        return SubscriptionTransaction::recordPayment($subscription, $this->branchAdmin, ['currency' => 'ILS', ...$details]);
     }
 
     /**

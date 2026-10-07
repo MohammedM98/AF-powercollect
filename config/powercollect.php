@@ -72,6 +72,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Limits
+    |--------------------------------------------------------------------------
+    |
+    | The most a subscription fee may be, whether charged when the subscription
+    | is registered or by hand later; anything above is a slip.
+    |
+    */
+
+    'limits' => [
+        'subscription_fee' => (float) env('SUBSCRIPTION_FEE_MAX', 1000),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Financial Closing
     |--------------------------------------------------------------------------
     |
@@ -85,6 +99,95 @@ return [
         'first_number' => 5001,
         'notes' => [200, 100, 50, 20],
         'coins' => [10, 5, 2, 1],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Payments
+    |--------------------------------------------------------------------------
+    |
+    | A payment above what the subscription owes leaves them in credit, which
+    | the forms point out. One above `overpayment_multiplier` times what is
+    | owed, and by at least `overpayment_confirmation_minimum` shekels, is
+    | probably a slip (5000 for 50), so it is saved only once the collector
+    | confirms it. Keep the same two numbers in resources/js/lib/overpayment.js.
+    |
+    */
+
+    'payments' => [
+        'overpayment_multiplier' => 2,
+        'overpayment_confirmation_minimum' => 500,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Weekly Readings
+    |--------------------------------------------------------------------------
+    |
+    | A week's consumption above `max_weekly_kwh` is refused when entered: no
+    | subscription uses that much, so the reading was mistyped. One that is at
+    | least `unusual_multiplier` times the subscription's usual (the average
+    | of its last `usual_readings` readings, once it has `usual_minimum_readings`)
+    | and at least `unusual_minimum_kwh` is saved but flagged: it is never
+    | approved in bulk, only one by one after the approver confirms it. A
+    | subscription with too few readings to have a usual is flagged from
+    | `unusual_without_history_kwh` instead.
+    |
+    */
+
+    'readings' => [
+        'max_weekly_kwh' => (float) env('READING_MAX_WEEKLY_KWH', 20000),
+        'unusual_multiplier' => 5,
+        'unusual_minimum_kwh' => 200,
+        'unusual_without_history_kwh' => 2000,
+        'usual_readings' => 8,
+        'usual_minimum_readings' => 3,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Field App Download
+    |--------------------------------------------------------------------------
+    |
+    | Where collectors download the field app. A collector who signs in to the
+    | website has little to do there, so the dashboard points them to the app,
+    | with this link when it is set.
+    |
+    */
+
+    'mobile_app_url' => env('MOBILE_APP_URL'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Security Headers
+    |--------------------------------------------------------------------------
+    |
+    | In production the pages are sent with a Content-Security-Policy that
+    | lets only the app's own scripts run. `csp` is "enforce" (the default),
+    | "report-only" to see what it would block without blocking anything, or
+    | "off". It is never sent outside production.
+    |
+    */
+
+    'security' => [
+        'csp' => env('CSP_MODE', 'enforce'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Backups
+    |--------------------------------------------------------------------------
+    |
+    | `backup:run` (daily, from the scheduler) saves the database and the
+    | stored files under storage/app/private/backups. `disk` names a
+    | filesystem disk that is NOT this server (an S3 bucket, say) where the
+    | same files are copied, and `keep_days` how long backups are kept.
+    |
+    */
+
+    'backup' => [
+        'disk' => env('BACKUP_DISK'),
+        'keep_days' => (int) env('BACKUP_KEEP_DAYS', 14),
     ],
 
 ];

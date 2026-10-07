@@ -6,7 +6,7 @@ export default function Create({ roleOptions, branches, canChooseBranch, userTyp
     const form = useResourceForm('/users', null, userFormData(null));
 
     return (
-        <FormPage title="إنشاء مستخدم" form={form} cancelHref="/users">
+        <FormPage title="إنشاء مستخدم" form={form} cancelHref="/users" widthClass="max-w-4xl">
             <UserForm
                 data={form.data}
                 setData={form.setData}

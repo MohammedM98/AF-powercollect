@@ -22,10 +22,10 @@ use App\Models\Tariff;
 use App\Models\TariffSegment;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
-use App\Support\DailySeries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -71,7 +71,7 @@ class SubscriptionController extends Controller
             ],
             'statusOptions' => SubscriptionStatus::options(),
             'filters' => $this->dataTableState($request, 'display_name'),
-            'filterOptions' => $this->filterOptions($actor),
+            'filterOptions' => $this->filterOptions($actor, $request),
             // Only the Super Admin may enter a reading for an earlier week.
             'readingWeekOptions' => MeterReading::recentWeekOptions($actor->isSuperAdmin() ? 8 : 1),
             'statement' => fn () => $this->requestedStatement($request, $actor),
@@ -173,11 +173,12 @@ class SubscriptionController extends Controller
         // Only a subscription without the fee on the account is validated for charging it.
         $chargeSubscriptionFee = (bool) $request->validated('charge_subscription_fee', false);
 
-        // Activating a subscription who was not active starts their subscription today, unless a date was picked.
-        if ($data['status'] === SubscriptionStatus::Active->value
-            && $subscription->status !== SubscriptionStatus::Active
-            && ($data['subscription_date'] ?? null) === $subscription->subscription_date?->format('Y-m-d')) {
-            $data['subscription_date'] = DailySeries::today()->toDateString();
+        // Activating a subscription who was not active starts their subscription today, unless a date was picked;
+        // one who had been active before is connected again, keeping the day they first subscribed.
+        if ($data['status'] === SubscriptionStatus::Active->value && $subscription->status !== SubscriptionStatus::Active) {
+            $dates = $subscription->datesWhenActivated();
+            $datePicked = ($data['subscription_date'] ?? null) !== $subscription->subscription_date?->format('Y-m-d');
+            $data = [...$data, ...($datePicked ? Arr::except($dates, 'subscription_date') : $dates)];
         }
 
         DB::transaction(function () use ($subscription, $data, $chargeSubscriptionFee, $request): void {
@@ -330,6 +331,12 @@ class SubscriptionController extends Controller
             'contact_phone' => $subscription->contactPhone(),
             'address' => $subscription->address,
             'meter_box_id' => $subscription->meter_box_id,
+            // The box the subscription is on, for the form's drop-down to show it before any search.
+            'meter_box' => $subscription->meterBox ? [
+                'value' => (string) $subscription->meterBox->id,
+                'label' => $subscription->meterBox->label(),
+                'sub_area_id' => $subscription->meterBox->sub_area_id,
+            ] : null,
             'tariff_id' => $subscription->tariff_id,
             'tariff_segment_id' => $subscription->tariff_segment_id,
             'branch_id' => $subscription->branch_id,
@@ -344,18 +351,19 @@ class SubscriptionController extends Controller
             'has_been_active' => $subscription->activated_at !== null,
             'subscription_fee_charged' => (bool) ($subscription->has_subscription_fee ?? $subscription->hasSubscriptionFeeCharge()),
             'subscription_date' => $subscription->subscription_date?->format('Y-m-d'),
+            'reconnected_at' => $subscription->reconnected_at?->format('Y-m-d'),
             'notes' => $subscription->notes,
         ];
     }
 
     /**
-     * The branch/meter-box/tariff options for the create/edit forms, and
-     * whether the actor may choose the branch themselves. A meter box's
-     * area/governorate always come from its branch, but its sub-area
-     * ("منطقة 2") is its own column, so the form narrows meter boxes down
-     * via branch → sub-area, same as the Meter Boxes resource itself.
+     * The branch/tariff options for the create/edit forms, and whether the
+     * actor may choose the branch themselves. The meter boxes are not sent:
+     * the form finds them as the user types (MeterBoxOptionController),
+     * narrowed by branch and sub-area ("منطقة 2"), so the page does not
+     * grow with the number of boxes.
      *
-     * @return array{branches: Collection, meterBoxes: Collection, tariffs: Collection, segments: Collection, subAreas: Collection, circuitBreakers: Collection, canChooseBranch: bool, currentBranchAreaId: ?int, currentBranchAreaName: ?string, canEditMinimumCharge: bool}
+     * @return array{branches: Collection, tariffs: Collection, segments: Collection, subAreas: Collection, circuitBreakers: Collection, canChooseBranch: bool, currentBranchAreaId: ?int, currentBranchAreaName: ?string, canEditMinimumCharge: bool}
      */
     private function formOptions(): array
     {
@@ -363,22 +371,6 @@ class SubscriptionController extends Controller
         $canChooseBranch = $actor->isSuperAdmin();
 
         $branches = $canChooseBranch ? Branch::with('area')->orderBy('name')->get() : collect();
-
-        $meterBoxes = MeterBox::query()
-            ->visibleTo($actor)
-            ->with('branch')
-            ->orderBy('box_number')
-            ->get()
-            ->map(fn (MeterBox $box) => [
-                'id' => $box->id,
-                'name' => $box->name,
-                'box_number' => $box->box_number,
-                'name_suffix' => $box->name_suffix,
-                'label' => $box->label(),
-                'branchName' => $box->branch->name,
-                'branch_id' => $box->branch_id,
-                'sub_area_id' => $box->sub_area_id,
-            ]);
 
         $tariffs = Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => [
             'id' => $tariff->id,
@@ -388,7 +380,6 @@ class SubscriptionController extends Controller
 
         return [
             'branches' => $branches,
-            'meterBoxes' => $meterBoxes,
             'tariffs' => $tariffs,
             // Any subscription can be given any customer segment, whatever their tariff.
             'segments' => TariffSegment::orderBy('name')->get(['id', 'name']),
@@ -425,10 +416,8 @@ class SubscriptionController extends Controller
      *
      * @return array<int, array{key: string, label: string, options: array<int, array{value: string, label: string}>}>
      */
-    private function filterOptions(User $actor): array
+    private function filterOptions(User $actor, Request $request): array
     {
-        $meterBoxes = MeterBox::query()->visibleTo($actor)->with(['branch', 'subArea'])->orderBy('box_number')->get();
-
         $groups = [
             $this->filterGroup('status', 'الحالة', SubscriptionStatus::options()),
             $this->filterGroup('tariff_id', 'نوع الاشتراك', $this->modelOptions(
@@ -437,8 +426,9 @@ class SubscriptionController extends Controller
             )),
             $this->filterGroup('tariff_segment_id', 'تصنيف الزبائن', $this->modelOptions(TariffSegment::orderBy('name')->get(), 'name')),
             $this->subAreaFilterGroup(SubArea::query()->visibleTo($actor)->orderBy('name')->get()),
-            ...$this->meterBoxFilterGroups(
-                $meterBoxes,
+            ...$this->meterBoxFilterGroupsFor(
+                $actor,
+                $request,
                 $actor->isSuperAdmin() ? fn (MeterBox $box) => $box->branch->name : null,
             ),
             $this->circuitBreakerFilterGroup(),

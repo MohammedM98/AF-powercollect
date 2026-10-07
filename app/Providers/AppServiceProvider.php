@@ -8,6 +8,7 @@ use App\Support\Messaging\HttpSmsGateway;
 use App\Support\Messaging\LogSmsGateway;
 use App\Support\Messaging\SmsGateway;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -32,6 +33,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Every password — a new user's, a user's own — is at least ten characters with letters and numbers; in
+        // production it also must not be in a known breach (a check that calls out to a service, so not in tests).
+        Password::defaults(fn (): Password => $this->app->isProduction()
+            ? Password::min(10)->letters()->numbers()->uncompromised()
+            : Password::min(10)->letters()->numbers());
     }
 }

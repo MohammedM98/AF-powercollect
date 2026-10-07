@@ -22,15 +22,15 @@ class PasswordUpdateTest extends TestCase
             ->from('/profile')
             ->put('/password', [
                 'current_password' => 'password',
-                'password' => 'new-password',
-                'password_confirmation' => 'new-password',
+                'password' => 'new-password-2026',
+                'password_confirmation' => 'new-password-2026',
             ]);
 
         $response
             ->assertSessionHasNoErrors()
             ->assertRedirect('/profile');
 
-        $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
+        $this->assertTrue(Hash::check('new-password-2026', $user->refresh()->password));
     }
 
     public function test_changing_the_password_signs_out_other_devices_but_keeps_this_one(): void
@@ -51,8 +51,8 @@ class PasswordUpdateTest extends TestCase
 
         $this->from('/profile')->put('/password', [
             'current_password' => 'wrong-password',
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
+            'password' => 'new-password-2026',
+            'password_confirmation' => 'new-password-2026',
         ])->assertSessionHasErrorsIn('updatePassword', 'current_password');
 
         $this->assertDatabaseHas('sessions', ['id' => 'my-phone']);
@@ -60,8 +60,8 @@ class PasswordUpdateTest extends TestCase
 
         $this->from('/profile')->put('/password', [
             'current_password' => 'password',
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
+            'password' => 'new-password-2026',
+            'password_confirmation' => 'new-password-2026',
         ])->assertSessionHasNoErrors()->assertRedirect('/profile');
 
         $this->assertDatabaseMissing('sessions', ['id' => 'my-phone']);
@@ -82,8 +82,8 @@ class PasswordUpdateTest extends TestCase
             ->from('/profile')
             ->put('/password', [
                 'current_password' => 'wrong-password',
-                'password' => 'new-password',
-                'password_confirmation' => 'new-password',
+                'password' => 'new-password-2026',
+                'password_confirmation' => 'new-password-2026',
             ]);
 
         $response

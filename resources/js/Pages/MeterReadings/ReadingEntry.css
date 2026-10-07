@@ -96,6 +96,10 @@
 .re-pill.pending, .re-pill.approved { color: var(--re-warn); background: color-mix(in srgb, var(--re-warn) 10%, transparent); border-color: color-mix(in srgb, var(--re-warn) 25%, transparent); }
 .re-pill.approved { color: var(--re-success); background: color-mix(in srgb, var(--re-success) 10%, transparent); border-color: color-mix(in srgb, var(--re-success) 25%, transparent); }
 .re-pill i { background: currentColor; width: 6px; height: 6px; }
+.re-pill.unusual { color: var(--re-danger, #b42318); background: color-mix(in srgb, var(--re-danger, #b42318) 10%, transparent); border-color: color-mix(in srgb, var(--re-danger, #b42318) 28%, transparent); margin-top: 4px; }
+.re-pill.unbilled { margin-top: 4px; color: var(--re-faint); }
+.re-row.is-unusual .re-diff { color: var(--re-danger, #b42318); font-weight: 800; }
+.re-approval .re-unusual-note { color: var(--re-danger, #b42318); font-size: 13px; font-weight: 600; margin-top: 4px; }
 .re-by { min-width: 110px; white-space: nowrap; }
 .re-by b { font-weight: 600; font-size: 13.5px; }
 .re-by small { display: flex; align-items: center; gap: 5px; font: 500 11px Alexandria, sans-serif; color: var(--re-faint); margin-top: 3px; }

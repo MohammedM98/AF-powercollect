@@ -4,9 +4,12 @@ namespace App\Http\Requests;
 
 use App\Enums\Currency;
 use App\Enums\PaymentMethod;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreSubscriptionPaymentRequest extends FormRequest
 {
@@ -38,6 +41,42 @@ class StoreSubscriptionPaymentRequest extends FormRequest
     }
 
     /**
+     * An amount far above what the subscription owes is a likely slip, so it
+     * needs the collector's confirmation.
+     *
+     * @return array<int, callable>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                /** @var Subscription $subscription */
+                $subscription = $this->route('subscription');
+
+                self::checkOverpayment($validator, $this->input('amount'), max($subscription->balance(), 0.0), $this->boolean('confirm_overpayment'));
+            },
+        ];
+    }
+
+    /**
+     * Refuse `$amount`, which is far above what is `$owed`, unless `$confirmed`.
+     * Shared with correcting a payment and with the app's.
+     */
+    public static function checkOverpayment(Validator $validator, mixed $amount, float $owed, bool $confirmed): void
+    {
+        if ($validator->errors()->isNotEmpty() || $confirmed || ! is_numeric($amount) || ! Subscription::overpaymentNeedsConfirmation((float) $amount, $owed)) {
+            return;
+        }
+
+        $validator->errors()->add('confirm_overpayment', sprintf(
+            'المبلغ %s ₪ أكبر بكثير من المستحق على المشترك (%s ₪)، وسيبقى له رصيد دائن قدره %s ₪؛ تأكد من المبلغ ثم أكّد أنه صحيح.',
+            SubscriptionTransaction::formatAmount($amount),
+            SubscriptionTransaction::formatAmount($owed),
+            SubscriptionTransaction::formatAmount((float) $amount - $owed),
+        ));
+    }
+
+    /**
      * The payment's rules, for a payment made by `$paymentMethod`; shared
      * with correcting a payment.
      *
@@ -55,6 +94,8 @@ class StoreSubscriptionPaymentRequest extends FormRequest
             'reference_number' => ['exclude_if:payment_method,'.PaymentMethod::Cash->value, 'nullable', 'string', 'max:100'],
             // Sent once the collector confirmed that the reference is already on another payment.
             'confirm_duplicate_reference' => ['sometimes', 'boolean'],
+            // Sent once the collector confirmed an amount far above what is owed.
+            'confirm_overpayment' => ['sometimes', 'boolean'],
             'cash_box' => ['exclude_unless:payment_method,'.PaymentMethod::Cash->value, 'nullable', 'string', 'max:20'],
             'manual_voucher_number' => ['exclude_unless:payment_method,'.PaymentMethod::Cash->value, 'nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string', 'max:1000'],

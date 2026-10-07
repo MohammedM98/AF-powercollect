@@ -232,7 +232,7 @@ class UserTypeTest extends TestCase
         $this->assertDatabaseCount('notifications', 0);
     }
 
-    public function test_new_users_without_a_permission_role_start_as_regular_staff_with_no_permissions(): void
+    public function test_new_users_without_a_role_start_as_collectors_with_only_the_permission_to_take_payments(): void
     {
         $actor = User::factory()->superAdmin()->create();
         $branch = Branch::factory()->create();
@@ -250,7 +250,7 @@ class UserTypeTest extends TestCase
         $this->assertSame('collector', $employee->role->value);
         $this->assertSame($type->id, $employee->user_type_id);
         $this->assertSame($branch->id, $employee->branch_id);
-        $this->assertSame([], $employee->permissions()->pluck('key')->all());
+        $this->assertSame(['collections.record'], $employee->permissions()->pluck('key')->all());
     }
 
     #[TestWith(['branch_admin'])]

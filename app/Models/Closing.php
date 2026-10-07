@@ -37,6 +37,9 @@ class Closing extends Model
     /** @use HasFactory<ClosingFactory> */
     use HasFactory;
 
+    /** The cash count's key for the agorot counted beyond whole shekels (0–99). */
+    public const AGOROT = 'agorot';
+
     protected function casts(): array
     {
         return [
@@ -118,6 +121,8 @@ class Closing extends Model
     /**
      * The confirmed payments a branch received on a business day: every
      * payment line that has not been cancelled, by the subscription's branch.
+     * A payment refunded on a later business day was still received that
+     * day, so it stays; the refund is the later day's cash going out.
      *
      * @return Builder<SubscriptionTransaction>
      */
@@ -127,10 +132,70 @@ class Closing extends Model
 
         return SubscriptionTransaction::query()
             ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
-            ->whereNull('cancelled_at')
+            ->where(fn (Builder $query): Builder => $query
+                ->whereNull('cancelled_at')
+                ->orWhereIn('id', self::refundedAfterTheirDay($from, $until)))
             ->where('created_at', '>=', $from)
             ->where('created_at', '<', $until)
             ->whereHas('subscription', fn (Builder $subscription) => $subscription->where('branch_id', $branchId));
+    }
+
+    /**
+     * The ids of the payments received between two UTC moments that were
+     * refunded in full on a later business day than the one they were
+     * received on. Refunded the same day, a payment never counted at all.
+     *
+     * @return array<int, int>
+     */
+    private static function refundedAfterTheirDay(CarbonInterface $from, CarbonInterface $until): array
+    {
+        return SubscriptionTransaction::query()
+            ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
+            ->where('status', SubscriptionTransaction::STATUS_LINKED_CANCELLATION)
+            ->whereNotNull('cancelled_at')
+            ->where('created_at', '>=', $from)
+            ->where('created_at', '<', $until)
+            ->get(['id', 'created_at', 'cancelled_at'])
+            ->filter(fn (SubscriptionTransaction $payment): bool => ClosingPeriods::dayOf($payment->cancelled_at) > ClosingPeriods::dayOf($payment->created_at))
+            ->modelKeys();
+    }
+
+    /**
+     * The cash a branch paid back to subscribers on the business days: the
+     * refunds of cash payments that were received on an earlier day. A
+     * payment refunded the day it was received is not counted as received,
+     * so its refund takes nothing more off the cash box.
+     *
+     * @return Collection<int, SubscriptionTransaction>
+     */
+    public static function cashRefundsPaid(int $branchId, CarbonInterface|string $first, CarbonInterface|string $last): Collection
+    {
+        [$from, $until] = ClosingPeriods::utcRange($first, $last);
+
+        return SubscriptionTransaction::query()
+            ->with(['subscription', 'referenceTransaction'])
+            ->where('type', SubscriptionTransaction::TYPE_REFUND)
+            ->where('payment_method', PaymentMethod::Cash->value)
+            ->whereNull('cancelled_at')
+            ->where('created_at', '>=', $from)
+            ->where('created_at', '<', $until)
+            ->whereHas('subscription', fn (Builder $subscription) => $subscription->where('branch_id', $branchId))
+            ->oldest('created_at')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (SubscriptionTransaction $refund): bool => $refund->referenceTransaction !== null
+                && ClosingPeriods::dayOf($refund->referenceTransaction->created_at) < ClosingPeriods::dayOf($refund->created_at))
+            ->values();
+    }
+
+    /**
+     * This closing's day's cash refunds, oldest first.
+     *
+     * @return Collection<int, SubscriptionTransaction>
+     */
+    public function cashRefunds(): Collection
+    {
+        return static::cashRefundsPaid($this->branch_id, $this->period_start, $this->period_end);
     }
 
     /**
@@ -169,9 +234,9 @@ class Closing extends Model
 
     /**
      * The cash the drawer should hold at the end of the day: the cash it
-     * started with, plus the day's cash payments, less the cash handed over
-     * to the company during the day. There are no cash expenses or refunds
-     * in the system yet, so none are taken off.
+     * started with, plus the day's cash payments, less the cash refunded to
+     * subscribers and the cash handed over to the company during the day.
+     * There are no other cash expenses in the system yet.
      *
      * @return array{opening: int, receipts: int, expenses: int, handedOver: int, expected: int, counted: int|null, difference: int|null}
      */
@@ -179,14 +244,15 @@ class Closing extends Model
     {
         $opening = $this->opening_cash !== null ? self::cents($this->opening_cash) : $this->openingCashInCents();
         $receipts = $this->cashLines()->sum(fn (ClosingPayment $line): int => self::cents($line->payment->amount) * -1);
+        $refunded = $this->cashRefunds()->sum(fn (SubscriptionTransaction $refund): int => self::cents($refund->amount));
         $handedOver = self::cents((string) $this->transfersSentDuring($this->period_start, $this->period_start)->sum('amount'));
-        $expected = $opening + $receipts - $handedOver;
+        $expected = $opening + $receipts - $refunded - $handedOver;
         $counted = $this->counted_cash === null ? null : self::cents($this->counted_cash);
 
         return [
             'opening' => $opening,
             'receipts' => $receipts,
-            'expenses' => 0,
+            'expenses' => $refunded,
             'handedOver' => $handedOver,
             'expected' => $expected,
             'counted' => $counted,
@@ -196,7 +262,8 @@ class Closing extends Model
 
     /**
      * What the branch's last earlier closing counted, less the cash handed
-     * over between that day and this one. Nothing before the first closing.
+     * over and refunded between that day and this one. Nothing before the
+     * first closing.
      */
     private function openingCashInCents(): int
     {
@@ -212,11 +279,16 @@ class Closing extends Model
         }
 
         $daysBetween = $previous->period_start->addDay();
-        $handedOver = $daysBetween->lessThan($this->period_start)
-            ? (string) $this->transfersSentDuring($daysBetween, $this->period_start->subDay())->sum('amount')
-            : '0';
 
-        return self::cents($previous->counted_cash) - self::cents($handedOver);
+        if (! $daysBetween->lessThan($this->period_start)) {
+            return self::cents($previous->counted_cash);
+        }
+
+        $handedOver = self::cents((string) $this->transfersSentDuring($daysBetween, $this->period_start->subDay())->sum('amount'));
+        $refunded = static::cashRefundsPaid($this->branch_id, $daysBetween, $this->period_start->subDay())
+            ->sum(fn (SubscriptionTransaction $refund): int => self::cents($refund->amount));
+
+        return self::cents($previous->counted_cash) - $handedOver - $refunded;
     }
 
     /**
@@ -264,19 +336,20 @@ class Closing extends Model
     }
 
     /**
-     * Record the cash count: how many of each note and coin, and why the
-     * count differs from the expected cash when it does.
+     * Record the cash count: how many of each note and coin (and how many
+     * agorot, under `agorot`, for the part of a shekel that no coin here
+     * is), and why the count differs from the expected cash when it does.
      *
      * @param  array<string, int>  $denominations
      */
     public function recordCount(User $actor, array $denominations, ?ClosingDifferenceReason $reason, ?string $notes): void
     {
         $this->ensureEditable();
-        $counted = collect($denominations)->sum(fn (int $count, string|int $value): int => (int) $value * $count);
+        $countedCents = collect($denominations)->sum(fn (int $count, string|int $value): int => $value === self::AGOROT ? $count : (int) $value * $count * 100);
 
         $this->update([
             'denominations' => $denominations,
-            'counted_cash' => number_format($counted, 2, '.', ''),
+            'counted_cash' => number_format($countedCents / 100, 2, '.', ''),
             'difference_reason' => $reason,
             'difference_notes' => $notes,
             'prepared_by' => $actor->id,

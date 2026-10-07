@@ -15,6 +15,7 @@ use Database\Factories\SubscriptionTransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -309,15 +310,29 @@ class SubscriptionTransaction extends Model
      * a reversal that takes its amount back off the balance.
      * Returns the reversal.
      *
-     * @throws ValidationException when the line was cancelled meanwhile
+     * A weekly reading's charge cancelled this way is a waiver: its reading
+     * stays approved and is never billed again. With `$reopenReading` the
+     * reading instead goes back for review, to be corrected and billed afresh.
+     *
+     * @throws ValidationException when the line was cancelled meanwhile, or
+     *                             a submitted or approved closing counted it
      */
-    public function cancel(User $actor, CorrectionReason $reason, ?string $notes): self
+    public function cancel(User $actor, CorrectionReason $reason, ?string $notes, bool $reopenReading = false): self
     {
-        return DB::transaction(function () use ($actor, $reason, $notes): self {
-            $reversal = $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCancellable());
+        return DB::transaction(function () use ($actor, $reason, $notes, $reopenReading): self {
+            if ($this->isInClosedDay(lockForUpdate: true)) {
+                throw ValidationException::withMessages(['reason' => 'لا يمكن إلغاء دفعة ضمن كشف إغلاق أُرسل للتدقيق أو اعتُمد؛ أرجِعها بإرجاع الدفعة.']);
+            }
+
+            // Cancelling a weekly reading's bill waives it for good (the key it is billed by stays) unless the reading is sent back for review.
+            $reversal = $this->reverse($actor, $reason, $notes, fn (self $line): bool => $line->isCancellable(), freeSourceKey: $reopenReading && $this->isBilledByReading());
 
             // A weekly reading's standing discount only stands beside its charge.
-            $this->readingDiscountStanding()?->reverse($actor, $reason, $notes, fn (self $line): bool => ! $line->isCancelled());
+            $this->readingDiscountStanding()?->reverse($actor, $reason, $notes, fn (self $line): bool => ! $line->isCancelled(), freeSourceKey: $reopenReading);
+
+            if ($reopenReading) {
+                $this->reopenReading();
+            }
 
             return $reversal;
         });
@@ -467,9 +482,13 @@ class SubscriptionTransaction extends Model
         });
     }
 
+    /**
+     * A bank reference as transfers are compared: upper case, without
+     * spaces, dashes, slashes or dots, so FT-100, ft 100 and FT/100 are one.
+     */
     public static function normalizeReference(mixed $reference): ?string
     {
-        $normalized = Str::upper((string) preg_replace('/\s+/u', '', trim((string) $reference)));
+        $normalized = Str::upper((string) preg_replace('/[\s\p{Pd}\/.]+/u', '', trim((string) $reference)));
 
         return $normalized !== '' ? $normalized : null;
     }
@@ -826,43 +845,101 @@ class SubscriptionTransaction extends Model
     /** @param array<string, mixed> $data */
     private function applyHardDelete(User $actor, array $data): ?self
     {
-        $originalId = $this->reference_transaction_id ?? $this->reverses_id;
+        // The line a reversal or refund took back, or that a correction replaced, stands again.
+        $originalId = $this->reference_transaction_id ?? $this->reverses_id ?? $this->corrects_id;
         $original = $originalId === null ? null : self::query()->lockForUpdate()->find($originalId);
-
-        if ($original !== null) {
-            $updates = [
-                'status' => self::STATUS_ACTIVE,
-                'cancelled_at' => null,
-                'cancelled_by' => null,
-                'cancellation_reason' => null,
-                'cancellation_notes' => null,
-            ];
-
-            if ($original->isPayment() && $original->reference_number !== null) {
-                $updates['active_reference'] = self::normalizeReference($original->reference_number);
-            }
-
-            $original->update($updates);
-        }
+        $correctionReversals = $this->correctionReversals()->all();
 
         $action = $this->isReversal() ? TransactionAction::DeleteReversal->value : TransactionAction::Delete->value;
         // A weekly reading's standing discount is deleted with it: the two are one bill.
-        $deleted = array_values(array_filter([$this, $this->readingDiscountStanding()]));
+        $readingDiscount = $this->readingDiscountStanding();
+        $deleted = array_values(array_filter([$this, $readingDiscount, ...$correctionReversals]));
 
         self::releaseEditableClosingLines(array_map(fn (self $line): int => $line->id, $deleted));
         array_walk($deleted, fn (self $line): ?bool => $line->delete());
+        $original?->reinstate('action');
         self::recalculateBalances($this->subscription_id);
         TransactionDeletion::record($actor, $action, $data['correction_notes'] ?? null, array_map(fn (self $line): array => $line->getAttributes(), $deleted));
 
         Log::warning('Transaction hard deleted under ledger golden rule', [
             'action' => $action,
             'transaction' => $this->getAttributes(),
-            'with_reading_discount' => ($deleted[1] ?? null)?->getAttributes(),
+            'with_reading_discount' => $readingDiscount?->getAttributes(),
+            'with_correction_reversals' => array_map(fn (self $line): array => $line->getAttributes(), $correctionReversals),
             'deleted_by' => $actor->only(['id', 'name', 'username']),
             'reason' => $data['correction_notes'] ?? null,
         ]);
 
         return null;
+    }
+
+    /**
+     * The reversal that cancelled the line this one replaced by correction,
+     * locked; none for a line that corrects nothing. Taking the correction
+     * back removes it with the replacement, so the line stands as it did.
+     *
+     * @return Collection<int, self>
+     */
+    private function correctionReversals(): Collection
+    {
+        if ($this->corrects_id === null) {
+            return new Collection;
+        }
+
+        return self::query()->where('reverses_id', $this->corrects_id)->lockForUpdate()->get();
+    }
+
+    /**
+     * Bring a cancelled line back as it was: standing again, without its
+     * cancellation, and a payment holding its reference again.
+     *
+     * @param  string  $errorKey  the field the refusal is reported on
+     *
+     * @throws ValidationException when another payment has taken the payment's reference since
+     */
+    private function reinstate(string $errorKey): void
+    {
+        $updates = [
+            'status' => self::STATUS_ACTIVE,
+            'cancelled_at' => null,
+            'cancelled_by' => null,
+            'cancellation_reason' => null,
+            'cancellation_notes' => null,
+        ];
+
+        if ($this->isPayment() && $this->reference_number !== null) {
+            $reference = self::normalizeReference($this->reference_number);
+
+            if (self::activeReferenceConflict($reference, $this->id) !== null) {
+                throw ValidationException::withMessages([$errorKey => 'لا يمكن إعادة الدفعة الأصلية: رقمها المرجعي مسجَّل الآن على دفعة أخرى.']);
+            }
+
+            $updates['active_reference'] = $reference;
+        }
+
+        // A weekly reading's line gets back the key its reading bills it by, which cancelling it freed.
+        if ($this->isBilledByReading()) {
+            $updates['source_key'] = Str::before($this->source_key, ':cancelled:');
+        }
+
+        $this->update($updates);
+
+        // A reading sent back for review when its charge was cancelled is approved again with the charge standing.
+        if ($this->type === self::TYPE_METER_READING && $this->isBilledByReading()) {
+            MeterReading::query()->lockForUpdate()->find($this->meter_reading_id)?->approveAgainAsBilled($this);
+        }
+    }
+
+    /**
+     * When this is a weekly reading's charge that no longer stands, send the
+     * reading back for approval, so its week can be corrected and billed
+     * afresh when it is approved again.
+     */
+    private function reopenReading(): void
+    {
+        if ($this->type === self::TYPE_METER_READING && $this->isBilledByReading()) {
+            MeterReading::query()->lockForUpdate()->find($this->meter_reading_id)?->reopen();
+        }
     }
 
     /** @param array<string, mixed> $data */
@@ -943,6 +1020,7 @@ class SubscriptionTransaction extends Model
             'cancellation_reason' => $reason,
             'cancellation_notes' => $data['correction_notes'] ?? null,
             'active_reference' => null,
+            ...($this->isBilledByReading() && ($data['reopen_reading'] ?? false) ? ['source_key' => $this->source_key.':cancelled:'.$this->id] : []),
         ]);
 
         $cancellation = $this->subscription->transactions()->create([
@@ -961,6 +1039,10 @@ class SubscriptionTransaction extends Model
 
         // A weekly reading's standing discount only stands beside its charge, so it is cancelled with it.
         $this->readingDiscountStanding()?->applyCancellation($actor, $data);
+
+        if ($data['reopen_reading'] ?? false) {
+            $this->reopenReading();
+        }
 
         return $cancellation;
     }
@@ -1149,8 +1231,9 @@ class SubscriptionTransaction extends Model
      * Erase the last line of the statement for good, leaving no trace on
      * the account. If it is a reversal, the line it reverses goes with it,
      * and if it was cancelled, so does its reversal, so the balance stays
-     * consistent. The only record is the audit log's (TransactionDeletion)
-     * and a log entry.
+     * consistent. If it replaced a line by correction, that line stands
+     * again and the reversal that cancelled it goes too. The only record is
+     * the audit log's (TransactionDeletion) and a log entry.
      *
      * @throws ValidationException when it may not be erased (any more)
      */
@@ -1165,14 +1248,20 @@ class SubscriptionTransaction extends Model
 
             $target = $line->isReversal() ? $line->reverses : $line;
             $reversals = self::query()->where('reverses_id', $target->id)->get();
+            // Erasing the line a correction recorded takes the correction back: the line it replaced stands again, or its amount would be lost.
+            $original = $target->corrects_id === null ? null : self::query()->lockForUpdate()->find($target->corrects_id);
+            $correctionReversals = $target->correctionReversals();
             $erasedTransactions = collect([$target])
                 ->concat($reversals)
+                ->concat($correctionReversals)
                 ->map(fn (self $transaction): array => $transaction->getAttributes())
                 ->all();
 
             self::query()->where('corrects_id', $target->id)->update(['corrects_id' => null]);
             $reversals->each->delete();
+            $correctionReversals->each->delete();
             $target->delete();
+            $original?->reinstate('reason');
             // A reversal of an older line may have been recorded after the erased one, so its running balance moves too.
             self::recalculateBalances($target->subscription_id);
             TransactionDeletion::record($actor, TransactionDeletion::ACTION_ERASE, $reason, $erasedTransactions);

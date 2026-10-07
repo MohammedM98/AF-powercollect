@@ -7,7 +7,7 @@ export default function Create({ areas, allowNoArea }) {
     const form = useResourceForm('/sub-areas', null, subAreaFormData(null, !allowNoArea && areas.length === 1 ? areas[0].id : ''));
 
     return (
-        <FormPage title="إنشاء منطقة 2" form={form} cancelHref="/governorates">
+        <FormPage title="إنشاء منطقة 2" form={form} cancelHref="/governorates" widthClass="max-w-4xl">
             <SubAreaForm data={form.data} setData={form.setData} errors={form.errors} areas={areas} allowNoArea={allowNoArea} />
         </FormPage>
     );

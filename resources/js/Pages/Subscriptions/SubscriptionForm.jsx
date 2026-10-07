@@ -1,7 +1,10 @@
-import { cloneElement, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useHttp } from '@inertiajs/react';
 import Affix from '@/Components/Affix';
 import ChoiceChips from '@/Components/ChoiceChips';
 import ConfirmDialog from '@/Components/ConfirmDialog';
+import FormField from '@/Components/Form/FormField';
+import FormPreview from '@/Components/Form/FormPreview';
 import FormSection from '@/Components/Form/FormSection';
 import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
@@ -36,20 +39,6 @@ const STATUS_DOTS = {
  */
 const REQUIRED_FIELDS = ['full_name', 'national_id', 'phone', 'status', 'tariff_id', 'minimum_charge'];
 
-function Field({ id, label, required, error, hint, span = '', children }) {
-    return (
-        <div className={span}>
-            <InputLabel htmlFor={id}>
-                {label}
-                {required && <span className="text-red-500"> *</span>}
-            </InputLabel>
-            <div className="mt-1">{cloneElement(children, { id, ...(hint ? { 'aria-describedby': `${id}-hint` } : {}) })}</div>
-            {hint && <p id={`${id}-hint`} className="mt-1 text-xs text-gray-500">{hint}</p>}
-            <InputError message={error} className="mt-1" />
-        </div>
-    );
-}
-
 // A value the form shows but never lets the user edit directly (it's
 // derived from another selection, like the branch's area).
 function FieldLock() {
@@ -82,51 +71,16 @@ function SubscriptionPreview({ data, tariff, circuitBreaker, filled, total }) {
     const phone = String(data.subscription_phone || data.phone || '').trim();
 
     return (
-        <div className="relative overflow-hidden rounded-card bg-graphite-gradient p-5 text-white shadow-lift sm:p-6">
-            <div className="pointer-events-none absolute -end-12 -top-20 h-56 w-56 rounded-full bg-brand-500/25 blur-3xl" aria-hidden="true" />
-            <div className="relative flex flex-wrap items-center justify-between gap-5">
-                <div className="flex min-w-0 items-center gap-4">
-                    <span className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-white/10 font-display text-lg font-bold ring-1 ring-white/15">
-                        {name ? initials(name) : <Icon name="user" className="h-6 w-6 text-white/70" />}
-                        <span
-                            className={`absolute -bottom-0.5 -start-0.5 h-3.5 w-3.5 rounded-full border-[3px] border-graphite-800 ${STATUS_DOTS[data.status]}`}
-                            aria-hidden="true"
-                        />
-                    </span>
-                    <div className="min-w-0">
-                        <p className="truncate text-xl font-bold">{name || 'مشترك جديد'}</p>
-                        <p className="mt-0.5 font-display text-sm text-white/60" dir="ltr" style={{ textAlign: 'right' }}>
-                            {phone || '05— ——— ——'}
-                        </p>
-                        {(tariff || circuitBreaker) && (
-                            <div className="mt-2 flex flex-wrap gap-1.5 text-xs font-semibold">
-                                {tariff && (
-                                    <span className="rounded-full bg-white/10 px-2.5 py-0.5">
-                                        {tariff.categoryLabel} · {formatAmount(tariff.rate)} ش/ك.و
-                                    </span>
-                                )}
-                                {circuitBreaker && <span className="rounded-full bg-white/10 px-2.5 py-0.5">قاطع {circuitBreaker.ampere} أمبير</span>}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="w-44 shrink-0" aria-live="polite">
-                    <div className="flex items-baseline justify-between gap-2 text-xs text-white/60">
-                        <span>الحقول المطلوبة</span>
-                        <b className="font-display text-base text-white" dir="ltr">
-                            {filled}/{total}
-                        </b>
-                    </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-                        <div
-                            className="h-full rounded-full bg-emerald-400 transition-[width] duration-300"
-                            style={{ width: `${(filled / total) * 100}%` }}
-                        />
-                    </div>
-                </div>
-            </div>
-        </div>
+        <FormPreview
+            avatar={name ? initials(name) : <Icon name="user" className="h-6 w-6 text-white/70" />}
+            dotClass={STATUS_DOTS[data.status]}
+            title={name || 'مشترك جديد'}
+            subtitle={phone || '05— ——— ——'}
+            subtitleDir="ltr"
+            chips={[tariff && `${tariff.categoryLabel} · ${formatAmount(tariff.rate)} ش/ك.و`, circuitBreaker && `قاطع ${circuitBreaker.ampere} أمبير`].filter(Boolean)}
+            filled={filled}
+            total={total}
+        />
     );
 }
 
@@ -157,6 +111,7 @@ export function subscriptionFormData(subscription, sourceSubscription = null) {
         subscription_date: subscription?.subscription_date ?? '',
         // Only read by the form: it is not a field the server takes.
         has_been_active: subscription?.has_been_active ?? false,
+        subscription_fee_charged: subscription?.subscription_fee_charged ?? false,
         notes: subscription?.notes ?? '',
     };
 
@@ -181,7 +136,7 @@ export default function SubscriptionForm({
     setData,
     errors,
     clearErrors,
-    meterBoxes,
+    meterBox = null,
     tariffs,
     segments = [],
     circuitBreakers,
@@ -214,25 +169,28 @@ export default function SubscriptionForm({
     const resolvedAreaId = canChooseBranch ? (selectedBranch?.area_id ?? '') : (currentBranchAreaId ?? '');
     const resolvedAreaName = selectedBranch?.area?.name ?? '';
 
-    // Seeded from the already-assigned meter box's own sub-area, if any, so
-    // editing a subscription shows its meter box pre-selected instead of
-    // hiding it behind an unmade sub-area choice.
-    const [subAreaId, setSubAreaId] = useState(() => {
-        const currentBox = meterBoxes.find((box) => String(box.id) === String(data.meter_box_id));
-        return currentBox?.sub_area_id ? String(currentBox.sub_area_id) : '';
-    });
+    // The meter box chosen (the subscription's own when editing, which the page carries) and its sub-area:
+    // seeding the sub-area from it shows an edited subscription's box pre-selected instead of
+    // hiding it behind an unmade sub-area choice. The other boxes are found as the user types.
+    const [selectedBox, setSelectedBox] = useState(meterBox);
+    const [subAreaId, setSubAreaId] = useState(() => (meterBox?.sub_area_id ? String(meterBox.sub_area_id) : ''));
 
     const subAreasInArea = resolvedAreaId ? subAreas.filter((subArea) => String(subArea.area_id) === String(resolvedAreaId)) : [];
 
-    const meterBoxesInScope = meterBoxes.filter((box) => {
-        if (canChooseBranch && String(box.branch_id) !== String(data.branch_id)) {
-            return false;
-        }
+    // A Super Admin's boxes are those of the branch chosen; a branch's staff already get only their own.
+    const boxBranchId = canChooseBranch ? data.branch_id : '';
+    const http = useHttp();
+    const httpRef = useRef(http);
+    httpRef.current = http;
+    const loadMeterBoxes = useCallback(
+        async (search) => {
+            const query = new URLSearchParams({ search, ...(boxBranchId ? { branch_id: boxBranchId } : {}), ...(subAreaId ? { sub_area_id: subAreaId } : {}) });
+            const response = await httpRef.current.get(`/meter-boxes/options?${query}`);
 
-        return !subAreaId || String(box.sub_area_id) === String(subAreaId);
-    });
-
-    const meterBoxOptions = meterBoxesInScope.map((box) => ({ value: box.id, label: box.label ?? `${box.box_number} — ${box.name}` }));
+            return { options: response.data, hasMore: response.hasMore };
+        },
+        [boxBranchId, subAreaId],
+    );
 
     const showMeterBoxField = !canChooseBranch || Boolean(data.branch_id);
 
@@ -245,7 +203,9 @@ export default function SubscriptionForm({
     const selectedTariff = tariffs.find((tariff) => String(tariff.id) === String(data.tariff_id));
     const selectedCircuitBreaker = circuitBreakers.find((circuitBreaker) => String(circuitBreaker.id) === String(data.circuit_breaker_id));
     const minimumChargeLocked = !canEditMinimumCharge || !minimumChargeUnlocked;
-    const subscriptionFeeLocked = 'charge_subscription_fee' in data && !data.charge_subscription_fee;
+    // A fee already on the account is that line's amount: it is changed from the transactions, not here.
+    const subscriptionFeeCharged = original.subscription_fee_charged;
+    const subscriptionFeeLocked = subscriptionFeeCharged || ('charge_subscription_fee' in data && !data.charge_subscription_fee);
 
     const contactRequiredFields = REQUIRED_FIELDS.map((field) => field === 'full_name' ? nameField : field === 'phone' ? phoneField : field);
     // Once active, a subscription is disconnected rather than put back to waiting.
@@ -267,8 +227,8 @@ export default function SubscriptionForm({
     /**
      * The starting reading is entered only for an active subscription.
      * Activating one who is not active yet starts their subscription today,
-     * from a reading entered now; choosing their old status again puts back
-     * what they had.
+     * from a reading entered now; one who had been active keeps the day they
+     * first subscribed. Choosing their old status again puts back what they had.
      */
     function chooseStatus(value) {
         const activating = isEdit && original.status !== 'active' && value === 'active';
@@ -278,7 +238,7 @@ export default function SubscriptionForm({
             status: value,
             initial_reading: value === 'active' ? (activating ? '' : current.initial_reading) : isEdit ? original.initial_reading : '',
             ...(isEdit && original.status !== 'active'
-                ? { subscription_date: activating ? new Date().toLocaleDateString('en-CA') : original.subscription_date }
+                ? { subscription_date: activating && !original.has_been_active ? new Date().toLocaleDateString('en-CA') : original.subscription_date }
                 : {}),
         }));
         clearErrors?.('status', 'initial_reading', 'subscription_date');
@@ -286,25 +246,25 @@ export default function SubscriptionForm({
 
     function onBranchChange(value) {
         setSubAreaId('');
+        setSelectedBox(null);
         setData((current) => ({ ...current, branch_id: value, meter_box_id: '' }));
     }
 
     function onSubAreaChange(value) {
         setSubAreaId(value);
-        const selectedBox = meterBoxes.find((box) => String(box.id) === String(data.meter_box_id));
 
         if (selectedBox && value && String(selectedBox.sub_area_id) !== String(value)) {
+            setSelectedBox(null);
             setData('meter_box_id', '');
         }
     }
 
-    function onMeterBoxChange(value) {
-        const selectedBox = meterBoxes.find((box) => String(box.id) === String(value));
-
+    function onMeterBoxChange(value, option) {
         setData('meter_box_id', value);
+        setSelectedBox(option ? { value: option.value, label: option.label, sub_area_id: option.sub_area_id } : null);
 
-        if (selectedBox?.sub_area_id) {
-            setSubAreaId(String(selectedBox.sub_area_id));
+        if (option?.sub_area_id) {
+            setSubAreaId(String(option.sub_area_id));
         }
     }
 
@@ -343,7 +303,7 @@ export default function SubscriptionForm({
             )}
 
             <FormSection icon="user" title="بيانات المشترك" description="الاسم والهوية ورقم الجوال">
-                <Field
+                <FormField
                     id={nameField}
                     label="الاسم"
                     required
@@ -359,9 +319,9 @@ export default function SubscriptionForm({
                         autoFocus
                         onChange={(e) => setData(nameField, e.target.value)}
                     />
-                </Field>
+                </FormField>
 
-                <Field id="national_id" label="رقم الهوية" required error={errors.national_id}>
+                <FormField id="national_id" label="رقم الهوية" required error={errors.national_id}>
                     <TextInput
                         required
                         dir="ltr"
@@ -376,9 +336,9 @@ export default function SubscriptionForm({
                         readOnly={sharedPersonalDetails}
                         onChange={(event) => setData('national_id', plainDigits(event.target.value))}
                     />
-                </Field>
+                </FormField>
 
-                <Field id={phoneField} label="رقم الجوال" required error={errors[phoneField]}>
+                <FormField id={phoneField} label="رقم الجوال" required error={errors[phoneField]}>
                     <TextInput
                         required
                         type="tel"
@@ -393,9 +353,9 @@ export default function SubscriptionForm({
                         value={data[phoneField]}
                         onChange={(e) => setData(phoneField, plainDigits(e.target.value))}
                     />
-                </Field>
+                </FormField>
 
-                <Field
+                <FormField
                     id="status"
                     label="الحالة"
                     required
@@ -403,20 +363,22 @@ export default function SubscriptionForm({
                     span="sm:col-span-2 lg:col-span-3"
                     hint={
                         isEdit && original.status !== 'active' && data.status === 'active'
-                            ? 'عند التفعيل أدخل القراءة السابقة للعدّاد، ويُحدَّث تاريخ الاشتراك إلى تاريخ اليوم.'
+                            ? original.has_been_active
+                                ? 'عند إعادة التوصيل أدخل القراءة السابقة للعدّاد؛ يبقى تاريخ الاشتراك الأصلي ويُسجَّل اليوم كتاريخ إعادة التوصيل.'
+                                : 'عند التفعيل أدخل القراءة السابقة للعدّاد، ويُحدَّث تاريخ الاشتراك إلى تاريخ اليوم.'
                             : undefined
                     }
                 >
                     <ChoiceChips label="الحالة" value={data.status} onChange={chooseStatus} options={statusOptions} />
-                </Field>
+                </FormField>
             </FormSection>
 
             <FormSection icon="bolt" title="نوع الاشتراك والقاطع" description="سعر الكيلو والحد الأدنى يُحسبان تلقائيًا من اختيارك">
-                <Field id="accounting_type" label="نوع المحاسبة" error={errors.accounting_type} span="sm:col-span-2 lg:col-span-3">
+                <FormField id="accounting_type" label="نوع المحاسبة" error={errors.accounting_type} span="sm:col-span-2 lg:col-span-3">
                     <ChoiceChips label="نوع المحاسبة" value={data.accounting_type} onChange={(value) => setData('accounting_type', value)} options={ACCOUNTING_TYPE_OPTIONS} />
-                </Field>
+                </FormField>
 
-                <Field id="tariff_id" label="نوع الاشتراك" required error={errors.tariff_id} span="sm:col-span-2">
+                <FormField id="tariff_id" label="نوع الاشتراك" required error={errors.tariff_id} span="sm:col-span-2">
                     <SearchableSelect
                         name="tariff_id"
                         required
@@ -432,7 +394,7 @@ export default function SubscriptionForm({
                         emptyLabel="لا توجد أنواع مطابقة"
                         active={Boolean(data.tariff_id)}
                     />
-                </Field>
+                </FormField>
 
                 <div>
                     <InputLabel htmlFor="tariff_rate" value="سعر الكيلو" />
@@ -449,7 +411,7 @@ export default function SubscriptionForm({
                     </div>
                 </div>
 
-                <Field id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id} span="sm:col-span-2">
+                <FormField id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id} span="sm:col-span-2">
                     <SearchableSelect
                         value={data.circuit_breaker_id}
                         onChange={onCircuitBreakerChange}
@@ -463,7 +425,7 @@ export default function SubscriptionForm({
                         emptyLabel="لا توجد قواطع مطابقة"
                         active={Boolean(data.circuit_breaker_id)}
                     />
-                </Field>
+                </FormField>
 
                 <div>
                     <div className="flex items-center justify-between">
@@ -506,7 +468,7 @@ export default function SubscriptionForm({
                     />
                 </div>
                 {segments.length > 0 && (
-                    <Field id="tariff_segment_id" label="تصنيف الزبائن" error={errors.tariff_segment_id} span="sm:col-span-2">
+                    <FormField id="tariff_segment_id" label="تصنيف الزبائن" error={errors.tariff_segment_id} span="sm:col-span-2">
                         <SearchableSelect
                             value={data.tariff_segment_id}
                             onChange={(value) => setData('tariff_segment_id', value)}
@@ -516,14 +478,14 @@ export default function SubscriptionForm({
                             emptyLabel="لا توجد تصنيفات مطابقة"
                             active={Boolean(data.tariff_segment_id)}
                         />
-                    </Field>
+                    </FormField>
                 )}
             </FormSection>
 
             <FormSection icon="pin" title="الموقع والعداد" description="الفرع ومنطقته والطبلون الذي يتغذّى منه">
                 <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:col-span-2 sm:grid-cols-2 lg:col-span-3">
                     {canChooseBranch && (
-                        <Field id="branch_id" label="الفرع" required error={errors.branch_id}>
+                        <FormField id="branch_id" label="الفرع" required error={errors.branch_id}>
                             {branches.length === 0 ? (
                                 <p className="text-sm text-gray-500">لا توجد فروع بعد — أنشئ فرعًا أولاً.</p>
                             ) : (
@@ -536,7 +498,7 @@ export default function SubscriptionForm({
                                     ))}
                                 </select>
                             )}
-                        </Field>
+                        </FormField>
                     )}
 
                     {canChooseBranch && (
@@ -548,7 +510,7 @@ export default function SubscriptionForm({
                     )}
 
                     {Boolean(resolvedAreaId) && (
-                        <Field id="sub_area_id" label="منطقة 2" error={errors.sub_area_id}>
+                        <FormField id="sub_area_id" label="منطقة 2" error={errors.sub_area_id}>
                             {subAreasInArea.length === 0 ? (
                                 <p className="text-sm text-gray-500">لا توجد منطقة 2 في هذه المنطقة بعد.</p>
                             ) : (
@@ -563,29 +525,26 @@ export default function SubscriptionForm({
                                     active={Boolean(subAreaId)}
                                 />
                             )}
-                        </Field>
+                        </FormField>
                     )}
 
                     {showMeterBoxField && (
-                        <Field id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
-                            {meterBoxesInScope.length === 0 ? (
-                                <p className="text-sm text-gray-500">لا توجد طبلونات في النطاق المحدد بعد.</p>
-                            ) : (
-                                <SearchableSelect
-                                    value={data.meter_box_id}
-                                    onChange={onMeterBoxChange}
-                                    options={meterBoxOptions}
-                                    searchPlaceholder="بحث عن طبلون..."
-                                    emptyLabel="لا توجد طبلونات مطابقة"
-                                />
-                            )}
-                        </Field>
+                        <FormField id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
+                            <SearchableSelect
+                                value={data.meter_box_id}
+                                onChange={onMeterBoxChange}
+                                options={selectedBox ? [selectedBox] : []}
+                                loadOptions={loadMeterBoxes}
+                                searchPlaceholder="بحث عن طبلون..."
+                                emptyLabel="لا توجد طبلونات مطابقة"
+                            />
+                        </FormField>
                     )}
                 </div>
             </FormSection>
 
             <FormSection icon="calendar" title="معلومات الاشتراك" description="القراءة التي يبدأ منها حسابه، ورسوم الاشتراك وتاريخه">
-                <Field
+                <FormField
                     id="initial_reading"
                     label="القراءة السابقة"
                     required={readingRequired}
@@ -604,15 +563,15 @@ export default function SubscriptionForm({
                             onChange={(event) => setData('initial_reading', event.target.value)}
                         />
                     </Affix>
-                </Field>
+                </FormField>
 
-                <Field id="subscription_fee" label="رسوم الاشتراك" required={data.charge_subscription_fee} error={errors.subscription_fee}>
+                <FormField id="subscription_fee" label="رسوم الاشتراك" required={data.charge_subscription_fee} error={errors.subscription_fee}>
                     <Affix unit="شيكل">
                         <TextInput
                             type="number"
                             step="0.01"
                             disabled={subscriptionFeeLocked}
-                            title={subscriptionFeeLocked ? 'فعّل تحميل رسوم اشتراك لإدخال المبلغ' : undefined}
+                            title={subscriptionFeeCharged ? 'حُمّلت الرسوم على الحساب؛ عدّلها من سجل المعاملات.' : subscriptionFeeLocked ? 'فعّل تحميل رسوم اشتراك لإدخال المبلغ' : undefined}
                             className={`block w-full disabled:opacity-100 ${subscriptionFeeLocked ? 'bg-gray-50 text-gray-600' : ''}`}
                             required={data.charge_subscription_fee}
                             min={data.charge_subscription_fee ? '0.01' : '0'}
@@ -620,16 +579,19 @@ export default function SubscriptionForm({
                             onChange={(e) => setData('subscription_fee', e.target.value)}
                         />
                     </Affix>
-                </Field>
+                </FormField>
 
-                <Field id="subscription_date" label="تاريخ الاشتراك" error={errors.subscription_date}>
+                <FormField id="subscription_date" label="تاريخ الاشتراك" error={errors.subscription_date}>
                     <TextInput
                         type="date"
                         className="block w-full"
+                        // The server accepts no date before 2000 or after today.
+                        min="2000-01-01"
+                        max={new Date().toLocaleDateString('en-CA')}
                         value={data.subscription_date}
                         onChange={(e) => setData('subscription_date', e.target.value)}
                     />
-                </Field>
+                </FormField>
 
                 {'charge_subscription_fee' in data && (
                     <div className="sm:col-span-2 lg:col-span-3">
@@ -650,7 +612,7 @@ export default function SubscriptionForm({
             </FormSection>
 
             <FormSection icon="note" title="معلومات إضافية" description="العنوان وأي ملاحظات عن المشترك">
-                <Field id="address" label="العنوان" error={errors.address} span="sm:col-span-2 lg:col-span-3">
+                <FormField id="address" label="العنوان" error={errors.address} span="sm:col-span-2 lg:col-span-3">
                     <textarea
                         rows={2}
                         className="block w-full"
@@ -658,11 +620,11 @@ export default function SubscriptionForm({
                         readOnly={sharedPersonalDetails}
                         onChange={(e) => setData('address', e.target.value)}
                     />
-                </Field>
+                </FormField>
 
-                <Field id="notes" label="معلومات أخرى" error={errors.notes} span="sm:col-span-2 lg:col-span-3">
+                <FormField id="notes" label="معلومات أخرى" error={errors.notes} span="sm:col-span-2 lg:col-span-3">
                     <textarea rows={2} className="block w-full" value={data.notes} onChange={(e) => setData('notes', e.target.value)} />
-                </Field>
+                </FormField>
             </FormSection>
         </div>
     );

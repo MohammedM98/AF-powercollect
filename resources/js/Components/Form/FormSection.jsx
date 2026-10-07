@@ -1,10 +1,17 @@
 import Icon from '@/Components/Icon';
 
+const COLUMNS = {
+    1: 'grid-cols-1',
+    2: 'grid-cols-1 sm:grid-cols-2',
+    3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+};
+
 /**
  * One part of a long form as its own card: an icon, a title and a short
- * line saying what belongs in it, then its fields in a grid.
+ * line saying what belongs in it, then its fields in a grid of `columns`
+ * (1, 2 or 3 across on wide screens).
  */
-export default function FormSection({ icon, title, description, children, className = '' }) {
+export default function FormSection({ icon, title, description, columns = 3, children, className = '' }) {
     return (
         <section className={`rounded-card border border-gray-100 bg-surface p-5 shadow-card sm:p-6 ${className}`}>
             <div className="mb-5 flex items-center gap-3">
@@ -16,7 +23,7 @@ export default function FormSection({ icon, title, description, children, classN
                     {description && <p className="text-xs text-gray-500">{description}</p>}
                 </div>
             </div>
-            <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+            <div className={`grid gap-x-6 gap-y-4 ${COLUMNS[columns]}`}>{children}</div>
         </section>
     );
 }

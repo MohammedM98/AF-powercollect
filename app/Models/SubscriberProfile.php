@@ -35,6 +35,12 @@ class SubscriberProfile extends Model
                 $profile->subscriptions()->update($profile->only(self::PERSONAL_FIELDS));
             }
         });
+
+        static::updated(function (SubscriberProfile $profile): void {
+            if ($profile->wasChanged(self::PERSONAL_FIELDS)) {
+                $profile->recordChange();
+            }
+        });
     }
 
     /** The number after the highest one given so far: 1, 2, 3… */
@@ -46,5 +52,31 @@ class SubscriberProfile extends Model
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
+    }
+
+    public function changes(): HasMany
+    {
+        return $this->hasMany(SubscriberProfileChange::class)->latest('created_at')->latest('id');
+    }
+
+    /**
+     * Remember the personal details that were just saved as changed, with
+     * their old and new values and who changed them. The details belong to
+     * the person, so any of their subscriptions, in any branch, may be the
+     * one edited; the history keeps whose hand it was. (Called from the
+     * `updated` hook, where the original values are still the old ones.)
+     */
+    private function recordChange(): void
+    {
+        $user = auth()->user();
+
+        $this->changes()->create([
+            'user_id' => $user?->id,
+            'branch_id' => $user?->branch_id,
+            'changes' => collect(self::PERSONAL_FIELDS)
+                ->filter(fn (string $field): bool => $this->wasChanged($field))
+                ->mapWithKeys(fn (string $field): array => [$field => ['from' => $this->getOriginal($field), 'to' => $this->getAttribute($field)]])
+                ->all(),
+        ]);
     }
 }

@@ -36,11 +36,20 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // No permission, not found, expired and the like are Arabic pages in the app's own layout, with a way back.
         Inertia::handleExceptionsUsing(function (ExceptionResponse $response) {
-            $showsPage = in_array($response->statusCode(), [403, 404, 419, 429], true)
+            $showsPage = in_array($response->statusCode(), [403, 404, 405, 419, 429], true)
                 || (in_array($response->statusCode(), [500, 503], true) && ! config('app.debug'));
 
             if ($showsPage && ! $response->request->is('api/*') && ! $response->request->expectsJson()) {
-                return $response->render('Error', ['status' => $response->statusCode()])->withSharedData();
+                $page = $response->render('Error', ['status' => $response->statusCode()])->withSharedData()->toResponse($response->request);
+
+                // The headers that tell the caller what to do next (the methods allowed, when to retry) stay.
+                foreach (['Allow', 'Retry-After'] as $name) {
+                    if ($response->response->headers->has($name)) {
+                        $page->headers->set($name, $response->response->headers->get($name));
+                    }
+                }
+
+                return $page;
             }
         });
     })->create();

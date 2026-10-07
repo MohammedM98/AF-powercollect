@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Process\PendingProcess;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
@@ -61,7 +61,9 @@ class BackupCommandTest extends TestCase
 
     public function test_a_backup_holds_the_database_and_the_files_and_can_be_restored(): void
     {
-        User::factory()->count(3)->create();
+        // No rows are added: the test has no transaction to roll back, so it only reads what the migrations left.
+        $migrations = DB::table('migrations')->count();
+        $voucherCounter = DB::table('payment_voucher_sequences')->value('last_number');
         Storage::disk('local')->put('cash-transfers/proof.jpg', 'proof-image-bytes');
 
         $this->artisan('backup:run')->assertSuccessful();
@@ -74,8 +76,9 @@ class BackupCommandTest extends TestCase
         $copy = tempnam(sys_get_temp_dir(), 'restore-');
         file_put_contents($copy, gzdecode(file_get_contents(Storage::disk('local')->path('backups/powercollect-20261007-023000-database.sqlite.gz'))));
         $restored = new PDO('sqlite:'.$copy);
-        $this->assertSame(User::count(), (int) $restored->query('select count(*) from users')->fetchColumn());
-        $this->assertSame('3', (string) $restored->query('select count(*) from users')->fetchColumn());
+        $this->assertGreaterThan(0, $migrations);
+        $this->assertSame($migrations, (int) $restored->query('select count(*) from migrations')->fetchColumn());
+        $this->assertSame($voucherCounter, (int) $restored->query('select last_number from payment_voucher_sequences')->fetchColumn());
         File::delete($copy);
 
         $target = $this->restoreFiles('backups/powercollect-20261007-023000-files.tar.gz');

@@ -43,6 +43,7 @@ use App\Http\Controllers\TariffSegmentController;
 use App\Http\Controllers\TransactionAuditController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserTypeController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -138,5 +139,16 @@ Route::middleware('auth')->group(function () {
 
 require __DIR__.'/auth.php';
 
-// An address that matches nothing (outside the mobile API) is still answered inside the web group, so a signed-in user's 404 page knows who they are.
-Route::any('{fallbackPlaceholder}', fn () => abort(404))->where('fallbackPlaceholder', '(?!api(?:/|$)).*')->fallback();
+// An address that matches nothing (outside the mobile API) is still answered inside the web group, so a signed-in
+// user's 404 page knows who they are. Any method is caught, so a real address asked with a wrong one stays a 405.
+Route::any('{fallbackPlaceholder}', function (Request $request) {
+    $allowed = collect(Route::getRoutes()->getRoutes())
+        ->reject(fn ($route) => $route->isFallback)
+        ->filter(fn ($route) => $route->matches($request, false))
+        ->flatMap(fn ($route) => $route->methods())
+        ->unique()
+        ->values();
+
+    abort_if($allowed->isNotEmpty(), 405, headers: ['Allow' => $allowed->implode(', ')]);
+    abort(404);
+})->where('fallbackPlaceholder', '(?!api(?:/|$)).*')->fallback();

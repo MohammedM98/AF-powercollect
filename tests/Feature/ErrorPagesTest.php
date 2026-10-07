@@ -58,6 +58,14 @@ class ErrorPagesTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page->component('Error')->where('status', 404)->where('auth', null));
     }
 
+    public function test_a_real_address_asked_with_the_wrong_method_is_a_405_with_the_allowed_ones(): void
+    {
+        $response = $this->actingAs(User::factory()->branchAdmin()->create())->delete('/dashboard')->assertStatus(405);
+
+        $this->assertStringContainsString('GET', $response->headers->get('Allow'));
+        $response->assertInertia(fn (AssertableInertia $page) => $page->component('Error')->where('status', 405));
+    }
+
     public function test_a_request_of_any_kind_to_an_unknown_address_is_a_404_not_a_405(): void
     {
         foreach (['post', 'put', 'patch', 'delete'] as $method) {

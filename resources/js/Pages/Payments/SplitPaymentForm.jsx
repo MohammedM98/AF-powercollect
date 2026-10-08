@@ -152,7 +152,7 @@ function RecordedSplit({ recorded, onAnother }) {
  * transferred; the server records a payment on each subscription together,
  * or none.
  */
-export default function SplitPaymentForm({ transferBanks, senderBanks }) {
+export default function SplitPaymentForm({ transferBanks, senderBanks, bare = false, onDirtyChange }) {
     const form = useForm({
         total_amount: '',
         bank_name: '',
@@ -276,10 +276,16 @@ export default function SplitPaymentForm({ transferBanks, senderBanks }) {
         return <RecordedSplit recorded={recorded} onAnother={() => setRecorded(null)} />;
     }
 
+    // Whether something is entered that closing the form would lose; the modal asks before throwing it away.
+    const dirty = parts.length > 0 || data.total_amount !== '' || data.sender_name !== '' || data.reference_number !== '' || data.bank_name !== '';
+    useEffect(() => {
+        onDirtyChange?.(dirty);
+    }, [dirty]);
+
     const meterTone = distributed ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'border-amber-500/40 bg-amber-500/[0.08] text-gray-800';
 
     return (
-        <div className="grid gap-[22px] rounded-panel border border-gray-100 bg-surface p-5 shadow-card sm:p-6">
+        <div className={`grid gap-[22px] ${bare ? '' : 'rounded-panel border border-gray-100 bg-surface p-5 shadow-card sm:p-6'}`}>
             <div>
                 <FieldLabel htmlFor="split_total" required hint="بالشيكل">
                     المبلغ المحوَّل (الإجمالي)

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\PermissionKey;
+use App\Enums\SubscriptionStatus;
 use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\Subscription;
@@ -40,27 +41,33 @@ class PaymentsPageTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page->component('Payments/Index')->where('can.recordPayments', true));
     }
 
-    public function test_nothing_is_listed_until_the_user_searches(): void
+    public function test_the_table_lists_the_subscribers_of_the_users_branch_and_no_others(): void
     {
-        Subscription::factory()->create(['branch_id' => $this->branch->id]);
+        Subscription::factory()->count(2)->create(['branch_id' => $this->branch->id]);
+        Subscription::factory()->create(['branch_id' => Branch::factory()->create()->id]);
 
         $this->actingAs($this->collector)->get(route('payments.index'))
-            ->assertInertia(fn (AssertableInertia $page) => $page->has('subscriptions', 0));
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('subscriptions.data', 2)
+                ->where('subscriptions.total', 2)
+                ->where('scopeLabel', $this->branch->name));
     }
 
-    public function test_a_search_finds_subscriptions_of_the_users_branch_by_name_account_number_or_phone(): void
+    public function test_a_search_finds_subscriptions_by_name_account_number_phone_or_meter_box_number(): void
     {
         $subscription = Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Mohammed Hamdan', 'phone' => '0591234567']);
+        $subscription->meterBox->update(['box_number' => '7734']);
         Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Somebody Else', 'phone' => '0569999999']);
 
-        foreach (['Hamdan', $subscription->account_number, '059 123 4567'] as $search) {
+        foreach (['Hamdan', $subscription->account_number, '059 123 4567', '7734'] as $search) {
             $this->actingAs($this->collector)->get(route('payments.index', ['search' => $search]))
                 ->assertInertia(fn (AssertableInertia $page) => $page
-                    ->where('search', $search)
-                    ->has('subscriptions', 1)
-                    ->where('subscriptions.0.id', $subscription->id)
-                    ->where('subscriptions.0.fullName', 'Mohammed Hamdan')
-                    ->where('subscriptions.0.accountNumber', $subscription->account_number));
+                    ->where('filters.search', $search)
+                    ->has('subscriptions.data', 1)
+                    ->where('subscriptions.data.0.id', $subscription->id)
+                    ->where('subscriptions.data.0.fullName', 'Mohammed Hamdan')
+                    ->where('subscriptions.data.0.accountNumber', $subscription->account_number)
+                    ->where('subscriptions.data.0.meterBoxNumber', '7734'));
         }
     }
 
@@ -69,13 +76,13 @@ class PaymentsPageTest extends TestCase
         $other = Subscription::factory()->create(['branch_id' => Branch::factory()->create()->id, 'full_name' => 'Faraway Customer']);
 
         $this->actingAs($this->collector)->get(route('payments.index', ['search' => 'Faraway']))
-            ->assertInertia(fn (AssertableInertia $page) => $page->has('subscriptions', 0));
+            ->assertInertia(fn (AssertableInertia $page) => $page->has('subscriptions.data', 0));
 
         $this->actingAs(User::factory()->superAdmin()->create())->get(route('payments.index', ['search' => 'Faraway']))
-            ->assertInertia(fn (AssertableInertia $page) => $page->has('subscriptions', 1)->where('subscriptions.0.id', $other->id));
+            ->assertInertia(fn (AssertableInertia $page) => $page->has('subscriptions.data', 1)->where('subscriptions.data.0.id', $other->id)->where('scopeLabel', 'كل الفروع'));
     }
 
-    public function test_a_result_carries_what_the_subscriber_owes(): void
+    public function test_a_row_carries_what_the_subscriber_owes(): void
     {
         $subscription = Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Owing Customer', 'minimum_charge' => 15]);
         $subscription->transactions()->create(['recorded_by' => $this->collector->id, 'type' => SubscriptionTransaction::TYPE_SUBSCRIPTION_FEE, 'source_key' => 'fee:1', 'amount' => '120.00']);
@@ -83,8 +90,45 @@ class PaymentsPageTest extends TestCase
 
         $this->actingAs($this->collector)->get(route('payments.index', ['search' => 'Owing']))
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->where('subscriptions.0.balance', '100.00')
-                ->where('subscriptions.0.weeklyMinimumPayment', fn ($minimum) => (float) $minimum === 15.0));
+                ->where('subscriptions.data.0.balance', '100.00')
+                ->where('subscriptions.data.0.weeklyMinimumPayment', fn ($minimum) => (float) $minimum === 15.0));
+    }
+
+    public function test_the_balance_filter_separates_those_who_owe_from_the_settled_and_those_in_credit(): void
+    {
+        $owing = $this->subscriptionWithBalance('Owes', 100);
+        $settled = $this->subscriptionWithBalance('Settled', 0);
+        $credit = $this->subscriptionWithBalance('Credit', -40);
+
+        $idsFor = fn (string $balance): array => collect($this->actingAs($this->collector)->get(route('payments.index', ['filter' => ['balance' => $balance]]))
+            ->viewData('page')['props']['subscriptions']['data'])->pluck('id')->all();
+
+        $this->assertSame([$owing->id], $idsFor('owing'));
+        $this->assertSame([$settled->id], $idsFor('settled'));
+        $this->assertSame([$credit->id], $idsFor('credit'));
+    }
+
+    public function test_the_table_filters_by_status_and_sorts_by_balance(): void
+    {
+        $small = $this->subscriptionWithBalance('Small', 50);
+        $large = $this->subscriptionWithBalance('Large', 900);
+        $middle = $this->subscriptionWithBalance('Middle', 300);
+        $middle->update(['status' => SubscriptionStatus::Disconnected]);
+
+        $this->actingAs($this->collector)->get(route('payments.index', ['sort' => 'outstanding_balance', 'direction' => 'desc']))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('filters.sort', 'outstanding_balance')
+                ->where('subscriptions.data', fn ($rows): bool => collect($rows)->pluck('id')->all() === [$large->id, $middle->id, $small->id]));
+
+        $this->get(route('payments.index', ['filter' => ['status' => 'disconnected']]))
+            ->assertInertia(fn (AssertableInertia $page) => $page->has('subscriptions.data', 1)->where('subscriptions.data.0.id', $middle->id));
+    }
+
+    public function test_the_filter_menu_offers_what_the_balance_status_and_type_filters_choose_from(): void
+    {
+        $this->actingAs($this->collector)->get(route('payments.index'))
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('filterOptions', fn ($groups): bool => collect($groups)->pluck('key')->take(3)->all() === ['balance', 'status', 'tariff_id']
+                && collect($groups)->firstWhere('key', 'balance')['options'][0]['value'] === 'owing'));
     }
 
     public function test_the_day_shows_only_the_users_own_live_payments(): void
@@ -125,6 +169,17 @@ class PaymentsPageTest extends TestCase
         $this->actingAs($this->collector)
             ->get(route('subscriptions.payments.receipt', [$elsewhere, $elsewherePayment]))
             ->assertForbidden();
+    }
+
+    private function subscriptionWithBalance(string $name, int $balance): Subscription
+    {
+        $subscription = Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => $name]);
+
+        if ($balance !== 0) {
+            $subscription->transactions()->create(['recorded_by' => $this->collector->id, 'type' => SubscriptionTransaction::TYPE_SUBSCRIPTION_FEE, 'source_key' => 'fee:'.$subscription->id, 'amount' => $balance.'.00']);
+        }
+
+        return $subscription;
     }
 
     private function userAllowedTo(PermissionKey $key): User

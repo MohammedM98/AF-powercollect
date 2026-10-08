@@ -16,6 +16,7 @@ use App\Http\Controllers\MeterBoxController;
 use App\Http\Controllers\MeterBoxOptionController;
 use App\Http\Controllers\MeterBoxSubscriptionController;
 use App\Http\Controllers\MeterReadingController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PeriodClosingController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PrintTemplateController;
@@ -57,6 +58,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile/devices', [ProfileDeviceController::class, 'destroy'])->middleware('throttle:6,1')->name('profile.devices.destroy');
 
+    Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
     Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
     Route::get('/transaction-audit', [TransactionAuditController::class, 'index'])->name('transaction-audit.index');

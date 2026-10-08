@@ -1,74 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
+import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
+import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import Pagination from '@/Components/DataTable/Pagination';
+import RowIdentity from '@/Components/DataTable/RowIdentity';
+import SortableTh from '@/Components/DataTable/SortableTh';
+import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
 import KpiTile from '@/Components/KpiTile';
 import PrimaryButton from '@/Components/PrimaryButton';
-import SegmentedTabs from '@/Components/SegmentedTabs';
+import { useDataTable } from '@/hooks/useDataTable';
 import { describeBalance } from '@/lib/accountStatement';
-import { formatMoney, initials } from '@/lib/format';
+import { formatMoney } from '@/lib/format';
 import { balanceText, BALANCE_CHIPS } from '@/Pages/Subscriptions/AccountFormParts';
 import PaymentModal from '@/Pages/Subscriptions/PaymentModal';
-import SplitPaymentForm from './SplitPaymentForm';
+import SplitPaymentModal from './SplitPaymentModal';
 
-const STATUS_DOTS = { active: 'bg-emerald-500', suspended: 'bg-amber-500', disconnected: 'bg-gray-400' };
-
-/** How long after the last key the search runs. */
-const SEARCH_DELAY = 300;
-
-/** One search result: who, where and what they owe, with the button that opens their payment form. */
-function SubscriptionResult({ subscription, onPay }) {
-    const described = describeBalance(subscription.balance);
-
-    return (
-        <li className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4 transition hover:bg-gray-50/70">
-            <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-graphite-gradient font-display text-[15px] font-bold text-white">
-                {initials(subscription.fullName)}
-                <span
-                    className={`absolute -bottom-0.5 -start-0.5 h-3.5 w-3.5 rounded-full border-[2.5px] border-surface ${STATUS_DOTS[subscription.status] ?? 'bg-gray-400'}`}
-                    title={subscription.statusLabel}
-                />
-            </span>
-
-            <div className="min-w-0 flex-1 basis-56">
-                <p className="break-words text-base font-bold text-gray-900">{subscription.fullName}</p>
-                <p className="mt-0.5 text-[13.5px] text-gray-500">
-                    حساب{' '}
-                    <span dir="ltr" className="font-display">
-                        {subscription.accountNumber}
-                    </span>
-                    {subscription.meterBoxNumber && ` · طبلون ${subscription.meterBoxNumber}`}
-                    {subscription.phone && (
-                        <>
-                            {' · '}
-                            <span dir="ltr" className="font-display">
-                                {subscription.phone}
-                            </span>
-                        </>
-                    )}
-                    {` · ${subscription.branchName}`}
-                </p>
-            </div>
-
-            <div className="flex flex-col items-end gap-1">
-                <span className={`whitespace-nowrap rounded-[10px] px-2.5 py-0.5 font-display text-[16px] font-bold ${BALANCE_CHIPS[described.tone]}`}>{balanceText(described)}</span>
-                {Number(subscription.weeklyMinimumPayment) > 0 && (
-                    <span className="text-xs text-gray-500">الحد الأدنى الأسبوعي {formatMoney(subscription.weeklyMinimumPayment)} ₪</span>
-                )}
-            </div>
-
-            <PrimaryButton type="button" onClick={() => onPay(subscription)} className="h-11 px-5">
-                <Icon name="banknotes" className="h-[18px] w-[18px]" />
-                تسجيل دفعة
-            </PrimaryButton>
-        </li>
-    );
-}
+const STATUS_TONES = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
 /** What the user collected today, as figures and their latest payments. */
 function TodaysPayments({ today }) {
     return (
-        <section aria-labelledby="todays-payments" className="space-y-4">
+        <section aria-labelledby="todays-payments" className="mt-8 space-y-4">
             <h3 id="todays-payments" className="text-lg font-bold text-gray-900">
                 ما حصّلته اليوم
             </h3>
@@ -116,113 +71,124 @@ function TodaysPayments({ today }) {
     );
 }
 
-export default function Index({ search, subscriptions, hasMoreSubscriptions, today, paymentMethods, transferBanks, senderBanks }) {
-    const [term, setTerm] = useState(search);
+/**
+ * The quick payments page: the subscribers in a table to search and filter,
+ * each with one button to record their payment, and a main button for one
+ * bank transfer shared between several subscribers.
+ */
+export default function Index({ subscriptions, scopeLabel, filters, filterOptions, today, paymentMethods, transferBanks, senderBanks }) {
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/payments', filters);
     const [paying, setPaying] = useState(null);
-    // One subscriber's payment, or one bank transfer divided between several.
-    const [mode, setMode] = useState('single');
-    const input = useRef(null);
-    const lastSearched = useRef(search);
-
-    // Search as the user types, and keep the term in the address so a refresh or the back button returns to it.
-    useEffect(() => {
-        if (term.trim() === lastSearched.current.trim()) {
-            return undefined;
-        }
-
-        const timer = setTimeout(() => {
-            lastSearched.current = term;
-            router.get('/payments', term.trim() ? { search: term.trim() } : {}, {
-                only: ['search', 'subscriptions', 'hasMoreSubscriptions'],
-                preserveState: true,
-                preserveScroll: true,
-                replace: true,
-            });
-        }, SEARCH_DELAY);
-
-        return () => clearTimeout(timer);
-    }, [term]);
-
-    // Press "/" anywhere on the page to jump to the search.
-    useEffect(() => {
-        function onKeyDown(event) {
-            if (event.key === '/' && !event.target.closest?.('input, textarea, select') && !event.ctrlKey && !event.metaKey) {
-                event.preventDefault();
-                input.current?.focus();
-            }
-        }
-
-        document.addEventListener('keydown', onKeyDown);
-
-        return () => document.removeEventListener('keydown', onKeyDown);
-    }, []);
-
-    const searched = search.trim() !== '';
+    const [splitting, setSplitting] = useState(false);
 
     return (
         <AuthenticatedLayout
             header={
-                <div className="min-w-0">
-                    <h2 className="text-3xl font-bold text-gray-900">تسجيل الدفعات</h2>
-                    <p className="mt-1 text-sm text-gray-500">ابحث عن المشترك وسجّل دفعته مباشرة.</p>
-                </div>
+                <>
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-500">{scopeLabel}</p>
+                        <h2 className="mt-1 text-3xl font-bold text-gray-900">تسجيل الدفعات</h2>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <PrimaryButton type="button" onClick={() => setSplitting(true)} className="h-11 px-5">
+                            <Icon name="layers" className="h-[18px] w-[18px]" />
+                            دفعة مقسّمة على عدة مشتركين
+                        </PrimaryButton>
+                    </div>
+                </>
             }
         >
             <Head title="تسجيل الدفعات" />
 
-            <div className="space-y-8">
-                <SegmentedTabs
-                    label="نوع الدفعة"
-                    value={mode}
-                    onChange={setMode}
-                    options={[
-                        { value: 'single', label: 'دفعة لمشترك واحد' },
-                        { value: 'split', label: 'دفعة مقسّمة على عدة مشتركين' },
-                    ]}
-                />
+            <DataTableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="بحث بالاسم أو رقم الحساب أو الجوال أو رقم الطبلون..."
+                perPage={filters.per_page}
+                onPerPageChange={setPerPage}
+                total={subscriptions.total}
+                printable={false}
+                filterMenu={
+                    <DataTableFilterMenu
+                        tableKey="payments"
+                        groups={filterOptions}
+                        values={filterValues}
+                        onChange={setFilter}
+                        onChangeMany={setFilters}
+                        onClear={clearFilters}
+                    />
+                }
+            />
 
-                {mode === 'split' && <SplitPaymentForm transferBanks={transferBanks} senderBanks={senderBanks} />}
-
-                <section className={`space-y-3 ${mode === 'split' ? 'hidden' : ''}`}>
-                    <div className="relative">
-                        <Icon name="search" className="pointer-events-none absolute inset-y-0 start-5 my-auto h-6 w-6 text-gray-400" />
-                        <input
-                            ref={input}
-                            type="search"
-                            autoFocus={mode === 'single'}
-                            aria-label="البحث عن مشترك"
-                            value={term}
-                            onChange={(event) => setTerm(event.target.value)}
-                            onKeyDown={(event) => {
-                                // Enter on a single match goes straight to its payment form.
-                                if (event.key === 'Enter' && subscriptions.length === 1 && term.trim() === search.trim()) {
-                                    event.preventDefault();
-                                    setPaying(subscriptions[0]);
-                                }
-                            }}
-                            placeholder="ابحث بالاسم أو رقم الحساب أو رقم الجوال أو رقم الطبلون…"
-                            className="block h-16 w-full rounded-[22px] border-[1.5px] border-gray-200 bg-surface pe-16 ps-14 text-lg shadow-card placeholder:text-gray-400 hover:border-gray-300 focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10"
-                        />
-                        <span className="kbd pointer-events-none absolute inset-y-0 end-5 my-auto h-fit">/</span>
-                    </div>
-
-                    {searched &&
-                        (subscriptions.length > 0 ? (
-                            <>
-                                <ul className="divide-y divide-gray-100 overflow-hidden rounded-panel border border-gray-100 bg-surface shadow-card">
-                                    {subscriptions.map((subscription) => (
-                                        <SubscriptionResult key={subscription.id} subscription={subscription} onPay={setPaying} />
-                                    ))}
-                                </ul>
-                                {hasMoreSubscriptions && <p className="text-center text-sm text-gray-500">هناك نتائج أخرى؛ أضف إلى البحث ما يضيّقه.</p>}
-                            </>
+            <div className="data-table-container">
+                <table className="data-table w-full text-sm text-start">
+                    <thead>
+                        <tr>
+                            <SortableTh column="account_number" label="رقم الاشتراك" sortState={filters} onSort={sort} />
+                            <SortableTh column="display_name" label="اسم الاشتراك" sortState={filters} onSort={sort} />
+                            <th>الطبلون</th>
+                            <th>منطقة 2</th>
+                            <SortableTh column="outstanding_balance" label="الرصيد" sortState={filters} onSort={sort} />
+                            <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
+                            <ActionsTh />
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {subscriptions.data.length === 0 ? (
+                            <tr>
+                                <td className="text-gray-500" colSpan={7}>
+                                    لا توجد نتائج مطابقة.
+                                </td>
+                            </tr>
                         ) : (
-                            <p className="rounded-panel border border-dashed border-gray-200 bg-surface px-5 py-8 text-center text-sm text-gray-500">لا يوجد مشترك يطابق «{search}».</p>
-                        ))}
-                </section>
+                            subscriptions.data.map((subscription) => {
+                                const described = describeBalance(subscription.balance);
 
-                <TodaysPayments today={today} />
+                                return (
+                                    <tr key={subscription.id}>
+                                        <td className="text-gray-600">
+                                            <span dir="ltr">{subscription.accountNumber}</span>
+                                            {subscription.subscriberNumber && (
+                                                <span className="mt-1 block text-xs text-gray-400">
+                                                    رقم المشترك <bdi dir="ltr">{subscription.subscriberNumber}</bdi>
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <RowIdentity
+                                                name={subscription.fullName}
+                                                subtitle={subscription.phone}
+                                                subtitleDir="ltr"
+                                                status={STATUS_TONES[subscription.status]}
+                                            />
+                                        </td>
+                                        <td className="text-gray-600">{subscription.meterBoxNumber ? <span className="data-chip">{subscription.meterBoxNumber}</span> : '—'}</td>
+                                        <td className="text-gray-600">{subscription.subAreaName || '—'}</td>
+                                        <td>
+                                            <span className={`inline-block whitespace-nowrap rounded-[10px] px-2.5 py-0.5 font-display text-[14.5px] font-bold ${BALANCE_CHIPS[described.tone]}`}>
+                                                {balanceText(described)}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
+                                        </td>
+                                        <td className="text-end">
+                                            <PrimaryButton type="button" onClick={() => setPaying(subscription)} className="px-3.5 py-2">
+                                                <Icon name="banknotes" className="h-4 w-4" />
+                                                تسجيل دفعة
+                                            </PrimaryButton>
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        )}
+                    </tbody>
+                </table>
             </div>
+
+            <Pagination meta={subscriptions} filters={filters} baseUrl="/payments" />
+
+            <TodaysPayments today={today} />
 
             {paying && (
                 <PaymentModal
@@ -236,6 +202,8 @@ export default function Index({ search, subscriptions, hasMoreSubscriptions, tod
                     senderBanks={senderBanks}
                 />
             )}
+
+            {splitting && <SplitPaymentModal onClose={() => setSplitting(false)} transferBanks={transferBanks} senderBanks={senderBanks} />}
         </AuthenticatedLayout>
     );
 }

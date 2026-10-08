@@ -92,7 +92,8 @@ class SubscriptionPaymentController extends Controller
      */
     public function receipt(Request $request, Subscription $subscription, SubscriptionTransaction $transaction): InertiaResponse
     {
-        $this->authorize('view', $subscription);
+        // Whoever records payments may print their receipts, even without access to the subscriptions list.
+        abort_unless($request->user()->can('view', $subscription) || $request->user()->can('recordPayment', $subscription), 403);
         abort_unless($transaction->isPayment(), 404);
 
         $subscription->loadMissing(['profile', 'branch', 'meterBox']);
@@ -125,6 +126,7 @@ class SubscriptionPaymentController extends Controller
                 'senderBankName' => $transaction->sender_bank_name,
                 'senderName' => $transaction->sender_name,
                 'referenceNumber' => $transaction->reference_number,
+                'splitPayment' => $transaction->splitPayment ? [...$transaction->splitPayment->badge(), 'partsCount' => $transaction->splitPayment->payments()->count()] : null,
                 'cashBox' => $transaction->cash_box,
                 'notes' => $transaction->notes,
                 'recordedByName' => $transaction->recordedBy?->name,

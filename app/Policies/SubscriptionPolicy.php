@@ -78,6 +78,16 @@ class SubscriptionPolicy
     }
 
     /**
+     * The quick payments page (/payments) is for anyone who may record
+     * payments at all; which subscriptions they find there is limited to
+     * their branch by the query, and each payment by recordPayment().
+     */
+    public function recordAnyPayment(User $user): bool
+    {
+        return $user->hasPermission(PermissionKey::RecordCollections);
+    }
+
+    /**
      * Recording a payment takes the "Record Collections" permission, for a
      * subscription of the user's own branch (any branch for the Super Admin).
      */

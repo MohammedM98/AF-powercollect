@@ -7,9 +7,8 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * A subscriber's own kilo price, entered at no less than their tariff's.
-     * Empty means they pay the tariff's price, which is what every existing
-     * subscription does.
+     * A subscriber's own kilo price, above or below their tariff's. Empty means
+     * they pay the tariff's price, which is what every existing subscription does.
      */
     public function up(): void
     {

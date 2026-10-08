@@ -173,6 +173,9 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
                     <ReceiptLine label="الرقم المرجعي" ltr>
                         {receipt.referenceNumber}
                     </ReceiptLine>
+                    <ReceiptLine label="دفعة مقسّمة">
+                        {receipt.splitPayment && `جزء من تحويل بقيمة ${formatMoney(receipt.splitPayment.total)} شيكل وُزّع على ${receipt.splitPayment.partsCount} مشتركين`}
+                    </ReceiptLine>
                     <ReceiptLine label="رقم الصندوق" ltr>
                         {receipt.cashBox}
                     </ReceiptLine>

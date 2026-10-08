@@ -13,7 +13,7 @@ import { formatMoney, initials } from '@/lib/format';
 
 const STATUS_DOTS = { active: 'bg-emerald-500', suspended: 'bg-amber-500', disconnected: 'bg-gray-400' };
 
-const BALANCE_CHIPS = {
+export const BALANCE_CHIPS = {
     owes: 'bg-brand-500/10 text-brand-600',
     credit: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
     settled: 'bg-gray-100 text-gray-700',

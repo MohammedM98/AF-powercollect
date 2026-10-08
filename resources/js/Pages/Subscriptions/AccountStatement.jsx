@@ -19,6 +19,7 @@ import {
 import { downloadCsv } from '@/lib/csv';
 import { formatAmount } from '@/lib/currency';
 import { formatMoney } from '@/lib/format';
+import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 
 const COLUMNS = [
     '#',
@@ -427,6 +428,7 @@ function StatementRow({
             </td>
             <td data-label="الرقم المرجعي" className="tabular-nums text-gray-700">
                 {entry.referenceNumber ? <span dir="ltr">{entry.referenceNumber}</span> : <Dash />}
+                {entry.splitPayment && <div className="mt-1"><SplitPaymentBadge split={entry.splitPayment} /></div>}
             </td>
             <td data-label="البنك" className="text-gray-700">
                 {entry.bankName ? (

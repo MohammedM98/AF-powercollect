@@ -30,7 +30,7 @@ const BANKS = {
     'بنك القدس': { logo: '/images/banks/quds-bank.webp', color: '#74bd44', kind: 'تحويل بنكي' },
 };
 
-const inputClass =
+export const inputClass =
     'block h-[50px] w-full rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-4 text-base text-gray-900 transition placeholder:text-gray-400 hover:border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-900/10 read-only:bg-gray-50 read-only:text-gray-500';
 
 /** One way of paying, as a big radio tile. */
@@ -84,7 +84,7 @@ function BankMark({ bank }) {
 }
 
 /** A bank or e-wallet as a radio row: brand mark, name, kind, and the choice indicator. */
-function BankRow({ bank, checked, name, onChange, required = false }) {
+export function BankRow({ bank, checked, name, onChange, required = false }) {
     const look = BANKS[bank];
     const color = look?.color;
 
@@ -113,7 +113,7 @@ function BankRow({ bank, checked, name, onChange, required = false }) {
     );
 }
 
-function BankDropdown({ banks, id, name, onChange, value }) {
+export function BankDropdown({ banks, id, name, onChange, value }) {
     const [open, setOpen] = useState(false);
     const containerRef = useRef(null);
     const listboxId = useId();

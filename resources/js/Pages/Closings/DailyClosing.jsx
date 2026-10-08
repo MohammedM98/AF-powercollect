@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import { weekDayName } from '@/lib/weekDays';
+import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 import { cashCheck, closingMoney, closingSteps, countedCash, hasCount, paymentsCount, shortDate, statusClass } from '@/lib/closing';
 
 /** Each bank or e-wallet's logo; one not listed gets the bank icon. */
@@ -228,6 +229,7 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                                             </td>
                                             <td className="c-ref">
                                                 {line.reference ? <span className="pref">{line.reference}</span> : <span className="muted">—</span>}
+                                                {line.splitPayment && <div><SplitPaymentBadge split={line.splitPayment} /></div>}
                                             </td>
                                             <td className="c-am">
                                                 <span className="pam">{closingMoney(line.amount)} ₪</span>

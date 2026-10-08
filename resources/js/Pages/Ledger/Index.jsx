@@ -8,6 +8,7 @@ import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { formatClock, formatDayLabel, formatMoney, formatNumber, formatShortDay } from '@/lib/format';
 import { printUrl } from '@/lib/print';
+import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 import StatementModal from '@/Pages/Subscriptions/StatementModal';
 import './Ledger.css';
 
@@ -187,6 +188,7 @@ function TransactionRow({ entry, grouped, onOpen, rowClick }) {
                     {entry.voucherNumber && <span>سند <bdi>{entry.voucherNumber}</bdi>{entry.isManualVoucher && ' · يدوي'}</span>}
                     {payment && <span>{payment}</span>}
                     {entry.referenceNumber && <span>مرجع <bdi>{entry.referenceNumber}</bdi></span>}
+                    {entry.splitPayment && <SplitPaymentBadge split={entry.splitPayment} />}
                     <span>سجّله: {entry.recordedByName ?? '—'}</span>
                 </div>
             </td>
@@ -199,7 +201,7 @@ function TransactionRow({ entry, grouped, onOpen, rowClick }) {
             <td className="ty-c"><span className={`ty ${entry.isCancelled ? 'rv' : entry.isCredit ? 'cr' : 'dr'}`}>{entry.typeLabel}</span>{entry.isCancelled && entry.type !== 'reversal' && <div><span className="cxb">ملغاة</span></div>}</td>
             <td className="vch-c"><bdi className="vch">{entry.voucherNumber ?? '—'}</bdi>{entry.isManualVoucher && <span className="mb">يدوي</span>}</td>
             <td className="mth-c">{payment ? <div className="mth">{BANK_LOGOS[entry.bankName] ? <img src={BANK_LOGOS[entry.bankName]} alt="" /> : <span className="ci"><Icon name={entry.paymentMethod === 'cash' ? 'wallet' : 'bank'} /></span>}<span title={payment}>{payment}</span></div> : '—'}</td>
-            <td className="ref" title={entry.referenceNumber ?? undefined}><bdi>{entry.referenceNumber ?? '—'}</bdi></td>
+            <td className="ref" title={entry.referenceNumber ?? undefined}><bdi>{entry.referenceNumber ?? '—'}</bdi>{entry.splitPayment && <div><SplitPaymentBadge split={entry.splitPayment} /></div>}</td>
             <td className="by" title={entry.recordedByName ?? undefined}>{entry.recordedByName ?? '—'}</td>
             <td className="am-c"><span className={`am ${entry.isCredit ? 'cr' : 'dr'}`}><Money amount={entry.amount} signed credit={entry.isCredit} />
                 {entry.currency && entry.currency !== 'ILS' && <small><bdi dir="ltr">{formatMoney(entry.currencyAmount)} {entry.currency}{entry.exchangeRate && ` × ${formatMoney(entry.exchangeRate)}`}</bdi></small>}

@@ -7,7 +7,6 @@ use App\Enums\PermissionKey;
 use App\Enums\SubscriptionStatus;
 use App\Models\SubscriberProfile;
 use App\Models\Subscription;
-use App\Models\Tariff;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -65,8 +64,8 @@ class StoreSubscriptionRequest extends FormRequest
             'accounting_type' => ['sometimes', 'required', Rule::enum(AccountingType::class)],
             'circuit_breaker_id' => ['nullable', Rule::exists('circuit_breakers', 'id')],
             'minimum_charge' => ['required', 'numeric', 'min:0', 'max:10000'],
-            // Their own kilo price, never below their tariff's; empty means they pay the tariff's.
-            'kilowatt_price' => ['nullable', 'numeric', 'decimal:0,2', 'max:10000', ...$this->kilowattPriceFloor()],
+            // Their own kilo price, whether above or below their tariff's; empty means they pay the tariff's.
+            'kilowatt_price' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:10000'],
             // The meter's reading when the subscription is connected: it may wait while they are not
             // active yet, but billing counts from it, so an active subscription must have it.
             'initial_reading' => [Rule::requiredIf($this->input('status') === SubscriptionStatus::Active->value), 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999.99'],
@@ -144,19 +143,6 @@ class StoreSubscriptionRequest extends FormRequest
     }
 
     /**
-     * The lowest kilo price a subscriber may be given: the price of the
-     * tariff chosen, once it is a real one.
-     *
-     * @return array<int, string>
-     */
-    private function kilowattPriceFloor(): array
-    {
-        $tariff = ctype_digit((string) $this->input('tariff_id')) ? Tariff::find($this->input('tariff_id')) : null;
-
-        return $tariff === null ? [] : ['min:'.$tariff->rate];
-    }
-
-    /**
      * The branch the subscription's meter box must be in: the Super Admin's
      * choice, otherwise the user's own.
      */
@@ -174,7 +160,6 @@ class StoreSubscriptionRequest extends FormRequest
             'subscription_date.after_or_equal' => 'تاريخ الاشتراك لا يمكن أن يسبق عام 2000.',
             'subscription_date.before_or_equal' => 'تاريخ الاشتراك لا يمكن أن يكون في المستقبل.',
             'subscription_fee.max' => 'رسوم الاشتراك لا تزيد عن :max شيكل.',
-            'kilowatt_price.min' => 'سعر الكيلو لا يقل عن سعر التعرفة (:min شيكل).',
             'kilowatt_price.max' => 'سعر الكيلو لا يزيد عن :max شيكل.',
             'subscription_phone.regex' => 'رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056.',
             'status.not_in' => 'لا يمكن إعادة مشترك سبق تفعيله إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».',

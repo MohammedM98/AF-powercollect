@@ -443,7 +443,7 @@ export default function SubscriptionForm({
                                 id="tariff_rate"
                                 type={kilowattPriceLocked ? 'text' : 'number'}
                                 step="0.01"
-                                min={kilowattPriceLocked ? undefined : tariffRate}
+                                min={kilowattPriceLocked ? undefined : 0}
                                 required={!kilowattPriceLocked}
                                 readOnly={kilowattPriceLocked}
                                 title={kilowattPriceLocked ? 'للقراءة فقط' : undefined}
@@ -454,7 +454,7 @@ export default function SubscriptionForm({
                         </Affix>
                     </div>
                     {kilowattPriceUnlocked ? (
-                        <p className="mt-1 text-xs text-gray-500">لا يقل عن سعر التعرفة ({formatAmount(tariffRate)} شيكل).</p>
+                        <p className="mt-1 text-xs text-gray-500">سعر التعرفة {formatAmount(tariffRate)} شيكل؛ يمكن أن يكون أقل منه أو أكثر.</p>
                     ) : hasOwnKilowattPrice ? (
                         <p className="mt-1 text-xs font-semibold text-brand-600">سعر خاص بهذا المشترك — سعر التعرفة {formatAmount(tariffRate)} شيكل.</p>
                     ) : kilowattPriceDropped ? (
@@ -466,7 +466,7 @@ export default function SubscriptionForm({
                         onConfirm={unlockKilowattPrice}
                         onCancel={() => setConfirmingKilowattPriceUnlock(false)}
                         title="تعديل سعر الكيلو لهذا المشترك؟"
-                        message={`سيصبح لهذا المشترك سعر كيلو خاص به بدل سعر التعرفة (${selectedTariff ? formatAmount(selectedTariff.rate) : ''} شيكل)، ويُحسب به استهلاكه وخصوماته في القراءات القادمة. لا يمكن أن يقل عن سعر التعرفة. هل تريد المتابعة؟`}
+                        message={`سيصبح لهذا المشترك سعر كيلو خاص به بدل سعر التعرفة (${selectedTariff ? formatAmount(selectedTariff.rate) : ''} شيكل)، ويُحسب به استهلاكه وخصوماته في القراءات القادمة. هل تريد المتابعة؟`}
                         confirmLabel="نعم، عدّل"
                         icon="alert"
                     />

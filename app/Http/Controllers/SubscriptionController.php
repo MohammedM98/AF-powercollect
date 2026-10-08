@@ -315,8 +315,8 @@ class SubscriptionController extends Controller
 
     /**
      * The kilo price a subscriber is saved with. Only someone holding the
-     * dedicated permission can give one: it is stored when it is above the
-     * tariff's, and left empty — so they follow the tariff — when it is
+     * dedicated permission can give one: it is stored when it differs from
+     * the tariff's, and left empty — so they follow the tariff — when it is
      * blank or equal to it. Anyone else never sets it from the request: a new
      * subscriber follows their tariff, and an existing one keeps the price
      * they have, unless their tariff was changed, which a price chosen for

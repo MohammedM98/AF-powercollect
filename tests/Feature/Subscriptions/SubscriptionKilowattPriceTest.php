@@ -13,6 +13,7 @@ use App\Models\SubscriptionTransaction;
 use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class SubscriptionKilowattPriceTest extends TestCase
@@ -79,22 +80,27 @@ class SubscriptionKilowattPriceTest extends TestCase
         $this->assertSame('30.00', Subscription::sole()->kilowattPrice());
     }
 
-    public function test_a_price_below_the_tariffs_is_refused(): void
+    public function test_a_price_below_the_tariffs_is_accepted(): void
     {
         $this->actingAs($this->userWithKilowattPricePermission());
 
-        $this->post(route('subscriptions.store'), $this->payload(['kilowatt_price' => 29.99]))
-            ->assertSessionHasErrors(['kilowatt_price' => 'سعر الكيلو لا يقل عن سعر التعرفة (30.00 شيكل).']);
+        $this->post(route('subscriptions.store'), $this->payload(['kilowatt_price' => 25]))
+            ->assertSessionHasNoErrors();
 
-        $this->assertDatabaseCount('subscriptions', 0);
+        $subscription = Subscription::sole();
+        $this->assertSame('25.00', $subscription->kilowatt_price);
+        $this->assertSame('25.00', $subscription->kilowattPrice());
     }
 
-    public function test_the_price_is_checked_against_the_tariff_chosen_in_the_same_request(): void
+    #[TestWith([-1])]
+    #[TestWith([10000.01])]
+    #[TestWith([30.555])]
+    #[TestWith(['cheap'])]
+    public function test_a_price_must_be_a_number_between_zero_and_the_limit_with_at_most_two_decimals(int|float|string $price): void
     {
-        $dearerTariff = Tariff::factory()->residential()->create(['rate' => 50]);
         $this->actingAs($this->userWithKilowattPricePermission());
 
-        $this->post(route('subscriptions.store'), $this->payload(['tariff_id' => $dearerTariff->id, 'kilowatt_price' => 40]))
+        $this->post(route('subscriptions.store'), $this->payload(['kilowatt_price' => $price]))
             ->assertSessionHasErrors('kilowatt_price');
 
         $this->assertDatabaseCount('subscriptions', 0);

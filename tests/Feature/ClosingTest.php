@@ -11,6 +11,7 @@ use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingPayment;
 use App\Models\Permission;
+use App\Models\SplitPayment;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
@@ -63,6 +64,18 @@ class ClosingTest extends TestCase
         $this->get(route('closings.index', ['date' => '2026-09-30']))->assertInertia(fn ($page) => $page->where('daily.number', '5001'));
         $this->assertDatabaseCount('closings', 1);
         $this->assertDatabaseCount('closing_payments', 2);
+    }
+
+    public function test_a_transfer_payment_that_is_part_of_a_split_transfer_says_so_in_the_closing(): void
+    {
+        $accountant = $this->preparer();
+        $part = $this->payment('600', 'bank_transfer', '2026-09-30 10:42', 'بنك فلسطين');
+        $this->payment('150', 'bank_transfer', '2026-09-30 11:00', 'جوال باي');
+        $split = SplitPayment::factory()->create(['total_amount' => 1000, 'recorded_by' => $accountant->id]);
+        $part->update(['split_payment_id' => $split->id]);
+
+        $this->actingAs($accountant)->get(route('closings.index', ['date' => '2026-09-30']))
+            ->assertInertia(fn ($page) => $page->where('daily.lines', fn ($lines): bool => collect($lines)->pluck('splitPayment', 'paymentId')->filter()->all() === [$part->id => ['id' => $split->id, 'total' => '1000']]));
     }
 
     public function test_the_cash_count_takes_agorot_so_a_payment_with_them_counts_to_the_cent(): void

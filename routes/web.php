@@ -26,6 +26,7 @@ use App\Http\Controllers\ReadingScheduleController;
 use App\Http\Controllers\ReadNotificationController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SplitPaymentController;
 use App\Http\Controllers\SubAreaController;
 use App\Http\Controllers\SubscriberProfileHistoryController;
 use App\Http\Controllers\SubscriptionBulkChangeController;
@@ -59,6 +60,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile/devices', [ProfileDeviceController::class, 'destroy'])->middleware('throttle:6,1')->name('profile.devices.destroy');
 
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
+    Route::get('/payments/search', [PaymentController::class, 'search'])->name('payments.search');
+    Route::post('/payments/split', [SplitPaymentController::class, 'store'])->name('payments.split.store');
+    Route::get('/split-payments/{splitPayment}', [SplitPaymentController::class, 'show'])->name('split-payments.show');
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
     Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
     Route::get('/transaction-audit', [TransactionAuditController::class, 'index'])->name('transaction-audit.index');

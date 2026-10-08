@@ -3,24 +3,21 @@ import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import KpiTile from '@/Components/KpiTile';
+import PrimaryButton from '@/Components/PrimaryButton';
+import SegmentedTabs from '@/Components/SegmentedTabs';
 import { describeBalance } from '@/lib/accountStatement';
 import { formatMoney, initials } from '@/lib/format';
-import { balanceText } from '@/Pages/Subscriptions/AccountFormParts';
+import { balanceText, BALANCE_CHIPS } from '@/Pages/Subscriptions/AccountFormParts';
 import PaymentModal from '@/Pages/Subscriptions/PaymentModal';
+import SplitPaymentForm from './SplitPaymentForm';
 
 const STATUS_DOTS = { active: 'bg-emerald-500', suspended: 'bg-amber-500', disconnected: 'bg-gray-400' };
-
-const BALANCE_TONES = {
-    owes: 'bg-brand-50 text-brand-700',
-    credit: 'bg-emerald-50 text-emerald-700',
-    settled: 'bg-gray-100 text-gray-600',
-};
 
 /** How long after the last key the search runs. */
 const SEARCH_DELAY = 300;
 
 /** One search result: who, where and what they owe, with the button that opens their payment form. */
-function SubscriptionResult({ subscription, onPay, autoFocus = false }) {
+function SubscriptionResult({ subscription, onPay }) {
     const described = describeBalance(subscription.balance);
 
     return (
@@ -54,21 +51,16 @@ function SubscriptionResult({ subscription, onPay, autoFocus = false }) {
             </div>
 
             <div className="flex flex-col items-end gap-1">
-                <span className={`whitespace-nowrap rounded-[10px] px-2.5 py-0.5 font-display text-[16px] font-bold ${BALANCE_TONES[described.tone]}`}>{balanceText(described)}</span>
+                <span className={`whitespace-nowrap rounded-[10px] px-2.5 py-0.5 font-display text-[16px] font-bold ${BALANCE_CHIPS[described.tone]}`}>{balanceText(described)}</span>
                 {Number(subscription.weeklyMinimumPayment) > 0 && (
                     <span className="text-xs text-gray-500">الحد الأدنى الأسبوعي {formatMoney(subscription.weeklyMinimumPayment)} ₪</span>
                 )}
             </div>
 
-            <button
-                type="button"
-                autoFocus={autoFocus}
-                onClick={() => onPay(subscription)}
-                className="inline-flex h-11 items-center gap-2 rounded-control bg-graphite-gradient px-5 text-sm font-bold text-white shadow-card transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
-            >
+            <PrimaryButton type="button" onClick={() => onPay(subscription)} className="h-11 px-5">
                 <Icon name="banknotes" className="h-[18px] w-[18px]" />
                 تسجيل دفعة
-            </button>
+            </PrimaryButton>
         </li>
     );
 }
@@ -104,12 +96,12 @@ function TodaysPayments({ today }) {
                             <span dir="ltr" className="font-display text-xs text-gray-500">
                                 {payment.time}
                             </span>
-                            <b className="font-display text-base text-emerald-700">{formatMoney(payment.amount)} ₪</b>
+                            <b className="font-display text-base text-emerald-700 dark:text-emerald-400">{formatMoney(payment.amount)} ₪</b>
                             <a
                                 href={payment.receiptUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-control border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-900"
+                                className="inline-flex items-center gap-1.5 rounded-control border border-gray-200 bg-surface px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-900"
                             >
                                 <Icon name="printer" className="h-4 w-4" />
                                 السند
@@ -127,6 +119,8 @@ function TodaysPayments({ today }) {
 export default function Index({ search, subscriptions, hasMoreSubscriptions, today, paymentMethods, transferBanks, senderBanks }) {
     const [term, setTerm] = useState(search);
     const [paying, setPaying] = useState(null);
+    // One subscriber's payment, or one bank transfer divided between several.
+    const [mode, setMode] = useState('single');
     const input = useRef(null);
     const lastSearched = useRef(search);
 
@@ -177,13 +171,25 @@ export default function Index({ search, subscriptions, hasMoreSubscriptions, tod
             <Head title="تسجيل الدفعات" />
 
             <div className="space-y-8">
-                <section className="space-y-3">
+                <SegmentedTabs
+                    label="نوع الدفعة"
+                    value={mode}
+                    onChange={setMode}
+                    options={[
+                        { value: 'single', label: 'دفعة لمشترك واحد' },
+                        { value: 'split', label: 'دفعة مقسّمة على عدة مشتركين' },
+                    ]}
+                />
+
+                {mode === 'split' && <SplitPaymentForm transferBanks={transferBanks} senderBanks={senderBanks} />}
+
+                <section className={`space-y-3 ${mode === 'split' ? 'hidden' : ''}`}>
                     <div className="relative">
                         <Icon name="search" className="pointer-events-none absolute inset-y-0 start-5 my-auto h-6 w-6 text-gray-400" />
                         <input
                             ref={input}
                             type="search"
-                            autoFocus
+                            autoFocus={mode === 'single'}
                             aria-label="البحث عن مشترك"
                             value={term}
                             onChange={(event) => setTerm(event.target.value)}
@@ -195,7 +201,7 @@ export default function Index({ search, subscriptions, hasMoreSubscriptions, tod
                                 }
                             }}
                             placeholder="ابحث بالاسم أو رقم الحساب أو رقم الجوال أو رقم الطبلون…"
-                            className="block h-16 w-full rounded-panel border-[1.5px] border-gray-200 bg-surface pe-16 ps-14 text-lg shadow-card placeholder:text-gray-400 focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10"
+                            className="block h-16 w-full rounded-[22px] border-[1.5px] border-gray-200 bg-surface pe-16 ps-14 text-lg shadow-card placeholder:text-gray-400 hover:border-gray-300 focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10"
                         />
                         <span className="kbd pointer-events-none absolute inset-y-0 end-5 my-auto h-fit">/</span>
                     </div>

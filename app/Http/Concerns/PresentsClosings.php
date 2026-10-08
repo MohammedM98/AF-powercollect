@@ -132,6 +132,7 @@ trait PresentsClosings
             'recordedBy' => $payment->recordedBy?->name,
             'time' => DailySeries::localTime($payment->created_at),
             'reference' => $payment->reference_number,
+            'splitPayment' => $payment->splitPayment?->badge(),
             'amount' => Closing::money(-Closing::cents($payment->amount)),
             'matchStatus' => $line->match_status?->value,
         ];
@@ -257,7 +258,7 @@ trait PresentsClosings
         $days = ClosingPeriods::days($first, $last);
         $today = ClosingPeriods::today()->toDateString();
         $closings = Closing::query()
-            ->with('lines.payment')
+            ->with(['lines.payment.splitPayment'])
             ->where('type', ClosingType::Daily)
             ->whereIn('branch_id', $branches->modelKeys())
             ->whereDate('period_start', '>=', $first->toDateString())
@@ -432,7 +433,7 @@ trait PresentsClosings
     protected function registerData(Collection $branches, CarbonImmutable $from, CarbonImmutable $to, ?ClosingStatus $status): array
     {
         $closings = Closing::query()
-            ->with(['branch', 'preparedBy', 'reviewedBy', 'transfers', 'lines.payment'])
+            ->with(['branch', 'preparedBy', 'reviewedBy', 'transfers', 'lines.payment.splitPayment'])
             ->where('type', ClosingType::Daily)
             ->whereIn('branch_id', $branches->modelKeys())
             ->whereDate('period_start', '>=', $from->toDateString())

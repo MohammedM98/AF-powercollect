@@ -67,6 +67,7 @@ trait BuildsSubscriptionStatement
                 'correction',
                 'amendments.user',
                 'closingLine.closing',
+                'splitPayment',
             ])
             ->oldest()
             ->orderBy('id')
@@ -340,6 +341,8 @@ trait BuildsSubscriptionStatement
             'senderBankName' => $receipt->sender_bank_name,
             'senderName' => $receipt->sender_name,
             'referenceNumber' => $receipt->reference_number,
+            // The bank transfer this payment is one part of, if it is.
+            'splitPayment' => $transaction->splitPayment?->badge(),
             'cashBox' => $receipt->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
             // The weekly reading the line was billed from, which a reading and its standing discount share.

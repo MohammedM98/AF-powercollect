@@ -72,10 +72,10 @@ class LedgerController extends Controller
         $onSide = fn (Builder $query): Builder => $side === self::CREDIT ? $query->credits() : $query->charges();
 
         if ($request->query('format') === 'csv') {
-            return $this->export($this->sortEntries($inPeriod()->with(['subscription.branch', 'recordedBy']), $request));
+            return $this->export($this->sortEntries($inPeriod()->with(['subscription.branch', 'recordedBy', 'splitPayment']), $request));
         }
 
-        $entries = $this->sortEntries($inPeriod()->with(['subscription.branch', 'recordedBy']), $request)
+        $entries = $this->sortEntries($inPeriod()->with(['subscription.branch', 'recordedBy', 'splitPayment']), $request)
             ->paginate($this->dataTablePerPage($request, self::DEFAULT_PER_PAGE))
             ->withQueryString()
             ->through(fn (SubscriptionTransaction $transaction): array => $this->row($transaction));
@@ -300,6 +300,7 @@ class LedgerController extends Controller
             'paymentMethodLabel' => $transaction->payment_method ? __($transaction->payment_method->label()) : null,
             'bankName' => $transaction->bank_name,
             'referenceNumber' => $transaction->reference_number,
+            'splitPayment' => $transaction->splitPayment?->badge(),
             'balanceAfter' => $transaction->balance_after,
             'currency' => $transaction->currency,
             'currencyAmount' => $transaction->currency_amount,

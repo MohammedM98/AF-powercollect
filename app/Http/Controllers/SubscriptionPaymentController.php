@@ -126,6 +126,7 @@ class SubscriptionPaymentController extends Controller
                 'senderBankName' => $transaction->sender_bank_name,
                 'senderName' => $transaction->sender_name,
                 'referenceNumber' => $transaction->reference_number,
+                'splitPayment' => $transaction->splitPayment ? [...$transaction->splitPayment->badge(), 'partsCount' => $transaction->splitPayment->payments()->count()] : null,
                 'cashBox' => $transaction->cash_box,
                 'notes' => $transaction->notes,
                 'recordedByName' => $transaction->recordedBy?->name,

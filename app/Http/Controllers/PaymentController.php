@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PaymentMethod;
+use App\Http\Requests\StoreSplitPaymentRequest;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -44,6 +46,43 @@ class PaymentController extends Controller
             'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
             'transferBanks' => config('powercollect.transfer_banks'),
             'senderBanks' => config('powercollect.sender_banks'),
+        ]);
+    }
+
+    /**
+     * The split payment form's search, as JSON: the subscriptions matching
+     * `?search=`, or — with `?siblings_of=` — the other subscriptions under
+     * the same identity number as that one, so a payer's accounts are added
+     * to the split together.
+     */
+    public function search(Request $request): JsonResponse
+    {
+        $this->authorize('recordAnyPayment', Subscription::class);
+
+        $actor = $request->user();
+        $siblingsOf = $request->query('siblings_of');
+
+        if (is_string($siblingsOf) && ctype_digit($siblingsOf)) {
+            $source = Subscription::query()->visibleTo($actor)->findOrFail($siblingsOf);
+            $found = $source->subscriber_profile_id === null ? collect() : Subscription::query()
+                ->visibleTo($actor)
+                ->with(['branch', 'meterBox', 'circuitBreaker', 'profile'])
+                ->withSum('transactions as outstanding_balance', 'amount')
+                ->where('subscriber_profile_id', $source->subscriber_profile_id)
+                ->whereKeyNot($source->id)
+                ->orderBy('account_number')
+                ->limit(StoreSplitPaymentRequest::MAX_PARTS)
+                ->get();
+
+            return response()->json(['subscriptions' => $found->map(fn (Subscription $subscription): array => $this->row($subscription))->values(), 'hasMore' => false]);
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        $found = $search === '' ? collect() : $this->matching($actor, $search);
+
+        return response()->json([
+            'subscriptions' => $found->take(self::RESULT_LIMIT)->map(fn (Subscription $subscription): array => $this->row($subscription))->values(),
+            'hasMore' => $found->count() > self::RESULT_LIMIT,
         ]);
     }
 

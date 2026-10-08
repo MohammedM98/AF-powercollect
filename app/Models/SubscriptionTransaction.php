@@ -62,6 +62,7 @@ use Illuminate\Validation\ValidationException;
     'sender_name',
     'reference_number',
     'active_reference',
+    'split_payment_id',
     'voucher_number',
     'manual_voucher_number',
     'cash_box',
@@ -196,7 +197,10 @@ class SubscriptionTransaction extends Model
      * its cash box and paper voucher. A reference already on another payment
      * is refused unless the collector confirmed the duplicate.
      *
-     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, sender_bank_name?: ?string, sender_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string, mobile_operation_id?: ?string, confirm_duplicate_reference?: bool}  $payment
+     * A payment that is part of a split transfer (`split_payment_id`) may share the reference
+     * with the split's other parts, which is not a duplicate.
+     *
+     * @param  array{amount: float|string, currency: string, exchange_rate?: float|string|null, payment_method: string, bank_name?: ?string, sender_bank_name?: ?string, sender_name?: ?string, reference_number?: ?string, manual_voucher_number?: ?string, cash_box?: ?string, notes?: ?string, mobile_operation_id?: ?string, confirm_duplicate_reference?: bool, split_payment_id?: ?int}  $payment
      */
     public static function recordPayment(Subscription $subscription, User $collector, array $payment): self
     {
@@ -209,7 +213,7 @@ class SubscriptionTransaction extends Model
 
         return DB::transaction(function () use ($subscription, $collector, $payment, $currency, $method, $exchangeRate, $inShekels, $referenceNumber, $activeReference): self {
             if (! ($payment['confirm_duplicate_reference'] ?? false)) {
-                self::ensureReferenceIsAvailable($activeReference);
+                self::ensureReferenceIsAvailable($activeReference, $payment['split_payment_id'] ?? null);
             }
 
             // Only cash payments get a voucher number; a transfer is identified by its bank reference.
@@ -230,6 +234,7 @@ class SubscriptionTransaction extends Model
                 'sender_name' => $method->throughBank() ? ($payment['sender_name'] ?? null) : null,
                 'reference_number' => $referenceNumber ?: null,
                 'active_reference' => $activeReference,
+                'split_payment_id' => $payment['split_payment_id'] ?? null,
                 'voucher_number' => $voucherNumber,
                 'manual_voucher_number' => $method === PaymentMethod::Cash ? ($payment['manual_voucher_number'] ?? null) : null,
                 'cash_box' => $method === PaymentMethod::Cash ? ($payment['cash_box'] ?? null) : null,
@@ -493,7 +498,11 @@ class SubscriptionTransaction extends Model
         return $normalized !== '' ? $normalized : null;
     }
 
-    public static function activeReferenceConflict(mixed $reference, ?int $ignoreTransactionId = null): ?self
+    /**
+     * The payment already holding the reference, other than `$ignoreTransactionId`
+     * and the parts of the split transfer `$ignoreSplitPaymentId`, which share it.
+     */
+    public static function activeReferenceConflict(mixed $reference, ?int $ignoreTransactionId = null, ?int $ignoreSplitPaymentId = null): ?self
     {
         $normalized = self::normalizeReference($reference);
 
@@ -504,13 +513,14 @@ class SubscriptionTransaction extends Model
         return self::query()
             ->where('active_reference', $normalized)
             ->when($ignoreTransactionId, fn (Builder $query): Builder => $query->whereKeyNot($ignoreTransactionId))
+            ->when($ignoreSplitPaymentId, fn (Builder $query): Builder => $query->where(fn (Builder $other) => $other->whereNull('split_payment_id')->orWhere('split_payment_id', '!=', $ignoreSplitPaymentId)))
             ->with('subscription')
             ->first();
     }
 
-    private static function ensureReferenceIsAvailable(?string $activeReference): void
+    private static function ensureReferenceIsAvailable(?string $activeReference, ?int $splitPaymentId = null): void
     {
-        $conflict = self::activeReferenceConflict($activeReference);
+        $conflict = self::activeReferenceConflict($activeReference, null, $splitPaymentId);
 
         if ($conflict) {
             throw self::referenceConflictException($conflict);
@@ -910,7 +920,7 @@ class SubscriptionTransaction extends Model
         if ($this->isPayment() && $this->reference_number !== null) {
             $reference = self::normalizeReference($this->reference_number);
 
-            if (self::activeReferenceConflict($reference, $this->id) !== null) {
+            if (self::activeReferenceConflict($reference, $this->id, $this->split_payment_id) !== null) {
                 throw ValidationException::withMessages([$errorKey => 'لا يمكن إعادة الدفعة الأصلية: رقمها المرجعي مسجَّل الآن على دفعة أخرى.']);
             }
 
@@ -1495,6 +1505,12 @@ class SubscriptionTransaction extends Model
     public function correction(): HasOne
     {
         return $this->hasOne(self::class, 'corrects_id');
+    }
+
+    /** The split transfer this payment is a part of, if it is. */
+    public function splitPayment(): BelongsTo
+    {
+        return $this->belongsTo(SplitPayment::class);
     }
 
     public function amendments(): HasMany

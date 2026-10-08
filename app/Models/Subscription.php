@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'tariff_segment_id', 'branch_id',
-    'registered_by', 'status', 'accounting_type', 'circuit_breaker_id', 'minimum_charge', 'initial_reading', 'subscription_fee',
+    'registered_by', 'status', 'accounting_type', 'circuit_breaker_id', 'minimum_charge', 'kilowatt_price', 'initial_reading', 'subscription_fee',
     'subscription_date', 'reconnected_at', 'activated_at', 'subscription_name', 'subscription_phone', 'legacy_number', 'notes',
 ])]
 class Subscription extends Model
@@ -136,6 +136,7 @@ class Subscription extends Model
             'reconnected_at' => 'date',
             'activated_at' => 'datetime',
             'subscription_fee' => 'decimal:2',
+            'kilowatt_price' => 'decimal:2',
             'initial_reading' => 'float',
         ];
     }
@@ -177,6 +178,23 @@ class Subscription extends Model
     public function standingDiscount(): HasOne
     {
         return $this->hasOne(StandingDiscount::class);
+    }
+
+    /**
+     * What a kilowatt costs this subscriber, in shekels: their own price if
+     * they were given one, otherwise their tariff's.
+     */
+    public function kilowattPrice(): string
+    {
+        return (string) ($this->kilowatt_price ?? $this->tariff->rate);
+    }
+
+    /**
+     * Whether the subscriber pays a price of their own instead of their tariff's.
+     */
+    public function hasOwnKilowattPrice(): bool
+    {
+        return $this->kilowatt_price !== null;
     }
 
     /**

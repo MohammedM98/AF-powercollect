@@ -84,7 +84,7 @@ class StoreSubscriptionDiscountRequest extends FormRequest
         $method = DiscountMethod::from($method);
         $discount = SubscriptionTransaction::discountFor($method, $value, match ($method) {
             DiscountMethod::Percentage => $owed,
-            DiscountMethod::Kilowatt => $subscription->tariff->rate,
+            DiscountMethod::Kilowatt => $subscription->kilowattPrice(),
             DiscountMethod::Shekel => null,
         });
 

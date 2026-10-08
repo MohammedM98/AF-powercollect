@@ -65,6 +65,7 @@ enum UserRole: string
                 PermissionKey::ViewUsers, PermissionKey::CreateUsers, PermissionKey::UpdateUsers,
                 PermissionKey::ViewSubscriptions, PermissionKey::CreateSubscriptions, PermissionKey::UpdateSubscriptions,
                 PermissionKey::UpdateSubscriptionMinimumCharge,
+                PermissionKey::UpdateSubscriptionKilowattPrice,
                 PermissionKey::BulkUpdateSubscriptions,
                 PermissionKey::ViewMeterBoxes, PermissionKey::CreateMeterBoxes, PermissionKey::UpdateMeterBoxes,
                 PermissionKey::ViewSubAreas, PermissionKey::CreateSubAreas, PermissionKey::UpdateSubAreas,

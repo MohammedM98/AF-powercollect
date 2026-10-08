@@ -182,6 +182,7 @@ return [
         'status' => 'الحالة',
         'circuit_breaker_id' => 'القاطع',
         'minimum_charge' => 'الحد الادنى',
+        'kilowatt_price' => 'سعر الكيلو',
         'initial_reading' => 'القراءة السابقة',
         'subscription_fee' => 'رسوم الاشتراك',
         'user_type_id' => 'نوع المستخدم',

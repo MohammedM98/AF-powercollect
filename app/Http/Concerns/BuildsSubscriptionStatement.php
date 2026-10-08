@@ -135,7 +135,7 @@ trait BuildsSubscriptionStatement
                 'tariffCategoryLabel' => __($subscription->tariff->category->label()),
                 'tariffSegmentName' => $subscription->tariffSegment?->name,
                 'meterBoxNumber' => $subscription->meterBox?->box_number,
-                'kiloPrice' => $subscription->tariff->rate,
+                'kiloPrice' => $subscription->kilowattPrice(),
                 'minimumPayment' => $subscription->weeklyMinimumPayment(),
                 'subscriptionFee' => $subscription->subscription_fee,
                 // The discount form's worked example uses the last week read.

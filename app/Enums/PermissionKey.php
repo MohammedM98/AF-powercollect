@@ -24,6 +24,7 @@ enum PermissionKey: string
     case UpdateSubscriptions = 'subscriptions.update';
     case DeleteSubscriptions = 'subscriptions.delete';
     case UpdateSubscriptionMinimumCharge = 'subscriptions.update_minimum_charge';
+    case UpdateSubscriptionKilowattPrice = 'subscriptions.update_kilowatt_price';
     case BulkUpdateSubscriptions = 'subscriptions.bulk_update';
 
     case ViewTariffs = 'tariffs.view';
@@ -104,6 +105,7 @@ enum PermissionKey: string
             self::UpdateSubscriptions => 'Edit Subscriptions',
             self::DeleteSubscriptions => 'Delete Subscriptions',
             self::UpdateSubscriptionMinimumCharge => 'Edit Subscription Minimum Charge',
+            self::UpdateSubscriptionKilowattPrice => 'Edit Subscription Kilo Price',
             self::BulkUpdateSubscriptions => 'Bulk Edit Subscriptions',
             self::ViewTariffs => 'View Tariffs',
             self::CreateTariffs => 'Add Tariffs',
@@ -199,6 +201,7 @@ enum PermissionKey: string
                     'update' => self::UpdateSubscriptions,
                     'delete' => self::DeleteSubscriptions,
                     'minimum_charge' => self::UpdateSubscriptionMinimumCharge,
+                    'kilowatt_price' => self::UpdateSubscriptionKilowattPrice,
                     'bulk_update' => self::BulkUpdateSubscriptions,
                 ],
             ],

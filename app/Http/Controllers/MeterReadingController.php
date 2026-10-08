@@ -123,7 +123,7 @@ class MeterReadingController extends Controller
         $currentReading = $request->float('current_reading');
         $consumption = MeterReading::consumptionBetween($previousReading, $currentReading);
         $usualConsumption = MeterReading::usualConsumptionIfUnusual($subscription, $consumption, $weekStart);
-        $unitPrice = (string) $subscription->tariff->rate;
+        $unitPrice = $subscription->kilowattPrice();
         $minimumPayment = $subscription->weeklyMinimumPayment();
         $discount = $subscription->standingDiscount;
 
@@ -493,7 +493,7 @@ class MeterReadingController extends Controller
             'phone' => $subscription->contactPhone(),
             'subAreaName' => $subscription->meterBox?->subArea?->name,
             'previousReading' => $reading?->previous_reading ?? (float) ($lastBefore?->current_reading ?? $subscription->initial_reading ?? 0),
-            'unitPrice' => (string) ($reading?->unit_price ?? $subscription->tariff->rate),
+            'unitPrice' => (string) ($reading?->unit_price ?? $subscription->kilowattPrice()),
             'minimumPayment' => (string) ($reading?->minimum_payment ?? $subscription->weeklyMinimumPayment()),
             'discount' => $discountMethod ? [
                 'method' => $discountMethod->value,

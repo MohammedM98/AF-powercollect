@@ -118,3 +118,28 @@ test('a subscription fee already charged to the account is shown locked, and one
     assert.doesNotMatch(charged, /تحميل رسوم اشتراك/);
     assert.match(notCharged, /تحميل رسوم اشتراك/);
 });
+
+test('the kilo price follows the tariff and is edited only through the button, for someone allowed to', () => {
+    const tariffs = [{ id: 1, categoryLabel: 'تجاري', rate: '30.00' }];
+    const priceInput = (html) => html.match(/<input(?=[^>]*id="tariff_rate")[^>]*>/)[0];
+    const data = subscriptionFormData({ full_name: 'A', status: 'active', tariff_id: 1 });
+
+    const allowed = renderForm(data, { tariffs, canEditKilowattPrice: true });
+    const notAllowed = renderForm(data, { tariffs, canEditKilowattPrice: false });
+
+    assert.equal(data.kilowatt_price, '');
+    assert.match(priceInput(allowed), /readonly=""/i);
+    assert.match(priceInput(allowed), /value="30"/);
+    assert.match(allowed, /تعديل السعر/);
+    assert.doesNotMatch(notAllowed, /تعديل السعر/);
+});
+
+test('a subscriber with a kilo price of their own sees it, marked, next to their tariff\'s', () => {
+    const tariffs = [{ id: 1, categoryLabel: 'تجاري', rate: '30.00' }];
+    const data = subscriptionFormData({ full_name: 'A', status: 'active', tariff_id: 1, kilowatt_price: '35.50' });
+    const html = renderForm(data, { tariffs, canEditKilowattPrice: true, isEdit: true });
+
+    assert.equal(data.kilowatt_price, 35.5);
+    assert.match(html.match(/<input(?=[^>]*id="tariff_rate")[^>]*>/)[0], /value="35\.50"/);
+    assert.match(html, /سعر خاص بهذا المشترك/);
+});

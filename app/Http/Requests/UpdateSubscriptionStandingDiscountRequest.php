@@ -55,7 +55,7 @@ class UpdateSubscriptionStandingDiscountRequest extends FormRequest
 
                 /** @var Subscription $subscription */
                 $subscription = $this->route('subscription');
-                $kiloPrice = (float) $subscription->tariff->rate;
+                $kiloPrice = (float) $subscription->kilowattPrice();
 
                 if ((float) $this->input('value') > $kiloPrice) {
                     $validator->errors()->add('value', sprintf(

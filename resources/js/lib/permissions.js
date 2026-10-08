@@ -27,6 +27,7 @@ const NO_LADDER = ['closings', 'reports'];
 export const SENSITIVE = {
     delete: { label: 'الحذف', hint: 'يحذف ما لا يرتبط به شيء — تُمنح بحذر', danger: true },
     minimum_charge: { label: 'تعديل الحد الأدنى للدفع', hint: 'صلاحية خاصة', danger: false },
+    kilowatt_price: { label: 'تعديل سعر الكيلو للمشترك', hint: 'يعطي المشترك سعر كيلو خاصًا لا يقل عن سعر تعرفته', danger: true },
     approve: { label: 'اعتماد القراءات', hint: 'تُضاف مبالغها إلى حسابات المشتركين', danger: true },
     confirm: { label: 'تأكيد التحصيل', hint: 'تُمنح بحذر', danger: true },
     adjust: { label: 'إضافة تحميل أو خصم أو تسوية', hint: 'يشمل الخصم الدائم وتسوية الرصيد — لا يمنح تعديل الحركات أو حذفها', danger: true },

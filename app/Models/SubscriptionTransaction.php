@@ -289,7 +289,7 @@ class SubscriptionTransaction extends Model
     {
         $base = match ($method) {
             DiscountMethod::Percentage => $subscription->balance(),
-            DiscountMethod::Kilowatt => (float) $subscription->tariff->rate,
+            DiscountMethod::Kilowatt => (float) $subscription->kilowattPrice(),
             DiscountMethod::Shekel => null,
         };
 

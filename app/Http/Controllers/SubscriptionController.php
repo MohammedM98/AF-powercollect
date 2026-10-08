@@ -105,6 +105,7 @@ class SubscriptionController extends Controller
 
         $data['registered_by'] = $actor->id;
         $data = $this->enforceMinimumChargePermission($actor, $data);
+        $data = $this->enforceKilowattPricePermission($actor, $data);
 
         $subscription = DB::transaction(function () use ($data, $actor, $chargeSubscriptionFee, $sourceSubscription): Subscription {
             $subscription = new Subscription($data);
@@ -170,6 +171,7 @@ class SubscriptionController extends Controller
     {
         $data = $request->safe()->except(['charge_subscription_fee']);
         $data = $this->enforceMinimumChargePermission(auth()->user(), $data, $subscription);
+        $data = $this->enforceKilowattPricePermission(auth()->user(), $data, $subscription);
         // Only a subscription without the fee on the account is validated for charging it.
         $chargeSubscriptionFee = (bool) $request->validated('charge_subscription_fee', false);
 
@@ -224,6 +226,8 @@ class SubscriptionController extends Controller
             'tariffCategoryLabel' => __($subscription->tariff->category->label()),
             'tariffSegmentName' => $subscription->tariffSegment?->name,
             'tariffRate' => $subscription->tariff->rate,
+            'kilowattPrice' => $subscription->kilowattPrice(),
+            'hasOwnKilowattPrice' => $subscription->hasOwnKilowattPrice(),
             'circuitBreakerAmpere' => $subscription->circuitBreaker?->ampere,
             'standingDiscountSummary' => $subscription->standingDiscount?->summary(),
             'standingDiscount' => $subscription->standingDiscount ? ['method' => $subscription->standingDiscount->method->value, 'value' => $subscription->standingDiscount->value] : null,
@@ -310,6 +314,37 @@ class SubscriptionController extends Controller
     }
 
     /**
+     * The kilo price a subscriber is saved with. Only someone holding the
+     * dedicated permission can give one: it is stored when it is above the
+     * tariff's, and left empty — so they follow the tariff — when it is
+     * blank or equal to it. Anyone else never sets it from the request: a new
+     * subscriber follows their tariff, and an existing one keeps the price
+     * they have, unless their tariff was changed, which a price chosen for
+     * the old one no longer fits.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function enforceKilowattPricePermission(User $actor, array $data, ?Subscription $existing = null): array
+    {
+        if ($actor->hasPermission(PermissionKey::UpdateSubscriptionKilowattPrice) && array_key_exists('kilowatt_price', $data)) {
+            $tariffRate = (float) Tariff::findOrFail($data['tariff_id'])->rate;
+
+            $data['kilowatt_price'] = filled($data['kilowatt_price']) && (float) $data['kilowatt_price'] !== $tariffRate
+                ? $data['kilowatt_price']
+                : null;
+
+            return $data;
+        }
+
+        $data['kilowatt_price'] = $existing !== null && (int) $existing->tariff_id === (int) $data['tariff_id']
+            ? $existing->kilowatt_price
+            : null;
+
+        return $data;
+    }
+
+    /**
      * The full set of a subscription's editable fields — used both for the
      * dedicated edit page and for the edit modal's initial form data on
      * the index page, so both stay backed by the same shape.
@@ -344,6 +379,7 @@ class SubscriptionController extends Controller
             'accounting_type' => $subscription->accounting_type->value,
             'circuit_breaker_id' => $subscription->circuit_breaker_id,
             'minimum_charge' => $subscription->minimum_charge,
+            'kilowatt_price' => $subscription->kilowatt_price,
             'initial_reading' => $subscription->initial_reading,
             'subscription_fee' => $subscription->subscription_fee,
             // Whether the fee is already on the account: if not, the edit form can still charge it.
@@ -363,7 +399,7 @@ class SubscriptionController extends Controller
      * narrowed by branch and sub-area ("منطقة 2"), so the page does not
      * grow with the number of boxes.
      *
-     * @return array{branches: Collection, tariffs: Collection, segments: Collection, subAreas: Collection, circuitBreakers: Collection, canChooseBranch: bool, currentBranchAreaId: ?int, currentBranchAreaName: ?string, canEditMinimumCharge: bool}
+     * @return array{branches: Collection, tariffs: Collection, segments: Collection, subAreas: Collection, circuitBreakers: Collection, canChooseBranch: bool, currentBranchAreaId: ?int, currentBranchAreaName: ?string, canEditMinimumCharge: bool, canEditKilowattPrice: bool}
      */
     private function formOptions(): array
     {
@@ -389,6 +425,7 @@ class SubscriptionController extends Controller
             'currentBranchAreaId' => $canChooseBranch ? null : $actor->branch?->area_id,
             'currentBranchAreaName' => $canChooseBranch ? null : $actor->branch?->area?->name,
             'canEditMinimumCharge' => $this->canEditMinimumCharge($actor),
+            'canEditKilowattPrice' => $actor->hasPermission(PermissionKey::UpdateSubscriptionKilowattPrice),
         ];
     }
 

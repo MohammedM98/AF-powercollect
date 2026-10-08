@@ -131,7 +131,7 @@ function LiveRow({ subscription, week, reading, maximum, average }) {
     const typed = value !== '' && !Number.isNaN(Number(value));
     const consumption = typed ? consumptionBetween(previous, value) : null;
     const negative = consumption !== null && consumption < 0;
-    const unitPrice = reading?.unitPrice ?? subscription.tariffRate;
+    const unitPrice = reading?.unitPrice ?? subscription.kilowattPrice;
     const minimumPayment = reading?.minimumPayment ?? subscription.weeklyMinimumPayment;
     const charges = reading && !isDraft
         ? { consumption: Number(reading.consumption), discountAmount: Number(reading.discountAmount), amountDue: Number(reading.amountDue), minimumApplies: reading.minimumApplied }
@@ -249,7 +249,7 @@ export default function ReadingHistoryModal({ subscription, onClose, readingWeek
                         <div className="rh-meta">
                             <span>حساب <b dir="ltr">{subscription.account_number}</b></span>
                             {subscription.meterBoxNumber && <><span>·</span><span>الطبلون <b>{subscription.meterBoxNumber}</b>{subscription.subAreaName && ` · ${subscription.subAreaName}`}</span></>}
-                            <span>·</span><span>{subscription.branchName}</span><span>·</span><span>{subscription.tariffCategoryLabel} · {money(subscription.tariffRate)} ₪ للكيلو</span>
+                            <span>·</span><span>{subscription.branchName}</span><span>·</span><span>{subscription.tariffCategoryLabel} · {money(subscription.kilowattPrice)} ₪ للكيلو</span>
                             <span className={`rh-pill ${subscription.status === 'active' ? 'is-approved' : 'is-pending'}`}><i />{subscription.statusLabel}</span>
                         </div>
                     </div>
@@ -262,7 +262,7 @@ export default function ReadingHistoryModal({ subscription, onClose, readingWeek
                 <div className="rh-body">
                     <div className="rh-figures">
                         <Figure label="عدد القراءات" value={formatNumber(periodReadings.length)}>{periodReadings.length ? `من أسبوع ${shortDate(periodReadings.at(-1).weekStart)}` : 'لا توجد قراءات بعد'}</Figure>
-                        <Figure label="متوسط الاستهلاك الأسبوعي" value={formatMoney(average)} unit="كيلو">{periodReadings.length ? `≈ ${money(average * Number(subscription.tariffRate))} ₪ في الأسبوع` : '—'}</Figure>
+                        <Figure label="متوسط الاستهلاك الأسبوعي" value={formatMoney(average)} unit="كيلو">{periodReadings.length ? `≈ ${money(average * Number(subscription.kilowattPrice))} ₪ في الأسبوع` : '—'}</Figure>
                         <Figure label="أعلى استهلاك" value={formatMoney(busiest?.consumption ?? 0)} unit="كيلو">{busiest && `أسبوع ${shortDate(busiest.weekStart)} – ${shortDate(busiest.weekEnd)}`}</Figure>
                         <Figure label="آخر قراءة للعداد" value={formatMoney(subscription.lastReading)}>{latest ? <>أسبوع {shortDate(latest.weekEnd)}{change !== null && <> · <span className={change > 0 ? 'rh-up' : 'rh-down'}>{change > 0 ? '▲' : change < 0 ? '▼' : '≈'} {Math.abs(change)}٪</span> عن متوسط {formatNumber(previousWeeks.length)} أسابيع</>}</> : 'قراءة العداد عند الاشتراك'}</Figure>
                     </div>

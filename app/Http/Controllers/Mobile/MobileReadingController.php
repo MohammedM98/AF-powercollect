@@ -78,7 +78,7 @@ class MobileReadingController extends Controller
         $currentReading = $request->float('current_reading');
         $consumption = MeterReading::consumptionBetween($previousReading, $currentReading);
         $discount = $subscription->standingDiscount;
-        $unitPrice = (string) $subscription->tariff->rate;
+        $unitPrice = $subscription->kilowattPrice();
 
         $reading = MeterReading::create([
             'subscription_id' => $subscription->id,

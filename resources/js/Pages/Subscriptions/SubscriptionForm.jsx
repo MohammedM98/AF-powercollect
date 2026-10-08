@@ -67,6 +67,7 @@ function ReadOnlyField({ id, label, value, dir }) {
  * many of the required fields are filled.
  */
 function SubscriptionPreview({ data, tariff, circuitBreaker, filled, total }) {
+    const kilowattPrice = data.kilowatt_price !== '' ? data.kilowatt_price : tariff?.rate;
     const name = data.subscription_name.trim() || data.full_name.trim();
     const phone = String(data.subscription_phone || data.phone || '').trim();
 
@@ -77,7 +78,7 @@ function SubscriptionPreview({ data, tariff, circuitBreaker, filled, total }) {
             title={name || 'مشترك جديد'}
             subtitle={phone || '05— ——— ——'}
             subtitleDir="ltr"
-            chips={[tariff && `${tariff.categoryLabel} · ${formatAmount(tariff.rate)} ش/ك.و`, circuitBreaker && `قاطع ${circuitBreaker.ampere} أمبير`].filter(Boolean)}
+            chips={[tariff && `${tariff.categoryLabel} · ${formatAmount(kilowattPrice)} ش/ك.و`, circuitBreaker && `قاطع ${circuitBreaker.ampere} أمبير`].filter(Boolean)}
             filled={filled}
             total={total}
         />
@@ -104,6 +105,8 @@ export function subscriptionFormData(subscription, sourceSubscription = null) {
         branch_id: subscription?.branch_id ?? '',
         circuit_breaker_id: subscription?.circuit_breaker_id ?? '',
         minimum_charge: subscription?.minimum_charge != null ? Number(subscription.minimum_charge) : '',
+        // Empty means the subscriber pays their tariff's price.
+        kilowatt_price: subscription?.kilowatt_price != null ? Number(subscription.kilowatt_price) : '',
         initial_reading: subscription?.initial_reading ?? '',
         subscription_fee: subscription?.subscription_fee ?? '',
         // New subscriptions, and existing ones whose fee is not on the account yet, can be charged it.
@@ -145,6 +148,7 @@ export default function SubscriptionForm({
     canChooseBranch,
     currentBranchAreaId,
     canEditMinimumCharge,
+    canEditKilowattPrice = false,
     sharedPersonalDetails = false,
     isEdit = false,
     subscriptionCount = 1,
@@ -156,6 +160,9 @@ export default function SubscriptionForm({
     const phoneField = independentContactDetails ? 'subscription_phone' : 'phone';
     const [minimumChargeUnlocked, setMinimumChargeUnlocked] = useState(false);
     const [confirmingMinimumChargeUnlock, setConfirmingMinimumChargeUnlock] = useState(false);
+
+    const [kilowattPriceUnlocked, setKilowattPriceUnlocked] = useState(false);
+    const [confirmingKilowattPriceUnlock, setConfirmingKilowattPriceUnlock] = useState(false);
 
     function unlockMinimumCharge() {
         setConfirmingMinimumChargeUnlock(false);
@@ -203,6 +210,11 @@ export default function SubscriptionForm({
     const selectedTariff = tariffs.find((tariff) => String(tariff.id) === String(data.tariff_id));
     const selectedCircuitBreaker = circuitBreakers.find((circuitBreaker) => String(circuitBreaker.id) === String(data.circuit_breaker_id));
     const minimumChargeLocked = !canEditMinimumCharge || !minimumChargeUnlocked;
+    const tariffRate = selectedTariff ? Number(selectedTariff.rate) : null;
+    const kilowattPriceLocked = !canEditKilowattPrice || !kilowattPriceUnlocked;
+    const hasOwnKilowattPrice = data.kilowatt_price !== '';
+    // An edited subscriber's own price does not fit another tariff, so choosing one drops it.
+    const kilowattPriceDropped = isEdit && original.kilowatt_price !== '' && !hasOwnKilowattPrice && !kilowattPriceUnlocked;
     // A fee already on the account is that line's amount: it is changed from the transactions, not here.
     const subscriptionFeeCharged = original.subscription_fee_charged;
     const subscriptionFeeLocked = subscriptionFeeCharged || ('charge_subscription_fee' in data && !data.charge_subscription_fee);
@@ -269,8 +281,23 @@ export default function SubscriptionForm({
     }
 
     function onTariffChange(value) {
-        setData('tariff_id', value);
-        clearErrors?.('tariff_id');
+        setData((current) => ({ ...current, tariff_id: value, ...(String(current.tariff_id) !== String(value) ? { kilowatt_price: '' } : {}) }));
+        setKilowattPriceUnlocked(false);
+        clearErrors?.('tariff_id', 'kilowatt_price');
+    }
+
+    /** Opens the price for editing, starting from what the subscriber pays now. */
+    function unlockKilowattPrice() {
+        setConfirmingKilowattPriceUnlock(false);
+        setKilowattPriceUnlocked(true);
+        setData('kilowatt_price', hasOwnKilowattPrice ? data.kilowatt_price : tariffRate);
+    }
+
+    /** Closes the price again, back to what the form opened with (or the tariff's price for a new subscriber). */
+    function lockKilowattPrice() {
+        setKilowattPriceUnlocked(false);
+        setData('kilowatt_price', String(original.tariff_id) === String(data.tariff_id) ? original.kilowatt_price : '');
+        clearErrors?.('kilowatt_price');
     }
 
     function onCircuitBreakerChange(value) {
@@ -397,18 +424,52 @@ export default function SubscriptionForm({
                 </FormField>
 
                 <div>
-                    <InputLabel htmlFor="tariff_rate" value="سعر الكيلو" />
+                    <div className="flex items-center justify-between">
+                        <InputLabel htmlFor="tariff_rate" value="سعر الكيلو" />
+                        {canEditKilowattPrice && selectedTariff && !kilowattPriceUnlocked && (
+                            <button type="button" onClick={() => setConfirmingKilowattPriceUnlock(true)} className="text-xs font-semibold text-brand-600 hover:underline">
+                                تعديل السعر
+                            </button>
+                        )}
+                        {kilowattPriceUnlocked && (
+                            <button type="button" onClick={lockKilowattPrice} className="text-xs font-semibold text-gray-500 hover:underline">
+                                إلغاء التعديل
+                            </button>
+                        )}
+                    </div>
                     <div className="mt-1">
                         <Affix unit="شيكل">
                             <TextInput
                                 id="tariff_rate"
-                                readOnly
-                                title="للقراءة فقط"
-                                value={selectedTariff ? formatAmount(selectedTariff.rate) : '—'}
-                                className="block w-full text-gray-600"
+                                type={kilowattPriceLocked ? 'text' : 'number'}
+                                step="0.01"
+                                min={kilowattPriceLocked ? undefined : tariffRate}
+                                required={!kilowattPriceLocked}
+                                readOnly={kilowattPriceLocked}
+                                title={kilowattPriceLocked ? 'للقراءة فقط' : undefined}
+                                value={kilowattPriceLocked ? (hasOwnKilowattPrice ? formatAmount(data.kilowatt_price) : selectedTariff ? formatAmount(selectedTariff.rate) : '—') : data.kilowatt_price}
+                                onChange={(e) => setData('kilowatt_price', e.target.value)}
+                                className={`block w-full ${kilowattPriceLocked ? 'bg-gray-50 text-gray-600' : ''}`}
                             />
                         </Affix>
                     </div>
+                    {kilowattPriceUnlocked ? (
+                        <p className="mt-1 text-xs text-gray-500">لا يقل عن سعر التعرفة ({formatAmount(tariffRate)} شيكل).</p>
+                    ) : hasOwnKilowattPrice ? (
+                        <p className="mt-1 text-xs font-semibold text-brand-600">سعر خاص بهذا المشترك — سعر التعرفة {formatAmount(tariffRate)} شيكل.</p>
+                    ) : kilowattPriceDropped ? (
+                        <p className="mt-1 text-xs text-amber-600">أُلغي السعر الخاص بهذا المشترك لتغيير نوع الاشتراك.</p>
+                    ) : null}
+                    <InputError message={errors.kilowatt_price} className="mt-1" />
+                    <ConfirmDialog
+                        show={confirmingKilowattPriceUnlock}
+                        onConfirm={unlockKilowattPrice}
+                        onCancel={() => setConfirmingKilowattPriceUnlock(false)}
+                        title="تعديل سعر الكيلو لهذا المشترك؟"
+                        message={`سيصبح لهذا المشترك سعر كيلو خاص به بدل سعر التعرفة (${selectedTariff ? formatAmount(selectedTariff.rate) : ''} شيكل)، ويُحسب به استهلاكه وخصوماته في القراءات القادمة. لا يمكن أن يقل عن سعر التعرفة. هل تريد المتابعة؟`}
+                        confirmLabel="نعم، عدّل"
+                        icon="alert"
+                    />
                 </div>
 
                 <FormField id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id} span="sm:col-span-2">

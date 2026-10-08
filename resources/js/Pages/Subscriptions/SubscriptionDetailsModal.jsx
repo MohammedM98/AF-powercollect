@@ -208,7 +208,7 @@ export default function SubscriptionDetailsModal({ subscription, onClose, onEdit
                             </dl></Section>
                             <Section title="الاشتراك والقاطع" icon="bolt" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
                                 <Field label="نوع الاشتراك" value={<span className="sp-chip"><Icon name="bolt" />{subscription.tariffCategoryLabel}</span>} /><Field label="تصنيف الزبائن" value={subscription.tariffSegmentName} />
-                                <Field label="القاطع" value={subscription.circuitBreakerAmpere ? `${subscription.circuitBreakerAmpere} أمبير` : null} /><Field label="سعر الكيلو" value={money(subscription.tariffRate)} numeric />
+                                <Field label="القاطع" value={subscription.circuitBreakerAmpere ? `${subscription.circuitBreakerAmpere} أمبير` : null} /><Field label="سعر الكيلو" value={money(subscription.kilowattPrice)} numeric />
                                 <Field label="الحد الأدنى" value={money(subscription.minimum_charge)} numeric /><Field label="خصم القراءات الأسبوعية" value={subscription.standingDiscountSummary && <>{subscription.standingDiscountSummary}{subscription.canAdjustBalance && <StopStandingDiscountButton subscriptionId={subscription.id} subscriptionName={subscription.full_name} discountLabel={subscription.standingDiscountSummary} className="ms-2" />}</>} />
                             </dl></Section>
                             <Section title="الموقع والعداد" icon="pin" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">

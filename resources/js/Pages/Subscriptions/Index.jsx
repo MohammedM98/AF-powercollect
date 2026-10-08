@@ -80,6 +80,7 @@ export default function Index({
     currentBranchAreaId,
     currentBranchAreaName,
     canEditMinimumCharge,
+    canEditKilowattPrice,
     filters,
     filterOptions,
     readingWeekOptions,
@@ -272,6 +273,7 @@ export default function Index({
         currentBranchAreaId,
         currentBranchAreaName,
         canEditMinimumCharge,
+    canEditKilowattPrice,
     };
 
     return (

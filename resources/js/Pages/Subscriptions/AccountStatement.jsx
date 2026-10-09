@@ -490,7 +490,7 @@ function StatementRow({
             </td>
             <td data-label="نوع الحركة">
                 <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <StatusPill tone="gray" label={entry.isCredit ? 'تخفيض الرصيد' : 'تحميل على الحساب'} />
+                    <StatusPill tone="gray" label={entry.isCredit ? 'له' : 'عليه'} />
                     <span className="font-medium text-gray-900">{entry.typeLabel}</span>
                     {entry.discountLine && <span className="text-xs text-emerald-700 dark:text-emerald-400">بعد خصم القراءة الأسبوعية</span>}
                     {entry.cancellation && (

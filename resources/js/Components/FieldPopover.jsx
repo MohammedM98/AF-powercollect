@@ -33,7 +33,7 @@ export default function FieldPopover({ anchor, onClose, children, label, role = 
             }
         }
         function move(event) {
-            if (!panel.current?.contains(event.target) && !event.target.closest?.('[data-field-popover]')) onClose(false);
+            if (!(event.target instanceof Node) || (!panel.current?.contains(event.target) && !event.target.closest?.('[data-field-popover]'))) onClose(false);
         }
         document.addEventListener('pointerdown', dismiss);
         document.addEventListener('keydown', keyboard, true);

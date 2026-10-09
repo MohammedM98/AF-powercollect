@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -30,7 +31,7 @@ use Illuminate\Validation\ValidationException;
  */
 #[Fillable([
     'number', 'type', 'branch_id', 'period_start', 'period_end', 'status', 'opening_cash', 'counted_cash', 'denominations',
-    'difference_reason', 'difference_notes', 'prepared_by', 'submitted_at', 'reviewed_by', 'reviewed_at', 'return_reason',
+    'difference_reason', 'difference_notes', 'prepared_by', 'submitted_at', 'reviewed_by', 'reviewed_at', 'return_reason', 'snapshot',
 ])]
 class Closing extends Model
 {
@@ -43,6 +44,7 @@ class Closing extends Model
     protected function casts(): array
     {
         return [
+            'snapshot' => 'array',
             'type' => ClosingType::class,
             'status' => ClosingStatus::class,
             'period_start' => 'date',
@@ -54,6 +56,30 @@ class Closing extends Model
             'submitted_at' => 'datetime',
             'reviewed_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(function (self $closing): void {
+            if ($closing->getRawOriginal('snapshot') !== null && $closing->isDirty()) {
+                throw ValidationException::withMessages(['period' => 'لقطة الإغلاق ثابتة ولا يمكن تعديلها.']);
+            }
+        });
+        static::deleting(function (self $closing): void {
+            if ($closing->snapshot !== null || ($closing->type === ClosingType::Weekly && $closing->status === ClosingStatus::Approved)) {
+                throw ValidationException::withMessages(['period' => 'لا يمكن حذف إغلاق أسبوعي معتمد.']);
+            }
+        });
+    }
+
+    public function snapshotLines(): HasMany
+    {
+        return $this->hasMany(ClosingSnapshotLine::class);
+    }
+
+    public function period(): HasOne
+    {
+        return $this->hasOne(ClosingPeriod::class);
     }
 
     /**
@@ -432,7 +458,7 @@ class Closing extends Model
             'prepared_by' => $actor->id,
             'submitted_at' => now(),
         ]);
-        $this->record($actor, 'submitted', $resubmitted ? 'أُعيد إرسال الكشف للتدقيق بعد التصحيح' : 'أُرسل الكشف للتدقيق');
+        $this->record($actor, 'submitted', $resubmitted ? 'أُعيد إرسال الكشف لاعتماد إقفال الفرع بعد التصحيح' : 'أُرسل الكشف لاعتماد إقفال الفرع');
     }
 
     /**

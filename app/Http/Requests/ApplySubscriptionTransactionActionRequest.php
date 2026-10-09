@@ -6,6 +6,7 @@ use App\Enums\CorrectionReason;
 use App\Enums\TransactionAction;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
+use App\Support\WeeklyClosingService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -33,16 +34,16 @@ class ApplySubscriptionTransactionActionRequest extends FormRequest
         return [
             'action' => ['required', Rule::enum(TransactionAction::class)],
             // A refund always returns the whole payment; a wrong amount is put right with a new payment.
-            'amount' => ['required_if:action,edit', 'prohibited_if:action,refund', 'nullable', 'numeric', 'gt:0', 'decimal:0,2', 'max:1000000'],
+            'amount' => ['required_if:action,edit,correction', 'prohibited_if:action,refund,reverse', 'nullable', 'numeric', $this->input('action') === 'correction' ? 'gte:0' : 'gt:0', 'decimal:0,2', 'max:1000000'],
             // Editing a payment's details follows the amendment form's rules; no other action takes bank details.
             ...($this->input('action') === TransactionAction::EditMetadata->value
                 ? AmendSubscriptionTransactionRequest::bankRules($this->transaction()->payment_method?->throughBank() ?? false)
                 : ['bank_name' => ['nullable', 'string', 'max:255'], 'sender_bank_name' => ['nullable', 'string', 'max:255'], 'sender_name' => ['nullable', 'string', 'max:255']]),
             'reference_number' => ['prohibited'],
             'notes' => ['nullable', 'string', 'max:1000'],
-            'amendment_reason' => ['required_if:action,edit,edit_metadata', 'nullable', 'string', 'max:1000'],
+            'amendment_reason' => ['required_if:action,edit,edit_metadata,correction,reverse', 'nullable', 'string', 'max:1000'],
             'correction_reason' => ['nullable', Rule::enum(CorrectionReason::class)],
-            'correction_notes' => ['required_if:action,delete,delete_reversal,delete_tree', 'nullable', 'string', 'max:1000'],
+            'correction_notes' => ['required_if:action,delete,delete_reversal,delete_tree', Rule::requiredIf(fn (): bool => $this->input('action') === 'refund' && app(WeeklyClosingService::class)->isLocked($this->transaction())), 'nullable', 'string', 'max:1000'],
             // Cancelling a weekly reading's bill: send the reading back for review (to correct and bill again) instead of waiving it.
             'reopen_reading' => ['sometimes', 'boolean'],
             'subscription_id' => ['prohibited'],

@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\CircuitBreaker;
 use App\Models\Closing;
 use App\Models\ClosingSetting;
+use App\Models\FinancialAuditStatement;
 use App\Models\Governorate;
 use App\Models\MessageBatch;
 use App\Models\MeterBox;
@@ -76,6 +77,8 @@ class HandleInertiaRequests extends Middleware
                 'viewDebtAging' => $user->can('viewDebtAging', SubscriptionTransaction::class),
                 'viewTransactionAudit' => $user->can('viewTransactionAudit', SubscriptionTransaction::class),
                 'viewClosings' => $user->can('viewAny', Closing::class),
+                'viewFinancialAudit' => $user->can('viewAny', FinancialAuditStatement::class),
+                'followBranchAudit' => $user->can('viewBranchStatements', FinancialAuditStatement::class),
                 'viewUsers' => $user->can('viewAny', User::class),
                 'viewUserTypes' => $user->can('viewAny', UserType::class),
                 'viewTariffs' => $user->can('viewAny', Tariff::class),

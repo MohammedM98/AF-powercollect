@@ -280,15 +280,15 @@
 }
 
 /*
- * Tables: every row is a floating card on a soft tray. The toolbar, the
- * table and the pagination stack into one rounded card.
+ * Tables share a quiet frame, clear column headings and roomy rows.
+ * The toolbar, table and pagination read as one section.
  */
 .data-table-toolbar {
     position: relative;
     padding: 20px 24px;
     border: 1px solid rgb(var(--gray-100));
     border-bottom: 0;
-    border-radius: 28px 28px 0 0;
+    border-radius: 20px 20px 0 0;
     background: rgb(var(--surface));
 }
 
@@ -305,10 +305,23 @@
 .data-table-container {
     container-type: inline-size;
     overflow-x: auto;
-    padding: 4px 16px 12px;
-    border: 1px solid rgb(var(--gray-100));
-    border-radius: 28px;
-    background: rgb(var(--gray-50));
+    padding: 0;
+    border: 1px solid rgb(var(--gray-200));
+    border-radius: 20px;
+    background: rgb(var(--surface));
+}
+
+/* Layout classes belong to the wrapper; the shared field owns its border and padding. */
+.select-input,
+.date-picker {
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+.field-popover input,
+.field-popover button {
+    font-family: inherit;
 }
 
 .data-table-toolbar + .data-table-container {
@@ -343,7 +356,7 @@
 }
 
 .data-table-totals:not(:has(+ .data-table-pagination)) {
-    border-radius: 0 0 28px 28px;
+    border-radius: 0 0 20px 20px;
 }
 
 .data-table-totals + .data-table-pagination {
@@ -354,28 +367,28 @@
     padding: 16px 24px 20px;
     border: 1px solid rgb(var(--gray-100));
     border-top: 0;
-    border-radius: 0 0 28px 28px;
+    border-radius: 0 0 20px 20px;
     background: rgb(var(--surface));
 }
 
 .data-table {
     width: 100%;
     border-collapse: separate;
-    border-spacing: 0 10px;
-    font-size: 16px;
-    line-height: 1.6;
+    border-spacing: 0;
+    font-size: 17px;
+    line-height: 1.7;
 }
 
 .data-table thead,
 .data-table thead tr {
-    background: transparent;
+    background: rgb(var(--gray-50));
 }
 
 /* Column titles: 14.5px and dark enough to read at a glance (about 9:1). */
 .data-table th {
-    padding: 10px 16px 0;
+    padding: 16px 20px;
     color: rgb(var(--gray-700));
-    font-size: 14.5px;
+    font-size: 15px;
     font-weight: 600;
     white-space: nowrap;
     text-align: start;
@@ -383,11 +396,11 @@
 }
 
 .data-table td {
-    padding: 14px 16px;
+    padding: 20px;
     white-space: nowrap;
     vertical-align: middle;
     background: rgb(var(--surface));
-    border-block: 1px solid rgb(var(--gray-100));
+    border-bottom: 1px solid rgb(var(--gray-200));
     transition:
         border-color 160ms ease,
         box-shadow 160ms ease;
@@ -396,33 +409,56 @@
 /* The app is right-to-left, so a row starts on the right. Physical sides
    keep the corners right even when a cell's own text runs left-to-right. */
 .data-table td:first-child {
-    border-right: 1px solid rgb(var(--gray-100));
-    border-top-right-radius: 18px;
-    border-bottom-right-radius: 18px;
+    border-right: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
 }
 
 .data-table td:last-child {
-    border-left: 1px solid rgb(var(--gray-100));
-    border-top-left-radius: 18px;
-    border-bottom-left-radius: 18px;
+    border-left: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
 }
 
 .data-table tbody tr:hover td,
 .data-table tbody tr:focus-within td {
     border-color: rgb(var(--gray-200));
-    box-shadow: 0 12px 20px -16px rgb(16 24 40 / 0.45);
+    background: rgb(var(--gray-50));
 }
 
 .data-table tbody tr:hover td:first-child,
 .data-table tbody tr:focus-within td:first-child,
 .data-table tbody tr.bg-brand-50 td:first-child {
-    box-shadow:
-        inset -3px 0 0 rgb(var(--brand-500)),
-        0 12px 20px -16px rgb(16 24 40 / 0.45);
+    box-shadow: inset -3px 0 0 rgb(var(--gray-300));
 }
 
 .data-table tbody tr.bg-brand-50 td {
     background: rgb(var(--brand-50));
+}
+
+/* Keep row actions reachable while the rest of a wide table scrolls. */
+@container (min-width: 641px) {
+    .data-table th[data-actions]:last-child,
+    .data-table:has(th[data-actions]:last-child) tbody tr > td:last-child:not([colspan]) {
+        position: sticky;
+        inset-inline-end: 0;
+        z-index: 2;
+        border-inline-start: 1px solid rgb(var(--gray-200));
+        box-shadow: 6px 0 12px -8px rgb(var(--gray-900) / 0.2);
+    }
+
+    .data-table th[data-actions]:last-child {
+        background: rgb(var(--gray-50));
+        z-index: 3;
+    }
+}
+
+@media print {
+    .data-table th[data-actions]:last-child,
+    .data-table:has(th[data-actions]:last-child) tbody tr > td:last-child:not([colspan]) {
+        position: static !important;
+        box-shadow: none !important;
+    }
 }
 
 .data-table th.text-center,
@@ -443,11 +479,11 @@
     text-align: end;
 }
 
-/* Narrow tables (many columns, or a small screen) get tighter cells. */
+/* Narrow tables keep readable spacing; long descriptions may wrap. */
 @container (max-width: 1180px) {
     .data-table th,
     .data-table td {
-        padding-inline: 10px;
+        padding-inline: 16px;
     }
 
     .data-table td {
@@ -468,10 +504,10 @@
 
     .data-table tbody tr {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        margin-top: 10px;
-        padding: 14px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 20px;
+        margin: 16px;
+        padding: 20px;
         border: 1px solid rgb(var(--gray-100));
         border-radius: 18px;
         background: rgb(var(--surface));
@@ -481,7 +517,10 @@
     .data-table td:first-child,
     .data-table td:last-child,
     .data-table tbody tr:hover td,
-    .data-table tbody tr:hover td:first-child {
+    .data-table tbody tr:hover td:first-child,
+    .data-table tbody tr:focus-within td,
+    .data-table tbody tr:focus-within td:first-child {
+        min-width: 0;
         padding: 0;
         border: 0;
         border-radius: 0;
@@ -491,16 +530,24 @@
     }
 
     .data-table td:first-child,
+    .data-table td:has(.row-identity-text),
+    .data-table td[data-label=''],
     .data-table td[colspan] {
         grid-column: 1 / -1;
+    }
+
+    .data-table .row-identity-text .truncate {
+        overflow: visible;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 
     .data-table td:not(:first-child)[data-label]:not([data-label=''])::before {
         content: attr(data-label);
         display: block;
-        margin-bottom: 2px;
+        margin-bottom: 6px;
         color: rgb(var(--gray-500));
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 600;
     }
 

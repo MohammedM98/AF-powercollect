@@ -13,6 +13,8 @@ use App\Models\StandingDiscount;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
+use App\Support\ClosingAdjustmentService;
+use App\Support\WeeklyClosingService;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -320,6 +322,12 @@ trait BuildsSubscriptionStatement
             'typeLabel' => $transaction->typeLabel(),
             'status' => $transaction->status,
             'reference_transaction_id' => $transaction->reference_transaction_id,
+            'closingAdjustment' => $transaction->reference_transaction_id !== null && ($transaction->adjustment_type !== null || ($transaction->type === SubscriptionTransaction::TYPE_REFUND && $transaction->reverses_id === null)) ? [
+                'originalId' => $transaction->reference_transaction_id,
+                'originalLineNumber' => $lineNumbers[$transaction->reference_transaction_id] ?? null,
+                'cashEffect' => $transaction->cash_effect_amount,
+                'reason' => $transaction->adjustment_reason ?? $transaction->notes,
+            ] : null,
             'balance_after' => $transaction->balance_after ?? $this->money($balanceInCents),
             'available_actions' => $availableActions,
             'actionEffects' => [
@@ -328,7 +336,9 @@ trait BuildsSubscriptionStatement
                 'delete_tree' => $this->money($treeEffectInCents),
             ],
             'refundableAmount' => $transaction->isPayment()
-                ? $this->money(max(0, abs($this->cents($transaction->amount)) - $refundedInCents))
+                ? $this->money(app(WeeklyClosingService::class)->isLocked($transaction)
+                    ? app(ClosingAdjustmentService::class)->refundableCents($transaction)
+                    : max(0, abs($this->cents($transaction->amount)) - $refundedInCents))
                 : null,
             'isCredit' => $transaction->isCredit(),
             'amount' => $transaction->currency_amount ?? ltrim($transaction->amount, '-'),
@@ -361,7 +371,7 @@ trait BuildsSubscriptionStatement
             // A reversal, shown indented under the line it cancels.
             'isFollowUp' => $transaction->reverses_id !== null,
             'isReversal' => $transaction->isReversal(),
-            'isCorrection' => $transaction->corrects_id !== null,
+            'isCorrection' => $transaction->corrects_id !== null || $transaction->adjustment_type === 'correction',
             'reverses' => $transaction->reverses ? [
                 'id' => $transaction->reverses->id,
                 'lineNumber' => $lineNumbers[$transaction->reverses->id] ?? null,
@@ -457,7 +467,7 @@ trait BuildsSubscriptionStatement
     {
         $reading = $transaction->meterReading;
 
-        if ($reading === null || $transaction->isCancelled() || ! $actor->hasPermission(PermissionKey::RecordMeterReadings)) {
+        if ($reading === null || $transaction->isCancelled() || app(WeeklyClosingService::class)->isLocked($transaction) || ! $actor->hasPermission(PermissionKey::RecordMeterReadings)) {
             return null;
         }
 

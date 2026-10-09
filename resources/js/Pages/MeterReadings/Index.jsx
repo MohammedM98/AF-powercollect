@@ -1,3 +1,4 @@
+import SelectInput from '@/Components/SelectInput';
 import { useEffect, useState, useRef } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { notify } from '@/lib/notify';
@@ -477,15 +478,15 @@ export default function Index({
                         <span className={`re-open ${entryWindow.isOpen ? 'is-open' : ''}`}><i />الإدخال {entryWindow.isOpen ? 'مفتوح' : 'مغلق'}</span>
                         <div className="re-week">
                             <button type="button" aria-label="الأسبوع السابق" disabled={weekIndex < 0 || weekIndex === weekOptions.length - 1} onClick={() => changeWeek(weekOptions[weekIndex + 1].value)}><Icon name="chevron-right" /></button>
-                            <select className="re-week-select" aria-label="السنة" value={currentYear} onChange={(e) => changePeriod(e.target.value)}>
+                            <SelectInput className="re-week-select" aria-label="السنة" value={currentYear} onChange={(e) => changePeriod(e.target.value)}>
                                 {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
-                            </select>
-                            <select className="re-week-select" aria-label="الشهر" value={currentMonth} onChange={(e) => changePeriod(e.target.value)}>
+                            </SelectInput>
+                            <SelectInput className="re-week-select" aria-label="الشهر" value={currentMonth} onChange={(e) => changePeriod(e.target.value)}>
                                 {monthOptions.map((month) => <option key={month} value={month}>{formatMonthName(`${month}-01`)}</option>)}
-                            </select>
-                            <select className="re-week-select" aria-label="أسبوع القراءة" value={week} onChange={(e) => changeWeek(e.target.value)}>
+                            </SelectInput>
+                            <SelectInput className="re-week-select" aria-label="أسبوع القراءة" value={week} onChange={(e) => changeWeek(e.target.value)}>
                                 {weeksOfMonth.map((option) => <option key={option.value} value={option.value}>{`\u202A${shortDate(option.value)} – ${shortDate(option.end)}\u202C`}</option>)}
-                            </select>
+                            </SelectInput>
                             <button type="button" aria-label="الأسبوع التالي" disabled={weekIndex <= 0} onClick={() => changeWeek(weekOptions[weekIndex - 1].value)}><Icon name="chevron-left" /></button>
                         </div>
                     </div>
@@ -560,16 +561,17 @@ export default function Index({
             )}
 
             <section className="re-card">
+            <div className="re-sticky-tools">
             <div className="re-sort">
                 <label htmlFor="sheet-sort">ترتيب حسب</label>
-                <select id="sheet-sort" value={filters.sort} onChange={(e) => sortBy(e.target.value, filters.direction)} className="py-1.5 text-sm">
+                <SelectInput id="sheet-sort" value={filters.sort} onChange={(e) => sortBy(e.target.value, filters.direction)} className="py-1.5 text-sm">
                     {SORT_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
                             {option.label}
                         </option>
                     ))}
-                </select>
-                <select
+                </SelectInput>
+                <SelectInput
                     aria-label="اتجاه الترتيب"
                     value={filters.direction}
                     onChange={(e) => sortBy(filters.sort, e.target.value)}
@@ -580,7 +582,7 @@ export default function Index({
                             {DIRECTION_LABELS[(SORT_OPTIONS.find((option) => option.value === filters.sort) ?? SORT_OPTIONS[0]).type][direction]}
                         </option>
                     ))}
-                </select>
+                </SelectInput>
             </div>
 
             <DataTableToolbar
@@ -601,6 +603,8 @@ export default function Index({
                     />
                 }
             />
+
+            </div>
 
             <div className="re-table-wrap">
                 <table className="re-table w-full text-sm text-start" {...printFieldsProps(PRINT_FIELDS)}>

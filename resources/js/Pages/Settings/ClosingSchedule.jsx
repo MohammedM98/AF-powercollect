@@ -1,3 +1,5 @@
+import DatePicker from '@/Components/DatePicker';
+import SelectInput from '@/Components/SelectInput';
 import { useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
@@ -41,6 +43,14 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
         cutoff_time: setting.cutoff_time,
         week_starts_on: setting.week_starts_on,
         auto_open: setting.auto_open,
+        weekly_enabled: setting.weekly_enabled,
+        weekly_closing_day: setting.weekly_closing_day,
+        weekly_closing_time: setting.weekly_closing_time,
+        weekly_timezone: setting.weekly_timezone,
+        grace_period_minutes: setting.grace_period_minutes,
+        auto_prepare: setting.auto_prepare,
+        final_close: 'manual',
+        reason: '',
     });
     const [confirmingSave, setConfirmingSave] = useState(false);
     const [openDate, setOpenDate] = useState(latestDay);
@@ -126,6 +136,22 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                 <div className="rs-grid">
                     <div className="rs-column">
                         <section className="rs-panel">
+                            <PanelTitle icon="lock">الإغلاق الأسبوعي</PanelTitle>
+                            <p>الوصول إلى وقت القطع يُعدّ الأسبوع للمراجعة. الاعتماد النهائي يدوي وينشئ لقطة مالية ثابتة. تطبق التغييرات على الفترات الجديدة؛ الفترات المسجلة تحتفظ بحدودها.</p>
+                            <label className="flex items-center gap-2"><input type="checkbox" checked={data.weekly_enabled} onChange={(e) => setData('weekly_enabled', e.target.checked)} disabled={processing} />تفعيل الإغلاق الأسبوعي</label>
+                            <div className="rs-time-fields">
+                                <div className="rs-time-field"><label htmlFor="weekly-day">يوم القطع الأسبوعي</label><SelectInput id="weekly-day" value={data.weekly_closing_day} onChange={(e) => setData('weekly_closing_day', Number(e.target.value))} disabled={processing}>{WEEK_DAYS.map((day) => <option key={day.value} value={day.value}>{day.label}</option>)}</SelectInput><InputError message={errors.weekly_closing_day} /></div>
+                                <div className="rs-time-field"><label htmlFor="weekly-time">وقت القطع</label><input id="weekly-time" type="time" value={data.weekly_closing_time} onChange={(e) => setData('weekly_closing_time', e.target.value)} disabled={processing} required /><InputError message={errors.weekly_closing_time} /></div>
+                            </div>
+                            <div className="rs-time-fields">
+                                <div className="rs-time-field"><label htmlFor="weekly-timezone">المنطقة الزمنية</label><input id="weekly-timezone" value={data.weekly_timezone} onChange={(e) => setData('weekly_timezone', e.target.value)} disabled={processing} required dir="ltr" /><InputError message={errors.weekly_timezone} /></div>
+                                <div className="rs-time-field"><label htmlFor="weekly-grace">فترة السماح بالدقائق</label><input id="weekly-grace" type="number" min="0" max="1440" value={data.grace_period_minutes} onChange={(e) => setData('grace_period_minutes', Number(e.target.value))} disabled={processing} /><InputError message={errors.grace_period_minutes} /></div>
+                            </div>
+                            <label className="flex items-center gap-2"><input type="checkbox" checked={data.auto_prepare} onChange={(e) => setData('auto_prepare', e.target.checked)} disabled={processing} />إعداد تلقائي للمراجعة</label>
+                            <p>الاعتماد النهائي: يدوي دائمًا. تستمر ضوابط الإغلاقات اليومية ومطابقة الأموال قبل الاعتماد.</p>
+                            <div className="rs-time-field"><label htmlFor="closing-setting-reason">سبب تغيير الإعدادات</label><textarea id="closing-setting-reason" value={data.reason} onChange={(e) => setData('reason', e.target.value)} maxLength={1000} disabled={processing} /><InputError message={errors.reason} /></div>
+                        </section>
+                        <section className="rs-panel">
                             <PanelTitle icon="clock">وقت القطع</PanelTitle>
                             <p>يُغلق يوم العمل عند هذه الساعة بتوقيت الشركة. الدفعات المسجّلة بعدها تُحسب لليوم التالي وتدخل في كشفه.</p>
                             <div className="rs-quick">
@@ -165,8 +191,8 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                         </section>
 
                         <section className="rs-panel">
-                            <PanelTitle icon="calendar">بداية الأسبوع</PanelTitle>
-                            <p>يبدأ الإغلاق الأسبوعي في هذا اليوم ويستمر سبعة أيام.</p>
+                            <PanelTitle icon="calendar">بداية أسبوع التقارير اليومية</PanelTitle>
+                            <p>يُستخدم لتجميع التقارير اليومية والشهرية. للفترة المالية الأسبوعية يوم قطع مستقل في الإعدادات أعلاه.</p>
                             <div className="rs-days" role="radiogroup" aria-label="بداية الأسبوع">
                                 {WEEK_DAYS.map((day) => (
                                     <label key={day.value} className={`rs-day ${data.week_starts_on === day.value ? 'is-selected' : ''}`}>
@@ -192,7 +218,7 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
 
                     <div className="rs-column">
                         <section className="rs-panel">
-                            <PanelTitle icon="eye">معاينة الأسبوع الحالي</PanelTitle>
+                            <PanelTitle icon="eye">معاينة أيام العمل الحالية</PanelTitle>
                             <p>
                                 من {weekDayName(week[0])} {shortDate(week[0])} إلى {weekDayName(week[6])} {shortDate(week[6])}
                                 {isDirty ? ' · حسب الإعدادات الجديدة' : ''}
@@ -220,7 +246,7 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                             <div className="rs-time-fields">
                                 <div className="rs-time-field">
                                     <label htmlFor="open-date">اليوم</label>
-                                    <input
+                                    <DatePicker
                                         id="open-date"
                                         type="date"
                                         max={latestDay}

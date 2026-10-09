@@ -26,7 +26,7 @@ const BUCKET_TONES = {
 /** Each age bucket's column title: short, so the table fits beside the menu; the page says they are days. */
 const BUCKET_COLUMNS = { current: 'حتى 30', days_60: '31–60', days_90: '61–90', older: 'فوق 90' };
 
-function Shekels({ amount, className = 'text-gray-900' }) {
+function Shekels({ amount, className = 'text-emerald-700 dark:text-emerald-400' }) {
     return (
         <span className={`whitespace-nowrap ${className}`}>
             <b className="font-display font-bold">{formatMoney(amount)}</b> <span className="text-xs font-normal text-gray-500">شيكل</span>

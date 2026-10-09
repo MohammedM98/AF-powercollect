@@ -1,3 +1,5 @@
+import DatePicker from '@/Components/DatePicker';
+import SelectInput from '@/Components/SelectInput';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
@@ -65,7 +67,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                         <Icon name="pin" />
                         <small>الفرع</small>
                         {branches.length > 1 ? (
-                            <select
+                            <SelectInput
                                 aria-label="الفرع"
                                 value={filters.branch ?? ''}
                                 onChange={(event) => visit({ branch: event.target.value, page: undefined })}
@@ -77,7 +79,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                                         {branch.label}
                                     </option>
                                 ))}
-                            </select>
+                            </SelectInput>
                         ) : (
                             <b style={{ fontFamily: 'inherit', fontWeight: 700 }}>{scopeLabel}</b>
                         )}
@@ -118,7 +120,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                     <label className="cb">
                         <Icon name="calendar" />
                         <small>من</small>
-                        <input
+                        <DatePicker
                             type="date"
                             value={filters.from}
                             max={filters.to}
@@ -128,7 +130,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                     </label>
                     <label className="cb">
                         <small>إلى</small>
-                        <input
+                        <DatePicker
                             type="date"
                             value={filters.to}
                             min={filters.from}

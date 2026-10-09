@@ -1,3 +1,4 @@
+import DatePicker from '@/Components/DatePicker';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useHttp, usePage } from '@inertiajs/react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
@@ -6,6 +7,7 @@ import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
+import { BALANCE_DARK } from '@/Components/FinancialBalance';
 import Switch from '@/Components/Switch';
 import { useResourceForm } from '@/hooks/useResourceForm';
 import { describeBalance, paymentInShekels } from '@/lib/accountStatement';
@@ -270,11 +272,11 @@ function PaymentSummary({ amount, inShekels, balance, methodText, collector }) {
             <dl className="relative grid gap-2.5 rounded-[18px] border border-white/10 bg-white/5 p-3.5 text-sm text-white/75">
                 <div className="flex items-baseline justify-between gap-3">
                     <dt>الرصيد الحالي</dt>
-                    <dd className="font-display text-[15px] font-semibold text-white">{balanceText(before)}</dd>
+                    <dd className={`max-w-[65%] text-end font-display text-base font-semibold ${BALANCE_DARK[before.tone]}`}>{balanceText(before)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-3">
                     <dt>هذه الدفعة</dt>
-                    <dd className="font-display text-[15px] font-semibold text-white" dir="ltr">
+                    <dd className="font-display text-base font-semibold text-emerald-300" dir="ltr">
                         +{formatMoney(inShekels ?? 0)} ₪
                     </dd>
                 </div>
@@ -282,7 +284,7 @@ function PaymentSummary({ amount, inShekels, balance, methodText, collector }) {
                 <div className="flex items-baseline justify-between gap-3">
                     <dt>الرصيد بعد الدفعة</dt>
                     <dd
-                        className={`font-display text-lg font-semibold ${after ? (after.tone === 'owes' ? 'text-red-300' : 'text-emerald-300') : 'text-white/50'}`}
+                        className={`max-w-[65%] text-end font-display text-lg font-semibold ${after ? BALANCE_DARK[after.tone] : 'text-white/50'}`}
                     >
                         {after ? balanceText(after) : '—'}
                     </dd>
@@ -438,6 +440,8 @@ export default function PaymentModal({
                   cash_box: '',
                   manual_voucher_number: '',
                   notes: '',
+                  actual_at: '',
+                  adjustment_reason: '',
               },
     );
     const { data, setData, errors } = form;
@@ -914,6 +918,8 @@ export default function PaymentModal({
 
                                 {correcting && <CorrectionReasonFields form={form} reasons={correctionReasons} />}
 
+                                {!correcting && <fieldset className="space-y-3"><legend className="text-sm font-semibold text-gray-700">إدخال دفعة متأخرة (اختياري)</legend><p className="text-xs text-gray-500">تدخل الدفعة في الأسبوع المفتوح حسب وقت التسجيل. يبقى تاريخ الحدث السابق ظاهرًا دون تغيير إغلاقه.</p><div><FieldLabel htmlFor="payment_actual_at">تاريخ ووقت التحصيل الحقيقي</FieldLabel><DatePicker id="payment_actual_at" type="datetime-local" value={data.actual_at} onChange={(e) => setData('actual_at', e.target.value)} className={inputClass} /><InputError message={errors.actual_at} /></div>{data.actual_at && <div><FieldLabel htmlFor="payment_late_reason">سبب التسجيل المتأخر</FieldLabel><textarea id="payment_late_reason" required maxLength={1000} value={data.adjustment_reason} onChange={(e) => setData('adjustment_reason', e.target.value)} className={inputClass} /><InputError message={errors.adjustment_reason} /></div>}</fieldset>}
+
                                 <div>
                                     <button
                                         type="button"
@@ -981,7 +987,7 @@ export default function PaymentModal({
                                     (overpayment === 'confirm' && !data.confirm_overpayment)
                                 }
                                 className={`ms-auto h-12 min-w-0 flex-1 rounded-[14px] px-5 text-[15.5px] font-bold sm:min-w-[230px] sm:flex-none ${
-                                    correcting ? '!bg-none !bg-amber-600 !shadow-[0_12px_26px_-12px_rgb(180_83_9)]' : ''
+                                    correcting ? '!bg-none !bg-amber-600 !shadow-none' : '!bg-emerald-700 hover:!bg-emerald-800'
                                 }`}
                             >
                                 <Icon name="check" className="h-[18px] w-[18px]" strokeWidth={2.2} />

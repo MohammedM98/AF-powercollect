@@ -1,5 +1,8 @@
+import DatePicker from '@/Components/DatePicker';
+import SelectInput from '@/Components/SelectInput';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
+import { FinancialLegend } from '@/Components/FinancialBalance';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Pagination from '@/Components/DataTable/Pagination';
 import Icon from '@/Components/Icon';
@@ -49,7 +52,7 @@ function DateRange({ period, range, today, onChange, errors }) {
             if (event.type === 'keydown' && event.key === 'Escape') {
                 setOpen(false);
                 trigger.current?.focus();
-            } else if (event.type === 'pointerdown' && !root.current?.contains(event.target)) {
+            } else if (event.type === 'pointerdown' && !root.current?.contains(event.target) && !event.target.closest?.('[data-field-popover]')) {
                 setOpen(false);
             }
         }
@@ -113,8 +116,8 @@ function DateRange({ period, range, today, onChange, errors }) {
                     <form id="ledger-date-range" className="rpop" onSubmit={apply}>
                         <h3>فترة مخصصة</h3>
                         <div className="two">
-                            <label htmlFor="ledger-from">من<input id="ledger-from" ref={firstInput} type="date" required value={from} onChange={(event) => setFrom(event.target.value)} /></label>
-                            <label htmlFor="ledger-to">إلى<input id="ledger-to" type="date" required min={from || undefined} value={to} onChange={(event) => setTo(event.target.value)} /></label>
+                            <label htmlFor="ledger-from">من<DatePicker id="ledger-from" ref={firstInput} type="date" required value={from} onChange={(event) => setFrom(event.target.value)} /></label>
+                            <label htmlFor="ledger-to">إلى<DatePicker id="ledger-to" type="date" required min={from || undefined} value={to} onChange={(event) => setTo(event.target.value)} /></label>
                         </div>
                         <div className="qk">
                             <button type="button" onClick={() => quickRange('7')}>آخر 7 أيام</button>
@@ -146,10 +149,10 @@ function SummaryCards({ totals, summary, side }) {
                 <b><Money amount={totals.charged} /></b>
                 <p>{formatNumber(totals.debitCount)} قيد تحميل · ضمن الفترة والفلاتر</p>
             </section>
-            <section className="k cr" aria-label="المحصّل">
-                <small><span className="dot bg-emerald-600 dark:bg-emerald-400" />المحصّل (له)</small>
+            <section className="k" aria-label="تخفيضات السجل">
+                <small>تخفيضات السجل (له)</small>
                 <b><Money amount={totals.credited} /></b>
-                <p>{formatNumber(totals.creditCount)} قيد · دفعات وخصم ومقاصة</p>
+                <p>{formatNumber(totals.creditCount)} قيد · دفعات وخصم ومقاصة، وليست كلها مقبوضات</p>
             </section>
             <section className="k" aria-label="الصافي">
                 <small>الصافي (عليه − له)</small>
@@ -198,12 +201,12 @@ function TransactionRow({ entry, grouped, onOpen, rowClick }) {
                     <small><bdi>{entry.subscriptionAccountNumber}</bdi> · {entry.branchName}</small>
                 </div></div>
             </td>
-            <td className="ty-c"><span className={`ty ${entry.isCancelled ? 'rv' : entry.isCredit ? 'cr' : 'dr'}`}>{entry.typeLabel}</span>{entry.isCancelled && entry.type !== 'reversal' && <div><span className="cxb">ملغاة</span></div>}</td>
+            <td className="ty-c"><span className={`ty ${entry.isCancelled ? 'rv' : entry.type === 'payment' ? 'cr' : 'rv'}`}>{entry.typeLabel}</span>{entry.isCancelled && entry.type !== 'reversal' && <div><span className="cxb">ملغاة</span></div>}</td>
             <td className="vch-c"><bdi className="vch">{entry.voucherNumber ?? '—'}</bdi>{entry.isManualVoucher && <span className="mb">يدوي</span>}</td>
             <td className="mth-c">{payment ? <div className="mth">{BANK_LOGOS[entry.bankName] ? <img src={BANK_LOGOS[entry.bankName]} alt="" /> : <span className="ci"><Icon name={entry.paymentMethod === 'cash' ? 'wallet' : 'bank'} /></span>}<span title={payment}>{payment}</span></div> : '—'}</td>
             <td className="ref" title={entry.referenceNumber ?? undefined}><bdi>{entry.referenceNumber ?? '—'}</bdi>{entry.splitPayment && <div><SplitPaymentBadge split={entry.splitPayment} /></div>}</td>
             <td className="by" title={entry.recordedByName ?? undefined}>{entry.recordedByName ?? '—'}</td>
-            <td className="am-c"><span className={`am ${entry.isCredit ? 'cr' : 'dr'}`}><Money amount={entry.amount} signed credit={entry.isCredit} />
+            <td className="am-c"><span className={`am ${entry.type === 'payment' && !entry.isCancelled ? 'cr' : 'dr'}`}><Money amount={entry.amount} signed credit={entry.isCredit} />
                 {entry.currency && entry.currency !== 'ILS' && <small><bdi dir="ltr">{formatMoney(entry.currencyAmount)} {entry.currency}{entry.exchangeRate && ` × ${formatMoney(entry.exchangeRate)}`}</bdi></small>}
             </span></td>
             <td className="bal-c"><span className="blc">{entry.balanceAfter === null ? '—' : <><Money amount={balance} balance /><i>{balance > 0 ? 'للشركة' : balance < 0 ? 'للمشترك' : 'مسدّد'}</i></>}</span></td>
@@ -258,6 +261,7 @@ export default function Index({ entries, period, side, summary, ledgerTotals, da
                 <DateRange period={period} range={dateRange} today={today} onChange={changePeriod} errors={errors} />
                 {!errors.from && !errors.to ? null : <p role="alert" className="err">{errors.from || errors.to}</p>}
                 <SummaryCards totals={ledgerTotals} summary={summary} side={side} />
+                <div className="mt-6"><FinancialLegend /></div>
                 <section className="pn" aria-label="القيود المالية">
                     <div className="tb">
                         <div className="srch">
@@ -269,7 +273,7 @@ export default function Index({ entries, period, side, summary, ledgerTotals, da
                         <button type="button" className="btn fbtn" onClick={() => setFiltersOpen(!filtersOpen)} aria-expanded={filtersOpen} aria-controls="ledger-filters"><Icon name="filter" />الفلاتر{activeFilters > 0 && <span className="num">{activeFilters}</span>}</button>
                     </div>
                     <div className={`fb ${filtersOpen ? 'open' : ''}`} id="ledger-filters">
-                        {filterOptions.map((group) => <div className="sel" key={group.key}><select className={filterValues[group.key] ? 'on' : ''} aria-label={group.label} value={filterValues[group.key] ?? ''} onChange={(event) => setFilter(group.key, event.target.value)}><option value="">{group.label}: الكل</option>{group.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>)}
+                        {filterOptions.map((group) => <div className="sel" key={group.key}><SelectInput className={filterValues[group.key] ? 'on' : ''} aria-label={group.label} value={filterValues[group.key] ?? ''} onChange={(event) => setFilter(group.key, event.target.value)}><option value="">{group.label}: الكل</option>{group.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</SelectInput></div>)}
                         <label className="tg"><input type="checkbox" checked={filterValues.show_cancelled !== '0'} onChange={(event) => setFilter('show_cancelled', event.target.checked ? '' : '0')} />إظهار الملغاة</label>
                         {activeFilters > 0 && <button type="button" className="clr" onClick={clearFilters}>مسح الفلاتر</button>}
                     </div>
@@ -279,11 +283,11 @@ export default function Index({ entries, period, side, summary, ledgerTotals, da
                     </table>
                     <div className="foot data-table-totals">
                         <div>إجمالي التحميل<b><Money amount={ledgerTotals.charged} /></b></div>
-                        <div>المحصّل<b className="g"><Money amount={ledgerTotals.credited} /></b></div>
+                        <div>تخفيضات السجل<b><Money amount={ledgerTotals.credited} /></b></div>
                         <div>الصافي<b><Money amount={ledgerTotals.net} balance /> <span>{ledgerTotals.net > 0 ? 'للشركة' : ledgerTotals.net < 0 ? 'للمشترك' : 'مسدّد'}</span></b></div>
                         <span className="r">{formatNumber(entries.total)} قيد مطابق · الملغاة خارج المجاميع</span>
                     </div>
-                    <div className="ledger-pagination"><label className="sel"><span className="sr-only">عدد القيود في الصفحة</span><select aria-label="عدد القيود في الصفحة" value={filters.per_page} onChange={(event) => setPerPage(event.target.value)}>{[15, 25, 50, 100].map((count) => <option key={count} value={count}>{count} قيد / صفحة</option>)}</select></label><Pagination meta={entries} filters={filters} baseUrl="/ledger" extraParams={extraParams} /></div>
+                    <div className="ledger-pagination"><label className="sel"><span className="sr-only">عدد القيود في الصفحة</span><SelectInput aria-label="عدد القيود في الصفحة" value={filters.per_page} onChange={(event) => setPerPage(event.target.value)}>{[15, 25, 50, 100].map((count) => <option key={count} value={count}>{count} قيد / صفحة</option>)}</SelectInput></label><Pagination meta={entries} filters={filters} baseUrl="/ledger" extraParams={extraParams} /></div>
                 </section>
             </div>
             {statementWindow.subscription && <StatementModal key={statementWindow.subscription.id} subscription={statementWindow.subscription} statement={statementWindow.statement} initialForm={statementWindow.form} onSwitch={(header) => statementWindow.open(header)} onClose={statementWindow.close} />}

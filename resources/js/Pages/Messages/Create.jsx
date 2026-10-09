@@ -1,3 +1,4 @@
+import SelectInput from '@/Components/SelectInput';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -291,7 +292,7 @@ export default function Create({
                             {kind === 'weekly_reading' && (
                                 <>
                                     <Field label="أسبوع القراءة" htmlFor="week_start">
-                                        <select
+                                        <SelectInput
                                             id="week_start"
                                             value={criteria.week_start}
                                             onChange={(e) => setCriterion('week_start', e.target.value)}
@@ -302,7 +303,7 @@ export default function Create({
                                                     {option.label}
                                                 </option>
                                             ))}
-                                        </select>
+                                        </SelectInput>
                                     </Field>
                                     <div className="flex items-end pb-2">
                                         <Switch
@@ -331,7 +332,7 @@ export default function Create({
                             )}
 
                             <Field label="حالة المشترك" htmlFor="status">
-                                <select
+                                <SelectInput
                                     id="status"
                                     value={criteria.status}
                                     onChange={(e) => setCriterion('status', e.target.value)}
@@ -343,12 +344,12 @@ export default function Create({
                                             {option.label}
                                         </option>
                                     ))}
-                                </select>
+                                </SelectInput>
                             </Field>
 
                             {branchOptions.length > 0 && (
                                 <Field label="الفرع" htmlFor="branch_id">
-                                    <select
+                                    <SelectInput
                                         id="branch_id"
                                         value={criteria.branch_id}
                                         onChange={(e) =>
@@ -362,12 +363,12 @@ export default function Create({
                                                 {option.label}
                                             </option>
                                         ))}
-                                    </select>
+                                    </SelectInput>
                                 </Field>
                             )}
 
                             <Field label="الطبلون" htmlFor="meter_box_name">
-                                <select
+                                <SelectInput
                                     id="meter_box_name"
                                     value={criteria.meter_box_name}
                                     onChange={(e) => setCriteria((current) => ({ ...current, meter_box_name: e.target.value, meter_box_id: '' }))}
@@ -379,12 +380,12 @@ export default function Create({
                                             {option.label}
                                         </option>
                                     ))}
-                                </select>
+                                </SelectInput>
                             </Field>
 
                             {criteria.meter_box_name !== '' && (
                                 <Field label="رقم الطبلون" htmlFor="meter_box_id">
-                                    <select
+                                    <SelectInput
                                         id="meter_box_id"
                                         value={criteria.meter_box_id}
                                         onChange={(e) => setCriterion('meter_box_id', e.target.value)}
@@ -396,12 +397,12 @@ export default function Create({
                                                 {option.label}
                                             </option>
                                         ))}
-                                    </select>
+                                    </SelectInput>
                                 </Field>
                             )}
 
                             <Field label="القاطع" htmlFor="circuit_breaker_id">
-                                <select
+                                <SelectInput
                                     id="circuit_breaker_id"
                                     value={criteria.circuit_breaker_id}
                                     onChange={(e) => setCriterion('circuit_breaker_id', e.target.value)}
@@ -413,7 +414,7 @@ export default function Create({
                                             {option.label}
                                         </option>
                                     ))}
-                                </select>
+                                </SelectInput>
                             </Field>
 
                             <Field label="بحث" htmlFor="search">
@@ -456,14 +457,14 @@ export default function Create({
                     >
                         <div className="mb-4 flex flex-wrap items-end gap-3">
                             <Field label="القالب" htmlFor="template" className="min-w-[200px] flex-1">
-                                <select id="template" value={templateId} onChange={(e) => pickTemplate(e.target.value)} className="block w-full text-sm">
+                                <SelectInput id="template" value={templateId} onChange={(e) => pickTemplate(e.target.value)} className="block w-full text-sm">
                                     <option value="">— بدون قالب —</option>
                                     {kindTemplates.map((template) => (
                                         <option key={template.id} value={template.id}>
                                             {template.name}
                                         </option>
                                     ))}
-                                </select>
+                                </SelectInput>
                             </Field>
                             {selectedTemplate && selectedTemplate.body !== body && (
                                 <SecondaryButton onClick={updateTemplate}>

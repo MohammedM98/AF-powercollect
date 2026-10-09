@@ -9,6 +9,7 @@ import EditTransactionAmountModal from './EditTransactionAmountModal';
 import ForceDeleteTransactionModal from './ForceDeleteTransactionModal';
 import DiscountModal from './DiscountModal';
 import PaymentModal from './PaymentModal';
+import ClosingAdjustmentModal from './ClosingAdjustmentModal';
 
 const ACTION_ICON_TONES = {
     payment: 'text-emerald-600 group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
@@ -133,6 +134,7 @@ export function StatementForms({ statement, openForm, onClose, onOpen = null }) 
 
     return (
         <>
+            {['correction', 'reverse'].includes(openForm?.action) && <ClosingAdjustmentModal key={`closing-adjustment-${openForm.entry.id}`} onClose={onClose} subscription={subscription} entry={openForm.entry} action={openForm.action} />}
             {amending && (
                 <AmendTransactionModal
                     key={`amend-${amending.id}`}

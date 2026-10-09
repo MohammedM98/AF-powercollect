@@ -1,3 +1,4 @@
+import SelectInput from '@/Components/SelectInput';
 import { useForm } from '@inertiajs/react';
 import FormModal from '@/Components/FormModal';
 import Icon from '@/Components/Icon';
@@ -67,7 +68,7 @@ export default function AmendTransactionModal({ onClose, subscription, balance, 
                 <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                         <InputLabel htmlFor="amend_bank_name" value="البنك المحوّل له" />
-                        <select
+                        <SelectInput
                             id="amend_bank_name"
                             name="bank_name"
                             required
@@ -81,13 +82,13 @@ export default function AmendTransactionModal({ onClose, subscription, balance, 
                                     {bank}
                                 </option>
                             ))}
-                        </select>
+                        </SelectInput>
                         <InputError message={form.errors.bank_name} className="mt-2" />
                     </div>
 
                     <div>
                         <InputLabel htmlFor="amend_sender_bank_name" value="البنك المحوّل منه" />
-                        <select
+                        <SelectInput
                             id="amend_sender_bank_name"
                             name="sender_bank_name"
                             className={inputClass}
@@ -100,7 +101,7 @@ export default function AmendTransactionModal({ onClose, subscription, balance, 
                                     {bank}
                                 </option>
                             ))}
-                        </select>
+                        </SelectInput>
                         <InputError message={form.errors.sender_bank_name} className="mt-2" />
                     </div>
 

@@ -1,5 +1,5 @@
 /**
- * The main action on a screen (one per screen): burgundy gradient with a soft glow.
+ * The main action on a screen, using the brand color and a clear focus outline.
  */
 export default function PrimaryButton({ className = '', disabled, children, ...props }) {
     return (
@@ -7,8 +7,8 @@ export default function PrimaryButton({ className = '', disabled, children, ...p
             {...props}
             disabled={disabled}
             className={
-                'inline-flex items-center justify-center gap-2 rounded-control bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-glow transition ' +
-                'hover:brightness-110 active:translate-y-px focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 ' +
+                'inline-flex min-h-11 items-center justify-center gap-2 rounded-control bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors ' +
+                'hover:bg-brand-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 ' +
                 'disabled:cursor-not-allowed disabled:opacity-40 ' +
                 className
             }

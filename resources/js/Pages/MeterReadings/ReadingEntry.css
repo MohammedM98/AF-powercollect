@@ -56,6 +56,11 @@
 .re-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .re-legend i { border-radius: 3px; }
 .re-card { border: 1px solid var(--re-line2); background: var(--re-surface); box-shadow: var(--re-shadow); border-radius: 22px; }
+.re-sticky-tools { position: sticky; top: 72px; z-index: 20; max-height: 50dvh; overflow-y: auto; background: var(--re-surface); border-bottom: 1px solid var(--re-line); border-radius: 20px 20px 0 0; box-shadow: 0 8px 16px -16px var(--re-ink); }
+.re-week .select-input.re-week-select { padding: 0; background: transparent; }
+.re-week .select-input.re-week-select > button { display: flex; width: auto; height: 34px; min-height: 34px; border: 0; font-size: 14px; }
+.re-sort .select-input > button { min-height: 36px; font-size: 14px; }
+@media print { .re-sticky-tools { position: static; max-height: none; overflow: visible; box-shadow: none; } }
 .re-sort { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 16px 0; color: var(--re-faint); font-size: 13px; }
 .re-sort select, .re-sort button { border: 1px solid var(--re-line); border-radius: 10px; background: var(--re-surface); color: var(--re-ink2); font-size: 13px; }
 .reading-entry .data-table-toolbar { padding: 14px 16px; border: 0; border-bottom: 1px solid var(--re-line2); border-radius: 0; background: transparent; }
@@ -123,6 +128,7 @@
     .re-heading h1 { font-size: 30px; }
     .re-actions { width: 100%; }
     .re-actions .re-week, .re-actions .re-open { flex: 1 1 auto; justify-content: space-between; }
+    .re-actions .re-week { min-width: 0; max-width: 100%; height: auto; flex-wrap: wrap; gap: 4px; padding: 4px; }
     .re-top { flex-direction: column; align-items: stretch; }
     .re-top > * { min-width: 0; max-width: 100%; }
     .re-progress { min-width: 0; }

@@ -54,11 +54,11 @@ export default {
                 control: '12px',
                 row: '18px',
                 card: '24px',
-                panel: '28px',
+                panel: '20px',
                 hero: '32px',
             },
             boxShadow: {
-                card: '0 1px 2px rgb(16 24 40 / 0.04), 0 14px 34px -18px rgb(16 24 40 / 0.18)',
+                card: '0 1px 3px rgb(16 24 40 / 0.05)',
                 lift: '0 2px 6px rgb(16 24 40 / 0.06), 0 24px 44px -20px rgb(16 24 40 / 0.32)',
                 glow: '0 10px 24px -12px rgb(165 29 38 / 0.9)',
             },

@@ -3,11 +3,15 @@ import Icon from '@/Components/Icon';
 import { weekDayName } from '@/lib/weekDays';
 import { addDays, closingMoney, monthName, shortDate, statusClass } from '@/lib/closing';
 import BranchPicker from './BranchPicker';
+import { useState } from 'react';
+import ConfirmDialog from '@/Components/ConfirmDialog';
+import WeeklyFinancialReport from './WeeklyFinancialReport';
+import { SendAuditButton } from '@/Pages/FinancialAudit/Shared';
 
 const CELL_ICONS = { approved: 'check', submitted: 'send', returned: 'undo', draft: 'note', missing: 'alert' };
 const CELL_LABELS = {
     approved: 'معتمد',
-    submitted: 'مرسل للتدقيق',
+    submitted: 'بانتظار اعتماد الفرع',
     returned: 'معاد للتصحيح',
     draft: 'مسودة',
     missing: 'فيه دفعات ولم يُفتح كشفه',
@@ -22,12 +26,19 @@ const CELL_LABELS = {
  * approval. The same payments appear at each level; the totals are never
  * added on top of each other.
  */
-export default function PeriodClosings({ view, branches, branchId, date, onChange, onOpenDay }) {
+export default function PeriodClosings({ view, branches, branchId, date, onChange, onOpenDay, canSendToAudit }) {
     const { errors } = usePage().props;
     const weekly = view.period === 'weekly';
+    const [confirmingClose, setConfirmingClose] = useState(false);
+    const [closing, setClosing] = useState(false);
 
     function approve() {
-        router.post('/period-closings', { period: view.period, date: view.first }, { preserveScroll: true });
+        setConfirmingClose(true);
+    }
+
+    function closePeriod() {
+        setConfirmingClose(false);
+        router.post('/period-closings', { period: view.period, date: view.first }, { preserveScroll: true, onStart: () => setClosing(true), onFinish: () => setClosing(false) });
     }
 
     return (
@@ -80,7 +91,17 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                 <BranchPicker branches={branches} branchId={branchId} onChange={(branch) => onChange({ branch })} />
             </div>
 
-            <div className="kp">
+            {canSendToAudit && <section className="pn">
+                <h3>كشف الفرع للتدقيق المالي</h3>
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-5">
+                    <p className="text-base text-gray-700">الفرع المختار: <strong>{branches.find((branch) => branch.value === branchId)?.label ?? '—'}</strong></p>
+                    <SendAuditButton key={`${branchId}-${view.period}-${date}`} branchId={branchId} type={view.period} date={date} label="إرسال كشف الفرع لهذه الفترة" />
+                </div>
+                <p className="s">يُرسل كشف مستقل للفرع المختار بعد اعتماد إقفالات أيامه. الكشف الأسبوعي يستخدم لقطة الفترة الأسبوعية المقفلة.</p>
+            </section>}
+
+            {weekly && view.financialReport && <WeeklyFinancialReport key={`${view.closingPeriodId}-overview`} view={view} section="overview" />}
+            {!weekly && <div className="kp">
                 <div>
                     <small>{view.ended ? 'التحصيل' : 'التحصيل حتى الآن'}</small>
                     <b>{closingMoney(view.collected)} ₪</b>
@@ -108,7 +129,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                     <b>{closingMoney(view.inTransit)} ₪</b>
                     <span>{view.inTransitCount === 0 ? 'لا يوجد' : `${view.inTransitCount} تسليم`}</span>
                 </div>
-            </div>
+            </div>}
 
             <div className="g2">
                 <div>
@@ -137,7 +158,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                         )}
                     </section>
 
-                    <section className="pn">
+                    {!weekly && <section className="pn">
                         <h3>
                             <span className="ix">
                                 <Icon name="layers" />
@@ -177,7 +198,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                             <Icon name="info" />
                             <span>الأسبوع الممتد بين شهرين لا يُضاف كاملًا: يأخذ إغلاق كل شهر الحركات الواقعة داخله فقط.</span>
                         </div>
-                    </section>
+                    </section>}
                 </div>
 
                 <div>
@@ -239,7 +260,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                             </div>
                         ) : (
                             <div style={{ marginTop: 14 }}>
-                                <button type="button" className="btn ok2" disabled={!view.canApprove} onClick={approve}>
+                                <button type="button" className="btn ok2" disabled={!view.canApprove || closing} onClick={approve}>
                                     <Icon name="check" />
                                     {weekly ? 'اعتماد الإغلاق الأسبوعي' : 'اعتماد الإغلاق الشهري'}
                                 </button>
@@ -253,6 +274,10 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                     </section>
                 </div>
             </div>
+            {weekly && view.financialReport && <WeeklyFinancialReport key={`${view.closingPeriodId}-details`} view={view} section="details" />}
+            <ConfirmDialog show={confirmingClose} onCancel={() => setConfirmingClose(false)} onConfirm={closePeriod} title={weekly ? 'إغلاق الأسبوع نهائيًا؟' : 'اعتماد الشهر؟'}
+                message={weekly ? `التحصيل الفعلي ${closingMoney(view.collected)} ₪ · ${view.financialReport?.paymentCount ?? 0} دفعات. سيُحفظ كشف مالي ثابت. الأخطاء اللاحقة تُصحّح بحركات جديدة في أسبوع مفتوح دون تغيير هذا الكشف.` : `اعتماد الفترة ${view.number} بإجمالي ${closingMoney(view.collected)} ₪.`}
+                confirmLabel="اعتماد الإغلاق" cancelLabel="مراجعة الكشف" icon="lock" />
         </>
     );
 }

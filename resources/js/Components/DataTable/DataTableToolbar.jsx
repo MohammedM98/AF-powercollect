@@ -48,9 +48,9 @@ export default function DataTableToolbar({
     }, [showSearch]);
 
     return (
-        <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
+        <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-5">
             {showSearch ? (
-                <div className="relative w-full sm:max-w-sm">
+                <div className="relative w-full sm:min-w-[280px] sm:flex-1 sm:basis-80">
                     <Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" />
                     <input
                         ref={searchRef}
@@ -64,7 +64,7 @@ export default function DataTableToolbar({
                             }
                         }}
                         placeholder={placeholder}
-                        className="block w-full py-2.5 pe-10 ps-10 text-sm"
+                        className="block min-h-12 w-full py-3 pe-10 ps-10 text-base"
                     />
                     <span className="kbd pointer-events-none absolute inset-y-0 end-3 my-auto h-fit">/</span>
                 </div>

@@ -625,7 +625,7 @@
     border: 1px solid var(--cl-line2);
     border-radius: 22px;
     box-shadow: var(--cl-shadow);
-    padding: 16px 18px;
+    padding: 24px;
 }
 .closing-page .pn h3 {
     margin: 0;
@@ -651,27 +651,30 @@
 }
 .closing-page .pn h3 .r {
     margin-inline-start: auto;
-    font: 600 12.5px 'IBM Plex Sans Arabic';
+    font: 600 14px/1.7 'IBM Plex Sans Arabic';
     color: var(--cl-faint);
 }
 .closing-page .pn > p.s {
-    margin: 3px 0 0;
-    font-size: 13px;
+    margin: 12px 0 0;
+    font-size: 15px;
+    line-height: 1.9;
     color: var(--cl-faint);
 }
 .closing-page .pt {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 10px;
-    font-size: 14px;
+    margin-top: 20px;
+    font-size: 16px;
+    line-height: 1.8;
 }
 .closing-page .pt th {
     position: static;
     text-align: start;
-    font-size: 12.5px;
+    font-size: 14px;
     color: var(--cl-faint);
     font-weight: 600;
-    padding: 8px 8px;
+    padding: 14px;
+    background: var(--cl-raised);
     border-bottom: 1px solid var(--cl-line2);
     white-space: nowrap;
 }
@@ -680,7 +683,7 @@
     border: 0;
     border-bottom: 1px solid var(--cl-line2);
     border-radius: 0 !important;
-    padding: 10px 8px;
+    padding: 18px 14px;
     width: auto !important;
     white-space: nowrap;
     vertical-align: middle;
@@ -703,24 +706,26 @@
 }
 .closing-page .pid b {
     display: block;
-    font: 600 13.5px Alexandria;
+    font: 600 15px Alexandria;
     direction: ltr;
     text-align: right;
 }
 .closing-page .pid small {
     display: block;
-    font: 500 11.5px Alexandria;
+    margin-top: 6px;
+    font: 500 13px/1.8 Alexandria;
     color: var(--cl-faint);
     direction: ltr;
     text-align: right;
 }
 .closing-page .psub b {
     display: block;
-    font-size: 14px;
+    font-size: 16px;
 }
 .closing-page .psub small {
     display: block;
-    font-size: 12px;
+    margin-top: 6px;
+    font-size: 14px;
     color: var(--cl-faint);
 }
 .closing-page .pacc {
@@ -1455,20 +1460,21 @@
 }
 .closing-page .kp {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 12px;
-    margin-top: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 20px;
+    margin-top: 24px;
 }
 .closing-page .kp div {
     background: var(--cl-surface);
     border: 1px solid var(--cl-line2);
     border-radius: 18px;
-    padding: 12px 14px;
+    padding: 20px;
     box-shadow: var(--cl-shadow);
 }
 .closing-page .kp small {
     display: block;
-    font-size: 12.5px;
+    font-size: 14px;
+    line-height: 1.8;
     color: var(--cl-faint);
     font-weight: 600;
 }
@@ -1480,7 +1486,10 @@
     text-align: right;
 }
 .closing-page .kp span {
-    font-size: 12px;
+    display: block;
+    margin-top: 10px;
+    font-size: 14px;
+    line-height: 1.8;
     color: var(--cl-faint);
 }
 .closing-page .kp .w b {
@@ -1493,15 +1502,18 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 13.5px;
-    margin-top: 10px;
+    min-width: 760px;
+    font-size: 16px;
+    line-height: 1.8;
+    margin-top: 20px;
 }
 .closing-page .mx th {
     position: static;
-    font-size: 12.5px;
+    font-size: 14px;
     color: var(--cl-faint);
     font-weight: 600;
-    padding: 8px 6px;
+    padding: 16px 14px;
+    background: var(--cl-raised);
     text-align: center;
     border-bottom: 1px solid var(--cl-line2);
     white-space: nowrap;
@@ -1511,7 +1523,8 @@
 }
 .closing-page .mx th small {
     display: block;
-    font: 500 11.5px Alexandria;
+    margin-top: 6px;
+    font: 500 13px Alexandria;
 }
 .closing-page .mx th.today {
     color: var(--cl-brand);
@@ -1521,7 +1534,7 @@
     border: 0;
     border-bottom: 1px solid var(--cl-line2);
     border-radius: 0 !important;
-    padding: 7px 6px;
+    padding: 18px 14px;
     text-align: center;
     width: auto !important;
     white-space: nowrap;
@@ -1550,8 +1563,8 @@
     font-family: 'IBM Plex Sans Arabic';
 }
 .closing-page .cell {
-    width: 30px;
-    height: 30px;
+    width: 44px;
+    height: 44px;
     border-radius: 9px;
     display: inline-grid;
     place-items: center;
@@ -1600,6 +1613,33 @@
 }
 .closing-page .mx .tv.w {
     color: var(--cl-warn);
+}
+.closing-page .mx.financial-movements {
+    min-width: 1080px;
+}
+.closing-page .financial-movements th,
+.closing-page .financial-movements td {
+    text-align: start;
+    vertical-align: top;
+    white-space: normal;
+}
+.closing-page .financial-movements td:first-child {
+    min-width: 230px;
+}
+.closing-page .financial-movements td:last-child {
+    min-width: 250px;
+    overflow-wrap: anywhere;
+}
+.closing-page .movement-detail {
+    display: block;
+    margin-top: 10px;
+    font-size: 14px;
+    line-height: 1.9;
+    color: var(--cl-muted);
+}
+.closing-page .financial-movements bdi {
+    white-space: nowrap;
+    font-family: Alexandria, sans-serif;
 }
 .closing-page .lgd {
     display: flex;
@@ -1898,8 +1938,8 @@
     .closing-page .pt tbody tr {
         display: grid;
         grid-template-columns: 1fr auto;
-        gap: 4px 10px;
-        padding: 10px 2px;
+        gap: 16px;
+        padding: 24px 0;
         border-bottom: 1px solid var(--cl-line2);
     }
     .closing-page .pt td {
@@ -1919,14 +1959,31 @@
         grid-column: 1;
     }
     .closing-page .pt td.c-mt {
-        grid-column: 2;
-        grid-row: 2;
-        text-align: end;
+        grid-column: 1 / -1;
+        text-align: start;
     }
     .closing-page .pt td.c-id,
     .closing-page .pt td.c-by,
     .closing-page .pt td.c-ref {
-        display: none !important;
+        display: block !important;
+        grid-column: 1 / -1;
+    }
+    .closing-page .pt td.c-id::before,
+    .closing-page .pt td.c-by::before,
+    .closing-page .pt td.c-ref::before {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+        color: var(--cl-muted);
+    }
+    .closing-page .pt td.c-id::before {
+        content: 'رقم الحركة والوصل';
+    }
+    .closing-page .pt td.c-by::before {
+        content: 'الموظف ووقت التسجيل';
+    }
+    .closing-page .pt td.c-ref::before {
+        content: 'مرجع الدفعة';
     }
     .closing-page .pt tfoot tr {
         display: flex;
@@ -1970,7 +2027,7 @@
     }
     .closing-page .mx {
         display: table !important;
-        min-width: 620px;
+        min-width: 760px;
     }
     .closing-page .mx thead {
         display: table-header-group !important;
@@ -1993,7 +2050,7 @@
     .closing-page .mx td,
     .closing-page .mx th {
         display: table-cell !important;
-        padding: 7px 5px !important;
+        padding: 16px 14px !important;
         border-bottom: 1px solid var(--cl-line2) !important;
     }
     .closing-page .mx tfoot td {
@@ -2008,6 +2065,10 @@
         background: var(--cl-surface) !important;
         padding-inline-end: 10px !important;
     }
+    .closing-page .financial-movements td:first-child,
+    .closing-page .financial-movements th:first-child {
+        position: static;
+    }
     .closing-page .pn h3 {
         flex-wrap: wrap;
         row-gap: 2px;
@@ -2019,6 +2080,9 @@
     }
 }
 @container closing (max-width: 480px) {
+    .closing-page .kp {
+        grid-template-columns: 1fr;
+    }
     .closing-page .tabs {
         width: 100%;
     }

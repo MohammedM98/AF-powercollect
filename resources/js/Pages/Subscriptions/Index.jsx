@@ -23,7 +23,6 @@ import SubscriptionModal from './SubscriptionModal';
 import PersonalDetailsModal from './PersonalDetailsModal';
 import BulkActionBar from './BulkActionBar';
 import BulkChangeModal from './BulkChangeModal';
-import PhoneQuickEdit from './PhoneQuickEdit';
 import Icon from '@/Components/Icon';
 import SubscriptionDetailsModal from './SubscriptionDetailsModal';
 import ReadingHistoryModal from './ReadingHistoryModal';
@@ -397,7 +396,6 @@ export default function Index({
                                     <td>
                                         <RowIdentity
                                             name={subscription.display_name}
-                                            subtitle={<PhoneQuickEdit subscription={subscription} />}
                                             status={STATUS_TONES[subscription.status]}
                                         />
                                         {subscription.subscriptionCount > 1 && (

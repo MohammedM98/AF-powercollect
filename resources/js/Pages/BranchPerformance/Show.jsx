@@ -294,14 +294,18 @@ export default function Show({ branch, canCompareBranches, dailyRegistrations, d
                     label="المحصَّل هذا الشهر"
                     value={formatMoney(branch.monthCollected)}
                     unit="شيكل"
-                    hint={`من ${formatMoney(branch.monthCharged)} شيكل مُحمَّل هذا الشهر`}
+                    hint={`من ${formatMoney(branch.monthCollectable)} شيكل قابل للتحصيل`}
                     valueClassName="text-emerald-700 dark:text-emerald-400"
                 />
                 <KpiTile
                     icon="percent"
                     label="نسبة التحصيل"
                     value={branch.collectionRate === null ? '—' : `${branch.collectionRate}%`}
-                    hint={branch.collectionRate === null ? 'لا تحميلات هذا الشهر بعد' : 'المحصَّل ÷ المُحمَّل هذا الشهر'}
+                    hint={
+                        branch.collectionRate === null
+                            ? 'لا ديون ولا تحميلات بعد'
+                            : `المحصَّل ÷ (دين أول الشهر ${formatMoney(branch.openingDebt)} + المُحمَّل ${formatMoney(branch.monthCharged)})`
+                    }
                 />
                 <KpiTile
                     icon="wallet"

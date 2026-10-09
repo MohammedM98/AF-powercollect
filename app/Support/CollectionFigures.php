@@ -55,9 +55,51 @@ class CollectionFigures
      */
     public static function outstanding(?array $branchIds = null): array
     {
+        return self::owed($branchIds);
+    }
+
+    /**
+     * What each branch's subscriptions owed it when the business day began:
+     * the debt brought forward, counted the way the reports' opening balance
+     * is (every line recorded before the day's start, cancelled or not, since
+     * a cancellation's reversal takes its amount back when it is recorded).
+     * A subscription in credit, or settled, owed nothing.
+     *
+     * @param  array<int, int>|null  $branchIds  null for every branch
+     * @return array<int, float> branch id => shekels
+     */
+    public static function openingDebt(CarbonInterface|string $firstDay, ?array $branchIds = null): array
+    {
+        [$start] = ClosingPeriods::utcRange($firstDay, $firstDay);
+
+        return array_map(fn (array $figures): float => $figures['amount'], self::owed($branchIds, $start));
+    }
+
+    /**
+     * The share of what could be collected that was: what was collected over
+     * the debt brought forward plus what was charged in the period, as a whole
+     * percentage, or null when there was nothing to collect. Counting the debt
+     * brought forward keeps it a share — payments of older debt no longer push
+     * it past 100 — and lets branches be compared fairly.
+     */
+    public static function rate(float $collected, float $collectable): ?int
+    {
+        return $collectable > 0 ? (int) round($collected / $collectable * 100) : null;
+    }
+
+    /**
+     * The balances above zero, summed per branch with how many subscriptions
+     * owe: as they are now, or as they stood before `$before`.
+     *
+     * @param  array<int, int>|null  $branchIds
+     * @return array<int, array{amount: float, debtors: int}>
+     */
+    private static function owed(?array $branchIds, ?CarbonInterface $before = null): array
+    {
         $balances = DB::table('subscription_transactions')
             ->select('subscription_id')
             ->selectRaw('sum(amount) as balance')
+            ->when($before !== null, fn ($query) => $query->where('created_at', '<', $before))
             ->groupBy('subscription_id')
             ->havingRaw('sum(amount) > 0.004');
 
@@ -73,16 +115,6 @@ class CollectionFigures
                 'debtors' => (int) $row->debtors,
             ]])
             ->all();
-    }
-
-    /**
-     * The share of what was charged that was collected, as a whole
-     * percentage, or null when nothing was charged. It can pass 100 when
-     * the period's payments also settle older debts.
-     */
-    public static function rate(float $collected, float $charged): ?int
-    {
-        return $charged > 0 ? (int) round($collected / $charged * 100) : null;
     }
 
     /**

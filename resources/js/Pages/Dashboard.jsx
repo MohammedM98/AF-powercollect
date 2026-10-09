@@ -85,11 +85,12 @@ function buildSubtitle(sections, scopedToBranch) {
 
 /**
  * What the user's branch took in: today's collection as the figure the page
- * leads with, then the week, the month and how much of what was charged
- * this month came in.
+ * leads with, then the week, the month and how much of what could be
+ * collected this month — the debt brought forward and this month's charges —
+ * came in.
  */
 function CollectionHero({ money }) {
-    const { collected, charged, collectionRate } = money;
+    const { collected, charged, openingDebt, collectionRate } = money;
 
     return (
         <div className="rise-in relative overflow-hidden rounded-hero bg-graphite-gradient px-6 py-8 text-white shadow-lift sm:px-8 sm:py-9">
@@ -113,13 +114,13 @@ function CollectionHero({ money }) {
                     <div className="max-w-[12rem]">
                         <p className="text-sm font-semibold text-white">نسبة التحصيل</p>
                         <p className="mt-1 text-xs leading-6 text-white/60">
-                            {collectionRate !== null ? 'المحصَّل ÷ المُحمَّل هذا الشهر' : 'لا تحميلات هذا الشهر بعد'}
+                            {collectionRate !== null ? 'المحصَّل ÷ (دين أول الشهر + المُحمَّل)' : 'لا ديون ولا تحميلات بعد'}
                         </p>
                     </div>
                 </div>
             </div>
             <div className="brand-spectrum relative mt-7 w-40" />
-            <dl className="relative mt-5 grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
+            <dl className="relative mt-5 grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-4">
                 <div>
                     <dt className="text-xs text-white/60">هذا الأسبوع</dt>
                     <dd className="mt-1 font-display text-lg font-bold">{formatMoney(collected.week)} ₪</dd>
@@ -128,7 +129,11 @@ function CollectionHero({ money }) {
                     <dt className="text-xs text-white/60">هذا الشهر</dt>
                     <dd className="mt-1 font-display text-lg font-bold">{formatMoney(collected.month)} ₪</dd>
                 </div>
-                <div className="col-span-2 sm:col-span-1">
+                <div>
+                    <dt className="text-xs text-white/60">دين أول الشهر</dt>
+                    <dd className="mt-1 font-display text-lg font-bold">{formatMoney(openingDebt)} ₪</dd>
+                </div>
+                <div>
                     <dt className="text-xs text-white/60">المُحمَّل هذا الشهر</dt>
                     <dd className="mt-1 font-display text-lg font-bold">{formatMoney(charged.month)} ₪</dd>
                 </div>

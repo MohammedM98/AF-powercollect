@@ -39,7 +39,8 @@ class DashboardMoneyTest extends TestCase
         $this->actingAs($this->branchAdmin())->get(route('dashboard'))->assertInertia(fn ($page) => $page
             ->where('money.collected', ['today' => 80, 'week' => 80, 'month' => 100])
             ->where('money.charged', ['month' => 200])
-            ->where('money.collectionRate', 50)
+            ->where('money.openingDebt', 140)
+            ->where('money.collectionRate', 29)
             ->where('money.outstanding', [
                 'total' => 240,
                 'debtors' => 3,
@@ -99,12 +100,55 @@ class DashboardMoneyTest extends TestCase
             ->where('money.collected', ['today' => 0, 'week' => 40, 'month' => 40]));
     }
 
-    public function test_nothing_charged_this_month_leaves_the_collection_rate_empty(): void
+    public function test_nothing_owed_or_charged_leaves_the_collection_rate_empty(): void
     {
         $this->actingAs($this->branchAdmin())->get(route('dashboard'))->assertInertia(fn ($page) => $page
             ->where('money.collected', ['today' => 0, 'week' => 0, 'month' => 0])
+            ->where('money.openingDebt', 0)
             ->where('money.collectionRate', null)
             ->where('money.outstanding', ['total' => 0, 'debtors' => 0, 'overNinety' => 0, 'overNinetyShare' => 0]));
+    }
+
+    public function test_the_collection_rate_is_the_share_of_the_debt_brought_forward_and_this_months_charges_that_came_in(): void
+    {
+        $subscription = $this->subscriptionIn($this->ownBranch);
+        $this->line($subscription, 'meter_reading', '1000.00', '2026-05-02 08:00:00');
+        $this->line($subscription, 'meter_reading', '200.00', '2026-09-03 08:00:00');
+        // More than this month's charges: it settles old debt too, which a rate over this month's charges alone would count as 150%.
+        $this->line($subscription, 'payment', '-300.00', '2026-09-10 09:00:00');
+
+        $this->actingAs($this->branchAdmin())->get(route('dashboard'))->assertInertia(fn ($page) => $page
+            ->where('money.openingDebt', 1000)
+            ->where('money.charged.month', 200)
+            ->where('money.collected.month', 300)
+            ->where('money.collectionRate', 25));
+    }
+
+    public function test_a_month_with_only_old_debt_still_has_a_collection_rate(): void
+    {
+        $subscription = $this->subscriptionIn($this->ownBranch);
+        $this->line($subscription, 'meter_reading', '100.00', '2026-05-02 08:00:00');
+        $this->line($subscription, 'payment', '-50.00', '2026-09-10 09:00:00');
+
+        $this->actingAs($this->branchAdmin())->get(route('dashboard'))->assertInertia(fn ($page) => $page
+            ->where('money.charged.month', 0)
+            ->where('money.collectionRate', 50));
+    }
+
+    public function test_credit_and_settled_accounts_at_the_start_of_the_month_are_not_debt_brought_forward(): void
+    {
+        $inCredit = $this->subscriptionIn($this->ownBranch);
+        $this->line($inCredit, 'payment', '-50.00', '2026-08-20 09:00:00');
+        $settled = $this->subscriptionIn($this->ownBranch);
+        $this->line($settled, 'meter_reading', '60.00', '2026-08-10 08:00:00');
+        $this->line($settled, 'payment', '-60.00', '2026-08-15 09:00:00');
+        // Paid off during the month: it was still owed when the month began.
+        $paidThisMonth = $this->subscriptionIn($this->ownBranch);
+        $this->line($paidThisMonth, 'meter_reading', '80.00', '2026-08-12 08:00:00');
+        $this->line($paidThisMonth, 'payment', '-80.00', '2026-09-05 09:00:00');
+
+        $this->actingAs($this->branchAdmin())->get(route('dashboard'))->assertInertia(fn ($page) => $page
+            ->where('money.openingDebt', 80));
     }
 
     public function test_each_money_figure_follows_the_permission_of_the_page_it_comes_from(): void
@@ -119,6 +163,7 @@ class DashboardMoneyTest extends TestCase
         $debtsOnly = User::factory()->dataEntry()->withPermissions([PermissionKey::ViewDebtAging])->create(['branch_id' => $this->ownBranch->id]);
         $this->actingAs($debtsOnly)->get(route('dashboard'))->assertInertia(fn ($page) => $page
             ->where('money.collected', null)
+            ->where('money.openingDebt', null)
             ->where('money.collectionRate', null)
             ->where('money.outstanding.debtors', 3));
 
@@ -164,9 +209,12 @@ class DashboardMoneyTest extends TestCase
     }
 
     /**
-     * Two subscriptions that owe from this month and one from May: 240
-     * owed in all, 40 of it over 90 days; 100 collected this month (80 of
-     * it today) against 200 charged.
+     * Two subscriptions that owe from this month's or last month's charges and
+     * one from May: 240 owed in all, 40 of it over 90 days. 100 collected this
+     * month (80 of it today) against 200 charged; 140 was owed when the month
+     * began (100 from August, 40 from May), so 340 could be collected and the
+     * rate is 29%. A subscription in credit and one settled before the month
+     * began owe nothing and change none of it.
      */
     private function seedOwnBranchMoney(): void
     {
@@ -180,6 +228,13 @@ class DashboardMoneyTest extends TestCase
 
         $third = $this->subscriptionIn($this->ownBranch);
         $this->line($third, 'meter_reading', '40.00', '2026-05-01 08:00:00');
+
+        $inCredit = $this->subscriptionIn($this->ownBranch);
+        $this->line($inCredit, 'payment', '-50.00', '2026-08-20 09:00:00');
+
+        $settled = $this->subscriptionIn($this->ownBranch);
+        $this->line($settled, 'meter_reading', '60.00', '2026-08-10 08:00:00');
+        $this->line($settled, 'payment', '-60.00', '2026-08-15 09:00:00');
     }
 
     private function branchAdmin(): User

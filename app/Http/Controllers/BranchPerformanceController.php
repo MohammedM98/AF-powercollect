@@ -161,11 +161,12 @@ class BranchPerformanceController extends Controller
     }
 
     /**
-     * This month's collected and charged amounts, the share collected, and
-     * what is still owed, for each of the branches.
+     * This month's collected and charged amounts, the debt brought forward
+     * from before the month, the share collected of all of it, and what is
+     * still owed, for each of the branches.
      *
      * @param  array<int, int>  $branchIds
-     * @return array<int, array{monthCollected: float, monthCharged: float, collectionRate: int|null, outstanding: float, debtors: int}>
+     * @return array<int, array{monthCollected: float, monthCharged: float, openingDebt: float, monthCollectable: float, collectionRate: int|null, outstanding: float, debtors: int}>
      */
     private function moneyByBranch(array $branchIds): array
     {
@@ -173,32 +174,43 @@ class BranchPerformanceController extends Controller
         [$monthStart] = ClosingPeriods::month($today);
         $collected = CollectionFigures::collected($monthStart, $today, $branchIds);
         $charged = CollectionFigures::charged($monthStart, $today, $branchIds);
+        $opening = CollectionFigures::openingDebt($monthStart, $branchIds);
         $owed = CollectionFigures::outstanding($branchIds);
 
-        return collect($branchIds)->mapWithKeys(fn (int $id): array => [$id => [
-            'monthCollected' => $collected[$id] ?? 0.0,
-            'monthCharged' => $charged[$id] ?? 0.0,
-            'collectionRate' => CollectionFigures::rate($collected[$id] ?? 0.0, $charged[$id] ?? 0.0),
-            'outstanding' => $owed[$id]['amount'] ?? 0.0,
-            'debtors' => $owed[$id]['debtors'] ?? 0,
-        ]])->all();
+        return collect($branchIds)->mapWithKeys(function (int $id) use ($collected, $charged, $opening, $owed): array {
+            $collectable = round(($opening[$id] ?? 0.0) + ($charged[$id] ?? 0.0), 2);
+
+            return [$id => [
+                'monthCollected' => $collected[$id] ?? 0.0,
+                'monthCharged' => $charged[$id] ?? 0.0,
+                'openingDebt' => $opening[$id] ?? 0.0,
+                'monthCollectable' => $collectable,
+                'collectionRate' => CollectionFigures::rate($collected[$id] ?? 0.0, $collectable),
+                'outstanding' => $owed[$id]['amount'] ?? 0.0,
+                'debtors' => $owed[$id]['debtors'] ?? 0,
+            ]];
+        })->all();
     }
 
     /**
      * The money figures across the listed branches, for the cards above them.
      *
      * @param  Collection<int, array<string, mixed>>  $branches
-     * @return array{monthCollected: float, monthCharged: float, collectionRate: int|null, outstanding: float, debtors: int, since: string}
+     * @return array{monthCollected: float, monthCharged: float, openingDebt: float, monthCollectable: float, collectionRate: int|null, outstanding: float, debtors: int, since: string}
      */
     private function collectionTotals(Collection $branches): array
     {
         $collected = round($branches->sum('monthCollected'), 2);
         $charged = round($branches->sum('monthCharged'), 2);
+        $opening = round($branches->sum('openingDebt'), 2);
+        $collectable = round($opening + $charged, 2);
 
         return [
             'monthCollected' => $collected,
             'monthCharged' => $charged,
-            'collectionRate' => CollectionFigures::rate($collected, $charged),
+            'openingDebt' => $opening,
+            'monthCollectable' => $collectable,
+            'collectionRate' => CollectionFigures::rate($collected, $collectable),
             'outstanding' => round($branches->sum('outstanding'), 2),
             'debtors' => (int) $branches->sum('debtors'),
             'since' => ClosingPeriods::month(ClosingPeriods::today())[0]->toDateString(),
@@ -207,7 +219,7 @@ class BranchPerformanceController extends Controller
 
     /**
      * @param  array<string, int>  $entries  entries per business day
-     * @param  array{monthCollected: float, monthCharged: float, collectionRate: int|null, outstanding: float, debtors: int}  $money
+     * @param  array{monthCollected: float, monthCharged: float, openingDebt: float, monthCollectable: float, collectionRate: int|null, outstanding: float, debtors: int}  $money
      * @return array<string, mixed>
      */
     private function branchSummary(Branch $branch, array $entries, array $money): array

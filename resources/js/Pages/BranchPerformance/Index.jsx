@@ -83,10 +83,10 @@ function BranchCard({ branch, style }) {
                     <span className="text-gray-500">
                         {hasRate ? (
                             <>
-                                نسبة التحصيل · المُحمَّل <b className="font-display text-sm text-gray-900">{formatMoney(branch.monthCharged)}</b>
+                                نسبة التحصيل · القابل للتحصيل <b className="font-display text-sm text-gray-900">{formatMoney(branch.monthCollectable)}</b>
                             </>
                         ) : (
-                            'لا تحميلات هذا الشهر'
+                            'لا ديون ولا تحميلات بعد'
                         )}
                     </span>
                     <b className="font-display text-gray-700">{hasRate ? `${branch.collectionRate}%` : '—'}</b>
@@ -168,8 +168,8 @@ export default function Index({ sort, summary, collection, branches }) {
                     unit="شيكل"
                     hint={
                         collection.collectionRate === null
-                            ? 'لا تحميلات هذا الشهر بعد'
-                            : `${collection.collectionRate}% من المُحمَّل (${formatMoney(collection.monthCharged)})`
+                            ? 'لا ديون ولا تحميلات بعد'
+                            : `${collection.collectionRate}% من القابل للتحصيل (${formatMoney(collection.monthCollectable)})`
                     }
                     valueClassName="text-emerald-700 dark:text-emerald-400"
                 />

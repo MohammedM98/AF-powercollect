@@ -94,7 +94,7 @@ class DashboardController extends Controller
      * "View Collections" permission as the log, and what is owed the debt
      * aging permission, so every figure matches the page it comes from.
      *
-     * @return array{collected: array{today: float, week: float, month: float}|null, charged: array{month: float}|null, collectionRate: int|null, outstanding: array{total: float, debtors: int, overNinety: float, overNinetyShare: int}|null, since: array{week: string, month: string}}|null
+     * @return array{collected: array{today: float, week: float, month: float}|null, charged: array{month: float}|null, openingDebt: float|null, collectionRate: int|null, outstanding: array{total: float, debtors: int, overNinety: float, overNinetyShare: int}|null, since: array{week: string, month: string}}|null
      */
     private function moneySection(User $actor): ?array
     {
@@ -113,6 +113,7 @@ class DashboardController extends Controller
 
         $collectedMonth = $canSeeLog ? $sum(CollectionFigures::collected($monthStart, $today, $branchIds)) : 0.0;
         $chargedMonth = $canSeeLog ? $sum(CollectionFigures::charged($monthStart, $today, $branchIds)) : 0.0;
+        $openingDebt = $canSeeLog ? $sum(CollectionFigures::openingDebt($monthStart, $branchIds)) : 0.0;
 
         return [
             'collected' => $canSeeLog ? [
@@ -121,7 +122,8 @@ class DashboardController extends Controller
                 'month' => $collectedMonth,
             ] : null,
             'charged' => $canSeeLog ? ['month' => $chargedMonth] : null,
-            'collectionRate' => $canSeeLog ? CollectionFigures::rate($collectedMonth, $chargedMonth) : null,
+            'openingDebt' => $canSeeLog ? $openingDebt : null,
+            'collectionRate' => $canSeeLog ? CollectionFigures::rate($collectedMonth, $openingDebt + $chargedMonth) : null,
             'outstanding' => $canSeeDebts ? $this->outstandingDebt($actor) : null,
             'since' => ['week' => $weekStart->toDateString(), 'month' => $monthStart->toDateString()],
         ];

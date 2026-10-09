@@ -100,6 +100,18 @@ export function formatShortDay(day) {
     return SHORT_DAY_FORMAT.format(calendarDate(day));
 }
 
+/**
+ * "12/08/2026" (or "12/08/2026 11:42") for a stored "2026-08-12" (or
+ * "2026-08-12 11:42"), the way the date fields and the financial log write
+ * dates. Anything else comes back as it was.
+ */
+export function formatNumericDate(value) {
+    const text = String(value ?? '');
+    const match = /^(\d{4})-(\d{2})-(\d{2})(.*)$/s.exec(text);
+
+    return match ? `${match[3]}/${match[2]}/${match[1]}${match[4]}` : text;
+}
+
 /** "5:24 م" for a 24-hour "17:24" wall-clock time, as the server recorded it. */
 export function formatClock(time) {
     const [hours, minutes] = time.split(':').map(Number);

@@ -7,18 +7,18 @@
 .subscription-profile-panel.is-expanded { max-width: 100%; }
 .subscription-profile-panel > span { display: none; }
 .subscription-profile {
-    --sp-surface: #fff;
-    --sp-raised: #f7f8fa;
-    --sp-sunken: #f2f3f5;
-    --sp-line: #e2e5e9;
-    --sp-line-soft: #eceef1;
-    --sp-ink: #111820;
-    --sp-ink-secondary: #353c46;
-    --sp-muted: #5e6773;
-    --sp-info: #1d5bcc;
-    --sp-success: #047857;
-    --sp-danger: #c81e1e;
-    --sp-warn: #b45309;
+    --sp-surface: rgb(var(--surface));
+    --sp-raised: rgb(var(--ui-raised));
+    --sp-sunken: rgb(var(--ui-sunken));
+    --sp-line: rgb(var(--ui-line));
+    --sp-line-soft: rgb(var(--ui-line-soft));
+    --sp-ink: rgb(var(--ui-ink));
+    --sp-ink-secondary: rgb(var(--ui-ink-2));
+    --sp-muted: rgb(var(--ui-faint));
+    --sp-info: rgb(var(--ui-info));
+    --sp-success: rgb(var(--ui-success));
+    --sp-danger: rgb(var(--ui-danger));
+    --sp-warn: rgb(var(--ui-warn));
     height: min(820px, calc(100dvh - 110px));
     display: flex;
     flex-direction: column;
@@ -27,20 +27,6 @@
     color: var(--sp-ink);
     font: 16px/1.6 'IBM Plex Sans Arabic', sans-serif;
     outline: none;
-}
-.dark .subscription-profile {
-    --sp-surface: #14171c;
-    --sp-raised: #1b1f25;
-    --sp-sunken: #101317;
-    --sp-line: #343a44;
-    --sp-line-soft: #252a32;
-    --sp-ink: #f4f5f7;
-    --sp-ink-secondary: #e0e3e7;
-    --sp-muted: #8b94a0;
-    --sp-info: #7dafe8;
-    --sp-success: #34d399;
-    --sp-danger: #fc7d7d;
-    --sp-warn: #fbbf24;
 }
 .is-expanded .subscription-profile { height: calc(100dvh - 48px); }
 .subscription-profile [hidden] { display: none !important; }
@@ -75,8 +61,8 @@
 .sp-balance small { display: block; color: #aeb6c1; font-size: 12px; }
 .sp-balance > b { display: flex; align-items: baseline; gap: 5px; font: 800 24px/1.5 Alexandria, sans-serif; white-space: nowrap; }
 .sp-balance em { font: 700 13px 'IBM Plex Sans Arabic', sans-serif; }
-.sp-balance.sp-owes { color: #5eead4; }
-.sp-balance.sp-credit { color: #fca5a5; }
+.sp-balance.sp-owes { color: #fcd34d; }
+.sp-balance.sp-credit { color: #7dd3fc; }
 .sp-balance.sp-settled { color: #e0e3e7; }
 .sp-tools { display: flex; gap: 6px; margin-inline-start: 6px; }
 .sp-tools button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #ffffff1f; border-radius: 11px; color: #fff; background: #ffffff14; }
@@ -131,8 +117,8 @@
 .sp-account-summary b { display: inline-block; direction: ltr; font: 800 20px/1.7 Alexandria, sans-serif; }
 .sp-credit { color: var(--sp-success); }
 .sp-owes { color: var(--sp-danger); }
-.sp-balance-tone-owes { color: var(--sp-success); }
-.sp-balance-tone-credit { color: var(--sp-danger); }
+.sp-balance-tone-owes { color: var(--sp-warn); }
+.sp-balance-tone-credit { color: var(--sp-info); }
 .sp-balance-tone-settled { color: var(--sp-ink-secondary); }
 .sp-account-summary small { font-size: 14px; line-height: 1.8; }
 .subscription-profile .sp-statement th { padding: 14px; font-size: 14px; }

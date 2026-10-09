@@ -27,7 +27,7 @@ export default function Index({ circuitBreakers, canCreate, filters, filterOptio
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">القواطع</h2>
+                        <h1 className="text-3xl font-bold text-gray-900">القواطع</h1>
                     </div>
                     {canCreate && (
                         <div className="shrink-0">

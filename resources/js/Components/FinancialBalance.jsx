@@ -7,23 +7,37 @@ export const BALANCE_LABELS = {
     settled: 'مسدّد',
 };
 
+/*
+ * A balance's colors say whose money it is, never whether it is good or bad:
+ * what the subscriber owes is amber, what the company owes the subscriber is
+ * blue, and a settled account is neutral. Green is kept for money that was
+ * actually received (see PAYMENT_TEXT), and red for money that went out or
+ * went wrong.
+ */
 export const BALANCE_TEXT = {
-    owes: 'text-emerald-700 dark:text-emerald-400',
-    credit: 'text-red-700 dark:text-red-400',
+    owes: 'text-amber-700 dark:text-amber-400',
+    credit: 'text-blue-600',
     settled: 'text-gray-700',
 };
 
 export const BALANCE_CHIPS = {
-    owes: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-    credit: 'bg-red-500/10 text-red-700 dark:text-red-400',
+    owes: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+    credit: 'bg-blue-500/10 text-blue-600',
     settled: 'bg-gray-100 text-gray-700',
 };
 
+/** The same tones on a panel that is dark in both themes. */
 export const BALANCE_DARK = {
-    owes: 'text-emerald-300',
-    credit: 'text-red-300',
+    owes: 'text-amber-300',
+    credit: 'text-sky-300',
     settled: 'text-white/80',
 };
+
+/** Money that was received. */
+export const PAYMENT_TEXT = 'text-emerald-700 dark:text-emerald-400';
+
+/** Money that was paid back out. */
+export const REFUND_TEXT = 'text-red-700 dark:text-red-400';
 
 /** Only actual money movement uses cash colors; adjustments keep a neutral amount. */
 export function cashAmountClass(value) {
@@ -38,12 +52,12 @@ export function transactionMoneyClass(entry) {
         return cashAmountClass(entry.closingAdjustment.cashEffect);
     }
     if (entry.type === 'refund') {
-        return BALANCE_TEXT.credit;
+        return REFUND_TEXT;
     }
     if (entry.isReversal) {
         return BALANCE_TEXT.settled;
     }
-    return entry.type === 'payment' ? BALANCE_TEXT.owes : BALANCE_TEXT.settled;
+    return entry.type === 'payment' ? PAYMENT_TEXT : BALANCE_TEXT.settled;
 }
 
 /** Colors describe whose balance it is; the amount and accounting sign stay unchanged. */
@@ -57,13 +71,15 @@ export default function FinancialBalance({ value, chip = false, signed = false }
     );
 }
 
+/** One line saying what the colors of balances and payments mean. */
 export function FinancialLegend() {
     return (
-        <div aria-label="دليل ألوان الرصيد" className="flex flex-wrap gap-x-6 gap-y-3 rounded-xl border border-gray-200 bg-surface px-5 py-4 text-sm leading-7">
-            <span className="font-semibold text-gray-700">ألوان الرصيد من منظور الشركة</span>
-            <span className="inline-flex items-center gap-2 text-emerald-700 dark:text-emerald-400"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-600" />موجب: مستحق للشركة، لم يُحصّل بعد</span>
-            <span className="inline-flex items-center gap-2 text-red-700 dark:text-red-400"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-600" />سالب: رصيد لصالح المشترك</span>
-            <span className="text-gray-600">صفر: مسدّد</span>
+        <div aria-label="دليل الألوان" className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm leading-7 text-gray-600">
+            <span className="font-semibold text-gray-700">دليل الألوان</span>
+            <span className={`inline-flex items-center gap-2 ${BALANCE_TEXT.owes}`}><span aria-hidden="true" className="h-2 w-2 rounded-full bg-amber-500" />مستحق للشركة، لم يُحصّل بعد</span>
+            <span className={`inline-flex items-center gap-2 ${BALANCE_TEXT.credit}`}><span aria-hidden="true" className="h-2 w-2 rounded-full bg-blue-600" />رصيد لصالح المشترك</span>
+            <span className={`inline-flex items-center gap-2 ${PAYMENT_TEXT}`}><span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-600" />مقبوضات</span>
+            <span>صفر: مسدّد</span>
         </div>
     );
 }

@@ -275,7 +275,7 @@ export default function Create({
                         <Icon name="chevron-right" className="h-4 w-4" />
                         رجوع إلى الرسائل
                     </Link>
-                    <h2 className="text-3xl font-bold text-gray-900">رسالة جديدة</h2>
+                    <h1 className="text-3xl font-bold text-gray-900">رسالة جديدة</h1>
                 </div>
             }
         >

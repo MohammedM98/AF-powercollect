@@ -1,20 +1,20 @@
 .reading-history {
-    --rh-page: #eff1f4;
-    --rh-surface: #fff;
-    --rh-raised: #f7f8fa;
-    --rh-sunken: #f2f3f5;
-    --rh-line: #e2e5e9;
-    --rh-line2: #eceef1;
-    --rh-ink: #111820;
-    --rh-ink2: #353c46;
-    --rh-muted: #4c5460;
-    --rh-faint: #5e6773;
+    --rh-page: rgb(var(--ui-page));
+    --rh-surface: rgb(var(--surface));
+    --rh-raised: rgb(var(--ui-raised));
+    --rh-sunken: rgb(var(--ui-sunken));
+    --rh-line: rgb(var(--ui-line));
+    --rh-line2: rgb(var(--ui-line-soft));
+    --rh-ink: rgb(var(--ui-ink));
+    --rh-ink2: rgb(var(--ui-ink-2));
+    --rh-muted: rgb(var(--ui-muted));
+    --rh-faint: rgb(var(--ui-faint));
     --rh-brand: #a51d26;
-    --rh-success: #047857;
-    --rh-warn: #b45309;
-    --rh-info: #1d5bcc;
-    --rh-shadow: 0 1px 2px #10182808, 0 14px 34px -18px #1018282e;
-    --rh-hero: linear-gradient(135deg, #262c34, #1c2127 55%, #111418);
+    --rh-success: rgb(var(--ui-success));
+    --rh-warn: rgb(var(--ui-warn));
+    --rh-info: rgb(var(--ui-info));
+    --rh-shadow: var(--ui-shadow);
+    --rh-hero: var(--ui-hero);
     display: flex;
     flex-direction: column;
     height: calc(100dvh - 3rem);
@@ -22,23 +22,6 @@
     color: var(--rh-ink);
     background: var(--rh-page);
     font: 16px/1.6 'IBM Plex Sans Arabic', system-ui, sans-serif;
-}
-.dark .reading-history {
-    --rh-page: #0b0d10;
-    --rh-surface: #14171c;
-    --rh-raised: #1b1f25;
-    --rh-sunken: #101317;
-    --rh-line: #343a44;
-    --rh-line2: #252a32;
-    --rh-ink: #f4f5f7;
-    --rh-ink2: #e0e3e7;
-    --rh-muted: #9ea6b1;
-    --rh-faint: #8b94a0;
-    --rh-success: #34d399;
-    --rh-warn: #fbbf24;
-    --rh-info: #7dafe8;
-    --rh-shadow: 0 20px 40px -24px #000;
-    --rh-hero: linear-gradient(135deg, #1c2127, #161a1f 55%, #0b0d10);
 }
 .reading-history button:focus-visible, .rh-chart-point:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .reading-history button:disabled { cursor: not-allowed; opacity: .45; }

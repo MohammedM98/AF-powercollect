@@ -91,7 +91,10 @@ export default function DataTableToolbar({
                         طباعة
                     </button>
                 )}
-                <DensityToggle />
+                {/* On a phone the rows are cards, which have no density to switch. */}
+                <span className="hidden sm:inline-flex">
+                    <DensityToggle />
+                </span>
                 <div
                     role="group"
                     aria-label="عدد الصفوف في الصفحة"

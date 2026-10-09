@@ -282,7 +282,7 @@ export default function Index({
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">المشتركون</h2>
+                        <h1 className="text-3xl font-bold text-gray-900">المشتركون</h1>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                         <Link
@@ -332,6 +332,7 @@ export default function Index({
             )}
 
             <div className="data-table-container">
+                {/* The balance and the status come right after the name: on a laptop the table scrolls sideways, and what scrolls away is the least needed. */}
                 <table className="data-table w-full text-sm text-start" {...printFieldsProps(PRINT_FIELDS)}>
                     <thead>
                         <tr>
@@ -350,12 +351,12 @@ export default function Index({
                             )}
                             <SortableTh column="account_number" label="رقم الاشتراك" sortState={filters} onSort={sort} />
                             <SortableTh column="display_name" label="اسم الاشتراك" sortState={filters} onSort={sort} />
+                            <th>الرصيد</th>
+                            <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
                             <th>الطبلون</th>
                             <th>نوع الاشتراك</th>
                             <th>منطقة 2</th>
                             <th>الحد الأدنى</th>
-                            <th>الرصيد</th>
-                            <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
                             <ActionsTh />
                         </tr>
                     </thead>
@@ -403,6 +404,12 @@ export default function Index({
                                             <span className="mt-1 block text-xs text-gray-500">{subscription.subscriptionCount} اشتراكات</span>
                                         )}
                                     </td>
+                                    <td>
+                                        <FinancialBalance value={subscription.outstandingBalance} signed />
+                                    </td>
+                                    <td>
+                                        <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
+                                    </td>
                                     <td className="text-gray-600">
                                         {subscription.meterBoxNumber ? <span className="data-chip">{subscription.meterBoxNumber}</span> : '—'}
                                     </td>
@@ -412,12 +419,6 @@ export default function Index({
                                     </td>
                                     <td className="text-gray-600">{subscription.subAreaName || '—'}</td>
                                     <td className="whitespace-nowrap text-gray-600">{formatCurrency(subscription.weeklyMinimumPayment)}</td>
-                                    <td>
-                                        <FinancialBalance value={subscription.outstandingBalance} signed />
-                                    </td>
-                                    <td>
-                                        <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
-                                    </td>
                                     <td className="text-end">
                                         <RowActionsMenu
                                             onView={() => openStatement(subscription)}

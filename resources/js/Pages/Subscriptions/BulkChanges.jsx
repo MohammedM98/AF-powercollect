@@ -96,7 +96,7 @@ export default function BulkChanges({ changes, filters, details }) {
                         <Icon name="chevron-right" className="h-4 w-4" />
                         رجوع إلى المشتركين
                     </Link>
-                    <h2 className="text-3xl font-bold text-gray-900">سجل التعديلات الجماعية</h2>
+                    <h1 className="text-3xl font-bold text-gray-900">سجل التعديلات الجماعية</h1>
                     <p className="mt-1 text-sm text-gray-500">كل تعديل طُبّق على عدة مشتركين معًا، مع إمكانية التراجع عنه.</p>
                 </div>
             }

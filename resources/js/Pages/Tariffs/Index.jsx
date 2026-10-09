@@ -480,7 +480,7 @@ export default function Index({ tariffs, segments, canCreate, canCreateSegment, 
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">التعرفات</h2>
+                        <h1 className="text-3xl font-bold text-gray-900">التعرفات</h1>
                         <p className="mt-1 text-[14.5px] text-gray-500">
                             سعر الكيلو لكل فئة. تُحسب كل قراءة على السعر الساري وقتها، فتغيير السعر لا يمسّ القراءات السابقة.
                         </p>

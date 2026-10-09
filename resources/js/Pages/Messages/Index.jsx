@@ -29,7 +29,7 @@ export default function Index({ batches, canSend, filters, filterOptions }) {
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">الرسائل</h2>
+                        <h1 className="text-3xl font-bold text-gray-900">الرسائل</h1>
                         <p className="mt-1 text-sm text-gray-500">القراءات الأسبوعية وتذكير الدفع والإعلانات للمشتركين.</p>
                     </div>
                     {canSend && (

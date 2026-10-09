@@ -13,6 +13,7 @@ import { useResourceForm } from '@/hooks/useResourceForm';
 import { describeBalance, paymentInShekels } from '@/lib/accountStatement';
 import { overpaymentLevel } from '@/lib/overpayment';
 import { formatClock, formatMoney, normalizeDecimalInput } from '@/lib/format';
+import { rememberPaymentMethod, rememberedPaymentMethod } from '@/lib/paymentMethod';
 import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/formValidation';
 import { balanceText, FieldLabel, SubscriptionStrip } from './AccountFormParts';
 import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './CorrectionFields';
@@ -429,7 +430,7 @@ export default function PaymentModal({
             : {
                   amount: '',
                   currency: 'ILS',
-                  payment_method: 'bank_transfer',
+                  payment_method: rememberedPaymentMethod(paymentMethods),
                   bank_name: '',
                   sender_bank_name: '',
                   // Who the transfer came from: the subscription unless someone else paid.
@@ -544,8 +545,17 @@ export default function PaymentModal({
 
             if (method) {
                 event.preventDefault();
-                setData('payment_method', method);
+                chooseMethod(method);
             }
+        }
+    }
+
+    /** Picks how the payment was taken, and — for a new payment — starts the next one on it too. */
+    function chooseMethod(method) {
+        setData('payment_method', method);
+
+        if (!correcting) {
+            rememberPaymentMethod(method);
         }
     }
 
@@ -761,7 +771,7 @@ export default function PaymentModal({
                                                     key={method}
                                                     value={method}
                                                     checked={throughBank}
-                                                    onChange={(value) => setData('payment_method', value)}
+                                                    onChange={chooseMethod}
                                                     icon="bank"
                                                     title="تحويل بنكي أو محفظة"
                                                     hint={transferBanks.join('، ')}
@@ -771,7 +781,7 @@ export default function PaymentModal({
                                                     key={method}
                                                     value={method}
                                                     checked={data.payment_method === method}
-                                                    onChange={(value) => setData('payment_method', value)}
+                                                    onChange={chooseMethod}
                                                     icon="banknotes"
                                                     title="نقد"
                                                     hint="استُلم المبلغ نقدًا"

@@ -262,7 +262,7 @@ export default function Show({ branch, canCompareBranches, dailyRegistrations, d
                             </Link>
                         )}
                         <div className="mt-1 flex flex-wrap items-center gap-3">
-                            <h2 className="text-3xl font-bold text-gray-900">{branch.name}</h2>
+                            <h1 className="text-3xl font-bold text-gray-900">{branch.name}</h1>
                             <StatusPill tone={branch.isActive ? 'green' : 'gray'} label={branch.isActive ? 'فرع نشط' : 'فرع متوقف'} />
                         </div>
                         {details.length > 0 && (
@@ -288,7 +288,32 @@ export default function Show({ branch, canCompareBranches, dailyRegistrations, d
         >
             <Head title={`أداء ${branch.name}`} />
 
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-5 sm:grid-cols-3">
+                <KpiTile
+                    icon="banknotes"
+                    label="المحصَّل هذا الشهر"
+                    value={formatMoney(branch.monthCollected)}
+                    unit="شيكل"
+                    hint={`من ${formatMoney(branch.monthCharged)} شيكل مُحمَّل هذا الشهر`}
+                    valueClassName="text-emerald-700 dark:text-emerald-400"
+                />
+                <KpiTile
+                    icon="percent"
+                    label="نسبة التحصيل"
+                    value={branch.collectionRate === null ? '—' : `${branch.collectionRate}%`}
+                    hint={branch.collectionRate === null ? 'لا تحميلات هذا الشهر بعد' : 'المحصَّل ÷ المُحمَّل هذا الشهر'}
+                />
+                <KpiTile
+                    icon="wallet"
+                    label="الديون المستحقة"
+                    value={formatMoney(branch.outstanding)}
+                    unit="شيكل"
+                    hint={`${formatNumber(branch.debtors)} مشترك مدين`}
+                    valueClassName="text-amber-700 dark:text-amber-400"
+                />
+            </div>
+
+            <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 <KpiTile hero className="sm:col-span-2" label="المشتركون" value={formatNumber(branch.subscriptions)}>
                     <StatusMix statusCounts={branch.statusCounts} />
                 </KpiTile>

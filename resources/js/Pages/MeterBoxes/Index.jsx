@@ -69,7 +69,7 @@ export default function Index({
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">الطبلونات</h2>
+                        <h1 className="text-3xl font-bold text-gray-900">الطبلونات</h1>
                         <p className="mt-1 text-sm text-gray-500">{canViewSubscriptions ? 'كل طبلون برقمه وموقعه. افتح الصف لعرض المشتركين والأرصدة.' : 'طبلونات الفرع وأرقامها ومواقعها.'}</p>
                     </div>
                     {canCreate && (

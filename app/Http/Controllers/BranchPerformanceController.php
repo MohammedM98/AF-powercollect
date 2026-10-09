@@ -8,6 +8,8 @@ use App\Models\MeterReading;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
+use App\Support\ClosingPeriods;
+use App\Support\CollectionFigures;
 use App\Support\DailySeries;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,8 +20,9 @@ use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 /**
- * How each branch is doing: what it charged its subscriptions (the lines
- * on their accounts, عليه), its subscriptions, and its staff's entries —
+ * How each branch is doing: what it collected this month against what it
+ * charged its subscriptions (the lines on their accounts, عليه) and what
+ * they still owe, its subscriptions, and its staff's entries —
  * subscriptions registered and weekly readings entered — and when. The
  * Super Admin compares every branch; a branch's own staff go straight to
  * their branch. Read-only.
@@ -30,10 +33,15 @@ class BranchPerformanceController extends Controller
      * The sort buttons, and the figure each one ranks branches by.
      */
     private const SORTS = [
+        'collected' => 'monthCollected',
+        'outstanding' => 'outstanding',
         'revenue' => 'chargesTotal',
         'subscriptions' => 'activeSubscriptions',
         'activity' => 'weekEntries',
     ];
+
+    /** The sort a branch list opens in: who collected the most this month. */
+    private const DEFAULT_SORT = 'collected';
 
     private const SPARKLINE_DAYS = 14;
 
@@ -56,13 +64,14 @@ class BranchPerformanceController extends Controller
         }
 
         $sort = $request->query('sort');
-        $sort = is_string($sort) && array_key_exists($sort, self::SORTS) ? $sort : 'revenue';
+        $sort = is_string($sort) && array_key_exists($sort, self::SORTS) ? $sort : self::DEFAULT_SORT;
 
         $branches = $this->withFigures(Branch::query())->with(['governorate', 'area'])->orderBy('name')->get();
         $entries = $this->entriesPerDay($branches->modelKeys(), self::SPARKLINE_DAYS);
+        $money = $this->moneyByBranch($branches->modelKeys());
 
         $summaries = $branches
-            ->map(fn (Branch $branch): array => $this->branchSummary($branch, $entries[$branch->id] ?? []))
+            ->map(fn (Branch $branch): array => $this->branchSummary($branch, $entries[$branch->id] ?? [], $money[$branch->id]))
             ->sortByDesc(self::SORTS[$sort])
             ->values()
             ->map(fn (array $branch, int $index): array => [...$branch, 'rank' => $index + 1]);
@@ -79,6 +88,7 @@ class BranchPerformanceController extends Controller
                 'todayEntries' => $summaries->sum('todayEntries'),
                 'staff' => $summaries->sum('staff'),
             ],
+            'collection' => $this->collectionTotals($summaries),
             'branches' => $summaries,
         ]);
     }
@@ -89,12 +99,13 @@ class BranchPerformanceController extends Controller
 
         $branch = $this->withFigures(Branch::query())->with(['governorate', 'area'])->findOrFail($branch->id);
         $entries = $this->entriesPerDay([$branch->id], self::CHART_DAYS)[$branch->id] ?? [];
+        $money = $this->moneyByBranch([$branch->id])[$branch->id];
         $charges = fn (): Builder => SubscriptionTransaction::query()->charges()->whereHas('subscription', fn (Builder $query) => $query->where('branch_id', $branch->id));
         $statusCounts = $branch->subscriptions()->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
 
         return Inertia::render('BranchPerformance/Show', [
             'branch' => [
-                ...$this->branchSummary($branch, $entries),
+                ...$this->branchSummary($branch, $entries, $money),
                 'phone' => $branch->phone,
                 'statusCounts' => array_map(fn (array $status): array => [
                     ...$status,
@@ -150,10 +161,56 @@ class BranchPerformanceController extends Controller
     }
 
     /**
+     * This month's collected and charged amounts, the share collected, and
+     * what is still owed, for each of the branches.
+     *
+     * @param  array<int, int>  $branchIds
+     * @return array<int, array{monthCollected: float, monthCharged: float, collectionRate: int|null, outstanding: float, debtors: int}>
+     */
+    private function moneyByBranch(array $branchIds): array
+    {
+        $today = ClosingPeriods::today();
+        [$monthStart] = ClosingPeriods::month($today);
+        $collected = CollectionFigures::collected($monthStart, $today, $branchIds);
+        $charged = CollectionFigures::charged($monthStart, $today, $branchIds);
+        $owed = CollectionFigures::outstanding($branchIds);
+
+        return collect($branchIds)->mapWithKeys(fn (int $id): array => [$id => [
+            'monthCollected' => $collected[$id] ?? 0.0,
+            'monthCharged' => $charged[$id] ?? 0.0,
+            'collectionRate' => CollectionFigures::rate($collected[$id] ?? 0.0, $charged[$id] ?? 0.0),
+            'outstanding' => $owed[$id]['amount'] ?? 0.0,
+            'debtors' => $owed[$id]['debtors'] ?? 0,
+        ]])->all();
+    }
+
+    /**
+     * The money figures across the listed branches, for the cards above them.
+     *
+     * @param  Collection<int, array<string, mixed>>  $branches
+     * @return array{monthCollected: float, monthCharged: float, collectionRate: int|null, outstanding: float, debtors: int, since: string}
+     */
+    private function collectionTotals(Collection $branches): array
+    {
+        $collected = round($branches->sum('monthCollected'), 2);
+        $charged = round($branches->sum('monthCharged'), 2);
+
+        return [
+            'monthCollected' => $collected,
+            'monthCharged' => $charged,
+            'collectionRate' => CollectionFigures::rate($collected, $charged),
+            'outstanding' => round($branches->sum('outstanding'), 2),
+            'debtors' => (int) $branches->sum('debtors'),
+            'since' => ClosingPeriods::month(ClosingPeriods::today())[0]->toDateString(),
+        ];
+    }
+
+    /**
      * @param  array<string, int>  $entries  entries per business day
+     * @param  array{monthCollected: float, monthCharged: float, collectionRate: int|null, outstanding: float, debtors: int}  $money
      * @return array<string, mixed>
      */
-    private function branchSummary(Branch $branch, array $entries): array
+    private function branchSummary(Branch $branch, array $entries, array $money): array
     {
         $sparkline = array_map(fn (string $day): int => $entries[$day] ?? 0, DailySeries::lastDays(self::SPARKLINE_DAYS));
         $lastEntryAt = collect([$branch->last_registration_at, $branch->last_reading_at])->filter()->max();
@@ -165,6 +222,7 @@ class BranchPerformanceController extends Controller
             'governorateName' => $branch->governorate?->name,
             'areaName' => $branch->area?->name,
             'chargesTotal' => round((float) $branch->charges_total, 2),
+            ...$money,
             'subscriptions' => $branch->subscriptions_count,
             'activeSubscriptions' => $branch->active_subscriptions_count,
             'staff' => $branch->staff_count,

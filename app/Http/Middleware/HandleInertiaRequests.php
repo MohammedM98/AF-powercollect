@@ -71,6 +71,7 @@ class HandleInertiaRequests extends Middleware
             'can' => $user ? [
                 'viewBranches' => $user->can('viewAny', Branch::class),
                 'viewSubscriptions' => $user->can('viewAny', Subscription::class),
+                'searchSubscriptions' => $user->canAny(['viewAny', 'recordAnyPayment'], Subscription::class),
                 'recordPayments' => $user->can('recordAnyPayment', Subscription::class),
                 'viewLedger' => $user->can('viewAny', SubscriptionTransaction::class),
                 'viewBranchPerformance' => $user->can('viewBranchPerformance', SubscriptionTransaction::class),

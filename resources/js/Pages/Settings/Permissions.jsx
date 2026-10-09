@@ -957,7 +957,7 @@ export default function Permissions({ users, selectedUser, permissionGroups, rol
         <SettingsLayout
             header={
                 <div>
-                    <h2 className="text-3xl font-bold text-gray-900">إدارة صلاحيات الموظفين</h2>
+                    <h1 className="text-3xl font-bold text-gray-900">إدارة صلاحيات الموظفين</h1>
                     <p className="mt-1 text-sm text-gray-500">اختر موظفًا، وحدّد الإجراءات المسموحة، ثم راجع التغييرات وأكّد حفظها.</p>
                 </div>
             }

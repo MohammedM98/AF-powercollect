@@ -173,8 +173,8 @@ function SidebarContent({ collapsed = false, onNavigate, onClose }) {
                         <span className="min-w-0">
                             {/* dir="auto": a Latin name is clipped at its end, not at its start as the Arabic page direction would. */}
                             <span dir="auto" className="block truncate text-right text-lg font-bold leading-tight text-gray-900">{shortAppName(appName)}</span>
-                            <span dir="auto" title={auth?.user?.branchName ?? undefined} className="line-clamp-2 break-words text-right text-xs text-gray-500">
-                                {auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}
+                            <span dir="auto" title={auth?.user?.scopeLabel ?? auth?.user?.branchName ?? undefined} className="line-clamp-2 break-words text-right text-xs text-gray-500">
+                                {auth?.user?.scopeLabel ?? auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}
                             </span>
                         </span>
                     </>

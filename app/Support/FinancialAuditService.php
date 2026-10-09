@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Enums\CashTransferStatus;
 use App\Enums\ClosingStatus;
 use App\Enums\ClosingType;
+use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\CashTransfer;
 use App\Models\Closing;
@@ -13,9 +14,12 @@ use App\Models\FinancialAuditLine;
 use App\Models\FinancialAuditStatement;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
+use App\Notifications\AuditStatementSubmitted;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 
 class FinancialAuditService
@@ -26,7 +30,7 @@ class FinancialAuditService
     {
         Gate::forUser($actor)->authorize('submit', [FinancialAuditStatement::class, $branch]);
 
-        return DB::transaction(function () use ($actor, $branch, $type, $date): FinancialAuditStatement {
+        $statement = DB::transaction(function () use ($actor, $branch, $type, $date): FinancialAuditStatement {
             $this->weekly->lock();
             $sourceClosing = null;
             if ($type === 'weekly') {
@@ -93,6 +97,43 @@ class FinancialAuditService
 
             return $statement;
         }, 3);
+
+        $this->tellAuditors($statement, $actor);
+
+        return $statement;
+    }
+
+    /**
+     * The people who may audit a statement — whoever holds the audit or the
+     * mark-audited permission, which only the company grants — except whoever
+     * sent it, who may not review their own.
+     *
+     * @return Collection<int, User>
+     */
+    private function auditors(User $submitter): Collection
+    {
+        return User::query()
+            ->where('is_active', true)
+            ->whereKeyNot($submitter->id)
+            ->whereHas('permissions', fn (Builder $permissions) => $permissions
+                ->whereIn('key', [PermissionKey::AuditClosings->value, PermissionKey::MarkClosingsAudited->value]))
+            ->get();
+    }
+
+    /**
+     * Puts the new statement under the auditors' bell. It is sent once the
+     * statement is saved, so a submission that failed tells nobody.
+     */
+    private function tellAuditors(FinancialAuditStatement $statement, User $submitter): void
+    {
+        $first = $statement->period_start->format('d/m/Y');
+        $last = $statement->period_end->format('d/m/Y');
+
+        Notification::send($this->auditors($submitter), new AuditStatementSubmitted(
+            $statement->snapshot['branchName'],
+            ['daily' => 'يومي', 'weekly' => 'أسبوعي', 'monthly' => 'شهري'][$statement->type] ?? $statement->type,
+            $first === $last ? $first : "{$first} – {$last}",
+        ));
     }
 
     public function review(User $actor, FinancialAuditStatement $statement, FinancialAuditLine $line, string $action, ?string $notes): void

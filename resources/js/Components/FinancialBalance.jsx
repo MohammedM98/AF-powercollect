@@ -60,13 +60,21 @@ export function transactionMoneyClass(entry) {
     return entry.type === 'payment' ? PAYMENT_TEXT : BALANCE_TEXT.settled;
 }
 
-/** Colors describe whose balance it is; the amount and accounting sign stay unchanged. */
-export default function FinancialBalance({ value, chip = false, signed = false }) {
+/**
+ * A balance in a table or list: the amount alone, in the color of whose
+ * money it is, set at the start of its cell like the column header above
+ * it. What the color means is not printed on every row — a balance in the
+ * subscriber's favour carries a minus sign, the wording is kept for hover
+ * and screen readers, and the legend explains the colors.
+ */
+export default function FinancialBalance({ value, chip = false }) {
     const balance = describeBalance(value);
+    const label = BALANCE_LABELS[balance.tone];
+
     return (
-        <span className={`inline-flex flex-col gap-1 rounded-lg ${chip ? `px-3 py-2 ${BALANCE_CHIPS[balance.tone]}` : BALANCE_TEXT[balance.tone]}`}>
-            <bdi dir="ltr" className="whitespace-nowrap font-display text-base font-semibold tabular-nums">{formatMoney(signed ? value : balance.amount)} ₪</bdi>
-            <span className="whitespace-nowrap text-sm font-medium">{BALANCE_LABELS[balance.tone]}</span>
+        <span title={label} className={`inline-block rounded-lg ${chip ? `px-3 py-2 ${BALANCE_CHIPS[balance.tone]}` : BALANCE_TEXT[balance.tone]}`}>
+            <bdi dir="ltr" className="whitespace-nowrap font-display text-base font-semibold tabular-nums">{formatMoney(value)} ₪</bdi>
+            <span className="sr-only">{label}</span>
         </span>
     );
 }
@@ -77,7 +85,7 @@ export function FinancialLegend() {
         <div aria-label="دليل الألوان" className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm leading-7 text-gray-600">
             <span className="font-semibold text-gray-700">دليل الألوان</span>
             <span className={`inline-flex items-center gap-2 ${BALANCE_TEXT.owes}`}><span aria-hidden="true" className="h-2 w-2 rounded-full bg-amber-500" />مستحق للشركة، لم يُحصّل بعد</span>
-            <span className={`inline-flex items-center gap-2 ${BALANCE_TEXT.credit}`}><span aria-hidden="true" className="h-2 w-2 rounded-full bg-blue-600" />رصيد لصالح المشترك</span>
+            <span className={`inline-flex items-center gap-2 ${BALANCE_TEXT.credit}`}><span aria-hidden="true" className="h-2 w-2 rounded-full bg-blue-600" />رصيد لصالح المشترك (بعلامة −)</span>
             <span className={`inline-flex items-center gap-2 ${PAYMENT_TEXT}`}><span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-600" />مقبوضات</span>
             <span>صفر: مسدّد</span>
         </div>

@@ -516,7 +516,7 @@ function StatementRow({
                         <Dash />
                     </span>
                 ) : (
-                    <FinancialBalance value={entry.balance} signed />
+                    <FinancialBalance value={entry.balance} />
                 )}
             </td>
             <td data-label="اسم المستخدم" className="text-gray-700">

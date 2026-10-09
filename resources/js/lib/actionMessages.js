@@ -82,7 +82,7 @@ export const ACTION_MESSAGES = {
     'profile-devices-logged-out': 'تم تسجيل الخروج من الأجهزة المحددة.',
     'password-updated': 'تم تحديث كلمة المرور بنجاح.',
     'closing-counted': 'تم حفظ عدّ النقد في الكشف.',
-    'closing-submitted': 'تم إرسال الكشف للتدقيق.',
+    'closing-submitted': 'تم إرسال الكشف لاعتماد إقفال الفرع.',
     'closing-returned': 'تم إرجاع الكشف للتصحيح مع السبب.',
     'closing-approved': 'تم اعتماد الكشف وقفله من التعديل المباشر.',
     'cash-handed-over': 'تم تسجيل تسليم النقد، وهو قيد النقل حتى يُؤكَّد استلامه.',

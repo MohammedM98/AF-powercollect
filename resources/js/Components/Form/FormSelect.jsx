@@ -1,3 +1,4 @@
+import SelectInput from '@/Components/SelectInput';
 import FormField from '@/Components/Form/FormField';
 
 /**
@@ -11,7 +12,7 @@ export default function FormSelect({ id, label, value, onChange, options, placeh
 
     return (
         <FormField id={id} label={label} required={required} error={error} hint={hint}>
-            <select
+            <SelectInput
                 className="block w-full disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500"
                 value={value}
                 disabled={message !== null}
@@ -23,7 +24,7 @@ export default function FormSelect({ id, label, value, onChange, options, placeh
                         {option.label}
                     </option>
                 ))}
-            </select>
+            </SelectInput>
         </FormField>
     );
 }

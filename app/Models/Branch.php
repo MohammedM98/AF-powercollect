@@ -73,6 +73,7 @@ class Branch extends Model
             'المستخدمون' => $this->users()->count(),
             'الطبلونات' => $this->meterBoxes()->count(),
             'القراءات' => $this->meterReadings()->count(),
+            'كشوف التدقيق المالي' => FinancialAuditStatement::query()->where('branch_id', $this->id)->count(),
         ]);
     }
 }

@@ -10,34 +10,33 @@ import SortableTh from '@/Components/DataTable/SortableTh';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
 import KpiTile from '@/Components/KpiTile';
-import PrimaryButton from '@/Components/PrimaryButton';
+import SecondaryButton from '@/Components/SecondaryButton';
+import FinancialBalance, { FinancialLegend } from '@/Components/FinancialBalance';
 import { useDataTable } from '@/hooks/useDataTable';
-import { describeBalance } from '@/lib/accountStatement';
 import { formatMoney } from '@/lib/format';
-import { balanceText, BALANCE_CHIPS } from '@/Pages/Subscriptions/AccountFormParts';
 import PaymentModal from '@/Pages/Subscriptions/PaymentModal';
 import SplitPaymentModal from './SplitPaymentModal';
 
 const STATUS_TONES = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
 /** What the user collected today, as figures and their latest payments. */
-function TodaysPayments({ today }) {
+function TodaysPayments({ today, summaryOnly = false }) {
     return (
-        <section aria-labelledby="todays-payments" className="mt-8 space-y-4">
-            <h3 id="todays-payments" className="text-lg font-bold text-gray-900">
-                ما حصّلته اليوم
+        <section aria-labelledby={summaryOnly ? 'todays-payments' : 'recent-payments'} className="mb-8 space-y-5">
+            <h3 id={summaryOnly ? 'todays-payments' : 'recent-payments'} className="text-xl font-bold text-gray-900">
+                {summaryOnly ? 'ما حصّلته اليوم' : 'آخر دفعاتك اليوم'}
             </h3>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-                <KpiTile hero label="إجمالي دفعاتك اليوم" value={formatMoney(today.total)} unit="شيكل" hint={`${today.count.toLocaleString('en')} ${today.count === 1 ? 'دفعة' : 'دفعات'}`} />
-                <KpiTile icon="banknotes" label="نقدًا" value={formatMoney(today.cash)} unit="شيكل" />
-                <KpiTile icon="bank" label="تحويلات بنكية" value={formatMoney(today.transfers)} unit="شيكل" />
-            </div>
-
-            {today.payments.length > 0 ? (
+            {summaryOnly ? <>
+                <p className="text-sm leading-7 text-gray-600">مقبوضات سجّلتها أنت اليوم. هذا الملخص مستقل عن تصفية قائمة المشتركين أدناه.</p>
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-5">
+                    <KpiTile icon="receipt" label="التحصيل الفعلي" value={formatMoney(today.total)} unit="شيكل" hint={`${today.count.toLocaleString('en')} ${today.count === 1 ? 'دفعة' : 'دفعات'} مسجّلة`} valueClassName="text-emerald-700 dark:text-emerald-400" />
+                    <KpiTile icon="banknotes" label="مقبوضات نقدية" value={formatMoney(today.cash)} unit="شيكل" valueClassName="text-emerald-700 dark:text-emerald-400" />
+                    <KpiTile icon="bank" label="بنوك ومحافظ" value={formatMoney(today.transfers)} unit="شيكل" valueClassName="text-emerald-700 dark:text-emerald-400" />
+                </div>
+            </> : today.payments.length > 0 ? (
                 <ul className="divide-y divide-gray-100 overflow-hidden rounded-panel border border-gray-100 bg-surface shadow-card">
                     {today.payments.map((payment) => (
-                        <li key={payment.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 text-sm">
+                        <li key={payment.id} className="flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-5 text-base">
                             <span className="min-w-0 flex-1 basis-48 font-semibold text-gray-900">{payment.subscriptionName}</span>
                             <span className="text-gray-500">
                                 {payment.methodLabel}
@@ -90,15 +89,18 @@ export default function Index({ subscriptions, scopeLabel, filters, filterOption
                         <h2 className="mt-1 text-3xl font-bold text-gray-900">تسجيل الدفعات</h2>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <PrimaryButton type="button" onClick={() => setSplitting(true)} className="h-11 px-5">
+                        <SecondaryButton type="button" onClick={() => setSplitting(true)} className="min-h-12 px-5">
                             <Icon name="layers" className="h-[18px] w-[18px]" />
                             دفعة مقسّمة على عدة مشتركين
-                        </PrimaryButton>
+                        </SecondaryButton>
                     </div>
                 </>
             }
         >
             <Head title="تسجيل الدفعات" />
+
+            <TodaysPayments today={today} summaryOnly />
+            <div className="mb-6"><FinancialLegend /></div>
 
             <DataTableToolbar
                 search={search}
@@ -111,6 +113,7 @@ export default function Index({ subscriptions, scopeLabel, filters, filterOption
                 filterMenu={
                     <DataTableFilterMenu
                         tableKey="payments"
+                        primaryKeys={['branch_id', 'balance', 'balance_status', 'outstanding_balance', 'status']}
                         groups={filterOptions}
                         values={filterValues}
                         onChange={setFilter}
@@ -142,8 +145,6 @@ export default function Index({ subscriptions, scopeLabel, filters, filterOption
                             </tr>
                         ) : (
                             subscriptions.data.map((subscription) => {
-                                const described = describeBalance(subscription.balance);
-
                                 return (
                                     <tr key={subscription.id}>
                                         <td className="text-gray-600">
@@ -165,18 +166,16 @@ export default function Index({ subscriptions, scopeLabel, filters, filterOption
                                         <td className="text-gray-600">{subscription.meterBoxNumber ? <span className="data-chip">{subscription.meterBoxNumber}</span> : '—'}</td>
                                         <td className="text-gray-600">{subscription.subAreaName || '—'}</td>
                                         <td>
-                                            <span className={`inline-block whitespace-nowrap rounded-[10px] px-2.5 py-0.5 font-display text-[14.5px] font-bold ${BALANCE_CHIPS[described.tone]}`}>
-                                                {balanceText(described)}
-                                            </span>
+                                            <FinancialBalance value={subscription.balance} chip />
                                         </td>
                                         <td>
                                             <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
                                         </td>
                                         <td className="text-end">
-                                            <PrimaryButton type="button" onClick={() => setPaying(subscription)} className="px-3.5 py-2">
+                                            <button type="button" onClick={() => setPaying(subscription)} className="inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-control border border-emerald-600/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 dark:text-emerald-400">
                                                 <Icon name="banknotes" className="h-4 w-4" />
                                                 تسجيل دفعة
-                                            </PrimaryButton>
+                                            </button>
                                         </td>
                                     </tr>
                                 );

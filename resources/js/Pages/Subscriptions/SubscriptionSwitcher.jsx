@@ -1,5 +1,6 @@
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { describeBalance } from '@/lib/accountStatement';
+import { BALANCE_TEXT, BALANCE_LABELS } from '@/Components/FinancialBalance';
 
 const STATUS_TONES = {
     active: 'green',
@@ -7,18 +8,12 @@ const STATUS_TONES = {
     disconnected: 'gray',
 };
 
-const BALANCE_TONES = {
-    owes: 'text-brand-700',
-    credit: 'text-emerald-700 dark:text-emerald-400',
-    settled: 'text-gray-900',
-};
-
 function Balance({ value, className = '' }) {
     const balance = describeBalance(value);
 
     return (
-        <span className={`whitespace-nowrap font-bold tabular-nums ${BALANCE_TONES[balance.tone]} ${className}`}>
-            {balance.tone === 'settled' ? '0 شيكل — مسدّد' : `${balance.amount} شيكل ${balance.label}`}
+        <span className={`font-bold tabular-nums ${BALANCE_TEXT[balance.tone]} ${className}`}>
+            {balance.tone === 'settled' ? '0 شيكل — مسدّد' : `${balance.amount} شيكل ${BALANCE_LABELS[balance.tone]}`}
         </span>
     );
 }

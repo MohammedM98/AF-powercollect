@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '@/Components/Icon';
+import FieldPopover from '@/Components/FieldPopover';
 
 /**
  * A drop-down with a search box. Each option is `{ value, label, hint? }`:
@@ -40,6 +41,11 @@ export default function SearchableSelect({
     const containerRef = useRef(null);
     const searchRef = useRef(null);
     const buttonRef = useRef(null);
+    const close = useCallback((restore) => {
+        setOpen(false);
+        setQuery('');
+        if (restore) buttonRef.current?.focus();
+    }, []);
 
     const isMatch = (option) => String(option.value) === String(value);
     const selected = options.find(isMatch) ?? found?.find(isMatch) ?? (chosen && isMatch(chosen) ? chosen : undefined);
@@ -92,33 +98,6 @@ export default function SearchableSelect({
     }, [open, query, loadOptions]);
 
     useEffect(() => {
-        if (!open) {
-            return;
-        }
-
-        function onPointerDown(event) {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
-                setOpen(false);
-                setQuery('');
-            }
-        }
-
-        function onKeyDown(event) {
-            if (event.key === 'Escape') {
-                setOpen(false);
-                setQuery('');
-            }
-        }
-
-        document.addEventListener('mousedown', onPointerDown);
-        document.addEventListener('keydown', onKeyDown);
-        return () => {
-            document.removeEventListener('mousedown', onPointerDown);
-            document.removeEventListener('keydown', onKeyDown);
-        };
-    }, [open]);
-
-    useEffect(() => {
         if (open) {
             searchRef.current?.focus();
         }
@@ -127,8 +106,7 @@ export default function SearchableSelect({
     function select(option) {
         setChosen(option);
         onChange(option ? String(option.value) : '', option);
-        setOpen(false);
-        setQuery('');
+        close(true);
     }
 
     return (
@@ -167,10 +145,11 @@ export default function SearchableSelect({
             )}
 
             {open && (
-                <div className="animate-modal-panel absolute z-20 mt-2 w-full min-w-[12rem] overflow-hidden rounded-2xl border border-gray-100 bg-surface shadow-lift">
+                <FieldPopover anchor={buttonRef.current} onClose={close} label={searchPlaceholder} width={Math.max(260, buttonRef.current.offsetWidth)}>
                     <div className="border-b border-gray-100 p-2">
                         <input
                             ref={searchRef}
+                            data-autofocus
                             type="text"
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
@@ -221,7 +200,7 @@ export default function SearchableSelect({
                     {loadOptions && hasMore && !failed && (
                         <p className="border-t border-gray-100 px-3 py-2 text-xs text-gray-500">اكتب للبحث عن المزيد من النتائج.</p>
                     )}
-                </div>
+                </FieldPopover>
             )}
         </div>
     );

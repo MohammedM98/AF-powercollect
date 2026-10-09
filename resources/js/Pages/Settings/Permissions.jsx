@@ -1,3 +1,4 @@
+import SelectInput from '@/Components/SelectInput';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
@@ -188,7 +189,7 @@ function EmployeeList({ users, selectedId, selectedDirty, templates, filters, fi
                     </div>
                 )}
                 {branchGroup && (
-                    <select
+                    <SelectInput
                         value={filterValues.branch_id ?? ''}
                         onChange={(event) => onFilterChange('branch_id', event.target.value)}
                         aria-label={branchGroup.label}
@@ -200,7 +201,7 @@ function EmployeeList({ users, selectedId, selectedDirty, templates, filters, fi
                                 {option.label}
                             </option>
                         ))}
-                    </select>
+                    </SelectInput>
                 )}
             </div>
 

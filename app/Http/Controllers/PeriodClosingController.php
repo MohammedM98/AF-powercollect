@@ -9,6 +9,7 @@ use App\Models\Branch;
 use App\Models\Closing;
 use App\Notifications\ActionCompleted;
 use App\Support\ClosingPeriods;
+use App\Support\WeeklyClosingService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,13 +28,20 @@ class PeriodClosingController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $this->authorize('approvePeriod', Closing::class);
         $validated = $request->validate([
             'period' => ['required', Rule::in(['weekly', 'monthly'])],
             'date' => ['required', 'date_format:Y-m-d'],
         ]);
+        $this->authorize($validated['period'] === 'weekly' ? 'closeWeek' : 'approvePeriod', Closing::class);
         $actor = $request->user();
         $date = ClosingPeriods::date($validated['date']);
+        if ($validated['period'] === 'weekly') {
+            $closing = app(WeeklyClosingService::class)->close($validated['date'], $actor,
+                fn (): array => $this->periodData('weekly', $date, Branch::query()->orderBy('name')->get(), $actor));
+            $actor->notify(new ActionCompleted('period-approved', $closing->number));
+
+            return back()->with('status', 'period-approved');
+        }
         $summary = $this->periodData($validated['period'], $date, Branch::query()->orderBy('name')->get(), $actor);
 
         if (! $summary['canApprove']) {

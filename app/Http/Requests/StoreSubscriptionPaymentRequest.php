@@ -99,6 +99,10 @@ class StoreSubscriptionPaymentRequest extends FormRequest
             'cash_box' => ['exclude_unless:payment_method,'.PaymentMethod::Cash->value, 'nullable', 'string', 'max:20'],
             'manual_voucher_number' => ['exclude_unless:payment_method,'.PaymentMethod::Cash->value, 'nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'actual_at' => ['nullable', 'date', 'before_or_equal:now'],
+            'adjustment_reason' => ['required_with:actual_at', 'nullable', 'string', 'max:1000'],
+            'recorded_at' => ['prohibited'],
+            'closing_period_id' => ['prohibited'],
         ];
     }
 

@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * day), the weekday that starts the week (0 = Sunday … 6 = Saturday), and
  * whether each day's closings open by themselves once the day is over.
  */
-#[Fillable(['cutoff_time', 'week_starts_on', 'auto_open', 'updated_by'])]
+#[Fillable(['cutoff_time', 'week_starts_on', 'auto_open', 'updated_by', 'weekly_enabled', 'weekly_closing_day', 'weekly_closing_time', 'weekly_timezone', 'grace_period_minutes', 'auto_prepare'])]
 class ClosingSetting extends Model
 {
     public const DEFAULT_CUTOFF = '00:00';
@@ -31,6 +31,10 @@ class ClosingSetting extends Model
         return [
             'week_starts_on' => 'integer',
             'auto_open' => 'boolean',
+            'weekly_enabled' => 'boolean',
+            'weekly_closing_day' => 'integer',
+            'grace_period_minutes' => 'integer',
+            'auto_prepare' => 'boolean',
         ];
     }
 
@@ -49,7 +53,7 @@ class ClosingSetting extends Model
     public static function loadCurrent(): self
     {
         return static::query()->oldest('id')->first()
-            ?? static::create(['cutoff_time' => self::DEFAULT_CUTOFF, 'week_starts_on' => self::DEFAULT_WEEK_START, 'auto_open' => true]);
+            ?? static::create(['cutoff_time' => self::DEFAULT_CUTOFF, 'week_starts_on' => self::DEFAULT_WEEK_START, 'auto_open' => true])->refresh();
     }
 
     /**

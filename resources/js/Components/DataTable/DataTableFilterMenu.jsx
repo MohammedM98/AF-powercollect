@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useFilterVisibility } from '@/hooks/useFilterVisibility';
 import SearchableSelect from '@/Components/SearchableSelect';
 import Icon from '@/Components/Icon';
@@ -8,7 +8,7 @@ import { childOptions, nestFilterGroups, parentChange, parentValue, scopedOption
 function FilterField({ group, value, onChange, placeholder = 'الكل', className = 'sm:w-44' }) {
     return (
         <div className={`flex w-full min-w-0 flex-col gap-1.5 ${className}`}>
-            <span className={`flex items-center gap-1.5 text-xs font-semibold ${value ? 'text-gray-900' : 'text-gray-500'}`}>
+            <span className={`flex items-center gap-1.5 text-sm font-semibold ${value ? 'text-gray-900' : 'text-gray-500'}`}>
                 {group.label}
                 {value && <span className="h-1.5 w-1.5 rounded-full bg-brand-500" aria-hidden="true" />}
             </span>
@@ -36,9 +36,11 @@ function FilterField({ group, value, onChange, placeholder = 'الكل', classNa
  * pick a branch and the areas, sub-areas, meter boxes and staff narrow to
  * that branch's; changing it clears whichever of them no longer fit.
  */
-export default function DataTableFilterMenu({ tableKey, groups, values, onChange, onChangeMany, onClear }) {
+export default function DataTableFilterMenu({ tableKey, groups, values, onChange, onChangeMany, onClear, primaryKeys = ['branch_id', 'balance', 'status'] }) {
     const activeCount = Object.values(values ?? {}).filter(Boolean).length;
     const [open, setOpen] = useState(false);
+    const [expanded, setExpanded] = useState(false);
+    const fieldsId = useId();
     const menuRef = useRef(null);
     const { topLevel, childOf, hideable } = nestFilterGroups(groups);
     const groupKeys = hideable.map((group) => group.key);
@@ -81,10 +83,11 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
     }
 
     const visibleGroups = topLevel.filter((group) => childOf[group.key] || visibleKeys.includes(group.key));
+    const additionalCount = visibleGroups.filter((group) => !primaryKeys.includes(group.key)).length;
 
     return (
-        <div className="flex w-full flex-wrap items-end gap-3 border-t border-gray-100 pt-4">
-            {visibleGroups.map((group) => {
+        <div className="flex w-full flex-wrap items-end gap-5 border-t border-gray-200 pt-5">
+            <div id={fieldsId} className="contents">{visibleGroups.filter((group) => expanded || primaryKeys.includes(group.key) || values?.[group.key] || values?.[childOf[group.key]?.key]).map((group) => {
                 const child = childOf[group.key];
 
                 if (!child) {
@@ -125,9 +128,15 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
                         )}
                     </div>
                 );
-            })}
+            })}</div>
 
-            <div className="relative" ref={menuRef}>
+            <button type="button" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded} aria-controls={fieldsId} className="inline-flex min-h-11 items-center gap-2 rounded-control border border-gray-200 bg-surface px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                <Icon name="filter" className="h-4 w-4" />
+                {expanded ? 'إخفاء التصفية الإضافية' : 'تصفية إضافية'}
+                {additionalCount > 0 && <span className="font-display text-gray-500">({additionalCount})</span>}
+            </button>
+
+            <div className={`relative ${expanded ? '' : 'hidden'}`} ref={menuRef}>
                 <button
                     type="button"
                     onClick={() => setOpen((current) => !current)}

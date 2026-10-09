@@ -10,6 +10,7 @@ use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingPayment;
 use App\Models\ClosingSetting;
+use App\Models\FinancialAuditStatement;
 use App\Notifications\ActionCompleted;
 use App\Support\ClosingPeriods;
 use Illuminate\Http\RedirectResponse;
@@ -70,6 +71,7 @@ class ClosingController extends Controller
             ] : null,
             'register' => $tab === 'register' ? $this->requestedRegister($request, $branches) : null,
             'canExport' => $request->user()->can('export', Closing::class),
+            'canSendPeriodAudit' => $branch !== null && $actor->can('submit', [FinancialAuditStatement::class, $branch]),
             'differenceReasons' => $this->differenceReasons(),
             'cashNotes' => config('powercollect.closing.notes'),
             'cashCoins' => config('powercollect.closing.coins'),

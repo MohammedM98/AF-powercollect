@@ -6,6 +6,7 @@ import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import StatusPill from '@/Components/DataTable/StatusPill';
+import FinancialBalance from '@/Components/FinancialBalance';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
@@ -411,8 +412,8 @@ export default function Index({
                                     </td>
                                     <td className="text-gray-600">{subscription.subAreaName || '—'}</td>
                                     <td className="whitespace-nowrap text-gray-600">{formatCurrency(subscription.weeklyMinimumPayment)}</td>
-                                    <td className={`whitespace-nowrap font-semibold ${Number(subscription.outstandingBalance) > 0 ? 'text-red-600' : Number(subscription.outstandingBalance) < 0 ? 'text-emerald-600' : 'text-gray-600'}`}>
-                                        {formatCurrency(subscription.outstandingBalance)}
+                                    <td>
+                                        <FinancialBalance value={subscription.outstandingBalance} signed />
                                     </td>
                                     <td>
                                         <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />

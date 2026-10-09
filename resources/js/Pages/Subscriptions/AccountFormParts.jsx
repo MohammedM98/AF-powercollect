@@ -4,6 +4,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import { describeBalance } from '@/lib/accountStatement';
 import { formatMoney, initials } from '@/lib/format';
+import { BALANCE_CHIPS, BALANCE_DARK, BALANCE_LABELS } from '@/Components/FinancialBalance';
 
 /**
  * The pieces the payment, charge and discount windows share: the
@@ -13,11 +14,7 @@ import { formatMoney, initials } from '@/lib/format';
 
 const STATUS_DOTS = { active: 'bg-emerald-500', suspended: 'bg-amber-500', disconnected: 'bg-gray-400' };
 
-export const BALANCE_CHIPS = {
-    owes: 'bg-brand-500/10 text-brand-600',
-    credit: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-    settled: 'bg-gray-100 text-gray-700',
-};
+export { BALANCE_CHIPS };
 
 /** Each tone's selected tile and header icon: red for a charge (عليه), green for a discount (له), graphite otherwise. */
 const TONES = {
@@ -45,7 +42,7 @@ const TONES = {
 
 /** "377 ₪ عليه", "9.10 ₪ له" or "0 ₪ مسدّد". */
 export function balanceText(balance) {
-    return `${formatMoney(balance.tone === 'settled' ? 0 : balance.amount)} ₪ ${balance.label}`;
+    return `${formatMoney(balance.tone === 'settled' ? 0 : balance.amount)} ₪ ${BALANCE_LABELS[balance.tone]}`;
 }
 
 export function FieldLabel({ htmlFor, required = false, hint, children }) {
@@ -303,14 +300,14 @@ export function SummaryLedger({ rows, result }) {
     );
 }
 
-/** The balance a save leaves, colored: red while the subscription owes, green otherwise. */
+/** The balance after saving, shown from the company's perspective. */
 export function balanceAfterRow(label, balance) {
     const after = balance === null ? null : describeBalance(balance);
 
     return {
         label,
         value: after ? balanceText(after) : '—',
-        className: after ? (after.tone === 'owes' ? 'text-red-300' : 'text-emerald-300') : 'text-white/50',
+        className: after ? BALANCE_DARK[after.tone] : 'text-white/50',
     };
 }
 

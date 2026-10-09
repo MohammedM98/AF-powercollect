@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Modal from '@/Components/Modal';
 import Icon from '@/Components/Icon';
 import { chainColor, compactStatementEntries, describeBalance, filterStatementEntries, relatedLineChains, rememberStatementView, rememberedStatementView, STATEMENT_VIEWS } from '@/lib/accountStatement';
+import { BALANCE_LABELS, transactionMoneyClass } from '@/Components/FinancialBalance';
 import { groupReadingsByMonth } from '@/lib/readingHistory';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
@@ -71,7 +72,7 @@ export function AccountTab({ statement, onOpenStatement, onLoadStatement, loadin
     const balance = describeBalance(statement.summary.balance);
     return <>
         <div className="sp-account-summary">
-            <div><small>الرصيد · {balance.label}</small><b className={`sp-${balance.tone}`}>{money(balance.amount)}</b></div>
+            <div><small>الرصيد · {BALANCE_LABELS[balance.tone]}</small><b className={`sp-balance-tone-${balance.tone}`}>{money(balance.amount)}</b></div>
             <div><small>مجموع الفواتير والرسوم</small><b>{money(statement.summary.charged)}</b></div>
             <div><small>مجموع الدفعات</small><b className="sp-credit">{money(statement.summary.paid)}</b></div>
             <div><small>مجموع الخصومات</small><b>{money(statement.summary.discounted)}</b></div>
@@ -90,10 +91,10 @@ export function AccountTab({ statement, onOpenStatement, onLoadStatement, loadin
                 return <tr key={entry.id} data-chain={chain ?? undefined} className={chain !== null && chain === hoveredChain ? 'sp-related' : undefined} style={color ? { '--sp-chain': color } : undefined}
                     onMouseEnter={chain ? () => setHoveredChain(chain) : undefined} onMouseLeave={chain ? () => setHoveredChain(null) : undefined}>
                     <td><span className="sp-date">{entry.date.slice(0, 10)}<small>{entry.date.slice(11)}</small></span></td>
-                    <td><span className={`sp-transaction-type ${entry.isCredit ? 'sp-credit' : 'sp-owes'}`}><Icon name={entry.isCredit ? 'arrow-down' : 'receipt'} />{entry.typeLabel}</span></td>
+                    <td><span className="sp-transaction-type"><Icon name={entry.isCredit ? 'arrow-down' : 'receipt'} />{entry.typeLabel}</span></td>
                     <td>{color && <span className="sp-chain-dot" title="الحركات المرتبطة بنفس اللون" aria-hidden="true" />}{entry.description}{entry.cancellation && <small className="sp-cancellation">{entry.cancellation.wasCorrected ? 'مصححة' : 'ملغاة'} · {entry.cancellation.reasonLabel}</small>}{entry.history?.length > 0 && <button type="button" className="sp-history-link" onClick={() => chooseView('full')}><Icon name="history" />صُحّحت · {entry.history.length} حركات سابقة</button>}</td>
-                    <td className="sp-amount-column"><b className={`sp-number ${entry.isCredit ? 'sp-credit' : 'sp-owes'}`}>{entry.isCredit ? '+' : '−'}{number(entry.amount)} {entry.currencyLabel}</b></td>
-                    <td className="sp-amount-column"><span className="sp-number">{money(running.amount)}</span> <small>{running.label}</small></td>
+                    <td className="sp-amount-column"><b className={`sp-number ${transactionMoneyClass(entry)}`}>{entry.isCredit ? '+' : '−'}{number(entry.amount)} {entry.currencyLabel}</b></td>
+                    <td className={`sp-amount-column sp-balance-tone-${running.tone}`}><span className="sp-number">{money(running.amount)}</span> <small>{BALANCE_LABELS[running.tone]}</small></td>
                 </tr>;
             })}</tbody>
         </table>{entries.length === 0 && <p className="sp-empty">لا توجد حركات لهذا النوع.</p>}</div>
@@ -171,7 +172,7 @@ export default function SubscriptionDetailsModal({ subscription, onClose, onEdit
                             <div className="sp-meta"><span>ملف المشترك</span><span className="sp-number">#{subscription.subscriber_number ?? subscription.account_number}</span><span><Icon name="pin" />{subscription.branchName}</span><span><Icon name="bolt" />{subscription.tariffCategoryLabel}{subscription.circuitBreakerAmpere && ` · ${subscription.circuitBreakerAmpere} أمبير`}</span></div>
                             <div className="sp-facts">{lastPayment && <span>آخر دفعة <b>{number(lastPayment.amount)} {lastPayment.currencyLabel}</b></span>}<span>آخر قراءة <b>{number(subscription.lastReading)}</b></span>{lastReading && <span>استهلاك آخر أسبوع <b>{number(lastReading.consumption)}</b> كيلوواط ساعة</span>}</div>
                         </div>
-                        <div className={`sp-balance sp-${balance.tone}`}><small>الرصيد الحالي</small><b><bdi>{money(balance.amount)}</bdi><em>{balance.label}</em></b></div>
+                        <div className={`sp-balance sp-${balance.tone}`}><small>الرصيد الحالي</small><b><bdi>{money(balance.amount)}</bdi><em>{BALANCE_LABELS[balance.tone]}</em></b></div>
                         <div className="sp-tools">
                             <button type="button" onClick={onPrevious} disabled={!onPrevious} aria-label="المشترك السابق" title="المشترك السابق"><ProfileIcon name="previous" /></button>
                             <button type="button" onClick={onNext} disabled={!onNext} aria-label="المشترك التالي" title="المشترك التالي"><ProfileIcon name="next" /></button>

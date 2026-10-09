@@ -23,6 +23,14 @@ class UpdateClosingScheduleRequest extends FormRequest
             'cutoff_time' => ['required', 'date_format:H:i'],
             'week_starts_on' => ['required', 'integer', 'between:0,6'],
             'auto_open' => ['required', 'boolean'],
+            'weekly_enabled' => ['sometimes', 'boolean'],
+            'weekly_closing_day' => ['sometimes', 'integer', 'between:0,6'],
+            'weekly_closing_time' => ['sometimes', 'date_format:H:i'],
+            'weekly_timezone' => ['sometimes', 'timezone'],
+            'grace_period_minutes' => ['sometimes', 'integer', 'between:0,1440'],
+            'auto_prepare' => ['sometimes', 'boolean'],
+            'reason' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'final_close' => ['sometimes', 'in:manual'],
         ];
     }
 

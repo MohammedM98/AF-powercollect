@@ -59,8 +59,8 @@ export function closingSteps(status) {
     return [
         { label: 'ربط الدفعات', state: 'done' },
         { label: status === 'returned' ? 'معاد للتصحيح' : 'العدّ والمطابقة', state: status === 'returned' ? 'bad' : at > 1 ? 'done' : 'cur' },
-        { label: 'التدقيق', state: at > 2 ? 'done' : at === 2 ? 'cur' : '' },
-        { label: 'الاعتماد', state: at > 3 ? 'done' : '' },
+        { label: 'مراجعة الفرع', state: at > 2 ? 'done' : at === 2 ? 'cur' : '' },
+        { label: 'اعتماد إقفال الفرع', state: at > 3 ? 'done' : '' },
     ];
 }
 

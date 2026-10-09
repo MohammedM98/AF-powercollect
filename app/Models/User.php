@@ -209,6 +209,8 @@ class User extends Authenticatable
             'خصومات القراءات الأسبوعية' => $named(StandingDiscount::class, 'granted_by'),
             'كشوف الإغلاق' => $named(Closing::class, 'prepared_by', 'reviewed_by'),
             'سجل كشوف الإغلاق' => $named(ClosingEvent::class, 'user_id') + $named(ClosingPayment::class, 'matched_by'),
+            'كشوف التدقيق المالي' => $named(FinancialAuditStatement::class, 'submitted_by', 'reviewed_by'),
+            'سجل التدقيق المالي' => $named(FinancialAuditEvent::class, 'user_id') + $named(FinancialAuditLine::class, 'reviewed_by'),
             'تسليمات النقد' => $named(CashTransfer::class, 'sent_by', 'recipient_id', 'received_by'),
             'التعديلات الجماعية' => $named(SubscriptionBulkChange::class, 'user_id', 'undone_by'),
             'تغييرات الأسعار' => $named(TariffRateChange::class, 'changed_by'),

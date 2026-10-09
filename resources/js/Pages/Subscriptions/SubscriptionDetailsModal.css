@@ -75,8 +75,8 @@
 .sp-balance small { display: block; color: #aeb6c1; font-size: 12px; }
 .sp-balance > b { display: flex; align-items: baseline; gap: 5px; font: 800 24px/1.5 Alexandria, sans-serif; white-space: nowrap; }
 .sp-balance em { font: 700 13px 'IBM Plex Sans Arabic', sans-serif; }
-.sp-balance.sp-owes { color: #fca5a5; }
-.sp-balance.sp-credit { color: #5eead4; }
+.sp-balance.sp-owes { color: #5eead4; }
+.sp-balance.sp-credit { color: #fca5a5; }
 .sp-balance.sp-settled { color: #e0e3e7; }
 .sp-tools { display: flex; gap: 6px; margin-inline-start: 6px; }
 .sp-tools button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #ffffff1f; border-radius: 11px; color: #fff; background: #ffffff14; }
@@ -131,6 +131,14 @@
 .sp-account-summary b { display: inline-block; direction: ltr; font: 800 20px/1.7 Alexandria, sans-serif; }
 .sp-credit { color: var(--sp-success); }
 .sp-owes { color: var(--sp-danger); }
+.sp-balance-tone-owes { color: var(--sp-success); }
+.sp-balance-tone-credit { color: var(--sp-danger); }
+.sp-balance-tone-settled { color: var(--sp-ink-secondary); }
+.sp-account-summary small { font-size: 14px; line-height: 1.8; }
+.subscription-profile .sp-statement th { padding: 14px; font-size: 14px; }
+.subscription-profile .sp-statement td { padding: 18px 14px; font-size: 16px; line-height: 1.8; }
+.subscription-profile .sp-statement .sp-number { font-size: 15px; }
+.sp-balance > b { flex-wrap: wrap; }
 .sp-account-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 16px 0 10px; }
 .sp-account-toolbar > .sp-button { margin-inline-start: auto; height: 38px; }
 .sp-filters { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border: 1px solid var(--sp-line-soft); border-radius: 12px; background: var(--sp-sunken); }

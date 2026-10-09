@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import { weekDayName } from '@/lib/weekDays';
@@ -11,7 +11,7 @@ import ClosingRegister from './ClosingRegister';
 import './Closing.css';
 
 const TABS = [
-    { key: 'daily', label: 'الإغلاق اليومي', icon: 'list' },
+    { key: 'daily', label: 'إقفال الصندوق اليومي', icon: 'list' },
     { key: 'handover', label: 'تسليم النقد', icon: 'truck' },
     { key: 'period', label: 'الأسبوعي والشهري', icon: 'layers' },
     { key: 'register', label: 'سجل الكشوف', icon: 'table' },
@@ -39,22 +39,26 @@ export default function Index({
     userId,
     cutoff,
     canExport,
+    canSendPeriodAudit,
 }) {
     function visit(changes) {
         router.get('/closings', { tab, branch: branchId, date, period, ...changes }, { preserveScroll: true });
     }
 
-    const waitingForReview = daily?.status === 'submitted' && daily?.can.audit;
+    const waitingForReview = daily?.status === 'submitted' && daily?.can.approveBranch;
+    const { can } = usePage().props;
 
     return (
         <AuthenticatedLayout>
-            <Head title="الإغلاق" />
+            <Head title="الصندوق المالي" />
             <div className="closing-page" dir="rtl">
                 <div className="ph">
                     <div>
-                        <h1>الإغلاق</h1>
-                        <p>مطابقة تحصيل الفرع وتدقيقه، ثم تسليم النقد للشركة، ثم إغلاقات الأسبوع والشهر من نفس الدفعات.</p>
+                        <h1>الصندوق المالي</h1>
+                        <p>عدّ الصندوق ومطابقة التحصيل، ثم اعتماد إقفال الفرع وإرسال كشفه إلى التدقيق المالي.</p>
                     </div>
+                    {can?.viewFinancialAudit && <Link href="/financial-audit" className="btn"><Icon name="shield" />التدقيق المالي</Link>}
+                    {can?.followBranchAudit && <Link href="/closings/audit-statements" className="btn"><Icon name="history" />متابعة كشوف الفرع</Link>}
                     {branchId && (
                         <Link
                             className="btn"
@@ -67,7 +71,7 @@ export default function Index({
                     )}
                 </div>
 
-                <div className="tabs" role="group" aria-label="أقسام الإغلاق">
+                <div className="tabs" role="group" aria-label="أقسام الصندوق المالي">
                     {TABS.map((item) => (
                         <button key={item.key} type="button" aria-pressed={tab === item.key} onClick={() => visit({ tab: item.key })}>
                             <Icon name={item.icon} />
@@ -138,6 +142,7 @@ export default function Index({
                         branches={branches}
                         branchId={branchId}
                         date={date}
+                        canSendToAudit={canSendPeriodAudit}
                         onChange={visit}
                         onOpenDay={(branch, day) => visit({ tab: 'daily', branch, date: day })}
                     />

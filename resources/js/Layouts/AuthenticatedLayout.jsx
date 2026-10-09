@@ -38,7 +38,8 @@ function useIsDesktop() {
 
 /** The app name without the "AF" the logo already shows. */
 function shortAppName(appName) {
-    return (appName ?? '').replace(/^AF\s+/i, '');
+    const name = (appName ?? '').trim();
+    return !name || name.toLowerCase() === 'laravel' ? 'PowerCollect' : name.replace(/^AF\s+/i, '');
 }
 
 /**
@@ -132,6 +133,7 @@ function NavigationGroup({ group, url, collapsed, onHover }) {
 function SidebarContent({ collapsed = false, onNavigate, onClose }) {
     const { props, url } = usePage();
     const { appName, auth, can } = props;
+    const displayName = shortAppName(appName);
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     const dashboardLink = MAIN_LINKS[0];
     const navigationGroups = allowedNavigationGroups(can);
@@ -161,10 +163,10 @@ function SidebarContent({ collapsed = false, onNavigate, onClose }) {
             <Link
                 href="/dashboard"
                 prefetch
-                title={collapsed ? appName : undefined}
+                title={collapsed ? displayName : undefined}
                 className={`flex shrink-0 items-center rounded-lg py-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-gray-900 ${collapsed ? 'justify-center px-3' : 'gap-3 px-6'}`}
             >
-                <img src="/images/logo-af.webp" alt={appName} className={`w-auto shrink-0 ${collapsed ? 'h-9' : 'h-11'}`} />
+                <img src="/images/logo-af.webp" alt={displayName} className={`w-auto shrink-0 ${collapsed ? 'h-9' : 'h-11'}`} />
                 {!collapsed && (
                     <>
                         <span className="h-9 w-px bg-gray-200" aria-hidden="true" />
@@ -351,7 +353,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         <Icon name={isDesktop ? 'sidebar' : 'menu'} className="h-5 w-5" />
                     </button>
                     <Link href="/dashboard" prefetch className="shrink-0 lg:hidden">
-                        <img src="/images/logo-af.webp" alt={appName} className="h-9 w-auto" />
+                        <img src="/images/logo-af.webp" alt={shortAppName(appName)} className="h-9 w-auto" />
                     </Link>
 
                     <button

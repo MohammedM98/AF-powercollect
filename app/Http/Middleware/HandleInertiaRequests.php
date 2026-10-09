@@ -66,11 +66,14 @@ class HandleInertiaRequests extends Middleware
                     'username' => $user->username,
                     'roleLabel' => __($user->role->label()),
                     'branchName' => $user->branch?->name,
+                    // Whom the account works for: every branch for someone who sees all branches' closings, however they are filed.
+                    'scopeLabel' => ! $user->isSuperAdmin() && $user->can('viewAllBranches', Closing::class) ? 'كل الفروع' : null,
                 ],
             ] : null,
             'can' => $user ? [
                 'viewBranches' => $user->can('viewAny', Branch::class),
                 'viewSubscriptions' => $user->can('viewAny', Subscription::class),
+                'searchSubscriptions' => $user->canAny(['viewAny', 'recordAnyPayment'], Subscription::class),
                 'recordPayments' => $user->can('recordAnyPayment', Subscription::class),
                 'viewLedger' => $user->can('viewAny', SubscriptionTransaction::class),
                 'viewBranchPerformance' => $user->can('viewBranchPerformance', SubscriptionTransaction::class),

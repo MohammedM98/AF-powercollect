@@ -168,7 +168,7 @@ export default function PrintTemplates({ pages }) {
             header={
                 <>
                     <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">قوالب الطباعة</h2>
+                        <h1 className="text-3xl font-bold text-gray-900">قوالب الطباعة</h1>
                         <p className="mt-1 text-sm text-gray-500">تصاميم طباعة محفوظة لكل الشركة — {total.toLocaleString('en')} قالب.</p>
                     </div>
                     <div className="shrink-0">

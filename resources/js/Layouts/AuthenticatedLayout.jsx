@@ -173,8 +173,8 @@ function SidebarContent({ collapsed = false, onNavigate, onClose }) {
                         <span className="min-w-0">
                             {/* dir="auto": a Latin name is clipped at its end, not at its start as the Arabic page direction would. */}
                             <span dir="auto" className="block truncate text-right text-lg font-bold leading-tight text-gray-900">{shortAppName(appName)}</span>
-                            <span dir="auto" title={auth?.user?.branchName ?? undefined} className="line-clamp-2 break-words text-right text-xs text-gray-500">
-                                {auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}
+                            <span dir="auto" title={auth?.user?.scopeLabel ?? auth?.user?.branchName ?? undefined} className="line-clamp-2 break-words text-right text-xs text-gray-500">
+                                {auth?.user?.scopeLabel ?? auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}
                             </span>
                         </span>
                     </>
@@ -362,7 +362,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         className="flex min-w-0 max-w-sm flex-1 items-center gap-2.5 rounded-control border border-gray-200 bg-surface px-3.5 py-2.5 text-start text-sm text-gray-400 shadow-sm transition hover:border-gray-300"
                     >
                         <Icon name="search" className="h-[18px] w-[18px] shrink-0" />
-                        <span className="flex-1 truncate">ابحث أو انتقل إلى صفحة...</span>
+                        <span className="flex-1 truncate">{can?.searchSubscriptions ? 'ابحث عن مشترك أو انتقل إلى صفحة...' : 'ابحث أو انتقل إلى صفحة...'}</span>
                         <span className="kbd hidden shrink-0 sm:inline-flex" dir="ltr">
                             Ctrl K
                         </span>
@@ -378,7 +378,7 @@ export default function AuthenticatedLayout({ header, children }) {
                 </main>
             </div>
 
-            <CommandPalette open={paletteOpen} onOpenChange={onPaletteOpenChange} links={paletteLinks} />
+            <CommandPalette open={paletteOpen} onOpenChange={onPaletteOpenChange} links={paletteLinks} canSearchSubscribers={Boolean(can?.searchSubscriptions)} />
         </div>
     );
 }

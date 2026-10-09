@@ -56,7 +56,7 @@ export default function Index({
             header={
                 <>
                     <div className="flex min-w-0 flex-wrap items-center gap-4">
-                        <h2 className="text-3xl font-bold text-gray-900">المستخدمون</h2>
+                        <h1 className="text-3xl font-bold text-gray-900">المستخدمون</h1>
                         {userTypes !== null && (
                             <div role="tablist" aria-label="المستخدمون" className="inline-flex gap-0.5 rounded-xl border border-gray-100 bg-gray-100 p-[3px]">
                                 {TABS.map(([key, label]) => (

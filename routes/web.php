@@ -39,6 +39,7 @@ use App\Http\Controllers\SubscriptionDiscountController;
 use App\Http\Controllers\SubscriptionPaymentController;
 use App\Http\Controllers\SubscriptionPersonalDetailsController;
 use App\Http\Controllers\SubscriptionPhoneController;
+use App\Http\Controllers\SubscriptionSearchController;
 use App\Http\Controllers\SubscriptionStandingDiscountController;
 use App\Http\Controllers\SubscriptionStatementController;
 use App\Http\Controllers\SubscriptionTransactionController;
@@ -61,6 +62,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile/devices', [ProfileDeviceController::class, 'destroy'])->middleware('throttle:6,1')->name('profile.devices.destroy');
+
+    Route::get('/search/subscriptions', [SubscriptionSearchController::class, 'index'])->middleware('throttle:60,1')->name('search.subscriptions');
 
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/search', [PaymentController::class, 'search'])->name('payments.search');

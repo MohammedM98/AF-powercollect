@@ -83,7 +83,7 @@ class BranchPerformanceTest extends TestCase
             ->get(route('branch-performance.index'))
             ->assertInertia(fn ($page) => $page
                 ->component('BranchPerformance/Index')
-                ->where('sort', 'revenue')
+                ->where('sort', 'collected')
                 ->where('summary', [
                     'branches' => 2,
                     'activeBranches' => 1,
@@ -94,10 +94,10 @@ class BranchPerformanceTest extends TestCase
                     'todayEntries' => 2,
                     'staff' => 3,
                 ])
-                ->where('branches.0.name', 'فرع المنصور')
-                ->where('branches.0.rank', 1)
-                ->where('branches.1', fn ($branch): bool => $branch['name'] === 'فرع الكرادة'
-                    && $branch['rank'] === 2
+                ->where('branches.1.name', 'فرع المنصور')
+                ->where('branches.1.rank', 2)
+                ->where('branches.0', fn ($branch): bool => $branch['name'] === 'فرع الكرادة'
+                    && $branch['rank'] === 1
                     && $branch['chargesTotal'] == 200
                     && $branch['subscriptions'] === 3
                     && $branch['activeSubscriptions'] === 2
@@ -112,13 +112,61 @@ class BranchPerformanceTest extends TestCase
                     && $branch['lastEntryAt'] === '2026-09-20T09:30:00+00:00'));
     }
 
+    public function test_each_branch_shows_what_it_collected_this_month_against_what_could_be_collected_and_what_is_owed(): void
+    {
+        $this->seedActivity();
+
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('branch-performance.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('branches.0', fn ($branch): bool => $branch['name'] === 'فرع الكرادة'
+                    && $branch['monthCollected'] == 100
+                    && $branch['monthCharged'] == 170
+                    && $branch['openingDebt'] == 30
+                    && $branch['monthCollectable'] == 200
+                    && $branch['collectionRate'] === 50
+                    && $branch['outstanding'] == 140
+                    && $branch['debtors'] === 2)
+                ->where('branches.1', fn ($branch): bool => $branch['name'] === 'فرع المنصور'
+                    && $branch['monthCollected'] == 0
+                    && $branch['monthCharged'] == 0
+                    && $branch['openingDebt'] == 500
+                    && $branch['monthCollectable'] == 500
+                    && $branch['collectionRate'] === 0
+                    && $branch['outstanding'] == 500
+                    && $branch['debtors'] === 1)
+                ->where('collection', [
+                    'monthCollected' => 100,
+                    'monthCharged' => 170,
+                    'openingDebt' => 530,
+                    'monthCollectable' => 700,
+                    'collectionRate' => 14,
+                    'outstanding' => 640,
+                    'debtors' => 3,
+                    'since' => '2026-09-01',
+                ]));
+    }
+
+    public function test_a_branch_with_nothing_to_collect_has_no_collection_rate(): void
+    {
+        $quiet = Branch::factory()->create(['name' => 'فرع هادئ']);
+
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('branch-performance.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('branches', fn ($branches): bool => collect($branches)->firstWhere('id', $quiet->id)['collectionRate'] === null
+                    && collect($branches)->firstWhere('id', $quiet->id)['monthCollectable'] == 0));
+    }
+
     /**
      * @param  array<int, string>  $order
      */
+    #[TestWith(['collected', ['فرع الكرادة', 'فرع المنصور']])]
+    #[TestWith(['outstanding', ['فرع المنصور', 'فرع الكرادة']])]
     #[TestWith(['revenue', ['فرع المنصور', 'فرع الكرادة']])]
     #[TestWith(['subscriptions', ['فرع الكرادة', 'فرع المنصور']])]
     #[TestWith(['activity', ['فرع الكرادة', 'فرع المنصور']])]
-    #[TestWith(['nonsense', ['فرع المنصور', 'فرع الكرادة']])]
+    #[TestWith(['nonsense', ['فرع الكرادة', 'فرع المنصور']])]
     public function test_the_branches_are_ranked_by_the_chosen_figure(string $sort, array $order): void
     {
         $this->seedActivity();
@@ -126,9 +174,25 @@ class BranchPerformanceTest extends TestCase
         $this->actingAs(User::factory()->superAdmin()->create())
             ->get(route('branch-performance.index', ['sort' => $sort]))
             ->assertInertia(fn ($page) => $page
-                ->where('sort', $sort === 'nonsense' ? 'revenue' : $sort)
+                ->where('sort', $sort === 'nonsense' ? 'collected' : $sort)
                 ->where('branches', fn ($branches): bool => collect($branches)->pluck('name')->all() === $order
                     && collect($branches)->pluck('rank')->all() === [1, 2]));
+    }
+
+    public function test_a_branch_page_carries_the_same_money_figures_as_its_card(): void
+    {
+        $this->seedActivity();
+
+        $this->actingAs($this->admin)
+            ->get(route('branch-performance.show', $this->karrada))
+            ->assertInertia(fn ($page) => $page
+                ->where('branch.monthCollected', 100)
+                ->where('branch.monthCharged', 170)
+                ->where('branch.openingDebt', 30)
+                ->where('branch.monthCollectable', 200)
+                ->where('branch.collectionRate', 50)
+                ->where('branch.outstanding', 140)
+                ->where('branch.debtors', 2));
     }
 
     public function test_a_branch_page_shows_its_subscriptions_charges_and_entries_over_the_last_month(): void

@@ -1,17 +1,10 @@
 .ledger-page{
-  --ledger-page:#eff1f4;--ledger-surface:#fff;--ledger-raised:#f7f8fa;--ledger-sunken:#f2f3f5;
-  --ledger-line:#e2e5e9;--ledger-line2:#eceef1;--ledger-ink:#111820;--ledger-ink2:#353c46;--ledger-muted:#4c5460;--ledger-faint:#5e6773;
+  --ledger-page:rgb(var(--ui-page));--ledger-surface:rgb(var(--surface));--ledger-raised:rgb(var(--ui-raised));--ledger-sunken:rgb(var(--ui-sunken));
+  --ledger-line:rgb(var(--ui-line));--ledger-line2:rgb(var(--ui-line-soft));--ledger-ink:rgb(var(--ui-ink));--ledger-ink2:rgb(var(--ui-ink-2));--ledger-muted:rgb(var(--ui-muted));--ledger-faint:rgb(var(--ui-faint));
   --ledger-brand:#a51d26;--ledger-brand-hi:#b8232c;--ledger-brand-lo:#7d121b;
-  --ledger-success:#047857;--ledger-success-t:#0478571a;--ledger-info:#1d5bcc;--ledger-info-t:#1d5bcc14;--ledger-warn:#b45309;--ledger-warn-t:#b453091a;--ledger-danger:#c81e1e;--ledger-danger-t:#c81e1e14;
-  --ledger-focus:#111820;--ledger-shadow:0 1px 2px #10182808,0 14px 34px -18px #1018282e;--ledger-pop:0 30px 60px -24px #10182866,0 2px 6px #1018280d;
-  --ledger-hero:linear-gradient(135deg,#262c34,#1c2127 55%,#111418);
-}
-.dark .ledger-page{
-  --ledger-page:#0b0d10;--ledger-surface:#14171c;--ledger-raised:#1b1f25;--ledger-sunken:#101317;
-  --ledger-line:#343a44;--ledger-line2:#252a32;--ledger-ink:#f4f5f7;--ledger-ink2:#e0e3e7;--ledger-muted:#9ea6b1;--ledger-faint:#8b94a0;
-  --ledger-success:#34d399;--ledger-success-t:#34d3991a;--ledger-info:#7dafe8;--ledger-info-t:#7dafe81a;--ledger-warn:#fbbf24;--ledger-warn-t:#fbbf241a;--ledger-danger:#fc7d7d;--ledger-danger-t:#fc7d7d1a;
-  --ledger-focus:#c9ced5;--ledger-shadow:0 20px 40px -24px #000;--ledger-pop:0 30px 60px -20px #000;
-  --ledger-hero:linear-gradient(135deg,#1c2127,#161a1f 55%,#0b0d10);
+  --ledger-success:rgb(var(--ui-success));--ledger-success-t:var(--ui-success-t);--ledger-info:rgb(var(--ui-info));--ledger-info-t:var(--ui-info-t);--ledger-warn:rgb(var(--ui-warn));--ledger-warn-t:var(--ui-warn-t);--ledger-danger:rgb(var(--ui-danger));--ledger-danger-t:var(--ui-danger-t);
+  --ledger-focus:rgb(var(--ui-focus));--ledger-shadow:var(--ui-shadow);--ledger-pop:var(--ui-pop);
+  --ledger-hero:var(--ui-hero);
 }
 .ledger-page .ph{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
 .ledger-page .ph h1{margin:0;font:700 34px/1.2 'El Messiri',serif}
@@ -120,7 +113,7 @@
 .ledger-page .foot div b{display:block;font:800 17px Alexandria;color:var(--ledger-ink)}
 .ledger-page .foot div b.g{color:var(--ledger-success)}
 .ledger-page .foot .r{margin-inline-start:auto;font-size:12.5px}
-@container ledger (max-width:1180px){.ledger-page .kp{grid-template-columns:1fr 1fr}.ledger-page .k.hero{grid-column:1/-1}.ledger-page .row{grid-template-columns:1fr auto;grid-template-areas:"who am" "ty bal" "meta meta";padding:12px 16px;gap:6px 10px}
+@container ledger (max-width:1180px){.ledger-page .kp{grid-template-columns:repeat(3,1fr)}.ledger-page .k.hero{grid-column:1/-1}.ledger-page .row{grid-template-columns:1fr auto;grid-template-areas:"who am" "ty bal" "meta meta";padding:12px 16px;gap:6px 10px}
  .ledger-page .row .t,.ledger-page .row .vch-c,.ledger-page .row .mth-c,.ledger-page .row .ref,.ledger-page .row .by{display:none}
  .ledger-page .row .who-c{grid-area:who}.ledger-page .row .am-c{grid-area:am;text-align:left}.ledger-page .row .ty-c{grid-area:ty}.ledger-page .row .bal-c{grid-area:bal;text-align:left}
  .ledger-page .row .meta{display:flex!important;grid-area:meta}}
@@ -202,9 +195,9 @@
 .ledger-page .ledger-table, .ledger-page .ledger-table thead, .ledger-page .ledger-table tbody { display: block; }
 .ledger-page .name-btn { min-height: 24px; }
 .ledger-page .num.balance-subscriber,
-.ledger-page .num.balance-subscriber > span { color: var(--ledger-danger); }
+.ledger-page .num.balance-subscriber > span { color: var(--ledger-info); }
 .ledger-page .num.balance-company,
-.ledger-page .num.balance-company > span { color: var(--ledger-success); }
+.ledger-page .num.balance-company > span { color: var(--ledger-warn); }
 
 /* Keep financial tables legible at the same scale as the collection pages. */
 .ledger-page .pn { border-radius: 20px; box-shadow: 0 1px 3px #1018280d; }

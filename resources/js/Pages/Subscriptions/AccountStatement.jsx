@@ -21,7 +21,7 @@ import {
 } from '@/lib/accountStatement';
 import { downloadCsv } from '@/lib/csv';
 import { formatAmount } from '@/lib/currency';
-import { formatMoney } from '@/lib/format';
+import { formatMoney, formatNumericDate } from '@/lib/format';
 import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 
 const COLUMNS = [
@@ -306,7 +306,7 @@ function lineActionsMenu(entry, onAction) {
     return groups.length
         ? {
               title: entry.description,
-              subtitle: entry.date,
+              subtitle: formatNumericDate(entry.date),
               width: 410,
               groups,
           }
@@ -442,7 +442,7 @@ function StatementRow({
                 ) : <Dash />}
             </td>
             <td data-label="تاريخ الحركة" className="whitespace-nowrap tabular-nums text-gray-600">
-                <span dir="ltr">{entry.date}</span>
+                <span dir="ltr">{formatNumericDate(entry.date)}</span>
             </td>
             <td data-label="البيان" className="font-medium text-gray-900">
                 <div className="ledger-description">

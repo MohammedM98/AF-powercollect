@@ -9,10 +9,15 @@ import { formatMoney, formatNumber, percentOf, timeAgo } from '@/lib/format';
 import BranchMark, { branchPlace } from './BranchMark';
 
 const SORTS = [
-    { value: 'revenue', label: 'الإيرادات' },
+    { value: 'collected', label: 'المحصَّل' },
+    { value: 'outstanding', label: 'الديون' },
+    { value: 'revenue', label: 'المُحمَّل' },
     { value: 'subscriptions', label: 'المشتركون' },
     { value: 'activity', label: 'النشاط' },
 ];
+
+/** The sort the page opens in; it needs no `?sort=` in the address. */
+const DEFAULT_SORT = 'collected';
 
 function MiniStat({ label, value }) {
     return (
@@ -24,12 +29,14 @@ function MiniStat({ label, value }) {
 }
 
 /**
- * One branch: its place in the order, what it charged, how many of its
- * subscriptions are active, its entries over two weeks, and its staff. The
- * whole card opens the branch.
+ * One branch: its place in the order, what it collected this month against
+ * what it charged, what its subscriptions still owe, how many of them are
+ * active, its entries over two weeks, and its staff. The whole card opens
+ * the branch.
  */
 function BranchCard({ branch, style }) {
     const activeShare = percentOf(branch.activeSubscriptions, branch.subscriptions);
+    const hasRate = branch.collectionRate !== null;
 
     return (
         <article
@@ -59,9 +66,9 @@ function BranchCard({ branch, style }) {
 
             <div className="mt-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
                 <div className="min-w-0">
-                    <p className="text-xs text-gray-500">إجمالي القيود</p>
+                    <p className="text-xs text-gray-500">المحصَّل هذا الشهر</p>
                     <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
-                        <span className="font-display text-3xl font-bold text-gray-900 sm:text-4xl">{formatMoney(branch.chargesTotal)}</span>
+                        <span className="font-display text-3xl font-bold text-gray-900 sm:text-4xl">{formatMoney(branch.monthCollected)}</span>
                         <span className="text-sm text-gray-500">شيكل</span>
                     </p>
                 </div>
@@ -72,6 +79,27 @@ function BranchCard({ branch, style }) {
             </div>
 
             <div className="mt-5">
+                <div className="flex items-baseline justify-between gap-3 text-xs">
+                    <span className="text-gray-500">
+                        {hasRate ? (
+                            <>
+                                نسبة التحصيل · القابل للتحصيل <b className="font-display text-sm text-gray-900">{formatMoney(branch.monthCollectable)}</b>
+                            </>
+                        ) : (
+                            'لا ديون ولا تحميلات بعد'
+                        )}
+                    </span>
+                    <b className="font-display text-gray-700">{hasRate ? `${branch.collectionRate}%` : '—'}</b>
+                </div>
+                <MeterBar value={Math.min(branch.collectionRate ?? 0, 100)} max={100} className="mt-2" />
+            </div>
+
+            <div className="mt-4 flex items-baseline justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs">
+                <span className="text-gray-700">الديون المستحقة · {formatNumber(branch.debtors)} مشترك</span>
+                <b className="font-display text-sm text-amber-800 dark:text-amber-300">{formatMoney(branch.outstanding)} شيكل</b>
+            </div>
+
+            <div className="mt-4">
                 <div className="flex items-baseline justify-between gap-3 text-xs">
                     <span className="text-gray-500">
                         <b className="font-display text-sm text-gray-900">{formatNumber(branch.activeSubscriptions)}</b> نشط من{' '}
@@ -107,9 +135,9 @@ function BranchCard({ branch, style }) {
  * branches, then one card per branch, ranked by what the sort buttons
  * pick. A card opens the branch's own page.
  */
-export default function Index({ sort, summary, branches }) {
+export default function Index({ sort, summary, collection, branches }) {
     function changeSort(next) {
-        router.get('/branch-performance', next === 'revenue' ? {} : { sort: next }, { preserveState: true, preserveScroll: true, replace: true });
+        router.get('/branch-performance', next === DEFAULT_SORT ? {} : { sort: next }, { preserveState: true, preserveScroll: true, replace: true });
     }
 
     return (
@@ -120,10 +148,10 @@ export default function Index({ sort, summary, branches }) {
                         <p className="text-sm font-semibold text-gray-500">
                             {formatNumber(summary.branches)} فروع · {formatNumber(summary.activeBranches)} نشطة
                         </p>
-                        <h2 className="mt-1 text-3xl font-bold text-gray-900">أداء الفروع</h2>
-                        <p className="mt-1 text-sm text-gray-500">إيرادات ونشاط وفريق كل فرع، اضغط على أي فرع لتفاصيل عمله اليومية.</p>
+                        <h1 className="mt-1 text-3xl font-bold text-gray-900">أداء الفروع</h1>
+                        <p className="mt-1 text-sm text-gray-500">ما حصّله كل فرع وما بقي عليه، مع نشاطه وفريقه. اضغط على أي فرع لتفاصيل عمله اليومية.</p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2.5">
+                    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2.5">
                         <span className="text-sm text-gray-500">ترتيب:</span>
                         <SegmentedTabs options={SORTS} value={sort} onChange={changeSort} label="ترتيب الفروع" />
                     </div>
@@ -133,7 +161,26 @@ export default function Index({ sort, summary, branches }) {
             <Head title="أداء الفروع" />
 
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                <KpiTile icon="folder" label="إجمالي القيود" value={formatMoney(summary.chargesTotal)} unit="شيكل" hint="كل الفروع · منذ البداية" />
+                <KpiTile
+                    icon="banknotes"
+                    label="المحصَّل هذا الشهر"
+                    value={formatMoney(collection.monthCollected)}
+                    unit="شيكل"
+                    hint={
+                        collection.collectionRate === null
+                            ? 'لا ديون ولا تحميلات بعد'
+                            : `${collection.collectionRate}% من القابل للتحصيل (${formatMoney(collection.monthCollectable)})`
+                    }
+                    valueClassName="text-emerald-700 dark:text-emerald-400"
+                />
+                <KpiTile
+                    icon="wallet"
+                    label="الديون المستحقة"
+                    value={formatMoney(collection.outstanding)}
+                    unit="شيكل"
+                    hint={`${formatNumber(collection.debtors)} مشترك مدين · كل الفروع`}
+                    valueClassName="text-amber-700 dark:text-amber-400"
+                />
                 <KpiTile
                     icon="users"
                     label="المشتركون النشطون"
@@ -145,12 +192,6 @@ export default function Index({ sort, summary, branches }) {
                     label="إدخالات آخر 7 أيام"
                     value={formatNumber(summary.weekEntries)}
                     hint={`${formatNumber(summary.todayEntries)} اليوم · مشتركون جدد وقراءات`}
-                />
-                <KpiTile
-                    icon="user"
-                    label="الموظفون"
-                    value={formatNumber(summary.staff)}
-                    hint={`موزعون على ${formatNumber(summary.branches)} فروع`}
                 />
             </div>
 

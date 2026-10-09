@@ -1,18 +1,18 @@
 .reading-entry {
-    --re-surface: #fff; --re-raised: #f7f8fa; --re-sunken: #f2f3f5;
-    --re-line: #e2e5e9; --re-line2: #eceef1; --re-ink: #111820;
-    --re-ink2: #353c46; --re-faint: #5e6773; --re-brand: #a51d26;
-    --re-success: #047857; --re-warn: #b45309; --re-info: #1d5bcc;
-    --re-shadow: 0 1px 2px #10182808, 0 14px 34px -18px #1018282e;
+    --re-surface: rgb(var(--surface)); --re-raised: rgb(var(--ui-raised)); --re-sunken: rgb(var(--ui-sunken));
+    --re-line: rgb(var(--ui-line)); --re-line2: rgb(var(--ui-line-soft)); --re-ink: rgb(var(--ui-ink));
+    --re-ink2: rgb(var(--ui-ink-2)); --re-faint: rgb(var(--ui-faint)); --re-brand: #a51d26;
+    --re-success: rgb(var(--ui-success)); --re-warn: rgb(var(--ui-warn)); --re-info: rgb(var(--ui-info));
+    --re-shadow: var(--ui-shadow);
     max-width: 1500px; margin: auto; padding-bottom: 40px;
     color: var(--re-ink); font: 16px/1.6 'IBM Plex Sans Arabic', system-ui, sans-serif;
 }
 .dark .reading-entry {
-    --re-surface: #14171c; --re-raised: #1b1f25; --re-sunken: #101317;
-    --re-line: #343a44; --re-line2: #252a32; --re-ink: #f4f5f7;
-    --re-ink2: #e0e3e7; --re-faint: #8b94a0; --re-brand: #f28b93;
-    --re-success: #34d399; --re-warn: #fbbf24; --re-info: #7dafe8;
-    --re-shadow: 0 20px 40px -24px #000;
+      
+      
+      --re-brand: #f28b93;
+      
+    
 }
 .reading-entry :focus-visible { outline: 2px solid var(--re-brand); outline-offset: 3px; }
 .reading-entry button:disabled { opacity: .4; cursor: default; }

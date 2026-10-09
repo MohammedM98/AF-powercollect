@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Enums\ChargeType;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
+use App\Models\MeterBox;
 use App\Models\Permission;
+use App\Models\SubArea;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
@@ -77,6 +79,44 @@ class ReceivablesTest extends TestCase
                 ->where('summary.count', 1)
                 ->where('summary.buckets.current', ['amount' => 30, 'count' => 1, 'share' => 50])
                 ->where('summary.buckets.days_60', ['amount' => 30, 'count' => 1, 'share' => 50]));
+    }
+
+    public function test_a_debtor_row_carries_the_phone_and_the_area_to_chase_them_in(): void
+    {
+        $subArea = SubArea::factory()->create(['name' => 'حي الزهور']);
+        $box = MeterBox::factory()->create(['branch_id' => $this->branch->id, 'sub_area_id' => $subArea->id]);
+        $this->subscription->update(['meter_box_id' => $box->id, 'subscription_phone' => '0599000111']);
+        $this->line($this->subscription, 'penalty', '40.00', '2026-09-10 12:00:00');
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('receivables.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('debtors.data.0.phone', '0599000111')
+                ->where('debtors.data.0.subAreaName', 'حي الزهور'));
+    }
+
+    public function test_a_debtor_without_a_phone_or_a_meter_box_has_neither_on_their_row(): void
+    {
+        $this->subscription->update(['meter_box_id' => null, 'phone' => null, 'subscription_phone' => null]);
+        $this->line($this->subscription, 'penalty', '40.00', '2026-09-10 12:00:00');
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('receivables.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('debtors.data.0.phone', null)
+                ->where('debtors.data.0.subAreaName', null));
+    }
+
+    public function test_the_reminder_button_is_for_those_who_may_send_messages(): void
+    {
+        $this->line($this->subscription, 'penalty', '40.00', '2026-09-10 12:00:00');
+
+        $this->actingAs($this->branchAdmin)->get(route('receivables.index'))
+            ->assertInertia(fn ($page) => $page->where('can.sendMessages', true));
+
+        $viewer = User::factory()->dataEntry()->withPermissions([PermissionKey::ViewDebtAging])->create(['branch_id' => $this->branch->id]);
+        $this->actingAs($viewer)->get(route('receivables.index'))
+            ->assertInertia(fn ($page) => $page->where('can.sendMessages', false));
     }
 
     public function test_a_cancelled_charge_is_never_aged_and_a_partial_refund_brings_back_the_old_debt_it_paid(): void

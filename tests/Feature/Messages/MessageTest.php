@@ -99,6 +99,22 @@ class MessageTest extends TestCase
                 ->where('recipients.0.variables.الرصيد', '120.50')));
     }
 
+    public function test_a_reminder_opened_from_the_debts_report_is_for_that_one_subscription_whatever_its_status(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $suspended = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id, 'status' => 'suspended']);
+        $otherDebtor = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        SubscriptionTransaction::factory()->for($suspended)->create(['amount' => '80.00']);
+        SubscriptionTransaction::factory()->for($otherDebtor)->create(['amount' => '60.00']);
+
+        $this->actingAs($branchAdmin)
+            ->get(route('messages.create', ['kind' => 'balance_reminder', 'status' => '', 'subscription_ids' => [$suspended->id]]))
+            ->assertInertia(fn ($page) => $page->reloadOnly('recipients', fn ($reload) => $reload
+                ->has('recipients', 1)
+                ->where('recipients.0.id', $suspended->id)
+                ->where('recipients.0.variables.الرصيد', '80')));
+    }
+
     public function test_sending_an_sms_fills_in_each_subscriptions_details_and_queues_one_message_each(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();

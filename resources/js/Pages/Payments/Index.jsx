@@ -9,7 +9,6 @@ import RowIdentity from '@/Components/DataTable/RowIdentity';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
-import KpiTile from '@/Components/KpiTile';
 import SecondaryButton from '@/Components/SecondaryButton';
 import FinancialBalance, { FinancialLegend } from '@/Components/FinancialBalance';
 import { useDataTable } from '@/hooks/useDataTable';
@@ -19,21 +18,42 @@ import SplitPaymentModal from './SplitPaymentModal';
 
 const STATUS_TONES = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
-/** What the user collected today, as figures and their latest payments. */
-function TodaysPayments({ today, summaryOnly = false }) {
+/** One figure of the day's summary: a quiet title, then the amount. */
+function DayFigure({ label, amount, note }) {
     return (
-        <section aria-labelledby={summaryOnly ? 'todays-payments' : 'recent-payments'} className="mb-8 space-y-5">
-            <h3 id={summaryOnly ? 'todays-payments' : 'recent-payments'} className="text-xl font-bold text-gray-900">
+        <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-500">{label}</p>
+            <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5">
+                <span className="font-display text-2xl font-bold text-emerald-700 dark:text-emerald-400">{formatMoney(amount)}</span>
+                <span className="text-sm text-gray-500">{note ?? 'شيكل'}</span>
+            </p>
+        </div>
+    );
+}
+
+/**
+ * What the user collected today: a slim strip of figures above the list (the
+ * list is what they came for), and their latest payments under it.
+ */
+function TodaysPayments({ today, summaryOnly = false }) {
+    const headingId = summaryOnly ? 'todays-payments' : 'recent-payments';
+
+    return (
+        <section aria-labelledby={headingId} className={summaryOnly ? 'mb-6' : 'mb-8 space-y-5'}>
+            <h3 id={headingId} className={summaryOnly ? 'sr-only' : 'text-xl font-bold text-gray-900'}>
                 {summaryOnly ? 'ما حصّلته اليوم' : 'آخر دفعاتك اليوم'}
             </h3>
-            {summaryOnly ? <>
-                <p className="text-sm leading-7 text-gray-600">مقبوضات سجّلتها أنت اليوم. هذا الملخص مستقل عن تصفية قائمة المشتركين أدناه.</p>
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-5">
-                    <KpiTile icon="receipt" label="التحصيل الفعلي" value={formatMoney(today.total)} unit="شيكل" hint={`${today.count.toLocaleString('en')} ${today.count === 1 ? 'دفعة' : 'دفعات'} مسجّلة`} valueClassName="text-emerald-700 dark:text-emerald-400" />
-                    <KpiTile icon="banknotes" label="مقبوضات نقدية" value={formatMoney(today.cash)} unit="شيكل" valueClassName="text-emerald-700 dark:text-emerald-400" />
-                    <KpiTile icon="bank" label="بنوك ومحافظ" value={formatMoney(today.transfers)} unit="شيكل" valueClassName="text-emerald-700 dark:text-emerald-400" />
+            {summaryOnly ? (
+                <div
+                    className="flex flex-wrap items-center gap-x-8 gap-y-4 rounded-panel border border-gray-100 bg-surface px-6 py-4 shadow-card"
+                    title="مقبوضات سجّلتها أنت اليوم. هذا الملخص مستقل عن تصفية قائمة المشتركين أدناه."
+                >
+                    <DayFigure label="ما حصّلته اليوم" amount={today.total} note={`شيكل · ${today.count.toLocaleString('en')} ${today.count === 1 ? 'دفعة' : 'دفعات'}`} />
+                    <span className="hidden h-10 w-px bg-gray-200 sm:block" aria-hidden="true" />
+                    <DayFigure label="نقدًا" amount={today.cash} />
+                    <DayFigure label="بنوك ومحافظ" amount={today.transfers} />
                 </div>
-            </> : today.payments.length > 0 ? (
+            ) : today.payments.length > 0 ? (
                 <ul className="divide-y divide-gray-100 overflow-hidden rounded-panel border border-gray-100 bg-surface shadow-card">
                     {today.payments.map((payment) => (
                         <li key={payment.id} className="flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-5 text-base">
@@ -86,7 +106,7 @@ export default function Index({ subscriptions, scopeLabel, filters, filterOption
                 <>
                     <div className="min-w-0">
                         <p className="text-sm font-semibold text-gray-500">{scopeLabel}</p>
-                        <h2 className="mt-1 text-3xl font-bold text-gray-900">تسجيل الدفعات</h2>
+                        <h1 className="mt-1 text-3xl font-bold text-gray-900">تسجيل الدفعات</h1>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                         <SecondaryButton type="button" onClick={() => setSplitting(true)} className="min-h-12 px-5">

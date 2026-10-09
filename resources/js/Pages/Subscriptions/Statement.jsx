@@ -24,7 +24,7 @@ export default function Statement(statement) {
                         <Link href="/subscriptions" className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-900">
                             → المشتركون
                         </Link>
-                        <h2 className="mt-1 text-3xl font-bold text-gray-900">كشف حساب المشترك</h2>
+                        <h1 className="mt-1 text-3xl font-bold text-gray-900">كشف حساب المشترك</h1>
                         <p className="mt-1 text-sm text-gray-500">
                             {subscription.fullName} · حساب <span dir="ltr">{subscription.accountNumber}</span> · {subscription.tariffCategoryLabel}
                             {subscription.tariffSegmentName && ` (${subscription.tariffSegmentName})`}

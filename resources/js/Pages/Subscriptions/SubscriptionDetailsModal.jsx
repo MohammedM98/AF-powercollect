@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import Modal from '@/Components/Modal';
 import Icon from '@/Components/Icon';
+import { formatNumericDate } from '@/lib/format';
 import { chainColor, compactStatementEntries, describeBalance, filterStatementEntries, relatedLineChains, rememberStatementView, rememberedStatementView, STATEMENT_VIEWS } from '@/lib/accountStatement';
 import { BALANCE_LABELS, transactionMoneyClass } from '@/Components/FinancialBalance';
 import { groupReadingsByMonth } from '@/lib/readingHistory';
@@ -90,7 +91,7 @@ export function AccountTab({ statement, onOpenStatement, onLoadStatement, loadin
                 const color = chainColor(chain);
                 return <tr key={entry.id} data-chain={chain ?? undefined} className={chain !== null && chain === hoveredChain ? 'sp-related' : undefined} style={color ? { '--sp-chain': color } : undefined}
                     onMouseEnter={chain ? () => setHoveredChain(chain) : undefined} onMouseLeave={chain ? () => setHoveredChain(null) : undefined}>
-                    <td><span className="sp-date">{entry.date.slice(0, 10)}<small>{entry.date.slice(11)}</small></span></td>
+                    <td><span className="sp-date">{formatNumericDate(entry.date.slice(0, 10))}<small>{entry.date.slice(11)}</small></span></td>
                     <td><span className="sp-transaction-type"><Icon name={entry.isCredit ? 'arrow-down' : 'receipt'} />{entry.typeLabel}</span></td>
                     <td>{color && <span className="sp-chain-dot" title="الحركات المرتبطة بنفس اللون" aria-hidden="true" />}{entry.description}{entry.cancellation && <small className="sp-cancellation">{entry.cancellation.wasCorrected ? 'مصححة' : 'ملغاة'} · {entry.cancellation.reasonLabel}</small>}{entry.history?.length > 0 && <button type="button" className="sp-history-link" onClick={() => chooseView('full')}><Icon name="history" />صُحّحت · {entry.history.length} حركات سابقة</button>}</td>
                     <td className="sp-amount-column"><b className={`sp-number ${transactionMoneyClass(entry)}`}>{entry.isCredit ? '+' : '−'}{number(entry.amount)} {entry.currencyLabel}</b></td>

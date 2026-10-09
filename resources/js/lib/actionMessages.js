@@ -22,6 +22,7 @@ export const ACTION_MESSAGES = {
     'meter-reading-reopened': 'تم تعديل القراءة، وعادت إلى قيد المراجعة لإعادة اعتمادها.',
     'meter-reading-corrected-approved': 'تم تصحيح القراءة واعتمادها، وحُمّل مبلغها الجديد على حساب المشترك.',
     'meter-reading-needs-reapproval': 'تم تعديل قراءة معتمدة وتحتاج إلى إعادة اعتماد.',
+    'audit-statement-submitted': 'وصل كشف جديد من أحد الفروع بانتظار التدقيق.',
     'payment-recorded': 'تم تسجيل الدفعة بنجاح.',
     'split-payment-recorded': 'تم تسجيل الدفعة المقسّمة على المشتركين بنجاح.',
     'charge-recorded': 'تم تسجيل التحميل بنجاح.',

@@ -403,7 +403,7 @@ export default function Index({
                                         )}
                                     </td>
                                     <td>
-                                        <FinancialBalance value={subscription.outstandingBalance} signed />
+                                        <FinancialBalance value={subscription.outstandingBalance} />
                                     </td>
                                     <td>
                                         <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />

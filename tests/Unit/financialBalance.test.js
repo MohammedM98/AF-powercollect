@@ -35,11 +35,11 @@ function render(value) {
     return renderToStaticMarkup(createElement(balance.default, { value }));
 }
 
-test('what a subscription owes is amber and says it is owed to the company', () => {
+test('what a subscription owes is amber and is owed to the company', () => {
     const html = render('150.00');
 
     assert.match(html, /text-amber-700/);
-    assert.match(html, /مستحق للشركة/);
+    assert.match(html, /title="مستحق للشركة"/);
     assert.doesNotMatch(html, /emerald|text-red/);
 });
 
@@ -47,7 +47,7 @@ test('credit in the subscriber\'s favour is blue, never the red of a problem', (
     const html = render('-40.00');
 
     assert.match(html, /text-blue-600/);
-    assert.match(html, /رصيد للمشترك/);
+    assert.match(html, /title="رصيد للمشترك"/);
     assert.doesNotMatch(html, /emerald|text-red/);
 });
 
@@ -55,8 +55,28 @@ test('a settled account is neutral', () => {
     const html = render('0.00');
 
     assert.match(html, /text-gray-700/);
-    assert.match(html, /مسدّد/);
+    assert.match(html, /title="مسدّد"/);
     assert.doesNotMatch(html, /amber|blue|emerald|text-red/);
+});
+
+test('a row shows the amount alone, with the wording only for hover and screen readers', () => {
+    for (const [value, words] of [['150.00', 'مستحق للشركة'], ['-40.00', 'رصيد للمشترك'], ['0.00', 'مسدّد']]) {
+        const html = render(value);
+        const visible = html.replace(/<span class="sr-only">.*?<\/span>/, '').replace(/<[^>]+>/g, '');
+
+        assert.doesNotMatch(visible, new RegExp(words));
+        assert.match(html, new RegExp(`<span class="sr-only">${words}</span>`));
+    }
+});
+
+test('a balance in the subscriber\'s favour carries a minus sign, so color is not the only cue', () => {
+    assert.match(render('150.00'), />150 ₪</);
+    assert.match(render('-40.00'), />-40 ₪</);
+    assert.match(render('0.00'), />0 ₪</);
+});
+
+test('the amount is set at the start of its cell, as the column header is, not stacked in a flex column', () => {
+    assert.doesNotMatch(render('150.00'), /flex-col|inline-flex/);
 });
 
 test('green is kept for money received, and red for money paid back out', () => {

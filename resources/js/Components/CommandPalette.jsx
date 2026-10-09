@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, router } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
-import { BALANCE_TEXT } from '@/Components/FinancialBalance';
+import { BALANCE_LABELS, BALANCE_TEXT } from '@/Components/FinancialBalance';
 import { describeBalance } from '@/lib/accountStatement';
 import { formatMoney, initials } from '@/lib/format';
 import { isSearchable, moveActive, paletteItems, subscriberSearchUrl } from '@/lib/subscriberSearch';
@@ -218,9 +218,9 @@ export default function CommandPalette({ open, onOpenChange, links, canSearchSub
                                                     )}
                                                 </span>
                                             </span>
-                                            <span className={`shrink-0 whitespace-nowrap text-end font-display text-sm font-semibold ${BALANCE_TEXT[balance.tone]}`}>
-                                                <bdi dir="ltr">{formatMoney(balance.tone === 'settled' ? 0 : balance.amount)} ₪</bdi>
-                                                <span className="block font-sans text-xs font-medium">{balance.label}</span>
+                                            <span title={BALANCE_LABELS[balance.tone]} className={`shrink-0 whitespace-nowrap text-end font-display text-sm font-semibold ${BALANCE_TEXT[balance.tone]}`}>
+                                                <bdi dir="ltr">{formatMoney(subscriber.balance)} ₪</bdi>
+                                                <span className="sr-only">{BALANCE_LABELS[balance.tone]}</span>
                                             </span>
                                         </Link>
                                     </li>

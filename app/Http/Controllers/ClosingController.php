@@ -51,8 +51,10 @@ class ClosingController extends Controller
         $tab = $validated['tab'] ?? 'daily';
         $period = $validated['period'] ?? 'weekly';
 
-        // The day under way can be closed by hand before its cut-off, but its cash is handed over only after.
-        $lastDay = $tab === 'daily' ? $today : $latest;
+        // When the company allows it, the day under way can be closed by hand before its cut-off (and stays
+        // open to view once the branch has sent it); its cash is handed over only after.
+        $closesEarly = ClosingSetting::current()->allow_early_close || ($branch !== null && Closing::isSealed($branch->id, now()));
+        $lastDay = $tab === 'daily' && $closesEarly ? $today : $latest;
 
         if (in_array($tab, ['daily', 'handover'], true) && $date->greaterThan($lastDay)) {
             $date = $lastDay;

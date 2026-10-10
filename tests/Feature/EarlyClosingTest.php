@@ -8,6 +8,7 @@ use App\Enums\PermissionKey;
 use App\Enums\TransactionAction;
 use App\Models\Branch;
 use App\Models\Closing;
+use App\Models\ClosingSetting;
 use App\Models\Permission;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
@@ -33,6 +34,7 @@ class EarlyClosingTest extends TestCase
         Storage::fake('local');
         config(['app.business_timezone' => 'Asia/Gaza']);
         $this->travelTo(Carbon::parse('2026-10-01 15:00', 'Asia/Gaza'));
+        ClosingSetting::current()->update(['allow_early_close' => true]);
         $this->branch = Branch::factory()->create();
         $this->subscription = Subscription::factory()->create(['branch_id' => $this->branch->id]);
     }
@@ -51,6 +53,41 @@ class EarlyClosingTest extends TestCase
         $this->actingAs($approver)->post(route('closings.branch-approve', $closing))->assertSessionHasNoErrors();
 
         $this->assertSame(ClosingStatus::Approved, $closing->fresh()->status);
+    }
+
+    public function test_without_the_setting_a_day_is_closed_only_after_its_cutoff(): void
+    {
+        ClosingSetting::current()->update(['allow_early_close' => false]);
+        $preparer = $this->branchUser();
+        $closing = $this->todaysClosing();
+        $closing->recordCount($preparer, [], null, null);
+
+        $this->actingAs($preparer)->get(route('closings.index', ['date' => '2026-10-01']))
+            ->assertInertia(fn ($page) => $page->where('date', '2026-09-30'));
+        $this->post(route('closings.submit', $closing))
+            ->assertSessionHasErrors(['closing' => 'اليوم لم ينتهِ بعد؛ يُرسل الكشف بعد وقت القطع.']);
+        $this->assertSame(ClosingStatus::Draft, $closing->fresh()->status);
+    }
+
+    public function test_a_day_already_sent_stays_visible_if_the_setting_is_switched_off_later(): void
+    {
+        $this->sendTodaysClosing();
+        ClosingSetting::current()->update(['allow_early_close' => false]);
+
+        $this->actingAs($this->branchUser())->get(route('closings.index', ['date' => '2026-10-01']))
+            ->assertInertia(fn ($page) => $page->where('date', '2026-10-01')->where('daily.status', 'submitted'));
+    }
+
+    public function test_the_super_admin_switches_early_closing_on_from_the_schedule_page(): void
+    {
+        ClosingSetting::current()->update(['allow_early_close' => false]);
+        $admin = User::factory()->superAdmin()->create();
+
+        $this->actingAs($admin)->put(route('settings.closing-schedule.update'), ['cutoff_time' => '00:00', 'week_starts_on' => 6, 'auto_open' => true, 'allow_early_close' => true])
+            ->assertSessionHasNoErrors();
+
+        $this->assertTrue(ClosingSetting::current()->fresh()->allow_early_close);
+        $this->get(route('settings.closing-schedule.edit'))->assertInertia(fn ($page) => $page->where('setting.allow_early_close', true));
     }
 
     public function test_a_day_that_has_not_started_cannot_be_sent(): void

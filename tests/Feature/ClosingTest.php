@@ -10,6 +10,7 @@ use App\Enums\TransactionAction;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingPayment;
+use App\Models\ClosingSetting;
 use App\Models\Permission;
 use App\Models\SplitPayment;
 use App\Models\Subscription;
@@ -109,6 +110,7 @@ class ClosingTest extends TestCase
 
     public function test_today_can_be_opened_to_close_by_hand_but_a_future_day_cannot(): void
     {
+        ClosingSetting::current()->update(['allow_early_close' => true]);
         $this->actingAs($this->preparer())->get(route('closings.index', ['date' => '2026-10-01']))
             ->assertInertia(fn ($page) => $page->where('date', '2026-10-01')->where('daily.day', '2026-10-01')->where('daily.dayOpen', true));
         $this->get(route('closings.index', ['date' => '2026-10-05']))

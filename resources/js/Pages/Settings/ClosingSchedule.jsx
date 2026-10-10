@@ -43,6 +43,7 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
         cutoff_time: setting.cutoff_time,
         week_starts_on: setting.week_starts_on,
         auto_open: setting.auto_open,
+        allow_early_close: setting.allow_early_close,
         weekly_enabled: setting.weekly_enabled,
         weekly_closing_day: setting.weekly_closing_day,
         weekly_closing_time: setting.weekly_closing_time,
@@ -91,6 +92,9 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
         `يُغلق يوم العمل عند ${cutoffLabel} بتوقيت الشركة؛ ${data.cutoff_time === '00:00' ? 'كل دفعات اليوم تُحسب له.' : `الدفعات بعد ${data.cutoff_time} تُحسب لليوم التالي.`}`,
         `يبدأ الأسبوع يوم ${WEEK_DAYS.find((day) => day.value === data.week_starts_on).label}.`,
         data.auto_open ? 'تُفتح كشوف كل الفروع تلقائيًا بعد وقت القطع.' : 'لا تُفتح الكشوف تلقائيًا؛ تُفتح من هذه الصفحة أو عند فتح الفرع ليومه.',
+        data.allow_early_close
+            ? 'يستطيع الفرع إقفال يومه يدويًا قبل وقت القطع؛ وبعد إرسال الكشف لا تُسجَّل دفعات للفرع حتى وقت القطع.'
+            : 'لا يُقفل يوم الفرع إلا بعد وقت القطع.',
         'الكشوف المرسلة والمعتمدة تحتفظ بدفعاتها كما هي.',
     ].join(' ');
 
@@ -154,6 +158,12 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                         <section className="rs-panel">
                             <PanelTitle icon="clock">وقت القطع</PanelTitle>
                             <p>يُغلق يوم العمل عند هذه الساعة بتوقيت الشركة. الدفعات المسجّلة بعدها تُحسب لليوم التالي وتدخل في كشفه.</p>
+                            <label className="flex items-center gap-2">
+                                <input type="checkbox" checked={data.allow_early_close} onChange={(e) => setData('allow_early_close', e.target.checked)} disabled={processing} />
+                                السماح للفرع بإقفال يومه يدويًا قبل وقت القطع
+                            </label>
+                            <p>عند التفعيل يستطيع من يملك صلاحية إعداد الكشوف عدّ الصندوق وإرسال كشف اليوم قبل وقت القطع. وبعد الإرسال لا يسجّل الفرع دفعات أو مبالغ مستردة ولا يسلّم نقدًا حتى وقت القطع، إلا إذا أُعيد الكشف للتصحيح.</p>
+                            <InputError message={errors.allow_early_close} />
                             <div className="rs-quick">
                                 {QUICK_CUTOFFS.map(([time, label]) => (
                                     <button

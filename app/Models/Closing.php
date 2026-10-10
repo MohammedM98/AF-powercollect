@@ -445,6 +445,8 @@ class Closing extends Model
 
         if ($this->period_end->toDateString() > ClosingPeriods::today()->toDateString()) {
             $blockers[] = 'هذا اليوم لم يبدأ بعد.';
+        } elseif (! ClosingPeriods::hasEnded($this->period_end) && ! ClosingSetting::current()->allow_early_close) {
+            $blockers[] = 'اليوم لم ينتهِ بعد؛ يُرسل الكشف بعد وقت القطع.';
         }
 
         $figures = $this->cashFigures();

@@ -6,7 +6,6 @@ import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import StatusPill from '@/Components/DataTable/StatusPill';
-import FinancialBalance from '@/Components/FinancialBalance';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import Pagination from '@/Components/DataTable/Pagination';
@@ -23,6 +22,7 @@ import SubscriptionModal from './SubscriptionModal';
 import PersonalDetailsModal from './PersonalDetailsModal';
 import BulkActionBar from './BulkActionBar';
 import BulkChangeModal from './BulkChangeModal';
+import PhoneQuickEdit from './PhoneQuickEdit';
 import Icon from '@/Components/Icon';
 import SubscriptionDetailsModal from './SubscriptionDetailsModal';
 import ReadingHistoryModal from './ReadingHistoryModal';
@@ -281,7 +281,7 @@ export default function Index({
             header={
                 <>
                     <div className="min-w-0">
-                        <h1 className="text-3xl font-bold text-gray-900">المشتركون</h1>
+                        <h2 className="text-3xl font-bold text-gray-900">المشتركون</h2>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                         <Link
@@ -331,7 +331,6 @@ export default function Index({
             )}
 
             <div className="data-table-container">
-                {/* The balance and the status come right after the name: on a laptop the table scrolls sideways, and what scrolls away is the least needed. */}
                 <table className="data-table w-full text-sm text-start" {...printFieldsProps(PRINT_FIELDS)}>
                     <thead>
                         <tr>
@@ -350,12 +349,12 @@ export default function Index({
                             )}
                             <SortableTh column="account_number" label="رقم الاشتراك" sortState={filters} onSort={sort} />
                             <SortableTh column="display_name" label="اسم الاشتراك" sortState={filters} onSort={sort} />
-                            <th>الرصيد</th>
-                            <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
                             <th>الطبلون</th>
                             <th>نوع الاشتراك</th>
                             <th>منطقة 2</th>
                             <th>الحد الأدنى</th>
+                            <th>الرصيد</th>
+                            <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
                             <ActionsTh />
                         </tr>
                     </thead>
@@ -396,17 +395,12 @@ export default function Index({
                                     <td>
                                         <RowIdentity
                                             name={subscription.display_name}
+                                            subtitle={<PhoneQuickEdit subscription={subscription} />}
                                             status={STATUS_TONES[subscription.status]}
                                         />
                                         {subscription.subscriptionCount > 1 && (
                                             <span className="mt-1 block text-xs text-gray-500">{subscription.subscriptionCount} اشتراكات</span>
                                         )}
-                                    </td>
-                                    <td>
-                                        <FinancialBalance value={subscription.outstandingBalance} />
-                                    </td>
-                                    <td>
-                                        <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
                                     </td>
                                     <td className="text-gray-600">
                                         {subscription.meterBoxNumber ? <span className="data-chip">{subscription.meterBoxNumber}</span> : '—'}
@@ -417,6 +411,12 @@ export default function Index({
                                     </td>
                                     <td className="text-gray-600">{subscription.subAreaName || '—'}</td>
                                     <td className="whitespace-nowrap text-gray-600">{formatCurrency(subscription.weeklyMinimumPayment)}</td>
+                                    <td className={`whitespace-nowrap font-semibold ${Number(subscription.outstandingBalance) > 0 ? 'text-red-600' : Number(subscription.outstandingBalance) < 0 ? 'text-emerald-600' : 'text-gray-600'}`}>
+                                        {formatCurrency(subscription.outstandingBalance)}
+                                    </td>
+                                    <td>
+                                        <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
+                                    </td>
                                     <td className="text-end">
                                         <RowActionsMenu
                                             onView={() => openStatement(subscription)}

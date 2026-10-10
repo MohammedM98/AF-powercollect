@@ -1,5 +1,3 @@
-import DatePicker from '@/Components/DatePicker';
-import SelectInput from '@/Components/SelectInput';
 import { usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import { weekDayName } from '@/lib/weekDays';
@@ -37,7 +35,7 @@ export default function ClosingRegister({ register, branches, onChange, onOpenDa
                 <label className="cb">
                     <Icon name="calendar" />
                     <small>من</small>
-                    <DatePicker
+                    <input
                         type="date"
                         value={register.from}
                         max={register.to}
@@ -47,7 +45,7 @@ export default function ClosingRegister({ register, branches, onChange, onOpenDa
                 </label>
                 <label className="cb">
                     <small>إلى</small>
-                    <DatePicker
+                    <input
                         type="date"
                         value={register.to}
                         min={register.from}
@@ -58,7 +56,7 @@ export default function ClosingRegister({ register, branches, onChange, onOpenDa
                 <label className="cb">
                     <Icon name="pin" />
                     <small>الفرع</small>
-                    <SelectInput
+                    <select
                         aria-label="الفرع"
                         value={register.branchId ?? ''}
                         onChange={(event) => filter({ filter_branch: event.target.value || undefined })}
@@ -70,11 +68,11 @@ export default function ClosingRegister({ register, branches, onChange, onOpenDa
                                 {branch.label}
                             </option>
                         ))}
-                    </SelectInput>
+                    </select>
                 </label>
                 <label className="cb">
                     <small>الحالة</small>
-                    <SelectInput
+                    <select
                         aria-label="الحالة"
                         value={register.status ?? ''}
                         onChange={(event) => filter({ status: event.target.value || undefined })}
@@ -86,7 +84,7 @@ export default function ClosingRegister({ register, branches, onChange, onOpenDa
                                 {status.label}
                             </option>
                         ))}
-                    </SelectInput>
+                    </select>
                 </label>
                 <span className="sp" />
                 {canExport && <a className="btn" href={`/closings/register.csv?${query}`}>

@@ -39,7 +39,7 @@ class ClosingReportsTest extends TestCase
         $this->get(route('closings.index', ['branch' => $this->south->id, 'date' => '2026-09-30']))->assertInertia(fn ($page) => $page
             ->where('branchId', $this->south->id)
             ->where('daily.id', $southClosing->id)
-            ->where('daily.can', ['prepare' => false, 'approveBranch' => false, 'sendToAudit' => false, 'audit' => false, 'approve' => false, 'handOver' => false])
+            ->where('daily.can', ['prepare' => false, 'audit' => false, 'approve' => false, 'handOver' => false])
             ->where('branches', fn ($branches): bool => collect($branches)->pluck('value')->contains($this->north->id) && collect($branches)->pluck('value')->contains($this->south->id)));
         $this->get(route('closings.index', ['tab' => 'period', 'date' => '2026-09-30']))->assertInertia(fn ($page) => $page->where('periodView.canApprove', false));
 

@@ -1,4 +1,3 @@
-import SelectInput from '@/Components/SelectInput';
 import { useId, useState } from 'react';
 import Icon from '@/Components/Icon';
 import ChoiceChips from '@/Components/ChoiceChips';
@@ -149,7 +148,7 @@ function TemplatesSection({ templates, onReset }) {
                         <Field label="فتح قالب">
                             {(id) => (
                                 <div className="flex gap-2">
-                                    <SelectInput id={id} value={selected} onChange={(e) => setSelected(e.target.value)} className="block min-w-0 flex-1 text-sm">
+                                    <select id={id} value={selected} onChange={(e) => setSelected(e.target.value)} className="block min-w-0 flex-1 text-sm">
                                         <option value="">— اختر قالبًا —</option>
                                         {list.map((template) => (
                                             <option key={template.id} value={template.id}>
@@ -157,7 +156,7 @@ function TemplatesSection({ templates, onReset }) {
                                                 {template.isDefault ? ' (افتراضي)' : ''}
                                             </option>
                                         ))}
-                                    </SelectInput>
+                                    </select>
                                     <SecondaryButton onClick={() => actions.apply(selected)} disabled={selected === ''}>
                                         <Icon name="check" className="h-4 w-4" />
                                         فتح
@@ -317,13 +316,13 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                 <div className="grid grid-cols-2 gap-3">
                     <Field label="حجم الورق">
                         {(id) => (
-                            <SelectInput id={id} value={layout.paper} onChange={(e) => set('paper', e.target.value)} className="block w-full text-sm">
+                            <select id={id} value={layout.paper} onChange={(e) => set('paper', e.target.value)} className="block w-full text-sm">
                                 {Object.entries(PAPER_SIZES).map(([value, paper]) => (
                                     <option key={value} value={value}>
                                         {paper.label} ({paper.width}×{paper.height} مم)
                                     </option>
                                 ))}
-                            </SelectInput>
+                            </select>
                         )}
                     </Field>
                     <Field label="الهوامش (مم)">
@@ -448,13 +447,13 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                                 <div className="mt-2 flex flex-wrap items-center gap-3 ps-6 text-xs">
                                     <label className="flex items-center gap-1.5 text-gray-600">
                                         المحاذاة
-                                        <SelectInput value={column.align} onChange={(e) => setColumn(index, { align: e.target.value })} className="!py-0.5 text-xs">
+                                        <select value={column.align} onChange={(e) => setColumn(index, { align: e.target.value })} className="!py-0.5 text-xs">
                                             {ALIGNMENTS.map((alignment) => (
                                                 <option key={alignment.value} value={alignment.value}>
                                                     {alignment.label}
                                                 </option>
                                             ))}
-                                        </SelectInput>
+                                        </select>
                                     </label>
                                     <label className="flex items-center gap-1.5 text-gray-600">
                                         <input
@@ -476,10 +475,10 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                 <p className="text-xs text-gray-500">رتّب الصفوف بأي حقل ولو كان مخفيًا، وجمّعها مثلًا حسب الطبلون. بدون ترتيب تبقى بترتيب الجدول.</p>
                 <Field label="تجميع الصفوف حسب">
                     {(id) => (
-                        <SelectInput id={id} value={layout.group.key} onChange={(e) => setIn('group', 'key', e.target.value)} className="block w-full text-sm">
+                        <select id={id} value={layout.group.key} onChange={(e) => setIn('group', 'key', e.target.value)} className="block w-full text-sm">
                             <option value="">بدون تجميع</option>
                             {fieldOptions}
-                        </SelectInput>
+                        </select>
                     )}
                 </Field>
                 {layout.group.key !== '' && (
@@ -498,14 +497,14 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                             <li key={index} className="rounded-control border border-gray-200 p-2.5">
                                 <div className="flex items-center gap-2">
                                     <span className="w-14 shrink-0 text-xs font-semibold text-gray-600">{index === 0 ? 'حسب' : 'ثم حسب'}</span>
-                                    <SelectInput
+                                    <select
                                         value={level.key}
                                         onChange={(e) => setSortLevel(index, { key: e.target.value })}
                                         aria-label={`حقل الترتيب ${index + 1}`}
                                         className="block min-w-0 flex-1 !py-1 text-sm"
                                     >
                                         {fieldOptions}
-                                    </SelectInput>
+                                    </select>
                                     <IconButton
                                         icon="trash"
                                         tone="danger"

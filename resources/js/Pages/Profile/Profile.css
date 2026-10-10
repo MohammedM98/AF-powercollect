@@ -1,30 +1,48 @@
 .profile-page {
-    --pp-surface: rgb(var(--surface));
-    --pp-raised: rgb(var(--ui-raised));
-    --pp-sunken: rgb(var(--ui-sunken));
-    --pp-line: rgb(var(--ui-line));
-    --pp-line2: rgb(var(--ui-line-soft));
-    --pp-ink: rgb(var(--ui-ink));
-    --pp-ink2: rgb(var(--ui-ink-2));
-    --pp-faint: rgb(var(--ui-faint));
+    --pp-surface: #fff;
+    --pp-raised: #f7f8fa;
+    --pp-sunken: #f2f3f5;
+    --pp-line: #e2e5e9;
+    --pp-line2: #eceef1;
+    --pp-ink: #111820;
+    --pp-ink2: #353c46;
+    --pp-faint: #5e6773;
     --pp-brand: #a51d26;
-    --pp-success: rgb(var(--ui-success));
-    --pp-success-t: var(--ui-success-t);
-    --pp-info: rgb(var(--ui-info));
-    --pp-info-t: var(--ui-info-t);
-    --pp-warn: rgb(var(--ui-warn));
-    --pp-warn-t: var(--ui-warn-t);
-    --pp-shadow: var(--ui-shadow);
-    --pp-hero: var(--ui-hero);
-    --pp-muted: rgb(var(--ui-muted));
-    --pp-danger: rgb(var(--ui-danger));
-    --pp-danger-t: var(--ui-danger-t);
-    --pp-focus: rgb(var(--ui-focus));
+    --pp-success: #047857;
+    --pp-success-t: #0478571a;
+    --pp-info: #1d5bcc;
+    --pp-info-t: #1d5bcc14;
+    --pp-warn: #b45309;
+    --pp-warn-t: #b453091a;
+    --pp-shadow: 0 1px 2px #10182808, 0 14px 34px -18px #1018282e;
+    --pp-hero: linear-gradient(135deg, #262c34, #1c2127 55%, #111418);
+    --pp-muted: #4c5460;
+    --pp-danger: #c81e1e;
+    --pp-danger-t: #c81e1e14;
+    --pp-focus: #111820;
     max-width: 1320px;
     margin: 0 auto;
     padding-bottom: 120px;
     color: var(--pp-ink);
     font: 16px/1.6 'IBM Plex Sans Arabic', system-ui, sans-serif;
+}
+.dark .profile-page {
+    --pp-surface: #14171c;
+    --pp-raised: #1b1f25;
+    --pp-sunken: #101317;
+    --pp-line: #343a44;
+    --pp-line2: #252a32;
+    --pp-ink: #f4f5f7;
+    --pp-ink2: #e0e3e7;
+    --pp-faint: #8b94a0;
+    --pp-success: #34d399;
+    --pp-success-t: #34d3991a;
+    --pp-info: #7dafe8;
+    --pp-info-t: #7dafe81a;
+    --pp-warn: #fbbf24;
+    --pp-warn-t: #fbbf241a;
+    --pp-shadow: 0 20px 40px -24px #000;
+    --pp-hero: linear-gradient(135deg, #1c2127, #161a1f 55%, #0b0d10);
 }
 .profile-page .pp-hero{margin-top:18px;position:relative;overflow:hidden;border-radius:26px;background:var(--pp-hero);color:#fff;padding:22px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;box-shadow:0 24px 50px -28px #10182899}
 .profile-page .pp-hero::before{content:"";position:absolute;inset-inline:0;top:0;height:3px;background:linear-gradient(90deg,#5c0d14,#a51d26 40%,#9aa3ae 75%,#dfe3e8)}
@@ -126,6 +144,7 @@
 
 .profile-page button, .profile-page input { font: inherit; }
 .profile-page :focus-visible { outline: 2px solid var(--pp-focus); outline-offset: 3px; }
+.dark .profile-page { --pp-muted: #9ea6b1; --pp-danger: #fc7d7d; --pp-danger-t: #fc7d7d1a; --pp-focus: #c9ced5; }
 .profile-page .pp-heading h1 { margin: 0; font: 700 34px/1.2 'El Messiri', serif; }
 .profile-page .pp-heading p { margin: 4px 0 0; color: var(--pp-faint); font-size: 14.5px; }
 .profile-page .pp-button { height: 44px; border-radius: 13px; padding: 0 16px; font-weight: 700; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--pp-line); background: var(--pp-surface); color: var(--pp-ink2); transition: .18s; }

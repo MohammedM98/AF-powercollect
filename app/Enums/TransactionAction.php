@@ -11,8 +11,6 @@ enum TransactionAction: string
     case DeleteTree = 'delete_tree';
     case Cancel = 'cancel';
     case Refund = 'refund';
-    case Correction = 'correction';
-    case Reverse = 'reverse';
 
     /**
      * The canonical display order used by the transaction history.
@@ -21,7 +19,7 @@ enum TransactionAction: string
      */
     public static function ordered(): array
     {
-        return [self::Edit, self::EditMetadata, self::Delete, self::DeleteReversal, self::DeleteTree, self::Cancel, self::Refund, self::Correction, self::Reverse];
+        return [self::Edit, self::EditMetadata, self::Delete, self::DeleteReversal, self::DeleteTree, self::Cancel, self::Refund];
     }
 
     public function isPermanentDeletion(): bool

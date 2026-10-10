@@ -48,9 +48,9 @@ export default function DataTableToolbar({
     }, [showSearch]);
 
     return (
-        <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-5">
+        <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
             {showSearch ? (
-                <div className="relative w-full sm:min-w-[280px] sm:flex-1 sm:basis-80">
+                <div className="relative w-full sm:max-w-sm">
                     <Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" />
                     <input
                         ref={searchRef}
@@ -64,7 +64,7 @@ export default function DataTableToolbar({
                             }
                         }}
                         placeholder={placeholder}
-                        className="block min-h-12 w-full py-3 pe-10 ps-10 text-base"
+                        className="block w-full py-2.5 pe-10 ps-10 text-sm"
                     />
                     <span className="kbd pointer-events-none absolute inset-y-0 end-3 my-auto h-fit">/</span>
                 </div>
@@ -91,10 +91,7 @@ export default function DataTableToolbar({
                         طباعة
                     </button>
                 )}
-                {/* On a phone the rows are cards, which have no density to switch. */}
-                <span className="hidden sm:inline-flex">
-                    <DensityToggle />
-                </span>
+                <DensityToggle />
                 <div
                     role="group"
                     aria-label="عدد الصفوف في الصفحة"

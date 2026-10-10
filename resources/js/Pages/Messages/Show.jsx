@@ -46,13 +46,13 @@ export default function Show({ batch, messages, canUpdate, filters, filterOption
                             <Icon name="chevron-right" className="h-4 w-4" />
                             رجوع إلى الرسائل
                         </Link>
-                        <h1 className="flex flex-wrap items-center gap-3 text-3xl font-bold text-gray-900">
+                        <h2 className="flex flex-wrap items-center gap-3 text-3xl font-bold text-gray-900">
                             <Icon name={KIND_ICONS[batch.kind] ?? 'note'} className="h-7 w-7 shrink-0 text-gray-500" />
                             {batch.kindLabel}
                             <span className="text-base font-semibold">
                                 <ChannelLabel channel={batch.channel} label={batch.channelLabel} />
                             </span>
-                        </h1>
+                        </h2>
                         <p className="mt-1 text-sm text-gray-500">
                             {DATE_TIME_FORMAT.format(new Date(batch.createdAt))} — {batch.createdBy ?? '—'} — {batch.branchName}
                         </p>

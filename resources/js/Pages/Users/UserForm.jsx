@@ -86,21 +86,6 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
             </FormSection>
 
             <FormSection icon="badge" title="النوع والفرع والحالة" description="ما يفعله المستخدم وأين، وهل حسابه يعمل" columns={2}>
-                {canChooseBranch && roleOptions.length > 0 && (
-                    <FormSelect
-                        id="role"
-                        label="الدور الوظيفي"
-                        value={data.role}
-                        onChange={(value) => setData('role', value)}
-                        options={roleOptions}
-                        error={errors.role}
-                    />
-                )}
-                {data.role === 'financial_auditor' && (
-                    <p className="sm:col-span-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-800">
-                        المدقق المالي يتبع الشركة ويراجع كشوف جميع الفروع بحسب صلاحياته. يمكنك تسجيله إداريًا تحت الفرع المركزي؛ نوع المستخدم وحده لا يمنح صلاحية التدقيق.
-                    </p>
-                )}
                 <FormField id="user_type_id" label="نوع المستخدم" error={errors.user_type_id}>
                     <SearchableSelect
                         value={data.user_type_id}
@@ -125,7 +110,7 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                     />
                 )}
 
-                {canAssignBranchAdmin && !canChooseBranch && (
+                {canAssignBranchAdmin && (
                     <div className="sm:col-span-2">
                         <Switch
                             checked={data.role === 'branch_admin'}

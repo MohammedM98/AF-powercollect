@@ -87,7 +87,7 @@ export default function Index({
         <SettingsLayout
             header={
                 <div className="min-w-0">
-                    <h1 className="font-luxe text-3xl font-bold text-gray-900">{pageTitle}</h1>
+                    <h2 className="font-luxe text-3xl font-bold text-gray-900">{pageTitle}</h2>
                     <p className="mt-1 text-sm text-gray-500">
                         {scopedToBranch
                             ? 'منطقة 2 داخل منطقة فرعك. الإضافة والتعديل في مكانهما.'

@@ -137,7 +137,7 @@ class PermissionsTest extends TestCase
         $response = $this->actingAs($superAdmin)->get(route('settings.permissions.edit'));
 
         $response->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
-            'subscriptions', 'meter_boxes', 'circuit_breakers', 'tariffs', 'meter_readings', 'collections', 'closings', 'weekly_finance', 'reports',
+            'subscriptions', 'meter_boxes', 'circuit_breakers', 'tariffs', 'meter_readings', 'collections', 'closings', 'reports',
             'messages', 'print_templates', 'users', 'user_types', 'branches', 'governorates', 'areas', 'sub_areas',
         ]));
     }
@@ -151,7 +151,7 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect($groups)
-                ->reject(fn (array $group): bool => in_array($group['key'], ['meter_readings', 'collections', 'closings', 'weekly_finance', 'reports', 'messages', 'print_templates'], true))
+                ->reject(fn (array $group): bool => in_array($group['key'], ['meter_readings', 'collections', 'closings', 'reports', 'messages', 'print_templates'], true))
                 ->every(fn (array $group): bool => collect($group['actions'])->contains('action', 'delete')),
         ));
     }
@@ -177,7 +177,7 @@ class PermissionsTest extends TestCase
         $closingActions = fn ($groups): array => collect(collect($groups)->firstWhere('key', 'closings')['actions'])->pluck('action')->all();
 
         $this->actingAs(User::factory()->superAdmin()->create())->get(route('settings.permissions.edit'))
-            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['view', 'prepare', 'close_early', 'view_all', 'audit']));
+            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['view', 'prepare', 'view_all', 'audit']));
         $this->actingAs($branchAdmin)->get(route('settings.permissions.edit'))
             ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['view', 'prepare']));
     }

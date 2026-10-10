@@ -30,7 +30,7 @@ export default function FormPage({ title, form, cancelHref, layout: Layout = Aut
     }
 
     return (
-        <Layout header={<h1 className="text-3xl font-bold text-gray-900">{title}</h1>}>
+        <Layout header={<h2 className="text-3xl font-bold text-gray-900">{title}</h2>}>
             <Head title={title} />
 
             <div className={widthClass}>

@@ -108,7 +108,7 @@ export default function Index({ events, period, counts, today, scopeLabel, filte
                 <>
                     <div className="min-w-0">
                         <p className="text-sm font-semibold text-gray-500">{scopeLabel}</p>
-                        <h1 className="mt-1 text-3xl font-bold text-gray-900">سجل التدقيق</h1>
+                        <h2 className="mt-1 text-3xl font-bold text-gray-900">سجل التدقيق</h2>
                         <p className="mt-1 text-sm text-gray-500">كل تعديل أو إلغاء أو حذف على حركات المشتركين: من قام به، ومتى، ولماذا.</p>
                     </div>
                     <PeriodTabs period={period} onChange={changePeriod} />

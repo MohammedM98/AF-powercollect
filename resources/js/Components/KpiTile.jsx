@@ -7,7 +7,7 @@ import Icon from '@/Components/Icon';
  * such as a change against the period before. `children` go under it all
  * (a small breakdown of the figure).
  */
-export default function KpiTile({ icon, label, value, unit, hint, badge, hero = false, className = '', valueClassName = '', style, children }) {
+export default function KpiTile({ icon, label, value, unit, hint, badge, hero = false, className = '', style, children }) {
     if (hero) {
         return (
             <div
@@ -20,7 +20,7 @@ export default function KpiTile({ icon, label, value, unit, hint, badge, hero = 
                     {badge}
                 </div>
                 <p className="relative mt-4 flex flex-wrap items-baseline gap-x-2">
-                    <span className={`kpi-value font-display text-5xl font-bold ${valueClassName}`}>{value}</span>
+                    <span className="font-display text-5xl font-bold">{value}</span>
                     {unit && <span className="text-base text-white/70">{unit}</span>}
                 </p>
                 {hint && <p className="relative mt-3 text-xs text-white/60">{hint}</p>}
@@ -41,10 +41,10 @@ export default function KpiTile({ icon, label, value, unit, hint, badge, hero = 
                 {label}
             </div>
             <p className="mt-5 flex flex-wrap items-baseline gap-x-1.5">
-                <span className={`kpi-value font-display text-3xl font-bold ${valueClassName || 'text-gray-900'}`}>{value}</span>
+                <span className="font-display text-3xl font-bold text-gray-900">{value}</span>
                 {unit && <span className="text-sm text-gray-500">{unit}</span>}
             </p>
-            {hint && <p className="mt-2 text-sm leading-7 text-gray-500">{hint}</p>}
+            {hint && <p className="mt-1.5 text-xs text-gray-500">{hint}</p>}
             {children}
         </div>
     );

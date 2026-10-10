@@ -1,8 +1,6 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import MeterBar from '@/Components/Charts/MeterBar';
-import ActionsTh from '@/Components/DataTable/ActionsTh';
-import Icon from '@/Components/Icon';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import Pagination from '@/Components/DataTable/Pagination';
@@ -34,11 +32,6 @@ function Shekels({ amount, className = 'text-gray-900' }) {
             <b className="font-display font-bold">{formatMoney(amount)}</b> <span className="text-xs font-normal text-gray-500">شيكل</span>
         </span>
     );
-}
-
-/** The message page, open on a balance reminder to this one subscription (whatever their status). */
-function reminderUrl(subscriptionId) {
-    return `/messages/create?${new URLSearchParams({ kind: 'balance_reminder', status: '', 'subscription_ids[]': subscriptionId })}`;
 }
 
 function Dash() {
@@ -99,8 +92,7 @@ export default function Index({ debtors, summary, buckets, scopeLabel, filters, 
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/receivables', filters);
     const rowClick = useRowClick();
     const statementWindow = useStatementWindow(statement);
-    const canRemind = Boolean(can?.sendMessages);
-    const columnCount = 4 + buckets.length + (canRemind ? 1 : 0);
+    const columnCount = 4 + buckets.length;
     const pageTotal = debtors.data.reduce((total, debtor) => total + Number(debtor.balance), 0);
     const overdue = summary.buckets.older;
 
@@ -121,7 +113,7 @@ export default function Index({ debtors, summary, buckets, scopeLabel, filters, 
             header={
                 <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-500">{scopeLabel}</p>
-                    <h1 className="mt-1 text-3xl font-bold text-gray-900">أعمار الديون</h1>
+                    <h2 className="mt-1 text-3xl font-bold text-gray-900">أعمار الديون</h2>
                     <p className="mt-1 text-sm text-gray-500">المشتركون المدينون، وكم يمضي على ما عليهم منذ تحميله. المبالغ بالشيكل والأعمار بالأيام.</p>
                 </div>
             }
@@ -188,7 +180,6 @@ export default function Index({ debtors, summary, buckets, scopeLabel, filters, 
                                 ))}
                                 <SortableTh column="oldest_days" label="أقدم دين" sortState={filters} onSort={sort} />
                                 <SortableTh column="last_payment_days" label="آخر دفعة" sortState={filters} onSort={sort} />
-                                {canRemind && <ActionsTh />}
                             </tr>
                         </thead>
                         <tbody>
@@ -205,16 +196,6 @@ export default function Index({ debtors, summary, buckets, scopeLabel, filters, 
                                                 subtitle={`${debtor.accountNumber} · ${debtor.branchName}`}
                                                 status={STATUS_DOTS[debtor.status]}
                                             />
-                                            {(debtor.subAreaName || debtor.phone) && (
-                                                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 ps-[52px] text-xs text-gray-500">
-                                                    {debtor.subAreaName && <span>{debtor.subAreaName}</span>}
-                                                    {debtor.phone && (
-                                                        <a href={`tel:${debtor.phone}`} dir="ltr" className="font-medium text-gray-600 underline-offset-2 hover:text-gray-900 hover:underline">
-                                                            {debtor.phone}
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            )}
                                         </td>
                                         <td>
                                             <Shekels amount={debtor.balance} />
@@ -250,22 +231,6 @@ export default function Index({ debtors, summary, buckets, scopeLabel, filters, 
                                                 <span className="text-gray-500">لم يدفع بعد</span>
                                             )}
                                         </td>
-                                        {canRemind && (
-                                            <td className="text-end">
-                                                {debtor.phone ? (
-                                                    <Link
-                                                        href={reminderUrl(debtor.id)}
-                                                        aria-label={`إرسال تذكير بالرصيد إلى ${debtor.name}`}
-                                                        className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-control border border-gray-200 bg-surface px-3 py-2 text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
-                                                    >
-                                                        <Icon name="send" className="h-4 w-4" />
-                                                        تذكير
-                                                    </Link>
-                                                ) : (
-                                                    <span className="text-xs text-gray-500">لا رقم هاتف</span>
-                                                )}
-                                            </td>
-                                        )}
                                     </tr>
                                 ))
                             )}

@@ -48,10 +48,6 @@ class CashTransferController extends Controller
             throw ValidationException::withMessages(['sent_at' => 'لا يمكن تسجيل تسليم بوقت لاحق.']);
         }
 
-        if (Closing::isSealed($closing->branch_id, $sentAt)) {
-            throw ValidationException::withMessages(['sent_at' => 'كشف الفرع لذلك اليوم أُرسل أو اعتُمد؛ لا يُسجَّل فيه تسليم جديد. اختر وقتًا بعد وقت القطع.']);
-        }
-
         $recipient = User::query()
             ->whereKey($validated['recipient_id'])
             ->whereKeyNot($actor->id)

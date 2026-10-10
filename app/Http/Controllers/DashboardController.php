@@ -2,24 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\ClosingStatus;
 use App\Enums\PermissionKey;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Http\Concerns\ProvidesFormOptions;
 use App\Models\Branch;
-use App\Models\Closing;
-use App\Models\FinancialAuditStatement;
 use App\Models\MeterBox;
 use App\Models\Subscription;
-use App\Models\SubscriptionTransaction;
 use App\Models\Tariff;
 use App\Models\User;
-use App\Support\ClosingPeriods;
-use App\Support\CollectionFigures;
-use App\Support\DailySeries;
-use App\Support\DebtAging;
-use Illuminate\Database\Eloquent\Builder;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -71,8 +62,6 @@ class DashboardController extends Controller
             'greeting' => $greeting,
             'scopedToBranch' => $scopedToBranch,
             'sections' => $sections,
-            'money' => $this->moneySection($actor),
-            'attention' => $this->attentionItems($actor),
             // Someone whose work is in the field app and who has nothing to see here is told so.
             'fieldApp' => $sections === [] && ($actor->hasPermission(PermissionKey::RecordCollections) || $actor->hasPermission(PermissionKey::RecordMeterReadings))
                 ? ['url' => config('powercollect.mobile_app_url')]
@@ -85,128 +74,6 @@ class DashboardController extends Controller
                 ? [...$this->userBranchOptions(), 'roleOptions' => $this->userRoleOptions(null)]
                 : null),
         ]);
-    }
-
-    /**
-     * The money the user's branch (every branch for the Super Admin) took in
-     * and is owed, or null when the user may open neither the financial log
-     * nor the debts report. What was collected and charged takes the same
-     * "View Collections" permission as the log, and what is owed the debt
-     * aging permission, so every figure matches the page it comes from.
-     *
-     * @return array{collected: array{today: float, week: float, month: float}|null, charged: array{month: float}|null, openingDebt: float|null, collectionRate: int|null, outstanding: array{total: float, debtors: int, overNinety: float, overNinetyShare: int}|null, since: array{week: string, month: string}}|null
-     */
-    private function moneySection(User $actor): ?array
-    {
-        $canSeeLog = $actor->can('viewAny', SubscriptionTransaction::class);
-        $canSeeDebts = $actor->can('viewDebtAging', SubscriptionTransaction::class);
-
-        if (! $canSeeLog && ! $canSeeDebts) {
-            return null;
-        }
-
-        $branchIds = $this->branchScope($actor);
-        $today = ClosingPeriods::today();
-        [$weekStart] = ClosingPeriods::week($today);
-        [$monthStart] = ClosingPeriods::month($today);
-        $sum = fn (array $figures): float => round(array_sum($figures), 2);
-
-        $collectedMonth = $canSeeLog ? $sum(CollectionFigures::collected($monthStart, $today, $branchIds)) : 0.0;
-        $chargedMonth = $canSeeLog ? $sum(CollectionFigures::charged($monthStart, $today, $branchIds)) : 0.0;
-        $openingDebt = $canSeeLog ? $sum(CollectionFigures::openingDebt($monthStart, $branchIds)) : 0.0;
-
-        return [
-            'collected' => $canSeeLog ? [
-                'today' => $sum(CollectionFigures::collected($today, $today, $branchIds)),
-                'week' => $sum(CollectionFigures::collected($weekStart, $today, $branchIds)),
-                'month' => $collectedMonth,
-            ] : null,
-            'charged' => $canSeeLog ? ['month' => $chargedMonth] : null,
-            'openingDebt' => $canSeeLog ? $openingDebt : null,
-            'collectionRate' => $canSeeLog ? CollectionFigures::rate($collectedMonth, $openingDebt + $chargedMonth) : null,
-            'outstanding' => $canSeeDebts ? $this->outstandingDebt($actor) : null,
-            'since' => ['week' => $weekStart->toDateString(), 'month' => $monthStart->toDateString()],
-        ];
-    }
-
-    /**
-     * What the user's subscriptions owe in all and how much of it is older
-     * than 90 days — worked out by the debts report's own aging, so the two
-     * pages always agree.
-     *
-     * @return array{total: float, debtors: int, overNinety: float, overNinetyShare: int}
-     */
-    private function outstandingDebt(User $actor): array
-    {
-        $debtors = (new DebtAging(DailySeries::today()))->debtors(Subscription::query()->visibleTo($actor));
-        $total = $debtors->sum('balance');
-        $overNinety = $debtors->sum(fn (array $debtor): int => $debtor['buckets']['older']);
-
-        return [
-            'total' => round($total / 100, 2),
-            'debtors' => $debtors->count(),
-            'overNinety' => round($overNinety / 100, 2),
-            'overNinetyShare' => $total > 0 ? (int) round($overNinety / $total * 100) : 0,
-        ];
-    }
-
-    /**
-     * What is waiting on the user: closings sent for review, audit statements
-     * to audit, and statements the audit sent back to the branch. Each is
-     * listed only for someone who may open the page it leads to, with the
-     * count even when it is zero, so "nothing waiting" is an answer too.
-     *
-     * @return array<int, array{key: string, label: string, count: int, href: string}>
-     */
-    private function attentionItems(User $actor): array
-    {
-        $items = [];
-
-        if ($actor->can('viewAny', Closing::class)) {
-            $items[] = [
-                'key' => 'closings',
-                'label' => 'إقفالات بانتظار المراجعة',
-                'count' => Closing::query()
-                    ->where('status', ClosingStatus::Submitted)
-                    ->when(! $actor->can('viewAllBranches', Closing::class), fn (Builder $query) => $query->where('branch_id', $actor->branch_id))
-                    ->count(),
-                'href' => '/closings',
-            ];
-        }
-
-        if ($actor->can('viewAny', FinancialAuditStatement::class)) {
-            $items[] = [
-                'key' => 'audit',
-                'label' => 'كشوف بانتظار التدقيق',
-                'count' => FinancialAuditStatement::query()->whereIn('status', ['pending', 'under_audit'])->count(),
-                'href' => '/financial-audit',
-            ];
-        }
-
-        if ($actor->can('viewBranchStatements', FinancialAuditStatement::class)) {
-            $items[] = [
-                'key' => 'returned',
-                'label' => 'كشوف أعادها التدقيق للرد',
-                'count' => FinancialAuditStatement::query()
-                    ->where('status', 'returned')
-                    ->when(! $actor->isSuperAdmin(), fn (Builder $query) => $query->where('branch_id', $actor->branch_id))
-                    ->count(),
-                'href' => '/closings/audit-statements',
-            ];
-        }
-
-        return $items;
-    }
-
-    /**
-     * The branches whose money the user sees: null for every branch (the
-     * Super Admin), otherwise their own.
-     *
-     * @return array<int, int>|null
-     */
-    private function branchScope(User $actor): ?array
-    {
-        return $actor->isSuperAdmin() ? null : array_filter([$actor->branch_id]);
     }
 
     /**

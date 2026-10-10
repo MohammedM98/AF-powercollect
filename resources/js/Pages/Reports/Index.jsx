@@ -1,6 +1,3 @@
-import { useState } from 'react';
-import DatePicker from '@/Components/DatePicker';
-import SelectInput from '@/Components/SelectInput';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
@@ -38,8 +35,6 @@ function periodLabel(mode, details) {
  */
 export default function Index({ branches, filters, scopeLabel, presets, today, cutoff, kinds, flow, collections, readings, days, check, transactions, period, branchSummary, canExport }) {
     const { errors } = usePage().props;
-    const [customOpen, setCustomOpen] = useState(false);
-    const showDates = customOpen || period?.mode === 'custom';
     const oneDay = filters.from === filters.to;
     const query = new URLSearchParams(
         Object.entries({ branch: filters.branch ?? '', from: filters.from, to: filters.to, kind: filters.kind }).filter(([, value]) => value !== ''),
@@ -70,7 +65,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                         <Icon name="pin" />
                         <small>الفرع</small>
                         {branches.length > 1 ? (
-                            <SelectInput
+                            <select
                                 aria-label="الفرع"
                                 value={filters.branch ?? ''}
                                 onChange={(event) => visit({ branch: event.target.value, page: undefined })}
@@ -82,7 +77,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                                         {branch.label}
                                     </option>
                                 ))}
-                            </SelectInput>
+                            </select>
                         ) : (
                             <b style={{ fontFamily: 'inherit', fontWeight: 700 }}>{scopeLabel}</b>
                         )}
@@ -100,16 +95,8 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                                 <button
                                     key={key}
                                     type="button"
-                                    aria-pressed={period?.mode === key || (key === 'custom' && customOpen)}
-                                    aria-expanded={key === 'custom' ? showDates : undefined}
-                                    onClick={() => {
-                                        if (key === 'custom') {
-                                            setCustomOpen((open) => !open);
-                                        } else if (preset) {
-                                            setCustomOpen(false);
-                                            visit({ from: preset.from, to: preset.to, view: key, page: undefined });
-                                        }
-                                    }}
+                                    aria-pressed={period?.mode === key}
+                                    onClick={() => key !== 'custom' && preset && visit({ from: preset.from, to: preset.to, view: key, page: undefined })}
                                 >
                                     {label}
                                 </button>
@@ -128,32 +115,28 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                             </button>
                         ))}
                     </div>
-                    {showDates && (
-                        <>
-                        <label className="cb">
-                            <Icon name="calendar" />
-                            <small>من</small>
-                            <DatePicker
-                                type="date"
-                                value={filters.from}
-                                max={filters.to}
-                                onChange={(event) => event.target.value && visit({ from: event.target.value, page: undefined })}
-                                style={{ border: 0, fontWeight: 600 }}
-                            />
-                        </label>
-                        <label className="cb">
-                            <small>إلى</small>
-                            <DatePicker
-                                type="date"
-                                value={filters.to}
-                                min={filters.from}
-                                max={today}
-                                onChange={(event) => event.target.value && visit({ to: event.target.value, page: undefined })}
-                                style={{ border: 0, fontWeight: 600 }}
-                            />
-                        </label>
-                        </>
-                    )}
+                    <label className="cb">
+                        <Icon name="calendar" />
+                        <small>من</small>
+                        <input
+                            type="date"
+                            value={filters.from}
+                            max={filters.to}
+                            onChange={(event) => event.target.value && visit({ from: event.target.value, page: undefined })}
+                            style={{ border: 0, fontWeight: 600 }}
+                        />
+                    </label>
+                    <label className="cb">
+                        <small>إلى</small>
+                        <input
+                            type="date"
+                            value={filters.to}
+                            min={filters.from}
+                            max={today}
+                            onChange={(event) => event.target.value && visit({ to: event.target.value, page: undefined })}
+                            style={{ border: 0, fontWeight: 600 }}
+                        />
+                    </label>
                     <span className="sp" />
                     {canExport && <a className="btn" href={`/reports/lines.csv?${query}`}>
                         <Icon name="arrow-down-tray" />

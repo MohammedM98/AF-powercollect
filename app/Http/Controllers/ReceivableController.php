@@ -87,7 +87,7 @@ class ReceivableController extends Controller
 
         return Subscription::query()
             ->visibleTo($actor)
-            ->with(['branch', 'meterBox.subArea'])
+            ->with('branch')
             ->when($branchId, fn (Builder $query) => $query->where('subscriptions.branch_id', $branchId))
             ->when($status, fn (Builder $query) => $query->where('subscriptions.status', $status->value))
             ->when($search !== '', fn (Builder $query) => $query->matchingSearch($search));
@@ -190,7 +190,6 @@ class ReceivableController extends Controller
             'name' => $subscription->displayName(),
             'accountNumber' => $subscription->account_number,
             'phone' => $subscription->contactPhone(),
-            'subAreaName' => $subscription->meterBox?->subArea?->name,
             'status' => $subscription->status->value,
             'statusLabel' => __($subscription->status->label()),
             'branchName' => $subscription->branch->name,

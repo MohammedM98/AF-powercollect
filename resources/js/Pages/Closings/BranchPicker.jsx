@@ -1,4 +1,3 @@
-import SelectInput from '@/Components/SelectInput';
 import Icon from '@/Components/Icon';
 
 /** The branch whose closings are shown; a plain label when the user sees only one. */
@@ -10,7 +9,7 @@ export default function BranchPicker({ branches, branchId, onChange }) {
             <Icon name="pin" />
             <small>الفرع</small>
             {branches.length > 1 ? (
-                <SelectInput
+                <select
                     value={branchId ?? ''}
                     onChange={(event) => onChange(Number(event.target.value))}
                     aria-label="الفرع"
@@ -21,7 +20,7 @@ export default function BranchPicker({ branches, branchId, onChange }) {
                             {option.label}
                         </option>
                     ))}
-                </SelectInput>
+                </select>
             ) : (
                 <b style={{ fontFamily: 'inherit', fontWeight: 700 }}>{branch?.label ?? '—'}</b>
             )}

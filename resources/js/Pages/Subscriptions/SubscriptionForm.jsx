@@ -1,4 +1,3 @@
-import SelectInput from '@/Components/SelectInput';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useHttp } from '@inertiajs/react';
 import Affix from '@/Components/Affix';
@@ -551,14 +550,14 @@ export default function SubscriptionForm({
                             {branches.length === 0 ? (
                                 <p className="text-sm text-gray-500">لا توجد فروع بعد — أنشئ فرعًا أولاً.</p>
                             ) : (
-                                <SelectInput required className="block w-full" value={data.branch_id} onChange={(e) => onBranchChange(e.target.value)}>
+                                <select required className="block w-full" value={data.branch_id} onChange={(e) => onBranchChange(e.target.value)}>
                                     <option value="">— اختر فرعًا —</option>
                                     {branches.map((branch) => (
                                         <option key={branch.id} value={branch.id}>
                                             {branch.name}
                                         </option>
                                     ))}
-                                </SelectInput>
+                                </select>
                             )}
                         </FormField>
                     )}

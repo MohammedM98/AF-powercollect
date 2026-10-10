@@ -3,9 +3,8 @@ import { Link, useHttp } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import StatusPill from '@/Components/DataTable/StatusPill';
-import FinancialBalance from '@/Components/FinancialBalance';
 import SecondaryButton from '@/Components/SecondaryButton';
-import { formatNumber } from '@/lib/format';
+import { formatMoney, formatNumber } from '@/lib/format';
 
 const STATUS_TONES = { active: 'green', suspended: 'amber', disconnected: 'red' };
 
@@ -34,8 +33,9 @@ export function SubscriptionRows({ subscriptions, boxNumber }) {
                                 {subscription.circuitBreakerAmpere == null ? '—' : <><b className="font-display font-semibold">{subscription.circuitBreakerAmpere}</b> <span className="text-xs">أمبير</span></>}
                             </div>
                             <div role="cell" className="meter-box-subscription-status"><StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} /></div>
-                            <div role="cell" className="meter-box-subscription-balance">
-                                <FinancialBalance value={balance} />
+                            <div role="cell" className={`meter-box-subscription-balance whitespace-nowrap text-sm font-semibold ${balance > 0 ? 'text-red-600 dark:text-red-400' : balance < 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500'}`}>
+                                <b className="font-display" dir="ltr">{formatMoney(Math.abs(balance))} ₪</b>
+                                <span className="ms-1.5 text-xs">{balance > 0 ? 'عليه' : balance < 0 ? 'له' : 'مسدّد'}</span>
                             </div>
                             <div role="cell" className="meter-box-subscription-action text-end">
                                 <Link href={subscription.statementUrl} className="row-action row-action-quiet" aria-label={`كشف حساب ${subscription.display_name}`} title="كشف الحساب">

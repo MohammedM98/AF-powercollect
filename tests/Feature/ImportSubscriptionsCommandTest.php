@@ -225,7 +225,7 @@ class ImportSubscriptionsCommandTest extends TestCase
 
         foreach (['dry' => ['--dry-run' => true], 'real' => []] as $mode => $options) {
             $exitCode = Artisan::call('subscriptions:import', ['file' => $this->csv($rows, self::HEADER_WITH_BOX), '--user' => $this->user->username, ...$options]);
-            $lines = array_values(array_filter(preg_split('/\r\n|\r|\n/', Artisan::output())));
+            $lines = array_values(array_filter(explode("\n", Artisan::output())));
             $outputs[$mode] = ['exit' => $exitCode, 'summary' => preg_replace('/^(Checked|Imported)/', 'Done', $lines[0]), 'failures' => array_slice($lines, 1)];
         }
 

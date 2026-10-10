@@ -1,5 +1,3 @@
-import DatePicker from '@/Components/DatePicker';
-import SelectInput from '@/Components/SelectInput';
 import { useForm, router } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import { closingMoney } from '@/lib/closing';
@@ -116,7 +114,7 @@ export default function CashHandover({ closing, onOpenDaily }) {
                             <label className="l" htmlFor="handover-time">
                                 التاريخ والوقت
                             </label>
-                            <DatePicker
+                            <input
                                 id="handover-time"
                                 type="datetime-local"
                                 className="ltr"
@@ -138,7 +136,7 @@ export default function CashHandover({ closing, onOpenDaily }) {
                             <label className="l" htmlFor="handover-recipient">
                                 المستلم
                             </label>
-                            <SelectInput
+                            <select
                                 id="handover-recipient"
                                 value={form.data.recipient_id}
                                 onChange={(event) => form.setData('recipient_id', event.target.value)}
@@ -148,7 +146,7 @@ export default function CashHandover({ closing, onOpenDaily }) {
                                         {recipient.label}
                                     </option>
                                 ))}
-                            </SelectInput>
+                            </select>
                             {form.errors.recipient_id && <div className="err">{form.errors.recipient_id}</div>}
                         </div>
                         <div className="fld full">

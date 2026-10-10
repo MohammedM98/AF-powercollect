@@ -75,6 +75,8 @@ enum PermissionKey: string
     case AuditClosings = 'closings.audit';
     case ViewAllClosings = 'closings.view_all';
 
+    case ViewFinancialReports = 'reports.view';
+    case ViewAllFinancialReports = 'reports.view_all';
     case ViewBranchPerformance = 'reports.branch_performance';
     case ViewDebtAging = 'reports.debt_aging';
     case ViewTransactionAudit = 'reports.transaction_audit';
@@ -148,6 +150,8 @@ enum PermissionKey: string
             self::ViewOwnClosings => 'View Branch Closings',
             self::AuditClosings => 'Audit Closings',
             self::ViewAllClosings => 'View All Closings and Reports',
+            self::ViewFinancialReports => 'View Financial Reports',
+            self::ViewAllFinancialReports => 'View All Financial Reports',
             self::ViewBranchPerformance => 'View Branch Performance',
             self::ViewDebtAging => 'View Debt Aging',
             self::ViewTransactionAudit => 'View Audit Log',
@@ -156,6 +160,11 @@ enum PermissionKey: string
             self::SendMessages => 'Send Messages',
             self::ManagePrintTemplates => 'Manage Print Templates',
         };
+    }
+
+    public function isRetired(): bool
+    {
+        return str_starts_with($this->value, 'closings.');
     }
 
     /**
@@ -173,7 +182,7 @@ enum PermissionKey: string
             self::ViewAreas, self::CreateAreas, self::UpdateAreas, self::DeleteAreas,
             self::ViewUserTypes, self::CreateUserTypes, self::UpdateUserTypes, self::DeleteUserTypes,
             // Reviewing closings, or seeing every branch's, reaches past one branch, so the company grants it.
-            self::AuditClosings, self::ViewAllClosings => true,
+            self::AuditClosings, self::ViewAllClosings, self::ViewAllFinancialReports => true,
             // Print templates are shared by every branch.
             self::ManagePrintTemplates => true,
             default => false,
@@ -235,13 +244,11 @@ enum PermissionKey: string
                     'force_delete' => self::ForceDeleteTransactions,
                 ],
             ],
-            'closings' => [
-                'label' => 'Closings',
-                'actions' => ['view' => self::ViewOwnClosings, 'prepare' => self::PrepareClosings, 'view_all' => self::ViewAllClosings, 'audit' => self::AuditClosings],
-            ],
             'reports' => [
                 'label' => 'Reports',
                 'actions' => [
+                    'view' => self::ViewFinancialReports,
+                    'view_all' => self::ViewAllFinancialReports,
                     'branch_performance' => self::ViewBranchPerformance,
                     'debt_aging' => self::ViewDebtAging,
                     'transaction_audit' => self::ViewTransactionAudit,

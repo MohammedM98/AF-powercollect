@@ -11,8 +11,7 @@ export const MAIN_LINKS = [
     { href: '/receivables', label: 'أعمار الديون', icon: 'wallet', can: 'viewDebtAging' },
     { href: '/transaction-audit', label: 'سجل التدقيق', icon: 'history', can: 'viewTransactionAudit' },
     { href: '/branch-performance', label: 'أداء الفروع', icon: 'trend', can: 'viewBranchPerformance' },
-    { href: '/closings', label: 'الإغلاق', icon: 'scale', can: 'viewClosings' },
-    { href: '/reports', label: 'التقارير', icon: 'receipt', can: 'viewClosings' },
+    { href: '/reports', label: 'التقارير', icon: 'receipt', can: 'viewReports' },
     { href: '/subscriptions', label: 'المشتركون', icon: 'users', can: 'viewSubscriptions' },
     { href: '/meter-readings', label: 'القراءات', icon: 'chart', can: 'viewMeterReadings' },
     { href: '/messages', label: 'الرسائل', icon: 'messages', can: 'viewMessages' },
@@ -27,7 +26,6 @@ export const SETTINGS_LINKS = [
     { href: '/governorates', label: 'المحافظات', icon: 'map', can: 'viewGovernorates' },
     { href: '/settings/permissions', label: 'الصلاحيات', icon: 'shield', can: 'manageSettings' },
     { href: '/settings/reading-schedule', label: 'مواعيد القراءات', icon: 'calendar', can: 'manageReadingSchedule' },
-    { href: '/settings/closing-schedule', label: 'مواعيد الإغلاق', icon: 'clock', can: 'manageClosingSchedule' },
     { href: '/settings/print-templates', label: 'قوالب الطباعة', icon: 'printer', can: 'managePrintTemplates' },
 ];
 
@@ -35,10 +33,10 @@ const linksByHref = new Map([...MAIN_LINKS, ...SETTINGS_LINKS].map((link) => [li
 
 export const NAVIGATION_GROUPS = [
     { id: 'daily', label: 'العمل اليومي', icon: 'users', defaultOpen: true, hrefs: ['/subscriptions', '/meter-readings', '/messages'] },
-    { id: 'finance', label: 'المالية والتحصيل', icon: 'wallet', defaultOpen: true, hrefs: ['/payments', '/ledger', '/receivables', '/closings'] },
+    { id: 'finance', label: 'المالية والتحصيل', icon: 'wallet', defaultOpen: true, hrefs: ['/payments', '/ledger', '/receivables'] },
     { id: 'reports', label: 'التقارير والرقابة', icon: 'trend', hrefs: ['/reports', '/branch-performance', '/transaction-audit'] },
     { id: 'infrastructure', label: 'الفروع والبنية الكهربائية', icon: 'bolt', hrefs: ['/branches', '/governorates', '/meter-boxes', '/circuit-breakers'] },
-    { id: 'administration', label: 'الإدارة والإعدادات', icon: 'cog', hrefs: ['/users', '/settings/permissions', '/tariffs', '/settings/reading-schedule', '/settings/closing-schedule', '/settings/print-templates'] },
+    { id: 'administration', label: 'الإدارة والإعدادات', icon: 'cog', hrefs: ['/users', '/settings/permissions', '/tariffs', '/settings/reading-schedule', '/settings/print-templates'] },
 ];
 
 /** Task groups containing only the pages the current user may open. */
@@ -58,7 +56,7 @@ export function allowedLinks(links, can) {
 export function isActiveLink(link, url) {
     const path = url.split('?')[0];
 
-    return path === link.href || path.startsWith(`${link.href}/`);
+    return [link.href, ...(link.activePaths ?? [])].some((href) => path === href || path.startsWith(`${href}/`));
 }
 
 /** Whether `url` is inside any of the links' sections. */

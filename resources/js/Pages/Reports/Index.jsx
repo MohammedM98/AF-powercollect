@@ -3,18 +3,10 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import Pagination from '@/Components/DataTable/Pagination';
 import { weekDayName } from '@/lib/weekDays';
-import { closingMoney, shortDate, statusClass } from '@/lib/closing';
-import '../Closings/Closing.css';
+import { reportMoney, shortDate } from '@/lib/reportFormatting';
+import './ReportBase.css';
 import './Report.css';
 
-const CLOSING_STATES = {
-    approved: { label: 'معتمد', icon: 'check' },
-    submitted: { label: 'مرسل للتدقيق', icon: 'send' },
-    returned: { label: 'معاد للتصحيح', icon: 'undo' },
-    draft: { label: 'مسودة', icon: 'note' },
-    open: { label: 'اليوم مفتوح', icon: 'clock' },
-    none: { label: 'لم يُفتح كشفه', icon: 'alert' },
-};
 
 /** Cents of a money string, so totals add up exactly. */
 function cents(amount) {
@@ -31,9 +23,9 @@ function periodLabel(mode, details) {
 /**
  * The reports page: a branch's day (or a stretch of days, or every branch)
  * before it is closed — how what the subscriptions owe moved, where the
- * payments came in, the readings, each day's closing, and every line.
+ * payments came in, the readings, and every line.
  */
-export default function Index({ branches, filters, scopeLabel, presets, today, cutoff, kinds, flow, collections, readings, days, check, transactions, period, branchSummary, canExport }) {
+export default function Index({ branches, filters, scopeLabel, presets, today, kinds, flow, collections, readings, days, transactions, period, branchSummary, canExport }) {
     const { errors } = usePage().props;
     const oneDay = filters.from === filters.to;
     const query = new URLSearchParams(
@@ -49,7 +41,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
     return (
         <AuthenticatedLayout>
             <Head title="التقارير" />
-            <div className="closing-page report-page" dir="rtl">
+            <div className="financial-report report-page" dir="rtl">
                 <div className="ph">
                     <div>
                         <h1>التقارير</h1>
@@ -172,36 +164,35 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                     </div>
                 )}
 
-                {check && <DayCheck check={check} cutoff={cutoff} />}
 
                 {flow && collections && (
                     <div className="kp">
                         <div>
                             <small>صافي رصيد المشتركين أول الفترة</small>
-                            <b>{closingMoney(flow.opening)} ₪</b>
+                            <b>{reportMoney(flow.opening)} ₪</b>
                             <span>على المشتركين</span>
                         </div>
                         <div>
                             <small>التحميلات</small>
-                            <b>{closingMoney(flow.chargesTotal)} ₪</b>
+                            <b>{reportMoney(flow.chargesTotal)} ₪</b>
                             <span>قراءات ورسوم وغرامات</span>
                         </div>
                         <div>
                             <small>التحصيل</small>
-                            <b>{closingMoney(collections.total)} ₪</b>
+                            <b>{reportMoney(collections.total)} ₪</b>
                             <span>{collections.count} دفعة</span>
                         </div>
                         <div>
                             <small>منها نقدًا</small>
-                            <b>{closingMoney(collections.cash)} ₪</b>
-                            <span>غير نقدي {closingMoney(collections.nonCash)} ₪</span>
+                            <b>{reportMoney(collections.cash)} ₪</b>
+                            <span>غير نقدي {reportMoney(collections.nonCash)} ₪</span>
                         </div>
                         <div className={cents(flow.change) > 0 ? 'w' : ''}>
                             <small>صافي رصيد المشتركين آخر الفترة</small>
-                            <b>{closingMoney(flow.closing)} ₪</b>
+                            <b>{reportMoney(flow.closing)} ₪</b>
                             <span>
                                 {cents(flow.change) > 0 ? 'زاد' : cents(flow.change) < 0 ? 'نقص' : 'لم يتغير'}{' '}
-                                {cents(flow.change) !== 0 && `${closingMoney(Math.abs(Number(flow.change)))} ₪`}
+                                {cents(flow.change) !== 0 && `${reportMoney(Math.abs(Number(flow.change)))} ₪`}
                             </span>
                         </div>
                     </div>
@@ -211,7 +202,7 @@ export default function Index({ branches, filters, scopeLabel, presets, today, c
                     <div className="g2">
                         <div>
                             <FlowStatement flow={flow} />
-                            {days.length > 1 && <DaysTable days={days} oneBranch={filters.branch !== 'all'} onOpenDay={(day) => visit({ from: day, to: day, page: undefined })} />}
+                            {days.length > 1 && <DaysTable days={days} onOpenDay={(day) => visit({ from: day, to: day, page: undefined })} />}
                         </div>
                         <div>
                             <Collections collections={collections} />
@@ -246,9 +237,9 @@ function BranchComparison({ rows, filters }) {
                         {rows.map((row) => (
                             <tr key={row.id}>
                                 <td><Link href={`/reports?${new URLSearchParams({ ...filters, branch: row.id }).toString()}`}><b>{row.name}</b></Link></td>
-                                <td className="tv">{closingMoney(row.flow.closing)} ₪</td>
-                                <td className="tv">{closingMoney(row.collections.total)} ₪</td>
-                                <td className="tv">{closingMoney(row.collections.cash)} ₪</td>
+                                <td className="tv">{reportMoney(row.flow.closing)} ₪</td>
+                                <td className="tv">{reportMoney(row.collections.total)} ₪</td>
+                                <td className="tv">{reportMoney(row.collections.cash)} ₪</td>
                                 <td>{row.collections.count}</td>
                             </tr>
                         ))}
@@ -259,66 +250,6 @@ function BranchComparison({ rows, filters }) {
     );
 }
 
-/** Where one branch's day stands before it is closed. */
-function DayCheck({ check, cutoff }) {
-    const closingLink = check.branchId && (
-        <Link href={`/closings?tab=daily&branch=${check.branchId}&date=${check.day}`} className="btn" style={{ marginInlineStart: 'auto' }}>
-            <Icon name="scale" />
-            {check.state === 'none' ? 'افتح كشف هذا اليوم' : `فتح الكشف ${check.number}`}
-        </Link>
-    );
-
-    if (check.state === 'open') {
-        return (
-            <div className="ban inf">
-                <Icon name="clock" />
-                <div>
-                    <b>اليوم ما زال مفتوحًا حتى {check.closesAt}</b>
-                    النقد المحصَّل حتى الآن {closingMoney(check.reportCash)} ₪. يُفتح كشف الإغلاق بعد وقت القطع ({cutoff === '00:00' ? 'منتصف الليل' : cutoff})، وكل دفعة قبله تُحسب على هذا اليوم.
-                </div>
-            </div>
-        );
-    }
-
-    if (check.state === 'none') {
-        return (
-            <div className="ban warn">
-                <Icon name="alert" />
-                <div>
-                    <b>انتهى اليوم ولم يُفتح كشف إغلاقه بعد</b>
-                    النقد المحصَّل في هذا اليوم {closingMoney(check.reportCash)} ₪.
-                </div>
-                {closingLink}
-            </div>
-        );
-    }
-
-    const tone = !check.matches ? 'warn' : check.state === 'approved' ? 'ok' : 'inf';
-
-    return (
-        <div className={`ban ${tone}`}>
-            <Icon name={check.matches ? 'check' : 'alert'} />
-            <div>
-                <b>
-                    الكشف {check.number} · {check.statusLabel}
-                </b>
-                {check.matches
-                    ? `النقد في الكشف يطابق دفعات اليوم النقدية (${closingMoney(check.closingCash)} ₪).`
-                    : `في الكشف ${closingMoney(check.closingCash)} ₪ نقدًا، ودفعات اليوم النقدية ${closingMoney(check.reportCash)} ₪ — افتح الكشف لمراجعة دفعاته قبل إرساله.`}
-                {check.counted !== null && (
-                    <>
-                        {' '}
-                        المتوقع في الصندوق {closingMoney(check.expected)} ₪، والمعدود {closingMoney(check.counted)} ₪
-                        {cents(check.difference) !== 0 ? ` (فرق ${closingMoney(check.difference)} ₪).` : ' (مطابق).'}
-                    </>
-                )}
-            </div>
-            {closingLink}
-        </div>
-    );
-}
-
-/** What was owed at the start, each charge and credit, the corrections, and what is owed at the end. */
 function FlowStatement({ flow }) {
     return (
         <section className="pn">
@@ -334,41 +265,41 @@ function FlowStatement({ flow }) {
                     <tr className="sum">
                         <th>المستحق أول الفترة</th>
                         <td />
-                        <td className="tv">{closingMoney(flow.opening)}</td>
+                        <td className="tv">{reportMoney(flow.opening)}</td>
                     </tr>
                     {flow.charges.map((line) => (
                         <tr key={line.type}>
                             <th>+ {line.label}</th>
                             <td className="muted">{line.count}</td>
-                            <td className="tv">{closingMoney(line.total)}</td>
+                            <td className="tv">{reportMoney(line.total)}</td>
                         </tr>
                     ))}
                     <tr className="sub">
                         <th>مجموع التحميلات (عليه)</th>
                         <td />
-                        <td className="tv">{closingMoney(flow.chargesTotal)}</td>
+                        <td className="tv">{reportMoney(flow.chargesTotal)}</td>
                     </tr>
                     {flow.credits.map((line) => (
                         <tr key={line.type}>
                             <th>− {line.label}</th>
                             <td className="muted">{line.count}</td>
-                            <td className="tv">{closingMoney(line.total)}</td>
+                            <td className="tv">{reportMoney(line.total)}</td>
                         </tr>
                     ))}
                     <tr className="sub">
                         <th>مجموع الدفعات والخصومات (له)</th>
                         <td />
-                        <td className="tv">{closingMoney(flow.creditsTotal)}</td>
+                        <td className="tv">{reportMoney(flow.creditsTotal)}</td>
                     </tr>
                     <tr>
                         <th>± الإلغاءات والقيود العكسية</th>
                         <td className="muted">{flow.corrections.count}</td>
-                        <td className={`tv ${cents(flow.corrections.total) !== 0 ? 'w' : ''}`}>{closingMoney(flow.corrections.total)}</td>
+                        <td className={`tv ${cents(flow.corrections.total) !== 0 ? 'w' : ''}`}>{reportMoney(flow.corrections.total)}</td>
                     </tr>
                     <tr className="sum">
                         <th>المستحق آخر الفترة</th>
                         <td />
-                        <td className="tv">{closingMoney(flow.closing)}</td>
+                        <td className="tv">{reportMoney(flow.closing)}</td>
                     </tr>
                 </tbody>
             </table>
@@ -379,9 +310,9 @@ function FlowStatement({ flow }) {
     );
 }
 
-/** One row per day: what moved, what was owed at its end, and its closing. */
-function DaysTable({ days, oneBranch, onOpenDay }) {
-    const total = (key) => closingMoney(days.reduce((sum, day) => sum + cents(day[key]), 0) / 100);
+/** One row per day: what moved and what was owed at its end. */
+function DaysTable({ days, onOpenDay }) {
+    const total = (key) => reportMoney(days.reduce((sum, day) => sum + cents(day[key]), 0) / 100);
 
     return (
         <section className="pn">
@@ -402,7 +333,6 @@ function DaysTable({ days, oneBranch, onOpenDay }) {
                             <th>الخصومات</th>
                             <th>الإلغاءات</th>
                             <th>المستحق آخره</th>
-                            <th>الإغلاق</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -412,22 +342,19 @@ function DaysTable({ days, oneBranch, onOpenDay }) {
                                     {weekDayName(day.day)} <span className="num">{shortDate(day.day)}</span>
                                 </td>
                                 <td>
-                                    <span className="tv">{closingMoney(day.charges)}</span>
+                                    <span className="tv">{reportMoney(day.charges)}</span>
                                 </td>
                                 <td>
-                                    <span className="tv">{closingMoney(day.payments)}</span>
+                                    <span className="tv">{reportMoney(day.payments)}</span>
                                 </td>
                                 <td>
-                                    <span className="tv">{closingMoney(day.discounts)}</span>
+                                    <span className="tv">{reportMoney(day.discounts)}</span>
                                 </td>
                                 <td>
-                                    <span className={`tv ${cents(day.corrections) !== 0 ? 'w' : ''}`}>{closingMoney(day.corrections)}</span>
+                                    <span className={`tv ${cents(day.corrections) !== 0 ? 'w' : ''}`}>{reportMoney(day.corrections)}</span>
                                 </td>
                                 <td>
-                                    <span className="tv">{closingMoney(day.balance)}</span>
-                                </td>
-                                <td>
-                                    <ClosingState closing={day.closing} oneBranch={oneBranch} hasLines={day.lines > 0} />
+                                    <span className="tv">{reportMoney(day.balance)}</span>
                                 </td>
                             </tr>
                         ))}
@@ -439,39 +366,12 @@ function DaysTable({ days, oneBranch, onOpenDay }) {
                             <td>{total('payments')}</td>
                             <td>{total('discounts')}</td>
                             <td>{total('corrections')}</td>
-                            <td>{closingMoney(days[days.length - 1].balance)}</td>
-                            <td />
+                            <td>{reportMoney(days[days.length - 1].balance)}</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
         </section>
-    );
-}
-
-function ClosingState({ closing, oneBranch, hasLines }) {
-    if (!oneBranch && !['open', 'future'].includes(closing.state)) {
-        return closing.opened === 0 ? (
-            <span className="muted">—</span>
-        ) : (
-            <span className="num">
-                {closing.approved}/{closing.opened} معتمد
-            </span>
-        );
-    }
-
-    const state = closing.state === 'none' && !hasLines ? null : CLOSING_STATES[closing.state];
-
-    if (!state) {
-        return <span className="muted">—</span>;
-    }
-
-    return (
-        <span className={`rp-state ${statusClass(closing.state)}`}>
-            <Icon name={state.icon} />
-            {state.label}
-            {closing.number && <span className="num"> {closing.number}</span>}
-        </span>
     );
 }
 
@@ -487,7 +387,7 @@ function Collections({ collections }) {
                 </span>
                 التحصيل
                 <span className="r">
-                    {collections.count} دفعة · {closingMoney(collections.total)} ₪
+                    {collections.count} دفعة · {reportMoney(collections.total)} ₪
                 </span>
             </h3>
             {collections.count === 0 ? (
@@ -503,7 +403,7 @@ function Collections({ collections }) {
                                     {account.label}
                                     <small className="muted"> · {account.count}</small>
                                 </span>
-                                <b className="tv">{closingMoney(account.total)}</b>
+                                <b className="tv">{reportMoney(account.total)}</b>
                                 <i style={{ inlineSize: `${(cents(account.total) / largest) * 100}%` }} />
                             </li>
                         ))}
@@ -520,9 +420,9 @@ function Collections({ collections }) {
                                                 {currency.label} <small className="muted">· {currency.count}</small>
                                             </th>
                                             <td className="tv">
-                                                {closingMoney(currency.amount)} {currency.currency}
+                                                {reportMoney(currency.amount)} {currency.currency}
                                             </td>
-                                            <td className="tv">{closingMoney(currency.total)} ₪</td>
+                                            <td className="tv">{reportMoney(currency.total)} ₪</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -545,8 +445,8 @@ function Collections({ collections }) {
                                 <tr key={collector.name}>
                                     <th>{collector.name}</th>
                                     <td className="muted">{collector.count}</td>
-                                    <td className="tv">{closingMoney(collector.cash)}</td>
-                                    <td className="tv">{closingMoney(collector.total)}</td>
+                                    <td className="tv">{reportMoney(collector.cash)}</td>
+                                    <td className="tv">{reportMoney(collector.total)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -575,7 +475,7 @@ function Readings({ readings }) {
                     </tr>
                     <tr>
                         <th>قراءات اعتُمدت وحُمِّلت</th>
-                        <td className="muted">{closingMoney(readings.billed)} ₪</td>
+                        <td className="muted">{reportMoney(readings.billed)} ₪</td>
                         <td className="tv">{readings.approved}</td>
                     </tr>
                     <tr>
@@ -681,10 +581,10 @@ function Transactions({ transactions, kinds, filters, showDay, showBranch, onKin
                                     )}
                                 </td>
                                 <td>
-                                    <span className="tv">{line.isCredit ? '' : closingMoney(line.amount)}</span>
+                                    <span className="tv">{line.isCredit ? '' : reportMoney(line.amount)}</span>
                                 </td>
                                 <td>
-                                    <span className="tv">{line.isCredit ? closingMoney(line.amount) : ''}</span>
+                                    <span className="tv">{line.isCredit ? reportMoney(line.amount) : ''}</span>
                                 </td>
                                 <td>{line.recordedBy ?? '—'}</td>
                             </tr>

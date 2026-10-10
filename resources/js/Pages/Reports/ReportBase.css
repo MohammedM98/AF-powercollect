@@ -1,5 +1,5 @@
-/* The closing page, as designed: its own palette, light and dark, kept to this page. */
-.closing-page {
+/* The financial reports palette and layout, preserved in light and dark mode. */
+.financial-report {
     --cl-page: #eff1f4;
     --cl-surface: #fff;
     --cl-raised: #f7f8fa;
@@ -35,7 +35,16 @@
         system-ui,
         sans-serif;
 }
-.dark .closing-page {
+
+.financial-report .branch-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.financial-report .branch-preparation, .financial-report .branch-history { margin-top: 20px; }
+.financial-report .branch-table-scroll { overflow-x: auto; margin-top: 16px; }
+.financial-report .branch-table-scroll .pt { width: 100%; min-width: 620px; }
+.financial-report .branch-cell-note { display: block; color: var(--cl-muted); font-size: 12px; }
+.financial-report .branch-notes { width: 100%; min-height: 100px; border: 1px solid var(--cl-line); border-radius: 12px; background: var(--cl-raised); padding: 12px; }
+.financial-report .branch-error { color: var(--cl-danger); }
+.financial-report.closing-review { padding: 24px; }
+.dark .financial-report {
     --cl-page: #0b0d10;
     --cl-surface: #14171c;
     --cl-raised: #1b1f25;
@@ -59,46 +68,46 @@
     --cl-pop: 0 30px 60px -20px #000;
     --cl-hero: linear-gradient(135deg, #1c2127, #161a1f 55%, #0b0d10);
 }
-.closing-page button,
-.closing-page input,
-.closing-page select,
-.closing-page textarea {
+.financial-report button,
+.financial-report input,
+.financial-report select,
+.financial-report textarea {
     font: inherit;
     color: inherit;
 }
-.closing-page :focus-visible {
+.financial-report :focus-visible {
     outline: 2px solid var(--cl-focus);
     outline-offset: 2px;
 }
-.closing-page .pt,
-.closing-page .mx {
+.financial-report .pt,
+.financial-report .mx {
     border-spacing: 0;
 }
 @media print {
-    .closing-page .abar,
-    .closing-page .tabs,
-    .closing-page .ctl {
+    .financial-report .abar,
+    .financial-report .tabs,
+    .financial-report .ctl {
         display: none;
     }
 }
-.closing-page .ph {
+.financial-report .ph {
     display: flex;
     align-items: flex-end;
     gap: 16px;
     flex-wrap: wrap;
 }
-.closing-page .ph h1 {
+.financial-report .ph h1 {
     margin: 0;
     font:
         700 34px/1.2 'El Messiri',
         serif;
 }
-.closing-page .ph p {
+.financial-report .ph p {
     margin: 4px 0 0;
     color: var(--cl-faint);
     font-size: 14.5px;
 }
-.closing-page .btn {
+.financial-report .btn {
     height: 44px;
     border-radius: 13px;
     padding: 0 16px;
@@ -113,10 +122,10 @@
     color: var(--cl-ink2);
     transition: 0.18s;
 }
-.closing-page .btn:hover {
+.financial-report .btn:hover {
     background: var(--cl-sunken);
 }
-.closing-page .btn.pr {
+.financial-report .btn.pr {
     border: 0;
     color: #fff;
     background: linear-gradient(180deg, var(--cl-brand-hi), var(--cl-brand-lo));
@@ -124,15 +133,15 @@
         0 12px 26px -12px #a51d26,
         inset 0 1px 0 #ffffff33;
 }
-.closing-page .btn.pr:hover {
+.financial-report .btn.pr:hover {
     filter: brightness(1.07);
 }
-.closing-page .empty {
+.financial-report .empty {
     text-align: center;
     padding: 56px 20px;
     color: var(--cl-faint);
 }
-.closing-page .empty .e {
+.financial-report .empty .e {
     width: 64px;
     height: 64px;
     margin: 0 auto 12px;
@@ -142,17 +151,17 @@
     background: var(--cl-sunken);
     color: var(--cl-muted);
 }
-.closing-page .empty b {
+.financial-report .empty b {
     display: block;
     color: var(--cl-ink);
     font-size: 18px;
     font-family: 'El Messiri', serif;
 }
-.closing-page .num {
+.financial-report .num {
     font-family: Alexandria, 'IBM Plex Sans Arabic', sans-serif;
     font-variant-numeric: tabular-nums;
 }
-.closing-page .muted {
+.financial-report .muted {
     color: var(--cl-faint);
 }
 @keyframes cl-pop {
@@ -161,7 +170,7 @@
         transform: translateY(-4px) scale(0.97);
     }
 }
-.closing-page .tabs {
+.financial-report .tabs {
     display: inline-flex;
     gap: 4px;
     margin-top: 18px;
@@ -171,7 +180,7 @@
     border: 1px solid var(--cl-line2);
     box-shadow: var(--cl-shadow);
 }
-.closing-page .tabs button {
+.financial-report .tabs button {
     border: 0;
     background: transparent;
     height: 42px;
@@ -185,32 +194,32 @@
     align-items: center;
     gap: 8px;
 }
-.closing-page .tabs button svg {
+.financial-report .tabs button svg {
     width: 17px;
     height: 17px;
 }
-.closing-page .tabs button:hover {
+.financial-report .tabs button:hover {
     color: var(--cl-brand);
 }
-.closing-page .tabs button[aria-pressed='true'] {
+.financial-report .tabs button[aria-pressed='true'] {
     background: var(--cl-ink);
     color: var(--cl-surface);
 }
-.closing-page .tabs .n {
+.financial-report .tabs .n {
     font: 700 11.5px Alexandria;
     border-radius: 7px;
     padding: 0 7px;
     background: var(--cl-brand);
     color: #fff;
 }
-.closing-page .ctl {
+.financial-report .ctl {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
     margin-top: 16px;
 }
-.closing-page .ctl .cb {
+.financial-report .ctl .cb {
     height: 44px;
     display: inline-flex;
     align-items: center;
@@ -222,24 +231,32 @@
     font-weight: 700;
     font-size: 14.5px;
 }
-.closing-page .ctl .cb small {
+.financial-report .ctl .cb small {
     font: 500 12.5px 'IBM Plex Sans Arabic';
     color: var(--cl-faint);
 }
-.closing-page .ctl .cb svg {
+.financial-report .ctl .cb input[type='datetime-local'] {
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--cl-ink);
+    color-scheme: inherit;
+    padding: 0;
+}
+.financial-report .ctl .cb svg {
     width: 16px;
     height: 16px;
     color: var(--cl-faint);
 }
-.closing-page .ctl .cb b {
+.financial-report .ctl .cb b {
     font-family: Alexandria;
     font-weight: 600;
 }
-.closing-page .ctl .nav {
+.financial-report .ctl .nav {
     padding: 0 4px;
     gap: 2px;
 }
-.closing-page .ctl .nav button {
+.financial-report .ctl .nav button {
     width: 34px;
     height: 34px;
     border: 0;
@@ -250,18 +267,18 @@
     place-items: center;
     color: var(--cl-ink2);
 }
-.closing-page .ctl .nav button:hover:not(:disabled) {
+.financial-report .ctl .nav button:hover:not(:disabled) {
     background: color-mix(in srgb, var(--cl-brand) 8%, transparent);
     color: var(--cl-brand);
 }
-.closing-page .ctl .nav button:disabled {
+.financial-report .ctl .nav button:disabled {
     opacity: 0.3;
     cursor: default;
 }
-.closing-page .ctl .sp {
+.financial-report .ctl .sp {
     margin-inline-start: auto;
 }
-.closing-page .hero {
+.financial-report .hero {
     margin-top: 14px;
     position: relative;
     overflow: hidden;
@@ -275,7 +292,7 @@
     align-items: center;
     box-shadow: 0 24px 50px -28px #10182899;
 }
-.closing-page .hero::before {
+.financial-report .hero::before {
     content: '';
     position: absolute;
     inset-inline: 0;
@@ -283,7 +300,7 @@
     height: 3px;
     background: linear-gradient(90deg, #5c0d14, #a51d26 40%, #9aa3ae 75%, #dfe3e8);
 }
-.closing-page .hero::after {
+.financial-report .hero::after {
     content: '';
     position: absolute;
     width: 340px;
@@ -296,37 +313,41 @@
     inset-inline-start: 30%;
     pointer-events: none;
 }
-.closing-page .hero > * {
+.financial-report .hero > * {
     position: relative;
     z-index: 1;
+    min-width: 0;
 }
-.closing-page .hero small.k {
+.financial-report .hero small.k {
     font-size: 13px;
     color: #aeb6c1;
     font-weight: 600;
 }
-.closing-page .hero h2 {
+.financial-report .hero h2 {
     margin: 2px 0;
     font:
         700 26px 'El Messiri',
         serif;
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
 }
-.closing-page .hero h2 .no {
+.financial-report .hero h2 .no {
     font: 800 24px Alexandria;
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
-.closing-page .hero .meta {
+.financial-report .hero .meta {
     font-size: 13.5px;
     color: #aeb6c1;
 }
-.closing-page .hero .meta b {
+.financial-report .hero .meta b {
     color: #fff;
     font-family: Alexandria;
     font-weight: 600;
 }
-.closing-page .st {
+.financial-report .st {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -336,40 +357,40 @@
     padding: 3px 11px;
     border: 1px solid;
 }
-.closing-page .st i {
+.financial-report .st i {
     width: 7px;
     height: 7px;
     border-radius: 50%;
     background: currentColor;
 }
-.closing-page .st.draft {
+.financial-report .st.draft {
     color: #c9ced5;
     background: #ffffff12;
     border-color: #ffffff26;
 }
-.closing-page .st.sent {
+.financial-report .st.sent {
     color: #7dafe8;
     background: #7dafe81a;
     border-color: #7dafe844;
 }
-.closing-page .st.returned {
+.financial-report .st.returned {
     color: #fc7d7d;
     background: #fc7d7d1a;
     border-color: #fc7d7d44;
 }
-.closing-page .st.approved {
+.financial-report .st.approved {
     color: #34d399;
     background: #34d3991a;
     border-color: #34d39944;
 }
-.closing-page .steps {
+.financial-report .steps {
     display: flex;
     align-items: flex-start;
     justify-content: center;
     gap: 0;
     min-width: 0;
 }
-.closing-page .stp {
+.financial-report .stp {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -379,7 +400,7 @@
     text-align: center;
     position: relative;
 }
-.closing-page .stp::before {
+.financial-report .stp::before {
     content: '';
     position: absolute;
     top: 15px;
@@ -388,13 +409,13 @@
     height: 2px;
     background: #ffffff1f;
 }
-.closing-page .stp:last-child::before {
+.financial-report .stp:last-child::before {
     display: none;
 }
-.closing-page .stp.done::before {
+.financial-report .stp.done::before {
     background: #34d39988;
 }
-.closing-page .stp .c {
+.financial-report .stp .c {
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -405,41 +426,41 @@
     border: 1.5px solid #ffffff2e;
     color: #c9ced5;
 }
-.closing-page .stp .c svg {
+.financial-report .stp .c svg {
     width: 15px;
     height: 15px;
     stroke-width: 2.6;
 }
-.closing-page .stp.done .c {
+.financial-report .stp.done .c {
     background: #34d399;
     border-color: #34d399;
     color: #06281d;
 }
-.closing-page .stp.cur .c {
+.financial-report .stp.cur .c {
     background: #fff;
     border-color: #fff;
     color: #111820;
     box-shadow: 0 0 0 5px #ffffff1f;
 }
-.closing-page .stp.bad .c {
+.financial-report .stp.bad .c {
     background: #fc7d7d;
     border-color: #fc7d7d;
     color: #3b0a0a;
 }
-.closing-page .stp span {
+.financial-report .stp span {
     font-size: 12.5px;
     color: #aeb6c1;
     font-weight: 600;
     line-height: 1.4;
 }
-.closing-page .stp.cur span,
-.closing-page .stp.done span {
+.financial-report .stp.cur span,
+.financial-report .stp.done span {
     color: #fff;
 }
-.closing-page .tot {
+.financial-report .tot {
     text-align: end;
 }
-.closing-page .tot b {
+.financial-report .tot b {
     display: block;
     font: 800 34px/1.1 Alexandria;
     background: linear-gradient(180deg, #fff, #9aa3ae);
@@ -448,17 +469,17 @@
     color: transparent;
     direction: ltr;
 }
-.closing-page .tot span {
+.financial-report .tot span {
     font-size: 13px;
     color: #aeb6c1;
 }
-.closing-page .tot .pend {
+.financial-report .tot .pend {
     display: block;
     color: #fbbf24;
     font-size: 12.5px;
     margin-top: 2px;
 }
-.closing-page .ban {
+.financial-report .ban {
     display: flex;
     gap: 12px;
     align-items: flex-start;
@@ -469,59 +490,59 @@
     line-height: 1.75;
     border: 1px solid;
 }
-.closing-page .ban svg {
+.financial-report .ban svg {
     width: 19px;
     height: 19px;
     flex: none;
     margin-top: 3px;
 }
-.closing-page .ban b {
+.financial-report .ban b {
     display: block;
     font-size: 14.5px;
 }
-.closing-page .ban.inf {
+.financial-report .ban.inf {
     background: var(--cl-info-t);
     border-color: color-mix(in srgb, var(--cl-info) 25%, transparent);
     color: var(--cl-ink2);
 }
-.closing-page .ban.inf svg,
-.closing-page .ban.inf b {
+.financial-report .ban.inf svg,
+.financial-report .ban.inf b {
     color: var(--cl-info);
 }
-.closing-page .ban.bad {
+.financial-report .ban.bad {
     background: var(--cl-danger-t);
     border-color: color-mix(in srgb, var(--cl-danger) 28%, transparent);
     color: var(--cl-ink2);
 }
-.closing-page .ban.bad svg,
-.closing-page .ban.bad b {
+.financial-report .ban.bad svg,
+.financial-report .ban.bad b {
     color: var(--cl-danger);
 }
-.closing-page .ban.ok {
+.financial-report .ban.ok {
     background: var(--cl-success-t);
     border-color: color-mix(in srgb, var(--cl-success) 28%, transparent);
     color: var(--cl-ink2);
 }
-.closing-page .ban.ok svg,
-.closing-page .ban.ok b {
+.financial-report .ban.ok svg,
+.financial-report .ban.ok b {
     color: var(--cl-success);
 }
-.closing-page .ban.warn {
+.financial-report .ban.warn {
     background: var(--cl-warn-t);
     border-color: color-mix(in srgb, var(--cl-warn) 28%, transparent);
     color: var(--cl-ink2);
 }
-.closing-page .ban.warn svg,
-.closing-page .ban.warn b {
+.financial-report .ban.warn svg,
+.financial-report .ban.warn b {
     color: var(--cl-warn);
 }
-.closing-page .accs {
+.financial-report .accs {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
     margin-top: 14px;
 }
-.closing-page .ac {
+.financial-report .ac {
     background: var(--cl-surface);
     border: 1px solid var(--cl-line2);
     border-radius: 20px;
@@ -529,12 +550,12 @@
     box-shadow: var(--cl-shadow);
     position: relative;
 }
-.closing-page .ac .hd {
+.financial-report .ac .hd {
     display: flex;
     align-items: center;
     gap: 10px;
 }
-.closing-page .ac .lg {
+.financial-report .ac .lg {
     width: 36px;
     height: 36px;
     border-radius: 11px;
@@ -544,39 +565,39 @@
     flex: none;
     overflow: hidden;
 }
-.closing-page .ac .lg img {
+.financial-report .ac .lg img {
     width: 30px;
     height: 30px;
     object-fit: contain;
     border-radius: 7px;
     background: #fff;
 }
-.closing-page .ac .lg svg {
+.financial-report .ac .lg svg {
     width: 19px;
     height: 19px;
     color: var(--cl-success);
 }
-.closing-page .ac .hd b {
+.financial-report .ac .hd b {
     font-size: 14.5px;
 }
-.closing-page .ac .hd small {
+.financial-report .ac .hd small {
     display: block;
     font-size: 12px;
     color: var(--cl-faint);
 }
-.closing-page .ac .am {
+.financial-report .ac .am {
     font: 800 23px Alexandria;
     margin-top: 8px;
     direction: ltr;
     text-align: right;
 }
-.closing-page .ac .am em {
+.financial-report .ac .am em {
     font-style: normal;
     font-size: 13px;
     color: var(--cl-faint);
     margin-inline-end: 4px;
 }
-.closing-page .ac .ms {
+.financial-report .ac .ms {
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -584,50 +605,50 @@
     font-weight: 700;
     margin-top: 4px;
 }
-.closing-page .ac .ms svg {
+.financial-report .ac .ms svg {
     width: 14px;
     height: 14px;
 }
-.closing-page .ms.ok {
+.financial-report .ms.ok {
     color: var(--cl-success);
 }
-.closing-page .ms.no {
+.financial-report .ms.no {
     color: var(--cl-warn);
 }
-.closing-page .ms.bad {
+.financial-report .ms.bad {
     color: var(--cl-danger);
 }
-.closing-page .ms.n {
+.financial-report .ms.n {
     color: var(--cl-faint);
 }
-.closing-page .ac.pend {
+.financial-report .ac.pend {
     background: var(--cl-raised);
     border-style: dashed;
 }
-.closing-page .g2 {
+.financial-report .g2 {
     display: grid;
     grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
     gap: 16px;
     margin-top: 16px;
     align-items: start;
 }
-.closing-page .g2 > div {
+.financial-report .g2 > div {
     min-width: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
 }
-.closing-page .g2 > div > * {
+.financial-report .g2 > div > * {
     min-width: 0;
 }
-.closing-page .pn {
+.financial-report .pn {
     background: var(--cl-surface);
     border: 1px solid var(--cl-line2);
     border-radius: 22px;
     box-shadow: var(--cl-shadow);
     padding: 16px 18px;
 }
-.closing-page .pn h3 {
+.financial-report .pn h3 {
     margin: 0;
     font:
         700 18px 'El Messiri',
@@ -636,7 +657,7 @@
     align-items: center;
     gap: 10px;
 }
-.closing-page .pn h3 .ix {
+.financial-report .pn h3 .ix {
     width: 30px;
     height: 30px;
     border-radius: 10px;
@@ -645,27 +666,27 @@
     background: var(--cl-sunken);
     color: var(--cl-ink2);
 }
-.closing-page .pn h3 .ix svg {
+.financial-report .pn h3 .ix svg {
     width: 16px;
     height: 16px;
 }
-.closing-page .pn h3 .r {
+.financial-report .pn h3 .r {
     margin-inline-start: auto;
     font: 600 12.5px 'IBM Plex Sans Arabic';
     color: var(--cl-faint);
 }
-.closing-page .pn > p.s {
+.financial-report .pn > p.s {
     margin: 3px 0 0;
     font-size: 13px;
     color: var(--cl-faint);
 }
-.closing-page .pt {
+.financial-report .pt {
     width: 100%;
     border-collapse: collapse;
     margin-top: 10px;
     font-size: 14px;
 }
-.closing-page .pt th {
+.financial-report .pt th {
     position: static;
     text-align: start;
     font-size: 12.5px;
@@ -675,7 +696,7 @@
     border-bottom: 1px solid var(--cl-line2);
     white-space: nowrap;
 }
-.closing-page .pt td {
+.financial-report .pt td {
     background: transparent;
     border: 0;
     border-bottom: 1px solid var(--cl-line2);
@@ -685,50 +706,50 @@
     white-space: nowrap;
     vertical-align: middle;
 }
-.closing-page .pt tbody tr {
+.financial-report .pt tbody tr {
     animation: none;
     cursor: default;
 }
-.closing-page .pt tbody tr:hover td {
+.financial-report .pt tbody tr:hover td {
     background: color-mix(in srgb, var(--cl-brand) 3%, var(--cl-surface));
 }
-.closing-page .pt tbody tr:hover td:first-child {
+.financial-report .pt tbody tr:hover td:first-child {
     box-shadow: inset -3px 0 0 var(--cl-brand);
 }
-.closing-page .pt tfoot td {
+.financial-report .pt tfoot td {
     border: 0;
     border-top: 1.5px solid var(--cl-line);
     font-weight: 700;
     padding-top: 10px;
 }
-.closing-page .pid b {
+.financial-report .pid b {
     display: block;
     font: 600 13.5px Alexandria;
     direction: ltr;
     text-align: right;
 }
-.closing-page .pid small {
+.financial-report .pid small {
     display: block;
     font: 500 11.5px Alexandria;
     color: var(--cl-faint);
     direction: ltr;
     text-align: right;
 }
-.closing-page .psub b {
+.financial-report .psub b {
     display: block;
     font-size: 14px;
 }
-.closing-page .psub small {
+.financial-report .psub small {
     display: block;
     font-size: 12px;
     color: var(--cl-faint);
 }
-.closing-page .pacc {
+.financial-report .pacc {
     display: inline-flex;
     align-items: center;
     gap: 7px;
 }
-.closing-page .pacc img {
+.financial-report .pacc img {
     width: 24px;
     height: 24px;
     border-radius: 7px;
@@ -736,7 +757,7 @@
     background: #fff;
     border: 1px solid var(--cl-line2);
 }
-.closing-page .pacc .ci {
+.financial-report .pacc .ci {
     width: 24px;
     height: 24px;
     border-radius: 7px;
@@ -745,23 +766,23 @@
     background: var(--cl-success-t);
     color: var(--cl-success);
 }
-.closing-page .pacc .ci svg {
+.financial-report .pacc .ci svg {
     width: 14px;
     height: 14px;
 }
-.closing-page .pref {
+.financial-report .pref {
     font: 500 12.5px Alexandria;
     color: var(--cl-ink2);
     direction: ltr;
     display: inline-block;
 }
-.closing-page .pam {
+.financial-report .pam {
     font: 700 14.5px Alexandria;
     direction: ltr;
     text-align: right;
     white-space: nowrap;
 }
-.closing-page .mt {
+.financial-report .mt {
     height: 32px;
     border-radius: 10px;
     border: 1.5px solid var(--cl-line);
@@ -775,28 +796,28 @@
     gap: 5px;
     color: var(--cl-ink2);
 }
-.closing-page .mt svg {
+.financial-report .mt svg {
     width: 14px;
     height: 14px;
 }
-.closing-page .mt:hover:not(:disabled) {
+.financial-report .mt:hover:not(:disabled) {
     border-color: color-mix(in srgb, var(--cl-success) 45%, var(--cl-line));
     color: var(--cl-success);
 }
-.closing-page .mt[aria-pressed='true'] {
+.financial-report .mt[aria-pressed='true'] {
     background: var(--cl-success);
     border-color: var(--cl-success);
     color: #fff;
 }
-.closing-page .mt:disabled {
+.financial-report .mt:disabled {
     cursor: default;
     opacity: 0.85;
 }
-.closing-page .mt.cash {
+.financial-report .mt.cash {
     border-style: dashed;
     color: var(--cl-faint);
 }
-.closing-page .mv {
+.financial-report .mv {
     border: 0;
     background: transparent;
     color: var(--cl-faint);
@@ -807,17 +828,17 @@
     text-decoration: underline;
     text-underline-offset: 3px;
 }
-.closing-page .mv:hover {
+.financial-report .mv:hover {
     color: var(--cl-warn);
 }
-.closing-page .pendl {
+.financial-report .pendl {
     margin-top: 14px;
     border: 1px dashed var(--cl-line);
     border-radius: 16px;
     padding: 10px 12px;
     background: var(--cl-raised);
 }
-.closing-page .pendl h4 {
+.financial-report .pendl h4 {
     margin: 0;
     font-size: 14px;
     display: flex;
@@ -825,34 +846,34 @@
     gap: 8px;
     color: var(--cl-warn);
 }
-.closing-page .pendl h4 svg {
+.financial-report .pendl h4 svg {
     width: 16px;
     height: 16px;
 }
-.closing-page .pendl h4 span {
+.financial-report .pendl h4 span {
     margin-inline-start: auto;
     font: 600 12px 'IBM Plex Sans Arabic';
     color: var(--cl-faint);
 }
-.closing-page .pendl .it {
+.financial-report .pendl .it {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 8px 2px;
     font-size: 13.5px;
 }
-.closing-page .pendl .it + .it {
+.financial-report .pendl .it + .it {
     border-top: 1px solid var(--cl-line2);
 }
-.closing-page .pendl .it .why {
+.financial-report .pendl .it .why {
     font-size: 12px;
     color: var(--cl-faint);
     display: block;
 }
-.closing-page .pendl .it .pam {
+.financial-report .pendl .it .pam {
     margin-inline-start: auto;
 }
-.closing-page .formula {
+.financial-report .formula {
     margin-top: 10px;
     border-radius: 14px;
     background: var(--cl-raised);
@@ -860,47 +881,47 @@
     padding: 10px 12px;
     font-size: 13.5px;
 }
-.closing-page .formula .row {
+.financial-report .formula .row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 3px 0;
 }
-.closing-page .formula .row span {
+.financial-report .formula .row span {
     color: var(--cl-faint);
 }
-.closing-page .formula .row b {
+.financial-report .formula .row b {
     font: 600 14px Alexandria;
     direction: ltr;
 }
-.closing-page .formula .row.sub {
+.financial-report .formula .row.sub {
     padding-inline-start: 14px;
     font-size: 12px;
 }
-.closing-page .formula .row.sub b {
+.financial-report .formula .row.sub b {
     font-size: 12px;
     font-weight: 500;
 }
-.closing-page .formula .row.t {
+.financial-report .formula .row.t {
     border-top: 1.5px solid var(--cl-line);
     margin-top: 4px;
     padding-top: 7px;
 }
-.closing-page .formula .row.t span {
+.financial-report .formula .row.t span {
     color: var(--cl-ink);
     font-weight: 700;
 }
-.closing-page .formula .row.t b {
+.financial-report .formula .row.t b {
     font-weight: 800;
     font-size: 15.5px;
 }
-.closing-page .den {
+.financial-report .den {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
     margin-top: 12px;
 }
-.closing-page .den label {
+.financial-report .den label {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -908,7 +929,7 @@
     color: var(--cl-faint);
     font-weight: 600;
 }
-.closing-page .den label .v {
+.financial-report .den label .v {
     display: flex;
     align-items: center;
     border: 1.5px solid var(--cl-line);
@@ -917,11 +938,11 @@
     overflow: hidden;
     transition: 0.15s;
 }
-.closing-page .den label .v:focus-within {
+.financial-report .den label .v:focus-within {
     border-color: var(--cl-brand);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-brand) 12%, transparent);
 }
-.closing-page .den label .v em {
+.financial-report .den label .v em {
     font: 700 12.5px Alexandria;
     font-style: normal;
     padding: 0 8px;
@@ -933,7 +954,7 @@
     border-inline-end: 1px solid var(--cl-line2);
     min-width: 40px;
 }
-.closing-page .den label .v input {
+.financial-report .den label .v input {
     width: 100%;
     min-width: 0;
     border: 0;
@@ -945,16 +966,16 @@
     text-align: left;
     color: var(--cl-ink);
 }
-.closing-page .den label .v input:focus {
+.financial-report .den label .v input:focus {
     outline: none;
 }
-.closing-page .den label .v input:disabled {
+.financial-report .den label .v input:disabled {
     color: var(--cl-muted);
 }
-.closing-page .den .coin em {
+.financial-report .den .coin em {
     background: color-mix(in srgb, var(--cl-warn) 10%, var(--cl-sunken));
 }
-.closing-page .cnt {
+.financial-report .cnt {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -963,46 +984,46 @@
     border-radius: 14px;
     border: 1.5px solid var(--cl-line2);
 }
-.closing-page .cnt span {
+.financial-report .cnt span {
     font-size: 13.5px;
     color: var(--cl-faint);
     font-weight: 600;
 }
-.closing-page .cnt b {
+.financial-report .cnt b {
     font: 800 20px Alexandria;
     direction: ltr;
 }
-.closing-page .cnt.ok {
+.financial-report .cnt.ok {
     border-color: color-mix(in srgb, var(--cl-success) 40%, transparent);
     background: var(--cl-success-t);
 }
-.closing-page .cnt.ok b,
-.closing-page .cnt.ok .d {
+.financial-report .cnt.ok b,
+.financial-report .cnt.ok .d {
     color: var(--cl-success);
 }
-.closing-page .cnt.bad {
+.financial-report .cnt.bad {
     border-color: color-mix(in srgb, var(--cl-danger) 40%, transparent);
     background: var(--cl-danger-t);
 }
-.closing-page .cnt.bad b,
-.closing-page .cnt.bad .d {
+.financial-report .cnt.bad b,
+.financial-report .cnt.bad .d {
     color: var(--cl-danger);
 }
-.closing-page .cnt .d {
+.financial-report .cnt .d {
     display: block;
     font: 700 13px 'IBM Plex Sans Arabic';
     text-align: end;
 }
-.closing-page .reason {
+.financial-report .reason {
     margin-top: 10px;
 }
-.closing-page .reason .chips {
+.financial-report .reason .chips {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     margin-bottom: 8px;
 }
-.closing-page .reason .chips button {
+.financial-report .reason .chips button {
     height: 32px;
     border-radius: 10px;
     border: 1.5px solid var(--cl-line);
@@ -1013,16 +1034,16 @@
     cursor: pointer;
     color: var(--cl-ink2);
 }
-.closing-page .reason .chips button:hover {
+.financial-report .reason .chips button:hover {
     border-color: color-mix(in srgb, var(--cl-brand) 40%, var(--cl-line));
     color: var(--cl-brand);
 }
-.closing-page .reason .chips button[aria-pressed='true'] {
+.financial-report .reason .chips button[aria-pressed='true'] {
     border-color: var(--cl-brand);
     background: color-mix(in srgb, var(--cl-brand) 8%, var(--cl-surface));
     color: var(--cl-brand);
 }
-.closing-page .reason textarea {
+.financial-report .reason textarea {
     width: 100%;
     min-height: 64px;
     border: 1.5px solid var(--cl-line);
@@ -1033,40 +1054,40 @@
     color: var(--cl-ink);
     resize: vertical;
 }
-.closing-page .reason textarea:focus {
+.financial-report .reason textarea:focus {
     outline: none;
     border-color: var(--cl-brand);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-brand) 12%, transparent);
 }
-.closing-page .reason.req textarea {
+.financial-report .reason.req textarea {
     border-color: var(--cl-danger);
 }
-.closing-page .reason .lab {
+.financial-report .reason .lab {
     font-size: 13px;
     font-weight: 700;
     color: var(--cl-danger);
     margin-bottom: 6px;
     display: block;
 }
-.closing-page .reason .lab svg {
+.financial-report .reason .lab svg {
     width: 14px;
     height: 14px;
     vertical-align: -2px;
 }
-.closing-page .reason:not(.ed) .lab {
+.financial-report .reason:not(.ed) .lab {
     color: var(--cl-muted);
 }
-.closing-page .tml {
+.financial-report .tml {
     list-style: none;
     margin: 10px 0 0;
     padding: 0;
 }
-.closing-page .tml li {
+.financial-report .tml li {
     position: relative;
     padding: 0 24px 12px 0;
     font-size: 13.5px;
 }
-.closing-page .tml li::before {
+.financial-report .tml li::before {
     content: '';
     position: absolute;
     right: 5px;
@@ -1077,7 +1098,7 @@
     background: var(--cl-line);
     box-shadow: 0 0 0 3px var(--cl-surface);
 }
-.closing-page .tml li::after {
+.financial-report .tml li::after {
     content: '';
     position: absolute;
     right: 9.5px;
@@ -1086,31 +1107,31 @@
     width: 1px;
     background: var(--cl-line2);
 }
-.closing-page .tml li:last-child::after {
+.financial-report .tml li:last-child::after {
     display: none;
 }
-.closing-page .tml li.g::before {
+.financial-report .tml li.g::before {
     background: var(--cl-success);
 }
-.closing-page .tml li.b::before {
+.financial-report .tml li.b::before {
     background: var(--cl-info);
 }
-.closing-page .tml li.r::before {
+.financial-report .tml li.r::before {
     background: var(--cl-danger);
 }
-.closing-page .tml li.w::before {
+.financial-report .tml li.w::before {
     background: var(--cl-warn);
 }
-.closing-page .tml b {
+.financial-report .tml b {
     font-weight: 700;
     display: block;
 }
-.closing-page .tml small {
+.financial-report .tml small {
     display: block;
     color: var(--cl-faint);
     font-size: 12px;
 }
-.closing-page .tml .q {
+.financial-report .tml .q {
     display: block;
     margin-top: 3px;
     padding: 6px 9px;
@@ -1120,7 +1141,7 @@
     font-size: 12.5px;
     color: var(--cl-ink2);
 }
-.closing-page .abar {
+.financial-report .abar {
     position: sticky;
     bottom: 12px;
     z-index: 20;
@@ -1136,19 +1157,19 @@
     padding: 10px 12px 10px 14px;
     box-shadow: var(--cl-pop);
 }
-.closing-page .chk {
+.financial-report .chk {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
     font-size: 13px;
     color: var(--cl-faint);
 }
-.closing-page .chk span {
+.financial-report .chk span {
     display: inline-flex;
     align-items: center;
     gap: 6px;
 }
-.closing-page .chk i {
+.financial-report .chk i {
     width: 18px;
     height: 18px;
     border-radius: 50%;
@@ -1156,79 +1177,79 @@
     display: grid;
     place-items: center;
 }
-.closing-page .chk i svg {
+.financial-report .chk i svg {
     width: 11px;
     height: 11px;
     stroke-width: 3;
     opacity: 0;
 }
-.closing-page .chk .on {
+.financial-report .chk .on {
     color: var(--cl-ink2);
 }
-.closing-page .chk .on i {
+.financial-report .chk .on i {
     background: var(--cl-success);
     border-color: var(--cl-success);
     color: #fff;
 }
-.closing-page .chk .on i svg {
+.financial-report .chk .on i svg {
     opacity: 1;
 }
-.closing-page .abar .sp {
+.financial-report .abar .sp {
     margin-inline-start: auto;
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
 }
-.closing-page .btn svg {
+.financial-report .btn svg {
     width: 17px;
     height: 17px;
 }
-.closing-page .btn:disabled {
+.financial-report .btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
     filter: none;
     box-shadow: none;
 }
-.closing-page .btn:not(.pr):not(.ok2):not(.dg):hover:not(:disabled) {
+.financial-report .btn:not(.pr):not(.ok2):not(.dg):hover:not(:disabled) {
     border-color: color-mix(in srgb, var(--cl-brand) 40%, var(--cl-line));
     color: var(--cl-brand);
     background: color-mix(in srgb, var(--cl-brand) 5%, var(--cl-surface));
 }
-.closing-page .btn.ok2 {
+.financial-report .btn.ok2 {
     border: 0;
     color: #fff;
     background: linear-gradient(180deg, #059669, #047857);
     box-shadow: 0 12px 24px -12px #047857;
 }
-.closing-page .btn.ok2:hover {
+.financial-report .btn.ok2:hover {
     filter: brightness(1.07);
 }
-.closing-page .btn.dg {
+.financial-report .btn.dg {
     color: var(--cl-danger);
     border-color: color-mix(in srgb, var(--cl-danger) 35%, var(--cl-line));
 }
-.closing-page .btn.dg:hover {
+.financial-report .btn.dg:hover {
     background: var(--cl-danger-t);
 }
-.closing-page .wait {
+.financial-report .wait {
     font-size: 13.5px;
     color: var(--cl-faint);
     display: inline-flex;
     align-items: center;
     gap: 8px;
 }
-.closing-page .wait svg {
+.financial-report .wait svg {
     width: 17px;
     height: 17px;
 }
-.closing-page .flow {
+.financial-report .flow {
     display: grid;
     grid-template-columns: 1fr auto 1fr auto 1fr;
     gap: 10px;
     align-items: center;
     margin-top: 14px;
 }
-.closing-page .node {
+.financial-report .node {
     background: var(--cl-surface);
     border: 1.5px solid var(--cl-line2);
     border-radius: 20px;
@@ -1237,54 +1258,54 @@
     text-align: center;
     transition: 0.3s;
 }
-.closing-page .node small {
+.financial-report .node small {
     display: block;
     font-size: 12.5px;
     color: var(--cl-faint);
     font-weight: 600;
 }
-.closing-page .node b {
+.financial-report .node b {
     display: block;
     font: 800 24px Alexandria;
     margin-top: 4px;
     direction: ltr;
 }
-.closing-page .node span {
+.financial-report .node span {
     display: block;
     font-size: 12px;
     color: var(--cl-faint);
     margin-top: 2px;
 }
-.closing-page .node.hot {
+.financial-report .node.hot {
     border-color: var(--cl-warn);
     background: var(--cl-warn-t);
 }
-.closing-page .node.hot b {
+.financial-report .node.hot b {
     color: var(--cl-warn);
 }
-.closing-page .node.got {
+.financial-report .node.got {
     border-color: var(--cl-success);
     background: var(--cl-success-t);
 }
-.closing-page .node.got b {
+.financial-report .node.got b {
     color: var(--cl-success);
 }
-.closing-page .arr {
+.financial-report .arr {
     color: var(--cl-faint);
     display: grid;
     place-items: center;
 }
-.closing-page .arr svg {
+.financial-report .arr svg {
     width: 26px;
     height: 26px;
 }
-.closing-page .fgrid {
+.financial-report .fgrid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px 14px;
     margin-top: 10px;
 }
-.closing-page .fld label.l {
+.financial-report .fld label.l {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1293,7 +1314,7 @@
     margin-bottom: 5px;
     color: var(--cl-ink2);
 }
-.closing-page .fld label.l small {
+.financial-report .fld label.l small {
     margin-inline-start: auto;
     font-weight: 500;
     font-size: 12px;
@@ -1302,16 +1323,16 @@
     align-items: center;
     gap: 4px;
 }
-.closing-page .fld label.l small svg {
+.financial-report .fld label.l small svg {
     width: 12px;
     height: 12px;
 }
-.closing-page .fld .inp {
+.financial-report .fld .inp {
     position: relative;
 }
-.closing-page .fld input,
-.closing-page .fld select,
-.closing-page .fld textarea {
+.financial-report .fld input,
+.financial-report .fld select,
+.financial-report .fld textarea {
     width: 100%;
     height: 44px;
     border: 1.5px solid var(--cl-line);
@@ -1321,31 +1342,31 @@
     font: 15px 'IBM Plex Sans Arabic';
     color: var(--cl-ink);
 }
-.closing-page .fld textarea {
+.financial-report .fld textarea {
     height: 64px;
     padding: 9px 12px;
     resize: vertical;
 }
-.closing-page .fld input:focus,
-.closing-page .fld select:focus,
-.closing-page .fld textarea:focus {
+.financial-report .fld input:focus,
+.financial-report .fld select:focus,
+.financial-report .fld textarea:focus {
     outline: none;
     border-color: var(--cl-brand);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-brand) 12%, transparent);
 }
-.closing-page .fld input:disabled,
-.closing-page .fld select:disabled {
+.financial-report .fld input:disabled,
+.financial-report .fld select:disabled {
     background: var(--cl-sunken);
     color: var(--cl-muted);
     border-style: dashed;
 }
-.closing-page .fld input.ltr {
+.financial-report .fld input.ltr {
     direction: ltr;
     text-align: left;
     font-family: Alexandria;
     font-weight: 600;
 }
-.closing-page .fld .suf {
+.financial-report .fld .suf {
     position: absolute;
     inset-inline-start: 12px;
     top: 50%;
@@ -1353,14 +1374,14 @@
     color: var(--cl-faint);
     font-size: 13px;
 }
-.closing-page .full {
+.financial-report .full {
     grid-column: 1/-1;
 }
-.closing-page .seg2 {
+.financial-report .seg2 {
     display: flex;
     gap: 6px;
 }
-.closing-page .seg2 button {
+.financial-report .seg2 button {
     flex: 1;
     height: 44px;
     border-radius: 12px;
@@ -1371,12 +1392,12 @@
     cursor: pointer;
     color: var(--cl-ink2);
 }
-.closing-page .seg2 button[aria-pressed='true'] {
+.financial-report .seg2 button[aria-pressed='true'] {
     border-color: var(--cl-brand);
     background: color-mix(in srgb, var(--cl-brand) 8%, var(--cl-surface));
     color: var(--cl-brand);
 }
-.closing-page .proof {
+.financial-report .proof {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1391,46 +1412,46 @@
     font-family: inherit;
     text-align: start;
 }
-.closing-page .proof:hover {
+.financial-report .proof:hover {
     border-color: color-mix(in srgb, var(--cl-brand) 40%, var(--cl-line));
     color: var(--cl-brand);
 }
-.closing-page .proof svg {
+.financial-report .proof svg {
     width: 18px;
     height: 18px;
 }
-.closing-page .proof.has {
+.financial-report .proof.has {
     border-style: solid;
     border-color: color-mix(in srgb, var(--cl-success) 40%, var(--cl-line));
     color: var(--cl-success);
     background: var(--cl-success-t);
 }
-.closing-page .rec {
+.financial-report .rec {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     margin-top: 12px;
 }
-.closing-page .rec div {
+.financial-report .rec div {
     border: 1px solid var(--cl-line2);
     border-radius: 14px;
     padding: 9px 12px;
     background: var(--cl-raised);
 }
-.closing-page .rec small {
+.financial-report .rec small {
     display: block;
     font-size: 12px;
     color: var(--cl-faint);
 }
-.closing-page .rec b {
+.financial-report .rec b {
     display: block;
     font-size: 14px;
     margin-top: 2px;
 }
-.closing-page .rec b.num {
+.financial-report .rec b.num {
     font-family: Alexandria;
 }
-.closing-page .segx {
+.financial-report .segx {
     display: inline-flex;
     gap: 2px;
     padding: 3px;
@@ -1438,7 +1459,7 @@
     background: var(--cl-surface);
     border: 1px solid var(--cl-line2);
 }
-.closing-page .segx button {
+.financial-report .segx button {
     border: 0;
     background: transparent;
     height: 36px;
@@ -1449,54 +1470,54 @@
     font-weight: 700;
     color: var(--cl-muted);
 }
-.closing-page .segx button[aria-pressed='true'] {
+.financial-report .segx button[aria-pressed='true'] {
     background: var(--cl-ink);
     color: var(--cl-surface);
 }
-.closing-page .kp {
+.financial-report .kp {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 12px;
     margin-top: 14px;
 }
-.closing-page .kp div {
+.financial-report .kp div {
     background: var(--cl-surface);
     border: 1px solid var(--cl-line2);
     border-radius: 18px;
     padding: 12px 14px;
     box-shadow: var(--cl-shadow);
 }
-.closing-page .kp small {
+.financial-report .kp small {
     display: block;
     font-size: 12.5px;
     color: var(--cl-faint);
     font-weight: 600;
 }
-.closing-page .kp b {
+.financial-report .kp b {
     display: block;
     font: 800 21px Alexandria;
     margin-top: 4px;
     direction: ltr;
     text-align: right;
 }
-.closing-page .kp span {
+.financial-report .kp span {
     font-size: 12px;
     color: var(--cl-faint);
 }
-.closing-page .kp .w b {
+.financial-report .kp .w b {
     color: var(--cl-warn);
 }
-.closing-page .kp .r b {
+.financial-report .kp .r b {
     color: var(--cl-danger);
 }
-.closing-page .mx {
+.financial-report .mx {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 13.5px;
     margin-top: 10px;
 }
-.closing-page .mx th {
+.financial-report .mx th {
     position: static;
     font-size: 12.5px;
     color: var(--cl-faint);
@@ -1506,17 +1527,17 @@
     border-bottom: 1px solid var(--cl-line2);
     white-space: nowrap;
 }
-.closing-page .mx th:first-child {
+.financial-report .mx th:first-child {
     text-align: start;
 }
-.closing-page .mx th small {
+.financial-report .mx th small {
     display: block;
     font: 500 11.5px Alexandria;
 }
-.closing-page .mx th.today {
+.financial-report .mx th.today {
     color: var(--cl-brand);
 }
-.closing-page .mx td {
+.financial-report .mx td {
     background: transparent;
     border: 0;
     border-bottom: 1px solid var(--cl-line2);
@@ -1526,30 +1547,30 @@
     width: auto !important;
     white-space: nowrap;
 }
-.closing-page .mx td:first-child {
+.financial-report .mx td:first-child {
     text-align: start;
     font-weight: 700;
 }
-.closing-page .mx tbody tr {
+.financial-report .mx tbody tr {
     animation: none;
     cursor: default;
 }
-.closing-page .mx tbody tr:hover td {
+.financial-report .mx tbody tr:hover td {
     background: color-mix(in srgb, var(--cl-brand) 3%, var(--cl-surface));
 }
-.closing-page .mx tbody tr:hover td:first-child {
+.financial-report .mx tbody tr:hover td:first-child {
     box-shadow: none;
 }
-.closing-page .mx tfoot td {
+.financial-report .mx tfoot td {
     font-weight: 800;
     border-top: 1.5px solid var(--cl-line);
     border-bottom: 0;
     font-family: Alexandria;
 }
-.closing-page .mx tfoot td:first-child {
+.financial-report .mx tfoot td:first-child {
     font-family: 'IBM Plex Sans Arabic';
 }
-.closing-page .cell {
+.financial-report .cell {
     width: 30px;
     height: 30px;
     border-radius: 9px;
@@ -1559,49 +1580,49 @@
     font: inherit;
     cursor: default;
 }
-.closing-page .cell svg {
+.financial-report .cell svg {
     width: 15px;
     height: 15px;
     stroke-width: 2.4;
 }
-.closing-page .cell.approved {
+.financial-report .cell.approved {
     background: var(--cl-success-t);
     color: var(--cl-success);
 }
-.closing-page .cell.sent {
+.financial-report .cell.sent {
     background: var(--cl-info-t);
     color: var(--cl-info);
 }
-.closing-page .cell.returned {
+.financial-report .cell.returned {
     background: var(--cl-danger-t);
     color: var(--cl-danger);
 }
-.closing-page .cell.draft {
+.financial-report .cell.draft {
     background: var(--cl-sunken);
     color: var(--cl-muted);
 }
-.closing-page .cell.open {
+.financial-report .cell.open {
     background: transparent;
     color: var(--cl-warn);
     box-shadow: inset 0 0 0 1.5px var(--cl-warn);
 }
-.closing-page .cell.future {
+.financial-report .cell.future {
     background: transparent;
     color: var(--cl-line);
 }
-.closing-page button.cell.link {
+.financial-report button.cell.link {
     cursor: pointer;
     outline: 2px solid var(--cl-brand);
     outline-offset: 2px;
 }
-.closing-page .mx .tv {
+.financial-report .mx .tv {
     font: 700 13.5px Alexandria;
     direction: ltr;
 }
-.closing-page .mx .tv.w {
+.financial-report .mx .tv.w {
     color: var(--cl-warn);
 }
-.closing-page .lgd {
+.financial-report .lgd {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
@@ -1609,28 +1630,28 @@
     font-size: 12.5px;
     color: var(--cl-faint);
 }
-.closing-page .lgd span {
+.financial-report .lgd span {
     display: inline-flex;
     align-items: center;
     gap: 6px;
 }
-.closing-page .lgd .cell {
+.financial-report .lgd .cell {
     width: 20px;
     height: 20px;
     border-radius: 6px;
 }
-.closing-page .lgd .cell svg {
+.financial-report .lgd .cell svg {
     width: 11px;
     height: 11px;
 }
-.closing-page .chl {
+.financial-report .chl {
     list-style: none;
     margin: 10px 0 0;
     padding: 0;
     display: grid;
     gap: 8px;
 }
-.closing-page .chl li {
+.financial-report .chl li {
     display: flex;
     gap: 10px;
     align-items: flex-start;
@@ -1639,7 +1660,7 @@
     border-radius: 13px;
     border: 1px solid var(--cl-line2);
 }
-.closing-page .chl li .d {
+.financial-report .chl li .d {
     width: 22px;
     height: 22px;
     border-radius: 50%;
@@ -1647,65 +1668,65 @@
     place-items: center;
     flex: none;
 }
-.closing-page .chl li .d svg {
+.financial-report .chl li .d svg {
     width: 13px;
     height: 13px;
     stroke-width: 2.6;
 }
-.closing-page .chl li.ok .d {
+.financial-report .chl li.ok .d {
     background: var(--cl-success);
     color: #fff;
 }
-.closing-page .chl li.no .d {
+.financial-report .chl li.no .d {
     background: var(--cl-warn-t);
     color: var(--cl-warn);
     border: 1.5px solid var(--cl-warn);
 }
-.closing-page .chl li b {
+.financial-report .chl li b {
     display: block;
 }
-.closing-page .chl li small {
+.financial-report .chl li small {
     display: block;
     color: var(--cl-faint);
     font-size: 12.5px;
 }
-.closing-page .nest {
+.financial-report .nest {
     margin-top: 12px;
     border-radius: 18px;
     border: 1.5px solid color-mix(in srgb, var(--cl-brand) 35%, var(--cl-line));
     padding: 12px;
     background: color-mix(in srgb, var(--cl-brand) 4%, var(--cl-surface));
 }
-.closing-page .nest .in {
+.financial-report .nest .in {
     margin-top: 10px;
     border-radius: 14px;
     border: 1.5px solid color-mix(in srgb, var(--cl-info) 35%, var(--cl-line));
     padding: 10px;
     background: var(--cl-surface);
 }
-.closing-page .nest .in .in {
+.financial-report .nest .in .in {
     border-color: color-mix(in srgb, var(--cl-success) 40%, var(--cl-line));
     background: var(--cl-success-t);
 }
-.closing-page .nest .h {
+.financial-report .nest .h {
     display: flex;
     align-items: baseline;
     gap: 8px;
     font-size: 13px;
     color: var(--cl-faint);
 }
-.closing-page .nest .h b {
+.financial-report .nest .h b {
     font-size: 14px;
     color: var(--cl-ink);
 }
-.closing-page .nest .h em {
+.financial-report .nest .h em {
     margin-inline-start: auto;
     font: 800 17px Alexandria;
     font-style: normal;
     color: var(--cl-ink);
     direction: ltr;
 }
-.closing-page .msplit {
+.financial-report .msplit {
     margin-top: 12px;
     display: grid;
     grid-template-columns: 5fr 2fr;
@@ -1715,24 +1736,24 @@
     font-size: 12.5px;
     text-align: center;
 }
-.closing-page .msplit div {
+.financial-report .msplit div {
     padding: 8px 6px;
 }
-.closing-page .msplit .a {
+.financial-report .msplit .a {
     background: color-mix(in srgb, var(--cl-brand) 9%, var(--cl-surface));
     color: var(--cl-ink2);
 }
-.closing-page .msplit .b {
+.financial-report .msplit .b {
     background: var(--cl-sunken);
     color: var(--cl-faint);
     border-inline-start: 1px dashed var(--cl-line);
 }
-.closing-page .msplit b {
+.financial-report .msplit b {
     display: block;
     font: 700 13px Alexandria;
     color: var(--cl-ink);
 }
-.closing-page .mdl {
+.financial-report .mdl {
     position: fixed;
     inset: 0;
     z-index: 60;
@@ -1742,7 +1763,7 @@
     place-items: center;
     padding: 16px;
 }
-.closing-page .mdl .bx {
+.financial-report .mdl .bx {
     width: min(500px, 100%);
     background: var(--cl-surface);
     border: 1px solid var(--cl-line2);
@@ -1753,7 +1774,7 @@
     max-height: 90vh;
     overflow: auto;
 }
-.closing-page .mdl .ic {
+.financial-report .mdl .ic {
     width: 46px;
     height: 46px;
     border-radius: 14px;
@@ -1761,60 +1782,60 @@
     place-items: center;
     margin-bottom: 10px;
 }
-.closing-page .mdl .ic svg {
+.financial-report .mdl .ic svg {
     width: 22px;
     height: 22px;
 }
-.closing-page .mdl h4 {
+.financial-report .mdl h4 {
     margin: 0 0 4px;
     font:
         700 21px 'El Messiri',
         serif;
 }
-.closing-page .mdl p {
+.financial-report .mdl p {
     margin: 0;
     color: var(--cl-faint);
     font-size: 14px;
     line-height: 1.7;
 }
-.closing-page .mdl dl {
+.financial-report .mdl dl {
     margin: 12px 0 0;
     display: grid;
     gap: 6px;
     font-size: 14px;
 }
-.closing-page .mdl dl div {
+.financial-report .mdl dl div {
     display: flex;
     justify-content: space-between;
     gap: 10px;
     border-bottom: 1px dashed var(--cl-line2);
     padding-bottom: 6px;
 }
-.closing-page .mdl dt {
+.financial-report .mdl dt {
     color: var(--cl-faint);
 }
-.closing-page .mdl dd {
+.financial-report .mdl dd {
     margin: 0;
     font-weight: 700;
 }
-.closing-page .mdl dd.num {
+.financial-report .mdl dd.num {
     font-family: Alexandria;
     direction: ltr;
 }
-.closing-page .mdl .ft {
+.financial-report .mdl .ft {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
     margin-top: 16px;
     flex-wrap: wrap;
 }
-.closing-page .mdl .err {
+.financial-report .mdl .err {
     color: var(--cl-danger);
     font-size: 13px;
     font-weight: 600;
     margin-top: 6px;
 }
-.closing-page .note2 {
+.financial-report .note2 {
     margin-top: 10px;
     display: flex;
     gap: 8px;
@@ -1823,166 +1844,166 @@
     color: var(--cl-faint);
     line-height: 1.7;
 }
-.closing-page .note2 svg {
+.financial-report .note2 svg {
     width: 15px;
     height: 15px;
     flex: none;
     margin-top: 3px;
 }
-.dark .closing-page .tabs button:hover,
-.dark .closing-page :root[data-theme='dark'] .tabs button[aria-pressed='true']:hover {
+.dark .financial-report .tabs button:hover,
+.dark .financial-report :root[data-theme='dark'] .tabs button[aria-pressed='true']:hover {
     color: var(--cl-surface);
 }
-.dark .closing-page .btn.ok2 {
+.dark .financial-report .btn.ok2 {
     color: #fff;
 }
 /* The page lays out by its own width, which the sidebar narrows. */
 @container closing (max-width: 900px) {
-    .closing-page .hero {
-        grid-template-columns: 1fr;
+    .financial-report .hero {
+        grid-template-columns: minmax(0, 1fr);
         gap: 16px;
     }
-    .closing-page .tot {
+    .financial-report .tot {
         text-align: start;
     }
 }
 @container closing (max-width: 1180px) {
-    .closing-page .g2 {
+    .financial-report .g2 {
         grid-template-columns: minmax(0, 1fr);
     }
-    .closing-page .accs {
+    .financial-report .accs {
         grid-template-columns: 1fr 1fr;
     }
-    .closing-page .kp {
+    .financial-report .kp {
         grid-template-columns: repeat(3, 1fr);
     }
 }
 @container closing (max-width: 760px) {
-    .closing-page .tabs {
+    .financial-report .tabs {
         display: flex;
         overflow-x: auto;
     }
-    .closing-page .tabs button {
+    .financial-report .tabs button {
         flex: 1;
         padding: 0 8px;
         font-size: 13.5px;
         white-space: nowrap;
     }
-    .closing-page .steps {
+    .financial-report .steps {
         overflow-x: auto;
         justify-content: flex-start;
     }
-    .closing-page .stp {
+    .financial-report .stp {
         min-width: 78px;
     }
-    .closing-page .accs {
+    .financial-report .accs {
         grid-template-columns: 1fr 1fr;
         gap: 8px;
     }
-    .closing-page .ac {
+    .financial-report .ac {
         padding: 12px;
     }
-    .closing-page .ac .am {
+    .financial-report .ac .am {
         font-size: 19px;
     }
-    .closing-page .pt thead {
+    .financial-report .pt thead {
         display: none;
     }
-    .closing-page .pt,
-    .closing-page .pt tbody,
-    .closing-page .pt tr,
-    .closing-page .pt td,
-    .closing-page .pt tfoot {
+    .financial-report .pt,
+    .financial-report .pt tbody,
+    .financial-report .pt tr,
+    .financial-report .pt td,
+    .financial-report .pt tfoot {
         display: block;
     }
-    .closing-page .pt tbody tr {
+    .financial-report .pt tbody tr {
         display: grid;
         grid-template-columns: 1fr auto;
         gap: 4px 10px;
         padding: 10px 2px;
         border-bottom: 1px solid var(--cl-line2);
     }
-    .closing-page .pt td {
+    .financial-report .pt td {
         border: 0 !important;
         padding: 0 !important;
         white-space: normal;
     }
-    .closing-page .pt td.c-sub {
+    .financial-report .pt td.c-sub {
         grid-column: 1;
         grid-row: 1;
     }
-    .closing-page .pt td.c-am {
+    .financial-report .pt td.c-am {
         grid-column: 2;
         grid-row: 1;
     }
-    .closing-page .pt td.c-acc {
+    .financial-report .pt td.c-acc {
         grid-column: 1;
     }
-    .closing-page .pt td.c-mt {
+    .financial-report .pt td.c-mt {
         grid-column: 2;
         grid-row: 2;
         text-align: end;
     }
-    .closing-page .pt td.c-id,
-    .closing-page .pt td.c-by,
-    .closing-page .pt td.c-ref {
+    .financial-report .pt td.c-id,
+    .financial-report .pt td.c-by,
+    .financial-report .pt td.c-ref {
         display: none !important;
     }
-    .closing-page .pt tfoot tr {
+    .financial-report .pt tfoot tr {
         display: flex;
         justify-content: space-between;
         padding-top: 8px;
     }
-    .closing-page .pt tfoot td.x {
+    .financial-report .pt tfoot td.x {
         display: none;
     }
-    .closing-page .den {
+    .financial-report .den {
         grid-template-columns: 1fr 1fr;
     }
-    .closing-page .abar {
+    .financial-report .abar {
         bottom: 6px;
     }
-    .closing-page .abar .sp {
+    .financial-report .abar .sp {
         width: 100%;
     }
-    .closing-page .abar .sp .btn {
+    .financial-report .abar .sp .btn {
         flex: 1;
         justify-content: center;
     }
-    .closing-page .chk {
+    .financial-report .chk {
         font-size: 12px;
     }
-    .closing-page .flow {
+    .financial-report .flow {
         grid-template-columns: 1fr;
     }
-    .closing-page .arr {
+    .financial-report .arr {
         transform: rotate(-90deg);
     }
-    .closing-page .fgrid,
-    .closing-page .rec {
+    .financial-report .fgrid,
+    .financial-report .rec {
         grid-template-columns: 1fr;
     }
-    .closing-page .kp {
+    .financial-report .kp {
         grid-template-columns: 1fr 1fr;
     }
-    .closing-page .mxw {
+    .financial-report .mxw {
         overflow-x: auto;
     }
-    .closing-page .mx {
+    .financial-report .mx {
         display: table !important;
         min-width: 620px;
     }
-    .closing-page .mx thead {
+    .financial-report .mx thead {
         display: table-header-group !important;
     }
-    .closing-page .mx tbody {
+    .financial-report .mx tbody {
         display: table-row-group !important;
     }
-    .closing-page .mx tfoot {
+    .financial-report .mx tfoot {
         display: table-footer-group !important;
     }
-    .closing-page .mx tr,
-    .closing-page .mx tbody tr {
+    .financial-report .mx tr,
+    .financial-report .mx tbody tr {
         display: table-row !important;
         background: none;
         border: 0;
@@ -1990,99 +2011,66 @@
         padding: 0;
         margin: 0;
     }
-    .closing-page .mx td,
-    .closing-page .mx th {
+    .financial-report .mx td,
+    .financial-report .mx th {
         display: table-cell !important;
         padding: 7px 5px !important;
         border-bottom: 1px solid var(--cl-line2) !important;
     }
-    .closing-page .mx tfoot td {
+    .financial-report .mx tfoot td {
         border-bottom: 0 !important;
         border-top: 1.5px solid var(--cl-line) !important;
     }
-    .closing-page .mx td:first-child,
-    .closing-page .mx th:first-child {
+    .financial-report .mx td:first-child,
+    .financial-report .mx th:first-child {
         position: sticky;
         right: 0;
         z-index: 1;
         background: var(--cl-surface) !important;
         padding-inline-end: 10px !important;
     }
-    .closing-page .pn h3 {
+    .financial-report .pn h3 {
         flex-wrap: wrap;
         row-gap: 2px;
     }
-    .closing-page .pn h3 .r {
+    .financial-report .pn h3 .r {
         flex-basis: 100%;
         margin: 0;
         padding-inline-start: 40px;
     }
 }
 @container closing (max-width: 480px) {
-    .closing-page .tabs {
+    .financial-report .tabs {
         width: 100%;
     }
-    .closing-page .tabs button {
+    .financial-report .tabs button {
         padding: 0 4px;
         gap: 4px;
         font-size: 13px;
         justify-content: center;
     }
-    .closing-page .tabs button svg {
+    .financial-report .tabs button svg {
         display: none;
     }
 }
 
-.closing-page .cell.missing {
+.financial-report .cell.missing {
     background: var(--cl-warn-t);
     color: var(--cl-warn);
 }
-.closing-page .cell.empty {
+.financial-report .cell.empty {
     background: transparent;
     color: var(--cl-faint);
 }
-.closing-page .err {
+.financial-report .err {
     color: var(--cl-danger);
     font-size: 13px;
     font-weight: 600;
     margin-top: 6px;
 }
-.closing-page .ctl select {
+.financial-report .ctl select {
     cursor: pointer;
 }
-.closing-page .ctl select:focus {
+.financial-report .ctl select:focus {
     outline: none;
-}
-
-.closing-page a.btn {
-    text-decoration: none;
-}
-.closing-page .ctl input[type='date'] {
-    font-family: Alexandria, 'IBM Plex Sans Arabic', sans-serif;
-}
-@media print {
-    .closing-page .btn,
-    .closing-page .ctl {
-        display: none;
-    }
-    .closing-page .pn,
-    .closing-page .kp div {
-        box-shadow: none;
-    }
-}
-
-/* The filters and the branch picker sit inside the bar's chips. */
-.closing-page .ctl select,
-.closing-page .ctl input[type='date'] {
-    height: 36px;
-    border: 0;
-    border-radius: 9px;
-    background-color: transparent;
-    box-shadow: none;
-    color: var(--cl-ink);
-    padding-block: 0;
-}
-.closing-page .ctl select:focus,
-.closing-page .ctl input[type='date']:focus {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-ink) 12%, transparent);
 }

@@ -77,8 +77,7 @@ enum UserRole: string
                 PermissionKey::AmendTransactionDetails, PermissionKey::RefundPayments, PermissionKey::ExportFinancialReports,
                 PermissionKey::ViewTariffs,
                 PermissionKey::ViewCircuitBreakers,
-                PermissionKey::PrepareClosings,
-                PermissionKey::ViewOwnClosings,
+                PermissionKey::ViewFinancialReports,
                 PermissionKey::ViewMessages, PermissionKey::SendMessages,
             ],
             self::DataEntry => [
@@ -90,14 +89,13 @@ enum UserRole: string
                 PermissionKey::ViewSubscriptions,
                 PermissionKey::ViewMeterReadings, PermissionKey::ApproveMeterReadings,
                 PermissionKey::AdjustBalances,
-                PermissionKey::PrepareClosings,
-                PermissionKey::ViewOwnClosings,
+                PermissionKey::ViewFinancialReports,
                 PermissionKey::ExportFinancialReports,
             ],
             // Takes payments in the field app, and nothing else: the financial log stays with the branch's staff.
             self::Collector => [PermissionKey::RecordCollections],
-            // Sees every branch's closings and reports, and reviews closings and receives the cash handed over (which only the company grants).
-            self::FinancialAuditor => [PermissionKey::ViewAllClosings, PermissionKey::AuditClosings, PermissionKey::ExportFinancialReports],
+            // Legacy grants preserve split-payment visibility without changing its existing policy or controller.
+            self::FinancialAuditor => [PermissionKey::AuditClosings, PermissionKey::ViewAllClosings, PermissionKey::ViewAllFinancialReports, PermissionKey::ExportFinancialReports],
             self::SuperAdmin => [],
         };
     }

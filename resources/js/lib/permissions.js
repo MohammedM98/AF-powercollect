@@ -18,7 +18,7 @@ const LADDERS = {
 };
 
 /** Sections whose everyday actions aren't a ladder (each is its own switch). */
-const NO_LADDER = ['closings', 'reports'];
+const NO_LADDER = ['reports'];
 
 /**
  * The permissions set apart as their own switches, keyed by action or by
@@ -38,8 +38,7 @@ export const SENSITIVE = {
     'collections.refund': { label: 'ردّ الدفعة', hint: 'يردّ المبلغ بقيد مرتبط؛ تبقى الدفعة وسجل الردّ ظاهرين', danger: true },
     'collections.delete': { label: 'إلغاء الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف', danger: true },
     'collections.force_delete': { label: 'الحذف النهائي للحركة', hint: 'يحذف الحركة المؤهلة أو سلسلة إلغائها من الكشف، مع الاحتفاظ بسجل تدقيق؛ لا يحذف القراءة', danger: true },
-    'reports.export': { label: 'تنزيل التقارير المالية', hint: 'تنزيل CSV للكشوف والتقارير التي يملك عرضها فقط', danger: false },
-    'closings.audit': { label: 'تدقيق واعتماد الكشوف', hint: 'يعيد كشوف الفروع أو يعتمدها', danger: true },
+    'reports.export': { label: 'تنزيل التقارير المالية', hint: 'تنزيل CSV للتقارير التي يملك عرضها فقط', danger: false },
 };
 
 /** The everyday actions shown as switches (a section without a ladder, or one cut short). */
@@ -50,7 +49,6 @@ export const ACTION_LABELS = {
     record: 'تسجيل',
     send: 'إرسال',
     manage: 'إدارة',
-    prepare: 'إعداد كشوف الفرع',
     view_all: 'عرض كل الفروع والتقارير',
     branch_performance: 'أداء الفروع',
     debt_aging: 'أعمار الديون',
@@ -59,8 +57,7 @@ export const ACTION_LABELS = {
 
 /** What an everyday switch opens, in a line under its name. */
 const ACTION_HINTS = {
-    prepare: 'الإغلاق اليومي لفرعه وتسليم النقد',
-    view_all: 'كشوف كل الفروع وتقاريرها، للقراءة فقط',
+    view_all: 'تقارير كل الفروع، للقراءة فقط',
     branch_performance: 'أرقام الفرع ومقارنته بالفروع الأخرى',
     debt_aging: 'المشتركون المدينون وكم مضى على ديونهم',
     transaction_audit: 'من عدّل أو ألغى أو حذف أي حركة، ومتى ولماذا',
@@ -113,8 +110,8 @@ export function sectionModel(group) {
             .map((entry) => ({
                 id: entry.permission.id,
                 action: entry.action,
-                label: group.key === 'closings' && entry.action === 'view' ? 'عرض كشوف الفرع' : (ACTION_LABELS[entry.action] ?? entry.permission.label),
-                hint: group.key === 'closings' && entry.action === 'view' ? 'كشوف وتقارير الفرع دون إعدادها أو اعتمادها' : (ACTION_HINTS[entry.action] ?? null),
+                label: (ACTION_LABELS[entry.action] ?? entry.permission.label),
+                hint: (ACTION_HINTS[entry.action] ?? null),
             })),
         sensitive: offLadder
             .filter((entry) => sensitiveOf(group.key, entry.action))

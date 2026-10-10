@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\ChargeType;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
-use App\Models\Closing;
 use App\Models\MeterReading;
 use App\Models\Permission;
 use App\Models\Subscription;
@@ -111,15 +110,12 @@ class ActionPermissionIsolationTest extends TestCase
         $this->assertFalse($actor->can('bulkUpdate', [Subscription::class, 'minimum_charge']));
     }
 
-    public function test_viewing_branch_closings_does_not_allow_preparing_or_exporting_them(): void
+    public function test_viewing_branch_reports_does_not_allow_exporting_them(): void
     {
         $actor = User::factory()->collector()->create();
-        $actor->permissions()->sync(Permission::idsFor([PermissionKey::ViewOwnClosings]));
-        $closing = Closing::factory()->create(['branch_id' => $actor->branch_id]);
-        $this->actingAs($actor)->get(route('closings.index'))->assertOk()->assertInertia(fn ($page) => $page->where('canExport', false));
+        $actor->permissions()->sync(Permission::idsFor([PermissionKey::ViewFinancialReports]));
+        $this->actingAs($actor);
         $this->get(route('reports.index'))->assertOk()->assertInertia(fn ($page) => $page->where('canExport', false));
-        $this->put(route('closings.count', $closing), [])->assertForbidden();
-        $this->get(route('closings.export'))->assertForbidden();
         $this->get(route('reports.export'))->assertForbidden();
         $actor->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ExportFinancialReports]));
         $actor->unsetRelation('permissions');

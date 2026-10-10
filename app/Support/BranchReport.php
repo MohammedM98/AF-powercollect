@@ -2,8 +2,6 @@
 
 namespace App\Support;
 
-use App\Enums\ClosingStatus;
-use App\Enums\ClosingType;
 use App\Enums\Currency;
 use App\Enums\MeterReadingStatus;
 use App\Enums\PaymentMethod;
@@ -20,11 +18,11 @@ use Illuminate\Support\Collection;
 
 /**
  * What moved through one branch, or several, between two business days
- * (by each branch's own closing cut-off): what the subscriptions owed at the start, what
+ * (by each branch's stored business-day cut-off): what the subscriptions owed at the start, what
  * was charged, paid, discounted and cleared, what was cancelled, and what
  * they owe at the end — which always adds up, since it is the same lines
  * summed both ways. Also where the payments came in (cash drawer, bank,
- * currency, collector), the readings entered, and each day's closing.
+ * currency, collector), the readings entered.
  *
  * A line counts under its own type on the business day it was recorded,
  * unless it was cancelled before that day ended: then it, like every
@@ -224,15 +222,13 @@ class BranchReport
 
     /**
      * One row per day: what was charged, paid, discounted and corrected,
-     * what the subscriptions owed at the end of it, and its closings.
+     * what the subscriptions owed at the end of it.
      *
      * @return array<int, array<string, mixed>>
      */
     public function days(): array
     {
         $byDay = $this->rows()->groupBy(fn (object $row): string => $this->periodsOf($row)->dayOf($row->created_at));
-        $closings = $this->dailyClosings()->groupBy(fn (Closing $closing): string => $closing->period_start->toDateString());
-        $today = ClosingPeriods::furthestToday($this->branches)->toDateString();
         $balance = $this->openingBalance();
         $days = [];
 
@@ -251,74 +247,15 @@ class BranchReport
                 $balance += $cents;
             }
 
-            $dayClosings = $closings->get($day, collect());
-            $single = $this->branches->count() === 1 ? $dayClosings->first() : null;
-
             $days[] = [
                 'day' => $day,
                 ...array_map(fn (int $cents): string => Closing::money($cents), $totals),
                 'lines' => $byDay->get($day, collect())->count(),
                 'balance' => Closing::money($balance),
-                'closing' => [
-                    'state' => match (true) {
-                        $single !== null => $single->status->value,
-                        $day === $today => 'open',
-                        $day > $today => 'future',
-                        default => $dayClosings->isEmpty() ? 'none' : 'many',
-                    },
-                    'number' => $single?->number,
-                    'opened' => $dayClosings->count(),
-                    'approved' => $dayClosings->where('status', ClosingStatus::Approved)->count(),
-                ],
             ];
         }
 
         return $days;
-    }
-
-    /**
-     * Where one branch's day stands before it is closed: still under way
-     * (with when it closes), ended without a closing yet, or its closing's
-     * status and cash, and whether the closing still holds every cash
-     * payment of the day.
-     *
-     * @return array<string, mixed>
-     */
-    public function dayCheck(): array
-    {
-        $branch = $this->branches->first();
-        $day = $this->from->toDateString();
-        $cash = $this->rows()
-            ->filter(fn (object $row): bool => $row->type === SubscriptionTransaction::TYPE_PAYMENT && $row->payment_method === PaymentMethod::Cash->value && ! $this->isCorrection($row))
-            ->sum(fn (object $row): int => -Closing::cents($row->amount));
-
-        $periods = ClosingPeriods::for($branch);
-
-        if (! $periods->hasEnded($day)) {
-            return ['state' => 'open', 'closesAt' => $periods->dayEnd($day)->format('d/m H:i'), 'reportCash' => Closing::money($cash)];
-        }
-
-        $closing = $this->dailyClosings()->first();
-
-        if ($closing === null) {
-            return ['state' => 'none', 'reportCash' => Closing::money($cash), 'branchId' => $branch->id, 'day' => $day];
-        }
-
-        $figures = $closing->cashFigures();
-
-        return [
-            'state' => $closing->status->value,
-            'statusLabel' => __($closing->status->label()),
-            'number' => $closing->number,
-            'branchId' => $branch->id,
-            'day' => $day,
-            'reportCash' => Closing::money($cash),
-            'closingCash' => Closing::money($figures['receipts']),
-            'expected' => Closing::money($figures['expected']),
-            'counted' => $figures['counted'] === null ? null : Closing::money($figures['counted']),
-            'difference' => $figures['difference'] === null ? null : Closing::money($figures['difference']),
-            'matches' => $figures['receipts'] === $cash,
-        ];
     }
 
     /**
@@ -360,19 +297,6 @@ class BranchReport
                 'recorded_by', 'reverses_id', 'cancelled_at', 'subscription_transactions.created_at',
             ])
             ->selectSub(Subscription::query()->select('branch_id')->whereColumn('subscriptions.id', 'subscription_transactions.subscription_id'), 'branch_id')
-            ->get();
-    }
-
-    /**
-     * @return Collection<int, Closing>
-     */
-    private function dailyClosings(): Collection
-    {
-        return Closing::query()
-            ->where('type', ClosingType::Daily)
-            ->whereIn('branch_id', $this->branchIds())
-            ->whereDate('period_start', '>=', $this->from->toDateString())
-            ->whereDate('period_start', '<=', $this->to->toDateString())
             ->get();
     }
 

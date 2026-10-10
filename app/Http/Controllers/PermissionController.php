@@ -121,6 +121,7 @@ class PermissionController extends Controller
             'branchName' => $user->branch?->name,
             'permissionIds' => array_values(array_intersect($user->permissions->modelKeys(), $grantablePermissionIds)),
             'lockedPermissions' => $user->permissions
+                ->reject(fn (Permission $permission): bool => PermissionKey::tryFrom($permission->key)?->isRetired() ?? false)
                 ->reject(fn (Permission $permission): bool => in_array($permission->id, $grantablePermissionIds, true))
                 ->map(fn (Permission $permission): string => __(PermissionKey::tryFrom($permission->key)?->label() ?? $permission->label))
                 ->values()->all(),
@@ -189,7 +190,7 @@ class PermissionController extends Controller
             ->filter(function (Permission $permission) use ($actor) {
                 $permissionKey = PermissionKey::tryFrom($permission->key);
 
-                return $actor->isSuperAdmin() || ($permissionKey !== null && $this->canGrant($actor, $permissionKey));
+                return $permissionKey !== null && ! $permissionKey->isRetired() && $this->canGrant($actor, $permissionKey);
             })
             ->modelKeys();
     }

@@ -81,15 +81,6 @@ export const ACTION_MESSAGES = {
     'profile-updated': 'تم حفظ الملف الشخصي بنجاح.',
     'profile-devices-logged-out': 'تم تسجيل الخروج من الأجهزة المحددة.',
     'password-updated': 'تم تحديث كلمة المرور بنجاح.',
-    'closing-counted': 'تم حفظ عدّ النقد في الكشف.',
-    'closing-submitted': 'تم إرسال الكشف للتدقيق.',
-    'closing-returned': 'تم إرجاع الكشف للتصحيح مع السبب.',
-    'closing-approved': 'تم اعتماد الكشف وقفله من التعديل المباشر.',
-    'cash-handed-over': 'تم تسجيل تسليم النقد، وهو قيد النقل حتى يُؤكَّد استلامه.',
-    'cash-received': 'تم تأكيد استلام النقد في خزينة الشركة.',
-    'period-approved': 'تم اعتماد الإغلاق.',
-    'closing-schedule-updated': 'تم حفظ مواعيد الإغلاق.',
-    'closings-opened': 'تم فتح كشوف اليوم لكل الفروع.',
 };
 
 /**

@@ -43,12 +43,12 @@ test('a ladder stops at the first level the actor may not grant, the rest become
     assert.deepEqual(cut.switches.map((item) => [item.id, item.label]), [[3, 'تعديل']]);
 });
 
-test('closings have no ladder: preparing and viewing every branch are separate switches', () => {
-    const closings = sectionModel({ key: 'closings', label: 'الإغلاق', actions: [entry('prepare', 7), entry('view_all', 8), entry('audit', 9)] });
+test('report viewing and cross-branch scope are separate switches', () => {
+    const reports = sectionModel({ key: 'reports', label: 'التقارير', actions: [entry('view', 7), entry('view_all', 8)] });
 
-    assert.equal(closings.ladder, null);
-    assert.deepEqual(closings.switches.map((item) => item.label), ['إعداد كشوف الفرع', 'عرض كل الفروع والتقارير']);
-    assert.deepEqual(closings.sensitive.map((item) => item.id), [9]);
+    assert.equal(reports.ladder, null);
+    assert.deepEqual(reports.switches.map((item) => item.label), ['عرض', 'عرض كل الفروع والتقارير']);
+    assert.deepEqual(reports.sensitive, []);
 });
 
 test('the changes name each new level and each permission turned on or off', () => {
@@ -105,9 +105,9 @@ test('search and filters reveal relevant actions without mutating selected grant
 });
 
 test('view-only group shortcut preserves report access, does not grant cross-branch access or export, and leaves other sections intact', () => {
-    const closings = sectionModel({ key: 'closings', label: 'الكشوف', actions: [entry('view', 10), entry('prepare', 11), entry('view_all', 12), entry('audit', 13)] });
+    const reportScope = sectionModel({ key: 'reports', label: 'التقارير', actions: [entry('view', 10), entry('view_all', 12)] });
     const reports = sectionModel({ key: 'reports', label: 'التقارير', actions: [entry('debt_aging', 14), entry('export', 15)] });
-    assert.deepEqual(withGroupAccess([closings, reports], [99, 11, 13, 15], true), [99, 10, 14]);
-    assert.deepEqual(withGroupAccess([closings, reports], [99, 12, 15], true), [99, 10, 12, 14]);
-    assert.deepEqual(withGroupAccess([closings, reports], [99, 12, 15], false), [99]);
+    assert.deepEqual(withGroupAccess([reportScope, reports], [99, 10, 15], true), [99, 10, 14]);
+    assert.deepEqual(withGroupAccess([reportScope, reports], [99, 12, 15], true), [99, 10, 12, 14]);
+    assert.deepEqual(withGroupAccess([reportScope, reports], [99, 12, 15], false), [99]);
 });

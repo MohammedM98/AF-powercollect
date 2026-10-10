@@ -137,7 +137,7 @@ class PermissionsTest extends TestCase
         $response = $this->actingAs($superAdmin)->get(route('settings.permissions.edit'));
 
         $response->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
-            'subscriptions', 'meter_boxes', 'circuit_breakers', 'tariffs', 'meter_readings', 'collections', 'closings', 'reports',
+            'subscriptions', 'meter_boxes', 'circuit_breakers', 'tariffs', 'meter_readings', 'collections', 'reports',
             'messages', 'print_templates', 'users', 'user_types', 'branches', 'governorates', 'areas', 'sub_areas',
         ]));
     }
@@ -151,7 +151,7 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect($groups)
-                ->reject(fn (array $group): bool => in_array($group['key'], ['meter_readings', 'collections', 'closings', 'reports', 'messages', 'print_templates'], true))
+                ->reject(fn (array $group): bool => in_array($group['key'], ['meter_readings', 'collections', 'reports', 'messages', 'print_templates'], true))
                 ->every(fn (array $group): bool => collect($group['actions'])->contains('action', 'delete')),
         ));
     }
@@ -170,16 +170,16 @@ class PermissionsTest extends TestCase
         ));
     }
 
-    public function test_closings_are_prepared_per_branch_while_viewing_all_branches_and_reviewing_are_granted_by_the_super_admin(): void
+    public function test_report_scope_is_granted_without_closing_controls(): void
     {
         $this->seedPermissions();
         $branchAdmin = User::factory()->branchAdmin()->create();
-        $closingActions = fn ($groups): array => collect(collect($groups)->firstWhere('key', 'closings')['actions'])->pluck('action')->all();
+        $reportActions = fn ($groups): array => collect(collect($groups)->firstWhere('key', 'reports')['actions'])->pluck('action')->all();
 
         $this->actingAs(User::factory()->superAdmin()->create())->get(route('settings.permissions.edit'))
-            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['view', 'prepare', 'view_all', 'audit']));
+            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $reportActions($groups) === ['view', 'view_all', 'branch_performance', 'debt_aging', 'transaction_audit', 'export']));
         $this->actingAs($branchAdmin)->get(route('settings.permissions.edit'))
-            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['view', 'prepare']));
+            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $reportActions($groups) === ['view', 'branch_performance', 'debt_aging', 'transaction_audit', 'export']));
     }
 
     public function test_branch_admin_does_not_see_company_wide_permissions_on_the_permissions_page(): void
@@ -196,7 +196,7 @@ class PermissionsTest extends TestCase
 
         $response->assertInertia(fn ($page) => $page
             ->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
-                'subscriptions', 'meter_boxes', 'circuit_breakers', 'tariffs', 'meter_readings', 'collections', 'closings', 'reports', 'messages', 'users', 'sub_areas',
+                'subscriptions', 'meter_boxes', 'circuit_breakers', 'tariffs', 'meter_readings', 'collections', 'reports', 'messages', 'users', 'sub_areas',
             ])
             ->where('selectedUser.permissionIds', [$viewSubscriptions->id]));
     }

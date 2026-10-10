@@ -1,4 +1,3 @@
-import SelectInput from '@/Components/SelectInput';
 import FormField from '@/Components/Form/FormField';
 import FormPreview, { countFilled } from '@/Components/Form/FormPreview';
 import FormSection from '@/Components/Form/FormSection';
@@ -28,13 +27,13 @@ export default function TariffForm({ data, setData, errors, categoryOptions }) {
 
             <FormSection icon="bolt" title="سعر الكيلو" description="فئة الاشتراك وسعر الكيلو واط لها" columns={2}>
                 <FormField id="category" label="الفئة" required error={errors.category}>
-                    <SelectInput className="block w-full" value={data.category} onChange={(e) => setData('category', e.target.value)}>
+                    <select className="block w-full" value={data.category} onChange={(e) => setData('category', e.target.value)}>
                         {categoryOptions.map((option) => (
                             <option key={option.value} value={option.value}>
                                 {option.label}
                             </option>
                         ))}
-                    </SelectInput>
+                    </select>
                 </FormField>
 
                 <FormField id="rate" label="السعر (شيكل)" required error={errors.rate}>

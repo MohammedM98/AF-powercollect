@@ -7,13 +7,14 @@ use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\User;
-use App\Support\ClosingPeriods;
 
 /**
- * Branch preparation and local approval use "Prepare Closings" for the
- * user's own branch (any branch for the Super Admin), with a different
- * approver. Existing company closing and legacy review permissions remain
- * compatible. Submitted central audit statements use their separate policy.
+ * Preparing a branch's closings takes "Prepare Closings", for the user's
+ * own branch (any branch for the Super Admin). Reviewing them — returning
+ * or approving a branch's daily closing, and approving the company's week
+ * and month — takes "Audit Closings", which covers every branch. "View All
+ * Closings and Reports" opens every branch's closings and the reports, read
+ * only — a financial auditor's view.
  */
 class ClosingPolicy
 {
@@ -24,7 +25,7 @@ class ClosingPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::ViewOwnClosings, PermissionKey::PrepareClosings, PermissionKey::AuditClosings, PermissionKey::ViewAllClosings, PermissionKey::CloseWeeklyPeriods, PermissionKey::CloseWeeklyPeriodsEarly, PermissionKey::MarkClosingsAudited);
+        return $user->hasAnyPermission(PermissionKey::ViewOwnClosings, PermissionKey::PrepareClosings, PermissionKey::AuditClosings, PermissionKey::ViewAllClosings);
     }
 
     /**
@@ -32,7 +33,7 @@ class ClosingPolicy
      */
     public function viewAllBranches(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::AuditClosings, PermissionKey::ViewAllClosings, PermissionKey::CloseWeeklyPeriods, PermissionKey::CloseWeeklyPeriodsEarly, PermissionKey::MarkClosingsAudited);
+        return $user->hasAnyPermission(PermissionKey::AuditClosings, PermissionKey::ViewAllClosings);
     }
 
     /**
@@ -62,22 +63,12 @@ class ClosingPolicy
         return $closing->status === ClosingStatus::Submitted && $user->hasPermission(PermissionKey::AuditClosings);
     }
 
-    public function approveBranch(User $user, Closing $closing): bool
-    {
-        return $closing->status === ClosingStatus::Submitted && $closing->prepared_by !== $user->id
-            && $this->preparesFor($user, $closing);
-    }
-
     /**
-     * Hand the counted cash of an approved closing over to the company,
-     * once its day has closed: a day closed by hand early takes no more
-     * cash movements before its cut-off.
+     * Hand the counted cash of an approved closing over to the company.
      */
     public function handOver(User $user, Closing $closing): bool
     {
-        return $closing->status === ClosingStatus::Approved
-            && ClosingPeriods::hasEnded($closing->period_end)
-            && $this->preparesFor($user, $closing);
+        return $closing->status === ClosingStatus::Approved && $this->preparesFor($user, $closing);
     }
 
     /**
@@ -86,20 +77,6 @@ class ClosingPolicy
     public function approvePeriod(User $user): bool
     {
         return $user->hasPermission(PermissionKey::AuditClosings);
-    }
-
-    public function closeWeek(User $user): bool
-    {
-        return $user->hasAnyPermission(PermissionKey::AuditClosings, PermissionKey::CloseWeeklyPeriods);
-    }
-
-    /**
-     * Close the week under way before its scheduled cut-off, which the
-     * company grants one user at a time on top of its own switch.
-     */
-    public function closeWeekEarly(User $user): bool
-    {
-        return $user->hasPermission(PermissionKey::CloseWeeklyPeriodsEarly);
     }
 
     private function preparesFor(User $user, Closing $closing): bool

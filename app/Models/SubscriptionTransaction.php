@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\ChargeType;
-use App\Enums\ClosingPeriodStatus;
 use App\Enums\ClosingStatus;
 use App\Enums\CorrectionReason;
 use App\Enums\Currency;
@@ -11,9 +10,6 @@ use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
 use App\Enums\TransactionAction;
-use App\Support\ClosingAdjustmentService;
-use App\Support\WeeklyClosingService;
-use Carbon\CarbonImmutable;
 use Closure;
 use Database\Factories\SubscriptionTransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -78,7 +74,6 @@ use Illuminate\Validation\ValidationException;
     'cancelled_by',
     'cancellation_reason',
     'cancellation_notes',
-    'actual_at', 'recorded_at', 'closing_period_id', 'cash_effect_amount', 'adjustment_type', 'adjustment_reason', 'is_late_entry',
 ])]
 class SubscriptionTransaction extends Model
 {
@@ -127,8 +122,6 @@ class SubscriptionTransaction extends Model
     /** A full or partial reversal of a payment-like transaction. */
     public const TYPE_REFUND = 'refund';
 
-    public const TYPE_CORRECTION = 'correction';
-
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_CANCELLED = 'cancelled';
@@ -176,79 +169,7 @@ class SubscriptionTransaction extends Model
             'discount_base' => 'decimal:2',
             'cancelled_at' => 'datetime',
             'cancellation_reason' => CorrectionReason::class,
-            'actual_at' => 'immutable_datetime',
-            'recorded_at' => 'immutable_datetime',
-            'cash_effect_amount' => 'decimal:2',
-            'is_late_entry' => 'boolean',
         ];
-    }
-
-    /** All ledger writes share the closing lock, including writes made outside a controller. */
-    public function save(array $options = []): bool
-    {
-        return DB::transaction(function () use ($options): bool {
-            $closingService = app(WeeklyClosingService::class);
-            $closingService->lock();
-            if ($this->exists) {
-                $original = self::query()->findOrFail($this->id);
-                if (($closingService->isLocked($original) || $original->adjustment_type !== null) && $this->isDirty()) {
-                    throw ValidationException::withMessages(['transaction' => 'هذه الحركة ضمن أسبوع مغلق؛ أنشئ تصحيحًا في الفترة المفتوحة.']);
-                }
-            } else {
-                if ($this->fallsInSealedBranchDay()) {
-                    throw ValidationException::withMessages(['transaction' => 'أُقفل يوم هذا الفرع قبل وقت القطع؛ لا تُسجَّل دفعات أو مبالغ مستردة حتى يحين وقت القطع، أو يُرجع المدقق الكشف للتصحيح.']);
-                }
-                $this->recorded_at ??= $this->created_at ?? now();
-                $this->actual_at ??= $this->recorded_at;
-                $period = $closingService->forMoment($this->recorded_at);
-                if ($period->status !== ClosingPeriodStatus::Open || $closingService->isLocked($this)) {
-                    throw ValidationException::withMessages(['transaction' => 'لا يمكن تسجيل حركة في فترة مغلقة أو جاهزة للإغلاق.']);
-                }
-                if ($this->closing_period_id !== null && (int) $this->closing_period_id !== $period->id) {
-                    throw ValidationException::withMessages(['closing_period_id' => 'يجب تسجيل الحركة في فترة تاريخ التسجيل.']);
-                }
-                if ($this->actual_at->greaterThan($this->recorded_at)) {
-                    throw ValidationException::withMessages(['actual_at' => 'تاريخ الحدث لا يمكن أن يكون بعد تاريخ التسجيل.']);
-                }
-                $this->closing_period_id = $period->id;
-                $this->is_late_entry = $this->actual_at->lessThan($period->starts_at);
-                if ($this->is_late_entry && trim((string) $this->adjustment_reason) === '') {
-                    throw ValidationException::withMessages(['adjustment_reason' => 'سبب الإدخال المتأخر مطلوب.']);
-                }
-                $this->cash_effect_amount ??= $this->type === self::TYPE_PAYMENT ? Closing::money(-Closing::cents($this->amount)) : '0.00';
-            }
-
-            return parent::save($options);
-        });
-    }
-
-    /**
-     * Whether this new payment or refund falls on a business day its branch
-     * has already closed by hand, before the cut-off.
-     */
-    private function fallsInSealedBranchDay(): bool
-    {
-        if (! in_array($this->type, [self::TYPE_PAYMENT, self::TYPE_REFUND], true) || $this->adjustment_type !== null) {
-            return false;
-        }
-
-        $branchId = $this->branch_id ?? $this->subscription()->value('branch_id');
-
-        return $branchId !== null && Closing::isSealed((int) $branchId, $this->created_at ?? now());
-    }
-
-    public function delete(): ?bool
-    {
-        return DB::transaction(function (): ?bool {
-            $service = app(WeeklyClosingService::class);
-            $service->lock();
-            $original = self::query()->findOrFail($this->id);
-            if ($service->isLocked($original) || $original->adjustment_type !== null) {
-                throw ValidationException::withMessages(['transaction' => 'لا يمكن حذف حركة من أسبوع مغلق.']);
-            }
-
-            return parent::delete();
-        });
     }
 
     protected static function booted(): void
@@ -291,7 +212,6 @@ class SubscriptionTransaction extends Model
         $activeReference = self::normalizeReference($referenceNumber);
 
         return DB::transaction(function () use ($subscription, $collector, $payment, $currency, $method, $exchangeRate, $inShekels, $referenceNumber, $activeReference): self {
-            app(WeeklyClosingService::class)->lock();
             if (! ($payment['confirm_duplicate_reference'] ?? false)) {
                 self::ensureReferenceIsAvailable($activeReference, $payment['split_payment_id'] ?? null);
             }
@@ -319,8 +239,6 @@ class SubscriptionTransaction extends Model
                 'manual_voucher_number' => $method === PaymentMethod::Cash ? ($payment['manual_voucher_number'] ?? null) : null,
                 'cash_box' => $method === PaymentMethod::Cash ? ($payment['cash_box'] ?? null) : null,
                 'notes' => $payment['notes'] ?? null,
-                'actual_at' => isset($payment['actual_at']) ? CarbonImmutable::parse($payment['actual_at'], config('app.business_timezone'))->utc() : null,
-                'adjustment_reason' => $payment['adjustment_reason'] ?? null,
             ]);
         });
     }
@@ -407,7 +325,6 @@ class SubscriptionTransaction extends Model
     public function cancel(User $actor, CorrectionReason $reason, ?string $notes, bool $reopenReading = false): self
     {
         return DB::transaction(function () use ($actor, $reason, $notes, $reopenReading): self {
-            app(WeeklyClosingService::class)->lock();
             if ($this->isInClosedDay(lockForUpdate: true)) {
                 throw ValidationException::withMessages(['reason' => 'لا يمكن إلغاء دفعة ضمن كشف إغلاق أُرسل للتدقيق أو اعتُمد؛ أرجِعها بإرجاع الدفعة.']);
             }
@@ -468,7 +385,6 @@ class SubscriptionTransaction extends Model
     private function reverse(User $actor, CorrectionReason $reason, ?string $notes, Closure $mayCancel, bool $freeSourceKey = false): self
     {
         return DB::transaction(function () use ($actor, $reason, $notes, $mayCancel, $freeSourceKey): self {
-            app(WeeklyClosingService::class)->lock();
             $line = self::query()->lockForUpdate()->findOrFail($this->id);
 
             if (! $mayCancel($line)) {
@@ -534,7 +450,6 @@ class SubscriptionTransaction extends Model
         }
 
         return DB::transaction(function () use ($actor, $fields, $reason): TransactionAmendment {
-            app(WeeklyClosingService::class)->lock();
             $line = self::query()->lockForUpdate()->findOrFail($this->id);
 
             if (! $line->isAmendable(lockForUpdate: true)) {
@@ -672,13 +587,6 @@ class SubscriptionTransaction extends Model
             return [];
         }
 
-        if (app(WeeklyClosingService::class)->isLocked($this)) {
-            return app(ClosingAdjustmentService::class)->availableActions($this, $actor);
-        }
-        if ($this->adjustment_type !== null || ($this->type === self::TYPE_REFUND && $this->reverses_id === null)) {
-            return [];
-        }
-
         $isLast ??= $this->isLastTransaction($lockForUpdate);
         $hasPayment ??= $this->hasAppliedPayment($lockForUpdate);
         $businessActions = $this->businessAvailableActions($isLast, $hasPayment, $lockForUpdate);
@@ -713,7 +621,6 @@ class SubscriptionTransaction extends Model
     public function applyAction(User $actor, TransactionAction $action, array $data): ?self
     {
         return DB::transaction(function () use ($actor, $action, $data): ?self {
-            app(WeeklyClosingService::class)->lock();
             $line = self::query()->with('subscription')->lockForUpdate()->findOrFail($this->id);
             $isLast = $line->isLastTransaction(lockForUpdate: true);
             $hasPayment = $line->hasAppliedPayment(lockForUpdate: true);
@@ -723,7 +630,6 @@ class SubscriptionTransaction extends Model
             }
 
             $result = match ($action) {
-                TransactionAction::Correction, TransactionAction::Reverse => app(ClosingAdjustmentService::class)->adjust($line, $actor, $action->value, $data['amount'] ?? null, $data['amendment_reason'] ?? ''),
                 TransactionAction::Edit => $line->applyAmountEdit($actor, $data),
                 TransactionAction::EditMetadata => $line->applyMetadataEdit($actor, $data),
                 TransactionAction::Delete => $line->applyHardDelete($actor, $data),
@@ -1108,9 +1014,7 @@ class SubscriptionTransaction extends Model
 
         foreach ($transactions as $transaction) {
             $balanceInCents += Closing::cents($transaction->amount);
-            if (! app(WeeklyClosingService::class)->isLocked($transaction) && $transaction->adjustment_type === null) {
-                $transaction->updateQuietly(['balance_after' => Closing::money($balanceInCents)]);
-            }
+            $transaction->updateQuietly(['balance_after' => Closing::money($balanceInCents)]);
         }
     }
 
@@ -1163,14 +1067,13 @@ class SubscriptionTransaction extends Model
      */
     private function applyRefund(User $actor, array $data): self
     {
-        $locked = app(WeeklyClosingService::class)->isLocked($this);
         $refunded = self::query()
             ->where('reference_transaction_id', $this->id)
             ->where('type', self::TYPE_REFUND)
             ->lockForUpdate()
             ->get()
             ->sum(fn (self $refund): float => abs((float) $refund->amount));
-        $amount = $locked ? app(ClosingAdjustmentService::class)->refundableCents($this) / 100 : round(abs((float) $this->amount) - $refunded, 2);
+        $amount = round(abs((float) $this->amount) - $refunded, 2);
 
         if ($amount <= 0) {
             throw ValidationException::withMessages(['action' => 'أُرجعت هذه الدفعة بالكامل من قبل.']);
@@ -1178,7 +1081,7 @@ class SubscriptionTransaction extends Model
 
         $refund = $this->subscription->transactions()->create([
             'recorded_by' => $actor->id,
-            'reverses_id' => $locked ? null : $this->id,
+            'reverses_id' => $this->id,
             'reference_transaction_id' => $this->id,
             'type' => self::TYPE_REFUND,
             'status' => self::STATUS_ACTIVE,
@@ -1191,14 +1094,7 @@ class SubscriptionTransaction extends Model
                 : number_format($amount / max((float) $this->exchange_rate, 1), 2, '.', ''),
             'exchange_rate' => $this->exchange_rate,
             'payment_method' => $this->payment_method,
-            'bank_name' => $this->bank_name,
-            'cash_effect_amount' => $locked ? number_format(-$amount, 2, '.', '') : '0.00',
-            'notes' => $data['correction_notes'] ?? null,
         ]);
-
-        if ($locked) {
-            return $refund;
-        }
 
         $this->update([
             'status' => self::STATUS_LINKED_CANCELLATION,
@@ -1230,9 +1126,6 @@ class SubscriptionTransaction extends Model
      */
     public function isCorrectable(): bool
     {
-        if (app(WeeklyClosingService::class)->isLocked($this)) {
-            return false;
-        }
         if ($this->isRegistrationFee()) {
             return false;
         }
@@ -1249,7 +1142,7 @@ class SubscriptionTransaction extends Model
      */
     public function isCancellable(): bool
     {
-        if ($this->isCancelled() || app(WeeklyClosingService::class)->isLocked($this)) {
+        if ($this->isCancelled()) {
             return false;
         }
 
@@ -1278,9 +1171,6 @@ class SubscriptionTransaction extends Model
     /** Whether this payment belongs to a submitted or approved daily closing. */
     public function isInClosedDay(bool $lockForUpdate = false): bool
     {
-        if (app(WeeklyClosingService::class)->isLocked($this)) {
-            return true;
-        }
         if (! $lockForUpdate && $this->relationLoaded('closingLine')) {
             return $this->closingLine !== null
                 && $this->closingLine->closing !== null
@@ -1334,9 +1224,6 @@ class SubscriptionTransaction extends Model
      */
     public function isErasable(bool $lockForUpdate = false): bool
     {
-        if (app(WeeklyClosingService::class)->isLocked($this)) {
-            return false;
-        }
         $erased = $this->isReversal() ? $this->reverses : $this;
 
         if ($erased?->type === self::TYPE_READING_DISCOUNT) {
@@ -1363,7 +1250,6 @@ class SubscriptionTransaction extends Model
     public function erase(User $actor, string $reason): void
     {
         DB::transaction(function () use ($actor, $reason): void {
-            app(WeeklyClosingService::class)->lock();
             $line = self::query()->lockForUpdate()->findOrFail($this->id);
 
             if (! $line->isErasable(lockForUpdate: true)) {
@@ -1443,7 +1329,7 @@ class SubscriptionTransaction extends Model
      */
     public function isCredit(): bool
     {
-        return $this->isReversal() || $this->adjustment_type !== null ? (float) $this->amount < 0 : in_array($this->type, self::CREDIT_TYPES, true);
+        return $this->isReversal() ? (float) $this->amount < 0 : in_array($this->type, self::CREDIT_TYPES, true);
     }
 
     /**
@@ -1462,10 +1348,7 @@ class SubscriptionTransaction extends Model
     #[Scope]
     protected function charges(Builder $query): void
     {
-        $query->counted()->where(function (Builder $charges): void {
-            $charges->where(fn (Builder $ordinary) => $ordinary->whereNull('adjustment_type')->whereNotIn($ordinary->qualifyColumn('type'), [...self::CREDIT_TYPES, self::TYPE_REVERSAL]))
-                ->orWhere(fn (Builder $adjustments) => $adjustments->whereNotNull('adjustment_type')->where('amount', '>', 0));
-        });
+        $query->counted()->whereNotIn($query->qualifyColumn('type'), [...self::CREDIT_TYPES, self::TYPE_REVERSAL]);
     }
 
     /**
@@ -1475,10 +1358,7 @@ class SubscriptionTransaction extends Model
     #[Scope]
     protected function credits(Builder $query): void
     {
-        $query->counted()->where(function (Builder $credits): void {
-            $credits->whereIn($credits->qualifyColumn('type'), self::CREDIT_TYPES)
-                ->orWhere(fn (Builder $adjustments) => $adjustments->whereNotNull('adjustment_type')->where('amount', '<', 0));
-        });
+        $query->counted()->whereIn($query->qualifyColumn('type'), self::CREDIT_TYPES);
     }
 
     /**
@@ -1526,7 +1406,6 @@ class SubscriptionTransaction extends Model
             self::TYPE_REFUND => $this->referenceTransaction
                 ? 'إرجاع: '.$this->referenceTransaction->description().($this->referenceTransaction->voucher_number ? ' · سند '.$this->referenceTransaction->printedVoucherNumber() : '')
                 : 'إرجاع دفعة',
-            self::TYPE_CORRECTION => 'تصحيح سجل دون تحصيل جديد · الحركة #'.$this->reference_transaction_id,
             default => $this->typeLabel(),
         };
     }
@@ -1568,7 +1447,6 @@ class SubscriptionTransaction extends Model
             self::TYPE_REVERSAL => 'قيد عكسي',
             self::TYPE_CANCELLATION => 'إلغاء',
             self::TYPE_REFUND => 'إرجاع',
-            self::TYPE_CORRECTION => 'تصحيح مالي',
         ];
     }
 

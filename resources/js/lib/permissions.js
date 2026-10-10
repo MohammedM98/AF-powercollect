@@ -18,7 +18,7 @@ const LADDERS = {
 };
 
 /** Sections whose everyday actions aren't a ladder (each is its own switch). */
-const NO_LADDER = ['closings', 'weekly_finance', 'reports'];
+const NO_LADDER = ['closings', 'reports'];
 
 /**
  * The permissions set apart as their own switches, keyed by action or by
@@ -40,12 +40,6 @@ export const SENSITIVE = {
     'collections.force_delete': { label: 'الحذف النهائي للحركة', hint: 'يحذف الحركة المؤهلة أو سلسلة إلغائها من الكشف، مع الاحتفاظ بسجل تدقيق؛ لا يحذف القراءة', danger: true },
     'reports.export': { label: 'تنزيل التقارير المالية', hint: 'تنزيل CSV للكشوف والتقارير التي يملك عرضها فقط', danger: false },
     'closings.audit': { label: 'تدقيق واعتماد الكشوف', hint: 'يعيد كشوف الفروع أو يعتمدها', danger: true },
-    'closings.close_early': { label: 'إقفال اليوم قبل وقت القطع', hint: 'يرسل كشف يوم الفرع قبل وقت القطع بعد عدّ الصندوق، ويعمل متى فُعّل ذلك في مواعيد الإغلاق', danger: false },
-    'weekly_finance.close': { label: 'إغلاق الأسبوع نهائيًا', hint: 'يحفظ لقطة مالية ثابتة لكل الفروع', danger: true },
-    'weekly_finance.close_early': { label: 'إغلاق الأسبوع قبل موعده', hint: 'يغلق الأسبوع الجاري قبل موعد قطعه متى اعتُمدت كشوف كل الفروع، وتبدأ فترة جديدة فورًا؛ ويعمل متى فُعّل ذلك في مواعيد الإغلاق', danger: true },
-    'weekly_finance.mark_audited': { label: 'إنهاء تدقيق الإغلاق', hint: 'يثبّت نتائج المطابقة وفروق النقد والبنوك والمحافظ', danger: true },
-    'weekly_finance.correction': { label: 'تصحيح حركة في فترة مغلقة', hint: 'يسجّل فرقًا في السجل في أسبوع مفتوح دون تغيير الأصل', danger: true },
-    'weekly_finance.reverse': { label: 'إلغاء حركة في فترة مغلقة', hint: 'يضيف قيدًا مرتبطًا بالأصل؛ لا يعني إرجاع أموال فعليًا', danger: true },
 };
 
 /** The everyday actions shown as switches (a section without a ladder, or one cut short). */

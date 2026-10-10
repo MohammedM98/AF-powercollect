@@ -10,7 +10,6 @@ use App\Enums\TransactionAction;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingPayment;
-use App\Models\ClosingSetting;
 use App\Models\Permission;
 use App\Models\SplitPayment;
 use App\Models\Subscription;
@@ -108,17 +107,10 @@ class ClosingTest extends TestCase
         $this->assertNull($closing->fresh()->counted_cash);
     }
 
-    public function test_today_can_be_opened_to_close_by_hand_but_a_future_day_cannot(): void
+    public function test_today_cannot_be_closed_before_the_day_ends(): void
     {
-        ClosingSetting::current()->update(['allow_early_close' => true]);
-        $preparer = $this->preparer();
-        $preparer->permissions()->attach(Permission::idsFor([PermissionKey::CloseDayEarly]));
-        $this->actingAs($preparer)->get(route('closings.index', ['date' => '2026-10-01']))
-            ->assertInertia(fn ($page) => $page->where('date', '2026-10-01')->where('daily.day', '2026-10-01')->where('daily.dayOpen', true));
-        $this->get(route('closings.index', ['date' => '2026-10-05']))
-            ->assertInertia(fn ($page) => $page->where('date', '2026-10-01')->where('today', '2026-10-01'));
-        $this->get(route('closings.index', ['tab' => 'handover', 'date' => '2026-10-01']))
-            ->assertInertia(fn ($page) => $page->where('date', '2026-09-30'));
+        $this->actingAs($this->preparer())->get(route('closings.index', ['date' => '2026-10-01']))
+            ->assertInertia(fn ($page) => $page->where('date', '2026-09-30')->where('daily.day', '2026-09-30'));
     }
 
     public function test_a_cash_shortage_needs_its_reason_and_every_transfer_must_be_matched_before_sending_for_review(): void

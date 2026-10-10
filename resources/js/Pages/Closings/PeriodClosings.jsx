@@ -3,15 +3,11 @@ import Icon from '@/Components/Icon';
 import { weekDayName } from '@/lib/weekDays';
 import { addDays, closingMoney, monthName, shortDate, statusClass } from '@/lib/closing';
 import BranchPicker from './BranchPicker';
-import { useState } from 'react';
-import ConfirmDialog from '@/Components/ConfirmDialog';
-import WeeklyFinancialReport from './WeeklyFinancialReport';
-import { SendAuditButton } from '@/Pages/FinancialAudit/Shared';
 
 const CELL_ICONS = { approved: 'check', submitted: 'send', returned: 'undo', draft: 'note', missing: 'alert' };
 const CELL_LABELS = {
     approved: 'معتمد',
-    submitted: 'بانتظار اعتماد الفرع',
+    submitted: 'مرسل للتدقيق',
     returned: 'معاد للتصحيح',
     draft: 'مسودة',
     missing: 'فيه دفعات ولم يُفتح كشفه',
@@ -26,25 +22,12 @@ const CELL_LABELS = {
  * approval. The same payments appear at each level; the totals are never
  * added on top of each other.
  */
-export default function PeriodClosings({ view, branches, branchId, date, onChange, onOpenDay, canSendToAudit }) {
+export default function PeriodClosings({ view, branches, branchId, date, onChange, onOpenDay }) {
     const { errors } = usePage().props;
     const weekly = view.period === 'weekly';
-    const [confirmingClose, setConfirmingClose] = useState(false);
-    const [confirmingEarly, setConfirmingEarly] = useState(false);
-    const [closing, setClosing] = useState(false);
 
     function approve() {
-        setConfirmingClose(true);
-    }
-
-    function closePeriod() {
-        setConfirmingClose(false);
-        router.post('/period-closings', { period: view.period, date: view.first }, { preserveScroll: true, onStart: () => setClosing(true), onFinish: () => setClosing(false) });
-    }
-
-    function closeEarly() {
-        setConfirmingEarly(false);
-        router.post('/period-closings', { period: 'weekly', date: view.first, early: true }, { preserveScroll: true, onStart: () => setClosing(true), onFinish: () => setClosing(false), onSuccess: () => onChange({ date: view.first }) });
+        router.post('/period-closings', { period: view.period, date: view.first }, { preserveScroll: true });
     }
 
     return (
@@ -97,17 +80,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                 <BranchPicker branches={branches} branchId={branchId} onChange={(branch) => onChange({ branch })} />
             </div>
 
-            {canSendToAudit && <section className="pn">
-                <h3>كشف الفرع للتدقيق المالي</h3>
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-5">
-                    <p className="text-base text-gray-700">الفرع المختار: <strong>{branches.find((branch) => branch.value === branchId)?.label ?? '—'}</strong></p>
-                    <SendAuditButton key={`${branchId}-${view.period}-${date}`} branchId={branchId} type={view.period} date={date} label="إرسال كشف الفرع لهذه الفترة" />
-                </div>
-                <p className="s">يُرسل كشف مستقل للفرع المختار بعد اعتماد إقفالات أيامه. الكشف الأسبوعي يستخدم لقطة الفترة الأسبوعية المقفلة.</p>
-            </section>}
-
-            {weekly && view.financialReport && <WeeklyFinancialReport key={`${view.closingPeriodId}-overview`} view={view} section="overview" />}
-            {!weekly && <div className="kp">
+            <div className="kp">
                 <div>
                     <small>{view.ended ? 'التحصيل' : 'التحصيل حتى الآن'}</small>
                     <b>{closingMoney(view.collected)} ₪</b>
@@ -135,7 +108,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                     <b>{closingMoney(view.inTransit)} ₪</b>
                     <span>{view.inTransitCount === 0 ? 'لا يوجد' : `${view.inTransitCount} تسليم`}</span>
                 </div>
-            </div>}
+            </div>
 
             <div className="g2">
                 <div>
@@ -164,7 +137,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                         )}
                     </section>
 
-                    {!weekly && <section className="pn">
+                    <section className="pn">
                         <h3>
                             <span className="ix">
                                 <Icon name="layers" />
@@ -204,7 +177,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                             <Icon name="info" />
                             <span>الأسبوع الممتد بين شهرين لا يُضاف كاملًا: يأخذ إغلاق كل شهر الحركات الواقعة داخله فقط.</span>
                         </div>
-                    </section>}
+                    </section>
                 </div>
 
                 <div>
@@ -262,35 +235,14 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                                 <div>
                                     <b>{weekly ? 'الأسبوع معتمد' : 'الشهر معتمد'}</b>
                                     اعتمده {view.approvedBy} في <span className="num">{view.approvedAt}</span>.
-                                    {weekly && view.closedEarly && ' أُغلق قبل موعد قطعه المقرر.'}
                                 </div>
                             </div>
                         ) : (
                             <div style={{ marginTop: 14 }}>
-                                <button type="button" className="btn ok2" disabled={!view.canApprove || closing} onClick={approve}>
+                                <button type="button" className="btn ok2" disabled={!view.canApprove} onClick={approve}>
                                     <Icon name="check" />
                                     {weekly ? 'اعتماد الإغلاق الأسبوعي' : 'اعتماد الإغلاق الشهري'}
                                 </button>
-                                {weekly && view.earlyAllowed && (
-                                    <div className="early-close" style={{ marginTop: 14 }}>
-                                        <div className="note2">
-                                            <Icon name="info" />
-                                            <span>
-                                                يمكن إغلاق الأسبوع الآن قبل موعد قطعه (يوم {weekDayName(view.last)} {shortDate(view.last)}). تنتهي هذه الفترة فورًا، وتبدأ فترة
-                                                جديدة تُحسب لها كل حركة تُسجَّل من هذه اللحظة.
-                                            </span>
-                                        </div>
-                                        <button type="button" className="btn dg" style={{ marginTop: 10 }} disabled={!view.canCloseEarly || closing} onClick={() => setConfirmingEarly(true)}>
-                                            <Icon name="lock" />
-                                            إغلاق الأسبوع الآن قبل موعده
-                                        </button>
-                                        {!view.canCloseEarly && view.unapproved > 0 && (
-                                            <p className="s" style={{ marginTop: 6 }}>
-                                                اعتمد الإغلاق اليومي لكل فرع فيه دفعات، واليوم الجاري أيضًا، ثم يُفتح الإغلاق المبكر.
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
                                 {errors.period && (
                                     <div className="err" role="alert">
                                         {errors.period}
@@ -301,13 +253,6 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                     </section>
                 </div>
             </div>
-            {weekly && view.financialReport && <WeeklyFinancialReport key={`${view.closingPeriodId}-details`} view={view} section="details" />}
-            <ConfirmDialog show={confirmingClose} onCancel={() => setConfirmingClose(false)} onConfirm={closePeriod} title={weekly ? 'إغلاق الأسبوع نهائيًا؟' : 'اعتماد الشهر؟'}
-                message={weekly ? `التحصيل الفعلي ${closingMoney(view.collected)} ₪ · ${view.financialReport?.paymentCount ?? 0} دفعات. سيُحفظ كشف مالي ثابت. الأخطاء اللاحقة تُصحّح بحركات جديدة في أسبوع مفتوح دون تغيير هذا الكشف.` : `اعتماد الفترة ${view.number} بإجمالي ${closingMoney(view.collected)} ₪.`}
-                confirmLabel="اعتماد الإغلاق" cancelLabel="مراجعة الكشف" icon="lock" />
-            <ConfirmDialog show={confirmingEarly} onCancel={() => setConfirmingEarly(false)} onConfirm={closeEarly} title="إغلاق الأسبوع الآن قبل موعده؟" tone="danger"
-                message={`سيُغلق الأسبوع ${view.number} في هذه اللحظة بدل موعده المقرر، بتحصيل فعلي ${closingMoney(view.collected)} ₪، ويُحفظ كشف مالي ثابت. تبدأ فترة جديدة فورًا، وكل ما يُسجَّل بعد الآن يُحسب لها. لا يمكن التراجع عن الإغلاق.`}
-                confirmLabel="نعم، أغلق الأسبوع الآن" cancelLabel="رجوع" icon="lock" />
         </>
     );
 }

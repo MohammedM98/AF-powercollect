@@ -6,7 +6,6 @@ use App\Enums\CashTransferMethod;
 use App\Enums\CashTransferStatus;
 use App\Enums\ClosingDifferenceReason;
 use App\Enums\ClosingMatchStatus;
-use App\Enums\ClosingPeriodStatus;
 use App\Enums\ClosingStatus;
 use App\Enums\ClosingType;
 use App\Enums\PermissionKey;
@@ -16,14 +15,10 @@ use App\Models\CashTransfer;
 use App\Models\Closing;
 use App\Models\ClosingEvent;
 use App\Models\ClosingPayment;
-use App\Models\ClosingPeriod;
-use App\Models\ClosingSetting;
-use App\Models\FinancialAuditStatement;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
-use App\Support\WeeklyClosingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -59,8 +54,6 @@ trait PresentsClosings
         $lines = $closing->paymentLines();
         $cash = $closing->cashFigures();
         $unconfirmed = $lines->filter(fn (ClosingPayment $line): bool => $line->match_status === ClosingMatchStatus::Unconfirmed);
-        $auditStatement = FinancialAuditStatement::query()->where('branch_id', $closing->branch_id)
-            ->where('type', 'daily')->whereDate('period_start', $closing->period_start)->first(['id', 'status']);
 
         return [
             ...$this->closingHeader($closing),
@@ -80,10 +73,7 @@ trait PresentsClosings
             'denominations' => $closing->denominations ?? (object) [],
             'differenceReason' => $closing->difference_reason?->value,
             'differenceNotes' => $closing->difference_notes,
-            'auditStatement' => $auditStatement ? ['id' => $auditStatement->id, 'status' => $auditStatement->status] : null,
-            'blockers' => $closing->status->isEditable() ? $closing->submissionBlockers($user) : [],
-            'dayOpen' => ! ClosingPeriods::hasEnded($closing->period_end),
-            'closesAt' => ClosingPeriods::dayEnd($closing->period_end)->format('H:i'),
+            'blockers' => $closing->status->isEditable() ? $closing->submissionBlockers() : [],
             'events' => $closing->events->sortByDesc('id')->map(fn (ClosingEvent $event): array => [
                 'id' => $event->id,
                 'description' => $event->description,
@@ -93,8 +83,6 @@ trait PresentsClosings
             ])->values(),
             'can' => [
                 'prepare' => $user->can('prepare', $closing),
-                'approveBranch' => $user->can('approveBranch', $closing),
-                'sendToAudit' => $auditStatement === null && $closing->status === ClosingStatus::Approved && $user->can('submit', [FinancialAuditStatement::class, $closing->branch]),
                 'audit' => $user->can('audit', $closing),
                 'approve' => $user->can('audit', $closing) && $closing->prepared_by !== $user->id,
                 'handOver' => $user->can('handOver', $closing),
@@ -112,7 +100,6 @@ trait PresentsClosings
         return [
             'id' => $closing->id,
             'number' => $closing->number,
-            'branchId' => $closing->branch_id,
             'branchName' => $closing->branch?->name,
             'day' => $closing->period_start->toDateString(),
             'status' => $closing->status->value,
@@ -264,40 +251,24 @@ trait PresentsClosings
      * @param  Collection<int, Branch>  $branches
      * @return array<string, mixed>
      */
-    protected function periodData(string $period, CarbonImmutable $date, Collection $branches, User $user, bool $early = false): array
+    protected function periodData(string $period, CarbonImmutable $date, Collection $branches, User $user): array
     {
-        $weeklyPeriod = $period === 'weekly' ? app(WeeklyClosingService::class)->forDate($date) : null;
-        [$first, $last] = $weeklyPeriod ? [$weeklyPeriod->period_start, $weeklyPeriod->period_end] : ClosingPeriods::month($date);
+        [$first, $last] = $period === 'monthly' ? ClosingPeriods::month($date) : ClosingPeriods::week($date);
         $type = $period === 'monthly' ? ClosingType::Monthly : ClosingType::Weekly;
-        $days = $weeklyPeriod ? ClosingPeriods::days(ClosingPeriods::dayOf($weeklyPeriod->starts_at), ClosingPeriods::dayOf($weeklyPeriod->cutoff_at->subSecond())) : ClosingPeriods::days($first, $last);
+        $days = ClosingPeriods::days($first, $last);
         $today = ClosingPeriods::today()->toDateString();
         $closings = Closing::query()
             ->with(['lines.payment.splitPayment'])
             ->where('type', ClosingType::Daily)
             ->whereIn('branch_id', $branches->modelKeys())
-            ->whereDate('period_start', '>=', $days[0])
-            ->whereDate('period_start', '<=', $days[array_key_last($days)])
+            ->whereDate('period_start', '>=', $first->toDateString())
+            ->whereDate('period_start', '<=', $last->toDateString())
             ->get()
             ->keyBy(fn (Closing $closing): string => $closing->branch_id.'|'.$closing->period_start->toDateString());
-        $weeklyReport = $weeklyPeriod ? app(WeeklyClosingService::class)->report($weeklyPeriod, $branches->modelKeys()) : null;
-        $collected = [];
-        if ($weeklyReport !== null) {
-            foreach ($weeklyReport['lines'] as $line) {
-                $cents = Closing::cents($line['collectionEffect']);
-                if ($cents <= 0) {
-                    continue;
-                }
-                $day = ClosingPeriods::dayOf($line['recordedAt']);
-                $branchId = $line['branchId'];
-                $collected[$branchId][$day]['total'] = ($collected[$branchId][$day]['total'] ?? 0) + $cents;
-                $collected[$branchId][$day]['cash'] = ($collected[$branchId][$day]['cash'] ?? 0) + ($line['method'] === 'cash' ? $cents : 0);
-            }
-        } else {
-            $collected = $this->collectionsByBranchAndDay($branches, $first, $last);
-        }
+        $collected = $this->collectionsByBranchAndDay($branches, $first, $last);
         $transfers = CashTransfer::query()->whereIn('branch_id', $branches->modelKeys())->where('status', CashTransferStatus::InTransit)->get();
 
-        $rows = $branches->map(function (Branch $branch) use ($days, $closings, $collected, $today, $transfers, $weeklyPeriod): array {
+        $rows = $branches->map(function (Branch $branch) use ($days, $closings, $collected, $today, $transfers): array {
             $cells = [];
             $approved = 0;
             $needed = 0;
@@ -313,7 +284,7 @@ trait PresentsClosings
                     default => 'empty',
                 };
 
-                if (($day < $today && ($closing !== null || $hasPayments)) || ($weeklyPeriod !== null && $hasPayments)) {
+                if ($day < $today && ($closing !== null || $hasPayments)) {
                     $needed++;
                     $approved += $closing?->status === ClosingStatus::Approved ? 1 : 0;
                 }
@@ -331,9 +302,7 @@ trait PresentsClosings
                 'cash' => Closing::money($byMethod->sum('cash')),
                 'nonCash' => Closing::money($byMethod->sum('total') - $byMethod->sum('cash')),
                 'inTransit' => Closing::money($transfers->where('branch_id', $branch->id)->sum(fn (CashTransfer $transfer): int => Closing::cents($transfer->amount))),
-                'inTransitCount' => $transfers->where('branch_id', $branch->id)->count(),
                 'pending' => Closing::money($closings->filter(fn (Closing $closing): bool => $closing->branch_id === $branch->id)->sum(fn (Closing $closing): int => $this->unconfirmedCents($closing))),
-                'pendingCount' => $closings->filter(fn (Closing $closing): bool => $closing->branch_id === $branch->id)->sum(fn (Closing $closing): int => $closing->lines->where('match_status', ClosingMatchStatus::Unconfirmed)->count()),
                 'approved' => $approved,
                 'needed' => $needed,
             ];
@@ -348,12 +317,12 @@ trait PresentsClosings
             ->values();
         $pending = $closings->sum(fn (Closing $closing): int => $this->unconfirmedCents($closing));
         $pendingCount = $closings->sum(fn (Closing $closing): int => $closing->lines->where('match_status', ClosingMatchStatus::Unconfirmed)->count());
-        $saved = Closing::query()->with('reviewedBy')->where('number', $weeklyPeriod?->number ?? $this->periodNumber($type, $first))->first();
-        $ended = $weeklyPeriod ? now()->greaterThanOrEqualTo($weeklyPeriod->eligible_at) : ClosingPeriods::hasEnded($last);
+        $saved = Closing::query()->with('reviewedBy')->where('number', $this->periodNumber($type, $first))->first();
+        $ended = ClosingPeriods::hasEnded($last);
 
-        $view = [
+        return [
             'period' => $period,
-            'number' => $weeklyPeriod?->number ?? $this->periodNumber($type, $first),
+            'number' => $this->periodNumber($type, $first),
             'first' => $first->toDateString(),
             'last' => $last->toDateString(),
             'days' => array_map(fn (string $day): array => ['date' => $day, 'isToday' => $day === $today], $days),
@@ -375,54 +344,6 @@ trait PresentsClosings
             'approvedAt' => $this->closingTime($saved?->reviewed_at),
             'blockers' => $this->periodBlockers($ended, $unapproved, $last),
             'canApprove' => $saved === null && $user->can('approvePeriod', Closing::class) && $ended && $unapproved === 0,
-        ];
-
-        if ($weeklyPeriod === null) {
-            return $view;
-        }
-        $service = app(WeeklyClosingService::class);
-        if (ClosingSetting::current()->auto_prepare && ! $weeklyPeriod->status->isClosed()) {
-            $service->prepare($weeklyPeriod);
-        }
-        if ($saved?->snapshot !== null) {
-            $view = $saved->snapshot['view'];
-            $view['rows'] = collect($view['rows'])->whereIn('branchId', $branches->modelKeys())->values()->all();
-            $visibleRows = collect($view['rows']);
-            $view['needed'] = $visibleRows->sum('needed');
-            $view['unapproved'] = $view['needed'] - $visibleRows->sum('approved');
-            $view['differences'] = collect($view['differences'])->whereIn('branch', $visibleRows->pluck('branchName'))->values()->all();
-            $view['differenceTotal'] = Closing::money(collect($view['differences'])->sum(fn (array $difference): int => Closing::cents($difference['difference'])));
-            foreach (['pending', 'inTransit'] as $field) {
-                $view[$field] = Closing::money($visibleRows->sum(fn (array $row): int => Closing::cents($row[$field])));
-                $view[$field.'Count'] = $visibleRows->sum($field.'Count');
-            }
-            $report = $service->summarize(collect($saved->snapshot['report']['lines'])->whereIn('branchId', $branches->modelKeys())->values()->all());
-            $view['dayTotals'] = array_map(fn (array $day): string => Closing::money(collect($view['rows'])->sum(fn (array $row): int => Closing::cents(collect($row['cells'])->firstWhere('day', $day['date'])['total'] ?? '0.00'))), $view['days']);
-        } else {
-            $report = $weeklyReport;
-        }
-        $canClose = $saved === null && $user->can($early ? 'closeWeekEarly' : 'closeWeek', Closing::class) && $ended && $unapproved === 0 && ClosingSetting::current()->weekly_enabled;
-        $mayCloseEarly = $saved === null && ClosingSetting::current()->weekly_enabled && ClosingSetting::current()->allow_early_weekly_close
-            && $user->can('closeWeekEarly', Closing::class) && $weeklyPeriod->status === ClosingPeriodStatus::Open
-            && now()->greaterThan($weeklyPeriod->starts_at) && now()->lessThan($weeklyPeriod->cutoff_at)
-            && ! ClosingPeriod::query()->where('starts_at', '>=', $weeklyPeriod->cutoff_at)->exists();
-
-        return [...$view,
-            'collected' => $report['actualCollectionTotal'], 'financialReport' => $report,
-            'closingPeriodId' => $weeklyPeriod->id, 'workflowStatus' => $weeklyPeriod->status->value,
-            'workflowLabel' => $weeklyPeriod->status->label(), 'cutoffAt' => $weeklyPeriod->cutoff_at->toIso8601String(),
-            'eligibleAt' => $weeklyPeriod->eligible_at->toIso8601String(), 'timezone' => $weeklyPeriod->timezone,
-            'canApprove' => $canClose, 'earlyAllowed' => $mayCloseEarly, 'canCloseEarly' => $mayCloseEarly && $unapproved === 0,
-            'closedEarly' => $weeklyPeriod->scheduled_cutoff_at !== null, 'scheduledCutoffAt' => $weeklyPeriod->scheduled_cutoff_at?->toIso8601String(),
-            'canPrepare' => $saved === null && $user->can('closeWeek', Closing::class) && now()->greaterThanOrEqualTo($weeklyPeriod->cutoff_at),
-            'status' => $saved?->status->value ?? 'draft', 'statusLabel' => $weeklyPeriod->status->label(),
-            'approvedBy' => $saved?->snapshot['closedBy'] ?? $saved?->reviewedBy?->name,
-            'approvedAt' => $this->closingTime($saved?->reviewed_at),
-            'legacySnapshotMissing' => $saved !== null && $saved->snapshot === null,
-            'legacyBaseline' => $saved?->snapshot['legacyBaseline'] ?? false,
-            'canAudit' => $user->hasPermission(PermissionKey::AuditClosings) && $weeklyPeriod->status === ClosingPeriodStatus::Closed && $saved?->snapshot !== null,
-            'canMarkAudited' => $user->hasPermission(PermissionKey::MarkClosingsAudited) && $weeklyPeriod->status === ClosingPeriodStatus::UnderAudit,
-            'reconciliation' => $user->can('viewAllBranches', Closing::class) ? $weeklyPeriod->reconciliation : null, 'auditNotes' => $user->can('viewAllBranches', Closing::class) ? $weeklyPeriod->audit_notes : null,
         ];
     }
 

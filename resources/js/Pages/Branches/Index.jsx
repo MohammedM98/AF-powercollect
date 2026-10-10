@@ -27,7 +27,7 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
             header={
                 <>
                     <div className="min-w-0">
-                        <h1 className="text-3xl font-bold text-gray-900">الفروع</h1>
+                        <h2 className="text-3xl font-bold text-gray-900">الفروع</h2>
                     </div>
                     {canCreate && (
                         <div className="shrink-0">

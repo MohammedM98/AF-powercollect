@@ -74,12 +74,6 @@ enum PermissionKey: string
     case ViewOwnClosings = 'closings.view';
     case AuditClosings = 'closings.audit';
     case ViewAllClosings = 'closings.view_all';
-    case CloseWeeklyPeriods = 'closing.close';
-    case CloseWeeklyPeriodsEarly = 'closing.close_early';
-    case CloseDayEarly = 'closings.close_early';
-    case MarkClosingsAudited = 'closing.mark_audited';
-    case CreateClosingAdjustments = 'adjustment.create';
-    case CreateClosingReversals = 'reversal.create';
 
     case ViewBranchPerformance = 'reports.branch_performance';
     case ViewDebtAging = 'reports.debt_aging';
@@ -154,12 +148,6 @@ enum PermissionKey: string
             self::ViewOwnClosings => 'View Branch Closings',
             self::AuditClosings => 'Audit Closings',
             self::ViewAllClosings => 'View All Closings and Reports',
-            self::CloseWeeklyPeriods => 'Close Weekly Periods',
-            self::CloseWeeklyPeriodsEarly => 'Close the Week Early',
-            self::CloseDayEarly => 'Close the Day Early',
-            self::MarkClosingsAudited => 'Mark Weekly Closings Audited',
-            self::CreateClosingAdjustments => 'Correct Closed Transactions',
-            self::CreateClosingReversals => 'Reverse Closed Transactions',
             self::ViewBranchPerformance => 'View Branch Performance',
             self::ViewDebtAging => 'View Debt Aging',
             self::ViewTransactionAudit => 'View Audit Log',
@@ -185,7 +173,7 @@ enum PermissionKey: string
             self::ViewAreas, self::CreateAreas, self::UpdateAreas, self::DeleteAreas,
             self::ViewUserTypes, self::CreateUserTypes, self::UpdateUserTypes, self::DeleteUserTypes,
             // Reviewing closings, or seeing every branch's, reaches past one branch, so the company grants it.
-            self::AuditClosings, self::ViewAllClosings, self::CloseWeeklyPeriods, self::CloseWeeklyPeriodsEarly, self::MarkClosingsAudited, self::CreateClosingAdjustments, self::CreateClosingReversals => true,
+            self::AuditClosings, self::ViewAllClosings => true,
             // Print templates are shared by every branch.
             self::ManagePrintTemplates => true,
             default => false,
@@ -249,11 +237,7 @@ enum PermissionKey: string
             ],
             'closings' => [
                 'label' => 'Closings',
-                'actions' => ['view' => self::ViewOwnClosings, 'prepare' => self::PrepareClosings, 'close_early' => self::CloseDayEarly, 'view_all' => self::ViewAllClosings, 'audit' => self::AuditClosings],
-            ],
-            'weekly_finance' => [
-                'label' => 'Weekly Closing',
-                'actions' => ['close' => self::CloseWeeklyPeriods, 'close_early' => self::CloseWeeklyPeriodsEarly, 'mark_audited' => self::MarkClosingsAudited, 'correction' => self::CreateClosingAdjustments, 'reverse' => self::CreateClosingReversals],
+                'actions' => ['view' => self::ViewOwnClosings, 'prepare' => self::PrepareClosings, 'view_all' => self::ViewAllClosings, 'audit' => self::AuditClosings],
             ],
             'reports' => [
                 'label' => 'Reports',

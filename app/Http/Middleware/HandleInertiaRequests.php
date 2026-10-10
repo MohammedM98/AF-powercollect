@@ -6,7 +6,6 @@ use App\Models\Branch;
 use App\Models\CircuitBreaker;
 use App\Models\Closing;
 use App\Models\ClosingSetting;
-use App\Models\FinancialAuditStatement;
 use App\Models\Governorate;
 use App\Models\MessageBatch;
 use App\Models\MeterBox;
@@ -66,22 +65,17 @@ class HandleInertiaRequests extends Middleware
                     'username' => $user->username,
                     'roleLabel' => __($user->role->label()),
                     'branchName' => $user->branch?->name,
-                    // Whom the account works for: every branch for someone who sees all branches' closings, however they are filed.
-                    'scopeLabel' => ! $user->isSuperAdmin() && $user->can('viewAllBranches', Closing::class) ? 'كل الفروع' : null,
                 ],
             ] : null,
             'can' => $user ? [
                 'viewBranches' => $user->can('viewAny', Branch::class),
                 'viewSubscriptions' => $user->can('viewAny', Subscription::class),
-                'searchSubscriptions' => $user->canAny(['viewAny', 'recordAnyPayment'], Subscription::class),
                 'recordPayments' => $user->can('recordAnyPayment', Subscription::class),
                 'viewLedger' => $user->can('viewAny', SubscriptionTransaction::class),
                 'viewBranchPerformance' => $user->can('viewBranchPerformance', SubscriptionTransaction::class),
                 'viewDebtAging' => $user->can('viewDebtAging', SubscriptionTransaction::class),
                 'viewTransactionAudit' => $user->can('viewTransactionAudit', SubscriptionTransaction::class),
                 'viewClosings' => $user->can('viewAny', Closing::class),
-                'viewFinancialAudit' => $user->can('viewAny', FinancialAuditStatement::class),
-                'followBranchAudit' => $user->can('viewBranchStatements', FinancialAuditStatement::class),
                 'viewUsers' => $user->can('viewAny', User::class),
                 'viewUserTypes' => $user->can('viewAny', UserType::class),
                 'viewTariffs' => $user->can('viewAny', Tariff::class),

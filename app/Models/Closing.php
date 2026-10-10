@@ -7,7 +7,6 @@ use App\Enums\ClosingMatchStatus;
 use App\Enums\ClosingStatus;
 use App\Enums\ClosingType;
 use App\Enums\PaymentMethod;
-use App\Enums\PermissionKey;
 use App\Support\ClosingPeriods;
 use Carbon\CarbonInterface;
 use Database\Factories\ClosingFactory;
@@ -18,7 +17,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -32,7 +30,7 @@ use Illuminate\Validation\ValidationException;
  */
 #[Fillable([
     'number', 'type', 'branch_id', 'period_start', 'period_end', 'status', 'opening_cash', 'counted_cash', 'denominations',
-    'difference_reason', 'difference_notes', 'prepared_by', 'submitted_at', 'reviewed_by', 'reviewed_at', 'return_reason', 'snapshot',
+    'difference_reason', 'difference_notes', 'prepared_by', 'submitted_at', 'reviewed_by', 'reviewed_at', 'return_reason',
 ])]
 class Closing extends Model
 {
@@ -45,7 +43,6 @@ class Closing extends Model
     protected function casts(): array
     {
         return [
-            'snapshot' => 'array',
             'type' => ClosingType::class,
             'status' => ClosingStatus::class,
             'period_start' => 'date',
@@ -59,34 +56,9 @@ class Closing extends Model
         ];
     }
 
-    protected static function booted(): void
-    {
-        static::updating(function (self $closing): void {
-            if ($closing->getRawOriginal('snapshot') !== null && $closing->isDirty()) {
-                throw ValidationException::withMessages(['period' => 'لقطة الإغلاق ثابتة ولا يمكن تعديلها.']);
-            }
-        });
-        static::deleting(function (self $closing): void {
-            if ($closing->snapshot !== null || ($closing->type === ClosingType::Weekly && $closing->status === ClosingStatus::Approved)) {
-                throw ValidationException::withMessages(['period' => 'لا يمكن حذف إغلاق أسبوعي معتمد.']);
-            }
-        });
-    }
-
-    public function snapshotLines(): HasMany
-    {
-        return $this->hasMany(ClosingSnapshotLine::class);
-    }
-
-    public function period(): HasOne
-    {
-        return $this->hasOne(ClosingPeriod::class);
-    }
-
     /**
      * The branch's daily closing for the business day, created the first
-     * time anyone opens it: after the day is over, or earlier on the day
-     * itself when the branch closes it by hand.
+     * time anyone opens it after the day is over.
      */
     public static function dailyFor(Branch $branch, CarbonInterface|string $day): self
     {
@@ -111,32 +83,13 @@ class Closing extends Model
                     'period_end' => $day->toDateString(),
                     'status' => ClosingStatus::Draft,
                 ]);
-                $closing->record(null, 'created', ClosingPeriods::hasEnded($day)
-                    ? "أُنشئ الكشف {$closing->number} تلقائيًا عند وقت القطع"
-                    : "أُنشئ الكشف {$closing->number} قبل وقت القطع لإقفال اليوم يدويًا");
+                $closing->record(null, 'created', "أُنشئ الكشف {$closing->number} تلقائيًا عند وقت القطع");
 
                 return $closing;
             });
         } catch (UniqueConstraintViolationException) {
             return $find();
         }
-    }
-
-    /**
-     * Whether the branch has already sent its closing for the business day
-     * the moment falls in (or had it approved). A branch can send its day
-     * before the cut-off, and from then until the cut-off that day takes
-     * no more payments, refunds or cash handed over: the closing would miss
-     * them, or its cash would change after it was counted.
-     */
-    public static function isSealed(int $branchId, CarbonInterface|string $moment): bool
-    {
-        return static::query()
-            ->where('type', ClosingType::Daily)
-            ->where('branch_id', $branchId)
-            ->whereDate('period_start', ClosingPeriods::dayOf($moment))
-            ->whereIn('status', [ClosingStatus::Submitted->value, ClosingStatus::Approved->value])
-            ->exists();
     }
 
     /**
@@ -440,13 +393,11 @@ class Closing extends Model
      *
      * @return array<int, string>
      */
-    public function submissionBlockers(?User $actor = null): array
+    public function submissionBlockers(): array
     {
         $blockers = [];
 
-        if ($this->period_end->toDateString() > ClosingPeriods::today()->toDateString()) {
-            $blockers[] = 'هذا اليوم لم يبدأ بعد.';
-        } elseif (! ClosingPeriods::hasEnded($this->period_end) && ! (ClosingSetting::current()->allow_early_close && $actor?->hasPermission(PermissionKey::CloseDayEarly))) {
+        if (! ClosingPeriods::hasEnded($this->period_end)) {
             $blockers[] = 'اليوم لم ينتهِ بعد؛ يُرسل الكشف بعد وقت القطع.';
         }
 
@@ -470,7 +421,7 @@ class Closing extends Model
         $this->ensureEditable();
         $this->syncPayments();
 
-        if ($blockers = $this->submissionBlockers($actor)) {
+        if ($blockers = $this->submissionBlockers()) {
             throw ValidationException::withMessages(['closing' => $blockers[0]]);
         }
 
@@ -481,7 +432,7 @@ class Closing extends Model
             'prepared_by' => $actor->id,
             'submitted_at' => now(),
         ]);
-        $this->record($actor, 'submitted', $resubmitted ? 'أُعيد إرسال الكشف لاعتماد إقفال الفرع بعد التصحيح' : 'أُرسل الكشف لاعتماد إقفال الفرع');
+        $this->record($actor, 'submitted', $resubmitted ? 'أُعيد إرسال الكشف للتدقيق بعد التصحيح' : 'أُرسل الكشف للتدقيق');
     }
 
     /**

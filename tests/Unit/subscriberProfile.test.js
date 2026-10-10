@@ -101,7 +101,7 @@ test('profile shows actual credit and status without inventing disconnection rea
     const html = renderProfile({ status: 'disconnected', statusLabel: 'مفصول', outstandingBalance: '-25.50' });
 
     assert.match(html, /25\.50 ₪/);
-    assert.match(html, /<em>رصيد للمشترك<\/em>/);
+    assert.match(html, /<em>له<\/em>/);
     assert.match(html, /الاشتراك مفصول/);
     assert.doesNotMatch(html, /تأخر بالدفع|14 يوم|377/);
 });

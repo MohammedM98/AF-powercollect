@@ -1,11 +1,8 @@
-import DatePicker from '@/Components/DatePicker';
-import SelectInput from '@/Components/SelectInput';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
-import FinancialBalance, { FinancialLegend, transactionMoneyClass } from '@/Components/FinancialBalance';
 import { COMPANY_NAME } from '@/Layouts/GuestLayout';
 import {
     chainColor,
@@ -21,7 +18,7 @@ import {
 } from '@/lib/accountStatement';
 import { downloadCsv } from '@/lib/csv';
 import { formatAmount } from '@/lib/currency';
-import { formatMoney, formatNumericDate } from '@/lib/format';
+import { formatMoney } from '@/lib/format';
 import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 
 const COLUMNS = [
@@ -256,8 +253,6 @@ function actionItem(entry, action) {
             icon: 'repeat',
             tone: 'brand',
         },
-        correction: { label: 'تصحيح في الأسبوع المفتوح', description: 'تسوية مرتبطة تحفظ الأصل دون تحصيل جديد', icon: 'pencil', tone: 'amber' },
-        reverse: { label: 'إلغاء الأثر في الأسبوع المفتوح', description: 'قيد عكسي دون حذف الأصل أو إرجاع أموال', icon: 'repeat', tone: 'brand' },
     }[action];
 }
 
@@ -306,7 +301,7 @@ function lineActionsMenu(entry, onAction) {
     return groups.length
         ? {
               title: entry.description,
-              subtitle: formatNumericDate(entry.date),
+              subtitle: entry.date,
               width: 410,
               groups,
           }
@@ -404,6 +399,8 @@ function StatementRow({
     onJump,
     onAction,
 }) {
+    const balanceInCents = Math.round(Number(entry.balance) * 100);
+    const balanceColor = balanceInCents < 0 ? 'text-red-700 dark:text-red-400' : balanceInCents > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900';
     const showsHistory = isCompact && !isHistory && entry.history?.length > 0;
     const color = chainColor(chain);
 
@@ -442,7 +439,7 @@ function StatementRow({
                 ) : <Dash />}
             </td>
             <td data-label="تاريخ الحركة" className="whitespace-nowrap tabular-nums text-gray-600">
-                <span dir="ltr">{formatNumericDate(entry.date)}</span>
+                <span dir="ltr">{entry.date}</span>
             </td>
             <td data-label="البيان" className="font-medium text-gray-900">
                 <div className="ledger-description">
@@ -455,10 +452,6 @@ function StatementRow({
                     </p>
                 )}
                 {entry.discountLine && <ReadingDiscountNote discountLine={entry.discountLine} />}
-                {entry.closingAdjustment && <p className="ledger-description mt-1 text-xs text-amber-700 dark:text-amber-400">
-                    <button type="button" className="font-semibold hover:underline" onClick={() => onJump(entry.closingAdjustment.originalId)}>مرتبطة بالحركة #{entry.closingAdjustment.originalLineNumber ?? entry.closingAdjustment.originalId} ↑</button>
-                    {' · '}{Number(entry.closingAdjustment.cashEffect) === 0 ? 'دون حركة أموال فعلية' : 'إرجاع أموال فعلي في الفترة الحالية'}
-                </p>}
                 {entry.cancellation && <CancellationNote cancellation={entry.cancellation} onJump={onJump} />}
                 {entry.reverses && <ReversalNote entry={entry} reverses={entry.reverses} onJump={onJump} />}
                 {entry.linkedReversal && <LinkedReversalNote reversal={entry.linkedReversal} onJump={onJump} />}
@@ -470,7 +463,7 @@ function StatementRow({
             </td>
             <td
                 data-label="المبلغ"
-                className={`font-display font-semibold tabular-nums ${transactionMoneyClass(entry)}`}
+                className={`font-display font-semibold tabular-nums ${entry.isCredit ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900'}`}
             >
                 {entry.discountLine ? (
                     <span className="grid gap-0.5">
@@ -490,7 +483,7 @@ function StatementRow({
             </td>
             <td data-label="نوع الحركة">
                 <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <StatusPill tone="gray" label={entry.isCredit ? 'له' : 'عليه'} />
+                    <StatusPill tone={entry.isCredit ? 'green' : 'red'} label={entry.isCredit ? 'له' : 'عليه'} />
                     <span className="font-medium text-gray-900">{entry.typeLabel}</span>
                     {entry.discountLine && <span className="text-xs text-emerald-700 dark:text-emerald-400">بعد خصم القراءة الأسبوعية</span>}
                     {entry.cancellation && (
@@ -516,7 +509,7 @@ function StatementRow({
                         <Dash />
                     </span>
                 ) : (
-                    <FinancialBalance value={entry.balance} />
+                    <b className={`font-display tabular-nums ${balanceColor}`}><bdi dir="ltr">{formatMoney(entry.balance)}</bdi></b>
                 )}
             </td>
             <td data-label="اسم المستخدم" className="text-gray-700">
@@ -692,7 +685,6 @@ export default function AccountStatement({ subscription, entries, summary, payme
                     label="الرصيد الحالي"
                     value={<><bdi dir="ltr">{formatMoney(summary.balance)}</bdi> شيكل</>}
                     tone={balanceInCents < 0 ? 'subscriber' : balanceInCents > 0 ? 'company' : 'default'}
-                    hint={balanceInCents < 0 ? 'رصيد لصالح المشترك' : balanceInCents > 0 ? 'مستحق للشركة، لم يُحصّل بعد' : 'الحساب مسدّد'}
                     className="sm:col-span-2 lg:col-span-1"
                 />
                 <SummaryCard
@@ -710,15 +702,16 @@ export default function AccountStatement({ subscription, entries, summary, payme
                     label="مجموع الخصومات"
                     value={`${formatAmount(summary.discounted)} شيكل`}
                     hint={`عدد الخصومات: ${summary.discountsCount}`}
+                    tone="paid"
                 />
                 <SummaryCard
                     label="مجموع المقاصات"
                     value={`${formatAmount(summary.cleared)} شيكل`}
                     hint={`عدد المقاصات: ${summary.clearingsCount}`}
+                    tone="paid"
                 />
             </div>
 
-            <div className="mb-6"><FinancialLegend /></div>
             <div className="data-table-toolbar">
                 <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
                     <div role="group" aria-label="طريقة العرض" className="me-auto inline-flex rounded-control border border-gray-100 bg-gray-50 p-0.5">
@@ -771,7 +764,7 @@ export default function AccountStatement({ subscription, entries, summary, payme
                     </label>
                     <label className="block text-sm text-gray-600">
                         نوع الحركة
-                        <SelectInput value={filters.type} onChange={(e) => setFilter('type', e.target.value)} className="mt-1 block w-full text-sm">
+                        <select value={filters.type} onChange={(e) => setFilter('type', e.target.value)} className="mt-1 block w-full text-sm">
                             <option value="">الكل</option>
                             <option value="debit">كل ما عليه (تحميل)</option>
                             <option value="credit">كل ما له (تسديد وخصم)</option>
@@ -780,22 +773,22 @@ export default function AccountStatement({ subscription, entries, summary, payme
                                     {type.label}
                                 </option>
                             ))}
-                        </SelectInput>
+                        </select>
                     </label>
                     <label className="block text-sm text-gray-600">
                         طريقة الدفع
-                        <SelectInput value={filters.method} onChange={(e) => setFilter('method', e.target.value)} className="mt-1 block w-full text-sm">
+                        <select value={filters.method} onChange={(e) => setFilter('method', e.target.value)} className="mt-1 block w-full text-sm">
                             <option value="">الكل</option>
                             {paymentMethods.map((method) => (
                                 <option key={method.value} value={method.value}>
                                     {method.label}
                                 </option>
                             ))}
-                        </SelectInput>
+                        </select>
                     </label>
                     <label className="block text-sm text-gray-600">
                         من تاريخ
-                        <DatePicker
+                        <input
                             type="date"
                             value={filters.dateFrom}
                             max={filters.dateTo || undefined}
@@ -805,7 +798,7 @@ export default function AccountStatement({ subscription, entries, summary, payme
                     </label>
                     <label className="block text-sm text-gray-600">
                         إلى تاريخ
-                        <DatePicker
+                        <input
                             type="date"
                             value={filters.dateTo}
                             min={filters.dateFrom || undefined}

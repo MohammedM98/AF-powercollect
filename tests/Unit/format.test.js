@@ -5,7 +5,6 @@ import {
     formatDayLabel,
     formatMoney,
     formatNumber,
-    formatNumericDate,
     formatShortDay,
     initials,
     normalizeDecimalInput,
@@ -78,18 +77,4 @@ test('wall-clock times read as 12-hour Arabic times', () => {
     assert.equal(formatClock('17:05'), '5:05 م');
     assert.equal(formatClock('00:30'), '12:30 ص');
     assert.equal(formatClock('12:00'), '12:00 م');
-});
-
-test('a stored date is written the way the date fields and the financial log write it', () => {
-    assert.equal(formatNumericDate('2026-08-12'), '12/08/2026');
-    assert.equal(formatNumericDate('2026-08-12 11:42'), '12/08/2026 11:42');
-    assert.equal(formatNumericDate('2026-08-12T11:42:00'), '12/08/2026T11:42:00');
-});
-
-test('something that is not a stored date is shown as it is', () => {
-    assert.equal(formatNumericDate(''), '');
-    assert.equal(formatNumericDate(null), '');
-    assert.equal(formatNumericDate(undefined), '');
-    assert.equal(formatNumericDate('12/08/2026'), '12/08/2026');
-    assert.equal(formatNumericDate('منذ يومين'), 'منذ يومين');
 });

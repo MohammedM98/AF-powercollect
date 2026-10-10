@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { Link, router, usePage } from '@inertiajs/react';
-import ConfirmDialog from '@/Components/ConfirmDialog';
+import { router, usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
-import { SendAuditButton } from '@/Pages/FinancialAudit/Shared';
 import { weekDayName } from '@/lib/weekDays';
 import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 import { cashCheck, closingMoney, closingSteps, countedCash, hasCount, paymentsCount, shortDate, statusClass } from '@/lib/closing';
@@ -37,7 +35,6 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
     const [notes, setNotes] = useState(closing.differenceNotes ?? '');
     const [busy, setBusy] = useState(false);
     const [returning, setReturning] = useState(false);
-    const [confirmingEarly, setConfirmingEarly] = useState(false);
     const [returnReason, setReturnReason] = useState('');
     const counted = hasCount(denominations) || closing.cash.counted !== null ? countedCash(denominations) : null;
     const check = counted === null ? null : cashCheck(counted, closing.cash.expected);
@@ -67,7 +64,6 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
     }
 
     function submit() {
-        setConfirmingEarly(false);
         const send = () => router.post(`/closings/${closing.id}/submit`, {}, options);
 
         countChanged ? saveCount(send) : send();
@@ -79,14 +75,14 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
 
     function sendBack(event) {
         event.preventDefault();
-        router.post(`/closings/${closing.id}/branch-return`, { reason: returnReason }, { ...options, onSuccess: () => setReturning(false) });
+        router.post(`/closings/${closing.id}/return`, { reason: returnReason }, { ...options, onSuccess: () => setReturning(false) });
     }
 
     return (
         <>
             <section className="hero">
                 <div>
-                    <small className="k">كشف إقفال الصندوق اليومي</small>
+                    <small className="k">كشف إغلاق يومي</small>
                     <h2>
                         رقم <span className="no">{closing.number}</span>
                     </h2>
@@ -113,7 +109,7 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                 </div>
                 <div className="tot">
                     <span>إجمالي التحصيل المؤكد</span>
-                    <b style={{ color: Number(closing.total) > 0 ? '#6ee7b7' : undefined }}>{closingMoney(closing.total)} ₪</b>
+                    <b>{closingMoney(closing.total)} ₪</b>
                     <span>{paymentsCount(closing.lines.length)} مؤكدة · تفاصيل كل دفعة أدناه</span>
                     {closing.unconfirmed.length > 0 && (
                         <span className="pend">
@@ -236,7 +232,7 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                                                 {line.splitPayment && <div><SplitPaymentBadge split={line.splitPayment} /></div>}
                                             </td>
                                             <td className="c-am">
-                                                <span className="pam !text-emerald-700 dark:!text-emerald-400">{closingMoney(line.amount)} ₪</span>
+                                                <span className="pam">{closingMoney(line.amount)} ₪</span>
                                             </td>
                                             <td className="c-mt">
                                                 {line.matchStatus === null ? (
@@ -351,7 +347,7 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                                     <span>
                                         إرجاع دفعة{refund.voucherNumber ? ` · سند ${refund.voucherNumber}` : ''} · {refund.subscriptionName} · {refund.time}
                                     </span>
-                                    <b className="!text-red-700 dark:!text-red-400">{closingMoney(refund.amount)}</b>
+                                    <b>{closingMoney(refund.amount)}</b>
                                 </div>
                             ))}
                             <div className="row">
@@ -492,13 +488,13 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                             <button type="button" className="btn" disabled={busy || !countChanged || counted === null} onClick={() => saveCount()}>
                                 حفظ المسودة
                             </button>
-                            <button type="button" className="btn pr" disabled={busy || checks.some((item) => !item.done)} onClick={() => (closing.dayOpen ? setConfirmingEarly(true) : submit())}>
+                            <button type="button" className="btn pr" disabled={busy || checks.some((item) => !item.done)} onClick={submit}>
                                 <Icon name="send" />
-                                {closing.status === 'returned' ? 'إعادة الإرسال لاعتماد الفرع' : 'إرسال لاعتماد إقفال الفرع'}
+                                {closing.status === 'returned' ? 'إعادة الإرسال للتدقيق' : 'إرسال للتدقيق'}
                             </button>
                         </>
                     )}
-                    {closing.status === 'submitted' && closing.can.approveBranch && (
+                    {closing.status === 'submitted' && closing.can.audit && (
                         <>
                             <button type="button" className="btn dg" disabled={busy} onClick={() => setReturning(true)}>
                                 <Icon name="undo" />
@@ -507,18 +503,19 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                             <button
                                 type="button"
                                 className="btn ok2"
-                                disabled={busy}
-                                onClick={() => router.post(`/closings/${closing.id}/branch-approve`, {}, options)}
+                                disabled={busy || !closing.can.approve}
+                                title={closing.can.approve ? undefined : 'أعددت هذا الكشف، فيعتمده مدقق آخر'}
+                                onClick={() => router.post(`/closings/${closing.id}/approve`, {}, options)}
                             >
                                 <Icon name="check" />
-                                اعتماد إقفال الفرع
+                                اعتماد الكشف
                             </button>
                         </>
                     )}
-                    {closing.status === 'submitted' && !closing.can.approveBranch && (
+                    {closing.status === 'submitted' && !closing.can.audit && (
                         <span className="wait">
                             <Icon name="clock" />
-                            بانتظار اعتماد الفرع من شخص آخر مخوّل
+                            بانتظار المدقق
                         </span>
                     )}
                     {['draft', 'returned'].includes(closing.status) && !closing.can.prepare && (
@@ -529,8 +526,6 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                     )}
                     {closing.status === 'approved' && (
                         <>
-                            {closing.can.sendToAudit && <SendAuditButton branchId={closing.branchId} type="daily" date={closing.day} />}
-                            {closing.auditStatement && <Link href={`/financial-audit/statements/${closing.auditStatement.id}`} className="btn"><Icon name="shield" />متابعة الكشف المرسل للتدقيق</Link>}
                             <button type="button" className="btn" onClick={() => window.print()}>
                                 <Icon name="printer" />
                                 طباعة الكشف
@@ -581,17 +576,6 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                     </form>
                 </div>
             )}
-
-            <ConfirmDialog
-                show={confirmingEarly}
-                onCancel={() => setConfirmingEarly(false)}
-                onConfirm={submit}
-                title="إقفال اليوم قبل وقت القطع؟"
-                message={`سيُرسل الكشف الآن، ولن تُسجَّل دفعات أو مبالغ مستردة لهذا الفرع حتى وقت القطع (${closing.closesAt}) إلا إذا أعاد المدقق الكشف للتصحيح. تأكد أن عمل اليوم انتهى.`}
-                confirmLabel="نعم، أقفل اليوم"
-                cancelLabel="رجوع"
-                icon="lock"
-            />
         </>
     );
 }
@@ -659,22 +643,22 @@ function StatusBanner({ closing, userId }) {
     }
 
     if (closing.status === 'submitted') {
-        return closing.can.approveBranch ? (
+        return closing.can.audit ? (
             <div className="ban inf">
                 <Icon name="shield" />
                 <div>
-                    <b>الكشف بانتظار اعتماد إقفال الفرع</b>
+                    <b>الكشف بانتظار تدقيقك</b>
                     {closing.preparedById === userId
-                        ? 'أعددت هذا الكشف بنفسك، فيعتمده شخص آخر مخوّل في الفرع.'
-                        : `أعدّه ${closing.preparedBy ?? 'المحاسب'}. راجع عدّ النقد والمطابقة، ثم اعتمد إقفال الفرع أو أعد المسودة للتصحيح.`}
+                        ? 'أعددت هذا الكشف بنفسك، فيعتمده مدقق آخر. يمكنك إرجاعه للتصحيح.'
+                        : `أعدّه ${closing.preparedBy ?? 'المحاسب'}، وأنت شخص مختلف عن مُعدّه ✓. راجع الدفعات وعدّ النقد والفرق، ثم اعتمد أو أرجِع مع السبب.`}
                 </div>
             </div>
         ) : (
             <div className="ban inf">
                 <Icon name="send" />
                 <div>
-                    <b>بانتظار اعتماد إقفال الفرع</b>
-                    المسودة بانتظار شخص آخر مخوّل في الفرع. بعد الاعتماد يمكنك إرسال نسخة ثابتة إلى التدقيق المالي.
+                    <b>أُرسل للتدقيق</b>
+                    الكشف مقفل حتى يعتمده المدقق أو يعيده إليك.
                 </div>
             </div>
         );
@@ -685,29 +669,15 @@ function StatusBanner({ closing, userId }) {
             <div className="ban ok">
                 <Icon name="lock" />
                 <div>
-                    <b>إقفال الفرع معتمد</b>
+                    <b>معتمد ومحمي من التعديل المباشر</b>
                     اعتمده {closing.reviewedBy} في <span className="num">{closing.reviewedAt}</span>. أي تصحيح لاحق يكون حركة موثّقة مرتبطة بهذا
                     الكشف.
-                    {closing.dayOpen && <> أُقفل اليوم قبل وقت القطع، فيُسلَّم النقد للشركة بعد {closing.closesAt}.</>}
                 </div>
             </div>
         );
     }
 
-    if (closing.can.prepare) {
-        return closing.dayOpen ? (
-            <div className="ban inf">
-                <Icon name="clock" />
-                <div>
-                    <b>اليوم لم ينتهِ بعد</b>
-                    يُقفل تلقائيًا عند <span className="num">{closing.closesAt}</span>. إن انتهى عمل الفرع يمكنك عدّ الصندوق وإرسال الكشف الآن؛ ولن تُسجَّل دفعات
-                    للفرع بعد ذلك حتى وقت القطع.
-                </div>
-            </div>
-        ) : null;
-    }
-
-    return (
+    return closing.can.prepare ? null : (
         <div className="ban inf">
             <Icon name="info" />
             <div>

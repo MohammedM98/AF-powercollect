@@ -5,11 +5,9 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchPerformanceController;
 use App\Http\Controllers\CashTransferController;
 use App\Http\Controllers\CircuitBreakerController;
-use App\Http\Controllers\ClosingAdjustmentController;
 use App\Http\Controllers\ClosingController;
 use App\Http\Controllers\ClosingScheduleController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\FinancialAuditController;
 use App\Http\Controllers\GovernorateController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MessageController;
@@ -39,7 +37,6 @@ use App\Http\Controllers\SubscriptionDiscountController;
 use App\Http\Controllers\SubscriptionPaymentController;
 use App\Http\Controllers\SubscriptionPersonalDetailsController;
 use App\Http\Controllers\SubscriptionPhoneController;
-use App\Http\Controllers\SubscriptionSearchController;
 use App\Http\Controllers\SubscriptionStandingDiscountController;
 use App\Http\Controllers\SubscriptionStatementController;
 use App\Http\Controllers\SubscriptionTransactionController;
@@ -48,7 +45,6 @@ use App\Http\Controllers\TariffSegmentController;
 use App\Http\Controllers\TransactionAuditController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserTypeController;
-use App\Http\Controllers\WeeklyClosingAuditController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -63,8 +59,6 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile/devices', [ProfileDeviceController::class, 'destroy'])->middleware('throttle:6,1')->name('profile.devices.destroy');
 
-    Route::get('/search/subscriptions', [SubscriptionSearchController::class, 'index'])->middleware('throttle:60,1')->name('search.subscriptions');
-
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/search', [PaymentController::class, 'search'])->name('payments.search');
     Route::post('/payments/split', [SplitPaymentController::class, 'store'])->name('payments.split.store');
@@ -74,15 +68,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/transaction-audit', [TransactionAuditController::class, 'index'])->name('transaction-audit.index');
 
     Route::get('/closings', [ClosingController::class, 'index'])->name('closings.index');
-    Route::get('/financial-audit', [FinancialAuditController::class, 'index'])->name('financial-audit.index');
-    Route::get('/closings/audit-statements', [FinancialAuditController::class, 'branchIndex'])->name('financial-audit.branch');
-    Route::post('/financial-audit/statements', [FinancialAuditController::class, 'store'])->name('financial-audit.store');
-    Route::get('/financial-audit/statements/{statement}', [FinancialAuditController::class, 'show'])->name('financial-audit.show');
-    Route::put('/financial-audit/statements/{statement}/lines/{line}', [FinancialAuditController::class, 'review'])->name('financial-audit.review');
-    Route::post('/financial-audit/statements/{statement}/lines/{line}/response', [FinancialAuditController::class, 'respond'])->name('financial-audit.respond');
-    Route::post('/financial-audit/statements/{statement}/approve', [FinancialAuditController::class, 'approve'])->name('financial-audit.approve');
-    Route::post('/closings/{closing}/branch-approve', [FinancialAuditController::class, 'approveBranch'])->name('closings.branch-approve');
-    Route::post('/closings/{closing}/branch-return', [FinancialAuditController::class, 'returnToPreparer'])->name('closings.branch-return');
     Route::get('/closings/register.csv', [ClosingController::class, 'export'])->name('closings.export');
     Route::get('/settings/closing-schedule', [ClosingScheduleController::class, 'edit'])->name('settings.closing-schedule.edit');
     Route::put('/settings/closing-schedule', [ClosingScheduleController::class, 'update'])->name('settings.closing-schedule.update');
@@ -96,8 +81,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/cash-transfers/{transfer}/receive', [CashTransferController::class, 'receive'])->name('cash-transfers.receive');
     Route::get('/cash-transfers/{transfer}/proof', [CashTransferController::class, 'proof'])->name('cash-transfers.proof');
     Route::post('/period-closings', [PeriodClosingController::class, 'store'])->name('period-closings.store');
-    Route::put('/closing-periods/{period}/audit', [WeeklyClosingAuditController::class, 'update'])->name('closing-periods.audit');
-    Route::post('/subscriptions/{subscription}/transactions/{transaction}/closing-adjustments', [ClosingAdjustmentController::class, 'store'])->scopeBindings()->name('closing-adjustments.store');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/lines.csv', [ReportController::class, 'export'])->name('reports.export');
     Route::get('/branch-performance', [BranchPerformanceController::class, 'index'])->name('branch-performance.index');

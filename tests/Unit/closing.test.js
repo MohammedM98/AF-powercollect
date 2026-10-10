@@ -9,7 +9,6 @@ import {
     countedCash,
     hasCount,
     monthName,
-    monthOf,
     paymentsCount,
     weekOf,
 } from '../../resources/js/lib/closing.js';
@@ -60,7 +59,4 @@ test('the cut-off and week start shape the business day and week', () => {
     assert.equal(businessDayHours('18:00'), 'من الساعة 18:00 في اليوم السابق حتى الساعة 18:00');
     assert.deepEqual(weekOf('2026-09-30', 6), ['2026-09-26', '2026-09-27', '2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02']);
     assert.equal(weekOf('2026-09-30', 0)[0], '2026-09-27');
-    assert.deepEqual(monthOf('2026-09-30'), ['2026-09-01', '2026-09-30']);
-    assert.deepEqual(monthOf('2028-02-10'), ['2028-02-01', '2028-02-29']);
-    assert.deepEqual(monthOf('2026-12-05'), ['2026-12-01', '2026-12-31']);
 });

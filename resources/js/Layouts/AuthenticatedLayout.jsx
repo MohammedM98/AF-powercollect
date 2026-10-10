@@ -38,8 +38,7 @@ function useIsDesktop() {
 
 /** The app name without the "AF" the logo already shows. */
 function shortAppName(appName) {
-    const name = (appName ?? '').trim();
-    return !name || name.toLowerCase() === 'laravel' ? 'PowerCollect' : name.replace(/^AF\s+/i, '');
+    return (appName ?? '').replace(/^AF\s+/i, '');
 }
 
 /**
@@ -133,7 +132,6 @@ function NavigationGroup({ group, url, collapsed, onHover }) {
 function SidebarContent({ collapsed = false, onNavigate, onClose }) {
     const { props, url } = usePage();
     const { appName, auth, can } = props;
-    const displayName = shortAppName(appName);
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     const dashboardLink = MAIN_LINKS[0];
     const navigationGroups = allowedNavigationGroups(can);
@@ -163,18 +161,18 @@ function SidebarContent({ collapsed = false, onNavigate, onClose }) {
             <Link
                 href="/dashboard"
                 prefetch
-                title={collapsed ? displayName : undefined}
+                title={collapsed ? appName : undefined}
                 className={`flex shrink-0 items-center rounded-lg py-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-gray-900 ${collapsed ? 'justify-center px-3' : 'gap-3 px-6'}`}
             >
-                <img src="/images/logo-af.webp" alt={displayName} className={`w-auto shrink-0 ${collapsed ? 'h-9' : 'h-11'}`} />
+                <img src="/images/logo-af.webp" alt={appName} className={`w-auto shrink-0 ${collapsed ? 'h-9' : 'h-11'}`} />
                 {!collapsed && (
                     <>
                         <span className="h-9 w-px bg-gray-200" aria-hidden="true" />
                         <span className="min-w-0">
                             {/* dir="auto": a Latin name is clipped at its end, not at its start as the Arabic page direction would. */}
                             <span dir="auto" className="block truncate text-right text-lg font-bold leading-tight text-gray-900">{shortAppName(appName)}</span>
-                            <span dir="auto" title={auth?.user?.scopeLabel ?? auth?.user?.branchName ?? undefined} className="line-clamp-2 break-words text-right text-xs text-gray-500">
-                                {auth?.user?.scopeLabel ?? auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}
+                            <span dir="auto" title={auth?.user?.branchName ?? undefined} className="line-clamp-2 break-words text-right text-xs text-gray-500">
+                                {auth?.user?.branchName ?? 'نظام التحصيل الكهربائي'}
                             </span>
                         </span>
                     </>
@@ -353,7 +351,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         <Icon name={isDesktop ? 'sidebar' : 'menu'} className="h-5 w-5" />
                     </button>
                     <Link href="/dashboard" prefetch className="shrink-0 lg:hidden">
-                        <img src="/images/logo-af.webp" alt={shortAppName(appName)} className="h-9 w-auto" />
+                        <img src="/images/logo-af.webp" alt={appName} className="h-9 w-auto" />
                     </Link>
 
                     <button
@@ -362,7 +360,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         className="flex min-w-0 max-w-sm flex-1 items-center gap-2.5 rounded-control border border-gray-200 bg-surface px-3.5 py-2.5 text-start text-sm text-gray-400 shadow-sm transition hover:border-gray-300"
                     >
                         <Icon name="search" className="h-[18px] w-[18px] shrink-0" />
-                        <span className="flex-1 truncate">{can?.searchSubscriptions ? 'ابحث عن مشترك أو انتقل إلى صفحة...' : 'ابحث أو انتقل إلى صفحة...'}</span>
+                        <span className="flex-1 truncate">ابحث أو انتقل إلى صفحة...</span>
                         <span className="kbd hidden shrink-0 sm:inline-flex" dir="ltr">
                             Ctrl K
                         </span>
@@ -378,7 +376,7 @@ export default function AuthenticatedLayout({ header, children }) {
                 </main>
             </div>
 
-            <CommandPalette open={paletteOpen} onOpenChange={onPaletteOpenChange} links={paletteLinks} canSearchSubscribers={Boolean(can?.searchSubscriptions)} />
+            <CommandPalette open={paletteOpen} onOpenChange={onPaletteOpenChange} links={paletteLinks} />
         </div>
     );
 }

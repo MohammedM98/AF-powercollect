@@ -1,26 +1,44 @@
 .reading-schedule {
-    --rs-surface: rgb(var(--surface));
-    --rs-raised: rgb(var(--ui-raised));
-    --rs-sunken: rgb(var(--ui-sunken));
-    --rs-line: rgb(var(--ui-line));
-    --rs-line2: rgb(var(--ui-line-soft));
-    --rs-ink: rgb(var(--ui-ink));
-    --rs-ink2: rgb(var(--ui-ink-2));
-    --rs-faint: rgb(var(--ui-faint));
+    --rs-surface: #fff;
+    --rs-raised: #f7f8fa;
+    --rs-sunken: #f2f3f5;
+    --rs-line: #e2e5e9;
+    --rs-line2: #eceef1;
+    --rs-ink: #111820;
+    --rs-ink2: #353c46;
+    --rs-faint: #5e6773;
     --rs-brand: #a51d26;
-    --rs-success: rgb(var(--ui-success));
-    --rs-success-t: var(--ui-success-t);
-    --rs-info: rgb(var(--ui-info));
-    --rs-info-t: var(--ui-info-t);
-    --rs-warn: rgb(var(--ui-warn));
-    --rs-warn-t: var(--ui-warn-t);
-    --rs-shadow: var(--ui-shadow);
-    --rs-hero: var(--ui-hero);
+    --rs-success: #047857;
+    --rs-success-t: #0478571a;
+    --rs-info: #1d5bcc;
+    --rs-info-t: #1d5bcc14;
+    --rs-warn: #b45309;
+    --rs-warn-t: #b453091a;
+    --rs-shadow: 0 1px 2px #10182808, 0 14px 34px -18px #1018282e;
+    --rs-hero: linear-gradient(135deg, #262c34, #1c2127 55%, #111418);
     max-width: 1320px;
     margin: 0 auto;
     padding-bottom: 120px;
     color: var(--rs-ink);
     font: 16px/1.6 'IBM Plex Sans Arabic', system-ui, sans-serif;
+}
+.dark .reading-schedule {
+    --rs-surface: #14171c;
+    --rs-raised: #1b1f25;
+    --rs-sunken: #101317;
+    --rs-line: #343a44;
+    --rs-line2: #252a32;
+    --rs-ink: #f4f5f7;
+    --rs-ink2: #e0e3e7;
+    --rs-faint: #8b94a0;
+    --rs-success: #34d399;
+    --rs-success-t: #34d3991a;
+    --rs-info: #7dafe8;
+    --rs-info-t: #7dafe81a;
+    --rs-warn: #fbbf24;
+    --rs-warn-t: #fbbf241a;
+    --rs-shadow: 0 20px 40px -24px #000;
+    --rs-hero: linear-gradient(135deg, #1c2127, #161a1f 55%, #0b0d10);
 }
 .reading-schedule button, .reading-schedule input { font: inherit; }
 .reading-schedule button:disabled { opacity: .5; cursor: default; }

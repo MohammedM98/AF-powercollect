@@ -1,4 +1,3 @@
-import SelectInput from '@/Components/SelectInput';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
@@ -189,13 +188,13 @@ export default function PrintDesigner({ settings, children }) {
                     <label className="flex items-center gap-2 text-sm text-gray-600">
                         <Icon name="search" className="h-4 w-4" />
                         <span className="sr-only sm:not-sr-only">التكبير</span>
-                        <SelectInput value={zoom} onChange={(e) => setZoom(e.target.value)} className="!py-1.5 text-sm" aria-label="تكبير المعاينة">
+                        <select value={zoom} onChange={(e) => setZoom(e.target.value)} className="!py-1.5 text-sm" aria-label="تكبير المعاينة">
                             {ZOOMS.map((option) => (
                                 <option key={option.value} value={option.value}>
                                     {option.label}
                                 </option>
                             ))}
-                        </SelectInput>
+                        </select>
                     </label>
                     <PrimaryButton type="button" onClick={() => window.print()} disabled={!layout} autoFocus>
                         <Icon name="printer" className="h-4 w-4" />

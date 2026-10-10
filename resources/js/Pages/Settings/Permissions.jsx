@@ -1,4 +1,3 @@
-import SelectInput from '@/Components/SelectInput';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
@@ -189,7 +188,7 @@ function EmployeeList({ users, selectedId, selectedDirty, templates, filters, fi
                     </div>
                 )}
                 {branchGroup && (
-                    <SelectInput
+                    <select
                         value={filterValues.branch_id ?? ''}
                         onChange={(event) => onFilterChange('branch_id', event.target.value)}
                         aria-label={branchGroup.label}
@@ -201,7 +200,7 @@ function EmployeeList({ users, selectedId, selectedDirty, templates, filters, fi
                                 {option.label}
                             </option>
                         ))}
-                    </SelectInput>
+                    </select>
                 )}
             </div>
 
@@ -957,7 +956,7 @@ export default function Permissions({ users, selectedUser, permissionGroups, rol
         <SettingsLayout
             header={
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">إدارة صلاحيات الموظفين</h1>
+                    <h2 className="text-3xl font-bold text-gray-900">إدارة صلاحيات الموظفين</h2>
                     <p className="mt-1 text-sm text-gray-500">اختر موظفًا، وحدّد الإجراءات المسموحة، ثم راجع التغييرات وأكّد حفظها.</p>
                 </div>
             }

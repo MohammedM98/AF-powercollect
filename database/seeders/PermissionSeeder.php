@@ -16,6 +16,10 @@ class PermissionSeeder extends Seeder
         $currentKeys = array_map(fn (PermissionKey $key) => $key->value, PermissionKey::cases());
 
         foreach (PermissionKey::cases() as $key) {
+            if ($key->isRetired()) {
+                continue;
+            }
+
             Permission::updateOrCreate(
                 ['key' => $key->value],
                 ['label' => $key->label()],

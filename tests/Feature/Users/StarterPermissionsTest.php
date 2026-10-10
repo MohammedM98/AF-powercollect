@@ -5,9 +5,10 @@ namespace Tests\Feature\Users;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Models\Branch;
-use App\Models\Closing;
 use App\Models\MobileAccessToken;
+use App\Models\SplitPayment;
 use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -44,16 +45,24 @@ class StarterPermissionsTest extends TestCase
         $this->actingAs($collector)->get(route('ledger.index'))->assertForbidden();
     }
 
-    public function test_a_new_financial_auditor_can_approve_a_closing_and_receive_cash(): void
+    public function test_a_new_financial_auditor_keeps_report_and_split_payment_visibility_without_closing_endpoints(): void
     {
         $auditor = User::factory()->financialAuditor()->create();
-        $closing = Closing::factory()->submitted()->create(['prepared_by' => User::factory()->accountant()->create()->id]);
+        $split = SplitPayment::factory()->create(['total_amount' => 100]);
+        SubscriptionTransaction::factory()->count(2)->create([
+            'split_payment_id' => $split->id,
+            'type' => SubscriptionTransaction::TYPE_PAYMENT,
+            'amount' => '-50.00',
+            'payment_method' => 'bank_transfer',
+        ]);
 
-        $this->actingAs($auditor)->post(route('closings.approve', $closing))->assertSessionHasNoErrors();
-
-        $this->assertSame('approved', $closing->fresh()->status->value);
-        $this->assertTrue($auditor->hasPermission(PermissionKey::AuditClosings));
-        $this->assertTrue($auditor->hasPermission(PermissionKey::ViewAllClosings));
+        $this->actingAs($auditor)->get(route('reports.index'))->assertOk();
+        $this->assertTrue($auditor->hasPermission(PermissionKey::ViewAllFinancialReports));
+        $this->get(route('split-payments.show', $split))
+            ->assertOk()
+            ->assertJsonCount(2, 'parts')
+            ->assertJsonPath('hiddenPartsCount', 0);
+        $this->get('/closings')->assertNotFound();
     }
 
     public function test_an_auditor_added_by_a_branch_admin_does_not_get_what_only_the_company_grants(): void
@@ -67,7 +76,6 @@ class StarterPermissionsTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $auditor = User::where('username', 'new.auditor')->sole();
-        $this->assertFalse($auditor->hasPermission(PermissionKey::AuditClosings));
-        $this->assertFalse($auditor->hasPermission(PermissionKey::ViewAllClosings));
+        $this->assertFalse($auditor->hasPermission(PermissionKey::ViewAllFinancialReports));
     }
 }

@@ -19,7 +19,6 @@ const SECTION_DETAILS = {
     tariffs: { icon: 'dollar', description: 'أسعار الكيلو والحد الأدنى' },
     meter_readings: { icon: 'gauge', description: 'قراءات العدادات الأسبوعية' },
     collections: { icon: 'card', description: 'السجل المالي والدفعات وحركات الحسابات' },
-    closings: { icon: 'scale', description: 'الإغلاق اليومي وتسليم النقد والتقارير' },
     reports: { icon: 'trend', description: 'تقارير المال، كل تقرير بصلاحيته' },
     messages: { icon: 'messages', description: 'رسائل المشتركين' },
     print_templates: { icon: 'printer', description: 'قوالب الطباعة المشتركة لكل الشركة' },
@@ -34,7 +33,7 @@ const SECTION_DETAILS = {
 /** The sections in the order the editor groups them; any section not named here goes last. */
 const SECTION_GROUPS = [
     { title: 'البيانات الأساسية', hint: 'المشتركون وأدوات العمل اليومي', keys: ['subscriptions', 'meter_boxes', 'circuit_breakers', 'tariffs'] },
-    { title: 'المال والتحصيل', hint: 'كل ما يغيّر أرصدة المشتركين أو يعرضها', keys: ['meter_readings', 'collections', 'closings', 'reports'] },
+    { title: 'المال والتحصيل', hint: 'كل ما يغيّر أرصدة المشتركين أو يعرضها', keys: ['meter_readings', 'collections', 'reports'] },
     { title: 'التواصل والطباعة', hint: 'الرسائل وقوالب الطباعة', keys: ['messages', 'print_templates'] },
     { title: 'الإدارة والمواقع', hint: 'الموظفون والفروع والتقسيمات الجغرافية', keys: ['users', 'user_types', 'branches', 'governorates', 'areas', 'sub_areas'] },
 ];

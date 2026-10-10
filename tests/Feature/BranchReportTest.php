@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\ChargeType;
-use App\Enums\ClosingStatus;
 use App\Enums\CorrectionReason;
 use App\Enums\DiscountMethod;
 use App\Enums\PermissionKey;
@@ -68,8 +67,7 @@ class BranchReportTest extends TestCase
                 ['key' => 'Bank of Palestine', 'label' => 'Bank of Palestine', 'count' => 1, 'total' => '25.00'],
             ])
             ->where('collections.collectors', [['name' => 'Sami', 'count' => 2, 'total' => '65.00', 'cash' => '40.00']])
-            ->where('check.state', 'open')
-            ->where('check.reportCash', '40.00')
+            ->missing('check')
             ->has('transactions.data', 6));
     }
 
@@ -93,25 +91,22 @@ class BranchReportTest extends TestCase
             ]));
     }
 
-    public function test_a_closed_day_shows_its_closing_and_whether_it_holds_every_cash_payment(): void
+    public function test_historical_closings_do_not_expose_controls_or_change_report_totals(): void
     {
         $this->at('2026-09-30 10:00', fn () => $this->pay('120'));
-        $closing = Closing::dailyFor($this->north, '2026-09-30');
-        $closing->syncPayments();
-        $this->actingAs($this->preparer());
-
-        $this->get(route('reports.index', ['from' => '2026-09-30', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
-            ->where('check.state', ClosingStatus::Draft->value)
-            ->where('check.number', $closing->number)
-            ->where('check.closingCash', '120.00')
-            ->where('check.matches', true));
-
+        $closing = Closing::factory()->approved()->forDay('2026-09-30')->create(['branch_id' => $this->north->id]);
+        $before = $closing->fresh()->getAttributes();
         $this->at('2026-09-30 11:00', fn () => $this->pay('30'));
 
-        $this->get(route('reports.index', ['from' => '2026-09-30', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
-            ->where('check.reportCash', '150.00')
-            ->where('check.matches', false));
-        $this->get(route('reports.index', ['from' => '2026-09-29', 'to' => '2026-09-29']))->assertInertia(fn ($page) => $page->where('check.state', 'none'));
+        $this->actingAs($this->preparer())->get(route('reports.index', ['from' => '2026-09-30', 'to' => '2026-09-30']))
+            ->assertInertia(fn ($page) => $page
+                ->missing('check')
+                ->missing('days.0.closing')
+                ->where('collections.cash', '150.00')
+                ->where('days.0.payments', '150.00')
+                ->where('flow.closing', '-150.00'));
+
+        $this->assertSame($before, $closing->fresh()->getAttributes());
     }
 
     public function test_the_readings_entered_approved_and_still_pending_are_counted(): void

@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Concerns\PresentsClosings;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\SubscriptionTransaction;
 use App\Support\BranchReport;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
+use App\Support\FinancialReportAccess;
 use App\Support\ReportPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -21,17 +21,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * The reports page (التقارير): a branch's day — or any stretch of days, or
- * every branch the user may see — before it is closed: how what the
- * subscriptions owe moved, where the payments came in, the readings, each
- * day's closing, and every line, which download as a CSV. Read-only, for
- * whoever may open the closings, over the same branches.
+ * every branch the user may see: how what the subscriptions owe moved,
+ * where the payments came in, the readings, and every line, which download
+ * as a CSV. Report access retains the user's existing branch scope.
  */
 class ReportController extends Controller
 {
-    use PresentsClosings;
-
     /**
-     * The longest stretch a report covers, as on the closings register.
+     * The longest stretch a report covers.
      */
     private const MAX_DAYS = 92;
 
@@ -39,11 +36,10 @@ class ReportController extends Controller
 
     public function index(Request $request): InertiaResponse
     {
-        $this->authorize('viewAny', Closing::class);
-        $branches = $this->visibleBranches($request->user());
+        abort_unless(FinancialReportAccess::view($request->user()), 403);
+        $branches = FinancialReportAccess::branches($request->user());
         ['chosen' => $chosen, 'branch' => $branch, 'from' => $from, 'to' => $to, 'today' => $today, 'kind' => $kind] = $this->filters($request, $branches);
         $report = new BranchReport($chosen, $from, $to);
-        $oneBranchDay = $chosen->count() === 1 && $from->equalTo($to);
         $period = ReportPeriod::describe($from, $to, $request->query('view'), $today);
         $branchSummary = $chosen->count() > 1
             ? $chosen->map(function (Branch $item) use ($from, $to): array {
@@ -62,7 +58,7 @@ class ReportController extends Controller
             'branches' => $branches->map(fn (Branch $branch): array => ['value' => $branch->id, 'label' => $branch->name])->values(),
             'filters' => ['branch' => $branch, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'kind' => $kind],
             'scopeLabel' => $chosen->count() === 1 ? $chosen->first()->name : 'كل الفروع',
-            'canExport' => $request->user()->can('export', Closing::class),
+            'canExport' => FinancialReportAccess::export($request->user()),
             'period' => $period,
             'branchSummary' => $branchSummary,
             'presets' => $this->presets($today),
@@ -73,7 +69,6 @@ class ReportController extends Controller
             'collections' => $chosen->isEmpty() ? null : $report->collections(),
             'readings' => $chosen->isEmpty() ? null : $report->readings(),
             'days' => $chosen->isEmpty() ? [] : $report->days(),
-            'check' => $oneBranchDay ? $report->dayCheck() : null,
             'transactions' => $report->lines($kind)
                 ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading'])
                 ->orderByDesc('subscription_transactions.created_at')
@@ -90,8 +85,8 @@ class ReportController extends Controller
      */
     public function export(Request $request): StreamedResponse
     {
-        $this->authorize('export', Closing::class);
-        ['chosen' => $chosen, 'from' => $from, 'to' => $to, 'kind' => $kind] = $this->filters($request, $this->visibleBranches($request->user()));
+        abort_unless(FinancialReportAccess::export($request->user()), 403);
+        ['chosen' => $chosen, 'from' => $from, 'to' => $to, 'kind' => $kind] = $this->filters($request, FinancialReportAccess::branches($request->user()));
         $lines = (new BranchReport($chosen, $from, $to))->lines($kind)
             ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading'])
             ->orderBy('subscription_transactions.created_at')

@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * monthly closings approve every branch's days together. A branch that has a
  * row of its own closes its day by that; the others follow the company's.
  */
-#[Fillable(['branch_id', 'cutoff_time', 'week_starts_on', 'auto_open', 'updated_by'])]
+#[Fillable(['branch_id', 'cutoff_time', 'week_starts_on', 'auto_open', 'frequency', 'arrangement', 'updated_by'])]
 class ClosingSetting extends Model
 {
     use OverridableByBranch;
@@ -38,7 +38,7 @@ class ClosingSetting extends Model
 
     public static function createCompanyDefault(): static
     {
-        return static::create(['cutoff_time' => self::DEFAULT_CUTOFF, 'week_starts_on' => self::DEFAULT_WEEK_START, 'auto_open' => true]);
+        return static::create(['cutoff_time' => self::DEFAULT_CUTOFF, 'week_starts_on' => self::DEFAULT_WEEK_START, 'auto_open' => true, 'frequency' => 'weekly', 'arrangement' => 'combined']);
     }
 
     /**

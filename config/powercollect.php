@@ -86,23 +86,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Financial Closing
-    |--------------------------------------------------------------------------
-    |
-    | When the business day closes and which day starts the week are set by
-    | hand on the closing schedule page. Daily closings are numbered from
-    | `first_number`. The cash count offers these shekel notes and coins.
-    |
-    */
-
-    'closing' => [
-        'first_number' => 5001,
-        'notes' => [200, 100, 50, 20],
-        'coins' => [10, 5, 2, 1],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Payments
     |--------------------------------------------------------------------------
     |

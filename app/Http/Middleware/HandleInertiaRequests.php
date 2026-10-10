@@ -4,8 +4,6 @@ namespace App\Http\Middleware;
 
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
-use App\Models\Closing;
-use App\Models\ClosingSetting;
 use App\Models\Governorate;
 use App\Models\MessageBatch;
 use App\Models\MeterBox;
@@ -19,6 +17,7 @@ use App\Models\SubscriptionTransaction;
 use App\Models\Tariff;
 use App\Models\User;
 use App\Models\UserType;
+use App\Support\FinancialReportAccess;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
 use Inertia\Middleware;
@@ -75,7 +74,7 @@ class HandleInertiaRequests extends Middleware
                 'viewBranchPerformance' => $user->can('viewBranchPerformance', SubscriptionTransaction::class),
                 'viewDebtAging' => $user->can('viewDebtAging', SubscriptionTransaction::class),
                 'viewTransactionAudit' => $user->can('viewTransactionAudit', SubscriptionTransaction::class),
-                'viewClosings' => $user->can('viewAny', Closing::class),
+                'viewReports' => FinancialReportAccess::view($user),
                 'viewUsers' => $user->can('viewAny', User::class),
                 'viewUserTypes' => $user->can('viewAny', UserType::class),
                 'viewTariffs' => $user->can('viewAny', Tariff::class),
@@ -87,7 +86,6 @@ class HandleInertiaRequests extends Middleware
                 'viewGovernorates' => $user->can('viewAny', Governorate::class) || $user->can('viewAny', SubArea::class),
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manageAny', ReadingEntrySetting::class),
-                'manageClosingSchedule' => $user->can('manageAny', ClosingSetting::class),
                 'managePrintTemplates' => $user->can('viewAny', PrintTemplate::class),
             ] : null,
             // A list opened for printing gets the company's print templates for it.

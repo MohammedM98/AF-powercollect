@@ -16,6 +16,7 @@ use App\Models\CashTransfer;
 use App\Models\Closing;
 use App\Models\ClosingEvent;
 use App\Models\ClosingPayment;
+use App\Models\ClosingPeriod;
 use App\Models\ClosingSetting;
 use App\Models\FinancialAuditStatement;
 use App\Models\SubscriptionTransaction;
@@ -80,7 +81,7 @@ trait PresentsClosings
             'differenceReason' => $closing->difference_reason?->value,
             'differenceNotes' => $closing->difference_notes,
             'auditStatement' => $auditStatement ? ['id' => $auditStatement->id, 'status' => $auditStatement->status] : null,
-            'blockers' => $closing->status->isEditable() ? $closing->submissionBlockers() : [],
+            'blockers' => $closing->status->isEditable() ? $closing->submissionBlockers($user) : [],
             'dayOpen' => ! ClosingPeriods::hasEnded($closing->period_end),
             'closesAt' => ClosingPeriods::dayEnd($closing->period_end)->format('H:i'),
             'events' => $closing->events->sortByDesc('id')->map(fn (ClosingEvent $event): array => [
@@ -263,7 +264,7 @@ trait PresentsClosings
      * @param  Collection<int, Branch>  $branches
      * @return array<string, mixed>
      */
-    protected function periodData(string $period, CarbonImmutable $date, Collection $branches, User $user): array
+    protected function periodData(string $period, CarbonImmutable $date, Collection $branches, User $user, bool $early = false): array
     {
         $weeklyPeriod = $period === 'weekly' ? app(WeeklyClosingService::class)->forDate($date) : null;
         [$first, $last] = $weeklyPeriod ? [$weeklyPeriod->period_start, $weeklyPeriod->period_end] : ClosingPeriods::month($date);
@@ -400,14 +401,20 @@ trait PresentsClosings
         } else {
             $report = $weeklyReport;
         }
-        $canClose = $saved === null && $user->can('closeWeek', Closing::class) && $ended && $unapproved === 0 && ClosingSetting::current()->weekly_enabled;
+        $canClose = $saved === null && $user->can($early ? 'closeWeekEarly' : 'closeWeek', Closing::class) && $ended && $unapproved === 0 && ClosingSetting::current()->weekly_enabled;
+        $mayCloseEarly = $saved === null && ClosingSetting::current()->weekly_enabled && ClosingSetting::current()->allow_early_weekly_close
+            && $user->can('closeWeekEarly', Closing::class) && $weeklyPeriod->status === ClosingPeriodStatus::Open
+            && now()->greaterThan($weeklyPeriod->starts_at) && now()->lessThan($weeklyPeriod->cutoff_at)
+            && ! ClosingPeriod::query()->where('starts_at', '>=', $weeklyPeriod->cutoff_at)->exists();
 
         return [...$view,
             'collected' => $report['actualCollectionTotal'], 'financialReport' => $report,
             'closingPeriodId' => $weeklyPeriod->id, 'workflowStatus' => $weeklyPeriod->status->value,
             'workflowLabel' => $weeklyPeriod->status->label(), 'cutoffAt' => $weeklyPeriod->cutoff_at->toIso8601String(),
             'eligibleAt' => $weeklyPeriod->eligible_at->toIso8601String(), 'timezone' => $weeklyPeriod->timezone,
-            'canApprove' => $canClose, 'canPrepare' => $saved === null && $user->can('closeWeek', Closing::class) && now()->greaterThanOrEqualTo($weeklyPeriod->cutoff_at),
+            'canApprove' => $canClose, 'earlyAllowed' => $mayCloseEarly, 'canCloseEarly' => $mayCloseEarly && $unapproved === 0,
+            'closedEarly' => $weeklyPeriod->scheduled_cutoff_at !== null, 'scheduledCutoffAt' => $weeklyPeriod->scheduled_cutoff_at?->toIso8601String(),
+            'canPrepare' => $saved === null && $user->can('closeWeek', Closing::class) && now()->greaterThanOrEqualTo($weeklyPeriod->cutoff_at),
             'status' => $saved?->status->value ?? 'draft', 'statusLabel' => $weeklyPeriod->status->label(),
             'approvedBy' => $saved?->snapshot['closedBy'] ?? $saved?->reviewedBy?->name,
             'approvedAt' => $this->closingTime($saved?->reviewed_at),

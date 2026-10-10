@@ -69,6 +69,19 @@ class EarlyClosingTest extends TestCase
         $this->assertSame(ClosingStatus::Draft, $closing->fresh()->status);
     }
 
+    public function test_a_preparer_without_the_early_permission_waits_for_the_cutoff_even_with_the_setting_on(): void
+    {
+        $preparer = $this->branchUser(mayCloseEarly: false);
+        $closing = $this->todaysClosing();
+        $closing->recordCount($preparer, [], null, null);
+
+        $this->actingAs($preparer)->get(route('closings.index', ['date' => '2026-10-01']))
+            ->assertInertia(fn ($page) => $page->where('date', '2026-09-30'));
+        $this->post(route('closings.submit', $closing))
+            ->assertSessionHasErrors(['closing' => 'اليوم لم ينتهِ بعد؛ يُرسل الكشف بعد وقت القطع.']);
+        $this->assertSame(ClosingStatus::Draft, $closing->fresh()->status);
+    }
+
     public function test_a_day_already_sent_stays_visible_if_the_setting_is_switched_off_later(): void
     {
         $this->sendTodaysClosing();
@@ -176,10 +189,10 @@ class EarlyClosingTest extends TestCase
                 ->where('daily.can.prepare', true));
     }
 
-    private function branchUser(): User
+    private function branchUser(bool $mayCloseEarly = true): User
     {
         $user = User::factory()->accountant()->create(['branch_id' => $this->branch->id]);
-        $user->permissions()->sync(Permission::idsFor([PermissionKey::PrepareClosings]));
+        $user->permissions()->sync(Permission::idsFor([PermissionKey::PrepareClosings, ...($mayCloseEarly ? [PermissionKey::CloseDayEarly] : [])]));
 
         return $user;
     }

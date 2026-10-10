@@ -91,6 +91,7 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
         week_starts_on: setting.week_starts_on,
         auto_open: setting.auto_open,
         allow_early_close: setting.allow_early_close,
+        allow_early_weekly_close: setting.allow_early_weekly_close,
         weekly_enabled: setting.weekly_enabled,
         weekly_closing_day: setting.weekly_closing_day,
         weekly_closing_time: setting.weekly_closing_time,
@@ -144,6 +145,9 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
         data.weekly_enabled
             ? `الإغلاق الأسبوعي: يُقطع كل ${weeklyDay?.label} الساعة ${weeklyTimeLabel}${data.grace_period_minutes > 0 ? ` مع ${data.grace_period_minutes} دقيقة سماح` : ''}، ويُعتمد يدويًا.`
             : 'الإغلاق الأسبوعي متوقف: لا يمكن اعتماد أي أسبوع.',
+        data.allow_early_weekly_close
+            ? 'يمكن إغلاق الأسبوع يدويًا قبل موعد قطعه؛ فتنتهي الفترة فورًا وتبدأ فترة جديدة في اللحظة نفسها.'
+            : 'لا يُغلق الأسبوع قبل موعد قطعه.',
         `يُغلق يوم العمل عند ${cutoffLabel} بتوقيت الشركة؛ ${data.cutoff_time === '00:00' ? 'كل دفعات اليوم تُحسب له.' : `الدفعات بعد ${data.cutoff_time} تُحسب لليوم التالي.`}`,
         data.auto_open ? 'تُفتح كشوف كل الفروع تلقائيًا بعد وقت القطع.' : 'لا تُفتح الكشوف تلقائيًا؛ تُفتح من هذه الصفحة أو عند فتح الفرع ليومه.',
         data.allow_early_close
@@ -175,6 +179,7 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                         chips={[
                             [data.weekly_enabled ? 'مفعّل' : 'متوقف', data.weekly_enabled ? 'on' : 'off'],
                             ['اعتماد يدوي'],
+                            ...(data.allow_early_weekly_close ? [['الإغلاق المبكر مسموح', 'on']] : []),
                         ]}
                     >
                         {data.weekly_enabled
@@ -221,6 +226,12 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                             ['تصبح جاهزة', `${weeklyReady}، ثم ${data.auto_prepare ? 'تُعدّ تلقائيًا للمراجعة.' : 'يُعدّها المخوّل يدويًا للمراجعة.'}`],
                             ['شرط الإغلاق', 'أن يكون لكل فرع كشف يومي معتمد عن كل يوم فيه دفعات.'],
                             ['من يغلقها', 'من يملك صلاحية «إغلاق الفترات الأسبوعية نهائيًا» أو «تدقيق كشوف الإغلاق». الاعتماد النهائي يدوي دائمًا.'],
+                            [
+                                'الإغلاق المبكر',
+                                data.allow_early_weekly_close
+                                    ? 'مسموح لمن مُنح صلاحية «إغلاق الأسبوع قبل موعده»: يغلق الأسبوع الجاري قبل موعد قطعه متى اعتُمدت الإغلاقات اليومية. تنتهي الفترة عندها وتبدأ فترة جديدة في اللحظة نفسها.'
+                                    : 'غير مسموح: لا يُغلق الأسبوع إلا بعد موعد قطعه.',
+                            ],
                             ['بعد الإغلاق', 'تُحفظ لقطة مالية ثابتة. أي تصحيح لاحق يكون حركة موثّقة في الفترة المفتوحة، ثم يراجعها المدققون.'],
                         ]}
                     />
@@ -310,6 +321,21 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                                     />
                                     إعداد الأسبوع تلقائيًا للمراجعة عند وقت القطع
                                 </label>
+                                <label className="cs-check">
+                                    <input
+                                        type="checkbox"
+                                        checked={data.allow_early_weekly_close}
+                                        onChange={(e) => setData('allow_early_weekly_close', e.target.checked)}
+                                        disabled={processing}
+                                    />
+                                    السماح بإغلاق الأسبوع يدويًا قبل موعد قطعه
+                                </label>
+                                <p className="cs-note">
+                                    عند التفعيل يستطيع من تمنحه صلاحية «إغلاق الأسبوع قبل موعده» من صفحة الصلاحيات (موظف فرع أو غيره) إغلاق الأسبوع الجاري قبل
+                                    موعده، بعد اعتماد الإغلاق اليومي لكل فرع فيه دفعات (اليوم الجاري أيضًا، ويلزم لذلك تفعيل «إقفال اليوم قبل وقت القطع»).
+                                    تنتهي الفترة فورًا وتبدأ فترة جديدة في اللحظة نفسها.
+                                </p>
+                                <InputError message={errors.allow_early_weekly_close} />
                                 <p className="cs-note">الاعتماد النهائي يدوي دائمًا، ولا يتم قبل اعتماد كشوف الفروع اليومية.</p>
                             </section>
                         </div>
@@ -357,7 +383,7 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                                     عند وقت القطع اليومي (<bdi>{cutoffLabel}</bdi>){data.allow_early_close ? '، أو قبله يدويًا من الفرع.' : '.'}
                                 </>,
                             ],
-                            ['من يعدّه', 'صاحب صلاحية «إعداد كشوف الإغلاق» في الفرع.'],
+                            ['من يعدّه', 'صاحب صلاحية «إعداد كشوف الإغلاق» في الفرع. وقبل وقت القطع لا يرسله إلا من مُنح أيضًا «إقفال اليوم قبل وقت القطع».'],
                             ['من يعتمده', 'شخص آخر مخوّل في الفرع؛ لا يعتمد المُعِدّ كشفه بنفسه.'],
                             ['بعد الاعتماد', 'يُقفل الكشف، ثم يُسلَّم النقد للشركة بعد وقت القطع، ويُرسل الكشف إلى التدقيق المالي.'],
                         ]}
@@ -446,7 +472,8 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                                     السماح للفرع بإقفال يومه يدويًا قبل وقت القطع
                                 </label>
                                 <p className="cs-note">
-                                    عند التفعيل يستطيع من يملك صلاحية إعداد الكشوف عدّ الصندوق وإرسال كشف اليوم قبل وقت القطع. وبعد الإرسال لا يسجّل
+                                    عند التفعيل يستطيع من يملك صلاحيتي «إعداد كشوف الإغلاق» و«إقفال اليوم قبل وقت القطع» عدّ الصندوق وإرسال كشف اليوم قبل
+                                    وقت القطع. وبعد الإرسال لا يسجّل
                                     الفرع دفعات أو مبالغ مستردة ولا يسلّم نقدًا حتى وقت القطع، إلا إذا أُعيد الكشف للتصحيح.
                                 </p>
                                 <InputError message={errors.allow_early_close} />

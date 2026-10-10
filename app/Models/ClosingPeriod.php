@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Validation\ValidationException;
 
-#[Fillable(['number', 'period_start', 'period_end', 'starts_at', 'cutoff_at', 'eligible_at', 'timezone', 'status', 'closing_id', 'prepared_at', 'closed_at', 'closed_by', 'reviewed_at', 'reviewed_by', 'reconciliation', 'audit_notes'])]
+#[Fillable(['number', 'period_start', 'period_end', 'starts_at', 'cutoff_at', 'scheduled_cutoff_at', 'eligible_at', 'timezone', 'status', 'closing_id', 'prepared_at', 'closed_at', 'closed_by', 'reviewed_at', 'reviewed_by', 'reconciliation', 'audit_notes'])]
 class ClosingPeriod extends Model
 {
     /** @use HasFactory<ClosingPeriodFactory> */
@@ -19,7 +19,7 @@ class ClosingPeriod extends Model
 
     protected function casts(): array
     {
-        return ['period_start' => 'immutable_date', 'period_end' => 'immutable_date', 'starts_at' => 'immutable_datetime', 'cutoff_at' => 'immutable_datetime', 'eligible_at' => 'immutable_datetime', 'prepared_at' => 'datetime', 'closed_at' => 'datetime', 'reviewed_at' => 'datetime', 'status' => ClosingPeriodStatus::class, 'reconciliation' => 'array'];
+        return ['period_start' => 'immutable_date', 'period_end' => 'immutable_date', 'starts_at' => 'immutable_datetime', 'cutoff_at' => 'immutable_datetime', 'scheduled_cutoff_at' => 'immutable_datetime', 'eligible_at' => 'immutable_datetime', 'prepared_at' => 'datetime', 'closed_at' => 'datetime', 'reviewed_at' => 'datetime', 'status' => ClosingPeriodStatus::class, 'reconciliation' => 'array'];
     }
 
     protected static function booted(): void
@@ -35,7 +35,7 @@ class ClosingPeriod extends Model
                 throw ValidationException::withMessages(['period' => 'لا يمكن تغيير فترة انتهى تدقيقها.']);
             }
             if (ClosingPeriodStatus::from($period->getRawOriginal('status'))->isClosed()
-                && $period->isDirty(['number', 'period_start', 'period_end', 'starts_at', 'cutoff_at', 'eligible_at', 'timezone', 'closing_id', 'closed_at', 'closed_by'])) {
+                && $period->isDirty(['number', 'period_start', 'period_end', 'starts_at', 'cutoff_at', 'scheduled_cutoff_at', 'eligible_at', 'timezone', 'closing_id', 'closed_at', 'closed_by'])) {
                 throw ValidationException::withMessages(['period' => 'لا يمكن تغيير حدود أو بيانات اعتماد فترة مغلقة.']);
             }
         });

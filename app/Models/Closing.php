@@ -7,6 +7,7 @@ use App\Enums\ClosingMatchStatus;
 use App\Enums\ClosingStatus;
 use App\Enums\ClosingType;
 use App\Enums\PaymentMethod;
+use App\Enums\PermissionKey;
 use App\Support\ClosingPeriods;
 use Carbon\CarbonInterface;
 use Database\Factories\ClosingFactory;
@@ -439,13 +440,13 @@ class Closing extends Model
      *
      * @return array<int, string>
      */
-    public function submissionBlockers(): array
+    public function submissionBlockers(?User $actor = null): array
     {
         $blockers = [];
 
         if ($this->period_end->toDateString() > ClosingPeriods::today()->toDateString()) {
             $blockers[] = 'هذا اليوم لم يبدأ بعد.';
-        } elseif (! ClosingPeriods::hasEnded($this->period_end) && ! ClosingSetting::current()->allow_early_close) {
+        } elseif (! ClosingPeriods::hasEnded($this->period_end) && ! (ClosingSetting::current()->allow_early_close && $actor?->hasPermission(PermissionKey::CloseDayEarly))) {
             $blockers[] = 'اليوم لم ينتهِ بعد؛ يُرسل الكشف بعد وقت القطع.';
         }
 
@@ -469,7 +470,7 @@ class Closing extends Model
         $this->ensureEditable();
         $this->syncPayments();
 
-        if ($blockers = $this->submissionBlockers()) {
+        if ($blockers = $this->submissionBlockers($actor)) {
             throw ValidationException::withMessages(['closing' => $blockers[0]]);
         }
 

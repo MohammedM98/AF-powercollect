@@ -270,14 +270,22 @@ class WeeklyClosingService
         return 0;
     }
 
-    /** @param Closure(): array<string, mixed> $summary */
-    public function close(string $date, User $actor, Closure $summary): Closing
+    /**
+     * Close the week. With `$early` the week under way is closed now, before
+     * its scheduled cut-off, when the company allows it.
+     *
+     * @param  Closure(): array<string, mixed>  $summary
+     */
+    public function close(string $date, User $actor, Closure $summary, bool $early = false): Closing
     {
-        Gate::forUser($actor)->authorize('closeWeek', Closing::class);
+        Gate::forUser($actor)->authorize($early ? 'closeWeekEarly' : 'closeWeek', Closing::class);
 
-        return DB::transaction(function () use ($date, $actor, $summary): Closing {
+        return DB::transaction(function () use ($date, $actor, $summary, $early): Closing {
             $setting = $this->lock();
             $period = $this->forDate($date);
+            if ($early) {
+                $this->endEarly($setting, $period, $actor);
+            }
             $this->prepare($period, $actor);
             $view = $summary();
 
@@ -290,7 +298,8 @@ class WeeklyClosingService
                 'number' => $period->number, 'type' => ClosingType::Weekly,
                 'period_start' => $period->period_start, 'period_end' => $period->period_end,
                 'status' => ClosingStatus::Approved, 'prepared_by' => $actor->id, 'submitted_at' => now(), 'reviewed_by' => $actor->id, 'reviewed_at' => now(),
-                'snapshot' => ['view' => $view, 'report' => $report, 'cutoffAt' => $period->cutoff_at->toIso8601String(), 'startsAt' => $period->starts_at->toIso8601String(), 'timezone' => $period->timezone, 'closedBy' => $actor->name, 'closedAt' => now()->toIso8601String()],
+                'snapshot' => ['view' => $view, 'report' => $report, 'cutoffAt' => $period->cutoff_at->toIso8601String(), 'startsAt' => $period->starts_at->toIso8601String(), 'timezone' => $period->timezone, 'closedBy' => $actor->name, 'closedAt' => now()->toIso8601String(),
+                    ...($period->scheduled_cutoff_at ? ['scheduledCutoffAt' => $period->scheduled_cutoff_at->toIso8601String()] : [])],
             ]);
             foreach ($report['lines'] as $line) {
                 $closing->snapshotLines()->create([
@@ -305,6 +314,67 @@ class WeeklyClosingService
 
             return $closing;
         });
+    }
+
+    /**
+     * End the week under way now rather than at its scheduled cut-off, and
+     * start the next week at the same moment. The next week keeps the
+     * schedule's own cut-off from there on, so the part of this week still
+     * to come joins it instead of becoming a week of its own. Runs inside
+     * the closing's transaction: if the week then cannot be closed, all of
+     * it is undone.
+     */
+    private function endEarly(ClosingSetting $setting, ClosingPeriod $period, User $actor): void
+    {
+        $now = now()->toImmutable()->startOfSecond();
+
+        if (! $setting->weekly_enabled || ! $setting->allow_early_weekly_close) {
+            throw ValidationException::withMessages(['period' => 'إغلاق الأسبوع قبل موعده غير مفعّل.']);
+        }
+
+        if ($period->status !== ClosingPeriodStatus::Open || $now->lessThanOrEqualTo($period->starts_at) || $now->greaterThanOrEqualTo($period->cutoff_at)
+            || ClosingPeriod::query()->where('starts_at', '>=', $period->cutoff_at)->exists()) {
+            throw ValidationException::withMessages(['period' => 'لا يُغلق قبل موعده إلا الأسبوع الجاري.']);
+        }
+
+        $lastDay = max($period->period_start->toDateString(), $now->subSecond()->setTimezone($period->timezone)->toDateString());
+        $following = $this->boundaries($period->period_end->addDay());
+
+        while ($following['cutoff']->lessThanOrEqualTo($now)) {
+            $following = $this->boundaries($following['last']->addDay());
+        }
+
+        $nextFirst = CarbonImmutable::parse($lastDay)->addDay();
+        $scheduled = $period->cutoff_at;
+        $period->update(['cutoff_at' => $now, 'eligible_at' => $now, 'period_end' => $lastDay, 'scheduled_cutoff_at' => $scheduled]);
+        ClosingPeriod::query()->create([
+            'number' => $this->nextNumber($nextFirst),
+            'period_start' => $nextFirst->toDateString(), 'period_end' => $following['last']->toDateString(),
+            'starts_at' => $now, 'cutoff_at' => $following['cutoff'],
+            'eligible_at' => $following['cutoff']->addMinutes($setting->grace_period_minutes),
+            'timezone' => $following['timezone'], 'status' => ClosingPeriodStatus::Open,
+        ]);
+        ClosingEvent::create([
+            'closing_period_id' => $period->id, 'user_id' => $actor->id, 'action' => 'PERIOD_ENDED_EARLY',
+            'description' => 'أُنهيت الفترة الآن قبل موعد قطعها المقرر ('.$scheduled->setTimezone($period->timezone)->format('Y-m-d H:i').') وبدأت فترة جديدة فورًا.',
+        ]);
+    }
+
+    /**
+     * A week's number by the ISO week its first day falls in (W-2026-40),
+     * made unique when that number is already taken.
+     */
+    private function nextNumber(CarbonImmutable $first): string
+    {
+        $base = sprintf('W-%d-%02d', $first->isoWeekYear(), $first->isoWeek());
+        $number = $base;
+        $sequence = 1;
+
+        while (ClosingPeriod::query()->where('number', $number)->exists() || Closing::query()->where('number', $number)->exists()) {
+            $number = $base.'-'.str_pad((string) ++$sequence, 2, '0', STR_PAD_LEFT);
+        }
+
+        return $number;
     }
 
     public function isLocked(SubscriptionTransaction $transaction): bool

@@ -12,9 +12,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * otherwise a time from noon on, after which payments count for the next
  * day), the weekday that starts the week (0 = Sunday … 6 = Saturday), and
  * whether each day's closings open by themselves once the day is over, and
- * whether a branch may close its day by hand before the cut-off.
+ * whether a branch may close its day by hand before the cut-off, and whether
+ * the company's week may be closed by hand before its cut-off.
  */
-#[Fillable(['cutoff_time', 'week_starts_on', 'auto_open', 'allow_early_close', 'updated_by', 'weekly_enabled', 'weekly_closing_day', 'weekly_closing_time', 'weekly_timezone', 'grace_period_minutes', 'auto_prepare'])]
+#[Fillable(['cutoff_time', 'week_starts_on', 'auto_open', 'allow_early_close', 'allow_early_weekly_close', 'updated_by', 'weekly_enabled', 'weekly_closing_day', 'weekly_closing_time', 'weekly_timezone', 'grace_period_minutes', 'auto_prepare'])]
 class ClosingSetting extends Model
 {
     public const DEFAULT_CUTOFF = '00:00';
@@ -33,6 +34,7 @@ class ClosingSetting extends Model
             'week_starts_on' => 'integer',
             'auto_open' => 'boolean',
             'allow_early_close' => 'boolean',
+            'allow_early_weekly_close' => 'boolean',
             'weekly_enabled' => 'boolean',
             'weekly_closing_day' => 'integer',
             'grace_period_minutes' => 'integer',

@@ -34,9 +34,10 @@ class SubscriptionPaymentController extends Controller
         $warning = null;
 
         if (! $conflict && isset($validated['amount'], $validated['currency'], $validated['sender_name'])) {
-            // "The same day" is the business day, not the UTC date.
-            $day = ClosingPeriods::dayOf(now());
-            [$from, $until] = ClosingPeriods::utcRange($day, $day);
+            // "The same day" is the business day of the subscription's branch, not the UTC date.
+            $periods = ClosingPeriods::for($subscription->branch_id);
+            $day = $periods->dayOf(now());
+            [$from, $until] = $periods->utcRange($day, $day);
             $possibleDuplicate = SubscriptionTransaction::query()
                 ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
                 ->whereNull('cancelled_at')

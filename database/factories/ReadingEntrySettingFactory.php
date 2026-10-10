@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\ReadingEntryMode;
+use App\Models\Branch;
 use App\Models\ReadingEntrySetting;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -25,6 +26,14 @@ class ReadingEntrySettingFactory extends Factory
             'reading_day' => ReadingEntrySetting::DEFAULT_READING_DAY,
             'mode' => ReadingEntryMode::Automatic,
         ];
+    }
+
+    /**
+     * The branch's own schedule, rather than the company's.
+     */
+    public function forBranch(Branch|int $branch): static
+    {
+        return $this->state(fn () => ['branch_id' => $branch instanceof Branch ? $branch->id : $branch]);
     }
 
     public function forcedOpen(): static

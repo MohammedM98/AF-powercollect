@@ -10,15 +10,17 @@ use App\Enums\PaymentMethod;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\MeterReading;
+use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
  * What moved through one branch, or several, between two business days
- * (by the closing cut-off): what the subscriptions owed at the start, what
+ * (by each branch's own closing cut-off): what the subscriptions owed at the start, what
  * was charged, paid, discounted and cleared, what was cancelled, and what
  * they owe at the end — which always adds up, since it is the same lines
  * summed both ways. Also where the payments came in (cash drawer, bank,
@@ -68,12 +70,11 @@ class BranchReport
      */
     public function lines(string $kind = 'all'): Builder
     {
-        [$start, $end] = $this->utcRange();
-
-        return SubscriptionTransaction::query()
-            ->whereHas('subscription', fn (Builder $subscription) => $subscription->whereIn('branch_id', $this->branchIds()))
-            ->where('subscription_transactions.created_at', '>=', $start)
-            ->where('subscription_transactions.created_at', '<', $end)
+        return $this->withinPeriod(
+            SubscriptionTransaction::query(),
+            'subscription_transactions.created_at',
+            fn (Builder $query, array $branchIds): Builder => $query->whereHas('subscription', fn (Builder $subscription) => $subscription->whereIn('branch_id', $branchIds)),
+        )
             ->when($kind === 'payments', fn (Builder $query) => $query->where('type', SubscriptionTransaction::TYPE_PAYMENT))
             ->when($kind === 'charges', fn (Builder $query) => $query->whereNotIn('type', [...SubscriptionTransaction::CREDIT_TYPES, SubscriptionTransaction::TYPE_REVERSAL]))
             ->when($kind === 'discounts', fn (Builder $query) => $query->whereIn('type', self::DISCOUNT_TYPES))
@@ -208,17 +209,16 @@ class BranchReport
      */
     public function readings(): array
     {
-        [$start, $end] = $this->utcRange();
-        $readings = fn (): Builder => MeterReading::query()->whereIn('branch_id', $this->branchIds());
-        $entered = $readings()->where('created_at', '>=', $start)->where('created_at', '<', $end);
-        $approved = $readings()->where('approved_at', '>=', $start)->where('approved_at', '<', $end);
+        $inBranches = fn (Builder $query, array $branchIds): Builder => $query->whereIn('branch_id', $branchIds);
+        $entered = $this->withinPeriod(MeterReading::query(), 'created_at', $inBranches);
+        $approved = $this->withinPeriod(MeterReading::query(), 'approved_at', $inBranches);
 
         return [
             'entered' => (clone $entered)->count(),
             'consumption' => round((float) $entered->sum('consumption'), 2),
             'approved' => (clone $approved)->count(),
             'billed' => Closing::money(Closing::cents((string) $approved->sum('amount_due'))),
-            'pending' => $readings()->where('status', MeterReadingStatus::Pending)->count(),
+            'pending' => MeterReading::query()->whereIn('branch_id', $this->branchIds())->where('status', MeterReadingStatus::Pending)->count(),
         ];
     }
 
@@ -230,9 +230,9 @@ class BranchReport
      */
     public function days(): array
     {
-        $byDay = $this->rows()->groupBy(fn (object $row): string => ClosingPeriods::dayOf($row->created_at));
+        $byDay = $this->rows()->groupBy(fn (object $row): string => $this->periodsOf($row)->dayOf($row->created_at));
         $closings = $this->dailyClosings()->groupBy(fn (Closing $closing): string => $closing->period_start->toDateString());
-        $today = ClosingPeriods::today()->toDateString();
+        $today = ClosingPeriods::furthestToday($this->branches)->toDateString();
         $balance = $this->openingBalance();
         $days = [];
 
@@ -292,8 +292,10 @@ class BranchReport
             ->filter(fn (object $row): bool => $row->type === SubscriptionTransaction::TYPE_PAYMENT && $row->payment_method === PaymentMethod::Cash->value && ! $this->isCorrection($row))
             ->sum(fn (object $row): int => -Closing::cents($row->amount));
 
-        if (! ClosingPeriods::hasEnded($day)) {
-            return ['state' => 'open', 'closesAt' => ClosingPeriods::dayEnd($day)->format('d/m H:i'), 'reportCash' => Closing::money($cash)];
+        $periods = ClosingPeriods::for($branch);
+
+        if (! $periods->hasEnded($day)) {
+            return ['state' => 'open', 'closesAt' => $periods->dayEnd($day)->format('d/m H:i'), 'reportCash' => Closing::money($cash)];
         }
 
         $closing = $this->dailyClosings()->first();
@@ -326,12 +328,13 @@ class BranchReport
      */
     private function openingBalance(): int
     {
-        [$start] = $this->utcRange();
-
-        return Closing::cents((string) SubscriptionTransaction::query()
-            ->whereHas('subscription', fn (Builder $subscription) => $subscription->whereIn('branch_id', $this->branchIds()))
-            ->where('subscription_transactions.created_at', '<', $start)
-            ->sum('amount'));
+        return array_sum(array_map(
+            fn (array $window): int => Closing::cents((string) SubscriptionTransaction::query()
+                ->whereHas('subscription', fn (Builder $subscription) => $subscription->whereIn('branch_id', $window['branchIds']))
+                ->where('subscription_transactions.created_at', '<', $window['start'])
+                ->sum('amount')),
+            $this->windows(),
+        ));
     }
 
     /**
@@ -340,8 +343,10 @@ class BranchReport
      */
     private function isCorrection(object $row): bool
     {
+        $periods = $this->periodsOf($row);
+
         return $row->reverses_id !== null
-            || ($row->cancelled_at !== null && CarbonImmutable::parse($row->cancelled_at, 'UTC')->lessThan(ClosingPeriods::dayEnd(ClosingPeriods::dayOf($row->created_at))));
+            || ($row->cancelled_at !== null && CarbonImmutable::parse($row->cancelled_at, 'UTC')->lessThan($periods->dayEnd($periods->dayOf($row->created_at))));
     }
 
     /**
@@ -349,10 +354,13 @@ class BranchReport
      */
     private function rows(): Collection
     {
-        return $this->rows ??= $this->lines()->toBase()->get([
-            'subscription_transactions.id', 'type', 'amount', 'payment_method', 'bank_name', 'currency', 'currency_amount',
-            'recorded_by', 'reverses_id', 'cancelled_at', 'subscription_transactions.created_at',
-        ]);
+        return $this->rows ??= $this->lines()->toBase()
+            ->select([
+                'subscription_transactions.id', 'type', 'amount', 'payment_method', 'bank_name', 'currency', 'currency_amount',
+                'recorded_by', 'reverses_id', 'cancelled_at', 'subscription_transactions.created_at',
+            ])
+            ->selectSub(Subscription::query()->select('branch_id')->whereColumn('subscriptions.id', 'subscription_transactions.subscription_id'), 'branch_id')
+            ->get();
     }
 
     /**
@@ -377,11 +385,57 @@ class BranchReport
     }
 
     /**
-     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     * The days of the branch a line belongs to.
      */
-    private function utcRange(): array
+    private function periodsOf(object $row): ClosingPeriods
     {
-        return ClosingPeriods::utcRange($this->from, $this->to);
+        return ClosingPeriods::for((int) $row->branch_id);
+    }
+
+    /**
+     * The period as UTC moments, for each group of the branches that close
+     * their day at the same time: one, unless their cut-offs differ.
+     *
+     * @return array<int, array{branchIds: array<int, int>, start: CarbonImmutable, end: CarbonImmutable}>
+     */
+    private function windows(): array
+    {
+        return $this->branches
+            ->groupBy(fn (Branch $branch): string => ClosingPeriods::for($branch)->cutoff())
+            ->map(function (Collection $group): array {
+                [$start, $end] = ClosingPeriods::for($group->first())->utcRange($this->from, $this->to);
+
+                return ['branchIds' => $group->pluck('id')->all(), 'start' => $start, 'end' => $end];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Narrow the query to the rows dated within the period, each branch by
+     * its own cut-off: `$inBranches` limits it to the branches of a window.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @param  Closure(Builder<TModel>, array<int, int>): Builder<TModel>  $inBranches
+     * @return Builder<TModel>
+     */
+    private function withinPeriod(Builder $query, string $column, Closure $inBranches): Builder
+    {
+        $windows = $this->windows();
+
+        if ($windows === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $query) use ($windows, $column, $inBranches): void {
+            foreach ($windows as $window) {
+                $query->orWhere(fn (Builder $inWindow): Builder => $inBranches($inWindow, $window['branchIds'])
+                    ->where($column, '>=', $window['start'])
+                    ->where($column, '<', $window['end']));
+            }
+        });
     }
 
     private function methodLabel(?string $method): string

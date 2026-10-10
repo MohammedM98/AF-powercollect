@@ -140,7 +140,7 @@ class UnusualConsumptionTest extends TestCase
         $this->history(consumptions: [50, 50, 50, 50]);
         $user = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($user));
-        $week = MeterReading::latestEndedWeekStart()->toDateString();
+        $week = MeterReading::latestEndedWeekStart(null)->toDateString();
         $payload = fn (float $reading) => ['mobile_operation_id' => Str::uuid()->toString(), 'subscription_id' => $this->subscription->id, 'week_start' => $week, 'current_reading' => $reading];
 
         $this->postJson(route('mobile.readings.store'), $payload(999999))->assertUnprocessable()->assertJsonValidationErrors('current_reading');
@@ -161,7 +161,7 @@ class UnusualConsumptionTest extends TestCase
         $this->postJson(route('mobile.readings.store'), [
             'mobile_operation_id' => Str::uuid()->toString(),
             'subscription_id' => $this->subscription->id,
-            'week_start' => MeterReading::latestEndedWeekStart()->toDateString(),
+            'week_start' => MeterReading::latestEndedWeekStart(null)->toDateString(),
             'current_reading' => 1050,
         ])->assertCreated()->assertJsonPath('unusual_consumption', false);
     }

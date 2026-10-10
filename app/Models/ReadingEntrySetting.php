@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ReadingEntryMode;
+use App\Models\Concerns\OverridableByBranch;
 use Carbon\CarbonInterface;
 use Database\Factories\ReadingEntrySettingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -13,17 +14,18 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 
 /**
- * The company-wide reading schedule: the weekly reading day, which ends each
- * reading week, and when data entry may record readings. When the reading day
- * moves, `reading_day_history` keeps the earlier days, oldest first, each with
- * the end of the last week read on it and the end of the first week on the
- * day that replaced it.
+ * A reading schedule: the weekly reading day, which ends each reading week, and
+ * when data entry may record readings. When the reading day moves,
+ * `reading_day_history` keeps the earlier days, oldest first, each with the end
+ * of the last week read on it and the end of the first week on the day that
+ * replaced it. The company's row (no branch) is followed by every branch that
+ * has no row of its own, which its admin sets for the branch alone.
  */
-#[Fillable(['open_days', 'opens_at', 'closes_at', 'reading_day', 'reading_day_history', 'mode', 'updated_by'])]
+#[Fillable(['branch_id', 'open_days', 'opens_at', 'closes_at', 'reading_day', 'reading_day_history', 'mode', 'updated_by'])]
 class ReadingEntrySetting extends Model
 {
     /** @use HasFactory<ReadingEntrySettingFactory> */
-    use HasFactory;
+    use HasFactory, OverridableByBranch;
 
     /**
      * Meters are read on Thursday unless configured otherwise: a reading week
@@ -40,15 +42,10 @@ class ReadingEntrySetting extends Model
 
     public const DEFAULT_CLOSES_AT = '23:59:00';
 
-    protected static function booted(): void
-    {
-        // current() keeps the setting for the request; reload it once it changes.
-        static::saved(fn () => app()->forgetInstance(self::class));
-    }
-
     protected function casts(): array
     {
         return [
+            'branch_id' => 'integer',
             'open_days' => 'array',
             'reading_day' => 'integer',
             'reading_day_history' => 'array',
@@ -56,28 +53,27 @@ class ReadingEntrySetting extends Model
         ];
     }
 
-    /**
-     * The company-wide setting. Every reading-week calculation reads it, so
-     * it is loaded once per request or job (see AppServiceProvider).
-     */
-    public static function current(): self
+    public static function createCompanyDefault(): static
     {
-        return app(self::class);
+        return static::create([
+            'open_days' => self::DEFAULT_OPEN_DAYS,
+            'opens_at' => self::DEFAULT_OPENS_AT,
+            'closes_at' => self::DEFAULT_CLOSES_AT,
+            'reading_day' => self::DEFAULT_READING_DAY,
+            'mode' => ReadingEntryMode::Automatic,
+        ]);
     }
 
     /**
-     * Load the company-wide setting, creating it with the defaults on first use.
+     * A schedule of the branch's own to start from (not saved yet): a copy of
+     * the company's, so the weeks that already ended keep their dates.
      */
-    public static function loadCurrent(): self
+    public static function startFor(Branch $branch): static
     {
-        return static::query()->oldest('id')->first()
-            ?? static::create([
-                'open_days' => self::DEFAULT_OPEN_DAYS,
-                'opens_at' => self::DEFAULT_OPENS_AT,
-                'closes_at' => self::DEFAULT_CLOSES_AT,
-                'reading_day' => self::DEFAULT_READING_DAY,
-                'mode' => ReadingEntryMode::Automatic,
-            ]);
+        $own = static::company()->replicate(['updated_by']);
+        $own->branch_id = $branch->id;
+
+        return $own;
     }
 
     /**

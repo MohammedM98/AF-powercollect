@@ -246,9 +246,9 @@ class MeterReadingTest extends TestCase
         config(['app.business_timezone' => 'Asia/Gaza']);
 
         // Wednesday 20:00 UTC is still Wednesday in Gaza: the 18 → 24 week hasn't ended.
-        $this->assertSame('2026-09-11', MeterReading::latestEndedWeekStart(now()->parse('2026-09-23 20:00:00', 'UTC'))->toDateString());
+        $this->assertSame('2026-09-11', MeterReading::latestEndedWeekStart(null, now()->parse('2026-09-23 20:00:00', 'UTC'))->toDateString());
         // Wednesday 22:30 UTC is already Thursday in Gaza: the 18 → 24 week ends today.
-        $this->assertSame('2026-09-18', MeterReading::latestEndedWeekStart(now()->parse('2026-09-23 22:30:00', 'UTC'))->toDateString());
+        $this->assertSame('2026-09-18', MeterReading::latestEndedWeekStart(null, now()->parse('2026-09-23 22:30:00', 'UTC'))->toDateString());
     }
 
     public function test_the_last_week_on_the_old_reading_day_stays_the_latest_until_a_week_ends_on_the_new_day(): void
@@ -305,14 +305,14 @@ class MeterReadingTest extends TestCase
         $this->readingDayMovedFromThursdayTo(CarbonInterface::TUESDAY, firstWeekEnd: '2026-09-29');
 
         // Monday: the first Tuesday week (25 → 29 Sep) hasn't ended yet.
-        $this->assertSame('2026-09-18', MeterReading::latestEndedWeekStart(now()->parse('2026-09-28 10:00:00'))->toDateString());
+        $this->assertSame('2026-09-18', MeterReading::latestEndedWeekStart(null, now()->parse('2026-09-28 10:00:00'))->toDateString());
 
-        $firstWeek = MeterReading::latestEndedWeekStart(now()->parse('2026-09-29 10:00:00'));
+        $firstWeek = MeterReading::latestEndedWeekStart(null, now()->parse('2026-09-29 10:00:00'));
         $this->assertSame('2026-09-25', $firstWeek->toDateString());
-        $this->assertSame('2026-09-29', MeterReading::weekEndFor($firstWeek)->toDateString());
+        $this->assertSame('2026-09-29', MeterReading::weekEndFor($firstWeek, null)->toDateString());
 
         // After it, weeks run Wednesday → Tuesday.
-        $this->assertSame('2026-09-30', MeterReading::latestEndedWeekStart(now()->parse('2026-10-06 10:00:00'))->toDateString());
+        $this->assertSame('2026-09-30', MeterReading::latestEndedWeekStart(null, now()->parse('2026-10-06 10:00:00'))->toDateString());
     }
 
     public function test_a_future_week_is_rejected(): void
@@ -651,7 +651,7 @@ class MeterReadingTest extends TestCase
                 ->where('subscriptions.data.0.meterReadings.0.canUpdate', true)
                 ->where('subscriptions.data.0.meterReadings.1.canUpdate', false)
                 ->has('readingWeekOptions', 1)
-                ->where('readingWeekOptions.0.value', '2026-09-18'));
+                ->where('readingWeekOptions.'.$this->dataEntry->branch_id.'.0.value', '2026-09-18'));
     }
 
     public function test_the_history_does_not_label_a_discounted_reading_as_a_minimum_charge(): void

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readingDiscount, steppedReading, weeklyCharges } from '../../resources/js/lib/readings.js';
+import { hasLatestWeekReading, readingDiscount, steppedReading, weekOptionsFor, weeklyCharges } from '../../resources/js/lib/readings.js';
 
 // The example week: 5 kilos at 30 shekels a kilo is a 150 shekel bill; the minimum is 20 a week.
 test('a week is billed consumption × kilo price, less its standing discount', () => {
@@ -66,4 +66,16 @@ test('the + and - steps move a reading by one kilo and never below the last read
     assert.equal(steppedReading('', '6901', 1), '6902');
     assert.equal(steppedReading('', '6901', -1), '6901');
     assert.equal(steppedReading('abc', '6901', 1), '6902');
+});
+
+// Each branch reads on its own weekly reading day, so a subscription's weeks are its branch's.
+test("a subscription's weeks are the ones listed for its branch", () => {
+    const byBranch = { 3: [{ value: '2026-09-18' }], 7: [{ value: '2026-09-13' }] };
+    const subscription = { branch_id: 7, meterReadings: [{ weekStart: '2026-09-13' }] };
+
+    assert.deepEqual(weekOptionsFor(subscription, byBranch), [{ value: '2026-09-13' }]);
+    assert.deepEqual(weekOptionsFor({ branch_id: 9 }, byBranch), []);
+    assert.deepEqual(weekOptionsFor(null, byBranch), []);
+    assert.equal(hasLatestWeekReading(subscription, weekOptionsFor(subscription, byBranch)), true);
+    assert.equal(hasLatestWeekReading({ ...subscription, branch_id: 3 }, weekOptionsFor({ branch_id: 3 }, byBranch)), false);
 });

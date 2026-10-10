@@ -4,6 +4,7 @@ import SettingsLayout from '@/Layouts/SettingsLayout';
 import InputError from '@/Components/InputError';
 import Icon from '@/Components/Icon';
 import ConfirmDialog from '@/Components/ConfirmDialog';
+import BranchScopeBar from './BranchScopeBar';
 import { WEEK_DAYS, formatWeekDay, weekDayName } from '@/lib/weekDays';
 import { businessClock, isEntryOpen, nextScheduleChange, upcomingWeeks, validEntryHours, weekDates } from '@/lib/readingSchedule';
 import './ReadingSchedule.css';
@@ -32,8 +33,9 @@ function DayChip({ day, selected, type, name, disabled = false, subtitle, onChan
     );
 }
 
-export default function ReadingSchedule({ setting, firstWeeks, currentWeeks, businessNow, businessTimezone }) {
+export default function ReadingSchedule({ setting, branch, branches, followsCompany, branchesWithOwn, firstWeeks, currentWeeks, businessNow, businessTimezone }) {
     const { data, setData, put, processing, errors, isDirty, resetAndClearErrors, setDefaults } = useForm({
+        branch_id: branch?.id ?? null,
         reading_day: setting.reading_day,
         open_days: [...setting.open_days].sort((a, b) => a - b),
         mode: setting.mode,
@@ -106,7 +108,9 @@ export default function ReadingSchedule({ setting, firstWeeks, currentWeeks, bus
         readingDayChanged ? `يصبح يوم القراءة ${dayLabel(data.reading_day)}، وأول أسبوع عليه من ${formatWeekDay(firstWeek.start)} إلى ${formatWeekDay(firstWeek.end)}.` : null,
         `طريقة الفتح: ${MODES[data.mode].label}.`,
         `أيام الإدخال التلقائي: ${WEEK_DAYS.filter((day) => data.open_days.includes(day.value)).map((day) => day.label).join('، ')}، من ${data.opens_at} إلى ${data.closes_at} بتوقيت الشركة.`,
-        'يتغير الموعد في الموقع والتطبيق الميداني لجميع القرّاء ومدخلي البيانات.',
+        branch
+            ? `يتغير الموعد في الموقع والتطبيق الميداني لقرّاء الفرع «${branch.name}» ومدخلي بياناته، دون غيره من الفروع.`
+            : 'يتغير الموعد في الموقع والتطبيق الميداني لقرّاء الفروع التي تتبع الشركة ومدخلي بياناتها.',
     ].filter(Boolean).join(' ');
 
     return (
@@ -115,8 +119,17 @@ export default function ReadingSchedule({ setting, firstWeeks, currentWeeks, bus
             <form onSubmit={submit} className="reading-schedule" dir="rtl">
                 <div className="rs-heading">
                     <h1>مواعيد القراءات</h1>
-                    <p>متى ينتهي أسبوع القراءة، ومتى يُسمح للقرّاء ومدخلي البيانات بإدخال القراءات.</p>
+                    <p>متى ينتهي أسبوع القراءة، ومتى يُسمح للقرّاء ومدخلي البيانات بإدخال القراءات. لكل فرع مواعيده.</p>
                 </div>
+
+                <BranchScopeBar
+                    path="/settings/reading-schedule"
+                    branch={branch}
+                    branches={branches}
+                    followsCompany={followsCompany}
+                    branchesWithOwn={branchesWithOwn}
+                    locked={isDirty}
+                />
 
                 <section className={`rs-status ${openNow ? 'is-open' : ''}`} aria-live="polite">
                     <span className="rs-status-dot" aria-hidden="true"><i /></span>

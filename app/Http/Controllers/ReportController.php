@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Concerns\PresentsClosings;
 use App\Models\Branch;
 use App\Models\Closing;
-use App\Models\ClosingSetting;
 use App\Models\SubscriptionTransaction;
 use App\Support\BranchReport;
 use App\Support\ClosingPeriods;
@@ -42,10 +41,10 @@ class ReportController extends Controller
     {
         $this->authorize('viewAny', Closing::class);
         $branches = $this->visibleBranches($request->user());
-        ['chosen' => $chosen, 'branch' => $branch, 'from' => $from, 'to' => $to, 'kind' => $kind] = $this->filters($request, $branches);
+        ['chosen' => $chosen, 'branch' => $branch, 'from' => $from, 'to' => $to, 'today' => $today, 'kind' => $kind] = $this->filters($request, $branches);
         $report = new BranchReport($chosen, $from, $to);
         $oneBranchDay = $chosen->count() === 1 && $from->equalTo($to);
-        $period = ReportPeriod::describe($from, $to, $request->query('view'));
+        $period = ReportPeriod::describe($from, $to, $request->query('view'), $today);
         $branchSummary = $chosen->count() > 1
             ? $chosen->map(function (Branch $item) use ($from, $to): array {
                 $branchReport = new BranchReport(collect([$item]), $from, $to);
@@ -66,9 +65,9 @@ class ReportController extends Controller
             'canExport' => $request->user()->can('export', Closing::class),
             'period' => $period,
             'branchSummary' => $branchSummary,
-            'presets' => $this->presets(),
-            'today' => ClosingPeriods::today()->toDateString(),
-            'cutoff' => ClosingSetting::current()->cutoff(),
+            'presets' => $this->presets($today),
+            'today' => $today->toDateString(),
+            'cutoff' => ClosingPeriods::for($chosen->count() === 1 ? $chosen->first() : null)->cutoff(),
             'kinds' => BranchReport::kinds(),
             'flow' => $chosen->isEmpty() ? null : $report->flow(),
             'collections' => $chosen->isEmpty() ? null : $report->collections(),
@@ -119,11 +118,12 @@ class ReportController extends Controller
 
     /**
      * The request's branch (one of the user's, or all of them when they see
-     * more than one), its days (today by default; never past today, at most
-     * a quarter) and the kind of line listed.
+     * more than one), its days (today by default, the day furthest along
+     * among the branches; never past today, at most a quarter) and the kind
+     * of line listed.
      *
      * @param  Collection<int, Branch>  $branches
-     * @return array{chosen: Collection<int, Branch>, branch: int|string|null, from: CarbonImmutable, to: CarbonImmutable, kind: string}
+     * @return array{chosen: Collection<int, Branch>, branch: int|string|null, from: CarbonImmutable, to: CarbonImmutable, today: CarbonImmutable, kind: string}
      */
     private function filters(Request $request, Collection $branches): array
     {
@@ -133,7 +133,13 @@ class ReportController extends Controller
             'to' => ['nullable', 'date_format:Y-m-d'],
             'kind' => ['nullable', Rule::in(array_column(BranchReport::kinds(), 'value'))],
         ]);
-        $today = ClosingPeriods::today();
+        $requested = $validated['branch'] ?? null;
+        $all = $requested === 'all' && $branches->count() > 1;
+        $branch = $all ? null : ($branches->firstWhere('id', (int) $requested)
+            ?? $branches->firstWhere('id', $request->user()->branch_id)
+            ?? $branches->first());
+        $chosen = $all ? $branches : collect([$branch])->filter()->values();
+        $today = ClosingPeriods::furthestToday($chosen);
         $to = isset($validated['to']) ? ClosingPeriods::date($validated['to']) : $today;
         $from = isset($validated['from']) ? ClosingPeriods::date($validated['from']) : $to;
 
@@ -145,17 +151,12 @@ class ReportController extends Controller
             throw ValidationException::withMessages(['from' => 'اختر فترة صحيحة لا تزيد على ثلاثة أشهر ولا تتجاوز اليوم.']);
         }
 
-        $requested = $validated['branch'] ?? null;
-        $all = $requested === 'all' && $branches->count() > 1;
-        $branch = $all ? null : ($branches->firstWhere('id', (int) $requested)
-            ?? $branches->firstWhere('id', $request->user()->branch_id)
-            ?? $branches->first());
-
         return [
-            'chosen' => $all ? $branches : collect([$branch])->filter()->values(),
+            'chosen' => $chosen,
             'branch' => $all ? 'all' : $branch?->id,
             'from' => $from,
             'to' => $to,
+            'today' => $today,
             'kind' => $validated['kind'] ?? 'all',
         ];
     }
@@ -166,9 +167,8 @@ class ReportController extends Controller
      *
      * @return array<int, array{key: string, label: string, from: string, to: string}>
      */
-    private function presets(): array
+    private function presets(CarbonImmutable $today): array
     {
-        $today = ClosingPeriods::today();
         [$weekStart] = ClosingPeriods::week($today);
         [$lastMonthStart, $lastMonthEnd] = ClosingPeriods::month($today->startOfMonth()->subDay());
 
@@ -190,7 +190,7 @@ class ReportController extends Controller
 
         return [
             'id' => $line->id,
-            'day' => ClosingPeriods::dayOf($line->created_at),
+            'day' => ClosingPeriods::for($line->subscription->branch_id)->dayOf($line->created_at),
             'time' => DailySeries::localTime($line->created_at),
             'branchName' => $line->subscription->branch?->name,
             'voucherNumber' => $line->printedVoucherNumber(),

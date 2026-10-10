@@ -16,7 +16,7 @@ import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { printFieldsProps, printRowProps } from '@/lib/print';
 import { formatCurrency } from '@/lib/currency';
-import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
+import { hasLatestWeekReading, readingOptionFor, weekOptionsFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import SubscriptionModal from './SubscriptionModal';
 import PersonalDetailsModal from './PersonalDetailsModal';
@@ -181,7 +181,7 @@ export default function Index({
             readingItem.lockedReason = needsPermission('تسجيل القراءات');
         } else if (subscription.status !== 'active') {
             Object.assign(readingItem, { disabled: true, hint: 'المشترك غير نشط' });
-        } else if (hasLatestWeekReading(subscription, readingWeekOptions)) {
+        } else if (hasLatestWeekReading(subscription, weekOptionsFor(subscription, readingWeekOptions))) {
             Object.assign(readingItem, { disabled: true, hint: 'مُدخلة هذا الأسبوع' });
         }
 
@@ -508,7 +508,7 @@ export default function Index({
                 key={`details-${viewingSubscription?.id ?? 'closed'}`}
                 subscription={viewingSubscription}
                 canUpdate={viewingSubscription?.canUpdate}
-                readingWeekOptions={readingWeekOptions}
+                readingWeekOptions={weekOptionsFor(viewingSubscription, readingWeekOptions)}
                 statement={statementWindow.statement?.subscription.id === viewingSubscriptionId ? statementWindow.statement : null}
                 statementLoading={Boolean(statementWindow.subscription && !statementWindow.statement)}
                 onLoadStatement={() => openStatement(viewingSubscription)}
@@ -538,7 +538,7 @@ export default function Index({
             <ReadingHistoryModal
                 key={`history-${historySubscription?.id ?? 'closed'}`}
                 subscription={historySubscription}
-                readingWeekOptions={readingWeekOptions}
+                readingWeekOptions={weekOptionsFor(historySubscription, readingWeekOptions)}
                 onClose={() => setHistorySubscriptionId(null)}
             />
 
@@ -548,7 +548,7 @@ export default function Index({
                     onClose={() => setReadingSubscription(null)}
                     reading={null}
                     fixedSubscription={readingOptionFor(readingSubscription)}
-                    weekOptions={readingWeekOptions}
+                    weekOptions={weekOptionsFor(readingSubscription, readingWeekOptions)}
                 />
             )}
 

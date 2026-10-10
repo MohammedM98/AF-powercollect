@@ -256,7 +256,7 @@ trait PresentsClosings
         [$first, $last] = $period === 'monthly' ? ClosingPeriods::month($date) : ClosingPeriods::week($date);
         $type = $period === 'monthly' ? ClosingType::Monthly : ClosingType::Weekly;
         $days = ClosingPeriods::days($first, $last);
-        $today = ClosingPeriods::today()->toDateString();
+        $today = ClosingPeriods::furthestToday($branches)->toDateString();
         $closings = Closing::query()
             ->with(['lines.payment.splitPayment'])
             ->where('type', ClosingType::Daily)
@@ -268,7 +268,8 @@ trait PresentsClosings
         $collected = $this->collectionsByBranchAndDay($branches, $first, $last);
         $transfers = CashTransfer::query()->whereIn('branch_id', $branches->modelKeys())->where('status', CashTransferStatus::InTransit)->get();
 
-        $rows = $branches->map(function (Branch $branch) use ($days, $closings, $collected, $today, $transfers): array {
+        $rows = $branches->map(function (Branch $branch) use ($days, $closings, $collected, $transfers): array {
+            $today = ClosingPeriods::for($branch)->today()->toDateString();
             $cells = [];
             $approved = 0;
             $needed = 0;
@@ -318,7 +319,7 @@ trait PresentsClosings
         $pending = $closings->sum(fn (Closing $closing): int => $this->unconfirmedCents($closing));
         $pendingCount = $closings->sum(fn (Closing $closing): int => $closing->lines->where('match_status', ClosingMatchStatus::Unconfirmed)->count());
         $saved = Closing::query()->with('reviewedBy')->where('number', $this->periodNumber($type, $first))->first();
-        $ended = ClosingPeriods::hasEnded($last);
+        $ended = ClosingPeriods::hasEndedInAll($branches, $last);
 
         return [
             'period' => $period,
@@ -381,10 +382,12 @@ trait PresentsClosings
         $collected = [];
 
         foreach ($branches as $branch) {
+            $periods = ClosingPeriods::for($branch);
+
             Closing::paymentsReceived($branch->id, $first, $last)
                 ->get(['id', 'amount', 'payment_method', 'created_at'])
-                ->each(function ($payment) use (&$collected, $branch): void {
-                    $day = ClosingPeriods::dayOf($payment->created_at);
+                ->each(function ($payment) use (&$collected, $branch, $periods): void {
+                    $day = $periods->dayOf($payment->created_at);
                     $cents = -Closing::cents($payment->amount);
                     $collected[$branch->id][$day]['total'] = ($collected[$branch->id][$day]['total'] ?? 0) + $cents;
                     $collected[$branch->id][$day]['cash'] = ($collected[$branch->id][$day]['cash'] ?? 0) + ($payment->payment_method?->value === 'cash' ? $cents : 0);
@@ -475,7 +478,7 @@ trait PresentsClosings
         $collected = $this->collectionsByBranchAndDay($branches, $from, $to);
         $missing = $status !== null ? [] : collect($collected)
             ->flatMap(fn (array $days, int $branchId) => collect($days)->map(fn (array $day, string $date): array => ['branchId' => $branchId, 'day' => $date, 'total' => $day['total']]))
-            ->filter(fn (array $day): bool => $day['day'] < ClosingPeriods::today()->toDateString() && ! in_array($day['branchId'].'|'.$day['day'], $opened, true))
+            ->filter(fn (array $day): bool => $day['day'] < ClosingPeriods::for($day['branchId'])->today()->toDateString() && ! in_array($day['branchId'].'|'.$day['day'], $opened, true))
             ->map(fn (array $day): array => [...$day, 'branchName' => $branches->firstWhere('id', $day['branchId'])?->name, 'total' => Closing::money($day['total'])])
             ->sortByDesc('day')
             ->values()

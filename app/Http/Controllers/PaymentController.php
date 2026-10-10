@@ -245,8 +245,9 @@ class PaymentController extends Controller
      */
     private function todaysPayments(User $actor): array
     {
-        $day = ClosingPeriods::dayOf(now());
-        [$from, $until] = ClosingPeriods::utcRange($day, $day);
+        $periods = ClosingPeriods::for($actor->branch_id);
+        $day = $periods->dayOf(now());
+        [$from, $until] = $periods->utcRange($day, $day);
 
         $payments = SubscriptionTransaction::query()
             ->where('type', SubscriptionTransaction::TYPE_PAYMENT)

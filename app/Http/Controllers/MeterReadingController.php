@@ -11,6 +11,7 @@ use App\Http\Requests\ApproveMeterReadingsRequest;
 use App\Http\Requests\StoreMeterReadingRequest;
 use App\Http\Requests\UpdateMeterReadingRequest;
 use App\Models\Area;
+use App\Models\Branch;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\ReadingEntrySetting;
@@ -51,7 +52,8 @@ class MeterReadingController extends Controller
         $this->authorize('viewAny', MeterReading::class);
 
         $actor = auth()->user();
-        $weekStart = $this->selectedWeek($request);
+        $weekBranchId = $this->sheetBranchId($request, $actor);
+        $weekStart = $this->selectedWeek($request, $weekBranchId);
         $week = $weekStart->toDateString();
 
         $query = $this->subscriptionsInScope($actor)
@@ -87,9 +89,9 @@ class MeterReadingController extends Controller
         return Inertia::render('MeterReadings/Index', [
             'rows' => $rows,
             'week' => $week,
-            'weekEnd' => MeterReading::weekEndFor($weekStart)->toDateString(),
+            'weekEnd' => MeterReading::weekEndFor($weekStart, $weekBranchId)->toDateString(),
             // The weeks back to the first reading (at least fourteen months), for the year, month and week pickers.
-            'weekOptions' => MeterReading::recentWeekOptions($this->weeksToOffer()),
+            'weekOptions' => MeterReading::recentWeekOptions($weekBranchId, $this->weeksToOffer($actor, $weekBranchId)),
             'summary' => [
                 'total' => (clone $scope)->count(),
                 'entered' => (clone $scope)->whereHas('meterReadings', $enteredThisWeek)->count(),
@@ -131,7 +133,7 @@ class MeterReadingController extends Controller
             'subscription_id' => $subscription->id,
             'branch_id' => $subscription->branch_id,
             'week_start' => $weekStart,
-            'week_end' => MeterReading::weekEndFor($weekStart),
+            'week_end' => MeterReading::weekEndFor($weekStart, $subscription->branch_id),
             'previous_reading' => $previousReading,
             'current_reading' => $currentReading,
             'consumption' => $consumption,
@@ -207,7 +209,7 @@ class MeterReadingController extends Controller
     {
         $actor = $request->user();
         $query = $request->boolean('all')
-            ? $this->pendingInSheet($request, $actor, MeterReading::weekStartFor($request->date('week'))->toDateString())
+            ? $this->pendingInSheet($request, $actor, MeterReading::weekStartFor($request->date('week'), $this->sheetBranchId($request, $actor))->toDateString())
             : $this->pendingReadings($actor)->whereKey($request->validated('reading_ids'));
 
         // An unusual reading is only approved when ticked on its own and confirmed, never as part of "all".
@@ -283,15 +285,15 @@ class MeterReadingController extends Controller
     }
 
     /**
-     * Whether the company-wide reading entry window is open, and whether it
-     * restricts this actor at all: only people who enter readings are held to
-     * it, and the Super Admin may enter them any time.
+     * Whether the reading entry window of the actor's branch is open, and
+     * whether it restricts this actor at all: only people who enter readings
+     * are held to it, and the Super Admin may enter them any time.
      *
      * @return array{isOpen: bool, appliesToActor: bool, openDays: array<int, int>, opensAt: string, closesAt: string}
      */
     private function entryWindow(User $actor): array
     {
-        $setting = ReadingEntrySetting::current();
+        $setting = ReadingEntrySetting::forBranch($actor->branch_id);
 
         return [
             'isOpen' => $setting->isOpen(),
@@ -373,35 +375,68 @@ class MeterReadingController extends Controller
     }
 
     /**
+     * The branch whose reading weeks the sheet follows: the actor's own, or
+     * for the Super Admin the branch filtered on, else the first one. A sheet
+     * shows the weeks of one schedule, so when the branches do not all read on
+     * the same weeks, the Super Admin's sheet is held to that branch — the
+     * branch filter is set to it — instead of mixing the weeks.
+     */
+    private function sheetBranchId(Request $request, User $actor): ?int
+    {
+        if (! $actor->isSuperAdmin()) {
+            return $actor->branch_id;
+        }
+
+        $chosen = $request->input('filter.branch_id');
+
+        if (filled($chosen)) {
+            return (int) $chosen;
+        }
+
+        $branchIds = Branch::query()->orderBy('name')->pluck('id');
+        $weeksOfBranches = $branchIds->map(function (int $branchId): string {
+            $schedule = ReadingEntrySetting::forBranch($branchId);
+
+            return json_encode([$schedule->reading_day, $schedule->reading_day_history]);
+        })->unique();
+
+        if ($weeksOfBranches->count() > 1) {
+            $request->merge(['filter' => [...(array) $request->input('filter', []), 'branch_id' => (string) $branchIds->first()]]);
+        }
+
+        return $branchIds->first();
+    }
+
+    /**
      * The requested week (any date is snapped to the first day of its
      * week), defaulting to the latest week that has ended and never later
      * than it.
      */
-    private function selectedWeek(Request $request): Carbon
+    private function selectedWeek(Request $request, ?int $branchId): Carbon
     {
-        $latestWeek = MeterReading::latestEndedWeekStart();
+        $latestWeek = MeterReading::latestEndedWeekStart($branchId);
         $requested = $request->date('week');
 
         if ($requested === null) {
             return $latestWeek;
         }
 
-        return MeterReading::weekStartFor($requested)->min($latestWeek);
+        return MeterReading::weekStartFor($requested, $branchId)->min($latestWeek);
     }
 
     /**
      * How many weeks the pickers offer: back to the week of the first
-     * reading, but at least 60 and at most 520 (ten years).
+     * reading the actor may see, but at least 60 and at most 520 (ten years).
      */
-    private function weeksToOffer(): int
+    private function weeksToOffer(User $actor, ?int $branchId): int
     {
-        $first = MeterReading::query()->min('week_start');
+        $first = MeterReading::query()->visibleTo($actor)->min('week_start');
 
         if ($first === null) {
             return 60;
         }
 
-        $weeks = (int) floor(MeterReading::latestEndedWeekStart()->diffInDays(Carbon::parse($first), absolute: true) / 7) + 1;
+        $weeks = (int) floor(MeterReading::latestEndedWeekStart($branchId)->diffInDays(Carbon::parse($first), absolute: true) / 7) + 1;
 
         return max(60, min(520, $weeks));
     }

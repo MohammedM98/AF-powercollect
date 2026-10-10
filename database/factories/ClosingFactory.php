@@ -21,7 +21,7 @@ class ClosingFactory extends Factory
      */
     public function definition(): array
     {
-        $day = ClosingPeriods::latestEndedDay()->toDateString();
+        $day = ClosingPeriods::for()->latestEndedDay()->toDateString();
 
         return [
             'number' => (string) fake()->unique()->numberBetween(5001, 999999),

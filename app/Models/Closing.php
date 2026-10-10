@@ -93,18 +93,36 @@ class Closing extends Model
     }
 
     /**
-     * Open the day's closing of every active branch, with its payments.
-     * Returns how many branches.
+     * Open the branch's closing for a business day, with its payments: the
+     * latest day that has closed there by default. A day opens only once it
+     * has closed in the branch, by the branch's own cut-off; false until then.
      */
-    public static function openForActiveBranches(CarbonInterface|string $day): int
+    public static function openFor(Branch $branch, CarbonInterface|string|null $day = null): bool
     {
-        $branches = Branch::query()->where('is_active', true)->orderBy('id')->get();
+        $periods = ClosingPeriods::for($branch);
+        $day ??= $periods->latestEndedDay();
 
-        foreach ($branches as $branch) {
-            static::dailyFor($branch, $day)->syncPayments();
+        if (! $periods->hasEnded($day)) {
+            return false;
         }
 
-        return $branches->count();
+        static::dailyFor($branch, $day)->syncPayments();
+
+        return true;
+    }
+
+    /**
+     * Open the closing of every active branch where the business day has
+     * closed (the latest closed day of each branch, when no day is given),
+     * with its payments, or only of those whose closings open by themselves.
+     * Returns how many branches.
+     */
+    public static function openForActiveBranches(CarbonInterface|string|null $day = null, bool $automaticOnly = false): int
+    {
+        return Branch::query()->where('is_active', true)->orderBy('id')->get()
+            ->filter(fn (Branch $branch): bool => ! $automaticOnly || ClosingSetting::forBranch($branch)->auto_open)
+            ->filter(fn (Branch $branch): bool => static::openFor($branch, $day))
+            ->count();
     }
 
     /**
@@ -128,35 +146,38 @@ class Closing extends Model
      */
     public static function paymentsReceived(int $branchId, CarbonInterface|string $first, CarbonInterface|string $last): Builder
     {
-        [$from, $until] = ClosingPeriods::utcRange($first, $last);
+        [$from, $until] = ClosingPeriods::for($branchId)->utcRange($first, $last);
 
         return SubscriptionTransaction::query()
             ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
             ->where(fn (Builder $query): Builder => $query
                 ->whereNull('cancelled_at')
-                ->orWhereIn('id', self::refundedAfterTheirDay($from, $until)))
+                ->orWhereIn('id', self::refundedAfterTheirDay($branchId, $from, $until)))
             ->where('created_at', '>=', $from)
             ->where('created_at', '<', $until)
             ->whereHas('subscription', fn (Builder $subscription) => $subscription->where('branch_id', $branchId));
     }
 
     /**
-     * The ids of the payments received between two UTC moments that were
-     * refunded in full on a later business day than the one they were
+     * The ids of the branch's payments received between two UTC moments that
+     * were refunded in full on a later business day than the one they were
      * received on. Refunded the same day, a payment never counted at all.
      *
      * @return array<int, int>
      */
-    private static function refundedAfterTheirDay(CarbonInterface $from, CarbonInterface $until): array
+    private static function refundedAfterTheirDay(int $branchId, CarbonInterface $from, CarbonInterface $until): array
     {
+        $periods = ClosingPeriods::for($branchId);
+
         return SubscriptionTransaction::query()
             ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
             ->where('status', SubscriptionTransaction::STATUS_LINKED_CANCELLATION)
             ->whereNotNull('cancelled_at')
             ->where('created_at', '>=', $from)
             ->where('created_at', '<', $until)
+            ->whereHas('subscription', fn (Builder $subscription) => $subscription->where('branch_id', $branchId))
             ->get(['id', 'created_at', 'cancelled_at'])
-            ->filter(fn (SubscriptionTransaction $payment): bool => ClosingPeriods::dayOf($payment->cancelled_at) > ClosingPeriods::dayOf($payment->created_at))
+            ->filter(fn (SubscriptionTransaction $payment): bool => $periods->dayOf($payment->cancelled_at) > $periods->dayOf($payment->created_at))
             ->modelKeys();
     }
 
@@ -170,7 +191,8 @@ class Closing extends Model
      */
     public static function cashRefundsPaid(int $branchId, CarbonInterface|string $first, CarbonInterface|string $last): Collection
     {
-        [$from, $until] = ClosingPeriods::utcRange($first, $last);
+        $periods = ClosingPeriods::for($branchId);
+        [$from, $until] = $periods->utcRange($first, $last);
 
         return SubscriptionTransaction::query()
             ->with(['subscription', 'referenceTransaction'])
@@ -184,7 +206,7 @@ class Closing extends Model
             ->orderBy('id')
             ->get()
             ->filter(fn (SubscriptionTransaction $refund): bool => $refund->referenceTransaction !== null
-                && ClosingPeriods::dayOf($refund->referenceTransaction->created_at) < ClosingPeriods::dayOf($refund->created_at))
+                && $periods->dayOf($refund->referenceTransaction->created_at) < $periods->dayOf($refund->created_at))
             ->values();
     }
 
@@ -296,7 +318,7 @@ class Closing extends Model
      */
     private function transfersSentDuring(CarbonInterface $first, CarbonInterface $last): Builder
     {
-        [$from, $until] = ClosingPeriods::utcRange($first, $last);
+        [$from, $until] = ClosingPeriods::for($this->branch_id)->utcRange($first, $last);
 
         return CashTransfer::query()
             ->where('branch_id', $this->branch_id)
@@ -397,7 +419,7 @@ class Closing extends Model
     {
         $blockers = [];
 
-        if (! ClosingPeriods::hasEnded($this->period_end)) {
+        if (! ClosingPeriods::for($this->branch_id)->hasEnded($this->period_end)) {
             $blockers[] = 'اليوم لم ينتهِ بعد؛ يُرسل الكشف بعد وقت القطع.';
         }
 

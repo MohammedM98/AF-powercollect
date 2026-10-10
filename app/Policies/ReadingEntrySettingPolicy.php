@@ -2,16 +2,9 @@
 
 namespace App\Policies;
 
-use App\Models\User;
-
-class ReadingEntrySettingPolicy
-{
-    /**
-     * The reading entry schedule is company-wide, so only the Super Admin
-     * manages it.
-     */
-    public function manage(User $user): bool
-    {
-        return $user->isSuperAdmin();
-    }
-}
+/**
+ * The reading schedule: each branch's admin sets their own branch's reading
+ * day and entry window; the company's default, which the other branches
+ * follow, stays with the Super Admin.
+ */
+class ReadingEntrySettingPolicy extends BranchSchedulePolicy {}

@@ -2,8 +2,7 @@
 
 namespace App\Providers;
 
-use App\Models\ClosingSetting;
-use App\Models\ReadingEntrySetting;
+use App\Support\BranchSettings;
 use App\Support\Messaging\HttpSmsGateway;
 use App\Support\Messaging\LogSmsGateway;
 use App\Support\Messaging\SmsGateway;
@@ -17,9 +16,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Read by every reading-week calculation, so loaded once per request or job.
-        $this->app->scoped(ReadingEntrySetting::class, fn (): ReadingEntrySetting => ReadingEntrySetting::loadCurrent());
-        $this->app->scoped(ClosingSetting::class, fn (): ClosingSetting => ClosingSetting::loadCurrent());
+        // The reading and closing schedules are read by every week and period calculation, so loaded once per request or job.
+        $this->app->scoped(BranchSettings::class);
 
         // SMS go out through the gateway named in services.sms.driver; until one is set up they're only logged.
         $this->app->bind(SmsGateway::class, fn (): SmsGateway => match (config('services.sms.driver')) {

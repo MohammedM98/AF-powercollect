@@ -8,13 +8,13 @@ class ReportPeriod
 {
     /**
      * Navigate complete calendar periods; compare elapsed dates for a partial
-     * period, and complete months for a completed month.
+     * period, and complete months for a completed month. `$today` is the
+     * business day the report reaches up to.
      *
      * @return array<string, mixed>
      */
-    public static function describe(CarbonImmutable $from, CarbonImmutable $to, ?string $requested): array
+    public static function describe(CarbonImmutable $from, CarbonImmutable $to, ?string $requested, CarbonImmutable $today): array
     {
-        $today = ClosingPeriods::today();
         [$weekStart, $weekEnd] = ClosingPeriods::week($from);
         $monthEnd = $from->endOfMonth()->startOfDay();
         $isMonth = $from->day === 1 && $to->equalTo($monthEnd->min($today));

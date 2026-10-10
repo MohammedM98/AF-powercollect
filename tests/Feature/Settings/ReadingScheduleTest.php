@@ -3,6 +3,8 @@
 namespace Tests\Feature\Settings;
 
 use App\Enums\ReadingEntryMode;
+use App\Models\Branch;
+use App\Models\MeterReading;
 use App\Models\ReadingEntrySetting;
 use App\Models\User;
 use Carbon\CarbonInterface;
@@ -123,16 +125,156 @@ class ReadingScheduleTest extends TestCase
             ->assertSessionHasErrors(['open_days' => 'اختر يومًا واحدًا على الأقل لفتح الإدخال.']);
     }
 
-    public function test_branch_admin_cannot_manage_the_company_wide_schedule(): void
+    public function test_branch_admin_cannot_manage_the_company_default_or_another_branchs_schedule(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
+        $otherBranch = Branch::factory()->create();
+        $this->actingAs($branchAdmin);
 
-        $this->actingAs($branchAdmin)->get(route('settings.reading-schedule.edit'))->assertForbidden();
-        $this->actingAs($branchAdmin)
-            ->put(route('settings.reading-schedule.update'), ['open_days' => [1], 'mode' => 'open'])
-            ->assertForbidden();
+        $this->get(route('settings.reading-schedule.edit', ['branch' => $otherBranch->id]))->assertForbidden();
+        $this->put(route('settings.reading-schedule.update'), ['reading_day' => 4, 'open_days' => [1], 'mode' => 'open'])->assertForbidden();
+        $this->put(route('settings.reading-schedule.update'), ['branch_id' => $otherBranch->id, 'reading_day' => 4, 'open_days' => [1], 'mode' => 'open'])->assertForbidden();
 
         $this->assertDatabaseMissing('reading_entry_settings', ['mode' => 'open']);
+    }
+
+    public function test_only_branch_admins_and_the_super_admin_open_the_schedule(): void
+    {
+        $this->actingAs(User::factory()->dataEntry()->create())->get(route('settings.reading-schedule.edit'))->assertForbidden();
+        $this->actingAs(User::factory()->accountant()->create())->get(route('settings.reading-schedule.edit'))->assertForbidden();
+    }
+
+    public function test_a_branch_admin_sees_their_own_branch_following_the_company_until_they_set_it(): void
+    {
+        $branch = Branch::factory()->create();
+        $this->actingAs(User::factory()->branchAdmin()->create(['branch_id' => $branch->id]))
+            ->get(route('settings.reading-schedule.edit'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Settings/ReadingSchedule')
+                ->where('branch', ['id' => $branch->id, 'name' => $branch->name])
+                ->where('branches', [])
+                ->where('followsCompany', true)
+                ->where('setting.reading_day', CarbonInterface::THURSDAY));
+    }
+
+    public function test_a_branch_admin_sets_only_their_own_branchs_schedule(): void
+    {
+        $this->travelTo('2026-09-30 10:00:00'); // Wednesday — the latest ended week is 18 → 24 Sep
+        $branch = Branch::factory()->create();
+        $other = Branch::factory()->create();
+        $admin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+
+        $this->actingAs($admin)
+            ->put(route('settings.reading-schedule.update'), [
+                'branch_id' => $branch->id,
+                'reading_day' => CarbonInterface::SATURDAY,
+                'open_days' => [CarbonInterface::FRIDAY, CarbonInterface::SATURDAY],
+                'opens_at' => '08:00',
+                'closes_at' => '14:00',
+                'mode' => 'automatic',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('settings.reading-schedule.edit', ['branch' => $branch->id]));
+
+        $own = ReadingEntrySetting::ownFor($branch);
+        $this->assertSame(CarbonInterface::SATURDAY, $own->reading_day);
+        $this->assertSame([CarbonInterface::FRIDAY, CarbonInterface::SATURDAY], $own->open_days);
+        $this->assertSame('08:00', substr($own->opens_at, 0, 5));
+        $this->assertTrue($own->updatedBy->is($admin));
+        // The weeks the branch already read on Thursdays keep their dates, as for the company.
+        $this->assertSame(
+            [['reading_day' => CarbonInterface::THURSDAY, 'last_week_end' => '2026-09-24', 'next_week_end' => '2026-10-03']],
+            $own->reading_day_history,
+        );
+        $this->assertNull(ReadingEntrySetting::ownFor($other));
+        $this->assertSame(CarbonInterface::THURSDAY, ReadingEntrySetting::company()->reading_day);
+        $this->assertSame(CarbonInterface::THURSDAY, ReadingEntrySetting::forBranch($other)->reading_day);
+    }
+
+    public function test_saving_again_updates_the_branchs_schedule_instead_of_adding_another(): void
+    {
+        $branch = Branch::factory()->create();
+        $admin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $schedule = ['branch_id' => $branch->id, 'reading_day' => CarbonInterface::THURSDAY, 'open_days' => [CarbonInterface::THURSDAY], 'mode' => 'automatic'];
+
+        $this->actingAs($admin)->put(route('settings.reading-schedule.update'), $schedule)->assertSessionHasNoErrors();
+        $this->put(route('settings.reading-schedule.update'), [...$schedule, 'mode' => 'closed'])->assertSessionHasNoErrors();
+
+        $this->assertSame(1, ReadingEntrySetting::where('branch_id', $branch->id)->count());
+        $this->assertSame(ReadingEntryMode::Closed, ReadingEntrySetting::forBranch($branch)->mode);
+        $this->assertSame(ReadingEntryMode::Automatic, ReadingEntrySetting::company()->mode);
+    }
+
+    public function test_the_super_admin_picks_a_branch_and_sees_which_ones_have_their_own_schedule(): void
+    {
+        $own = Branch::factory()->create(['name' => 'Alpha']);
+        $following = Branch::factory()->create(['name' => 'Beta']);
+        ReadingEntrySetting::factory()->forBranch($own)->create(['reading_day' => CarbonInterface::SATURDAY]);
+
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('settings.reading-schedule.edit', ['branch' => $own->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('branch.id', $own->id)
+                ->where('followsCompany', false)
+                ->where('setting.reading_day', CarbonInterface::SATURDAY)
+                ->where('branchesWithOwn', 1)
+                ->where('branches', [
+                    ['value' => $own->id, 'label' => 'Alpha', 'hasOwn' => true],
+                    ['value' => $following->id, 'label' => 'Beta', 'hasOwn' => false],
+                ]));
+
+        $this->get(route('settings.reading-schedule.edit', ['branch' => $following->id]))
+            ->assertInertia(fn ($page) => $page->where('followsCompany', true)->where('setting.reading_day', CarbonInterface::THURSDAY));
+        $this->get(route('settings.reading-schedule.edit'))
+            ->assertInertia(fn ($page) => $page->where('branch', null)->where('followsCompany', false));
+    }
+
+    public function test_a_branch_follows_the_companys_reading_day_until_it_has_its_own(): void
+    {
+        $this->travelTo('2026-09-25 10:00:00'); // Friday
+        $following = Branch::factory()->create();
+        $own = Branch::factory()->create();
+        ReadingEntrySetting::factory()->forBranch($own)->create(['reading_day' => CarbonInterface::SATURDAY]);
+
+        $this->assertSame('2026-09-24', MeterReading::latestEndedWeekStart($following)->addDays(6)->toDateString());
+        // The week containing Friday 25 Sep ends on the next Thursday for the company's schedule, on Saturday for the branch's own.
+        $this->assertSame('2026-10-01', MeterReading::weekEndFor(now(), $following)->toDateString());
+        $this->assertSame('2026-09-26', MeterReading::weekEndFor(now(), $own)->toDateString());
+
+        ReadingEntrySetting::company()->update(['reading_day' => CarbonInterface::WEDNESDAY]);
+
+        $this->assertSame(CarbonInterface::WEDNESDAY, ReadingEntrySetting::forBranch($following)->reading_day);
+        $this->assertSame(CarbonInterface::SATURDAY, ReadingEntrySetting::forBranch($own)->reading_day);
+    }
+
+    public function test_each_branch_has_its_own_latest_ended_week(): void
+    {
+        $this->travelTo('2026-09-25 10:00:00'); // Friday
+        $thursdays = Branch::factory()->create(['name' => 'Alpha']);
+        $saturdays = Branch::factory()->create(['name' => 'Beta']);
+        ReadingEntrySetting::factory()->forBranch($saturdays)->create(['reading_day' => CarbonInterface::SATURDAY]);
+
+        $this->assertSame('2026-09-18', MeterReading::latestEndedWeekStart($thursdays)->toDateString());
+        $this->assertSame('2026-09-13', MeterReading::latestEndedWeekStart($saturdays)->toDateString());
+        $this->assertSame('2026-09-18', MeterReading::recentWeekOptions($thursdays, 1)[0]['value']);
+        $this->assertSame('2026-09-13', MeterReading::recentWeekOptions($saturdays, 1)[0]['value']);
+        $this->assertSame([$thursdays->id, $saturdays->id], array_keys(MeterReading::recentWeekOptionsFor(User::factory()->superAdmin()->create(), 1)));
+    }
+
+    public function test_a_branchs_entry_window_does_not_close_the_other_branches(): void
+    {
+        $this->travelTo('2026-09-24 10:00:00'); // Thursday
+        $closed = Branch::factory()->create();
+        $open = Branch::factory()->create();
+        ReadingEntrySetting::factory()->forBranch($closed)->forcedClosed()->create();
+        $closedStaff = User::factory()->dataEntry()->create(['branch_id' => $closed->id]);
+        $openStaff = User::factory()->dataEntry()->create(['branch_id' => $open->id]);
+
+        $this->assertFalse($closedStaff->can('create', MeterReading::class));
+        $this->assertTrue($openStaff->can('create', MeterReading::class));
+        $this->assertTrue(User::factory()->superAdmin()->create()->can('create', MeterReading::class));
     }
 
     public function test_scheduled_days_follow_the_business_timezone(): void

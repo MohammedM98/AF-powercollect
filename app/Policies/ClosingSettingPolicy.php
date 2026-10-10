@@ -2,16 +2,9 @@
 
 namespace App\Policies;
 
-use App\Models\User;
-
-class ClosingSettingPolicy
-{
-    /**
-     * The closing schedule is company-wide, so only the Super Admin
-     * manages it and opens a day's closings by hand.
-     */
-    public function manage(User $user): bool
-    {
-        return $user->isSuperAdmin();
-    }
-}
+/**
+ * The closing schedule: each branch's admin sets their own branch's cut-off
+ * and automatic opening and opens its days by hand; the company's default,
+ * which the other branches follow, stays with the Super Admin.
+ */
+class ClosingSettingPolicy extends BranchSchedulePolicy {}

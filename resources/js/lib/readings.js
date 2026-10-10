@@ -82,6 +82,14 @@ export function readingOptionFor(subscription) {
 }
 
 /**
+ * The recent weeks of the subscription's branch, out of the lists the server
+ * sends per branch id: each branch reads on its own weekly reading day.
+ */
+export function weekOptionsFor(subscription, weekOptionsByBranch) {
+    return weekOptionsByBranch?.[subscription?.branch_id] ?? [];
+}
+
+/**
  * Whether the subscription's reading for the latest ended week (the first of
  * `weekOptions`) has been entered already.
  */

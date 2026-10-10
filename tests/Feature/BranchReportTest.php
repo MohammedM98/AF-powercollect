@@ -9,6 +9,7 @@ use App\Enums\DiscountMethod;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Closing;
+use App\Models\ClosingSetting;
 use App\Models\MeterReading;
 use App\Models\Permission;
 use App\Models\Subscription;
@@ -141,6 +142,40 @@ class BranchReportTest extends TestCase
             ->where('filters.branch', 'all')
             ->where('scopeLabel', 'كل الفروع')
             ->where('collections.total', '30.00'));
+    }
+
+    public function test_a_report_across_branches_counts_each_branchs_payments_by_its_own_cutoff(): void
+    {
+        ClosingSetting::create(['branch_id' => $this->north->id, 'cutoff_time' => '18:00', 'auto_open' => true]);
+        $southSubscription = Subscription::factory()->create(['branch_id' => $this->south->id]);
+        // North closes its day at 18:00, so anything it takes from then on counts for the next day; South closes at midnight.
+        $this->at('2026-09-29 17:00', fn () => $this->pay('50'));
+        $this->at('2026-09-29 18:30', fn () => $this->pay('11'));
+        $this->at('2026-09-30 10:00', fn () => $this->pay('100'));
+        $this->at('2026-09-30 19:00', fn () => $this->pay('20'));
+        $this->at('2026-09-30 19:00', fn () => $this->pay('7', [], $southSubscription));
+        $this->at('2026-10-01 08:00', fn () => $this->pay('3', [], $southSubscription));
+
+        $auditor = User::factory()->financialAuditor()->create(['branch_id' => $this->north->id]);
+        $auditor->permissions()->sync(Permission::idsFor([PermissionKey::ViewAllClosings, PermissionKey::ExportFinancialReports]));
+
+        $this->actingAs($auditor)->get(route('reports.index', ['branch' => 'all', 'from' => '2026-09-30', 'to' => '2026-10-01']))->assertInertia(fn ($page) => $page
+            // North's 50 was taken on its 29 Sep, before the period; South's 7 on 30 Sep.
+            ->where('flow.opening', '-50.00')
+            ->where('collections.total', '141.00')
+            ->where('flow.closing', '-191.00')
+            ->where('days', fn ($days): bool => collect($days)->map(fn ($day) => [$day['day'], $day['payments']])->all() === [
+                ['2026-09-30', '118.00'],
+                ['2026-10-01', '23.00'],
+            ])
+            ->has('transactions.data', 5));
+
+        $this->get(route('reports.index', ['branch' => $this->north->id, 'from' => '2026-09-30', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
+            ->where('cutoff', '18:00')
+            ->where('collections.total', '111.00'));
+        $this->get(route('reports.index', ['branch' => $this->south->id, 'from' => '2026-09-30', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
+            ->where('cutoff', '00:00')
+            ->where('collections.total', '7.00'));
     }
 
     public function test_someone_who_cannot_open_the_closings_cannot_open_the_reports(): void

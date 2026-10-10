@@ -86,8 +86,8 @@ class HandleInertiaRequests extends Middleware
                 'sendMessages' => $user->can('create', MessageBatch::class),
                 'viewGovernorates' => $user->can('viewAny', Governorate::class) || $user->can('viewAny', SubArea::class),
                 'manageSettings' => $user->can('manage', Permission::class),
-                'manageReadingSchedule' => $user->can('manage', ReadingEntrySetting::class),
-                'manageClosingSchedule' => $user->can('manage', ClosingSetting::class),
+                'manageReadingSchedule' => $user->can('manageAny', ReadingEntrySetting::class),
+                'manageClosingSchedule' => $user->can('manageAny', ClosingSetting::class),
                 'managePrintTemplates' => $user->can('viewAny', PrintTemplate::class),
             ] : null,
             // A list opened for printing gets the company's print templates for it.

@@ -81,7 +81,7 @@ class DemoActivitySeeder extends Seeder
                 $this->registerSubscription($branch, $staff['registrars']->random(), $this->timeOn($day));
             }
 
-            if ($day->isSameDay(MeterReading::weekEndFor($day))) {
+            if ($day->isSameDay(MeterReading::weekEndFor($day, $branch))) {
                 $this->readWeek($branch, $staff, $day);
             }
 
@@ -150,7 +150,7 @@ class DemoActivitySeeder extends Seeder
      */
     private function readWeek(Branch $branch, array $staff, Carbon $day): void
     {
-        $weekStart = MeterReading::weekStartFor($day);
+        $weekStart = MeterReading::weekStartFor($day, $branch);
         $subscriptions = $branch->subscriptions()
             ->with(['tariff', 'circuitBreaker'])
             ->where('status', SubscriptionStatus::Active)

@@ -76,6 +76,7 @@ export default function Create({
     templates,
     placeholders,
     weekOptions,
+    weekBranchId,
     statusOptions,
     branchOptions,
     meterBoxGroups,
@@ -139,6 +140,9 @@ export default function Create({
         return data;
     }, [kind, criteria]);
     const requestKey = JSON.stringify(requestData);
+    // Each branch reads on its own weeks: those of the branch messaged, or else of the branch the page starts on.
+    const weekBranchKey = String(criteria.branch_id !== '' ? criteria.branch_id : weekBranchId);
+    const branchWeekOptions = weekOptions[weekBranchKey] ?? [];
     const isStale = recipients !== null && loadedKey !== requestKey;
 
     // Keep the list loaded here: a template save reloads the page without it.
@@ -160,6 +164,14 @@ export default function Create({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Another branch has other weeks: move to its latest one when the chosen week isn't one of them.
+    useEffect(() => {
+        if (branchWeekOptions.length > 0 && !branchWeekOptions.some((option) => option.value === criteria.week_start)) {
+            setCriterion('week_start', branchWeekOptions[0].value);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [weekBranchKey]);
 
     function loadRecipients() {
         setLoading(true);
@@ -297,7 +309,7 @@ export default function Create({
                                             onChange={(e) => setCriterion('week_start', e.target.value)}
                                             className="block w-full text-sm"
                                         >
-                                            {weekOptions.map((option) => (
+                                            {branchWeekOptions.map((option) => (
                                                 <option key={option.value} value={option.value}>
                                                     {option.label}
                                                 </option>

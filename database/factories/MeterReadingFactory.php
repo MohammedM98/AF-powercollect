@@ -27,8 +27,8 @@ class MeterReadingFactory extends Factory
         return [
             'subscription_id' => Subscription::factory(),
             'branch_id' => fn (array $attributes) => Subscription::find($attributes['subscription_id'])->branch_id,
-            'week_start' => fn () => MeterReading::weekStartFor(now()),
-            'week_end' => fn (array $attributes) => MeterReading::weekEndFor(Carbon::parse($attributes['week_start'])),
+            'week_start' => fn (array $attributes) => MeterReading::weekStartFor(now(), $attributes['branch_id']),
+            'week_end' => fn (array $attributes) => MeterReading::weekEndFor(Carbon::parse($attributes['week_start']), $attributes['branch_id']),
             'previous_reading' => $previousReading,
             'current_reading' => $previousReading + $consumption,
             'consumption' => $consumption,

@@ -18,7 +18,7 @@ class MobileSubscriptionController extends Controller
 
         abort_unless($actor->hasPermission(PermissionKey::RecordMeterReadings), 403);
 
-        $weekStart = MeterReading::latestEndedWeekStart();
+        $weekStart = MeterReading::latestEndedWeekStart($actor->branch_id);
         $week = $weekStart->toDateString();
         $subscriptions = Subscription::query()
             ->visibleTo($actor)
@@ -33,7 +33,7 @@ class MobileSubscriptionController extends Controller
 
         return response()->json([
             'week_start' => $week,
-            'week_end' => MeterReading::weekEndFor($weekStart)->toDateString(),
+            'week_end' => MeterReading::weekEndFor($weekStart, $actor->branch_id)->toDateString(),
             'can_record_readings_now' => $actor->can('create', [MeterReading::class, $weekStart]),
             'data' => $subscriptions->getCollection()->map(function (Subscription $subscription) use ($week): array {
                 $currentWeekReading = $subscription->meterReadings->first(fn (MeterReading $reading): bool => $reading->week_start->toDateString() === $week);

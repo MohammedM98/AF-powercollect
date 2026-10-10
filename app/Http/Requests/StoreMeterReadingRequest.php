@@ -13,6 +13,8 @@ use Illuminate\Validation\Validator;
 
 class StoreMeterReadingRequest extends FormRequest
 {
+    private ?Subscription $subscription = null;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -62,10 +64,10 @@ class StoreMeterReadingRequest extends FormRequest
                     return;
                 }
 
-                $subscription = Subscription::findOrFail($this->integer('subscription_id'));
+                $subscription = $this->subscription();
                 $weekStart = $this->weekStart();
 
-                if ($weekStart->greaterThan(MeterReading::latestEndedWeekStart())) {
+                if ($weekStart->greaterThan(MeterReading::latestEndedWeekStart($subscription->branch_id))) {
                     $validator->errors()->add('week_start', 'لا يمكن إدخال قراءة لأسبوع لم ينتهِ بعد.');
 
                     return;
@@ -115,10 +117,16 @@ class StoreMeterReadingRequest extends FormRequest
     }
 
     /**
-     * The first day of the week the submitted date falls in.
+     * The first day of the week the submitted date falls in, by the reading
+     * schedule of the subscription's branch.
      */
     public function weekStart(): Carbon
     {
-        return MeterReading::weekStartFor(Carbon::parse($this->input('week_start')));
+        return MeterReading::weekStartFor(Carbon::parse($this->input('week_start')), $this->subscription()->branch_id);
+    }
+
+    private function subscription(): Subscription
+    {
+        return $this->subscription ??= Subscription::findOrFail($this->integer('subscription_id'));
     }
 }

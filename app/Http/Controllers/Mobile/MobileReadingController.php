@@ -23,9 +23,10 @@ class MobileReadingController extends Controller
             'search' => ['nullable', 'string', 'max:100'],
             'page' => ['sometimes', 'integer', 'min:1'],
         ]);
+        $branchId = $request->user()->branch_id;
         $weekStart = isset($validated['week'])
-            ? MeterReading::weekStartFor(Carbon::parse($validated['week']))
-            : MeterReading::latestEndedWeekStart();
+            ? MeterReading::weekStartFor(Carbon::parse($validated['week']), $branchId)
+            : MeterReading::latestEndedWeekStart($branchId);
         $week = $weekStart->toDateString();
         $search = trim($validated['search'] ?? '');
         $subscriptions = Subscription::query()
@@ -41,8 +42,8 @@ class MobileReadingController extends Controller
 
         return response()->json([
             'week_start' => $week,
-            'week_end' => MeterReading::weekEndFor($weekStart)->toDateString(),
-            'week_options' => MeterReading::recentWeekOptions(),
+            'week_end' => MeterReading::weekEndFor($weekStart, $branchId)->toDateString(),
+            'week_options' => MeterReading::recentWeekOptions($branchId),
             'data' => $subscriptions->getCollection()->map(function (Subscription $subscription) use ($week): array {
                 $latest = $subscription->meterReadings->first();
                 $reading = $latest?->week_start->toDateString() === $week ? $latest : null;
@@ -84,7 +85,7 @@ class MobileReadingController extends Controller
             'subscription_id' => $subscription->id,
             'branch_id' => $subscription->branch_id,
             'week_start' => $weekStart,
-            'week_end' => MeterReading::weekEndFor($weekStart),
+            'week_end' => MeterReading::weekEndFor($weekStart, $subscription->branch_id),
             'previous_reading' => $previousReading,
             'current_reading' => $currentReading,
             'consumption' => $consumption,

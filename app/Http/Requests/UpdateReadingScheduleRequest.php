@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\ReadingEntryMode;
+use App\Models\Branch;
 use App\Models\ReadingEntrySetting;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -15,7 +16,7 @@ class UpdateReadingScheduleRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('manage', ReadingEntrySetting::class);
+        return $this->user()->can('manage', [ReadingEntrySetting::class, $this->branch()]);
     }
 
     /**
@@ -27,6 +28,7 @@ class UpdateReadingScheduleRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'reading_day' => ['required', 'integer', 'between:0,6'],
             'open_days' => ['required', 'array', 'min:1'],
             'open_days.*' => ['integer', 'between:0,6', 'distinct'],
@@ -34,6 +36,14 @@ class UpdateReadingScheduleRequest extends FormRequest
             'closes_at' => ['required_with:opens_at', 'filled', 'date_format:H:i', 'after:opens_at'],
             'mode' => ['required', Rule::enum(ReadingEntryMode::class)],
         ];
+    }
+
+    /**
+     * The branch whose schedule this is, or null for the company's.
+     */
+    public function branch(): ?Branch
+    {
+        return $this->filled('branch_id') ? Branch::query()->find($this->integer('branch_id')) : null;
     }
 
     /**

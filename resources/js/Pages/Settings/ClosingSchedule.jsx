@@ -4,6 +4,7 @@ import SettingsLayout from '@/Layouts/SettingsLayout';
 import InputError from '@/Components/InputError';
 import Icon from '@/Components/Icon';
 import ConfirmDialog from '@/Components/ConfirmDialog';
+import BranchScopeBar from './BranchScopeBar';
 import { WEEK_DAYS, formatWeekDay, weekDayName } from '@/lib/weekDays';
 import { businessDayHours, shortDate, weekOf } from '@/lib/closing';
 import './ReadingSchedule.css';
@@ -31,24 +32,30 @@ function PanelTitle({ icon, children }) {
 }
 
 /**
- * The closing schedule, set by hand: when the business day closes (later
- * payments count for the next day), which day starts the week, whether
- * each day's closings open by themselves after the cut-off or only when
- * opened here, and opening a closed day's closings now.
+ * The closing schedule, set by hand for a branch (by its admin or the Super
+ * Admin) or, by the Super Admin, for the company's default that the other
+ * branches follow: when the business day closes (later payments count for
+ * the next day), whether each day's closings open by themselves after the
+ * cut-off or only when opened here, and opening a closed day's closings now.
+ * Which day starts the week is the company's alone, since the weekly closing
+ * approves every branch's days together.
  */
-export default function ClosingSchedule({ setting, today, latestDay, businessTimezone }) {
+export default function ClosingSchedule({ setting, branch, branches, followsCompany, branchesWithOwn, today, latestDay, businessTimezone }) {
     const { data, setData, put, processing, errors, isDirty, resetAndClearErrors, setDefaults } = useForm({
+        branch_id: branch?.id ?? null,
         cutoff_time: setting.cutoff_time,
-        week_starts_on: setting.week_starts_on,
+        ...(branch ? {} : { week_starts_on: setting.week_starts_on }),
         auto_open: setting.auto_open,
     });
+    const weekStartsOn = data.week_starts_on ?? setting.week_starts_on;
+    const scope = branch ? `الفرع «${branch.name}»` : 'كل الفروع';
     const [confirmingSave, setConfirmingSave] = useState(false);
     const [openDate, setOpenDate] = useState(latestDay);
     const [opening, setOpening] = useState(false);
     const [openErrors, setOpenErrors] = useState({});
     const cutoffError =
         data.cutoff_time !== '00:00' && data.cutoff_time < '12:00' ? 'اختر منتصف الليل (00:00) أو وقتًا من الظهر (12:00) فما بعد.' : null;
-    const week = weekOf(today, data.week_starts_on);
+    const week = weekOf(today, weekStartsOn);
     const cutoffLabel = data.cutoff_time === '00:00' ? 'منتصف الليل' : data.cutoff_time;
 
     function submit(event) {
@@ -66,7 +73,7 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
     function openDay() {
         router.post(
             '/settings/closing-schedule/open',
-            { date: openDate },
+            { date: openDate, branch_id: branch?.id ?? null },
             {
                 preserveScroll: true,
                 onStart: () => setOpening(true),
@@ -78,11 +85,13 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
     }
 
     const confirmation = [
-        `يُغلق يوم العمل عند ${cutoffLabel} بتوقيت الشركة؛ ${data.cutoff_time === '00:00' ? 'كل دفعات اليوم تُحسب له.' : `الدفعات بعد ${data.cutoff_time} تُحسب لليوم التالي.`}`,
-        `يبدأ الأسبوع يوم ${WEEK_DAYS.find((day) => day.value === data.week_starts_on).label}.`,
-        data.auto_open ? 'تُفتح كشوف كل الفروع تلقائيًا بعد وقت القطع.' : 'لا تُفتح الكشوف تلقائيًا؛ تُفتح من هذه الصفحة أو عند فتح الفرع ليومه.',
+        `يُغلق يوم العمل في ${branch ? `الفرع «${branch.name}»` : 'الفروع التي تتبع الشركة'} عند ${cutoffLabel} بتوقيت الشركة؛ ${data.cutoff_time === '00:00' ? 'كل دفعات اليوم تُحسب له.' : `الدفعات بعد ${data.cutoff_time} تُحسب لليوم التالي.`}`,
+        branch ? null : `يبدأ الأسبوع يوم ${WEEK_DAYS.find((day) => day.value === weekStartsOn).label} لكل الفروع.`,
+        data.auto_open ? `تُفتح كشوف ${scope} تلقائيًا بعد وقت القطع.` : 'لا تُفتح الكشوف تلقائيًا؛ تُفتح من هذه الصفحة أو عند فتح الفرع ليومه.',
         'الكشوف المرسلة والمعتمدة تحتفظ بدفعاتها كما هي.',
-    ].join(' ');
+    ]
+        .filter(Boolean)
+        .join(' ');
 
     return (
         <SettingsLayout>
@@ -90,8 +99,17 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
             <form onSubmit={submit} className="reading-schedule" dir="rtl">
                 <div className="rs-heading">
                     <h1>مواعيد الإغلاق</h1>
-                    <p>متى ينتهي يوم العمل في كل الفروع، ومتى يبدأ الأسبوع، وكيف تُفتح كشوف الإغلاق اليومية.</p>
+                    <p>متى ينتهي يوم العمل في كل فرع، وكيف تُفتح كشوف الإغلاق اليومية. بداية الأسبوع واحدة لكل الفروع.</p>
                 </div>
+
+                <BranchScopeBar
+                    path="/settings/closing-schedule"
+                    branch={branch}
+                    branches={branches}
+                    followsCompany={followsCompany}
+                    branchesWithOwn={branchesWithOwn}
+                    locked={isDirty}
+                />
 
                 <section className={`rs-status ${data.auto_open ? 'is-open' : ''}`} aria-live="polite">
                     <span className="rs-status-dot" aria-hidden="true">
@@ -101,7 +119,7 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                         <b>{data.auto_open ? 'الكشوف تُفتح تلقائيًا' : 'الكشوف تُفتح يدويًا'}</b>
                         <p>
                             {data.auto_open
-                                ? `تُفتح كشوف كل الفروع خلال ربع ساعة من وقت القطع (${cutoffLabel}).`
+                                ? `تُفتح كشوف ${scope} خلال ربع ساعة من وقت القطع (${cutoffLabel}).`
                                 : 'تُفتح من هذه الصفحة، أو حين يفتح الفرع يومه في صفحة الإغلاق.'}
                             {isDirty && <span className="rs-preview-note"> · معاينة قبل الحفظ</span>}
                         </p>
@@ -127,7 +145,10 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                     <div className="rs-column">
                         <section className="rs-panel">
                             <PanelTitle icon="clock">وقت القطع</PanelTitle>
-                            <p>يُغلق يوم العمل عند هذه الساعة بتوقيت الشركة. الدفعات المسجّلة بعدها تُحسب لليوم التالي وتدخل في كشفه.</p>
+                            <p>
+                                يُغلق يوم العمل {branch ? `في الفرع «${branch.name}»` : 'في الفروع التي تتبع الشركة'} عند هذه الساعة بتوقيت الشركة. الدفعات المسجّلة بعدها
+                                تُحسب لليوم التالي وتدخل في كشفه.
+                            </p>
                             <div className="rs-quick">
                                 {QUICK_CUTOFFS.map(([time, label]) => (
                                     <button
@@ -166,27 +187,38 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
 
                         <section className="rs-panel">
                             <PanelTitle icon="calendar">بداية الأسبوع</PanelTitle>
-                            <p>يبدأ الإغلاق الأسبوعي في هذا اليوم ويستمر سبعة أيام.</p>
-                            <div className="rs-days" role="radiogroup" aria-label="بداية الأسبوع">
-                                {WEEK_DAYS.map((day) => (
-                                    <label key={day.value} className={`rs-day ${data.week_starts_on === day.value ? 'is-selected' : ''}`}>
-                                        <input
-                                            type="radio"
-                                            name="week_starts_on"
-                                            checked={data.week_starts_on === day.value}
-                                            disabled={processing}
-                                            onChange={() => setData('week_starts_on', day.value)}
-                                            aria-label={day.label}
-                                        />
-                                        <span className="rs-check">
-                                            <Icon name="check" strokeWidth={3} />
-                                        </span>
-                                        <b>{day.label}</b>
-                                        <small>{day.value === setting.week_starts_on ? 'الحالي' : ' '}</small>
-                                    </label>
-                                ))}
-                            </div>
-                            <InputError message={errors.week_starts_on} className="mt-2" />
+                            {branch ? (
+                                <>
+                                    <p>
+                                        يبدأ الأسبوع يوم <b>{WEEK_DAYS.find((day) => day.value === setting.week_starts_on).label}</b> في كل الفروع. تحدده الشركة وحدها، لأن الإغلاق الأسبوعي
+                                        يعتمد أيام كل الفروع معًا.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p>يبدأ الإغلاق الأسبوعي في هذا اليوم ويستمر سبعة أيام، لكل الفروع.</p>
+                                    <div className="rs-days" role="radiogroup" aria-label="بداية الأسبوع">
+                                        {WEEK_DAYS.map((day) => (
+                                            <label key={day.value} className={`rs-day ${data.week_starts_on === day.value ? 'is-selected' : ''}`}>
+                                                <input
+                                                    type="radio"
+                                                    name="week_starts_on"
+                                                    checked={data.week_starts_on === day.value}
+                                                    disabled={processing}
+                                                    onChange={() => setData('week_starts_on', day.value)}
+                                                    aria-label={day.label}
+                                                />
+                                                <span className="rs-check">
+                                                    <Icon name="check" strokeWidth={3} />
+                                                </span>
+                                                <b>{day.label}</b>
+                                                <small>{day.value === setting.week_starts_on ? 'الحالي' : ' '}</small>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    <InputError message={errors.week_starts_on} className="mt-2" />
+                                </>
+                            )}
                         </section>
                     </div>
 
@@ -214,8 +246,8 @@ export default function ClosingSchedule({ setting, today, latestDay, businessTim
                         <section className="rs-panel">
                             <PanelTitle icon="list">فتح كشوف يوم يدويًا</PanelTitle>
                             <p>
-                                يفتح كشف الإغلاق اليومي لكل الفروع النشطة لليوم المختار مع دفعاته، حتى لو كان الفتح التلقائي متوقفًا. لا يُنشئ كشفًا
-                                ثانيًا ليوم مفتوح.
+                                يفتح كشف الإغلاق اليومي {branch ? `للفرع «${branch.name}»` : 'لكل الفروع النشطة التي أغلق فيها اليوم'} لليوم المختار مع دفعاته، حتى لو كان
+                                الفتح التلقائي متوقفًا. لا يُنشئ كشفًا ثانيًا ليوم مفتوح.
                             </p>
                             <div className="rs-time-fields">
                                 <div className="rs-time-field">

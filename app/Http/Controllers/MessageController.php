@@ -9,6 +9,7 @@ use App\Enums\SubscriptionStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\StoreMessageBatchRequest;
 use App\Jobs\SendSubscriptionMessage;
+use App\Models\Branch;
 use App\Models\MessageBatch;
 use App\Models\MessageTemplate;
 use App\Models\MeterBox;
@@ -95,7 +96,9 @@ class MessageController extends Controller
             'templates' => MessageTemplate::query()->orderBy('name')->get(['id', 'name', 'kind', 'body']),
             'placeholders' => collect(MessageKind::cases())
                 ->mapWithKeys(fn (MessageKind $kind) => [$kind->value => MessageComposer::placeholdersFor($kind)]),
-            'weekOptions' => MeterReading::recentWeekOptions(8),
+            // Each branch reads on its own weeks, so the weeks are listed per branch; the page starts on this branch's.
+            'weekOptions' => MeterReading::recentWeekOptionsFor($actor),
+            'weekBranchId' => $this->readingBranchId($request),
             'statusOptions' => SubscriptionStatus::options(),
             'branchOptions' => $actor->isSuperAdmin() ? $this->branchFilterGroup()['options'] : [],
             'meterBoxGroups' => $this->meterBoxFilterGroups(
@@ -293,7 +296,7 @@ class MessageController extends Controller
     private function criteria(Request $request): array
     {
         return [
-            'week_start' => (string) ($request->input('week_start') ?: MeterReading::latestEndedWeekStart()->toDateString()),
+            'week_start' => (string) ($request->input('week_start') ?: MeterReading::latestEndedWeekStart($this->readingBranchId($request))->toDateString()),
             'approved_only' => $request->boolean('approved_only', true),
             'min_balance' => (float) $request->input('min_balance', 0),
             'branch_id' => $request->filled('branch_id') ? (string) $request->input('branch_id') : null,
@@ -304,6 +307,22 @@ class MessageController extends Controller
             'search' => trim((string) $request->input('search')),
             'subscription_ids' => array_map('intval', (array) $request->input('subscription_ids', [])),
         ];
+    }
+
+    /**
+     * The branch whose reading weeks the message follows: the user's own, or
+     * for the Super Admin the one asked for, else the first branch, as the
+     * page lists the weeks.
+     */
+    private function readingBranchId(Request $request): ?int
+    {
+        $user = $request->user();
+
+        if (! $user->isSuperAdmin()) {
+            return $user->branch_id;
+        }
+
+        return $request->filled('branch_id') ? (int) $request->input('branch_id') : Branch::query()->orderBy('name')->value('id');
     }
 
     /**

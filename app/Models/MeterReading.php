@@ -53,20 +53,22 @@ class MeterReading extends Model
 
     /**
      * The first day of the reading week containing the given date. Weeks end
-     * on the company's reading day (Thursday unless changed in the reading
-     * schedule settings) and start the day after the previous one.
+     * on the branch's reading day (Thursday unless changed in its reading
+     * schedule settings; the company's reading day for a branch without a
+     * schedule of its own, or when no branch is given) and start the day
+     * after the previous one.
      */
-    public static function weekStartFor(CarbonInterface $date): Carbon
+    public static function weekStartFor(CarbonInterface $date, Branch|int|null $branch): Carbon
     {
-        return ReadingEntrySetting::current()->weekStartFor($date);
+        return ReadingEntrySetting::forBranch($branch)->weekStartFor($date);
     }
 
     /**
      * The reading day that ends the reading week containing the given date.
      */
-    public static function weekEndFor(CarbonInterface $date): Carbon
+    public static function weekEndFor(CarbonInterface $date, Branch|int|null $branch): Carbon
     {
-        return ReadingEntrySetting::current()->weekEndFor($date);
+        return ReadingEntrySetting::forBranch($branch)->weekEndFor($date);
     }
 
     /**
@@ -74,9 +76,9 @@ class MeterReading extends Model
      * last day if today is the reading day. "Today" is the business's local
      * date.
      */
-    public static function latestEndedWeekStart(?CarbonInterface $at = null): Carbon
+    public static function latestEndedWeekStart(Branch|int|null $branch, ?CarbonInterface $at = null): Carbon
     {
-        return ReadingEntrySetting::current()->latestEndedWeekStart($at);
+        return ReadingEntrySetting::forBranch($branch)->latestEndedWeekStart($at);
     }
 
     /**
@@ -86,22 +88,36 @@ class MeterReading extends Model
      *
      * @return array<int, array{value: string, label: string, end: string}>
      */
-    public static function recentWeekOptions(int $count = 8): array
+    public static function recentWeekOptions(Branch|int|null $branch, int $count = 8): array
     {
-        $weekStart = self::latestEndedWeekStart();
+        $weekStart = self::latestEndedWeekStart($branch);
         $options = [];
 
         while (count($options) < $count) {
-            $weekEnd = self::weekEndFor($weekStart);
+            $weekEnd = self::weekEndFor($weekStart, $branch);
             $options[] = [
                 'value' => $weekStart->toDateString(),
                 'label' => 'الأسبوع المنتهي في '.$weekEnd->locale('ar')->dayName.' '.$weekEnd->format('d-m-Y'),
                 'end' => $weekEnd->toDateString(),
             ];
-            $weekStart = self::weekStartFor($weekStart->copy()->subDay());
+            $weekStart = self::weekStartFor($weekStart->copy()->subDay(), $branch);
         }
 
         return $options;
+    }
+
+    /**
+     * The recent weeks of each branch the user may enter readings for, by
+     * branch id (every branch for the Super Admin, whose list is in the
+     * branches' name order), since each branch reads on its own weeks.
+     *
+     * @return array<int, array<int, array{value: string, label: string, end: string}>>
+     */
+    public static function recentWeekOptionsFor(User $user, int $count = 8): array
+    {
+        $branchIds = $user->isSuperAdmin() ? Branch::query()->orderBy('name')->pluck('id') : collect([$user->branch_id]);
+
+        return $branchIds->mapWithKeys(fn (?int $branchId): array => [$branchId => self::recentWeekOptions($branchId, $count)])->all();
     }
 
     /**

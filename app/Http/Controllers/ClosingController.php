@@ -9,7 +9,6 @@ use App\Http\Concerns\PresentsClosings;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingPayment;
-use App\Models\ClosingSetting;
 use App\Notifications\ActionCompleted;
 use App\Support\ClosingPeriods;
 use Illuminate\Http\RedirectResponse;
@@ -44,7 +43,8 @@ class ClosingController extends Controller
         $branch = $branches->firstWhere('id', (int) ($validated['branch'] ?? 0))
             ?? $branches->firstWhere('id', $actor->branch_id)
             ?? $branches->first();
-        $latest = ClosingPeriods::latestEndedDay();
+        $periods = ClosingPeriods::for($branch);
+        $latest = $periods->latestEndedDay();
         $date = isset($validated['date']) ? ClosingPeriods::date($validated['date']) : $latest;
         $tab = $validated['tab'] ?? 'daily';
         $period = $validated['period'] ?? 'weekly';
@@ -74,7 +74,7 @@ class ClosingController extends Controller
             'cashNotes' => config('powercollect.closing.notes'),
             'cashCoins' => config('powercollect.closing.coins'),
             'userId' => $actor->id,
-            'cutoff' => ClosingSetting::current()->cutoff(),
+            'cutoff' => $periods->cutoff(),
         ]);
     }
 
@@ -115,7 +115,7 @@ class ClosingController extends Controller
      */
     private function requestedRegister(Request $request, Collection $branches): array
     {
-        $latest = ClosingPeriods::latestEndedDay();
+        $latest = ClosingPeriods::furthestToday($branches)->subDay();
         $validated = $request->validate([
             'from' => ['nullable', 'date_format:Y-m-d'],
             'to' => ['nullable', 'date_format:Y-m-d'],

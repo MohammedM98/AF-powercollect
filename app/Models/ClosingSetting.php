@@ -2,54 +2,43 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\OverridableByBranch;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * The company's closing schedule, set by hand on the closing schedule page:
- * the time the business day closes (`cutoff_time`; 00:00 means midnight,
- * otherwise a time from noon on, after which payments count for the next
- * day), the weekday that starts the week (0 = Sunday … 6 = Saturday), and
- * whether each day's closings open by themselves once the day is over.
+ * A closing schedule, set by hand on the closing schedule page: the time the
+ * business day closes (`cutoff_time`; 00:00 means midnight, otherwise a time
+ * from noon on, after which payments count for the next day) and whether each
+ * day's closings open by themselves once the day is over.
+ *
+ * The company's row (no branch) also holds the weekday that starts the week
+ * (0 = Sunday … 6 = Saturday), which only the company sets: the weekly and
+ * monthly closings approve every branch's days together. A branch that has a
+ * row of its own closes its day by that; the others follow the company's.
  */
-#[Fillable(['cutoff_time', 'week_starts_on', 'auto_open', 'updated_by'])]
+#[Fillable(['branch_id', 'cutoff_time', 'week_starts_on', 'auto_open', 'updated_by'])]
 class ClosingSetting extends Model
 {
+    use OverridableByBranch;
+
     public const DEFAULT_CUTOFF = '00:00';
 
     public const DEFAULT_WEEK_START = 6;
 
-    protected static function booted(): void
-    {
-        // current() keeps the setting for the request; reload it once it changes.
-        static::saved(fn () => app()->forgetInstance(self::class));
-    }
-
     protected function casts(): array
     {
         return [
+            'branch_id' => 'integer',
             'week_starts_on' => 'integer',
             'auto_open' => 'boolean',
         ];
     }
 
-    /**
-     * The company-wide setting, loaded once per request or job (see
-     * AppServiceProvider).
-     */
-    public static function current(): self
+    public static function createCompanyDefault(): static
     {
-        return app(self::class);
-    }
-
-    /**
-     * Load the company-wide setting, creating it with the defaults on first use.
-     */
-    public static function loadCurrent(): self
-    {
-        return static::query()->oldest('id')->first()
-            ?? static::create(['cutoff_time' => self::DEFAULT_CUTOFF, 'week_starts_on' => self::DEFAULT_WEEK_START, 'auto_open' => true]);
+        return static::create(['cutoff_time' => self::DEFAULT_CUTOFF, 'week_starts_on' => self::DEFAULT_WEEK_START, 'auto_open' => true]);
     }
 
     /**

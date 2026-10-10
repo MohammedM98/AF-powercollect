@@ -45,6 +45,14 @@
 .reading-schedule :focus-visible { outline: 2px solid var(--rs-ink); outline-offset: 3px; }
 .rs-heading h1 { margin: 0; font: 700 34px/1.2 'El Messiri', serif; }
 .rs-heading p { margin: 4px 0 0; color: var(--rs-faint); font-size: 14.5px; }
+.rs-scope { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 18px; padding: 12px 16px; background: var(--rs-surface); border: 1px solid var(--rs-line2); border-radius: 18px; box-shadow: var(--rs-shadow); }
+.rs-scope-picker { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rs-scope-picker label { color: var(--rs-ink2); font-size: 14px; font-weight: 600; }
+.rs-scope-picker select { min-width: 220px; max-width: 100%; border: 1px solid var(--rs-line); border-radius: 12px; padding: 8px 12px; background: var(--rs-raised); color: var(--rs-ink); font: inherit; font-weight: 600; }
+.rs-scope-picker select:focus { border-color: var(--rs-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rs-brand) 12%, transparent); outline: none; }
+.rs-scope-picker select:disabled { opacity: .5; cursor: not-allowed; }
+.rs-scope-name { font: 700 18px 'El Messiri', serif; }
+.rs-scope-note { flex: 1 1 280px; margin: 0; color: var(--rs-faint); font-size: 14px; }
 .rs-status {
     position: relative;
     overflow: hidden;

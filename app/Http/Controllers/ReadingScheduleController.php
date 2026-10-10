@@ -4,23 +4,36 @@ namespace App\Http\Controllers;
 
 use App\Enums\ReadingEntryMode;
 use App\Http\Requests\UpdateReadingScheduleRequest;
+use App\Models\Branch;
 use App\Models\ReadingEntrySetting;
 use App\Notifications\ActionCompleted;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
+/**
+ * The weekly reading day and entry schedule. Each branch's admin sets their own
+ * branch's; the Super Admin sets any branch's and the company's default, which
+ * the branches without a schedule of their own follow.
+ */
 class ReadingScheduleController extends Controller
 {
     /**
-     * Show the company-wide weekly reading day and entry schedule.
+     * Show the weekly reading day and entry schedule of the branch, or the
+     * company's default.
      */
-    public function edit(): InertiaResponse
+    public function edit(Request $request): InertiaResponse
     {
-        $this->authorize('manage', ReadingEntrySetting::class);
+        $this->authorize('manageAny', ReadingEntrySetting::class);
 
-        $setting = ReadingEntrySetting::current()->load('updatedBy');
+        $actor = $request->user();
+        $requested = $request->integer('branch') ?: ($actor->isSuperAdmin() ? null : $actor->branch_id);
+        $branch = $requested === null ? null : Branch::query()->findOrFail($requested);
+        $this->authorize('manage', [ReadingEntrySetting::class, $branch]);
+
+        $setting = ReadingEntrySetting::forBranch($branch)->load('updatedBy');
         $businessNow = now()->timezone(config('app.business_timezone'));
         $businessDate = Carbon::parse($businessNow->toDateString());
         $currentWeeks = [];
@@ -47,6 +60,16 @@ class ReadingScheduleController extends Controller
                 'updatedByName' => $setting->updatedBy?->name,
                 'updatedAt' => $setting->updated_at?->timezone(config('app.business_timezone'))->format('Y-m-d H:i'),
             ],
+            'branch' => $branch ? ['id' => $branch->id, 'name' => $branch->name] : null,
+            'branches' => $actor->isSuperAdmin()
+                ? Branch::query()->orderBy('name')->get()->map(fn (Branch $item): array => [
+                    'value' => $item->id,
+                    'label' => $item->name,
+                    'hasOwn' => ReadingEntrySetting::ownFor($item) !== null,
+                ])->all()
+                : [],
+            'followsCompany' => $branch !== null && ReadingEntrySetting::ownFor($branch) === null,
+            'branchesWithOwn' => ReadingEntrySetting::ownCount(),
             'modes' => ReadingEntryMode::options(),
             // What choosing each reading day would do to the next week.
             'firstWeeks' => $setting->firstWeekOnEachReadingDay(),
@@ -57,22 +80,30 @@ class ReadingScheduleController extends Controller
     }
 
     /**
-     * Update the schedule. A new reading day shapes the weeks after the
-     * latest one that has ended; weeks already ended keep their dates.
+     * Update the schedule of the branch, or the company's default when no
+     * branch is given. A new reading day shapes the weeks after the latest
+     * one that has ended; weeks already ended keep their dates. A branch that
+     * still followed the company's gets a schedule of its own, starting from
+     * a copy of the company's, the first time its admin saves one.
      */
     public function update(UpdateReadingScheduleRequest $request): RedirectResponse
     {
-        $setting = ReadingEntrySetting::current();
+        $branch = $request->branch();
+        $setting = $branch === null
+            ? ReadingEntrySetting::company()
+            : (ReadingEntrySetting::ownFor($branch) ?? ReadingEntrySetting::startFor($branch));
+
         $setting->changeReadingDay($request->integer('reading_day'));
 
-        $setting->update([
+        $setting->fill([
             'open_days' => array_map('intval', $request->validated('open_days')),
             'mode' => $request->validated('mode'),
             'updated_by' => $request->user()->id,
-        ] + $request->safe()->only(['opens_at', 'closes_at']));
+        ] + $request->safe()->only(['opens_at', 'closes_at']))->save();
 
         $request->user()->notify(new ActionCompleted('reading-schedule-updated'));
 
-        return redirect()->route('settings.reading-schedule.edit')->with('status', 'reading-schedule-updated');
+        return redirect()->route('settings.reading-schedule.edit', $branch ? ['branch' => $branch->id] : [])
+            ->with('status', 'reading-schedule-updated');
     }
 }

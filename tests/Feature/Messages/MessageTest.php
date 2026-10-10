@@ -26,7 +26,7 @@ class MessageTest extends TestCase
 
     private function weekStart(): string
     {
-        return MeterReading::latestEndedWeekStart()->toDateString();
+        return MeterReading::latestEndedWeekStart(null)->toDateString();
     }
 
     public function test_guest_is_redirected_to_login(): void

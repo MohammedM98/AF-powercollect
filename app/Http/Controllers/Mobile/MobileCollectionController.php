@@ -123,9 +123,10 @@ class MobileCollectionController extends Controller
     {
         abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
 
-        // Today is the business day (in the business's time zone, up to the closing cut-off), not the UTC date.
-        $day = ClosingPeriods::dayOf(now());
-        [$from, $until] = ClosingPeriods::utcRange($day, $day);
+        // Today is the business day of the user's branch (in the business's time zone, up to its closing cut-off), not the UTC date.
+        $periods = ClosingPeriods::for($request->user()->branch_id);
+        $day = $periods->dayOf(now());
+        [$from, $until] = $periods->utcRange($day, $day);
 
         $collections = SubscriptionTransaction::query()
             ->where('recorded_by', $request->user()->id)

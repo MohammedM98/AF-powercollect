@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Branch;
 use App\Models\ClosingSetting;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -11,19 +12,31 @@ class UpdateClosingScheduleRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('manage', ClosingSetting::class);
+        return $this->user()->can('manage', [ClosingSetting::class, $this->branch()]);
     }
 
     /**
+     * The weekday that starts the week is the company's alone, so it is only
+     * given with the company's schedule (no branch).
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'cutoff_time' => ['required', 'date_format:H:i'],
-            'week_starts_on' => ['required', 'integer', 'between:0,6'],
+            'week_starts_on' => ['required_without:branch_id', 'nullable', 'integer', 'between:0,6'],
             'auto_open' => ['required', 'boolean'],
         ];
+    }
+
+    /**
+     * The branch whose schedule this is, or null for the company's.
+     */
+    public function branch(): ?Branch
+    {
+        return $this->filled('branch_id') ? Branch::query()->find($this->integer('branch_id')) : null;
     }
 
     /**

@@ -222,7 +222,7 @@ class Subscription extends Model
      */
     public function latestWeekReading(): ?MeterReading
     {
-        return $this->meterReadings()->whereDate('week_start', MeterReading::latestEndedWeekStart()->toDateString())->first();
+        return $this->meterReadings()->whereDate('week_start', MeterReading::latestEndedWeekStart($this->branch_id)->toDateString())->first();
     }
 
     /**

@@ -34,7 +34,7 @@ class MeterReadingPolicy
     {
         return $this->canRecord($user)
             && $this->entryIsOpenFor($user)
-            && ($weekStart === null || $this->weekIsOpenFor($user, $weekStart));
+            && ($weekStart === null || $this->weekIsOpenFor($user, $weekStart, $user->branch_id));
     }
 
     /**
@@ -49,7 +49,7 @@ class MeterReadingPolicy
             return false;
         }
 
-        if (! $this->weekIsOpenFor($user, $meterReading->week_start)) {
+        if (! $this->weekIsOpenFor($user, $meterReading->week_start, $meterReading->branch_id)) {
             return false;
         }
 
@@ -103,20 +103,21 @@ class MeterReadingPolicy
 
     /**
      * The Super Admin may record new readings at any time; everyone else
-     * only while the company-wide reading entry window is open.
+     * only while their branch's reading entry window is open.
      */
     private function entryIsOpenFor(User $user): bool
     {
-        return $user->isSuperAdmin() || ReadingEntrySetting::current()->isOpen();
+        return $user->isSuperAdmin() || ReadingEntrySetting::forBranch($user->branch_id)->isOpen();
     }
 
     /**
-     * Only the latest week is entered or corrected; once the next week
-     * starts, earlier weeks are view-only for everyone but the Super Admin.
+     * Only the latest week of the branch is entered or corrected; once the
+     * next week starts, earlier weeks are view-only for everyone but the
+     * Super Admin.
      */
-    private function weekIsOpenFor(User $user, CarbonInterface $weekStart): bool
+    private function weekIsOpenFor(User $user, CarbonInterface $weekStart, ?int $branchId): bool
     {
-        return $user->isSuperAdmin() || MeterReading::weekStartFor($weekStart)->equalTo(MeterReading::latestEndedWeekStart());
+        return $user->isSuperAdmin() || MeterReading::weekStartFor($weekStart, $branchId)->equalTo(MeterReading::latestEndedWeekStart($branchId));
     }
 
     /**

@@ -177,7 +177,7 @@ class PermissionsTest extends TestCase
         $closingActions = fn ($groups): array => collect(collect($groups)->firstWhere('key', 'closings')['actions'])->pluck('action')->all();
 
         $this->actingAs(User::factory()->superAdmin()->create())->get(route('settings.permissions.edit'))
-            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['view', 'prepare', 'view_all', 'audit']));
+            ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['view', 'prepare', 'close_early', 'view_all', 'audit']));
         $this->actingAs($branchAdmin)->get(route('settings.permissions.edit'))
             ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $closingActions($groups) === ['view', 'prepare']));
     }

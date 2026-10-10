@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\ClosingDifferenceReason;
 use App\Enums\ClosingMatchStatus;
 use App\Enums\ClosingStatus;
+use App\Enums\PermissionKey;
 use App\Http\Concerns\PresentsClosings;
 use App\Models\Branch;
 use App\Models\Closing;
@@ -53,7 +54,7 @@ class ClosingController extends Controller
 
         // When the company allows it, the day under way can be closed by hand before its cut-off (and stays
         // open to view once the branch has sent it); its cash is handed over only after.
-        $closesEarly = ClosingSetting::current()->allow_early_close || ($branch !== null && Closing::isSealed($branch->id, now()));
+        $closesEarly = (ClosingSetting::current()->allow_early_close && $actor->hasPermission(PermissionKey::CloseDayEarly)) || ($branch !== null && Closing::isSealed($branch->id, now()));
         $lastDay = $tab === 'daily' && $closesEarly ? $today : $latest;
 
         if (in_array($tab, ['daily', 'handover'], true) && $date->greaterThan($lastDay)) {

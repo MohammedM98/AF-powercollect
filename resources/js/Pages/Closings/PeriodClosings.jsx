@@ -30,6 +30,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
     const { errors } = usePage().props;
     const weekly = view.period === 'weekly';
     const [confirmingClose, setConfirmingClose] = useState(false);
+    const [confirmingEarly, setConfirmingEarly] = useState(false);
     const [closing, setClosing] = useState(false);
 
     function approve() {
@@ -39,6 +40,11 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
     function closePeriod() {
         setConfirmingClose(false);
         router.post('/period-closings', { period: view.period, date: view.first }, { preserveScroll: true, onStart: () => setClosing(true), onFinish: () => setClosing(false) });
+    }
+
+    function closeEarly() {
+        setConfirmingEarly(false);
+        router.post('/period-closings', { period: 'weekly', date: view.first, early: true }, { preserveScroll: true, onStart: () => setClosing(true), onFinish: () => setClosing(false), onSuccess: () => onChange({ date: view.first }) });
     }
 
     return (
@@ -256,6 +262,7 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                                 <div>
                                     <b>{weekly ? 'الأسبوع معتمد' : 'الشهر معتمد'}</b>
                                     اعتمده {view.approvedBy} في <span className="num">{view.approvedAt}</span>.
+                                    {weekly && view.closedEarly && ' أُغلق قبل موعد قطعه المقرر.'}
                                 </div>
                             </div>
                         ) : (
@@ -264,6 +271,26 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
                                     <Icon name="check" />
                                     {weekly ? 'اعتماد الإغلاق الأسبوعي' : 'اعتماد الإغلاق الشهري'}
                                 </button>
+                                {weekly && view.earlyAllowed && (
+                                    <div className="early-close" style={{ marginTop: 14 }}>
+                                        <div className="note2">
+                                            <Icon name="info" />
+                                            <span>
+                                                يمكن إغلاق الأسبوع الآن قبل موعد قطعه (يوم {weekDayName(view.last)} {shortDate(view.last)}). تنتهي هذه الفترة فورًا، وتبدأ فترة
+                                                جديدة تُحسب لها كل حركة تُسجَّل من هذه اللحظة.
+                                            </span>
+                                        </div>
+                                        <button type="button" className="btn dg" style={{ marginTop: 10 }} disabled={!view.canCloseEarly || closing} onClick={() => setConfirmingEarly(true)}>
+                                            <Icon name="lock" />
+                                            إغلاق الأسبوع الآن قبل موعده
+                                        </button>
+                                        {!view.canCloseEarly && view.unapproved > 0 && (
+                                            <p className="s" style={{ marginTop: 6 }}>
+                                                اعتمد الإغلاق اليومي لكل فرع فيه دفعات، واليوم الجاري أيضًا، ثم يُفتح الإغلاق المبكر.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                                 {errors.period && (
                                     <div className="err" role="alert">
                                         {errors.period}
@@ -278,6 +305,9 @@ export default function PeriodClosings({ view, branches, branchId, date, onChang
             <ConfirmDialog show={confirmingClose} onCancel={() => setConfirmingClose(false)} onConfirm={closePeriod} title={weekly ? 'إغلاق الأسبوع نهائيًا؟' : 'اعتماد الشهر؟'}
                 message={weekly ? `التحصيل الفعلي ${closingMoney(view.collected)} ₪ · ${view.financialReport?.paymentCount ?? 0} دفعات. سيُحفظ كشف مالي ثابت. الأخطاء اللاحقة تُصحّح بحركات جديدة في أسبوع مفتوح دون تغيير هذا الكشف.` : `اعتماد الفترة ${view.number} بإجمالي ${closingMoney(view.collected)} ₪.`}
                 confirmLabel="اعتماد الإغلاق" cancelLabel="مراجعة الكشف" icon="lock" />
+            <ConfirmDialog show={confirmingEarly} onCancel={() => setConfirmingEarly(false)} onConfirm={closeEarly} title="إغلاق الأسبوع الآن قبل موعده؟" tone="danger"
+                message={`سيُغلق الأسبوع ${view.number} في هذه اللحظة بدل موعده المقرر، بتحصيل فعلي ${closingMoney(view.collected)} ₪، ويُحفظ كشف مالي ثابت. تبدأ فترة جديدة فورًا، وكل ما يُسجَّل بعد الآن يُحسب لها. لا يمكن التراجع عن الإغلاق.`}
+                confirmLabel="نعم، أغلق الأسبوع الآن" cancelLabel="رجوع" icon="lock" />
         </>
     );
 }

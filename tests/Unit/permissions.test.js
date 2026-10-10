@@ -111,3 +111,12 @@ test('view-only group shortcut preserves report access, does not grant cross-bra
     assert.deepEqual(withGroupAccess([closings, reports], [99, 12, 15], true), [99, 10, 12, 14]);
     assert.deepEqual(withGroupAccess([closings, reports], [99, 12, 15], false), [99]);
 });
+
+test('closing early is its own sensitive switch for the week and a plain one for the day', () => {
+    const weekly = sectionModel({ key: 'weekly_finance', label: 'الإغلاق الأسبوعي', actions: [entry('close', 20), entry('close_early', 21)] });
+    const closings = sectionModel({ key: 'closings', label: 'الإغلاق', actions: [entry('prepare', 7), entry('close_early', 22)] });
+
+    assert.deepEqual(weekly.sensitive.map((item) => [item.id, item.label, item.danger]), [[20, 'إغلاق الأسبوع نهائيًا', true], [21, 'إغلاق الأسبوع قبل موعده', true]]);
+    assert.deepEqual(closings.switches.map((item) => item.id), [7]);
+    assert.deepEqual(closings.sensitive.map((item) => [item.id, item.label, item.danger]), [[22, 'إقفال اليوم قبل وقت القطع', false]]);
+});

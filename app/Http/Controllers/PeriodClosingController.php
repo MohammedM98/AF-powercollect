@@ -31,13 +31,16 @@ class PeriodClosingController extends Controller
         $validated = $request->validate([
             'period' => ['required', Rule::in(['weekly', 'monthly'])],
             'date' => ['required', 'date_format:Y-m-d'],
+            'early' => ['sometimes', 'boolean', 'prohibited_if:period,monthly'],
         ]);
-        $this->authorize($validated['period'] === 'weekly' ? 'closeWeek' : 'approvePeriod', Closing::class);
+        $early = (bool) ($validated['early'] ?? false);
+        $this->authorize($validated['period'] === 'weekly' ? ($early ? 'closeWeekEarly' : 'closeWeek') : 'approvePeriod', Closing::class);
         $actor = $request->user();
         $date = ClosingPeriods::date($validated['date']);
         if ($validated['period'] === 'weekly') {
             $closing = app(WeeklyClosingService::class)->close($validated['date'], $actor,
-                fn (): array => $this->periodData('weekly', $date, Branch::query()->orderBy('name')->get(), $actor));
+                fn (): array => $this->periodData('weekly', $date, Branch::query()->orderBy('name')->get(), $actor, $early),
+                $early);
             $actor->notify(new ActionCompleted('period-approved', $closing->number));
 
             return back()->with('status', 'period-approved');

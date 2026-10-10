@@ -34,6 +34,7 @@ class ClosingScheduleController extends Controller
                 'week_starts_on' => $setting->week_starts_on,
                 'auto_open' => $setting->auto_open,
                 'allow_early_close' => $setting->allow_early_close,
+                'allow_early_weekly_close' => $setting->allow_early_weekly_close,
                 'weekly_enabled' => $setting->weekly_enabled,
                 'weekly_closing_day' => $setting->weekly_closing_day ?? ($setting->week_starts_on + 6) % 7,
                 'weekly_closing_time' => $setting->weekly_closing_time ? substr($setting->weekly_closing_time, 0, 5) : $setting->cutoff(),

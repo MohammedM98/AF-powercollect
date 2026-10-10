@@ -24,7 +24,7 @@ class ClosingPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::ViewOwnClosings, PermissionKey::PrepareClosings, PermissionKey::AuditClosings, PermissionKey::ViewAllClosings, PermissionKey::CloseWeeklyPeriods, PermissionKey::MarkClosingsAudited);
+        return $user->hasAnyPermission(PermissionKey::ViewOwnClosings, PermissionKey::PrepareClosings, PermissionKey::AuditClosings, PermissionKey::ViewAllClosings, PermissionKey::CloseWeeklyPeriods, PermissionKey::CloseWeeklyPeriodsEarly, PermissionKey::MarkClosingsAudited);
     }
 
     /**
@@ -32,7 +32,7 @@ class ClosingPolicy
      */
     public function viewAllBranches(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::AuditClosings, PermissionKey::ViewAllClosings, PermissionKey::CloseWeeklyPeriods, PermissionKey::MarkClosingsAudited);
+        return $user->hasAnyPermission(PermissionKey::AuditClosings, PermissionKey::ViewAllClosings, PermissionKey::CloseWeeklyPeriods, PermissionKey::CloseWeeklyPeriodsEarly, PermissionKey::MarkClosingsAudited);
     }
 
     /**
@@ -91,6 +91,15 @@ class ClosingPolicy
     public function closeWeek(User $user): bool
     {
         return $user->hasAnyPermission(PermissionKey::AuditClosings, PermissionKey::CloseWeeklyPeriods);
+    }
+
+    /**
+     * Close the week under way before its scheduled cut-off, which the
+     * company grants one user at a time on top of its own switch.
+     */
+    public function closeWeekEarly(User $user): bool
+    {
+        return $user->hasPermission(PermissionKey::CloseWeeklyPeriodsEarly);
     }
 
     private function preparesFor(User $user, Closing $closing): bool

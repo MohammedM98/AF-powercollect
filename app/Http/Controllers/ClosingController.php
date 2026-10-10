@@ -46,12 +46,16 @@ class ClosingController extends Controller
             ?? $branches->firstWhere('id', $actor->branch_id)
             ?? $branches->first();
         $latest = ClosingPeriods::latestEndedDay();
+        $today = ClosingPeriods::today();
         $date = isset($validated['date']) ? ClosingPeriods::date($validated['date']) : $latest;
         $tab = $validated['tab'] ?? 'daily';
         $period = $validated['period'] ?? 'weekly';
 
-        if (in_array($tab, ['daily', 'handover'], true) && $date->greaterThan($latest)) {
-            $date = $latest;
+        // The day under way can be closed by hand before its cut-off, but its cash is handed over only after.
+        $lastDay = $tab === 'daily' ? $today : $latest;
+
+        if (in_array($tab, ['daily', 'handover'], true) && $date->greaterThan($lastDay)) {
+            $date = $lastDay;
         }
 
         $closing = $branch && in_array($tab, ['daily', 'handover'], true) ? Closing::dailyFor($branch, $date) : null;
@@ -62,6 +66,7 @@ class ClosingController extends Controller
             'branchId' => $branch?->id,
             'date' => $date->toDateString(),
             'latestDay' => $latest->toDateString(),
+            'today' => $today->toDateString(),
             'period' => $period,
             'daily' => $tab === 'daily' && $closing ? $this->dailyClosingData($closing, $actor) : null,
             'handover' => $tab === 'handover' && $closing ? $this->handoverData($closing, $actor) : null,

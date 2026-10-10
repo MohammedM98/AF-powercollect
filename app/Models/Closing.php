@@ -84,7 +84,8 @@ class Closing extends Model
 
     /**
      * The branch's daily closing for the business day, created the first
-     * time anyone opens it after the day is over.
+     * time anyone opens it: after the day is over, or earlier on the day
+     * itself when the branch closes it by hand.
      */
     public static function dailyFor(Branch $branch, CarbonInterface|string $day): self
     {
@@ -109,13 +110,32 @@ class Closing extends Model
                     'period_end' => $day->toDateString(),
                     'status' => ClosingStatus::Draft,
                 ]);
-                $closing->record(null, 'created', "أُنشئ الكشف {$closing->number} تلقائيًا عند وقت القطع");
+                $closing->record(null, 'created', ClosingPeriods::hasEnded($day)
+                    ? "أُنشئ الكشف {$closing->number} تلقائيًا عند وقت القطع"
+                    : "أُنشئ الكشف {$closing->number} قبل وقت القطع لإقفال اليوم يدويًا");
 
                 return $closing;
             });
         } catch (UniqueConstraintViolationException) {
             return $find();
         }
+    }
+
+    /**
+     * Whether the branch has already sent its closing for the business day
+     * the moment falls in (or had it approved). A branch can send its day
+     * before the cut-off, and from then until the cut-off that day takes
+     * no more payments, refunds or cash handed over: the closing would miss
+     * them, or its cash would change after it was counted.
+     */
+    public static function isSealed(int $branchId, CarbonInterface|string $moment): bool
+    {
+        return static::query()
+            ->where('type', ClosingType::Daily)
+            ->where('branch_id', $branchId)
+            ->whereDate('period_start', ClosingPeriods::dayOf($moment))
+            ->whereIn('status', [ClosingStatus::Submitted->value, ClosingStatus::Approved->value])
+            ->exists();
     }
 
     /**
@@ -423,8 +443,8 @@ class Closing extends Model
     {
         $blockers = [];
 
-        if (! ClosingPeriods::hasEnded($this->period_end)) {
-            $blockers[] = 'اليوم لم ينتهِ بعد؛ يُرسل الكشف بعد وقت القطع.';
+        if ($this->period_end->toDateString() > ClosingPeriods::today()->toDateString()) {
+            $blockers[] = 'هذا اليوم لم يبدأ بعد.';
         }
 
         $figures = $this->cashFigures();

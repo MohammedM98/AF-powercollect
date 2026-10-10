@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
+import ConfirmDialog from '@/Components/ConfirmDialog';
 import Icon from '@/Components/Icon';
 import { SendAuditButton } from '@/Pages/FinancialAudit/Shared';
 import { weekDayName } from '@/lib/weekDays';
@@ -36,6 +37,7 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
     const [notes, setNotes] = useState(closing.differenceNotes ?? '');
     const [busy, setBusy] = useState(false);
     const [returning, setReturning] = useState(false);
+    const [confirmingEarly, setConfirmingEarly] = useState(false);
     const [returnReason, setReturnReason] = useState('');
     const counted = hasCount(denominations) || closing.cash.counted !== null ? countedCash(denominations) : null;
     const check = counted === null ? null : cashCheck(counted, closing.cash.expected);
@@ -65,6 +67,7 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
     }
 
     function submit() {
+        setConfirmingEarly(false);
         const send = () => router.post(`/closings/${closing.id}/submit`, {}, options);
 
         countChanged ? saveCount(send) : send();
@@ -489,7 +492,7 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                             <button type="button" className="btn" disabled={busy || !countChanged || counted === null} onClick={() => saveCount()}>
                                 حفظ المسودة
                             </button>
-                            <button type="button" className="btn pr" disabled={busy || checks.some((item) => !item.done)} onClick={submit}>
+                            <button type="button" className="btn pr" disabled={busy || checks.some((item) => !item.done)} onClick={() => (closing.dayOpen ? setConfirmingEarly(true) : submit())}>
                                 <Icon name="send" />
                                 {closing.status === 'returned' ? 'إعادة الإرسال لاعتماد الفرع' : 'إرسال لاعتماد إقفال الفرع'}
                             </button>
@@ -578,6 +581,17 @@ export default function DailyClosing({ closing, differenceReasons, cashNotes, ca
                     </form>
                 </div>
             )}
+
+            <ConfirmDialog
+                show={confirmingEarly}
+                onCancel={() => setConfirmingEarly(false)}
+                onConfirm={submit}
+                title="إقفال اليوم قبل وقت القطع؟"
+                message={`سيُرسل الكشف الآن، ولن تُسجَّل دفعات أو مبالغ مستردة لهذا الفرع حتى وقت القطع (${closing.closesAt}) إلا إذا أعاد المدقق الكشف للتصحيح. تأكد أن عمل اليوم انتهى.`}
+                confirmLabel="نعم، أقفل اليوم"
+                cancelLabel="رجوع"
+                icon="lock"
+            />
         </>
     );
 }
@@ -674,12 +688,26 @@ function StatusBanner({ closing, userId }) {
                     <b>إقفال الفرع معتمد</b>
                     اعتمده {closing.reviewedBy} في <span className="num">{closing.reviewedAt}</span>. أي تصحيح لاحق يكون حركة موثّقة مرتبطة بهذا
                     الكشف.
+                    {closing.dayOpen && <> أُقفل اليوم قبل وقت القطع، فيُسلَّم النقد للشركة بعد {closing.closesAt}.</>}
                 </div>
             </div>
         );
     }
 
-    return closing.can.prepare ? null : (
+    if (closing.can.prepare) {
+        return closing.dayOpen ? (
+            <div className="ban inf">
+                <Icon name="clock" />
+                <div>
+                    <b>اليوم لم ينتهِ بعد</b>
+                    يُقفل تلقائيًا عند <span className="num">{closing.closesAt}</span>. إن انتهى عمل الفرع يمكنك عدّ الصندوق وإرسال الكشف الآن؛ ولن تُسجَّل دفعات
+                    للفرع بعد ذلك حتى وقت القطع.
+                </div>
+            </div>
+        ) : null;
+    }
+
+    return (
         <div className="ban inf">
             <Icon name="info" />
             <div>

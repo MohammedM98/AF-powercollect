@@ -195,6 +195,9 @@ class SubscriptionTransaction extends Model
                     throw ValidationException::withMessages(['transaction' => 'هذه الحركة ضمن أسبوع مغلق؛ أنشئ تصحيحًا في الفترة المفتوحة.']);
                 }
             } else {
+                if ($this->fallsInSealedBranchDay()) {
+                    throw ValidationException::withMessages(['transaction' => 'أُقفل يوم هذا الفرع قبل وقت القطع؛ لا تُسجَّل دفعات أو مبالغ مستردة حتى يحين وقت القطع، أو يُرجع المدقق الكشف للتصحيح.']);
+                }
                 $this->recorded_at ??= $this->created_at ?? now();
                 $this->actual_at ??= $this->recorded_at;
                 $period = $closingService->forMoment($this->recorded_at);
@@ -217,6 +220,21 @@ class SubscriptionTransaction extends Model
 
             return parent::save($options);
         });
+    }
+
+    /**
+     * Whether this new payment or refund falls on a business day its branch
+     * has already closed by hand, before the cut-off.
+     */
+    private function fallsInSealedBranchDay(): bool
+    {
+        if (! in_array($this->type, [self::TYPE_PAYMENT, self::TYPE_REFUND], true) || $this->adjustment_type !== null) {
+            return false;
+        }
+
+        $branchId = $this->branch_id ?? $this->subscription()->value('branch_id');
+
+        return $branchId !== null && Closing::isSealed((int) $branchId, $this->created_at ?? now());
     }
 
     public function delete(): ?bool

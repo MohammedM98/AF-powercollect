@@ -81,6 +81,8 @@ trait PresentsClosings
             'differenceNotes' => $closing->difference_notes,
             'auditStatement' => $auditStatement ? ['id' => $auditStatement->id, 'status' => $auditStatement->status] : null,
             'blockers' => $closing->status->isEditable() ? $closing->submissionBlockers() : [],
+            'dayOpen' => ! ClosingPeriods::hasEnded($closing->period_end),
+            'closesAt' => ClosingPeriods::dayEnd($closing->period_end)->format('H:i'),
             'events' => $closing->events->sortByDesc('id')->map(fn (ClosingEvent $event): array => [
                 'id' => $event->id,
                 'description' => $event->description,

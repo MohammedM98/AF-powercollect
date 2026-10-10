@@ -23,6 +23,7 @@ class UpdateClosingScheduleRequest extends FormRequest
             'cutoff_time' => ['required', 'date_format:H:i'],
             'week_starts_on' => ['required', 'integer', 'between:0,6'],
             'auto_open' => ['required', 'boolean'],
+            'allow_early_close' => ['sometimes', 'boolean'],
             'weekly_enabled' => ['sometimes', 'boolean'],
             'weekly_closing_day' => ['sometimes', 'integer', 'between:0,6'],
             'weekly_closing_time' => ['sometimes', 'date_format:H:i'],

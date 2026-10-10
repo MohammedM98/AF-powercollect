@@ -7,6 +7,7 @@ use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\User;
+use App\Support\ClosingPeriods;
 
 /**
  * Branch preparation and local approval use "Prepare Closings" for the
@@ -68,11 +69,15 @@ class ClosingPolicy
     }
 
     /**
-     * Hand the counted cash of an approved closing over to the company.
+     * Hand the counted cash of an approved closing over to the company,
+     * once its day has closed: a day closed by hand early takes no more
+     * cash movements before its cut-off.
      */
     public function handOver(User $user, Closing $closing): bool
     {
-        return $closing->status === ClosingStatus::Approved && $this->preparesFor($user, $closing);
+        return $closing->status === ClosingStatus::Approved
+            && ClosingPeriods::hasEnded($closing->period_end)
+            && $this->preparesFor($user, $closing);
     }
 
     /**

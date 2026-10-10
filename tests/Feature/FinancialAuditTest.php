@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ClosingStatus;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Closing;
@@ -92,9 +93,11 @@ class FinancialAuditTest extends TestCase
 
     public function test_a_return_does_not_reset_other_confirmed_transactions(): void
     {
-        [$branch, $sender, $auditor, $payment] = $this->branchPayment();
+        [$branch, $sender, $auditor, $payment, $closing] = $this->branchPayment();
+        $closing->update(['status' => ClosingStatus::Draft]);
         $this->travelTo(Carbon::parse('2026-09-28 10:00', 'Asia/Hebron'));
         SubscriptionTransaction::recordPayment($payment->subscription, $sender, ['amount' => '25.00', 'currency' => 'ILS', 'payment_method' => 'cash']);
+        $closing->update(['status' => ClosingStatus::Approved]);
         $this->travelTo(Carbon::parse('2026-10-05 10:00', 'Asia/Hebron'));
         $statement = $this->submit($branch, $sender);
         [$first, $second] = $statement->lines()->orderBy('id')->get()->all();

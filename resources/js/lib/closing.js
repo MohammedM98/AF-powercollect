@@ -99,6 +99,14 @@ export function businessDayHours(cutoff) {
     return cutoff === '00:00' ? 'من بداية اليوم حتى منتصف الليل' : `من الساعة ${cutoff} في اليوم السابق حتى الساعة ${cutoff}`;
 }
 
+/** The first and last Y-m-d dates of the calendar month containing `isoDate`. */
+export function monthOf(isoDate) {
+    const [year, month] = isoDate.split('-').map(Number);
+    const pad = (number) => String(number).padStart(2, '0');
+
+    return [`${year}-${pad(month)}-01`, `${year}-${pad(month)}-${pad(new Date(Date.UTC(year, month, 0)).getUTCDate())}`];
+}
+
 /** The seven Y-m-d dates of the week containing `isoDate`, starting on weekday `startsOn` (0 = Sunday … 6 = Saturday). */
 export function weekOf(isoDate, startsOn) {
     const weekday = new Date(`${isoDate}T00:00:00Z`).getUTCDay();

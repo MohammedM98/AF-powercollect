@@ -28,6 +28,7 @@ export default function Index({
     branchId,
     date,
     latestDay,
+    today,
     period,
     daily,
     handover,
@@ -94,7 +95,7 @@ export default function Index({
                             <button
                                 type="button"
                                 aria-label="اليوم التالي"
-                                disabled={date >= latestDay}
+                                disabled={date >= (tab === 'daily' ? today : latestDay)}
                                 onClick={() => visit({ date: addDays(date, 1) })}
                             >
                                 <Icon name="chevron-left" />

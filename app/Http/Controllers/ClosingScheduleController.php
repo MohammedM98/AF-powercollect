@@ -17,8 +17,9 @@ use Inertia\Response as InertiaResponse;
 
 /**
  * The closing schedule, set by hand by the Super Admin: when the business
- * day closes, which day starts the week, and whether each day's closings
- * open by themselves or only when opened here.
+ * day closes, which day starts the week, whether each day's closings
+ * open by themselves or only when opened here, and whether a branch may
+ * close its day by hand before the cut-off.
  */
 class ClosingScheduleController extends Controller
 {
@@ -32,6 +33,7 @@ class ClosingScheduleController extends Controller
                 'cutoff_time' => $setting->cutoff(),
                 'week_starts_on' => $setting->week_starts_on,
                 'auto_open' => $setting->auto_open,
+                'allow_early_close' => $setting->allow_early_close,
                 'weekly_enabled' => $setting->weekly_enabled,
                 'weekly_closing_day' => $setting->weekly_closing_day ?? ($setting->week_starts_on + 6) % 7,
                 'weekly_closing_time' => $setting->weekly_closing_time ? substr($setting->weekly_closing_time, 0, 5) : $setting->cutoff(),

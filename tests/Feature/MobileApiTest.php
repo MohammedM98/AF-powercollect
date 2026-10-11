@@ -70,7 +70,7 @@ class MobileApiTest extends TestCase
     {
         $this->travelTo('2026-09-24 10:00:00');
         $user = User::factory()->collector()->create();
-        $user->permissions()->sync(Permission::idsFor([PermissionKey::ViewMeterReadings]));
+        $user->permissions()->sync(Permission::idsFor([PermissionKey::ViewMeterReadings, PermissionKey::BrowseMeterReadingWeeks]));
         $week = MeterReading::latestEndedWeekStart(null);
         $olderWeek = $week->copy()->subWeek();
         $subscription = Subscription::factory()->create(['branch_id' => $user->branch_id, 'full_name' => 'Alpha', 'account_number' => 'WEEK-42']);

@@ -16,6 +16,7 @@ class UserModelTest extends TestCase
 
     private const DATA_ENTRY_STARTER_KEYS = [
         'subscriptions.view', 'subscriptions.create', 'subscriptions.update', 'subscriptions.bulk_update', 'meter_readings.view', 'meter_readings.record', 'meter_readings.correct',
+        'meter_readings.correct_last', 'meter_readings.browse_weeks',
     ];
 
     public function test_a_new_user_starts_with_their_roles_usual_permissions(): void

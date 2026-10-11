@@ -9,12 +9,17 @@ use Illuminate\Validation\Validator;
 
 class UpdateMeterReadingRequest extends FormRequest
 {
+    private ?MeterReading $nextReading = null;
+
     /**
-     * Determine if the user is authorized to make this request.
+     * Determine if the user is authorized to make this request: to correct
+     * the reading, or to edit it as the last reading of the week after it.
      */
     public function authorize(): bool
     {
-        return $this->user()->can('update', $this->route('meter_reading'));
+        $meterReading = $this->route('meter_reading');
+
+        return $this->user()->can('update', $meterReading) || $this->user()->can('updateAsLastReading', $meterReading);
     }
 
     /**
@@ -37,7 +42,10 @@ class UpdateMeterReadingRequest extends FormRequest
 
     /**
      * A reading can only be corrected while it is the subscription's latest
-     * week, since the following week starts from it.
+     * week, since the following week starts from it — or, by someone who may
+     * edit it as the last reading, while only the week after it has been
+     * entered: that week then starts from it, so it must not pass that
+     * week's reading.
      *
      * @return array<int, callable>
      */
@@ -52,16 +60,20 @@ class UpdateMeterReadingRequest extends FormRequest
                 /** @var MeterReading $meterReading */
                 $meterReading = $this->route('meter_reading');
 
-                $hasLaterWeek = MeterReading::query()
+                $laterReadings = MeterReading::query()
                     ->where('subscription_id', $meterReading->subscription_id)
                     ->where('week_start', '>', $meterReading->week_start)
-                    ->exists();
+                    ->orderBy('week_start')
+                    ->limit(2)
+                    ->get();
 
-                if ($hasLaterWeek) {
+                if ($laterReadings->count() > 1 || ($laterReadings->isNotEmpty() && ! $this->user()->can('updateAsLastReading', $meterReading))) {
                     $validator->errors()->add('current_reading', 'لا يمكن تعديل هذه القراءة لوجود قراءة لأسبوع لاحق.');
 
                     return;
                 }
+
+                $this->nextReading = $laterReadings->first();
 
                 if ($this->float('current_reading') < $meterReading->previous_reading) {
                     $validator->errors()->add('current_reading', "القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة ({$meterReading->previous_reading}).");
@@ -73,8 +85,35 @@ class UpdateMeterReadingRequest extends FormRequest
 
                 if (MeterReading::isImpossibleConsumption($consumption)) {
                     $validator->errors()->add('current_reading', StoreMeterReadingRequest::impossibleConsumptionMessage($consumption));
+
+                    return;
+                }
+
+                if ($this->nextReading === null) {
+                    return;
+                }
+
+                if ($this->float('current_reading') > $this->nextReading->current_reading) {
+                    $validator->errors()->add('current_reading', "آخر قراءة لا يمكن أن تكون أكبر من قراءة الأسبوع الذي يليها ({$this->nextReading->current_reading}).");
+
+                    return;
+                }
+
+                $nextConsumption = MeterReading::consumptionBetween($this->float('current_reading'), $this->nextReading->current_reading);
+
+                if (MeterReading::isImpossibleConsumption($nextConsumption)) {
+                    $validator->errors()->add('current_reading', StoreMeterReadingRequest::impossibleConsumptionMessage($nextConsumption));
                 }
             },
         ];
+    }
+
+    /**
+     * The reading of the week after the corrected one, which starts from
+     * it, when that week has been entered.
+     */
+    public function nextReading(): ?MeterReading
+    {
+        return $this->nextReading;
     }
 }

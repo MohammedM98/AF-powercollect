@@ -53,7 +53,8 @@ class MeterReadingController extends Controller
 
         $actor = auth()->user();
         $weekBranchId = $this->sheetBranchId($request, $actor);
-        $weekStart = $this->selectedWeek($request, $weekBranchId);
+        $canBrowseWeeks = $actor->can('browseWeeks', MeterReading::class);
+        $weekStart = $this->selectedWeek($request, $weekBranchId, $canBrowseWeeks);
         $week = $weekStart->toDateString();
 
         $query = $this->subscriptionsInScope($actor)
@@ -90,8 +91,9 @@ class MeterReadingController extends Controller
             'rows' => $rows,
             'week' => $week,
             'weekEnd' => MeterReading::weekEndFor($weekStart, $weekBranchId)->toDateString(),
-            // The weeks back to the first reading (at least fourteen months), for the year, month and week pickers.
-            'weekOptions' => MeterReading::recentWeekOptions($weekBranchId, $this->weeksToOffer($actor, $weekBranchId)),
+            // The weeks back to the first reading (at least fourteen months), for the year, month and week pickers;
+            // only the latest one for someone who may not browse earlier weeks.
+            'weekOptions' => MeterReading::recentWeekOptions($weekBranchId, $canBrowseWeeks ? $this->weeksToOffer($actor, $weekBranchId) : 1),
             'summary' => [
                 'total' => (clone $scope)->count(),
                 'entered' => (clone $scope)->whereHas('meterReadings', $enteredThisWeek)->count(),
@@ -160,42 +162,46 @@ class MeterReadingController extends Controller
      * reading sends it back for approval and tells the people who approve —
      * unless the corrector may approve it and asks to (`approve`, as the
      * statement's form does), when it is approved again at once and billed
-     * at the corrected amount, all or nothing.
+     * at the corrected amount, all or nothing. A last reading edited after
+     * the week following it was entered carries that week along: it starts
+     * from the corrected reading and is recalculated, going back to review
+     * if it was approved.
      */
     public function update(UpdateMeterReadingRequest $request, MeterReading $meterReading): RedirectResponse
     {
         $actor = $request->user();
-        [$wentBackToReview, $approvedAgain] = DB::transaction(function () use ($request, $meterReading, $actor): array {
+        $nextReading = $request->nextReading();
+        [$wentBackToReview, $approvedAgain, $nextWentBackToReview] = DB::transaction(function () use ($request, $meterReading, $nextReading, $actor): array {
             $wentBackToReview = $meterReading->correct(
                 $request->float('current_reading'),
                 $request->has('notes') ? $request->input('notes') : $meterReading->notes,
                 $actor,
             );
+            $nextWentBackToReview = $nextReading?->startFrom($meterReading->current_reading, $actor) ?? false;
             // A corrected reading that is now unusual waits for review unless the corrector confirms it.
             $approvedAgain = $wentBackToReview
                 && $request->boolean('approve')
                 && $actor->can('approve', $meterReading)
                 && $meterReading->approve($actor, $request->boolean('confirm_unusual'));
 
-            return [$wentBackToReview, $approvedAgain];
+            return [$wentBackToReview, $approvedAgain, $nextWentBackToReview];
         });
 
         $actor->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscription->displayName()));
 
-        if ($approvedAgain) {
-            return back()->with('status', 'meter-reading-corrected-approved');
+        if (($wentBackToReview && ! $approvedAgain) || $nextWentBackToReview) {
+            Notification::send(
+                $meterReading->approvers()->reject(fn (User $approver) => $approver->is($actor)),
+                new ReadingNeedsReapproval($meterReading->subscription->displayName(), $actor->name),
+            );
         }
 
-        if (! $wentBackToReview) {
-            return back()->with('status', 'meter-reading-updated');
-        }
-
-        Notification::send(
-            $meterReading->approvers()->reject(fn (User $approver) => $approver->is($actor)),
-            new ReadingNeedsReapproval($meterReading->subscription->displayName(), $actor->name),
-        );
-
-        return back()->with('status', 'meter-reading-reopened');
+        return back()->with('status', match (true) {
+            $approvedAgain && ! $nextWentBackToReview => 'meter-reading-corrected-approved',
+            $wentBackToReview || $nextWentBackToReview => 'meter-reading-reopened',
+            $nextReading !== null => 'meter-reading-last-updated',
+            default => 'meter-reading-updated',
+        });
     }
 
     /**
@@ -410,14 +416,14 @@ class MeterReadingController extends Controller
     /**
      * The requested week (any date is snapped to the first day of its
      * week), defaulting to the latest week that has ended and never later
-     * than it.
+     * than it — always that week for someone who may not browse earlier ones.
      */
-    private function selectedWeek(Request $request, ?int $branchId): Carbon
+    private function selectedWeek(Request $request, ?int $branchId, bool $canBrowseWeeks): Carbon
     {
         $latestWeek = MeterReading::latestEndedWeekStart($branchId);
         $requested = $request->date('week');
 
-        if ($requested === null) {
+        if ($requested === null || ! $canBrowseWeeks) {
             return $latestWeek;
         }
 
@@ -554,6 +560,14 @@ class MeterReadingController extends Controller
                 'recordedSource' => $reading->mobile_operation_id !== null ? 'app' : 'web',
                 'approvedByName' => $reading->approvedBy?->name,
                 'approvedAt' => $reading->approved_at?->timezone(config('app.business_timezone'))->format('d/m H:i'),
+            ] : null,
+            // The reading the week starts from, when one was entered: editable as the last reading while no week after this one has been.
+            'lastReading' => $lastBefore ? [
+                'id' => $lastBefore->id,
+                'weekStart' => $lastBefore->week_start->toDateString(),
+                'weekEnd' => $lastBefore->week_end?->toDateString(),
+                'status' => $lastBefore->status->value,
+                'canEdit' => ! $subscription->has_later_week && $actor->can('updateAsLastReading', $lastBefore),
             ] : null,
             'hasLaterWeek' => (bool) $subscription->has_later_week,
             'canApprove' => $reading !== null && $actor->can('approve', $reading),

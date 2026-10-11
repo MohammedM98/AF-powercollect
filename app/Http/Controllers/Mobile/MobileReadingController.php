@@ -24,7 +24,9 @@ class MobileReadingController extends Controller
             'page' => ['sometimes', 'integer', 'min:1'],
         ]);
         $branchId = $request->user()->branch_id;
-        $weekStart = isset($validated['week'])
+        // Someone who may not browse earlier weeks always gets the latest one.
+        $canBrowseWeeks = $request->user()->can('browseWeeks', MeterReading::class);
+        $weekStart = isset($validated['week']) && $canBrowseWeeks
             ? MeterReading::weekStartFor(Carbon::parse($validated['week']), $branchId)
             : MeterReading::latestEndedWeekStart($branchId);
         $week = $weekStart->toDateString();
@@ -43,7 +45,7 @@ class MobileReadingController extends Controller
         return response()->json([
             'week_start' => $week,
             'week_end' => MeterReading::weekEndFor($weekStart, $branchId)->toDateString(),
-            'week_options' => MeterReading::recentWeekOptions($branchId),
+            'week_options' => MeterReading::recentWeekOptions($branchId, $canBrowseWeeks ? 8 : 1),
             'data' => $subscriptions->getCollection()->map(function (Subscription $subscription) use ($week): array {
                 $latest = $subscription->meterReadings->first();
                 $reading = $latest?->week_start->toDateString() === $week ? $latest : null;

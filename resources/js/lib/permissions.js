@@ -33,6 +33,7 @@ export const SENSITIVE = {
     adjust: { label: 'إضافة تحميل أو خصم أو تسوية', hint: 'يشمل الخصم الدائم وتسوية الرصيد — لا يمنح تعديل الحركات أو حذفها', danger: true },
     correct: { label: 'تعديل مبلغ الحركة', hint: 'تصحيح مبلغ تحميل أو دفعة من مسار التصحيح، مع حفظ السبب والأثر المالي', danger: true },
     'meter_readings.correct': { label: 'تصحيح القراءة الأسبوعية', hint: 'يعدّل قراءة الأسبوع المتاح؛ القراءة المعتمدة تعود للاعتماد', danger: true },
+    'meter_readings.correct_last': { label: 'تعديل آخر قراءة', hint: 'يعدّل قراءة الأسبوع السابق من خانة «آخر قراءة»، وتُحسب قراءة هذا الأسبوع من جديد؛ المعتمدة منهما تعود للاعتماد', danger: true },
     'subscriptions.bulk_update': { label: 'تعديل المشتركين جماعيًا', hint: 'تعديل الحالة أو الحد الأدنى لمجموعة، مع صلاحية تعديل الحقل نفسه', danger: true },
     'collections.amend': { label: 'تعديل بيانات الدفعة', hint: 'تعديل البنك والمرسل والملاحظات؛ لا يغيّر المبلغ أو رقم المرجع', danger: true },
     'collections.refund': { label: 'ردّ الدفعة', hint: 'يردّ المبلغ بقيد مرتبط؛ تبقى الدفعة وسجل الردّ ظاهرين', danger: true },
@@ -49,6 +50,7 @@ export const ACTION_LABELS = {
     record: 'تسجيل',
     send: 'إرسال',
     manage: 'إدارة',
+    browse_weeks: 'الأسابيع السابقة',
     view_all: 'عرض كل الفروع والتقارير',
     branch_performance: 'أداء الفروع',
     debt_aging: 'أعمار الديون',
@@ -57,6 +59,7 @@ export const ACTION_LABELS = {
 
 /** What an everyday switch opens, in a line under its name. */
 const ACTION_HINTS = {
+    browse_weeks: 'يتنقل بين أسابيع القراءات السابقة؛ بدونها يرى الأسبوع الحالي فقط',
     view_all: 'تقارير كل الفروع، للقراءة فقط',
     branch_performance: 'أرقام الفرع ومقارنته بالفروع الأخرى',
     debt_aging: 'المشتركون المدينون وكم مضى على ديونهم',
@@ -151,7 +154,7 @@ export function withGroupAccess(sections, selected, viewOnly) {
                 next.push(section.ladder.ids[0]);
             }
             for (const item of section.switches) {
-                if (item.action === 'view' || (section.key === 'reports' && ['branch_performance', 'debt_aging', 'transaction_audit'].includes(item.action))) {
+                if (item.action === 'view' || item.action === 'browse_weeks' || (section.key === 'reports' && ['branch_performance', 'debt_aging', 'transaction_audit'].includes(item.action))) {
                     next.push(item.id);
                 } else if (item.action === 'view_all' && selected.includes(item.id)) {
                     next.push(item.id);

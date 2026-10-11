@@ -706,7 +706,8 @@ class MeterReadingTest extends TestCase
 
     public function test_an_approved_reading_of_an_earlier_week_cannot_be_corrected(): void
     {
-        $reading = $this->recordedReading('2026-09-11', 1200, 1250, MeterReadingStatus::Approved);
+        // Two weeks before the latest: older than the last reading, which stays editable (see LastReadingTest).
+        $reading = $this->recordedReading('2026-09-04', 1200, 1250, MeterReadingStatus::Approved);
 
         $this->actingAs($this->dataEntry)
             ->put(route('meter-readings.update', $reading), ['current_reading' => 1235])
@@ -717,10 +718,12 @@ class MeterReadingTest extends TestCase
 
     public function test_a_reading_cannot_be_corrected_once_a_later_week_exists(): void
     {
-        $earlier = $this->recordedReading('2026-09-11', 1200, 1250);
-        $this->recordedReading('2026-09-18', 1250, 1300);
+        $earlier = $this->recordedReading('2026-09-04', 1200, 1250);
+        $this->recordedReading('2026-09-11', 1250, 1280);
+        $this->recordedReading('2026-09-18', 1280, 1300);
 
-        // Only the Super Admin may correct an earlier week at all.
+        // Only the Super Admin may correct an earlier week at all, and only the week right before the
+        // subscription's latest carries that week along (see LastReadingTest).
         $this->actingAs(User::factory()->superAdmin()->create())
             ->put(route('meter-readings.update', $earlier), ['current_reading' => 1260])
             ->assertSessionHasErrors(['current_reading' => 'لا يمكن تعديل هذه القراءة لوجود قراءة لأسبوع لاحق.']);
@@ -730,7 +733,7 @@ class MeterReadingTest extends TestCase
 
     public function test_a_reading_from_an_earlier_week_cannot_be_corrected_even_by_a_branch_admin(): void
     {
-        $reading = $this->recordedReading('2026-09-11', 1200, 1250);
+        $reading = $this->recordedReading('2026-09-04', 1200, 1250);
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id]);
 
         $this->actingAs($branchAdmin)

@@ -68,6 +68,14 @@ test('the + and - steps move a reading by one kilo and never below the last read
     assert.equal(steppedReading('abc', '6901', 1), '6902');
 });
 
+// A last reading steps between where its own week started and the reading of the week after it.
+test('a last reading never steps past the reading of the week after it', () => {
+    assert.equal(steppedReading('6904.5', '6901', 1, '6905'), '6905');
+    assert.equal(steppedReading('6905', '6901', 1, 6905), '6905');
+    assert.equal(steppedReading('6905', '6901', -1, '6905'), '6904');
+    assert.equal(steppedReading('6901.5', '6901', -1, '6905'), '6901');
+});
+
 // Each branch reads on its own weekly reading day, so a subscription's weeks are its branch's.
 test("a subscription's weeks are the ones listed for its branch", () => {
     const byBranch = { 3: [{ value: '2026-09-18' }], 7: [{ value: '2026-09-13' }] };

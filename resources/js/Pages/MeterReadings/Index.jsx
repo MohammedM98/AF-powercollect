@@ -11,6 +11,7 @@ import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useLastReadingEdit } from '@/hooks/useLastReadingEdit';
 import { printFieldsProps, printRowProps } from '@/lib/print';
 import { formatCurrency } from '@/lib/currency';
 import { formatMonthName } from '@/lib/format';
@@ -91,124 +92,46 @@ function focusReadingInput(currentInput, step = 1) {
 /**
  * The reading the week starts from. When the actor may edit it (the last
  * week's reading, while no later week is entered), its pencil opens it in
- * place: Enter saves, Escape puts it back. The week's own reading, if
- * entered, is recalculated from it, so an approved one of the two first
- * asks "are you sure?".
+ * place with − and + like the week's own reading (useLastReadingEdit). The
+ * week's own reading, if entered, is recalculated from it, so an approved
+ * one of the two first asks "are you sure?".
  */
 function LastReadingCell({ row }) {
-    const savedValue = String(row.previousReading);
-    const [editing, setEditing] = useState(false);
-    const [value, setValue] = useState(savedValue);
-    const [error, setError] = useState(null);
-    const [saving, setSaving] = useState(false);
-    const [confirming, setConfirming] = useState(false);
-    // Set while a save is on its way, and when Escape leaves the field: its blur then saves nothing.
-    const busy = useRef(false);
     const lastReading = row.lastReading;
-    const approvedOnes = lastReading?.status === 'approved' || row.reading?.status === 'approved';
-
-    function open() {
-        busy.current = false;
-        setValue(savedValue);
-        setError(null);
-        setEditing(true);
-    }
-
-    function close() {
-        busy.current = true;
-        setEditing(false);
-        setError(null);
-        setValue(savedValue);
-    }
-
-    function save({ confirmed = false } = {}) {
-        if (busy.current) {
-            return;
-        }
-
-        if (value === '' || Number(value) === Number(savedValue)) {
-            close();
-            return;
-        }
-
-        if (approvedOnes && !confirmed) {
-            setConfirming(true);
-            return;
-        }
-
-        busy.current = true;
-        router.put(`/meter-readings/${lastReading.id}`, { current_reading: value }, {
-            preserveScroll: true,
-            preserveState: true,
-            onStart: () => setSaving(true),
-            onFinish: () => setSaving(false),
-            onSuccess: () => {
-                setEditing(false);
-                setError(null);
-            },
-            onError: (errors) => {
-                busy.current = false;
-                setError(Object.values(errors)[0] ?? 'تعذّر حفظ آخر قراءة.');
-            },
-        });
-    }
+    const editor = useLastReadingEdit({
+        readingId: lastReading?.id,
+        savedValue: row.previousReading,
+        floor: lastReading?.previousReading ?? 0,
+        ceiling: row.reading ? row.reading.currentReading : null,
+        needsConfirmation: lastReading?.status === 'approved' || row.reading?.status === 'approved',
+    });
 
     return (
         <td className="re-last re-number">
             <ConfirmDialog
-                show={confirming}
-                onConfirm={() => {
-                    setConfirming(false);
-                    save({ confirmed: true });
-                }}
-                onCancel={() => {
-                    setConfirming(false);
-                    close();
-                }}
+                show={editor.confirming}
+                onConfirm={editor.confirm}
+                onCancel={editor.cancel}
                 title="تعديل آخر قراءة؟"
                 message={`تعديل آخر قراءة لـ ${row.fullName} يعيد حساب قراءة هذا الأسبوع منها. القراءة المعتمدة منهما تعود إلى قيد المراجعة ويُزال مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`}
                 confirmLabel="نعم، عدّل"
                 cancelLabel="تراجع عن التعديل"
                 icon="alert"
             />
-            {editing ? (
-                <div className="re-last-edit" dir="ltr">
-                    <input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        dir="ltr"
-                        autoFocus
-                        aria-label={`آخر قراءة لـ ${row.fullName}`}
-                        aria-invalid={Boolean(error)}
-                        // The reason shows as a flash message when the save fails, and on hover here: the row never grows.
-                        title={error ?? undefined}
-                        disabled={saving}
-                        value={value}
-                        className={error ? 'has-error' : ''}
-                        onFocus={(e) => e.target.select()}
-                        onInput={(e) => setValue(e.target.value)}
-                        onBlur={() => !confirming && save()}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                save();
-                            } else if (e.key === 'Escape') {
-                                e.preventDefault();
-                                close();
-                            }
-                        }}
-                    />
+            {editor.editing ? (
+                <div className="re-input" dir="ltr">
+                    <button type="button" tabIndex={-1} className="re-step" aria-label={`إنقاص آخر قراءة لـ ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => editor.step(-1)} disabled={!editor.canStepDown}>−</button>
+                    <input {...editor.inputProps} aria-label={`آخر قراءة لـ ${row.fullName}`} className={editor.error ? 'has-error' : ''} />
+                    <button type="button" tabIndex={-1} className="re-step" aria-label={`زيادة آخر قراءة لـ ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => editor.step(1)} disabled={!editor.canStepUp}>+</button>
                 </div>
             ) : (
                 <span className="re-last-value">
-                    {row.previousReading}
+                    <span className="re-last-number">{row.previousReading}</span>
                     {lastReading?.canEdit && (
                         <button
                             type="button"
                             className="re-last-pencil"
-                            onClick={open}
+                            onClick={editor.open}
                             aria-label={`تعديل آخر قراءة لـ ${row.fullName}`}
                             title={`تعديل قراءة الأسبوع ${shortDate(lastReading.weekStart)} – ${lastReading.weekEnd ? shortDate(lastReading.weekEnd) : ''}`}
                         >
@@ -736,7 +659,8 @@ export default function Index({
             />
 
             <div className="re-table-wrap">
-                <table className="re-table w-full text-sm text-start" {...printFieldsProps(PRINT_FIELDS)}>
+                {/* While a last reading can be edited, its column keeps the editor's width, so opening it moves nothing. */}
+                <table className={`re-table w-full text-sm text-start ${rows.data.some((row) => row.lastReading?.canEdit) ? 'has-last-edit' : ''}`} {...printFieldsProps(PRINT_FIELDS)}>
                     <thead>
                         <tr>
                             <SortableTh column="full_name" label="المشترك" sortState={filters} onSort={sort} className="re-sub" />

@@ -11,14 +11,16 @@ export function consumptionBetween(previousReading, currentReading) {
 /**
  * The reading after a + (1) or − (-1) step of one kilo from what is typed, as the text for
  * the field. From an empty (or unreadable) field it starts at `previousReading`: + gives the
- * last reading plus one, − the last reading itself. It never goes below `previousReading`.
+ * last reading plus one, − the last reading itself. It never goes below `previousReading`,
+ * nor above `nextReading` when one is given (a last reading, which the week after starts from).
  */
-export function steppedReading(value, previousReading, direction) {
+export function steppedReading(value, previousReading, direction, nextReading = null) {
     const typed = value !== '' && !Number.isNaN(Number(value));
     const base = typed ? Number(value) : Number(previousReading);
     const next = typed || direction > 0 ? base + direction : base;
+    const ceiling = nextReading === null || nextReading === undefined ? Infinity : Number(nextReading);
 
-    return String(Math.round(Math.max(Number(previousReading), next) * 100) / 100);
+    return String(Math.round(Math.min(ceiling, Math.max(Number(previousReading), next)) * 100) / 100);
 }
 
 /**

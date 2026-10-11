@@ -111,3 +111,14 @@ test('view-only group shortcut preserves report access, does not grant cross-bra
     assert.deepEqual(withGroupAccess([reportScope, reports], [99, 12, 15], true), [99, 10, 12, 14]);
     assert.deepEqual(withGroupAccess([reportScope, reports], [99, 12, 15], false), [99]);
 });
+
+test('browsing earlier reading weeks is a viewing switch, and editing the last reading a sensitive one', () => {
+    const readings = sectionModel({
+        key: 'meter_readings',
+        label: 'القراءات',
+        actions: [entry('view', 10), entry('record', 11), entry('browse_weeks', 12), entry('correct', 13), entry('correct_last', 14)],
+    });
+    assert.deepEqual(readings.switches.map((item) => [item.id, item.label]), [[12, 'الأسابيع السابقة']]);
+    assert.deepEqual(readings.sensitive.map((item) => [item.id, item.label]), [[13, 'تصحيح القراءة الأسبوعية'], [14, 'تعديل آخر قراءة']]);
+    assert.deepEqual(withGroupAccess([readings], [10, 11, 13, 14], true), [10, 12]);
+});

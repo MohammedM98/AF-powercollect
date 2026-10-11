@@ -70,7 +70,7 @@ enum UserRole: string
                 PermissionKey::ViewMeterBoxes, PermissionKey::CreateMeterBoxes, PermissionKey::UpdateMeterBoxes,
                 PermissionKey::ViewSubAreas, PermissionKey::CreateSubAreas, PermissionKey::UpdateSubAreas,
                 PermissionKey::ViewMeterReadings, PermissionKey::RecordMeterReadings, PermissionKey::ApproveMeterReadings,
-                PermissionKey::CorrectMeterReadings,
+                PermissionKey::CorrectMeterReadings, PermissionKey::CorrectLastMeterReadings, PermissionKey::BrowseMeterReadingWeeks,
                 PermissionKey::ViewCollections, PermissionKey::RecordCollections, PermissionKey::ConfirmCollections,
                 PermissionKey::ViewBranchPerformance, PermissionKey::ViewDebtAging, PermissionKey::ViewTransactionAudit,
                 PermissionKey::AdjustBalances, PermissionKey::CorrectTransactions, PermissionKey::DeleteTransactions,
@@ -83,11 +83,12 @@ enum UserRole: string
             self::DataEntry => [
                 PermissionKey::ViewSubscriptions, PermissionKey::CreateSubscriptions, PermissionKey::UpdateSubscriptions,
                 PermissionKey::ViewMeterReadings, PermissionKey::RecordMeterReadings,
-                PermissionKey::CorrectMeterReadings, PermissionKey::BulkUpdateSubscriptions,
+                PermissionKey::CorrectMeterReadings, PermissionKey::CorrectLastMeterReadings, PermissionKey::BrowseMeterReadingWeeks,
+                PermissionKey::BulkUpdateSubscriptions,
             ],
             self::Accountant => [
                 PermissionKey::ViewSubscriptions,
-                PermissionKey::ViewMeterReadings, PermissionKey::ApproveMeterReadings,
+                PermissionKey::ViewMeterReadings, PermissionKey::ApproveMeterReadings, PermissionKey::BrowseMeterReadingWeeks,
                 PermissionKey::AdjustBalances,
                 PermissionKey::ViewFinancialReports,
                 PermissionKey::ExportFinancialReports,

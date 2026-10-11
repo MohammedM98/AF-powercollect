@@ -57,6 +57,36 @@ class MeterReadingPolicy
     }
 
     /**
+     * The reading the latest week starts from — the one of the week before
+     * it, shown as the sheet's last reading — stays editable with its own
+     * permission, in the actor's own branch; the Super Admin may edit any
+     * week's last reading. The week after it, once entered, is recalculated
+     * from it (MeterReadingController::update()).
+     */
+    public function updateAsLastReading(User $user, MeterReading $meterReading): bool
+    {
+        if (! $user->hasPermission(PermissionKey::CorrectLastMeterReadings)) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return $meterReading->branch_id === $user->branch_id
+            && MeterReading::weekStartFor($meterReading->week_start, $meterReading->branch_id)->equalTo($this->lastWeekStart($meterReading->branch_id));
+    }
+
+    /**
+     * Whether the user may open the weeks before the latest one; without
+     * it the sheet shows the latest week only.
+     */
+    public function browseWeeks(User $user): bool
+    {
+        return $user->hasPermission(PermissionKey::BrowseMeterReadingWeeks);
+    }
+
+    /**
      * Whether the user may approve readings at all (ticked by default for
      * Branch Admins and Accountants).
      */
@@ -118,6 +148,14 @@ class MeterReadingPolicy
     private function weekIsOpenFor(User $user, CarbonInterface $weekStart, ?int $branchId): bool
     {
         return $user->isSuperAdmin() || MeterReading::weekStartFor($weekStart, $branchId)->equalTo(MeterReading::latestEndedWeekStart($branchId));
+    }
+
+    /**
+     * The first day of the week before the branch's latest ended week.
+     */
+    private function lastWeekStart(?int $branchId): CarbonInterface
+    {
+        return MeterReading::weekStartFor(MeterReading::latestEndedWeekStart($branchId)->subDay(), $branchId);
     }
 
     /**

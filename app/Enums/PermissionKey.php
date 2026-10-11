@@ -60,6 +60,8 @@ enum PermissionKey: string
     case ViewMeterReadings = 'meter_readings.view';
     case RecordMeterReadings = 'meter_readings.record';
     case CorrectMeterReadings = 'meter_readings.correct';
+    case CorrectLastMeterReadings = 'meter_readings.correct_last';
+    case BrowseMeterReadingWeeks = 'meter_readings.browse_weeks';
     case ApproveMeterReadings = 'meter_readings.approve';
     case RecordCollections = 'collections.record';
     case ConfirmCollections = 'collections.confirm';
@@ -136,6 +138,8 @@ enum PermissionKey: string
             self::ViewMeterReadings => 'View Meter Readings',
             self::RecordMeterReadings => 'Record Meter Readings',
             self::CorrectMeterReadings => 'Correct Meter Readings',
+            self::CorrectLastMeterReadings => 'Edit Last Readings',
+            self::BrowseMeterReadingWeeks => 'Browse Earlier Reading Weeks',
             self::ApproveMeterReadings => 'Approve Meter Readings',
             self::RecordCollections => 'Add Payments',
             self::ConfirmCollections => 'Confirm Collections',
@@ -228,7 +232,14 @@ enum PermissionKey: string
             ],
             'meter_readings' => [
                 'label' => 'Meter Readings',
-                'actions' => ['view' => self::ViewMeterReadings, 'record' => self::RecordMeterReadings, 'correct' => self::CorrectMeterReadings, 'approve' => self::ApproveMeterReadings],
+                'actions' => [
+                    'view' => self::ViewMeterReadings,
+                    'record' => self::RecordMeterReadings,
+                    'browse_weeks' => self::BrowseMeterReadingWeeks,
+                    'correct' => self::CorrectMeterReadings,
+                    'correct_last' => self::CorrectLastMeterReadings,
+                    'approve' => self::ApproveMeterReadings,
+                ],
             ],
             'collections' => [
                 'label' => 'Payments and Transactions',

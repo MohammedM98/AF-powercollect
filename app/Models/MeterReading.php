@@ -437,9 +437,34 @@ class MeterReading extends Model
      */
     public function correct(float $currentReading, ?string $notes, User $editor): bool
     {
-        return DB::transaction(function () use ($currentReading, $notes, $editor): bool {
+        return $this->recalculate($this->previous_reading, $currentReading, $notes, $editor);
+    }
+
+    /**
+     * Start the reading from the corrected reading of the week before it —
+     * its last reading, edited after this week was entered — and recalculate
+     * it as correct() does: an approved one goes back to review. Returns
+     * whether that happened; a reading already starting there is left as it is.
+     */
+    public function startFrom(float $previousReading, User $editor): bool
+    {
+        if (round($previousReading, 2) === round($this->previous_reading, 2)) {
+            return false;
+        }
+
+        return $this->recalculate($previousReading, $this->current_reading, $this->notes, $editor);
+    }
+
+    /**
+     * Recalculate the reading between the given readings at the prices and
+     * standing discount captured when it was recorded, sending an approved
+     * one back to review (see correct()).
+     */
+    private function recalculate(float $previousReading, float $currentReading, ?string $notes, User $editor): bool
+    {
+        return DB::transaction(function () use ($previousReading, $currentReading, $notes, $editor): bool {
             $wasApproved = ! $this->isPending();
-            $consumption = self::consumptionBetween($this->previous_reading, $currentReading);
+            $consumption = self::consumptionBetween($previousReading, $currentReading);
 
             if ($wasApproved) {
                 foreach ([SubscriptionTransaction::TYPE_METER_READING, SubscriptionTransaction::TYPE_READING_DISCOUNT] as $type) {
@@ -448,6 +473,7 @@ class MeterReading extends Model
             }
 
             $this->update([
+                'previous_reading' => $previousReading,
                 'current_reading' => $currentReading,
                 'consumption' => $consumption,
                 'usual_consumption' => self::usualConsumptionIfUnusual($this->subscription, $consumption, $this->week_start),

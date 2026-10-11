@@ -12,7 +12,7 @@ export function SubscriptionRows({ subscriptions, boxNumber }) {
     return (
         <div role="table" tabIndex={0} aria-label={`مشتركو ${boxNumber}`} className="max-h-[480px] overflow-y-auto rounded-control border border-gray-100 bg-surface text-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900">
             <div role="row" className="meter-box-subscription-columns sticky top-0 z-10 hidden border-b border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-semibold text-gray-500">
-                {['المشترك / رقم الاشتراك', 'آخر قراءة', 'القاطع', 'الحالة', 'الرصيد', 'الكشف'].map((label) => <span role="columnheader" key={label}>{label}</span>)}
+                {['المشترك / رقم الاشتراك', 'القراءة السابقة', 'القاطع', 'الحالة', 'الرصيد', 'الكشف'].map((label) => <span role="columnheader" key={label}>{label}</span>)}
             </div>
             <div role="rowgroup" className="divide-y divide-gray-100">
                 {subscriptions.map((subscription) => {

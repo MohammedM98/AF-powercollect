@@ -34,7 +34,7 @@ const SORT_OPTIONS = [
     { value: 'full_name', label: 'الاسم', type: 'text' },
     { value: 'meter_box', label: 'الطبلون (الاسم ثم الرقم)', type: 'text' },
     { value: 'meter_box_number', label: 'رقم الطبلون', type: 'number' },
-    { value: 'last_reading', label: 'آخر قراءة', type: 'amount' },
+    { value: 'last_reading', label: 'القراءة السابقة', type: 'amount' },
     { value: 'current_reading', label: 'القراءة الجديدة', type: 'amount' },
     { value: 'consumption', label: 'الفرق (كيلو)', type: 'amount' },
     { value: 'amount_due', label: 'المطلوب دفعه', type: 'amount' },
@@ -112,17 +112,17 @@ function LastReadingCell({ row }) {
                 show={editor.confirming}
                 onConfirm={editor.confirm}
                 onCancel={editor.cancel}
-                title="تعديل آخر قراءة؟"
-                message={`تعديل آخر قراءة لـ ${row.fullName} يعيد حساب قراءة هذا الأسبوع منها. القراءة المعتمدة منهما تعود إلى قيد المراجعة ويُزال مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`}
+                title="تعديل القراءة السابقة؟"
+                message={`تعديل القراءة السابقة لـ ${row.fullName} يعيد حساب قراءة هذا الأسبوع منها. القراءة المعتمدة منهما تعود إلى قيد المراجعة ويُزال مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`}
                 confirmLabel="نعم، عدّل"
                 cancelLabel="تراجع عن التعديل"
                 icon="alert"
             />
             {editor.editing ? (
                 <div className="re-input" dir="ltr">
-                    <button type="button" tabIndex={-1} className="re-step" aria-label={`إنقاص آخر قراءة لـ ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => editor.step(-1)} disabled={!editor.canStepDown}>−</button>
-                    <input {...editor.inputProps} aria-label={`آخر قراءة لـ ${row.fullName}`} className={editor.error ? 'has-error' : ''} />
-                    <button type="button" tabIndex={-1} className="re-step" aria-label={`زيادة آخر قراءة لـ ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => editor.step(1)} disabled={!editor.canStepUp}>+</button>
+                    <button type="button" tabIndex={-1} className="re-step" aria-label={`إنقاص القراءة السابقة لـ ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => editor.step(-1)} disabled={!editor.canStepDown}>−</button>
+                    <input {...editor.inputProps} aria-label={`القراءة السابقة لـ ${row.fullName}`} className={editor.error ? 'has-error' : ''} />
+                    <button type="button" tabIndex={-1} className="re-step" aria-label={`زيادة القراءة السابقة لـ ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => editor.step(1)} disabled={!editor.canStepUp}>+</button>
                 </div>
             ) : (
                 <span className="re-last-value">
@@ -132,7 +132,7 @@ function LastReadingCell({ row }) {
                             type="button"
                             className="re-last-pencil"
                             onClick={editor.open}
-                            aria-label={`تعديل آخر قراءة لـ ${row.fullName}`}
+                            aria-label={`تعديل القراءة السابقة لـ ${row.fullName}`}
                             title={`تعديل قراءة الأسبوع ${shortDate(lastReading.weekStart)} – ${lastReading.weekEnd ? shortDate(lastReading.weekEnd) : ''}`}
                         >
                             <Icon name="pencil" />
@@ -528,7 +528,7 @@ export default function Index({
             <Head title="القراءات الأسبوعية" />
             <div className="reading-entry" dir="rtl">
                 <div className="re-heading">
-                    <div><h1>القراءات</h1><p>أدخل القراءة الجديدة بجانب آخر قراءة، واضغط Enter أو السهم لأسفل للحفظ والانتقال للمشترك التالي، والسهم لأعلى للرجوع.</p></div>
+                    <div><h1>القراءات</h1><p>أدخل القراءة الجديدة بجانب القراءة السابقة، واضغط Enter أو السهم لأسفل للحفظ والانتقال للمشترك التالي، والسهم لأعلى للرجوع.</p></div>
                     <div className="re-actions">
                         <span className={`re-open ${entryWindow.isOpen ? 'is-open' : ''}`}><i />الإدخال {entryWindow.isOpen ? 'مفتوح' : 'مغلق'}</span>
                         <div className="re-week">
@@ -664,7 +664,7 @@ export default function Index({
                     <thead>
                         <tr>
                             <SortableTh column="full_name" label="المشترك" sortState={filters} onSort={sort} className="re-sub" />
-                            <SortableTh column="last_reading" label="آخر قراءة" sortState={filters} onSort={sort} className="re-last" />
+                            <SortableTh column="last_reading" label="القراءة السابقة" sortState={filters} onSort={sort} className="re-last" />
                             <SortableTh column="current_reading" label="القراءة الجديدة" sortState={filters} onSort={sort} className="re-input-cell" />
                             <SortableTh column="consumption" label="الفرق (كيلو)" sortState={filters} onSort={sort} className="re-diff" />
                             <th className="re-rate">سعر الكيلو</th>

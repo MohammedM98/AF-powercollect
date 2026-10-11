@@ -75,7 +75,7 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
             },
             onError: (errors) => {
                 busy.current = false;
-                setError(Object.values(errors)[0] ?? 'تعذّر حفظ آخر قراءة.');
+                setError(Object.values(errors)[0] ?? 'تعذّر حفظ القراءة السابقة.');
             },
         });
     }

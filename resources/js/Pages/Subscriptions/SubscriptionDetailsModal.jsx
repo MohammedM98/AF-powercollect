@@ -169,7 +169,7 @@ export default function SubscriptionDetailsModal({ subscription, onClose, onEdit
                         <div className="sp-identity">
                             <h2 id={`${tabsId}-title`}>{subscription.display_name}<span className={`sp-status sp-status-${subscription.status}`}><i />{subscription.statusLabel}</span></h2>
                             <div className="sp-meta"><span>ملف المشترك</span><span className="sp-number">#{subscription.subscriber_number ?? subscription.account_number}</span><span><Icon name="pin" />{subscription.branchName}</span><span><Icon name="bolt" />{subscription.tariffCategoryLabel}{subscription.circuitBreakerAmpere && ` · ${subscription.circuitBreakerAmpere} أمبير`}</span></div>
-                            <div className="sp-facts">{lastPayment && <span>آخر دفعة <b>{number(lastPayment.amount)} {lastPayment.currencyLabel}</b></span>}<span>آخر قراءة <b>{number(subscription.lastReading)}</b></span>{lastReading && <span>استهلاك آخر أسبوع <b>{number(lastReading.consumption)}</b> كيلوواط ساعة</span>}</div>
+                            <div className="sp-facts">{lastPayment && <span>آخر دفعة <b>{number(lastPayment.amount)} {lastPayment.currencyLabel}</b></span>}<span>القراءة السابقة <b>{number(subscription.lastReading)}</b></span>{lastReading && <span>استهلاك آخر أسبوع <b>{number(lastReading.consumption)}</b> كيلوواط ساعة</span>}</div>
                         </div>
                         <div className={`sp-balance sp-${balance.tone}`}><small>الرصيد الحالي</small><b><bdi>{money(balance.amount)}</bdi><em>{balance.label}</em></b></div>
                         <div className="sp-tools">

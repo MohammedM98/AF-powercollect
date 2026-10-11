@@ -94,7 +94,7 @@ class UpdateMeterReadingRequest extends FormRequest
                 }
 
                 if ($this->float('current_reading') > $this->nextReading->current_reading) {
-                    $validator->errors()->add('current_reading', "آخر قراءة لا يمكن أن تكون أكبر من قراءة الأسبوع الذي يليها ({$this->nextReading->current_reading}).");
+                    $validator->errors()->add('current_reading', "القراءة السابقة لا يمكن أن تكون أكبر من قراءة الأسبوع الذي يليها ({$this->nextReading->current_reading}).");
 
                     return;
                 }

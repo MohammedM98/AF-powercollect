@@ -566,6 +566,7 @@ class MeterReadingController extends Controller
                 'id' => $lastBefore->id,
                 'weekStart' => $lastBefore->week_start->toDateString(),
                 'weekEnd' => $lastBefore->week_end?->toDateString(),
+                'previousReading' => $lastBefore->previous_reading,
                 'status' => $lastBefore->status->value,
                 'canEdit' => ! $subscription->has_later_week && $actor->can('updateAsLastReading', $lastBefore),
             ] : null,

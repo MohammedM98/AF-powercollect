@@ -239,12 +239,32 @@ class SubscriptionController extends Controller
             'meterReadings' => $readings->map(fn (MeterReading $reading) => $this->statementReading($reading, $actor)),
             'lastReading' => (float) ($latestReading?->current_reading ?? $subscription->initial_reading ?? 0),
             'lastReadingWeekStart' => $latestReading?->week_start->format('Y-m-d'),
+            'editableLastReadingId' => $this->editableLastReadingId($subscription, $readings, $actor),
             'canRecordReading' => $canRecordReadings && $subscription->status === SubscriptionStatus::Active,
             'canUpdate' => $actor->can('update', $subscription),
             'canDelete' => $actor->can('delete', $subscription),
             'canRecordPayment' => $actor->can('recordPayment', $subscription),
             'canAdjustBalance' => $actor->can('adjustBalance', $subscription),
         ];
+    }
+
+    /**
+     * The reading the subscription's latest week starts from — its last
+     * reading — when the actor may edit it in the reading history: no week
+     * after it but the latest one has been entered.
+     *
+     * @param  Collection<int, MeterReading>  $readings  newest first
+     */
+    private function editableLastReadingId(Subscription $subscription, Collection $readings, User $actor): ?int
+    {
+        $latestWeekStart = MeterReading::latestEndedWeekStart($subscription->branch_id);
+        $lastReading = $readings->first(fn (MeterReading $reading): bool => $reading->week_start->lessThan($latestWeekStart));
+
+        if ($lastReading === null || $readings->filter(fn (MeterReading $reading): bool => $reading->week_start->greaterThan($lastReading->week_start))->count() > 1) {
+            return null;
+        }
+
+        return $actor->can('updateAsLastReading', $lastReading) ? $lastReading->id : null;
     }
 
     /**

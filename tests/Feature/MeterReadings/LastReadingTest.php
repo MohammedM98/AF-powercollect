@@ -157,6 +157,38 @@ class LastReadingTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('rows.data.0.lastReading.canEdit', false));
     }
 
+    public function test_the_subscriptions_reading_history_offers_its_last_reading_for_editing(): void
+    {
+        $lastWeek = $this->reading('2026-09-11', 1200, 1250);
+        $this->reading('2026-09-18', 1250, 1300);
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('subscriptions.index'))
+            ->assertInertia(fn ($page) => $page->where('subscriptions.data.0.editableLastReadingId', $lastWeek->id));
+
+        $this->actingAs($this->accountant)
+            ->get(route('subscriptions.index'))
+            ->assertInertia(fn ($page) => $page->where('subscriptions.data.0.editableLastReadingId', null));
+    }
+
+    public function test_the_reading_history_offers_only_last_weeks_reading_for_editing(): void
+    {
+        // Ahmad's last reading is last week's; Badr's latest is two weeks back, which stays locked.
+        $this->reading('2026-09-04', 1150, 1200);
+        $this->reading('2026-09-11', 1200, 1250);
+        $this->reading('2026-09-18', 1250, 1300);
+        $twoWeeksBackOnly = Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Badr']);
+        MeterReading::factory()->create(['subscription_id' => $twoWeeksBackOnly->id, 'week_start' => '2026-09-04', 'week_end' => '2026-09-10']);
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('subscriptions.index', ['sort' => 'full_name']))
+            ->assertInertia(fn ($page) => $page
+                ->where('subscriptions.data.0.full_name', 'Ahmad')
+                ->where('subscriptions.data.0.editableLastReadingId', MeterReading::where('subscription_id', $this->subscription->id)->whereDate('week_start', '2026-09-11')->value('id'))
+                ->where('subscriptions.data.1.full_name', 'Badr')
+                ->where('subscriptions.data.1.editableLastReadingId', null));
+    }
+
     public function test_new_branch_admins_and_data_entry_may_edit_the_last_reading_but_accountants_may_not(): void
     {
         $this->assertTrue(User::factory()->branchAdmin()->create()->hasPermission(PermissionKey::CorrectLastMeterReadings));

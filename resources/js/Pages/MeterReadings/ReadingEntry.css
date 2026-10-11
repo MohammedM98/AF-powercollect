@@ -76,13 +76,13 @@
 .re-sub input[type=checkbox], .re-approval input[type=checkbox] { border: 1.5px solid var(--re-line); border-radius: 5px; width: 18px; height: 18px; color: var(--re-success); flex: none; }
 .re-number { font-family: Alexandria, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .re-last, .re-rate, .re-min { color: var(--re-faint); }
-.re-last-value { display: inline-flex; align-items: center; gap: 6px; }
-.re-last-pencil { width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--re-faint); cursor: pointer; }
+/* The number sits where the editor's number will be; the pencil hangs beside it without moving it. */
+.re-last-value { position: relative; display: inline-block; }
+.re-last-pencil { position: absolute; top: 50%; inset-inline-start: calc(100% + 6px); transform: translateY(-50%); width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--re-faint); cursor: pointer; }
 .re-last-pencil:hover, .re-last-pencil:focus-visible { border-color: var(--re-line); background: var(--re-sunken); color: var(--re-brand); outline: none; }
 .re-last-pencil svg { width: 15px; height: 15px; }
-.re-last-number { min-width: 8ch; text-align: start; }
 .re-last .re-input { width: 196px; }
-.re-table.has-last-edit .re-last { min-width: 214px; }
+.re-table.has-last-edit .re-last { min-width: 214px; text-align: center; }
 .re-input { width: 196px; display: flex; align-items: stretch; gap: 4px; }
 .re-step { width: 40px; height: 44px; flex: none; border-radius: 12px; border: 1.5px solid var(--re-line); background: var(--re-sunken); color: var(--re-ink); font: 700 20px/1 Alexandria, sans-serif; display: grid; place-items: center; padding: 0; cursor: pointer; }
 .re-step:hover:not(:disabled) { background: var(--re-ink); color: var(--re-surface); border-color: var(--re-ink); }
@@ -148,9 +148,8 @@
     .re-due { grid-column: 1 / -1; grid-row: 3; }
     .re-by { grid-column: 1 / -1; grid-row: 4; padding-top: 8px !important; border-top: 1px solid var(--re-line2) !important; }
     .re-table .re-diff, .re-table .re-rate, .re-table .re-fee, .re-table .re-min { display: none; }
-    .re-last::before { content: 'آخر قراءة: '; font: 13px 'IBM Plex Sans Arabic', sans-serif; }
-    .re-table.has-last-edit .re-last { min-width: 0; }
-    .re-last-number { min-width: 0; }
+    .re-last::before { content: 'القراءة السابقة: '; font: 13px 'IBM Plex Sans Arabic', sans-serif; }
+    .re-table.has-last-edit .re-last { min-width: 0; text-align: start; }
     .re-due::before { content: 'المطلوب دفعه: '; font: 13px 'IBM Plex Sans Arabic', sans-serif; color: var(--re-faint); }
     .re-sub b { font-size: 14px; }
     .re-sub > div { gap: 8px; }

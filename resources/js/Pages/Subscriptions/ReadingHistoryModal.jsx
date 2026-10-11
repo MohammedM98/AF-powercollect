@@ -118,14 +118,14 @@ function LastReadingField({ subscription, lastReading, nextReading }) {
     });
 
     return <>
-        <ConfirmDialog show={editor.confirming} onConfirm={editor.confirm} onCancel={editor.cancel} title="تعديل آخر قراءة؟" message={`تعديل آخر قراءة لـ ${subscription.display_name} يعيد حساب قراءة الأسبوع الذي يليها منها. القراءة المعتمدة منهما تعود إلى قيد المراجعة ويُزال مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`} confirmLabel="نعم، عدّل" cancelLabel="تراجع عن التعديل" icon="alert" />
+        <ConfirmDialog show={editor.confirming} onConfirm={editor.confirm} onCancel={editor.cancel} title="تعديل القراءة السابقة؟" message={`تعديل القراءة السابقة لـ ${subscription.display_name} يعيد حساب قراءة الأسبوع الذي يليها منها. القراءة المعتمدة منهما تعود إلى قيد المراجعة ويُزال مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`} confirmLabel="نعم، عدّل" cancelLabel="تراجع عن التعديل" icon="alert" />
         {editor.editing ? <div className="rh-stepper" dir="ltr">
-            <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => editor.step(-1)} disabled={!editor.canStepDown} aria-label="إنقاص آخر قراءة">−</button>
-            <input {...editor.inputProps} aria-label="آخر قراءة" />
-            <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => editor.step(1)} disabled={!editor.canStepUp} aria-label="زيادة آخر قراءة">+</button>
+            <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => editor.step(-1)} disabled={!editor.canStepDown} aria-label="إنقاص القراءة السابقة">−</button>
+            <input {...editor.inputProps} aria-label="القراءة السابقة" />
+            <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => editor.step(1)} disabled={!editor.canStepUp} aria-label="زيادة القراءة السابقة">+</button>
         </div> : <span className="rh-last-value">
             <span className="rh-last-number">{formatMoney(lastReading.current_reading)}</span>
-            <button type="button" className="rh-last-pencil" onClick={editor.open} aria-label="تعديل آخر قراءة" title={`تعديل قراءة الأسبوع ${shortDate(lastReading.weekStart)} – ${shortDate(lastReading.weekEnd)}`}><Icon name="pencil" /></button>
+            <button type="button" className="rh-last-pencil" onClick={editor.open} aria-label="تعديل القراءة السابقة" title={`تعديل قراءة الأسبوع ${shortDate(lastReading.weekStart)} – ${shortDate(lastReading.weekEnd)}`}><Icon name="pencil" /></button>
         </span>}
     </>;
 }

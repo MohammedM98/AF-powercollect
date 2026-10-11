@@ -96,7 +96,7 @@ class LastReadingTest extends TestCase
 
         $this->actingAs($this->dataEntry)
             ->put(route('meter-readings.update', $lastWeek), ['current_reading' => 1301])
-            ->assertSessionHasErrors(['current_reading' => 'آخر قراءة لا يمكن أن تكون أكبر من قراءة الأسبوع الذي يليها (1300).']);
+            ->assertSessionHasErrors(['current_reading' => 'القراءة السابقة لا يمكن أن تكون أكبر من قراءة الأسبوع الذي يليها (1300).']);
 
         $this->put(route('meter-readings.update', $lastWeek), ['current_reading' => 1199])
             ->assertSessionHasErrors(['current_reading' => 'القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة (1200).']);

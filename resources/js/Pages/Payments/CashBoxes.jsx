@@ -22,6 +22,7 @@ import {
     BoxTypeIcon,
     CashBoxAction,
     CollectorAuditNotes,
+    CollectorReturnedEntries,
     CollectorDebts,
     boxAction,
     actionLabel,
@@ -116,10 +117,11 @@ export default function CashBoxes({ cashBox, current, openBox, needsAction, boxe
         <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount(cashBox)} />
         {saved && <p role="status" className="mb-4 rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">{saved}</p>}
         {cashBox.started ? <div className="space-y-8">
+            <CollectorReturnedEntries entries={cashBox.returnedEntries} onSaved={() => setSaved('أُرسل ردّك إلى الفرع.')} />
             <section aria-labelledby="open-boxes" className="space-y-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <h3 id="open-boxes" className="text-lg font-bold text-gray-900">صناديقي المفتوحة</h3>
-                    <p className="text-xs text-gray-500">لكل نوع صندوق خاص به؛ يغلقه الفرع عند الاستلام أو عند القطع الأسبوعي.</p>
+                    <p className="text-xs text-gray-500">لكل نوع صندوق خاص به؛ يراجعه الفرع ويؤكد إغلاقه، أو يُغلق عند القطع الأسبوعي.</p>
                 </div>
                 <div className="grid gap-4 lg:grid-cols-3">
                     {Object.keys(boxTypes).map((type) => <BoxCard key={type} type={type} box={current[type]} selected={openBox.type === type && Boolean(current[type])} onSelect={() => showOpenBox(type)} />)}

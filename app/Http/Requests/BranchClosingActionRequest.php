@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\CashBoxType;
-use App\Models\CashBox;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -27,12 +25,11 @@ class BranchClosingActionRequest extends FormRequest
     {
         $action = $this->route('action');
         $rules = ['branch_id' => ['required', 'integer', 'exists:branches,id'], 'reason' => ['nullable', 'string', 'max:3000']];
-        $box = $action === 'receive' ? CashBox::query()->find($this->route('record')) : null;
-        if (in_array($action, ['head-count', 'safe-count'], true)) {
+        if ($action === 'safe-count') {
             $rules += $this->countRules();
         }
-        if ($action === 'receive' && $box?->type === CashBoxType::Cash) {
-            $rules += ['recounted' => ['required', 'boolean'], 'decisions' => ['present', 'array:ILS,USD,JOD'], 'decisions.*' => ['in:accepted,debt']];
+        if ($action === 'return-entry') {
+            $rules += ['note' => ['required', 'string', 'max:1000']];
         }
         if ($action === 'electronic') {
             $rules += ['status' => ['required', 'in:confirmed,missing,rejected']];

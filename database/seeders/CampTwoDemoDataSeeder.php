@@ -71,21 +71,22 @@ class CampTwoDemoDataSeeder extends Seeder
             $this->payment($subscriptions[0], $collector, '150');
             $this->payment($subscriptions[1], $collector, '20', 'USD');
             $this->payment($subscriptions[2], $collector, '5', 'JOD');
-            $this->closeDemoBox($workflow, $branch, $collector, $head, ['ILS' => '150', 'USD' => '20', 'JOD' => '5'], true, true);
+            $this->closeDemoBox($workflow, $branch, $collector, $head);
 
             $this->payment($subscriptions[0], $collector, '120');
             $this->payment($subscriptions[4], $collector, '10', 'USD');
-            $this->closeDemoBox($workflow, $branch, $collector, $head, ['ILS' => '120', 'USD' => '10', 'JOD' => '0'], true, false);
+            $this->closeDemoBox($workflow, $branch, $collector, $head);
 
             $this->payment($subscriptions[1], $collector, '80');
             $this->payment($subscriptions[3], $collector, '2', 'JOD');
-            $this->closeDemoBox($workflow, $branch, $collector, $head, ['ILS' => '80', 'USD' => '0', 'JOD' => '2'], false, false);
+            $this->closeDemoBox($workflow, $branch, $collector, $head);
 
             $this->payment($subscriptions[4], $collector, '60');
             SubscriptionTransaction::recordPayment($subscriptions[5], $collector, [
                 'amount' => '90', 'currency' => 'ILS', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين',
                 'sender_name' => 'مرسل تجريبي', 'reference_number' => 'CAMP2-DEMO-TRANSFER-01', 'notes' => self::MARKER,
             ]);
+            $workflow->returnEntry($this->openCashBox($branch, $collector)->payments()->sole(), $head, 'تأكد من رقم السند قبل إغلاق الصندوق.');
         });
 
         $this->command?->info('Six demo subscribers and five collector boxes (four cash, one bank transfer) are ready in مخيم 2.');
@@ -99,16 +100,14 @@ class CampTwoDemoDataSeeder extends Seeder
         ]);
     }
 
-    /** @param array{ILS: string, USD: string, JOD: string} $counts */
-    private function closeDemoBox(BranchClosingWorkflow $workflow, Branch $branch, User $collector, User $head, array $counts, bool $receive, bool $confirm): void
+    /** The branch confirms the collector's open cash box closed, as it does after reviewing it. */
+    private function closeDemoBox(BranchClosingWorkflow $workflow, Branch $branch, User $collector, User $head): void
     {
-        $box = CashBox::query()->where('branch_id', $branch->id)->where('user_id', $collector->id)->where('type', CashBoxType::Cash)->where('status', 'open')->sole();
-        $workflow->countHead($box, $head, ['counts' => $counts]);
-        if ($receive) {
-            $workflow->receive($box, $head, ['recounted' => true, 'decisions' => []]);
-        }
-        if ($confirm) {
-            $workflow->confirmBox($box, $collector);
-        }
+        $workflow->receive($this->openCashBox($branch, $collector), $head);
+    }
+
+    private function openCashBox(Branch $branch, User $collector): CashBox
+    {
+        return CashBox::query()->where('branch_id', $branch->id)->where('user_id', $collector->id)->where('type', CashBoxType::Cash)->where('status', 'open')->sole();
     }
 }

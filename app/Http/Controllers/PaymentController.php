@@ -159,7 +159,7 @@ class PaymentController extends Controller
         return [
             'type' => $type,
             'entries' => $box === null ? null : CashBoxPayment::query()->where('cash_box_id', $box['id'])
-                ->with(['transaction.subscription:id,full_name,subscription_name,account_number'])
+                ->with(['transaction.subscription:id,full_name,subscription_name,account_number', 'returnedBy:id,name'])
                 ->orderByDesc('occurred_at')->orderByDesc('id')
                 ->paginate(self::OPEN_BOX_ENTRIES, ['*'], 'entries_page')->withQueryString()
                 ->through(fn (CashBoxPayment $entry): array => $this->cashBoxEntry($entry)),
@@ -178,7 +178,7 @@ class PaymentController extends Controller
         abort_unless($cashBox->user_id === $actor->id && $cashBox->branch_id === $actor->branch_id && $cashBox->kind !== 'direct', 404);
         $this->workflow->refresh($cashBox->branch_id);
         $cashBox->refresh()->loadCount('payments');
-        $entryQuery = $cashBox->payments()->with(['transaction.subscription:id,full_name,subscription_name,account_number'])
+        $entryQuery = $cashBox->payments()->with(['transaction.subscription:id,full_name,subscription_name,account_number', 'returnedBy:id,name'])
             ->orderByDesc('occurred_at')->orderByDesc('id');
 
         if ($request->query('format') === 'csv') {
@@ -189,14 +189,15 @@ class PaymentController extends Controller
 
         return Inertia::render('Payments/CashBoxShow', [
             'box' => $this->cashBoxRow($cashBox), 'entries' => $entries,
-            'needsActionCount' => $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count() + $this->waitingAuditNotes($actor)->count(),
+            'needsActionCount' => $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count() + $this->waitingAuditNotes($actor)->count() + $this->returnedEntries($actor)->count(),
             'collectionUrls' => $this->collectionUrls(),
         ]);
     }
 
     /**
      * One entry of a box: the payment or clearing, who it was for, where
-     * the branch's review of it stands, and the payment's receipt.
+     * the branch's review of it stands, the payment's receipt, and what the
+     * branch sent back about it with the collector's answer.
      *
      * @return array<string, mixed>
      */
@@ -212,6 +213,11 @@ class PaymentController extends Controller
             'bankName' => $entry->transaction->bank_name, 'senderBank' => $entry->transaction->sender_bank_name,
             'referenceNumber' => $entry->transaction->reference_number, 'service' => $entry->transaction->notes,
             'receiptUrl' => $entry->transaction->isPayment() ? route('subscriptions.payments.receipt', [$entry->transaction->subscription, $entry->transaction]) : null,
+            'returned' => $entry->returned_at ? [
+                'note' => $entry->return_note, 'at' => $entry->returned_at, 'by' => $entry->returnedBy?->name,
+                'reply' => $entry->collector_reply, 'repliedAt' => $entry->replied_at,
+                'replyUrl' => $entry->waitsOnCollector() ? route('payments.cash-box-entries.reply', $entry) : null,
+            ] : null,
         ];
     }
 
@@ -226,7 +232,7 @@ class PaymentController extends Controller
         $local = fn (?CarbonInterface $time): string => $time ? $time->copy()->setTimezone(config('app.business_timezone'))->format('Y-m-d H:i') : '';
         $statuses = ['cash' => 'سارية', 'pending' => 'بانتظار التحقق', 'confirmed' => 'مؤكدة', 'missing' => 'غير موجودة في البنك', 'rejected' => 'مرفوضة'];
         $types = ['cash' => 'نقدي', 'bank_transfer' => 'حوالات بنكية', 'clearing' => 'مقاصات'];
-        $stages = ['open' => 'مفتوح', 'awaiting_branch' => 'مغلق – بانتظار استلام الفرع', 'awaiting_confirmation' => 'استُلم – بانتظار تأكيد التسليم', 'completed' => 'مكتمل'];
+        $stages = ['open' => 'مفتوح', 'awaiting_branch' => 'مغلق – بانتظار تأكيد الفرع', 'awaiting_confirmation' => 'استُلم – بانتظار تأكيد التسليم', 'completed' => 'أكّد الفرع إغلاقه'];
         $safe = fn (array $cells): array => array_map(fn ($cell) => is_string($cell) && preg_match('/^[=+@\-\t\r]/u', $cell) ? "'".$cell : $cell, $cells);
 
         return response()->streamDownload(function () use ($box, $row, $entries, $local, $statuses, $types, $stages, $safe): void {
@@ -278,6 +284,37 @@ class PaymentController extends Controller
     }
 
     /**
+     * The collector's answer to an entry the branch sent back to them before
+     * confirming its box.
+     */
+    public function replyToReturnedEntry(Request $request, int $entry): RedirectResponse
+    {
+        $this->authorize('viewOwnCashBoxes', Subscription::class);
+        $data = $request->validate(['body' => ['required', 'string', 'max:3000']]);
+        $actor = $request->user();
+        abort_unless($actor->branch_id, 403);
+
+        $this->workflow->locked($actor->branch_id, function () use ($actor, $entry, $data): void {
+            $this->workflow->answerReturnedEntry($this->returnedEntries($actor)->findOrFail($entry), $actor, $data['body']);
+        });
+
+        return back()->with('status', 'returned-entry-replied');
+    }
+
+    /**
+     * The entries of the actor's boxes the branch sent back and waiting on
+     * the actor's answer, cancelled payments left out.
+     *
+     * @return Builder<CashBoxPayment>
+     */
+    private function returnedEntries(User $actor): Builder
+    {
+        return CashBoxPayment::query()->waitingOnCollector()
+            ->whereHas('box', fn (Builder $query) => $query->where('user_id', $actor->id)->where('branch_id', $actor->branch_id))
+            ->whereHas('transaction', fn (Builder $query) => $query->where('status', SubscriptionTransaction::STATUS_ACTIVE));
+    }
+
+    /**
      * The audit notes of the actor's branch waiting on the actor's answer.
      *
      * @return Builder<AuditNote>
@@ -302,15 +339,16 @@ class PaymentController extends Controller
 
     /**
      * The actor's boxes, with what waits on them: received cash boxes to
-     * confirm, audit notes to answer, and the shortfalls they still owe.
+     * confirm, entries the branch sent back, audit notes to answer, and the
+     * shortfalls they still owe.
      *
-     * @return array{started: bool, branchName: ?string, boxes: array<int, array<string, mixed>>, current: array<string, array<string, mixed>|null>, needsAction: array<int, array<string, mixed>>, auditNotes: array<int, array<string, mixed>>, debts: array<int, array<string, mixed>>}
+     * @return array{started: bool, branchName: ?string, boxes: array<int, array<string, mixed>>, current: array<string, array<string, mixed>|null>, needsAction: array<int, array<string, mixed>>, returnedEntries: array<int, array<string, mixed>>, auditNotes: array<int, array<string, mixed>>, debts: array<int, array<string, mixed>>}
      */
     private function ownCashBoxes(User $actor, bool $includeRecentHistory = true): array
     {
         $started = $actor->branch_id && ClosingSetting::ownFor($actor->branch_id)?->workflow_started_at !== null;
         if (! $started) {
-            return ['started' => false, 'branchName' => $actor->branch?->name, 'boxes' => [], 'current' => [], 'needsAction' => [], 'auditNotes' => [], 'debts' => []];
+            return ['started' => false, 'branchName' => $actor->branch?->name, 'boxes' => [], 'current' => [], 'needsAction' => [], 'returnedEntries' => [], 'auditNotes' => [], 'debts' => []];
         }
 
         $this->workflow->refresh($actor->branch_id);
@@ -325,6 +363,11 @@ class PaymentController extends Controller
             'boxes' => $rows->values()->all(),
             'current' => collect(CashBoxType::cases())->mapWithKeys(fn (CashBoxType $type): array => [$type->value => $rows->first(fn (array $box): bool => $box['type'] === $type->value && $box['status'] === 'open')])->all(),
             'needsAction' => $rows->filter(fn (array $box): bool => $box['stage'] === 'awaiting_confirmation')->values()->all(),
+            'returnedEntries' => $this->returnedEntries($actor)->with(['box:id,number,type', 'returnedBy:id,name', 'transaction.subscription:id,full_name,subscription_name,account_number'])
+                ->oldest('returned_at')->get()->map(fn (CashBoxPayment $entry): array => [
+                    ...$this->cashBoxEntry($entry),
+                    'box' => ['number' => $entry->box->number, 'type' => $entry->box->type->value, 'url' => route('payments.cash-boxes.show', $entry->box)],
+                ])->all(),
             'auditNotes' => $this->waitingAuditNotes($actor)->with(['box:id,number', 'closing:id,period_start,period_end', 'replies' => fn ($query) => $query->where('kind', 'collector')->latest('id')])
                 ->latest('id')->get()->map(fn (AuditNote $note): array => [
                     'id' => $note->id,

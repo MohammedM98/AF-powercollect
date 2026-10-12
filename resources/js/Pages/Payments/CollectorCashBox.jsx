@@ -49,7 +49,7 @@ export function BoxTypeIcon({ type, className = 'h-11 w-11' }) {
     );
 }
 
-const stages = { open: 'مفتوح', awaiting_branch: 'مغلق – بانتظار استلام الفرع', awaiting_confirmation: 'استُلم – أكّد التسليم', completed: 'مكتمل' };
+const stages = { open: 'مفتوح', awaiting_branch: 'مغلق – بانتظار تأكيد الفرع', awaiting_confirmation: 'استُلم – أكّد التسليم', completed: 'أكّد الفرع الإغلاق' };
 
 export function BoxStage({ box }) {
     return <div className="flex flex-wrap gap-2"><StatusPill tone={box.stage === 'open' ? 'blue' : box.stage === 'completed' ? 'green' : 'amber'} label={stages[box.stage]} />{box.rejectedCount > 0 && <StatusPill tone="red" label={`حركات مرفوضة: ${box.rejectedCount}`} />}</div>;
@@ -78,10 +78,12 @@ const decisionLabels = { accepted: ['قبله الفرع', 'green'], debt: ['س�
 
 /**
  * The branch's count of a received cash box against what its payments say
- * it held, with each difference and what the branch decided about it.
+ * it held, with each difference and what the branch decided about it. Only
+ * boxes the branch counted under the old two-step receipt had differences;
+ * a box confirmed in one step matches, and shows nothing here.
  */
 export function CountSummary({ box }) {
-    if (!box.receivedCounts) return null;
+    if (!box.receivedCounts || !Object.values(box.differences ?? {}).some((amount) => Number(amount) !== 0)) return null;
 
     return (
         <div className="mt-4 overflow-x-auto rounded-control border border-gray-100">
@@ -213,6 +215,17 @@ export default function CollectorCashBox({ cashBox }) {
     </section>;
 }
 
+/** What the branch sent back about an entry, and the collector's answer once given. */
+function ReturnedNote({ returned }) {
+    return (
+        <div className="mt-2 max-w-xs space-y-1 text-xs leading-5">
+            <StatusPill tone={returned.replyUrl ? 'amber' : 'gray'} label={returned.replyUrl ? 'أعادها الفرع إليك' : 'ردّك أُرسل'} />
+            <p className="text-gray-600">{returned.by ? `${returned.by}: ` : ''}{returned.note}</p>
+            {returned.reply && <p className="text-gray-500">ردّك: {returned.reply}</p>}
+        </div>
+    );
+}
+
 const entryStatuses = { pending: ['بانتظار التحقق', 'amber'], confirmed: ['مؤكدة', 'green'], missing: ['غير موجودة في البنك', 'red'], rejected: ['مرفوضة', 'red'] };
 
 /** An entry's state: cancelled, in force (cash), or where the branch's check of the transfer or clearing stands. */
@@ -268,7 +281,7 @@ export function BoxEntriesTable({ type, entries, pagination }) {
                                         <td dir="ltr" className="text-start font-display text-gray-600">{entry.referenceNumber ?? '—'}</td>
                                     </> : <td className="min-w-48 text-gray-600">{entry.service ?? '—'}</td>}
                                     <td className="whitespace-nowrap"><b dir="ltr" className={`font-display ${cancelled ? 'text-gray-400 line-through' : 'text-emerald-700 dark:text-emerald-400'}`}>{formatMoney(entry.amount)}</b> <span className="text-xs text-gray-500">{currencies[entry.currency]}</span></td>
-                                    <td><StatusPill tone={tone} label={label} /></td>
+                                    <td><StatusPill tone={tone} label={label} />{entry.returned && <ReturnedNote returned={entry.returned} />}</td>
                                     <td className="text-end">{entry.receiptUrl && (
                                         <RowActionsMenu>
                                             <button onClick={() => window.open(entry.receiptUrl, '_blank', 'noopener')}>طباعة السند</button>
@@ -310,6 +323,7 @@ export function CollectorDebts({ debts }) {
     );
 }
 
+/** A reply form posting `body` to `note.replyUrl`. */
 function AuditNoteReply({ note, onSaved }) {
     const form = useForm({ body: '' });
 
@@ -335,6 +349,38 @@ function AuditNoteReply({ note, onSaved }) {
                 <PrimaryButton type="submit" disabled={form.processing || !form.data.body.trim()}>{form.processing ? 'جارٍ الإرسال…' : 'إرسال الرد'}</PrimaryButton>
             </div>
         </form>
+    );
+}
+
+/**
+ * The entries the branch sent back to the collector before confirming
+ * their box: what it asks about each, with a form for the answer. The box
+ * waits on these answers before the branch can confirm it.
+ */
+export function CollectorReturnedEntries({ entries, onSaved }) {
+    if (!entries?.length) return null;
+
+    return (
+        <section className="space-y-3 rounded-panel border border-amber-500/25 bg-amber-500/5 p-5" aria-labelledby="collector-returned-entries">
+            <div>
+                <h3 id="collector-returned-entries" className="font-bold text-gray-900">حركات أعادها الفرع إليك</h3>
+                <p className="mt-1 text-xs leading-6 text-gray-500">راجع كل حركة وصحّحها إن لزم، ثم اكتب ردّك. لا يؤكد الفرع إغلاق الصندوق قبل ردّك.</p>
+            </div>
+            {entries.map((entry) => (
+                <article key={entry.id} className="space-y-3 border-t border-amber-500/15 pt-3">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                        <BoxTypeChip type={entry.box.type} />
+                        <Link href={entry.box.url} prefetch className="text-xs font-semibold text-brand-600">صندوق <bdi dir="ltr" className="font-display">{entry.box.number}</bdi></Link>
+                        <b className="text-gray-900">{entry.subscriber}</b>
+                        <span dir="ltr" className="font-display text-xs text-gray-500">{entry.accountNumber}</span>
+                        <b dir="ltr" className="font-display text-emerald-700 dark:text-emerald-400">{formatMoney(entry.amount)} <span className="text-xs font-normal text-gray-500">{currencies[entry.currency]}</span></b>
+                        <span className="text-xs text-gray-500">{dateTime(entry.occurredAt)}</span>
+                    </div>
+                    <p className="rounded-control bg-surface p-3 text-sm leading-7 text-gray-700"><b className="text-gray-900">{entry.returned.by ?? 'الفرع'}: </b>{entry.returned.note}</p>
+                    <AuditNoteReply note={{ id: `entry-${entry.id}`, replyUrl: entry.returned.replyUrl }} onSaved={onSaved} />
+                </article>
+            ))}
+        </section>
     );
 }
 
@@ -367,7 +413,7 @@ export function CollectorAuditNotes({ notes, onSaved }) {
     );
 }
 
-/** Everything waiting on the collector: boxes to confirm and audit notes to answer. */
+/** Everything waiting on the collector: boxes to confirm, entries the branch sent back and audit notes to answer. */
 export function pendingCount(cashBox) {
-    return (cashBox?.needsAction?.length ?? 0) + (cashBox?.auditNotes?.length ?? 0);
+    return (cashBox?.needsAction?.length ?? 0) + (cashBox?.returnedEntries?.length ?? 0) + (cashBox?.auditNotes?.length ?? 0);
 }

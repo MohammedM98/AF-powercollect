@@ -15,6 +15,7 @@ use App\Http\Requests\StoreSplitPaymentRequest;
 use App\Models\AuditNote;
 use App\Models\CashBox;
 use App\Models\CashBoxPayment;
+use App\Models\Closing;
 use App\Models\ClosingSetting;
 use App\Models\CollectorDebt;
 use App\Models\MeterBox;
@@ -27,6 +28,7 @@ use App\Models\User;
 use App\Support\BranchClosingWorkflow;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -34,6 +36,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentController extends Controller
 {
@@ -127,30 +130,97 @@ class PaymentController extends Controller
         ]);
     }
 
-    public function showCashBox(Request $request, CashBox $cashBox): InertiaResponse
+    /**
+     * One of the actor's boxes with its entries; `?format=csv` downloads the
+     * box's details and every entry as a spreadsheet, and `?print_all=1`
+     * lists every entry for the printout.
+     */
+    public function showCashBox(Request $request, CashBox $cashBox): InertiaResponse|StreamedResponse
     {
         $this->authorize('viewOwnCashBoxes', Subscription::class);
         $actor = $request->user();
         abort_unless($cashBox->user_id === $actor->id && $cashBox->branch_id === $actor->branch_id && $cashBox->kind !== 'direct', 404);
         $this->workflow->refresh($cashBox->branch_id);
         $cashBox->refresh()->loadCount('payments');
-        $entries = $cashBox->payments()->with(['transaction.subscription:id,full_name,subscription_name,account_number'])
-            ->orderByDesc('occurred_at')->orderByDesc('id')->paginate(25)->through(fn (CashBoxPayment $entry): array => [
-                'id' => $entry->id, 'occurredAt' => $entry->occurred_at, 'currency' => $entry->currency,
-                'amount' => $entry->amount, 'status' => $entry->status, 'isLate' => $entry->is_late,
-                'transactionStatus' => $entry->transaction->status,
-                'subscriber' => $entry->transaction->subscription->displayName(),
-                'accountNumber' => $entry->transaction->subscription->account_number,
-                'voucherNumber' => $entry->transaction->manual_voucher_number ?? $entry->transaction->voucher_number,
-                'bankName' => $entry->transaction->bank_name, 'senderBank' => $entry->transaction->sender_bank_name,
-                'referenceNumber' => $entry->transaction->reference_number, 'service' => $entry->transaction->notes,
-            ]);
+        $entryQuery = $cashBox->payments()->with(['transaction.subscription:id,full_name,subscription_name,account_number'])
+            ->orderByDesc('occurred_at')->orderByDesc('id');
+
+        if ($request->query('format') === 'csv') {
+            return $this->exportCashBox($cashBox, $entryQuery->get());
+        }
+
+        $entries = $entryQuery->paginate($this->dataTablePerPage($request, 25))->withQueryString()->through(fn (CashBoxPayment $entry): array => $this->cashBoxEntry($entry));
 
         return Inertia::render('Payments/CashBoxShow', [
             'box' => $this->cashBoxRow($cashBox), 'entries' => $entries,
             'needsActionCount' => $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count() + $this->waitingAuditNotes($actor)->count(),
             'collectionUrls' => $this->collectionUrls(),
         ]);
+    }
+
+    /**
+     * One entry of a box: the payment or clearing, who it was for, and where
+     * the branch's review of it stands.
+     *
+     * @return array<string, mixed>
+     */
+    private function cashBoxEntry(CashBoxPayment $entry): array
+    {
+        return [
+            'id' => $entry->id, 'occurredAt' => $entry->occurred_at, 'currency' => $entry->currency,
+            'amount' => $entry->amount, 'status' => $entry->status, 'isLate' => $entry->is_late,
+            'transactionStatus' => $entry->transaction->status,
+            'subscriber' => $entry->transaction->subscription->displayName(),
+            'accountNumber' => $entry->transaction->subscription->account_number,
+            'voucherNumber' => $entry->transaction->manual_voucher_number ?? $entry->transaction->voucher_number,
+            'bankName' => $entry->transaction->bank_name, 'senderBank' => $entry->transaction->sender_bank_name,
+            'referenceNumber' => $entry->transaction->reference_number, 'service' => $entry->transaction->notes,
+        ];
+    }
+
+    /**
+     * The box as a spreadsheet: its details on top, then every entry.
+     *
+     * @param  Collection<int, CashBoxPayment>  $entries
+     */
+    private function exportCashBox(CashBox $box, Collection $entries): StreamedResponse
+    {
+        $row = $this->cashBoxRow($box);
+        $local = fn (?CarbonInterface $time): string => $time ? $time->copy()->setTimezone(config('app.business_timezone'))->format('Y-m-d H:i') : '';
+        $statuses = ['cash' => 'سارية', 'pending' => 'بانتظار التحقق', 'confirmed' => 'مؤكدة', 'missing' => 'غير موجودة في البنك', 'rejected' => 'مرفوضة'];
+        $types = ['cash' => 'نقدي', 'bank_transfer' => 'حوالات بنكية', 'clearing' => 'مقاصات'];
+        $stages = ['open' => 'مفتوح', 'awaiting_branch' => 'مغلق – بانتظار استلام الفرع', 'awaiting_confirmation' => 'استُلم – بانتظار تأكيد التسليم', 'completed' => 'مكتمل'];
+        $safe = fn (array $cells): array => array_map(fn ($cell) => is_string($cell) && preg_match('/^[=+@\-\t\r]/u', $cell) ? "'".$cell : $cell, $cells);
+
+        return response()->streamDownload(function () use ($box, $row, $entries, $local, $statuses, $types, $stages, $safe): void {
+            $file = fopen('php://output', 'w');
+            fwrite($file, "\xEF\xBB\xBF");
+            foreach ([
+                ['رقم الصندوق', $box->number],
+                ['النوع', $types[$box->type->value]],
+                ['المحصّل', $box->user?->name ?? ''],
+                ['الحالة', $stages[$row['stage']]],
+                ['تاريخ الفتح', $local($box->opened_at)],
+                ['تاريخ الإغلاق', $local($box->closed_at)],
+                ['أغلقه', $row['closedBy'] ?? ''],
+                ['الإجمالي ₪', (float) $row['totals']['ILS']],
+                ['المبلغ المستلم ₪', (float) $row['receivedAmounts']['ILS']],
+                [],
+            ] as $cells) {
+                fputcsv($file, $safe($cells));
+            }
+            fputcsv($file, ['#', 'التاريخ والوقت', 'المشترك', 'رقم الحساب', 'رقم السند', 'البنك المستلم', 'البنك المرسل', 'رقم الحوالة', 'الخدمة', 'العملة', 'المبلغ', 'الحالة']);
+            foreach ($entries->values() as $index => $entry) {
+                $cancelled = $entry->transaction->status !== SubscriptionTransaction::STATUS_ACTIVE;
+                fputcsv($file, $safe([
+                    $index + 1, $local($entry->occurred_at), $entry->transaction->subscription->displayName(), $entry->transaction->subscription->account_number,
+                    $entry->transaction->manual_voucher_number ?? $entry->transaction->voucher_number ?? '', $entry->transaction->bank_name ?? '', $entry->transaction->sender_bank_name ?? '',
+                    $entry->transaction->reference_number ?? '', $entry->method === 'clearing' ? ($entry->transaction->notes ?? '') : '', $entry->currency, (float) $entry->amount,
+                    $cancelled ? 'ملغاة' : ($statuses[$entry->status] ?? $entry->status),
+                ]));
+            }
+            fclose($file);
+        }, 'cash-box-'.$box->number.'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /**
@@ -184,7 +254,7 @@ class PaymentController extends Controller
     private function ownBoxQuery(User $actor): Builder
     {
         return CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('kind', '!=', 'direct')
-            ->withCount('payments')->with('payments.transaction:id,status')->latest('id');
+            ->withCount('payments')->with(['payments.transaction:id,status', 'receivedBy:id,name', 'receivedIn:id,period_start,period_end'])->latest('id');
     }
 
     /** @return array{payments: string, cashBoxes: string} */
@@ -265,9 +335,58 @@ class PaymentController extends Controller
                 'decisions' => $box->decisions ?: null,
             ] : ['expectedCounts' => null, 'receivedCounts' => null, 'differences' => null, 'decisions' => null]),
             'reason' => $box->reason,
-            'urls' => ['show' => route('payments.cash-boxes.show', $box), 'confirm' => route('closings.actions', ['action' => 'confirm', 'record' => $box->id])],
+            'receivedAmounts' => $this->receivedAmounts($box),
+            'closedBy' => $this->closedBy($box),
+            'settledIn' => $box->receivedIn ? ['start' => $box->receivedIn->period_start->toDateString(), 'end' => $box->receivedIn->period_end->toDateString()] : null,
+            'urls' => [
+                'show' => route('payments.cash-boxes.show', $box),
+                'confirm' => route('closings.actions', ['action' => 'confirm', 'record' => $box->id]),
+                'export' => route('payments.cash-boxes.show', [$box, 'format' => 'csv']),
+            ],
             'branchId' => $box->branch_id,
         ];
+    }
+
+    /**
+     * What the branch took in from the box, by currency: the cash it counted,
+     * or the transfers and clearings it confirmed. Nothing before receipt.
+     *
+     * @return array<string, string>
+     */
+    private function receivedAmounts(CashBox $box): array
+    {
+        $none = array_fill_keys(BranchClosingWorkflow::CURRENCIES, '0.00');
+
+        if (! $box->received_at) {
+            return $none;
+        }
+
+        if ($box->type->isCounted()) {
+            return collect($none)->map(fn (string $zero, string $currency): string => Closing::money(Closing::cents($box->head_counts[$currency] ?? 0)))->all();
+        }
+
+        $confirmed = $box->payments->where('status', 'confirmed')->filter(fn (CashBoxPayment $entry): bool => $entry->transaction?->status === SubscriptionTransaction::STATUS_ACTIVE);
+
+        return collect($none)->map(fn (string $zero, string $currency): string => Closing::money($confirmed->where('currency', $currency)->sum(fn (CashBoxPayment $entry): int => Closing::cents($entry->amount))))->all();
+    }
+
+    /**
+     * Who closed the box: the branch member who counted or received it, or
+     * what closed it on its own (the weekly cut-off, the collector leaving,
+     * a payment synced after its week). Null while it is open.
+     */
+    private function closedBy(CashBox $box): ?string
+    {
+        if ($box->status === 'open') {
+            return null;
+        }
+
+        return $box->receivedBy?->name ?? match ($box->close_reason) {
+            'cutoff' => 'تلقائي عند القطع الأسبوعي',
+            'departure' => 'تلقائي عند مغادرة المحصّل',
+            'late_sync' => 'تلقائي لدفعة متأخرة',
+            default => 'الفرع',
+        };
     }
 
     /**

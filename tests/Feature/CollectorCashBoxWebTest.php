@@ -229,4 +229,53 @@ class CollectorCashBoxWebTest extends TestCase
         $this->assertDatabaseHas('audit_note_replies', ['audit_note_id' => $note->id, 'user_id' => $collector->id, 'kind' => 'collector_response', 'body' => 'سلّمت الفرق نقدًا.']);
         $this->post(route('payments.audit-notes.reply', $note), ['body' => 'مرة أخرى'])->assertNotFound();
     }
+
+    public function test_boxes_are_numbered_by_id_and_a_payment_carries_its_box_number_once_the_box_closes(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $box = $this->payment($branch, $collector);
+        $statementBox = fn (): ?string => $this->actingAs($head)->get(route('subscriptions.statement', $box->payments()->sole()->transaction->subscription_id))
+            ->viewData('page')['props']['entries'][0]['cashBox'];
+
+        $this->assertSame((string) $box->id, $box->number);
+        $this->assertNull($statementBox());
+
+        $this->post(route('closings.actions', ['action' => 'head-count', 'record' => $box->id]), ['branch_id' => $branch->id, 'counts' => $this->counts()])->assertSessionHasNoErrors();
+
+        $this->assertSame($box->number, $statementBox());
+    }
+
+    public function test_box_table_shows_who_closed_each_box_what_the_branch_received_and_where(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $received = $this->payment($branch, $collector);
+        $this->actingAs($head)->post(route('closings.actions', ['action' => 'head-count', 'record' => $received->id]), ['branch_id' => $branch->id, 'counts' => $this->counts()])->assertSessionHasNoErrors();
+        $this->post(route('closings.actions', ['action' => 'receive', 'record' => $received->id]), ['branch_id' => $branch->id, 'recounted' => false, 'decisions' => []])->assertSessionHasNoErrors();
+        $cutOff = $this->payment($branch, $collector);
+        $this->travelTo($cutOff->closing->coverage_until->addMinute());
+
+        $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('boxes.data.0.id', $cutOff->id)
+            ->where('boxes.data.0.closedBy', 'تلقائي عند القطع الأسبوعي')
+            ->where('boxes.data.0.receivedAmounts.ILS', '0.00')
+            ->where('boxes.data.0.settledIn', null)
+            ->where('boxes.data.1.id', $received->id)
+            ->where('boxes.data.1.closedBy', $head->name)
+            ->where('boxes.data.1.receivedAmounts.ILS', '100.00')
+            ->where('boxes.data.1.settledIn.start', $received->closing->period_start->toDateString()));
+    }
+
+    public function test_collector_downloads_their_box_as_a_spreadsheet(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $box = $this->payment($branch, $collector);
+        $subscriber = $box->payments()->sole()->transaction->subscription->displayName();
+
+        $response = $this->actingAs($collector)->get(route('payments.cash-boxes.show', [$box, 'format' => 'csv']))
+            ->assertDownload('cash-box-'.$box->number.'.csv');
+
+        $this->assertStringContainsString($subscriber, $response->streamedContent());
+        $this->assertStringContainsString('"رقم الصندوق",'.$box->number, $response->streamedContent());
+        $this->actingAs($this->collector($branch))->get(route('payments.cash-boxes.show', [$box, 'format' => 'csv']))->assertNotFound();
+    }
 }

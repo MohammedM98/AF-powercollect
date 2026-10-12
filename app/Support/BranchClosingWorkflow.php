@@ -172,7 +172,22 @@ class BranchClosingWorkflow
     {
         $key = $closing->branch_id.':'.($userId ?? 'direct').':'.$type->value;
 
-        return CashBox::query()->firstOrCreate(['open_key' => $key], ['number' => 'BOX-'.Str::ulid(), 'branch_id' => $closing->branch_id, 'user_id' => $userId, 'kind' => $userId ? 'staff' : 'direct', 'type' => $type, 'closing_id' => $closing->id, 'opened_at' => now(), 'status' => 'open']);
+        return CashBox::query()->where('open_key', $key)->first()
+            ?? $this->newBox(['open_key' => $key, 'branch_id' => $closing->branch_id, 'user_id' => $userId, 'kind' => $userId ? 'staff' : 'direct', 'type' => $type, 'closing_id' => $closing->id, 'opened_at' => now(), 'status' => 'open']);
+    }
+
+    /**
+     * Create a box numbered by its id: short, so people can read, print and
+     * quote it, and never reused.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function newBox(array $attributes): CashBox
+    {
+        $box = CashBox::query()->create(['number' => 'BOX-'.Str::ulid(), ...$attributes]);
+        $box->update(['number' => (string) $box->id]);
+
+        return $box;
     }
 
     private function entryMethod(SubscriptionTransaction $transaction): string
@@ -193,7 +208,7 @@ class BranchClosingWorkflow
         }
         $userId = $payment->recorded_by;
         $box = $closing->coverage_until->lessThanOrEqualTo(now())
-            ? CashBox::query()->create(['number' => 'BOX-'.Str::ulid(), 'branch_id' => $closing->branch_id, 'user_id' => $userId, 'type' => $type, 'closing_id' => $closing->id, 'opened_at' => $occurred, 'closed_at' => $closing->coverage_until, 'close_reason' => 'late_sync', 'status' => 'pending'])
+            ? $this->newBox(['branch_id' => $closing->branch_id, 'user_id' => $userId, 'type' => $type, 'closing_id' => $closing->id, 'opened_at' => $occurred, 'closed_at' => $closing->coverage_until, 'close_reason' => 'late_sync', 'status' => 'pending'])
             : $this->openBox($closing, $userId, $type);
         $box->payments()->create(['subscription_transaction_id' => $payment->id, 'currency' => $payment->currency?->value ?? 'ILS', 'amount' => $payment->currency_amount ?? abs((float) $payment->amount), 'method' => $this->entryMethod($payment), 'status' => $type === CashBoxType::Cash ? 'cash' : 'pending', 'occurred_at' => $occurred, 'synced_at' => now(), 'is_late' => $late]);
         if ($box->status !== 'open') {

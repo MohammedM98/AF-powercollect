@@ -278,4 +278,28 @@ class CollectorCashBoxWebTest extends TestCase
         $this->assertStringContainsString('"رقم الصندوق",'.$box->number, $response->streamedContent());
         $this->actingAs($this->collector($branch))->get(route('payments.cash-boxes.show', [$box, 'format' => 'csv']))->assertNotFound();
     }
+
+    public function test_boxes_page_lists_the_entries_of_the_open_box_of_the_picked_type(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $cashBox = $this->payment($branch, $collector);
+        $payment = $cashBox->payments()->sole()->transaction;
+        SubscriptionTransaction::recordClearing(Subscription::factory()->for($branch)->create(), $collector, '40', 'صيانة المولد');
+        $clearingBox = CashBox::query()->where('user_id', $collector->id)->where('type', 'clearing')->where('status', 'open')->sole();
+
+        $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('openBox.type', 'cash')
+            ->has('openBox.entries.data', 1)
+            ->where('openBox.entries.data.0.amount', '100.00')
+            ->where('openBox.entries.data.0.receiptUrl', route('subscriptions.payments.receipt', [$payment->subscription_id, $payment->id])));
+
+        $this->get(route('payments.cash-boxes', ['open' => 'clearing']))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('openBox.type', 'clearing')
+            ->where('current.clearing.id', $clearingBox->id)
+            ->where('openBox.entries.data.0.service', 'صيانة المولد')
+            ->where('openBox.entries.data.0.receiptUrl', null));
+
+        $this->get(route('payments.cash-boxes', ['open' => 'bank_transfer']))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('openBox.type', 'bank_transfer')->where('openBox.entries', null));
+    }
 }

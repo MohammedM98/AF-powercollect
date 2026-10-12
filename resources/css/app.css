@@ -807,8 +807,8 @@
 
 /*
  * Row actions, always showing: same-size icon buttons (edit in blue,
- * delete in burgundy, more) and the graphite "عرض" split button, the
- * row's main action.
+ * delete in burgundy, print in teal, Excel in green, more) and the
+ * graphite "عرض" split button, the row's main action.
  */
 .row-actions {
     display: inline-flex;
@@ -868,6 +868,40 @@
     background: linear-gradient(180deg, #b8232c, #7d121b);
     color: #fff;
     box-shadow: 0 8px 16px -8px rgb(165 29 38 / 0.8);
+}
+
+.row-action-print {
+    border-color: rgb(13 148 136 / 0.28);
+    background: rgb(13 148 136 / 0.08);
+    color: rgb(13 148 136);
+}
+
+.row-action-print:hover {
+    border-color: transparent;
+    background: linear-gradient(180deg, #14b8a6, #0f766e);
+    color: #fff;
+    box-shadow: 0 8px 16px -8px rgb(13 148 136 / 0.8);
+}
+
+.row-action-excel {
+    border-color: rgb(5 150 105 / 0.28);
+    background: rgb(5 150 105 / 0.08);
+    color: rgb(5 150 105);
+}
+
+.row-action-excel:hover {
+    border-color: transparent;
+    background: linear-gradient(180deg, #10b981, #047857);
+    color: #fff;
+    box-shadow: 0 8px 16px -8px rgb(5 150 105 / 0.8);
+}
+
+.dark .row-action-print:not(:hover) {
+    color: rgb(45 212 191);
+}
+
+.dark .row-action-excel:not(:hover) {
+    color: rgb(52 211 153);
 }
 
 .row-action[aria-expanded='true'] {

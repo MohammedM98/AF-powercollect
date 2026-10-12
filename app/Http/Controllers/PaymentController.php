@@ -29,6 +29,7 @@ use App\Support\BranchClosingWorkflow;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
 use Carbon\CarbonInterface;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -58,6 +59,9 @@ class PaymentController extends Controller
 
     /** The payments listed under the day's totals. */
     private const RECENT_PAYMENTS = 8;
+
+    /** How many of an open box's entries the boxes page lists at a time. */
+    private const OPEN_BOX_ENTRIES = 25;
 
     /**
      * The quick payments page: the subscribers of the user's branch in a table
@@ -106,6 +110,12 @@ class PaymentController extends Controller
         ]);
     }
 
+    /**
+     * The collector's financial boxes: the ones open now with their entries
+     * (`?open=` picks the type, `?entries_page=` the page), what waits on
+     * them, and every box they had in a table filtered by `?type=` and
+     * `?state=`.
+     */
     public function cashBoxes(Request $request): InertiaResponse
     {
         $this->authorize('viewOwnCashBoxes', Subscription::class);
@@ -114,20 +124,46 @@ class PaymentController extends Controller
         $cashBox = $this->ownCashBoxes($actor, false);
         $type = in_array($request->query('type'), array_column(CashBoxType::cases(), 'value'), true) ? $request->query('type') : '';
         $state = in_array($request->query('state'), ['open', 'closed'], true) ? $request->query('state') : '';
+        $perPage = $this->dataTablePerPage($request);
         $boxes = $this->ownBoxQuery($actor)
             ->when($type, fn (Builder $query) => $query->where('type', $type))
             ->when($state === 'open', fn (Builder $query) => $query->where('status', 'open'))
             ->when($state === 'closed', fn (Builder $query) => $query->where('status', '!=', 'open'))
-            ->paginate(15)->withQueryString()->through(fn (CashBox $box): array => $this->cashBoxRow($box));
+            ->paginate($perPage)->withQueryString()->through(fn (CashBox $box): array => $this->cashBoxRow($box));
 
         return Inertia::render('Payments/CashBoxes', [
             'cashBox' => $cashBox,
             'current' => $cashBox['current'],
+            'openBox' => $this->openBoxEntries($request, $cashBox['current']),
             'needsAction' => $cashBox['needsAction'],
             'boxes' => $boxes,
-            'filters' => ['type' => $type, 'state' => $state],
+            'filters' => ['type' => $type, 'state' => $state, 'per_page' => $perPage],
             'collectionUrls' => $this->collectionUrls(),
         ]);
+    }
+
+    /**
+     * The entries of one of the actor's open boxes, newest first: the type
+     * picked with `?open=`, else the first type with an open box. Null
+     * entries when no box of that type is open.
+     *
+     * @param  array<string, array<string, mixed>|null>  $current
+     * @return array{type: string, entries: LengthAwarePaginator<int, array<string, mixed>>|null}
+     */
+    private function openBoxEntries(Request $request, array $current): array
+    {
+        $open = array_filter($current);
+        $type = array_key_exists((string) $request->query('open'), $current) ? (string) $request->query('open') : (array_key_first($open) ?? CashBoxType::Cash->value);
+        $box = $current[$type] ?? null;
+
+        return [
+            'type' => $type,
+            'entries' => $box === null ? null : CashBoxPayment::query()->where('cash_box_id', $box['id'])
+                ->with(['transaction.subscription:id,full_name,subscription_name,account_number'])
+                ->orderByDesc('occurred_at')->orderByDesc('id')
+                ->paginate(self::OPEN_BOX_ENTRIES, ['*'], 'entries_page')->withQueryString()
+                ->through(fn (CashBoxPayment $entry): array => $this->cashBoxEntry($entry)),
+        ];
     }
 
     /**
@@ -159,8 +195,8 @@ class PaymentController extends Controller
     }
 
     /**
-     * One entry of a box: the payment or clearing, who it was for, and where
-     * the branch's review of it stands.
+     * One entry of a box: the payment or clearing, who it was for, where
+     * the branch's review of it stands, and the payment's receipt.
      *
      * @return array<string, mixed>
      */
@@ -175,6 +211,7 @@ class PaymentController extends Controller
             'voucherNumber' => $entry->transaction->manual_voucher_number ?? $entry->transaction->voucher_number,
             'bankName' => $entry->transaction->bank_name, 'senderBank' => $entry->transaction->sender_bank_name,
             'referenceNumber' => $entry->transaction->reference_number, 'service' => $entry->transaction->notes,
+            'receiptUrl' => $entry->transaction->isPayment() ? route('subscriptions.payments.receipt', [$entry->transaction->subscription, $entry->transaction]) : null,
         ];
     }
 

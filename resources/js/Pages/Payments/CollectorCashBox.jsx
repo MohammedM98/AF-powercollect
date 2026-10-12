@@ -1,4 +1,8 @@
-import { Link, useForm } from '@inertiajs/react';
+import { Link, router, useForm } from '@inertiajs/react';
+import Pagination from '@/Components/DataTable/Pagination';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
+import RowIdentity from '@/Components/DataTable/RowIdentity';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
 import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
@@ -6,10 +10,45 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatMoney } from '@/lib/format';
+import { printUrl } from '@/lib/print';
 
 export const currencies = { ILS: 'شيكل', USD: 'دولار', JOD: 'دينار' };
 export const boxTypes = { cash: 'الصندوق النقدي', bank_transfer: 'صندوق الحوالات البنكية', clearing: 'صندوق المقاصات' };
 export const dateTime = (value) => value ? new Intl.DateTimeFormat('ar-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Gaza' }).format(new Date(value)) : '—';
+
+/**
+ * Each type of box at a glance: its icon, short name and colour (a tinted
+ * tile and chip). Written out whole so Tailwind keeps every class.
+ */
+export const boxTypeStyles = {
+    cash: { icon: 'banknotes', label: 'نقدي', tile: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', chip: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
+    bank_transfer: { icon: 'bank', label: 'حوالات بنكية', tile: 'bg-sky-500/10 text-sky-600 dark:text-sky-400', chip: 'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-400' },
+    clearing: { icon: 'scale', label: 'مقاصة', tile: 'bg-violet-500/10 text-violet-600 dark:text-violet-400', chip: 'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-400' },
+};
+
+/** The box's type as a tinted chip with its icon: نقدي، حوالات بنكية or مقاصة. */
+export function BoxTypeChip({ type }) {
+    const style = boxTypeStyles[type];
+
+    return (
+        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${style.chip}`}>
+            <Icon name={style.icon} className="h-3.5 w-3.5" />
+            {style.label}
+        </span>
+    );
+}
+
+/** The box type's icon on its tinted tile. */
+export function BoxTypeIcon({ type, className = 'h-11 w-11' }) {
+    const style = boxTypeStyles[type];
+
+    return (
+        <span className={`flex shrink-0 items-center justify-center rounded-[13px] ${style.tile} ${className}`} aria-hidden="true">
+            <Icon name={style.icon} className="h-5 w-5" />
+        </span>
+    );
+}
+
 const stages = { open: 'مفتوح', awaiting_branch: 'مغلق – بانتظار استلام الفرع', awaiting_confirmation: 'استُلم – أكّد التسليم', completed: 'مكتمل' };
 
 export function BoxStage({ box }) {
@@ -112,13 +151,58 @@ export function CashBoxAction({ box, onClose, onSuccess }) {
     );
 }
 
-export function BoxCard({ box, type }) {
-    return <article className="flex flex-col gap-4 rounded-panel border border-gray-100 bg-surface p-5 shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-bold text-gray-900">{boxTypes[type]}</h3><StatusPill tone={box ? 'blue' : 'gray'} label={box ? 'مفتوح' : 'لا حركات'} /></div>
-        <BoxTotals box={box ?? { type, totals: {} }} />
-        <p className="text-xs leading-6 text-gray-500">{box ? `${box.paymentCount} حركات · فُتح ${dateTime(box.openedAt)} · يغلقه الفرع عند العدّ أو عند القطع` : 'يُفتح تلقائيًا عند تسجيل أول حركة.'}</p>
-        {box && <div className="mt-auto flex flex-wrap gap-2"><Link href={box.urls.show} prefetch className="inline-flex items-center rounded-control border border-gray-200 px-3 py-2 text-sm text-gray-700">عرض الحركات</Link></div>}
-    </article>;
+/** A box's report actions as the row buttons: print it (or save as PDF) in the print designer, or download it for Excel. */
+export function BoxReportActions({ box, onView }) {
+    return (
+        <RowActionsMenu onView={onView}>
+            <button onClick={() => window.open(printUrl(`تقرير الصندوق ${box.number}`, box.urls.show), '_blank', 'noopener')}>طباعة</button>
+            <button onClick={() => { window.location.href = box.urls.export; }}>Excel</button>
+        </RowActionsMenu>
+    );
+}
+
+/**
+ * One of the collector's boxes of a type, open now or not yet: its total,
+ * entries and when it opened, with its details ("عرض", the box's page)
+ * and report. `onSelect` (the boxes page) adds a button that lists its
+ * entries on the same page.
+ */
+export function BoxCard({ box, type, selected = false, onSelect }) {
+    const others = box ? Object.keys(currencies).filter((currency) => currency !== 'ILS' && Number(box.totals?.[currency] ?? 0) !== 0) : [];
+
+    return (
+        <article className={`flex flex-col gap-4 rounded-panel border bg-surface p-5 shadow-card transition ${selected ? 'border-gray-900 ring-1 ring-gray-900' : 'border-gray-100'}`}>
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                    <BoxTypeIcon type={type} />
+                    <div className="min-w-0">
+                        <h3 className="font-bold text-gray-900">{boxTypes[type]}</h3>
+                        <p className="mt-0.5 text-xs text-gray-500">{box ? <>صندوق رقم <bdi dir="ltr" className="font-display">{box.number}</bdi></> : 'لا يوجد صندوق مفتوح'}</p>
+                    </div>
+                </div>
+                <StatusPill tone={box ? 'blue' : 'gray'} label={box ? 'مفتوح' : 'لا حركات'} />
+            </div>
+            <div>
+                <p className="flex items-baseline gap-1.5">
+                    <span dir="ltr" className="font-display text-3xl font-bold text-gray-900">{formatMoney(box?.totals?.ILS ?? 0)}</span>
+                    <span className="text-sm text-gray-500">شيكل</span>
+                </p>
+                {others.map((currency) => <p key={currency} className="mt-1 text-sm text-gray-600"><b dir="ltr" className="font-display">{formatMoney(box.totals[currency])}</b> {currencies[currency]}</p>)}
+            </div>
+            <p className="text-xs leading-6 text-gray-500">{box ? `${box.paymentCount} حركات · فُتح ${dateTime(box.openedAt)}` : 'يُفتح تلقائيًا عند تسجيل أول حركة من هذا النوع.'}</p>
+            {box && (
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-4">
+                    {onSelect ? (
+                        <button type="button" onClick={onSelect} aria-pressed={selected} className={`inline-flex items-center gap-2 rounded-control px-3 py-2 text-sm font-semibold transition ${selected ? 'bg-gray-900 text-surface' : 'border border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                            <Icon name="list" className="h-4 w-4" />
+                            {selected ? 'حركاته معروضة أدناه' : 'عرض الحركات'}
+                        </button>
+                    ) : <span />}
+                    <BoxReportActions box={box} onView={() => router.visit(box.urls.show)} />
+                </div>
+            )}
+        </article>
+    );
 }
 
 export default function CollectorCashBox({ cashBox }) {
@@ -127,6 +211,78 @@ export default function CollectorCashBox({ cashBox }) {
     return <section className="mb-6 space-y-4" aria-label="صناديقي المفتوحة">
         <div className="grid gap-4 lg:grid-cols-3">{Object.keys(boxTypes).map((type) => <BoxCard key={type} type={type} box={cashBox.current[type]} />)}</div>
     </section>;
+}
+
+const entryStatuses = { pending: ['بانتظار التحقق', 'amber'], confirmed: ['مؤكدة', 'green'], missing: ['غير موجودة في البنك', 'red'], rejected: ['مرفوضة', 'red'] };
+
+/** An entry's state: cancelled, in force (cash), or where the branch's check of the transfer or clearing stands. */
+function entryState(type, entry) {
+    if (entry.transactionStatus !== 'active') return ['ملغاة', 'gray'];
+    if (type === 'cash') return ['سارية', 'green'];
+    if (type === 'clearing' && entry.status === 'pending') return ['بانتظار المراجعة', 'amber'];
+    if (type === 'clearing' && entry.status === 'confirmed') return ['مقبولة', 'green'];
+
+    return entryStatuses[entry.status] ?? ['سارية', 'green'];
+}
+
+/**
+ * A box's entries in the site's table: when, for whom, the columns its type
+ * records (voucher and currency, banks and transfer number, or the service
+ * cleared), the amount, its state, and each payment's receipt to print.
+ * `pagination` is passed to the table's Pagination.
+ */
+export function BoxEntriesTable({ type, entries, pagination }) {
+    const cash = type === 'cash';
+    const transfer = type === 'bank_transfer';
+    const columns = ['التاريخ والوقت', 'المشترك', ...(cash ? ['رقم السند', 'العملة'] : transfer ? ['البنك المستلم', 'البنك المرسل', 'رقم الحوالة'] : ['الخدمة المقدّمة']), 'المبلغ', 'الحالة'];
+
+    return (
+        <>
+            <div className="data-table-container">
+                <table className="data-table w-full text-start text-sm">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            {columns.map((label) => <th key={label}>{label}</th>)}
+                            <ActionsTh />
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {entries.data.length === 0 ? (
+                            <tr><td colSpan={columns.length + 2} className="text-center text-gray-500">لا توجد حركات في هذا الصندوق.</td></tr>
+                        ) : entries.data.map((entry, index) => {
+                            const [label, tone] = entryState(type, entry);
+                            const cancelled = entry.transactionStatus !== 'active';
+
+                            return (
+                                <tr key={entry.id} className={cancelled ? 'opacity-60' : undefined}>
+                                    <td className="font-display text-gray-500">{entries.from + index}</td>
+                                    <td className="whitespace-nowrap text-xs text-gray-600">{dateTime(entry.occurredAt)}{entry.isLate && <div className="mt-1"><StatusPill tone="amber" label="متأخرة" /></div>}</td>
+                                    <td><RowIdentity name={entry.subscriber} subtitle={entry.accountNumber} subtitleDir="ltr" /></td>
+                                    {cash ? <>
+                                        <td dir="ltr" className="text-start font-display text-gray-600">{entry.voucherNumber ?? '—'}</td>
+                                        <td className="text-gray-600">{currencies[entry.currency]}</td>
+                                    </> : transfer ? <>
+                                        <td className="whitespace-nowrap text-gray-600">{entry.bankName ?? '—'}</td>
+                                        <td className="whitespace-nowrap text-gray-600">{entry.senderBank ?? '—'}</td>
+                                        <td dir="ltr" className="text-start font-display text-gray-600">{entry.referenceNumber ?? '—'}</td>
+                                    </> : <td className="min-w-48 text-gray-600">{entry.service ?? '—'}</td>}
+                                    <td className="whitespace-nowrap"><b dir="ltr" className={`font-display ${cancelled ? 'text-gray-400 line-through' : 'text-emerald-700 dark:text-emerald-400'}`}>{formatMoney(entry.amount)}</b> <span className="text-xs text-gray-500">{currencies[entry.currency]}</span></td>
+                                    <td><StatusPill tone={tone} label={label} /></td>
+                                    <td className="text-end">{entry.receiptUrl && (
+                                        <RowActionsMenu>
+                                            <button onClick={() => window.open(entry.receiptUrl, '_blank', 'noopener')}>طباعة السند</button>
+                                        </RowActionsMenu>
+                                    )}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+            <Pagination meta={entries} {...pagination} />
+        </>
+    );
 }
 
 /** The shortfalls the branch recorded as the collector's debt, still unpaid. */

@@ -10,13 +10,19 @@ const ICONS = {
     'حذف نهائي': 'close',
     'إدارة الصلاحيات': 'shield',
     'كشف الحساب': 'ledger',
+    طباعة: 'printer',
+    'طباعة السند': 'printer',
+    Excel: 'table',
 };
 
-/** Actions with a color of their own: blue to edit, burgundy to delete. */
+/** Actions with a color of their own: blue to edit, burgundy to delete, teal to print, green for Excel. */
 const TONES = {
     تعديل: 'row-action-edit',
     حذف: 'row-action-delete',
     'حذف نهائي': 'row-action-delete',
+    طباعة: 'row-action-print',
+    'طباعة السند': 'row-action-print',
+    Excel: 'row-action-excel',
 };
 
 /**
@@ -30,7 +36,7 @@ const TONES = {
  *   arrow, or from a ⋯ button when there is no "عرض".
  * - children, e.g. <RowActionsMenu><button onClick={…}>تعديل</button></RowActionsMenu>:
  *   each becomes a same-size icon button with its word as the tooltip
- *   (and its color, for تعديل and حذف).
+ *   (and its color, for تعديل, حذف, طباعة and Excel).
  */
 export default function RowActionsMenu({ onView, onEdit, onDelete, menu, children }) {
     const [menuAnchor, setMenuAnchor] = useState(null);

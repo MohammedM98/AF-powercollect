@@ -37,6 +37,7 @@ class CampTwoCollectorSeederTest extends TestCase
         preg_match('/Password: (.+)/', $credentials, $matches);
         $this->assertTrue(Hash::check($matches[1], $user->password));
         $this->actingAs($user)->get(route('payments.index'))->assertOk();
+        $this->get(route('payments.summary'))->assertOk();
         $this->get(route('payments.cash-boxes'))->assertOk();
         $this->get(route('closings.index'))->assertForbidden();
         $this->get(route('subscriptions.index'))->assertForbidden();

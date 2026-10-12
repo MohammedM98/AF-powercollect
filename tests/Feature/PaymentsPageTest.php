@@ -142,7 +142,7 @@ class PaymentsPageTest extends TestCase
         $cancelled = SubscriptionTransaction::recordPayment($subscription, $this->collector, ['amount' => '40', 'currency' => 'ILS', 'payment_method' => 'cash']);
         $cancelled->update(['cancelled_at' => now()]);
 
-        $this->actingAs($this->collector)->get(route('payments.index'))
+        $this->actingAs($this->collector)->get(route('payments.summary'))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('today.count', 2)
                 ->where('today.total', '350.50')

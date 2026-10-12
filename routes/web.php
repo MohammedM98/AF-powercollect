@@ -58,6 +58,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/cash-boxes', [PaymentController::class, 'cashBoxes'])->name('payments.cash-boxes');
+    Route::get('/payments/cash-boxes/{cashBox}', [PaymentController::class, 'showCashBox'])->whereNumber('cashBox')->name('payments.cash-boxes.show');
     Route::get('/reconciliation', [BranchClosingController::class, 'index'])->name('closings.index');
     Route::post('/reconciliation/actions/{action}/{record?}', [BranchClosingController::class, 'action'])->whereNumber('record')->name('closings.actions');
     Route::get('/reconciliation/proofs/{kind}/{record}', [BranchClosingController::class, 'proof'])->whereNumber('record')->name('closings.proofs');

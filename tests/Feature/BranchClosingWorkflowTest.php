@@ -136,10 +136,10 @@ class BranchClosingWorkflowTest extends TestCase
         $box = CashBox::query()->sole();
         $this->action($collector, $branch, 'close', $box->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
 
-        $this->actingAs($head)->get(route('closings.index'))->assertInertia(fn (AssertableInertia $page) => $page->where('boxes.1.expected_counts', null)->where('boxes.1.collector_counts', null));
+        $this->actingAs($head)->get(route('closings.index'))->assertInertia(fn (AssertableInertia $page) => $page->where('boxes.1.expected_counts', null)->where('boxes.1.collector_counts', null)->where('boxes.1.payments.0.amount', null));
         $this->action($head, $branch, 'head-count', $box->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
 
-        $this->actingAs($head)->get(route('closings.index'))->assertInertia(fn (AssertableInertia $page) => $page->where('boxes.1.expected_counts.ILS', '100.00')->where('boxes.1.collector_counts.ILS', '100'));
+        $this->actingAs($head)->get(route('closings.index'))->assertInertia(fn (AssertableInertia $page) => $page->where('boxes.1.expected_counts.ILS', '100.00')->where('boxes.1.collector_counts.ILS', '100')->where('boxes.1.payments.0.amount', '100.00'));
     }
 
     public function test_rejected_shortage_becomes_debt_and_only_actual_cash_enters_safe(): void
@@ -330,8 +330,9 @@ class BranchClosingWorkflowTest extends TestCase
         $box = CashBox::query()->sole();
         $closing = $box->closing;
         $entry = $box->payments()->sole();
-        $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'missing']);
-        $this->receiveBox($branch, $head, $collector, $box, '0');
+        $this->action($collector, $branch, 'close', $box->id, ['reviewed' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'missing'])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $box->id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')]);
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
@@ -353,7 +354,7 @@ class BranchClosingWorkflowTest extends TestCase
         $box = $entry->fresh()->box;
         $closing = $box->closing;
 
-        $this->action($head, $branch, 'close', $box->id, ['counts' => $this->counts('0')])->assertSessionHasErrors('action');
+        $this->action($head, $branch, 'close', $box->id, ['reviewed' => true])->assertSessionHasErrors('action');
         $this->travelTo($closing->coverage_until);
         $this->artisan('closings:process')->assertSuccessful();
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
@@ -523,14 +524,14 @@ class BranchClosingWorkflowTest extends TestCase
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
         $this->travelTo($closing->coverage_until);
         $this->artisan('closings:process')->assertSuccessful();
-        $this->assertSame([$collector->id], array_column(app(BranchClosingWorkflow::class)->reviewSummary($closing)['unsyncedCollectors'], 'id'));
+        $this->assertSame([$head->id, $collector->id], array_column(app(BranchClosingWorkflow::class)->reviewSummary($closing)['unsyncedCollectors'], 'id'));
         $token = MobileAccessToken::issue($collector);
         $this->withToken($token)->postJson(route('mobile.cash-boxes.sync'), ['pending_payments' => 0, 'user_id' => $head->id])->assertOk();
         $this->assertDatabaseHas('cash_box_syncs', ['user_id' => $collector->id, 'branch_id' => $branch->id, 'pending_payments' => 0]);
-        $this->assertSame([], app(BranchClosingWorkflow::class)->reviewSummary($closing)['unsyncedCollectors']);
+        $this->assertSame([$head->id], array_column(app(BranchClosingWorkflow::class)->reviewSummary($closing)['unsyncedCollectors'], 'id'));
         $this->withToken($token)->postJson(route('mobile.cash-boxes.sync'), ['pending_payments' => 2])->assertOk();
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
-        $this->assertSame([$collector->id], array_column($closing->fresh()->submitted_snapshot['unsyncedCollectors'], 'id'));
+        $this->assertSame([$head->id, $collector->id], array_column($closing->fresh()->submitted_snapshot['unsyncedCollectors'], 'id'));
     }
 }

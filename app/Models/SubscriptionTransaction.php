@@ -675,6 +675,13 @@ class SubscriptionTransaction extends Model
         }
 
         if (in_array($this->type, self::PAYMENT_LIKE_TYPES, true)) {
+            if ($this->isClearing() && $this->isInClosedDay($lockForUpdate)) {
+                return [];
+            }
+            if ($this->isClearing() && CashBoxPayment::query()->where('subscription_transaction_id', $this->id)->where('status', 'rejected')->exists() && ! $this->isInClosedDay($lockForUpdate)) {
+                return [TransactionAction::Cancel];
+            }
+
             return $isLast ? [TransactionAction::Delete] : [TransactionAction::Cancel];
         }
 
@@ -1175,7 +1182,7 @@ class SubscriptionTransaction extends Model
     /** Whether this payment belongs to a submitted or approved daily closing. */
     public function isInClosedDay(bool $lockForUpdate = false): bool
     {
-        if (ClosingSetting::ownFor($this->branch_id)?->workflow_started_at && CashBoxPayment::query()->where('subscription_transaction_id', $this->id)->whereHas('box', fn (Builder $query): Builder => $query->where('status', '!=', 'open'))->exists()) {
+        if (ClosingSetting::ownFor($this->branch_id)?->workflow_started_at && CashBoxPayment::query()->where('subscription_transaction_id', $this->id)->when($this->isClearing(), fn (Builder $query): Builder => $query->where('status', '!=', 'rejected'))->whereHas('box', fn (Builder $query): Builder => $query->where('status', '!=', 'open'))->exists()) {
             return true;
         }
 

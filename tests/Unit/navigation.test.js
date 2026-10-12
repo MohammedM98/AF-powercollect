@@ -45,3 +45,10 @@ test('retired closing destinations stay absent even with old permission flags', 
     assert.deepEqual(links.map((link) => link.href), ['/ledger', '/reports']);
     assert.equal([...MAIN_LINKS, ...SETTINGS_LINKS].some((link) => link.href.includes('closing') || link.href.includes('cash-transfers')), false);
 });
+
+test('staff with box access can reach their boxes without payment access and only the box link is active', () => {
+    const groups = allowedNavigationGroups({ viewOwnCashBoxes: true });
+    assert.deepEqual(groups.flatMap((group) => group.links.map((link) => link.href)), ['/payments/cash-boxes']);
+    assert.equal(isActiveLink(MAIN_LINKS.find((link) => link.href === '/payments'), '/payments/cash-boxes/12'), false);
+    assert.equal(isActiveLink(groups[0].links[0], '/payments/cash-boxes/12'), true);
+});

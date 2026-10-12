@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\CashBoxType;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\Closing;
@@ -22,11 +23,22 @@ class CashBoxFactory extends Factory
     {
         return [
             'number' => 'BOX-'.fake()->unique()->numerify('########'),
+            'type' => CashBoxType::Cash,
             'branch_id' => Branch::factory(),
             'user_id' => User::factory(),
             'closing_id' => Closing::factory(),
             'status' => 'open',
             'opened_at' => now(),
         ];
+    }
+
+    public function bankTransfer(): static
+    {
+        return $this->state(fn (): array => ['type' => CashBoxType::BankTransfer]);
+    }
+
+    public function clearing(): static
+    {
+        return $this->state(fn (): array => ['type' => CashBoxType::Clearing]);
     }
 }

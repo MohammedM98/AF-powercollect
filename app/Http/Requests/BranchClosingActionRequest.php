@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\CashBoxType;
+use App\Models\CashBox;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,14 +27,18 @@ class BranchClosingActionRequest extends FormRequest
     {
         $action = $this->route('action');
         $rules = ['branch_id' => ['required', 'integer', 'exists:branches,id'], 'reason' => ['nullable', 'string', 'max:3000']];
-        if (in_array($action, ['close', 'collector-count', 'head-count', 'safe-count'], true)) {
-            $rules += ['counts' => ['required', 'array:ILS,USD,JOD'], 'counts.ILS' => ['required', 'numeric', 'min:0', 'max:9999999999'], 'counts.USD' => ['required', 'numeric', 'min:0', 'max:9999999999'], 'counts.JOD' => ['required', 'numeric', 'min:0', 'max:9999999999']];
+        $box = in_array($action, ['close', 'collector-count', 'receive'], true) ? CashBox::query()->find($this->route('record')) : null;
+        if (in_array($action, ['close', 'collector-count'], true)) {
+            $rules += $box?->type === CashBoxType::Cash ? $this->countRules() : ['reviewed' => ['accepted']];
         }
-        if ($action === 'receive') {
+        if (in_array($action, ['head-count', 'safe-count'], true)) {
+            $rules += $this->countRules();
+        }
+        if ($action === 'receive' && $box?->type === CashBoxType::Cash) {
             $rules += ['recounted' => ['required', 'boolean'], 'decisions' => ['present', 'array:ILS,USD,JOD'], 'decisions.*' => ['in:accepted,debt']];
         }
         if ($action === 'electronic') {
-            $rules += ['status' => ['required', 'in:confirmed,missing']];
+            $rules += ['status' => ['required', 'in:confirmed,missing,rejected']];
         }
         if ($action === 'submit') {
             $rules += ['acknowledged' => ['accepted'], 'notes' => ['nullable', 'string', 'max:3000']];
@@ -53,5 +59,11 @@ class BranchClosingActionRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    /** @return array<string, list<string>> */
+    private function countRules(): array
+    {
+        return ['counts' => ['required', 'array:ILS,USD,JOD'], 'counts.ILS' => ['required', 'numeric', 'min:0', 'max:9999999999'], 'counts.USD' => ['required', 'numeric', 'min:0', 'max:9999999999'], 'counts.JOD' => ['required', 'numeric', 'min:0', 'max:9999999999']];
     }
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
@@ -10,10 +10,28 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import TextInput from '@/Components/TextInput';
 import { formatMoney } from '@/lib/format';
 
-const currencies = { ILS: 'شيكل', USD: 'دولار', JOD: 'دينار' };
-const dateTime = (value) => value ? new Intl.DateTimeFormat('ar-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Gaza' }).format(new Date(value)) : '—';
+export const currencies = { ILS: 'شيكل', USD: 'دولار', JOD: 'دينار' };
+export const boxTypes = { cash: 'الصندوق النقدي', bank_transfer: 'صندوق الحوالات البنكية', clearing: 'صندوق المقاصات' };
+export const dateTime = (value) => value ? new Intl.DateTimeFormat('ar-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Gaza' }).format(new Date(value)) : '—';
+const stages = { open: 'مفتوح', awaiting_collector: 'أُغلق تلقائيًا – بانتظار عدّك/مراجعتك', sent: 'مُرسل – بانتظار الاستلام', awaiting_confirmation: 'استُلم – أكّد التسليم', completed: 'مكتمل' };
 
-function CountSummary({ box }) {
+export function BoxStage({ box }) {
+    return <div className="flex flex-wrap gap-2"><StatusPill tone={box.stage === 'open' ? 'blue' : box.stage === 'completed' ? 'green' : 'amber'} label={stages[box.stage]} />{box.rejectedCount > 0 && <StatusPill tone="red" label={`حركات مرفوضة: ${box.rejectedCount}`} />}</div>;
+}
+
+export function boxAction(box) {
+    return box.stage === 'open' ? 'close' : box.stage === 'awaiting_collector' ? 'collector-count' : box.stage === 'awaiting_confirmation' ? 'confirm' : null;
+}
+
+export function actionLabel(box) {
+    return box.stage === 'awaiting_confirmation' ? 'تأكيد التسليم' : box.type === 'cash' ? 'عدّ وإغلاق وإرسال' : 'مراجعة وإغلاق وإرسال';
+}
+
+export function BoxTotals({ box }) {
+    return <div className="flex flex-wrap gap-4 font-display text-sm text-gray-700">{Object.entries(currencies).filter(([currency]) => box.type === 'cash' || currency === 'ILS').map(([currency, label]) => <span key={currency}>{label}: <b dir="ltr">{formatMoney(box.totals?.[currency] ?? 0)}</b></span>)}</div>;
+}
+
+export function CountSummary({ box }) {
     if (!box.collectorCounts) return null;
 
     return (
@@ -37,15 +55,17 @@ function CountSummary({ box }) {
     );
 }
 
-function CashBoxAction({ box, action, onClose }) {
-    const form = useForm({ branch_id: box.branchId, counts: { ILS: '', USD: '', JOD: '' }, reason: '' });
+export function CashBoxAction({ box, action, onClose, onSuccess }) {
+    const form = useForm({ branch_id: box.branchId, counts: { ILS: '', USD: '', JOD: '' }, reason: '', reviewed: false });
     const confirming = action === 'confirm';
-    const title = confirming ? 'تأكيد تسليم صندوقي' : action === 'close' ? 'عدّ وإغلاق صندوقي' : 'عدّ صندوقي المغلق';
+    const counted = box.type === 'cash';
+    const title = confirming ? 'تأكيد تسليم صندوقي' : counted ? 'عدّ وإغلاق وإرسال الصندوق النقدي' : `مراجعة وإغلاق وإرسال ${boxTypes[box.type]}`;
     const close = () => { if (!form.processing) onClose(); };
 
     function submit(event) {
         event.preventDefault();
-        form.post(box.urls[action], { preserveScroll: true, onSuccess: onClose });
+        form.transform((data) => confirming ? { branch_id: data.branch_id } : counted ? { branch_id: data.branch_id, counts: data.counts, reason: data.reason } : { branch_id: data.branch_id, reviewed: data.reviewed });
+        form.post(box.urls[action], { preserveScroll: true, onSuccess: () => { onSuccess?.(); onClose(); } });
     }
 
     return (
@@ -64,9 +84,10 @@ function CashBoxAction({ box, action, onClose }) {
                         <p className="text-sm leading-7 text-gray-600">استُلم الصندوق بتاريخ {dateTime(box.receivedAt)}. راجع العدّ أدناه، ثم أكّد أنك سلّمت الصندوق.</p>
                         <CountSummary box={box} />
                     </div>
-                ) : (
+                ) : counted ? (
                     <>
-                        <p className="rounded-control bg-brand-50 p-4 text-sm leading-7 text-gray-700">عدّ النقد الموجود فعليًا بكل عملة، واكتب صفرًا للعملة غير الموجودة. يظهر المبلغ المتوقع بعد حفظ العدّ.{action === 'close' && ' بعد الإغلاق، تُسجّل الدفعات الجديدة في صندوق جديد.'}</p>
+                        <p className="rounded-control bg-brand-50 p-4 text-sm leading-7 text-gray-700">عدّ النقد الموجود فعليًا بكل عملة، واكتب صفرًا للعملة غير الموجودة.{action === 'close' && ' بعد الإغلاق، تُسجّل الدفعات الجديدة في صندوق جديد.'}</p>
+                        <BoxTotals box={box} />
                         <div className="grid gap-4 sm:grid-cols-3">
                             {Object.entries(currencies).map(([currency, label], index) => (
                                 <div key={currency} className="space-y-2">
@@ -82,65 +103,34 @@ function CashBoxAction({ box, action, onClose }) {
                             <InputError message={form.errors.reason} />
                         </div>
                     </>
-                )}
+                ) : <div className="space-y-4"><p className="text-sm text-gray-600">{box.paymentCount} حركات · راجع القائمة قبل إرسالها إلى الفرع.</p><BoxTotals box={box} /><Link href={box.urls.show} prefetch className="block text-sm font-semibold text-brand-600">عرض الحركات</Link><label className="flex items-center gap-2 text-sm text-gray-700"><input required type="checkbox" checked={form.data.reviewed} onChange={(event) => form.setData('reviewed', event.target.checked)} />راجعت قائمة الحركات وهي مطابقة</label><InputError message={form.errors.reviewed} /></div>}
                 <InputError message={form.errors.action ?? form.errors.branch_id ?? form.errors.counts} />
                 <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 pt-4">
                     <SecondaryButton type="button" onClick={close} disabled={form.processing}>إلغاء</SecondaryButton>
-                    <PrimaryButton type="submit" disabled={form.processing}>{form.processing ? 'جارٍ الحفظ…' : confirming ? 'تأكيد التسليم' : action === 'close' ? 'حفظ العدّ وإغلاق الصندوق' : 'حفظ العدّ'}</PrimaryButton>
+                    <PrimaryButton type="submit" disabled={form.processing || (!confirming && !counted && !form.data.reviewed)}>{form.processing ? 'جارٍ الحفظ…' : confirming ? 'تأكيد التسليم' : 'إرسال الصندوق إلى الفرع'}</PrimaryButton>
                 </div>
             </form>
         </Modal>
     );
 }
 
-export default function CollectorCashBox({ cashBox, mode = 'current' }) {
+export function BoxCard({ box, type, onAction }) {
+    return <article className="flex flex-col gap-4 rounded-panel border border-gray-100 bg-surface p-5 shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-bold text-gray-900">{boxTypes[type]}</h3><StatusPill tone={box ? 'blue' : 'gray'} label={box ? 'مفتوح' : 'لا حركات'} /></div>
+        <BoxTotals box={box ?? { type, totals: {} }} />
+        <p className="text-xs leading-6 text-gray-500">{box ? `${box.paymentCount} حركات · فُتح ${dateTime(box.openedAt)}` : 'يُفتح تلقائيًا عند تسجيل أول حركة.'}</p>
+        {box && <div className="mt-auto flex flex-wrap gap-2"><Link href={box.urls.show} prefetch className="inline-flex items-center rounded-control border border-gray-200 px-3 py-2 text-sm text-gray-700">عرض الحركات</Link><PrimaryButton disabled={box.paymentCount === 0} onClick={() => onAction({ box, action: 'close' })}>{actionLabel(box)}</PrimaryButton></div>}
+    </article>;
+}
+
+export default function CollectorCashBox({ cashBox }) {
     const [selected, setSelected] = useState(null);
+    const [sent, setSent] = useState(false);
     if (!cashBox?.started) return null;
 
-    const open = cashBox.boxes.find((box) => box.status === 'open');
-    const previous = cashBox.boxes.filter((box) => box.status !== 'open');
-
-    function boxCard(box) {
-        const needsCount = box.status === 'pending' && !box.collectorCounts;
-        const needsConfirmation = box.status === 'received' && !box.confirmedAt;
-        const label = box.status === 'open' ? 'مفتوح' : needsCount ? 'بانتظار عدّي' : box.status === 'pending' ? 'بانتظار الاستلام' : needsConfirmation ? 'بانتظار تأكيد التسليم' : 'مكتمل';
-
-        return (
-            <article key={box.id} className="rounded-panel border border-gray-100 bg-surface p-5 shadow-card">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="min-w-0">
-                        <b className="text-sm text-gray-900">{box.status === 'open' ? 'صندوقي المفتوح' : 'صندوقي السابق'}</b>
-                        <span dir="ltr" className="mt-1 block break-all font-display text-xs text-gray-500">{box.number}</span>
-                    </div>
-                    <StatusPill tone={box.status === 'open' ? 'blue' : box.confirmedAt ? 'green' : 'amber'} label={label} />
-                </div>
-                <p className="mt-3 text-xs leading-6 text-gray-500">بدأ {dateTime(box.openedAt)}{box.closedAt && ` · أُغلق ${dateTime(box.closedAt)}`} · {box.paymentCount} دفعات</p>
-                <CountSummary box={box} />
-                {box.reason && <p className="mt-3 text-xs leading-6 text-gray-500">سبب فرق العدّ: {box.reason}</p>}
-                {(box.status === 'open' || needsCount || needsConfirmation) && (
-                    <PrimaryButton type="button" disabled={box.status === 'open' && box.paymentCount === 0} onClick={() => setSelected({ box, action: box.status === 'open' ? 'close' : needsCount ? 'collector-count' : 'confirm' })} className="mt-4">
-                        <Icon name={needsConfirmation ? 'check' : 'wallet'} className="h-4 w-4" />
-                        {box.status === 'open' ? 'عدّ وإغلاق صندوقي' : needsCount ? 'عدّ الصندوق' : 'تأكيد التسليم'}
-                    </PrimaryButton>
-                )}
-            </article>
-        );
-    }
-
-    return (
-        <section aria-labelledby="collector-cash-box" className="mb-6 space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-control bg-brand-50 text-brand-600"><Icon name="wallet" className="h-6 w-6" /></span>
-                <div>
-                    <h3 id="collector-cash-box" className="text-lg font-bold text-gray-900">{mode === 'history' ? 'صناديقي المغلقة' : 'صندوقي'} · {cashBox.branchName}</h3>
-                    <p className="mt-1 text-xs leading-6 text-gray-500">{mode === 'history' ? 'راجع عدّ صناديقك وحالة استلامها، وأكّد التسليم بعد الاستلام. الموقع والتطبيق يستخدمان نفس السجل.' : 'أغلق صندوقك بعد عدّ النقد. تُسجّل الدفعات التالية في صندوق جديد، وتتابع التسليم من تبويب صناديقي.'}</p>
-                </div>
-            </div>
-            {mode === 'current' && (open ? boxCard(open) : <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-5 text-sm text-gray-500">لا يوجد صندوق مفتوح حاليًا. يُفتح صندوقك تلقائيًا عند تسجيل أول دفعة.</p>)}
-            {mode === 'history' && (
-                previous.length > 0 ? <div className="grid gap-4 lg:grid-cols-2">{previous.map(boxCard)}</div> : <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-center text-sm text-gray-500">لا توجد صناديق مغلقة حتى الآن.</p>
-            )}
-            {selected && <CashBoxAction key={`${selected.box.id}-${selected.action}`} {...selected} onClose={() => setSelected(null)} />}
-        </section>
-    );
+    return <section className="mb-6 space-y-4" aria-label="صناديقي المفتوحة">
+        {sent && <p role="status" className="rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">تم إرسال الصندوق إلى الفرع.</p>}
+        <div className="grid gap-4 lg:grid-cols-3">{Object.keys(boxTypes).map((type) => <BoxCard key={type} type={type} box={cashBox.current[type]} onAction={(selection) => { setSent(false); setSelected(selection); }} />)}</div>
+        {selected && <CashBoxAction key={`${selected.box.id}-${selected.action}`} {...selected} onClose={() => setSelected(null)} onSuccess={() => setSent(true)} />}
+    </section>;
 }

@@ -87,6 +87,11 @@ class SubscriptionPolicy
         return $user->hasPermission(PermissionKey::RecordCollections);
     }
 
+    public function viewOwnCashBoxes(User $user): bool
+    {
+        return $user->hasPermission(PermissionKey::RecordCollections) || $user->hasPermission(PermissionKey::AdjustBalances);
+    }
+
     /**
      * Recording a payment takes the "Record Collections" permission, for a
      * subscription of the user's own branch (any branch for the Super Admin).

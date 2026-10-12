@@ -173,24 +173,25 @@ class CollectorCashBoxWebTest extends TestCase
         $this->actingAs(User::factory()->dataEntry()->create())->get(route('payments.cash-boxes'))->assertForbidden();
     }
 
-    public function test_closed_box_page_keeps_all_pending_boxes_and_paginates_only_own_completed_history(): void
+    public function test_boxes_page_keeps_action_boxes_visible_and_paginates_only_own_boxes(): void
     {
         [$branch, $head, $collector] = $this->start();
         $pending = CashBox::factory()->create(['branch_id' => $branch->id, 'user_id' => $collector->id, 'status' => 'pending', 'open_key' => null, 'closed_at' => now(), 'expected_counts' => $this->counts()]);
-        $history = CashBox::factory()->count(17)->create(['branch_id' => $branch->id, 'user_id' => $collector->id, 'status' => 'received', 'open_key' => null, 'closed_at' => now(), 'confirmed_at' => now(), 'collector_counts' => $this->counts(), 'expected_counts' => $this->counts()]);
+        $history = CashBox::factory()->count(27)->create(['branch_id' => $branch->id, 'user_id' => $collector->id, 'status' => 'received', 'open_key' => null, 'closed_at' => now(), 'confirmed_at' => now(), 'collector_counts' => $this->counts(), 'expected_counts' => $this->counts()]);
         CashBox::factory()->create(['branch_id' => $branch->id, 'user_id' => $head->id, 'status' => 'received', 'open_key' => null, 'confirmed_at' => now()]);
         $otherBranch = Branch::factory()->create();
         CashBox::factory()->create(['branch_id' => $otherBranch->id, 'user_id' => $collector->id, 'status' => 'received', 'open_key' => null, 'confirmed_at' => now()]);
 
         $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Payments/CashBoxes')
-            ->has('cashBox.boxes', 1)->where('cashBox.boxes.0.id', $pending->id)
-            ->where('cashBox.boxes.0.expectedCounts', null)
-            ->where('history.total', 17)->has('history.data', 15)
-            ->where('history.data.0.id', $history->last()->id)
+            ->has('needsAction', 1)->where('needsAction.0.id', $pending->id)
+            ->where('needsAction.0.expectedCounts', null)
+            ->where('current.cash', null)->where('current.bank_transfer', null)->where('current.clearing', null)
+            ->where('boxes.total', 28)->has('boxes.data', 15)
+            ->where('boxes.data.0.id', $history->last()->id)
             ->where('collectionUrls.payments', route('payments.index')));
 
         $this->get(route('payments.cash-boxes', ['page' => 2]))->assertInertia(fn (AssertableInertia $page) => $page
-            ->has('cashBox.boxes', 1)->has('history.data', 2)->where('history.data.1.id', $history->first()->id));
+            ->has('needsAction', 1)->has('boxes.data', 13)->where('boxes.data.11.id', $history->first()->id)->where('boxes.data.12.id', $pending->id));
     }
 }

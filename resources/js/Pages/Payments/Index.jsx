@@ -102,7 +102,7 @@ export default function Index({ subscriptions, scopeLabel, filters, filterOption
         >
             <Head title="تسجيل الدفعات" />
 
-            <CollectionNavigation urls={collectionUrls} active="payments" pendingCount={cashBox.boxes.filter((box) => box.status !== 'open' && !box.confirmedAt).length} />
+            <CollectionNavigation urls={collectionUrls} active="payments" pendingCount={cashBox.needsAction.length} />
             <CollectorCashBox cashBox={cashBox} mode="current" />
 
             <DataTableToolbar

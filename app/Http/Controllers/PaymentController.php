@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CashBoxType;
 use App\Enums\PaymentMethod;
 use App\Enums\SubscriptionStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Concerns\FiltersSubscriptionList;
 use App\Http\Requests\StoreSplitPaymentRequest;
 use App\Models\CashBox;
+use App\Models\CashBoxPayment;
 use App\Models\ClosingSetting;
 use App\Models\MeterBox;
 use App\Models\SubArea;
@@ -85,19 +87,60 @@ class PaymentController extends Controller
 
     public function cashBoxes(Request $request): InertiaResponse
     {
-        $this->authorize('recordAnyPayment', Subscription::class);
+        $this->authorize('viewOwnCashBoxes', Subscription::class);
 
         $actor = $request->user();
         $cashBox = $this->ownCashBoxes($actor, false);
-        $history = CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)
-            ->where('kind', '!=', 'direct')->whereNotNull('confirmed_at')->withCount('payments')->latest('id')
-            ->paginate(15)->through(fn (CashBox $box): array => $this->cashBoxRow($box));
+        $type = in_array($request->query('type'), array_column(CashBoxType::cases(), 'value'), true) ? $request->query('type') : '';
+        $state = in_array($request->query('state'), ['open', 'closed'], true) ? $request->query('state') : '';
+        $boxes = $this->ownBoxQuery($actor)
+            ->when($type, fn (Builder $query) => $query->where('type', $type))
+            ->when($state === 'open', fn (Builder $query) => $query->where('status', 'open'))
+            ->when($state === 'closed', fn (Builder $query) => $query->where('status', '!=', 'open'))
+            ->paginate(15)->withQueryString()->through(fn (CashBox $box): array => $this->cashBoxRow($box));
 
         return Inertia::render('Payments/CashBoxes', [
             'cashBox' => $cashBox,
-            'history' => $history,
+            'current' => $cashBox['current'],
+            'needsAction' => $cashBox['needsAction'],
+            'boxes' => $boxes,
+            'filters' => ['type' => $type, 'state' => $state],
             'collectionUrls' => $this->collectionUrls(),
         ]);
+    }
+
+    public function showCashBox(Request $request, CashBox $cashBox): InertiaResponse
+    {
+        $this->authorize('viewOwnCashBoxes', Subscription::class);
+        $actor = $request->user();
+        abort_unless($cashBox->user_id === $actor->id && $cashBox->branch_id === $actor->branch_id && $cashBox->kind !== 'direct', 404);
+        $this->workflow->refresh($cashBox->branch_id);
+        $cashBox->refresh()->loadCount('payments');
+        $entries = $cashBox->payments()->with(['transaction.subscription:id,full_name,subscription_name,account_number'])
+            ->orderByDesc('occurred_at')->orderByDesc('id')->paginate(25)->through(fn (CashBoxPayment $entry): array => [
+                'id' => $entry->id, 'occurredAt' => $entry->occurred_at, 'currency' => $entry->currency,
+                'amount' => $entry->amount, 'status' => $entry->status, 'isLate' => $entry->is_late,
+                'transactionStatus' => $entry->transaction->status,
+                'subscriber' => $entry->transaction->subscription->displayName(),
+                'accountNumber' => $entry->transaction->subscription->account_number,
+                'voucherNumber' => $entry->transaction->manual_voucher_number ?? $entry->transaction->voucher_number,
+                'bankName' => $entry->transaction->bank_name, 'senderBank' => $entry->transaction->sender_bank_name,
+                'referenceNumber' => $entry->transaction->reference_number, 'service' => $entry->transaction->notes,
+            ]);
+
+        return Inertia::render('Payments/CashBoxShow', [
+            'box' => $this->cashBoxRow($cashBox), 'entries' => $entries,
+            'needsActionCount' => $this->ownBoxQuery($actor)->where(fn (Builder $query) => $query
+                ->where(fn (Builder $pending) => $pending->where('status', 'pending')->whereNull('collector_submitted_at'))
+                ->orWhere(fn (Builder $received) => $received->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')))->count(),
+            'collectionUrls' => $this->collectionUrls(),
+        ]);
+    }
+
+    private function ownBoxQuery(User $actor): Builder
+    {
+        return CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('kind', '!=', 'direct')
+            ->withCount('payments')->with('payments.transaction:id,status')->latest('id');
     }
 
     /** @return array{payments: string, cashBoxes: string} */
@@ -106,23 +149,26 @@ class PaymentController extends Controller
         return ['payments' => route('payments.index'), 'cashBoxes' => route('payments.cash-boxes')];
     }
 
-    /** @return array{started: bool, branchName: ?string, boxes: array<int, array<string, mixed>>} */
+    /** @return array{started: bool, branchName: ?string, boxes: array<int, array<string, mixed>>, current: array<string, array<string, mixed>|null>, needsAction: array<int, array<string, mixed>>} */
     private function ownCashBoxes(User $actor, bool $includeRecentHistory = true): array
     {
         $started = $actor->branch_id && ClosingSetting::ownFor($actor->branch_id)?->workflow_started_at !== null;
         if (! $started) {
-            return ['started' => false, 'branchName' => $actor->branch?->name, 'boxes' => []];
+            return ['started' => false, 'branchName' => $actor->branch?->name, 'boxes' => [], 'current' => [], 'needsAction' => []];
         }
 
         $this->workflow->refresh($actor->branch_id);
-        $query = CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('kind', '!=', 'direct')->withCount('payments')->latest('id');
+        $query = $this->ownBoxQuery($actor);
         $outstanding = (clone $query)->whereNull('confirmed_at')->get();
         $history = $includeRecentHistory ? (clone $query)->whereNotNull('confirmed_at')->limit(10)->get() : collect();
+        $rows = $outstanding->concat($history)->map(fn (CashBox $box): array => $this->cashBoxRow($box));
 
         return [
             'started' => true,
             'branchName' => $actor->branch?->name,
-            'boxes' => $outstanding->concat($history)->map(fn (CashBox $box): array => $this->cashBoxRow($box))->values()->all(),
+            'boxes' => $rows->values()->all(),
+            'current' => collect(CashBoxType::cases())->mapWithKeys(fn (CashBoxType $type): array => [$type->value => $rows->first(fn (array $box): bool => $box['type'] === $type->value && $box['status'] === 'open')])->all(),
+            'needsAction' => $rows->filter(fn (array $box): bool => in_array($box['stage'], ['awaiting_collector', 'awaiting_confirmation'], true))->values()->all(),
         ];
     }
 
@@ -133,8 +179,13 @@ class PaymentController extends Controller
             'id' => $box->id,
             'number' => $box->number,
             'status' => $box->status,
+            'type' => $box->type->value,
+            'stage' => $box->stage(),
+            'totals' => $box->totals(),
+            'rejectedCount' => $box->payments->whereIn('status', ['missing', 'rejected'])->filter(fn (CashBoxPayment $entry): bool => $entry->transaction?->status === SubscriptionTransaction::STATUS_ACTIVE)->count(),
             'openedAt' => $box->opened_at,
             'closedAt' => $box->closed_at,
+            'collectorSubmittedAt' => $box->collector_submitted_at,
             'receivedAt' => $box->received_at,
             'confirmedAt' => $box->confirmed_at,
             'paymentCount' => $box->payments_count,
@@ -142,7 +193,7 @@ class PaymentController extends Controller
             'expectedCounts' => $box->collector_counts ? $box->expected_counts : null,
             'receivedCounts' => $box->received_at ? $box->head_counts : null,
             'reason' => $box->reason,
-            'urls' => collect(['close', 'collector-count', 'confirm'])->mapWithKeys(fn (string $action): array => [$action => route('closings.actions', ['action' => $action, 'record' => $box->id])])->all(),
+            'urls' => ['show' => route('payments.cash-boxes.show', $box), ...collect(['close', 'collector-count', 'confirm'])->mapWithKeys(fn (string $action): array => [$action => route('closings.actions', ['action' => $action, 'record' => $box->id])])->all()],
             'branchId' => $box->branch_id,
         ];
     }

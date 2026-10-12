@@ -6,7 +6,8 @@
  */
 export const MAIN_LINKS = [
     { href: '/dashboard', label: 'لوحة التحكم', icon: 'grid' },
-    { href: '/payments', label: 'تسجيل الدفعات', icon: 'banknotes', can: 'recordPayments' },
+    { href: '/payments', label: 'تسجيل الدفعات', icon: 'banknotes', can: 'recordPayments', exact: true },
+    { href: '/payments/cash-boxes', label: 'صناديقي', icon: 'wallet', can: 'viewOwnCashBoxes' },
     { href: '/ledger', label: 'السجل المالي', icon: 'ledger', can: 'viewLedger' },
     { href: '/reconciliation', label: 'الإغلاق', icon: 'shield', can: 'viewBranchReconciliation' },
     { href: '/receivables', label: 'أعمار الديون', icon: 'wallet', can: 'viewDebtAging' },
@@ -34,7 +35,7 @@ const linksByHref = new Map([...MAIN_LINKS, ...SETTINGS_LINKS].map((link) => [li
 
 export const NAVIGATION_GROUPS = [
     { id: 'daily', label: 'العمل اليومي', icon: 'users', defaultOpen: true, hrefs: ['/subscriptions', '/meter-readings', '/messages'] },
-    { id: 'finance', label: 'المالية والتحصيل', icon: 'wallet', defaultOpen: true, hrefs: ['/payments', '/ledger', '/receivables', '/reconciliation'] },
+    { id: 'finance', label: 'المالية والتحصيل', icon: 'wallet', defaultOpen: true, hrefs: ['/payments', '/payments/cash-boxes', '/ledger', '/receivables', '/reconciliation'] },
     { id: 'reports', label: 'التقارير والرقابة', icon: 'trend', hrefs: ['/reports', '/branch-performance', '/transaction-audit'] },
     { id: 'infrastructure', label: 'الفروع والبنية الكهربائية', icon: 'bolt', hrefs: ['/branches', '/governorates', '/meter-boxes', '/circuit-breakers'] },
     { id: 'administration', label: 'الإدارة والإعدادات', icon: 'cog', hrefs: ['/users', '/settings/permissions', '/tariffs', '/settings/reading-schedule', '/settings/print-templates'] },
@@ -57,7 +58,7 @@ export function allowedLinks(links, can) {
 export function isActiveLink(link, url) {
     const path = url.split('?')[0];
 
-    return [link.href, ...(link.activePaths ?? [])].some((href) => path === href || path.startsWith(`${href}/`));
+    return [link.href, ...(link.activePaths ?? [])].some((href) => path === href || (!link.exact && path.startsWith(`${href}/`)));
 }
 
 /** Whether `url` is inside any of the links' sections. */

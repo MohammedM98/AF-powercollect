@@ -168,16 +168,16 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertDatabaseHas('cash_box_payments', ['id' => $entry->id, 'status' => 'rejected']);
     }
 
-    public function test_receiver_cannot_review_entries_in_own_box(): void
+    public function test_branch_admin_can_review_and_receive_entries_in_own_box(): void
     {
         [$branch, $head] = $this->start();
         $entry = $this->entry($branch, $head, CashBoxType::Clearing);
         $this->action($head, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
 
-        $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'confirmed'])->assertSessionHasErrors('action');
-        $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasErrors('action');
+        $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
 
-        $this->assertDatabaseHas('cash_box_payments', ['id' => $entry->id, 'status' => 'pending', 'confirmed_by' => null]);
+        $this->assertDatabaseHas('cash_box_payments', ['id' => $entry->id, 'status' => 'confirmed', 'confirmed_by' => $head->id]);
     }
 
     public function test_editing_cash_payment_to_transfer_moves_it_to_transfer_box(): void
@@ -268,7 +268,7 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'collector_submitted_at' => now(), 'collector_counts' => null]);
     }
 
-    public function test_separate_books_block_and_snapshot_only_their_box_types(): void
+    public function test_legacy_separate_periods_transition_to_one_package_without_box_blockers(): void
     {
         [$branch, $head, $collector] = $this->start();
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
@@ -279,11 +279,12 @@ class CollectorBoxTypesTest extends TestCase
         app(BranchClosingWorkflow::class)->refresh($branch->id);
 
         $workflow = app(BranchClosingWorkflow::class);
-        $this->assertContains('يوجد صندوق لم يُستلم أو لم يؤكّد صاحبه التسليم.', $workflow->blockers($bank));
+        $this->assertNotContains('يوجد صندوق لم يُستلم أو لم يؤكّد صاحبه التسليم.', $workflow->blockers($bank));
         $this->assertNotContains('يوجد صندوق لم يُستلم أو لم يؤكّد صاحبه التسليم.', $workflow->blockers($closing));
-        $this->assertCount(0, $workflow->snapshot($closing)['boxes']);
+        $this->assertCount(1, $workflow->snapshot($closing)['boxes']);
         $this->assertCount(1, $workflow->snapshot($bank)['boxes']);
         $this->assertCount(1, $workflow->snapshot($bank)['clearings']);
+        $this->assertSame('combined', $workflow->current($branch->id)->book);
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')])->assertSessionHasNoErrors();
     }
 
@@ -383,7 +384,7 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertSame('0.00', $entry->box->fresh()->totals()['ILS']);
     }
 
-    public function test_submitted_rejected_clearings_are_protected_from_cancellation(): void
+    public function test_carried_rejected_clearing_can_be_cancelled_after_the_package_is_sent(): void
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
@@ -396,10 +397,12 @@ class CollectorBoxTypesTest extends TestCase
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
         SubscriptionTransaction::factory()->for($entry->transaction->subscription)->create(['type' => 'penalty', 'source_key' => 'after-clearing:'.$entry->id, 'amount' => '20']);
-        $this->actingAs($head)->post(route('subscriptions.transactions.actions.store', [$entry->transaction->subscription, $entry->transaction]), ['action' => 'cancel', 'correction_reason' => 'other', 'correction_notes' => 'تصحيح'])->assertSessionHasErrors('action');
+        $snapshot = $closing->fresh()->submitted_snapshot;
+        $this->actingAs($head)->post(route('subscriptions.transactions.actions.store', [$entry->transaction->subscription, $entry->transaction]), ['action' => 'cancel', 'correction_reason' => 'other', 'correction_notes' => 'تصحيح'])->assertSessionHasNoErrors();
 
-        $this->assertDatabaseHas('subscription_transactions', ['id' => $entry->subscription_transaction_id, 'status' => SubscriptionTransaction::STATUS_ACTIVE]);
-        $this->assertTrue($entry->transaction->fresh()->isInClosedDay());
+        $this->assertDatabaseHas('subscription_transactions', ['id' => $entry->subscription_transaction_id, 'status' => SubscriptionTransaction::STATUS_CANCELLED]);
+        $this->assertFalse($entry->transaction->fresh()->isInClosedDay());
+        $this->assertSame($snapshot, $closing->fresh()->submitted_snapshot);
     }
 
     public function test_branch_receives_a_departed_collectors_boxes_without_their_submission(): void

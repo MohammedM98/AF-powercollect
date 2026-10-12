@@ -25,3 +25,14 @@ test('a withdrawal followed by resubmission shows removed entries and status cha
     assert.deepEqual(result.changed.electronic, [10, 11]);
     assert.deepEqual(result.changed.transfers, [1]);
 });
+
+test('version two cash belongs to its receipt package and includes boxes carried in from older weeks', () => {
+    const previous = { closing_id: 4, snapshot: { version: 2, boxes: [{ id: 1, type: 'cash', status: 'received', received_in_closing_id: 5, head_counts: { ILS: '100' } }] } };
+    const version = { closing_id: 4, snapshot: { ...previous.snapshot, carriedIn: [{ id: 2, type: 'cash', status: 'received', received_in_closing_id: 4, head_counts: { USD: '20' } }], clearings: [{ id: 9, amount: '50', currency: 'ILS', status: 'confirmed', confirmed_in_closing_id: 4 }] } };
+
+    const result = closingVersionDifferences(version, previous);
+
+    assert.deepEqual(result.cash, { ILS: 0, USD: 20, JOD: 0 });
+    assert.deepEqual(result.clearing, { ILS: 50, USD: 0, JOD: 0 });
+    assert.deepEqual(result.changed.carriedIn, [2]);
+});

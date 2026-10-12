@@ -48,17 +48,17 @@ class BranchClosingController extends Controller
         $closings = Closing::query()->where('branch_id', $branchId)->whereNotNull('workflow_settings')->withCount(['auditNotes as open_notes_count' => fn ($query) => $query->where('status', '!=', 'closed')])->orderByDesc('coverage_from')->orderBy('id')->limit(60)->get();
         $boxes = CashBox::query()->where('branch_id', $branchId)
             ->where(fn ($query) => $query->whereIn('closing_id', $closings->modelKeys())->orWhere('status', '!=', 'received')->orWhereHas('payments', fn ($payments) => $payments->whereIn('status', ['pending', 'missing', 'rejected'])))
-            ->with(['user:id,name,role,is_active,branch_id', 'payments.transaction:id,subscription_id,reference_number,bank_name,notes,status', 'payments.transaction.subscription:id,full_name,subscription_name,account_number'])->latest('id')->get();
+            ->with(BranchClosingWorkflow::BOX_DETAILS)->latest('id')->get();
         $boxRows = $boxes->map(function (CashBox $box) use ($actor): array {
             $row = $box->toArray();
             $row['expected_counts'] = ($box->head_counts && $box->received_by === $actor->id) || $box->received_at || ($box->collector_counts && $box->user_id === $actor->id) ? $box->expected_counts : null;
             if (! $box->head_counts && ! $box->received_at && $box->user_id !== $actor->id) {
                 $row['collector_counts'] = null;
-                if ($box->type->isCounted() && $box->status === 'pending') {
+                if ($box->type->isCounted()) {
                     $row['payments'] = array_map(fn (array $entry): array => [...$entry, 'amount' => null], $row['payments']);
                 }
             }
-            $row['canCount'] = BranchClosingAccess::receive($actor, $box->branch_id) && $box->user_id !== $actor->id;
+            $row['canCount'] = $this->workflow->mayReceive($box, $actor);
             $row['isOwn'] = $box->user_id === $actor->id;
             $row['stage'] = $box->stage();
             $row['collectorCounted'] = ! $this->workflow->awaitsCollector($box);
@@ -72,24 +72,60 @@ class BranchClosingController extends Controller
         if ($request->integer('closing_id')) {
             abort_unless($selected, 404);
         }
+        $package = $selected ? ($selected->submitted_snapshot ?? ($started ? $this->workflow->snapshot($selected) : null)) : null;
+        $packageRows = $package ? $this->presentPackage($package, $actor, $selected->submitted_snapshot !== null) : null;
         $notes = AuditNote::query()->whereIn('closing_id', Closing::query()->where('branch_id', $branchId)->select('id'))->with(['closing:id,number', 'replies.user:id,name'])->latest('id')->get();
 
         return Inertia::render('Closings/Index', [
             'branch' => $branch, 'branches' => $branches, 'started' => $started, 'actorId' => $actor->id,
             'settings' => $this->workflow->settings($setting), 'receivers' => $setting->receivers ?? [], 'approvers' => $setting->approvers ?? [],
             'pendingChange' => $pendingChange, 'transitionUntil' => $current ? $this->workflow->nextEnd($current->scheduled_until, $pendingChange?->settings ?? $this->workflow->settings($setting))->toIso8601String() : null,
-            'current' => $current, 'closings' => $closings->map(fn (Closing $closing): array => [...$closing->toArray(), 'submitted_snapshot' => $closing->id === $selected?->id ? $closing->submitted_snapshot : ($closing->submitted_snapshot ? true : null), 'blockers' => $closing->submitted_snapshot ? [] : $this->workflow->blockers($closing), 'summary' => $closing->id === $selected?->id ? $this->workflow->reviewSummary($closing) : null]),
+            'current' => $current, 'closings' => $closings->map(fn (Closing $closing): array => [...$closing->toArray(), 'submitted_snapshot' => $closing->id === $selected?->id && $closing->submitted_snapshot ? $packageRows : ($closing->submitted_snapshot ? true : null), 'blockers' => $closing->submitted_snapshot ? [] : $this->workflow->blockers($closing), 'summary' => $closing->id === $selected?->id ? $this->workflow->reviewSummary($closing, $package) : null, 'warnings' => $closing->submitted_snapshot ? ($closing->submitted_snapshot['warnings'] ?? []) : ($closing->id === $selected?->id ? ($package['warnings'] ?? []) : [])]),
+            'package' => $packageRows, 'warnings' => $package['warnings'] ?? [],
+            'holdsCash' => $started && $this->workflow->holdsCash($branchId),
             'boxes' => $boxRows, 'safeBalance' => $started ? $this->workflow->balance($branchId) : array_fill_keys(BranchClosingWorkflow::CURRENCIES, '0.00'),
             'transfers' => CashTransfer::query()->where('branch_id', $branchId)->whereHas('closing', fn ($query) => $query->whereNotNull('workflow_settings'))->with('recipient:id,name')->latest('id')->get(),
             'debts' => CollectorDebt::query()->where('branch_id', $branchId)->with('user:id,name')->where('remaining', '>', 0)->get(),
             'adjustments' => ClosingAdjustment::query()->whereIn('closing_id', $closings->modelKeys())->get(),
             'safeCounts' => SafeCount::query()->whereIn('closing_id', $closings->modelKeys())->get(), 'notes' => $notes,
-            'versions' => $selected ? ClosingVersion::query()->where('closing_id', $selected->id)->orderByDesc('version')->get() : [],
+            'versions' => $selected ? ClosingVersion::query()->where('closing_id', $selected->id)->orderByDesc('version')->get()->map(fn (ClosingVersion $version): array => [...$version->toArray(), 'snapshot' => $this->presentPackage($version->snapshot, $actor, true)]) : [],
             'selectedClosingId' => $selected?->id, 'staff' => User::query()->where('branch_id', $branchId)->where('is_active', true)->get(['id', 'name']),
             'recipients' => User::query()->where('is_active', true)->whereIn('role', ['accountant', 'financial_auditor', 'super_admin'])->get(['id', 'name']),
             'access' => ['manage' => BranchClosingAccess::manage($actor, $branchId), 'receive' => BranchClosingAccess::receive($actor, $branchId), 'approve' => BranchClosingAccess::approve($actor, $branchId)],
             'urls' => ['index' => route('closings.index'), 'actions' => url('/reconciliation/actions'), 'proofs' => url('/reconciliation/proofs'), 'transferReceipts' => url('/reconciliation/transfer-receipts')],
         ]);
+    }
+
+    /** @param array<string, mixed> $package @return array<string, mixed> */
+    private function presentPackage(array $package, User $actor, bool $frozen): array
+    {
+        $boxIds = collect([...($package['boxes'] ?? []), ...($package['carriedIn'] ?? []), ...($package['carriedOut']['boxes'] ?? [])])->pluck('id')->unique();
+        $liveBoxes = $frozen ? collect() : CashBox::query()->whereIn('id', $boxIds)->with('user.permissions')->get()->keyBy('id');
+        $presentEntry = fn (array $entry): array => [...$entry, 'statement_url' => isset($entry['transaction']['subscription_id']) ? route('subscriptions.statement', $entry['transaction']['subscription_id']) : null];
+        $presentBox = function (array $box) use ($actor, $frozen, $liveBoxes, $presentEntry): array {
+            $live = $liveBoxes->get($box['id']);
+            $box['isOwn'] = ($box['user_id'] ?? null) === $actor->id;
+            $box['canCount'] = ! $frozen && $live && $this->workflow->mayReceive($live, $actor);
+            $box['collectorCounted'] = $live ? ! $this->workflow->awaitsCollector($live) : ($box['collector_submitted_at'] ?? null) !== null;
+            $box['frozen'] = $frozen;
+            $box['payments'] = array_map($presentEntry, $box['payments'] ?? []);
+            unset($box['user']['permissions']);
+            if (($box['type'] ?? 'cash') === 'cash' && empty($box['head_counts']) && empty($box['received_at']) && ! $box['isOwn']) {
+                $box['collector_counts'] = null;
+                $box['expected_counts'] = null;
+                $box['payments'] = array_map(fn (array $entry): array => [...$entry, 'amount' => null], $box['payments']);
+            }
+
+            return $box;
+        };
+        $package['boxes'] = array_map($presentBox, $package['boxes'] ?? []);
+        $package['carriedIn'] = array_map($presentBox, $package['carriedIn'] ?? []);
+        $package['carriedOut'] = ['boxes' => array_map($presentBox, $package['carriedOut']['boxes'] ?? []), 'entries' => array_map($presentEntry, $package['carriedOut']['entries'] ?? [])];
+        foreach (['electronic', 'clearings'] as $key) {
+            $package[$key] = array_map($presentEntry, $package[$key] ?? []);
+        }
+
+        return $package;
     }
 
     public function action(BranchClosingActionRequest $request, string $action, ?int $record = null): RedirectResponse

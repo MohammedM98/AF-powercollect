@@ -45,7 +45,7 @@ class BranchClosingActionRequest extends FormRequest
         }
         if ($action === 'settings') {
             $staff = Rule::exists('users', 'id')->where('branch_id', $this->integer('branch_id'))->where('is_active', true);
-            $rules += ['settings' => ['required', 'array:frequency,arrangement,week_starts_on,cutoff_time'], 'settings.frequency' => ['required', 'in:weekly,daily'], 'settings.arrangement' => ['required', 'in:combined,separate'], 'settings.week_starts_on' => ['required', 'integer', 'between:0,6'], 'settings.cutoff_time' => ['required', 'date_format:H:i'], 'receivers' => ['present', 'array'], 'receivers.*' => ['integer', $staff], 'approvers' => ['present', 'array'], 'approvers.*' => ['integer', $staff]];
+            $rules += ['settings' => ['required', 'array:week_starts_on,cutoff_time'], 'settings.week_starts_on' => ['required', 'integer', 'between:0,6'], 'settings.cutoff_time' => ['required', 'date_format:H:i'], 'receivers' => ['present', 'array'], 'receivers.*' => ['integer', $staff], 'approvers' => ['present', 'array'], 'approvers.*' => ['integer', $staff]];
         }
         if (in_array($action, ['transfer', 'repay'], true)) {
             $rules += ['amount' => ['required', 'numeric', 'min:0.01', 'max:9999999999']];

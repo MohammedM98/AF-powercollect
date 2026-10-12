@@ -47,18 +47,20 @@ class CampTwoDemoDataSeederTest extends TestCase
 
         $this->assertDatabaseCount('subscriptions', 6);
         $this->assertDatabaseCount('subscription_transactions', 15);
-        $this->assertDatabaseCount('cash_boxes', 4);
+        $this->assertDatabaseCount('cash_boxes', 5);
         $this->assertDatabaseCount('cash_box_payments', 9);
         $this->assertDatabaseHas('subscriptions', ['branch_id' => $branch->id, 'status' => 'active', 'notes' => CampTwoDemoDataSeeder::MARKER]);
         $this->assertDatabaseHas('subscriptions', ['branch_id' => $branch->id, 'status' => 'suspended', 'activated_at' => null]);
         $this->assertDatabaseHas('subscriptions', ['branch_id' => $branch->id, 'status' => 'disconnected']);
         $boxes = CashBox::query()->where('user_id', $collector->id)->orderBy('id')->get();
-        $this->assertSame(['received', 'received', 'pending', 'open'], $boxes->pluck('status')->all());
+        $this->assertSame(['received', 'received', 'pending', 'open', 'open'], $boxes->pluck('status')->all());
+        $this->assertSame(['cash', 'cash', 'cash', 'cash', 'bank_transfer'], $boxes->pluck('type')->map->value->all());
         $this->assertNotNull($boxes[0]->confirmed_at);
         $this->assertNull($boxes[1]->confirmed_at);
         $this->assertSame(['ILS' => '150.00', 'USD' => '20.00', 'JOD' => '5.00'], $boxes[0]->expected_counts);
         $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
-            ->has('cashBox.boxes', 3)->has('history.data', 1)->where('history.data.0.id', $boxes[0]->id));
+            ->has('cashBox.boxes', 4)->has('boxes.data', 5)->has('needsAction', 1)->where('needsAction.0.id', $boxes[1]->id)
+            ->where('current.cash.id', $boxes[3]->id)->where('current.bank_transfer.id', $boxes[4]->id)->where('current.clearing', null));
         $this->get(route('payments.index'))->assertInertia(fn (AssertableInertia $page) => $page->has('subscriptions.data', 6)->where('today.count', 9));
     }
 
@@ -72,7 +74,7 @@ class CampTwoDemoDataSeederTest extends TestCase
         $this->seed(CampTwoDemoDataSeeder::class);
 
         $this->assertDatabaseCount('subscriptions', 7);
-        $this->assertDatabaseCount('cash_boxes', 4);
+        $this->assertDatabaseCount('cash_boxes', 5);
         $this->assertSame($firstIds, SubscriptionTransaction::query()->pluck('id')->all());
         $this->assertDatabaseHas('subscriptions', ['id' => $other->id, 'branch_id' => $other->branch_id, 'status' => $other->status->value, 'notes' => 'Existing subscription']);
     }

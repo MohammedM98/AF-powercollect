@@ -230,6 +230,7 @@ class CollectorBoxTypesTest extends TestCase
     {
         [$branch] = $this->start();
         $collector = User::factory()->dataEntry()->for($branch)->withPermissions([PermissionKey::RecordCollections])->create();
+        MobileAccessToken::issue($collector);
         $entry = $this->entry($branch, $collector, CashBoxType::Cash);
 
         $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.cash.id', $entry->cash_box_id)->where('current.bank_transfer', null)->where('current.clearing', null));
@@ -399,5 +400,59 @@ class CollectorBoxTypesTest extends TestCase
 
         $this->assertDatabaseHas('subscription_transactions', ['id' => $entry->subscription_transaction_id, 'status' => SubscriptionTransaction::STATUS_ACTIVE]);
         $this->assertTrue($entry->transaction->fresh()->isInClosedDay());
+    }
+
+    public function test_branch_receives_a_departed_collectors_boxes_without_their_submission(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $cash = $this->entry($branch, $collector, CashBoxType::Cash);
+        $transfer = $this->entry($branch, $collector, CashBoxType::BankTransfer);
+        $collector->update(['is_active' => false]);
+        app(BranchClosingWorkflow::class)->refresh($branch->id);
+
+        $this->assertDatabaseHas('cash_boxes', ['id' => $cash->cash_box_id, 'status' => 'pending', 'close_reason' => 'departure', 'collector_submitted_at' => null]);
+        $this->action($head, $branch, 'head-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $cash->cash_box_id, ['recounted' => false, 'decisions' => []])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'electronic', $transfer->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $transfer->cash_box_id)->assertSessionHasNoErrors();
+
+        $this->assertNotNull($cash->box->fresh()->confirmed_at);
+        $this->assertSame('received', $transfer->box->fresh()->status);
+        $this->travelTo($cash->box->closing->coverage_until);
+        $this->assertNotContains('يوجد صندوق لم يُستلم أو لم يؤكّد صاحبه التسليم.', app(BranchClosingWorkflow::class)->blockers($cash->box->closing));
+    }
+
+    public function test_collector_who_lost_the_permission_does_not_hold_up_their_closed_box(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $clearing = $this->entry($branch, $collector, CashBoxType::Clearing);
+        $cash = $this->entry($branch, $collector, CashBoxType::Cash);
+        $this->travelTo($cash->box->closing->coverage_until);
+        $this->artisan('closings:process')->assertSuccessful();
+        $this->action($head, $branch, 'head-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertSessionHasErrors('action');
+        $collector->permissions()->detach();
+
+        $this->action($collector, $branch, 'collector-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertForbidden();
+        $this->action($head, $branch, 'head-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $cash->cash_box_id, ['recounted' => false, 'decisions' => []])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'electronic', $clearing->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $clearing->cash_box_id)->assertSessionHasNoErrors();
+
+        $this->assertNotNull($cash->box->fresh()->confirmed_at);
+        $this->assertSame('completed', $clearing->box->fresh()->stage());
+    }
+
+    public function test_snapshot_keeps_the_clearing_service_and_lists_only_field_app_users_as_unsynced(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $counterStaff = User::factory()->dataEntry()->for($branch)->withPermissions([PermissionKey::RecordCollections])->create();
+        $fieldStaff = User::factory()->dataEntry()->for($branch)->withPermissions([PermissionKey::RecordCollections])->create();
+        MobileAccessToken::issue($fieldStaff);
+        $clearing = $this->entry($branch, $collector, CashBoxType::Clearing);
+
+        $snapshot = app(BranchClosingWorkflow::class)->snapshot($clearing->box->closing);
+
+        $this->assertSame('صيانة مولد', $snapshot['clearings'][0]['transaction']['notes']);
+        $this->assertEqualsCanonicalizing([$collector->id, $fieldStaff->id], array_column($snapshot['unsyncedCollectors'], 'id'));
     }
 }

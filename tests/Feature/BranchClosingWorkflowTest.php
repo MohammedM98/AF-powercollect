@@ -524,14 +524,14 @@ class BranchClosingWorkflowTest extends TestCase
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
         $this->travelTo($closing->coverage_until);
         $this->artisan('closings:process')->assertSuccessful();
-        $this->assertSame([$head->id, $collector->id], array_column(app(BranchClosingWorkflow::class)->reviewSummary($closing)['unsyncedCollectors'], 'id'));
+        $this->assertSame([$collector->id], array_column(app(BranchClosingWorkflow::class)->reviewSummary($closing)['unsyncedCollectors'], 'id'));
         $token = MobileAccessToken::issue($collector);
         $this->withToken($token)->postJson(route('mobile.cash-boxes.sync'), ['pending_payments' => 0, 'user_id' => $head->id])->assertOk();
         $this->assertDatabaseHas('cash_box_syncs', ['user_id' => $collector->id, 'branch_id' => $branch->id, 'pending_payments' => 0]);
-        $this->assertSame([$head->id], array_column(app(BranchClosingWorkflow::class)->reviewSummary($closing)['unsyncedCollectors'], 'id'));
+        $this->assertSame([], app(BranchClosingWorkflow::class)->reviewSummary($closing)['unsyncedCollectors']);
         $this->withToken($token)->postJson(route('mobile.cash-boxes.sync'), ['pending_payments' => 2])->assertOk();
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
-        $this->assertSame([$head->id, $collector->id], array_column($closing->fresh()->submitted_snapshot['unsyncedCollectors'], 'id'));
+        $this->assertSame([$collector->id], array_column($closing->fresh()->submitted_snapshot['unsyncedCollectors'], 'id'));
     }
 }

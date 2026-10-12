@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\CashBoxType;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Models\Branch;
@@ -87,7 +88,7 @@ class CampTwoDemoDataSeeder extends Seeder
             ]);
         });
 
-        $this->command?->info('Six demo subscribers and four collector cash boxes are ready in مخيم 2.');
+        $this->command?->info('Six demo subscribers and five collector boxes (four cash, one bank transfer) are ready in مخيم 2.');
     }
 
     private function payment(Subscription $subscription, User $collector, string $amount, string $currency = 'ILS'): void
@@ -101,7 +102,7 @@ class CampTwoDemoDataSeeder extends Seeder
     /** @param array{ILS: string, USD: string, JOD: string} $counts */
     private function closeDemoBox(BranchClosingWorkflow $workflow, Branch $branch, User $collector, User $head, array $counts, bool $receive, bool $confirm): void
     {
-        $box = CashBox::query()->where('branch_id', $branch->id)->where('user_id', $collector->id)->where('status', 'open')->sole();
+        $box = CashBox::query()->where('branch_id', $branch->id)->where('user_id', $collector->id)->where('type', CashBoxType::Cash)->where('status', 'open')->sole();
         $workflow->closeByCollector($box, $collector, ['counts' => $counts, 'reason' => 'عدّ تجريبي مطابق لدفعات الصندوق']);
         if ($receive) {
             $workflow->countHead($box, $head, ['counts' => $counts]);

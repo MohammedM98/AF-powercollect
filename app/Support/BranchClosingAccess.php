@@ -19,7 +19,7 @@ class BranchClosingAccess
 
     public static function receive(User $user, int $branchId): bool
     {
-        return self::manage($user, $branchId) || ($user->is_active && $user->branch_id === $branchId && in_array($user->id, ClosingSetting::forBranch($branchId)->receivers ?? [], true));
+        return self::approve($user, $branchId) || ($user->is_active && $user->branch_id === $branchId && in_array($user->id, ClosingSetting::forBranch($branchId)->receivers ?? [], true));
     }
 
     public static function approve(User $user, int $branchId): bool

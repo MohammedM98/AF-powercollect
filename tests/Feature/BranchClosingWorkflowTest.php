@@ -101,7 +101,7 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertSame(2, $box->payments()->count());
     }
 
-    public function test_empty_boxes_and_self_receipt_are_rejected(): void
+    public function test_empty_boxes_are_rejected_and_branch_admin_can_count_own_box(): void
     {
         [$branch, $head] = $this->start();
         $this->payment($branch, $head);
@@ -110,10 +110,10 @@ class BranchClosingWorkflowTest extends TestCase
         $empty = CashBox::query()->where('status', 'open')->sole();
 
         $this->action($head, $branch, 'close', $empty->id, ['counts' => $this->counts('0')])->assertSessionHasErrors('action');
-        $this->action($head, $branch, 'head-count', $box->id, ['counts' => $this->counts()])->assertSessionHasErrors('action');
+        $this->action($head, $branch, 'head-count', $box->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
 
         $this->assertSame('pending', $box->fresh()->status);
-        $this->assertNull($box->fresh()->head_counts);
+        $this->assertSame($this->counts(), $box->fresh()->head_counts);
     }
 
     public function test_cross_branch_requests_cannot_change_sessions(): void
@@ -217,7 +217,7 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertSame('submitted', $closing->fresh()->status->value);
     }
 
-    public function test_early_closing_creates_contiguous_remainder_to_original_cutoff(): void
+    public function test_early_closing_joins_the_remaining_days_to_the_next_week(): void
     {
         [$branch, $head, $collector] = $this->start();
         $this->payment($branch, $collector);
@@ -230,7 +230,8 @@ class BranchClosingWorkflowTest extends TestCase
         $next = app(BranchClosingWorkflow::class)->current($branch->id);
         $this->assertTrue($closing->fresh()->is_manual);
         $this->assertTrue($next->coverage_from->equalTo($closing->fresh()->coverage_until));
-        $this->assertTrue($next->coverage_until->equalTo($originalEnd));
+        $this->assertTrue($next->coverage_until->equalTo($originalEnd->addWeek()));
+        $this->assertArrayNotHasKey('continuation', $next->workflow_settings);
         $this->assertSame('pending', CashBox::query()->sole()->status);
     }
 
@@ -239,7 +240,7 @@ class BranchClosingWorkflowTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
         $originalEnd = $closing->coverage_until;
-        $nextSettings = ['frequency' => 'weekly', 'arrangement' => 'separate', 'week_starts_on' => 2, 'cutoff_time' => '18:00'];
+        $nextSettings = ['week_starts_on' => 2, 'cutoff_time' => '18:00'];
 
         $this->action($head, $branch, 'settings', 0, ['settings' => $nextSettings, 'receivers' => [$collector->id], 'approvers' => []])->assertSessionHasNoErrors();
 
@@ -250,9 +251,9 @@ class BranchClosingWorkflowTest extends TestCase
         $this->artisan('closings:process')->assertSuccessful();
         $next = app(BranchClosingWorkflow::class)->current($branch->id);
         $this->assertTrue($next->coverage_from->equalTo($originalEnd));
-        $this->assertSame('cash', $next->book);
-        $this->assertSame(2, Closing::query()->where('coverage_from', $originalEnd)->count());
-        $this->assertSame('separate', ClosingSetting::ownFor($branch)->arrangement);
+        $this->assertSame('combined', $next->book);
+        $this->assertSame(1, Closing::query()->where('coverage_from', $originalEnd)->count());
+        $this->assertSame('combined', ClosingSetting::ownFor($branch)->arrangement);
     }
 
     public function test_late_payment_after_submission_enters_open_week(): void
@@ -290,7 +291,7 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertSame($snapshot, $closing->fresh()->submitted_snapshot);
     }
 
-    public function test_collector_confirmation_is_required_after_receipt(): void
+    public function test_collector_confirmation_is_a_warning_after_receipt(): void
     {
         [$branch, $head, $collector] = $this->start();
         $this->payment($branch, $collector);
@@ -302,9 +303,10 @@ class BranchClosingWorkflowTest extends TestCase
         $this->travelTo($closing->coverage_until);
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts()]);
 
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasErrors('action');
+        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
-        $this->assertNull($closing->fresh()->submitted_at);
+        $this->assertNotNull($closing->fresh()->submitted_at);
+        $this->assertContains('1 صندوق استُلم ولم يؤكّد صاحبه التسليم بعد.', $closing->fresh()->submitted_snapshot['warnings']);
     }
 
     public function test_late_payment_before_submission_creates_pending_box_in_ended_period(): void

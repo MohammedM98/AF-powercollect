@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['number', 'branch_id', 'user_id', 'kind', 'type', 'open_key', 'closing_id', 'status', 'opened_at', 'closed_at', 'collector_submitted_at', 'close_reason', 'collector_counts', 'head_counts', 'expected_counts', 'decisions', 'reason', 'received_by', 'received_at', 'confirmed_at'])]
+#[Fillable(['number', 'branch_id', 'user_id', 'kind', 'type', 'open_key', 'closing_id', 'status', 'opened_at', 'closed_at', 'collector_submitted_at', 'close_reason', 'collector_counts', 'head_counts', 'expected_counts', 'decisions', 'reason', 'received_by', 'received_at', 'received_in_closing_id', 'confirmed_at'])]
 class CashBox extends Model
 {
     /** @use HasFactory<CashBoxFactory> */
@@ -57,5 +57,10 @@ class CashBox extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(CashBoxPayment::class);
+    }
+
+    public function receivedIn(): BelongsTo
+    {
+        return $this->belongsTo(Closing::class, 'received_in_closing_id');
     }
 }

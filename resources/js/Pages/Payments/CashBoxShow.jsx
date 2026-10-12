@@ -34,7 +34,8 @@ export default function CashBoxShow({ box, entries, collectionUrls, needsActionC
     const cash = box.type === 'cash';
     const action = boxAction(box);
     const printing = isPrintMode();
-    const timeline = [['فُتح', box.openedAt, 'unlock'], ['أُغلق', box.closedAt, 'lock'], [cash ? 'عدّه الفرع واستلمه' : 'استلمه الفرع', box.receivedAt, 'office'], ...(cash ? [['تأكيد التسليم', box.confirmedAt, 'check']] : [])];
+    // A cash box the branch counted under the old two-step receipt still waits on the collector's confirmation.
+    const timeline = [['فُتح', box.openedAt, 'unlock'], ['أُغلق', box.closedAt, 'lock'], ['أكّد الفرع الإغلاق', box.receivedAt, 'office'], ...(box.stage === 'awaiting_confirmation' ? [['تأكيد التسليم', box.confirmedAt, 'check']] : [])];
 
     return <AuthenticatedLayout header={<div className="flex items-center gap-3"><BoxTypeIcon type={box.type} className="h-12 w-12" /><div><h2 className="text-2xl font-bold text-gray-900">{boxTypes[box.type]}</h2><p className="mt-1 text-sm text-gray-500">صندوق رقم <bdi dir="ltr" className="font-display">{box.number}</bdi></p></div></div>}>
         <Head title={`${boxTypes[box.type]} ${box.number}`} />
@@ -51,7 +52,7 @@ export default function CashBoxShow({ box, entries, collectionUrls, needsActionC
                         {action && <PrimaryButton onClick={() => setShowAction(true)}>{actionLabel(box)}</PrimaryButton>}
                     </div>
                 </div>
-                <ol className="grid gap-3 sm:grid-cols-2 md:grid-cols-4" aria-label="مراحل الصندوق">
+                <ol className={`grid gap-3 sm:grid-cols-2 ${timeline.length > 3 ? 'md:grid-cols-4' : 'md:grid-cols-3'}`} aria-label="مراحل الصندوق">
                     {timeline.map(([label, time, icon]) => (
                         <li key={label} className={`flex items-center gap-3 rounded-control border p-3 ${time ? 'border-emerald-500/25 bg-emerald-500/5' : 'border-gray-100 bg-gray-50'}`}>
                             <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${time ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-gray-100 text-gray-400'}`}><Icon name={icon} className="h-4 w-4" /></span>
@@ -67,9 +68,9 @@ export default function CashBoxShow({ box, entries, collectionUrls, needsActionC
             </section>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiTile icon="wallet" label="إجمالي الصندوق" value={formatMoney(box.totals?.ILS ?? 0)} unit="شيكل" hint={otherCurrencies(box.totals)} />
-                <KpiTile icon="check" label="المبلغ المستلم" value={box.receivedAt ? formatMoney(box.receivedAmounts?.ILS ?? 0) : '—'} unit={box.receivedAt ? 'شيكل' : undefined} hint={box.receivedAt ? otherCurrencies(box.receivedAmounts) : 'لم يستلمه الفرع بعد'} />
+                <KpiTile icon="check" label="المبلغ المستلم" value={box.receivedAt ? formatMoney(box.receivedAmounts?.ILS ?? 0) : '—'} unit={box.receivedAt ? 'شيكل' : undefined} hint={box.receivedAt ? otherCurrencies(box.receivedAmounts) : 'لم يؤكد الفرع إغلاقه بعد'} />
                 <KpiTile icon="list" label="الحركات" value={box.paymentCount.toLocaleString('en')} hint={box.rejectedCount > 0 ? `${box.rejectedCount} مرفوضة` : undefined} />
-                <KpiTile icon="lock" label="أغلقه" value={<span className="text-xl">{box.closedBy ?? 'لا يزال مفتوحًا'}</span>} hint={box.status === 'open' ? 'يغلقه الفرع عند الاستلام أو عند القطع الأسبوعي' : `أُغلق إلى ${destinations[box.type]}`} />
+                <KpiTile icon="lock" label="أغلقه" value={<span className="text-xl">{box.closedBy ?? 'لا يزال مفتوحًا'}</span>} hint={box.status === 'open' ? 'يؤكد الفرع إغلاقه بعد مراجعته، أو يُغلق عند القطع الأسبوعي' : `أُغلق إلى ${destinations[box.type]}`} />
             </div>
             <section className="space-y-4">
                 <h3 className="text-lg font-bold text-gray-900">حركات الصندوق</h3>

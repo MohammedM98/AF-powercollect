@@ -52,13 +52,6 @@ class BranchClosingController extends Controller
         $boxRows = $boxes->map(function (CashBox $box) use ($actor): array {
             $box->user?->makeHidden('permissions');
             $row = $box->toArray();
-            $row['expected_counts'] = ($box->head_counts && $box->received_by === $actor->id) || $box->received_at || ($box->collector_counts && $box->user_id === $actor->id) ? $box->expected_counts : null;
-            if (! $box->head_counts && ! $box->received_at && $box->user_id !== $actor->id) {
-                $row['collector_counts'] = null;
-                if ($box->type->isCounted()) {
-                    $row['payments'] = array_map(fn (array $entry): array => [...$entry, 'amount' => null], $row['payments']);
-                }
-            }
             $row['canCount'] = $this->workflow->mayReceive($box, $actor);
             $row['isOwn'] = $box->user_id === $actor->id;
             $row['stage'] = $box->stage();
@@ -109,11 +102,6 @@ class BranchClosingController extends Controller
             $box['frozen'] = $frozen;
             $box['payments'] = array_map($presentEntry, $box['payments'] ?? []);
             unset($box['user']['permissions']);
-            if (($box['type'] ?? 'cash') === 'cash' && empty($box['head_counts']) && empty($box['received_at']) && ! $box['isOwn']) {
-                $box['collector_counts'] = null;
-                $box['expected_counts'] = null;
-                $box['payments'] = array_map(fn (array $entry): array => [...$entry, 'amount' => null], $box['payments']);
-            }
 
             return $box;
         };
@@ -135,7 +123,7 @@ class BranchClosingController extends Controller
         $data = $request->validated();
         $allowed = match ($action) {
             'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
-            'head-count', 'receive', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
+            'receive', 'return-entry', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
             'submit', 'withdraw', 'safe-count', 'early', 'reply', 'transfer' => BranchClosingAccess::approve($actor, $branchId),
             'start', 'settings', 'direct' => BranchClosingAccess::manage($actor, $branchId),
             default => false,
@@ -149,13 +137,15 @@ class BranchClosingController extends Controller
             }
             $this->workflow->refresh($branchId);
             abort_unless(ClosingSetting::ownFor($branchId)?->workflow_started_at, 404);
-            if (in_array($action, ['head-count', 'receive', 'confirm'], true)) {
+            if (in_array($action, ['receive', 'confirm'], true)) {
                 $box = CashBox::query()->where('branch_id', $branchId)->findOrFail($record);
                 match ($action) {
-                    'head-count' => $this->workflow->countHead($box, $actor, $data),
-                    'receive' => $this->workflow->receive($box, $actor, $data),
+                    'receive' => $this->workflow->receive($box, $actor),
                     'confirm' => $this->workflow->confirmBox($box, $actor),
                 };
+            } elseif ($action === 'return-entry') {
+                $payment = CashBoxPayment::query()->whereHas('box', fn ($query) => $query->where('branch_id', $branchId))->findOrFail($record);
+                $this->workflow->returnEntry($payment, $actor, $data['note']);
             } elseif ($action === 'electronic') {
                 $payment = CashBoxPayment::query()->whereHas('box', fn ($query) => $query->where('branch_id', $branchId))->findOrFail($record);
                 $this->workflow->reviewEntry($payment, $actor, $data['status']);

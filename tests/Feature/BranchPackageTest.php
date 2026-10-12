@@ -61,8 +61,7 @@ class BranchPackageTest extends TestCase
 
     private function receiveCash(Branch $branch, User $head, User $collector, CashBox $box): void
     {
-        $this->action($head, $branch, 'head-count', $box->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'receive', $box->id, ['recounted' => true, 'decisions' => []])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $box->id)->assertSessionHasNoErrors();
     }
 
     public function test_unreceived_box_does_not_block_and_is_carried_to_next_package(): void
@@ -145,7 +144,7 @@ class BranchPackageTest extends TestCase
         ClosingSetting::ownFor($branch)->update(['receivers' => $role === 'receiver' ? [$actor->id] : [], 'approvers' => $role === 'approver' ? [$actor->id] : []]);
         $entry = $this->entry($branch, $actor);
 
-        $response = $this->action($actor, $branch, 'head-count', $entry->cash_box_id, ['counts' => $this->counts()]);
+        $response = $this->action($actor, $branch, 'receive', $entry->cash_box_id);
 
         if (! $allowed) {
             $response->assertSessionHasErrors('action');
@@ -154,7 +153,6 @@ class BranchPackageTest extends TestCase
             return;
         }
         $response->assertSessionHasNoErrors();
-        $this->action($actor, $branch, 'receive', $entry->cash_box_id, ['recounted' => true, 'decisions' => []])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'received_in_closing_id' => $closing->id, 'confirmed_at' => now()]);
     }
 
@@ -218,7 +216,7 @@ class BranchPackageTest extends TestCase
         $this->travelTo($closing->coverage_until);
         $url = route('closings.index', ['closing_id' => $closing->id]);
         $this->actingAs($head)->get($url)->assertInertia(fn (AssertableInertia $page) => $page->component('Closings/Index')
-            ->where('package.version', 2)->where('package.boxes.0.payments.0.amount', null)->where('package.boxes.0.expected_counts', null)
+            ->where('package.version', 2)->where('package.boxes.0.payments.0.amount', '100.00')->where('package.boxes.0.expected_counts.ILS', '100.00')
             ->where('package.boxes.0.payments.0.statement_url', route('subscriptions.statement', $entry->transaction->subscription))
             ->has('warnings', 1)->where('holdsCash', false));
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();

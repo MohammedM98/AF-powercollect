@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Icon from './ClosingIcon';
 import { Link } from '@inertiajs/react';
 import { formatMoney } from '@/lib/format';
@@ -66,15 +67,36 @@ export function VersionDifferences({ version, previous }) {
     </div>;
 }
 
+/** What the branch sent back to the collector about an entry, and their answer once given. */
+function ReturnedEntry({ entry }) {
+    return <div className="mt-1 max-w-xs space-y-1 text-xs leading-5"><StatusPill tone={entry.replied_at ? 'blue' : 'amber'}>{entry.replied_at ? 'ردّ المحصّل' : 'عند المحصّل'}</StatusPill><p className="text-gray-600">{entry.returned_by?.name ? `${entry.returned_by.name}: ` : ''}{entry.return_note}</p>{entry.collector_reply && <p className="text-gray-900">ردّه: {entry.collector_reply}</p>}</div>;
+}
+
+/**
+ * A box's entries for the branch to review before confirming its close:
+ * marking transfers and clearings, and sending any entry back to its
+ * collector with what to check (`return-entry`), until the box is confirmed.
+ */
 export function BoxTransactions({ box, canReview, access, perform }) {
+    const [returning, setReturning] = useState(null);
+    const [note, setNote] = useState('');
     const cash = (box.type ?? 'cash') === 'cash';
     const clearing = box.type === 'clearing';
-    const hidden = cash && !box.head_counts && !box.isOwn && box.status !== 'received';
+    const canReturn = canReview && !box.frozen && ['open', 'pending'].includes(box.status) && box.kind !== 'direct' && box.user_id;
     const columns = ['#', 'التاريخ والوقت', 'المشترك', 'رقم الحساب', ...(cash ? ['رقم السند', 'العملة'] : clearing ? ['الخدمة المقدّمة'] : ['البنك المستلم', 'البنك المرسل', 'رقم الحوالة']), 'المبلغ', 'الحالة', ''];
-    return <div className="max-h-96 overflow-auto"><table className="dt w-full"><thead><tr>{columns.map((label, index) => <th key={index} className="whitespace-nowrap text-start">{label}</th>)}</tr></thead><tbody>{(box.payments ?? []).map((entry, index) => {
+    function sendBack(entry) {
+        perform('return-entry', entry, { note });
+        setReturning(null);
+        setNote('');
+    }
+    const returnedEntry = (box.payments ?? []).find((entry) => entry.id === returning);
+    return <div className="space-y-3"><div className="max-h-96 overflow-auto"><table className="dt w-full"><thead><tr>{columns.map((label, index) => <th key={index} className="whitespace-nowrap text-start">{label}</th>)}</tr></thead><tbody>{(box.payments ?? []).map((entry, index) => {
         const active = !entry.transaction || entry.transaction.status === 'active';
         const rejected = ['missing', 'rejected'].includes(entry.status);
         const name = entry.transaction?.subscription?.subscription_name || entry.transaction?.subscription?.full_name || '—';
-        return <tr key={entry.id} className={active ? '' : 'opacity-50'}><td className="num">{index + 1}</td><td className="whitespace-nowrap">{dateTime(entry.occurred_at)}{entry.is_late && <StatusPill tone="amber">متأخرة</StatusPill>}</td><td>{entry.statement_url ? <Link href={entry.statement_url} prefetch className="lnk">{name}</Link> : name}</td><td dir="ltr" className="num">{entry.transaction?.subscription?.account_number ?? '—'}</td>{cash ? <><td dir="ltr" className="num">{entry.transaction?.manual_voucher_number ?? entry.transaction?.voucher_number ?? '—'}</td><td>{currencies[entry.currency]}</td></> : clearing ? <td>{entry.transaction?.notes ?? '—'}</td> : <><td>{entry.transaction?.bank_name ?? '—'}</td><td>{entry.transaction?.sender_bank_name ?? '—'}</td><td dir="ltr" className="num">{entry.transaction?.reference_number ?? '—'}</td></>}<td className="whitespace-nowrap">{hidden ? 'يظهر بعد العدّ' : <Money amount={entry.amount} currency={entry.currency} />}</td><td><StatusPill tone={!active ? undefined : cash || entry.status === 'confirmed' ? 'green' : rejected ? 'red' : 'amber'}>{!active ? 'ملغاة' : cash ? 'سارية' : entry.status === 'confirmed' ? clearing ? 'مقبولة' : 'مؤكدة' : rejected ? clearing ? 'مرفوضة' : 'غير موجودة في البنك' : 'بانتظار المراجعة'}</StatusPill></td><td><div className="flex flex-wrap gap-2">{active && !cash && canReview && entry.status !== 'confirmed' && <><button className="lnk" onClick={() => perform('electronic', entry, { status: 'confirmed' })}>{clearing ? 'قبول' : 'تأكيد'}</button><button className="text-red-700" onClick={() => perform('electronic', entry, { status: clearing ? 'rejected' : 'missing' })}>{clearing ? 'رفض' : 'غير موجودة'}</button></>}{active && !box.frozen && access.manage && box.kind !== 'direct' && box.status === 'open' && !cash && !clearing && entry.status === 'pending' && <button className="lnk" onClick={() => perform('direct', entry)}>نقل للدفعات المباشرة</button>}</div></td></tr>;
-    })}</tbody></table></div>;
+        const waiting = entry.returned_at && !entry.replied_at;
+        return <tr key={entry.id} className={active ? '' : 'opacity-50'}><td className="num">{index + 1}</td><td className="whitespace-nowrap">{dateTime(entry.occurred_at)}{entry.is_late && <StatusPill tone="amber">متأخرة</StatusPill>}</td><td>{entry.statement_url ? <Link href={entry.statement_url} prefetch className="lnk">{name}</Link> : name}</td><td dir="ltr" className="num">{entry.transaction?.subscription?.account_number ?? '—'}</td>{cash ? <><td dir="ltr" className="num">{entry.transaction?.manual_voucher_number ?? entry.transaction?.voucher_number ?? '—'}</td><td>{currencies[entry.currency]}</td></> : clearing ? <td>{entry.transaction?.notes ?? '—'}</td> : <><td>{entry.transaction?.bank_name ?? '—'}</td><td>{entry.transaction?.sender_bank_name ?? '—'}</td><td dir="ltr" className="num">{entry.transaction?.reference_number ?? '—'}</td></>}<td className="whitespace-nowrap"><Money amount={entry.amount} currency={entry.currency} /></td><td><StatusPill tone={!active ? undefined : cash || entry.status === 'confirmed' ? 'green' : rejected ? 'red' : 'amber'}>{!active ? 'ملغاة' : cash ? 'سارية' : entry.status === 'confirmed' ? clearing ? 'مقبولة' : 'مؤكدة' : rejected ? clearing ? 'مرفوضة' : 'غير موجودة في البنك' : 'بانتظار المراجعة'}</StatusPill>{entry.returned_at && active && <ReturnedEntry entry={entry} />}</td><td><div className="flex flex-wrap gap-2">{active && !cash && canReview && entry.status !== 'confirmed' && <><button className="lnk" onClick={() => perform('electronic', entry, { status: 'confirmed' })}>{clearing ? 'قبول' : 'تأكيد'}</button><button className="text-red-700" onClick={() => perform('electronic', entry, { status: clearing ? 'rejected' : 'missing' })}>{clearing ? 'رفض' : 'غير موجودة'}</button></>}{active && canReturn && !waiting && <button className="text-amber-700" onClick={() => { setReturning(entry.id); setNote(''); }}>{entry.returned_at ? 'إرجاع مرة أخرى' : 'إرجاع للمحصّل'}</button>}{active && !box.frozen && access.manage && box.kind !== 'direct' && box.status === 'open' && !cash && !clearing && entry.status === 'pending' && <button className="lnk" onClick={() => perform('direct', entry)}>نقل للدفعات المباشرة</button>}</div></td></tr>;
+    })}</tbody></table></div>
+        {returnedEntry && <form className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4" onSubmit={(event) => { event.preventDefault(); sendBack(returnedEntry); }}><label className="block text-sm font-semibold text-gray-900" htmlFor={`return-${returnedEntry.id}`}>إرجاع حركة {returnedEntry.transaction?.subscription?.subscription_name || returnedEntry.transaction?.subscription?.full_name} · <Money amount={returnedEntry.amount} currency={returnedEntry.currency} /> للمحصّل: ما الذي يراجعه فيها؟</label><textarea id={`return-${returnedEntry.id}`} required autoFocus maxLength={1000} rows="2" className="inp w-full" value={note} onChange={(event) => setNote(event.target.value)} /><div className="flex justify-end gap-2"><SecondaryButton className="sm" onClick={() => setReturning(null)}>إلغاء</SecondaryButton><PrimaryButton type="submit" className="sm" disabled={!note.trim()}>إرسال للمحصّل</PrimaryButton></div></form>}
+    </div>;
 }

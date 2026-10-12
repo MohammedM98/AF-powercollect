@@ -7,7 +7,6 @@ use App\Models\AuditNote;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\Closing;
-use App\Models\CollectorDebt;
 use App\Models\ClosingSetting;
 use App\Models\MobileAccessToken;
 use App\Models\Permission;

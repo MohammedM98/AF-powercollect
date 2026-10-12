@@ -1538,4 +1538,12 @@ class SubscriptionTransaction extends Model
     {
         return $this->hasOne(ClosingPayment::class, 'subscription_transaction_id');
     }
+
+    /**
+     * The payment's or clearing's place in a collector's cash box.
+     */
+    public function boxEntry(): HasOne
+    {
+        return $this->hasOne(CashBoxPayment::class, 'subscription_transaction_id');
+    }
 }

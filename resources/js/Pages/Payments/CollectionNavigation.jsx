@@ -5,7 +5,7 @@ export default function CollectionNavigation({ urls, active, pendingCount = 0 })
     const { can } = usePage().props;
     const items = [
         { key: 'payments', label: 'تسجيل الدفعات', icon: 'banknotes' },
-        { key: 'cashBoxes', label: 'صناديقي', icon: 'wallet' },
+        { key: 'cashBoxes', label: 'الصناديق المالية', icon: 'wallet' },
     ];
 
     return (

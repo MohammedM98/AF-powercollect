@@ -7,7 +7,7 @@
 export const MAIN_LINKS = [
     { href: '/dashboard', label: 'لوحة التحكم', icon: 'grid' },
     { href: '/payments', label: 'تسجيل الدفعات', icon: 'banknotes', can: 'recordPayments', exact: true },
-    { href: '/payments/cash-boxes', label: 'صناديقي', icon: 'wallet', can: 'viewOwnCashBoxes' },
+    { href: '/payments/cash-boxes', label: 'الصناديق المالية', icon: 'wallet', can: 'viewOwnCashBoxes' },
     { href: '/ledger', label: 'السجل المالي', icon: 'ledger', can: 'viewLedger' },
     { href: '/reconciliation', label: 'الإغلاق', icon: 'shield', can: 'viewBranchReconciliation' },
     { href: '/receivables', label: 'أعمار الديون', icon: 'wallet', can: 'viewDebtAging' },

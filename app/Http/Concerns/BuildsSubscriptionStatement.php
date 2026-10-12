@@ -61,6 +61,8 @@ trait BuildsSubscriptionStatement
                 'meterReading',
                 'cancelledBy',
                 'reverses.closingLine.closing',
+                'reverses.boxEntry.box:id,number,status',
+                'boxEntry.box:id,number,status',
                 'referenceTransaction.closingLine.closing',
                 'linkedReversals',
                 'corrects.linkedReversals',
@@ -343,7 +345,8 @@ trait BuildsSubscriptionStatement
             'referenceNumber' => $receipt->reference_number,
             // The bank transfer this payment is one part of, if it is.
             'splitPayment' => $transaction->splitPayment?->badge(),
-            'cashBox' => $receipt->cash_box,
+            // Once its box is closed, the payment carries that box's number; before, the box typed on it, if any.
+            'cashBox' => ($receipt->boxEntry?->box?->status !== 'open' ? $receipt->boxEntry?->box?->number : null) ?? $receipt->cash_box,
             'recordedByName' => $transaction->recordedBy?->name,
             // The weekly reading the line was billed from, which a reading and its standing discount share.
             'meterReadingId' => $transaction->meter_reading_id,

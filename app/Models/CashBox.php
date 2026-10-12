@@ -58,6 +58,11 @@ class CashBox extends Model
         return $this->hasMany(CashBoxPayment::class);
     }
 
+    public function receivedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'received_by');
+    }
+
     public function receivedIn(): BelongsTo
     {
         return $this->belongsTo(Closing::class, 'received_in_closing_id');

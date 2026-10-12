@@ -21,7 +21,9 @@ use App\Models\ClosingSettingChange;
 use App\Models\ClosingVersion;
 use App\Models\CollectorDebt;
 use App\Models\DebtRepayment;
+use App\Models\MobileAccessToken;
 use App\Models\SafeCount;
+use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Notifications\BranchClosingNotification;
@@ -301,14 +303,14 @@ class BranchClosingWorkflow
     /** @param array<string, mixed> $data */
     public function countHead(CashBox $box, User $actor, array $data): void
     {
-        $this->require($box->type->isCounted() && $box->status === 'pending' && $box->user_id !== $actor->id && ! $box->head_counts && $box->collector_submitted_at !== null && $box->collector_counts !== null, 'لا يمكنك استلام صندوقك أو إعادة عدّ صندوق مقفل؛ يلزم عدّ المحصّل أولًا.');
+        $this->require($box->type->isCounted() && $box->status === 'pending' && $box->user_id !== $actor->id && ! $box->head_counts && ! $this->awaitsCollector($box), 'لا يمكنك استلام صندوقك أو إعادة عدّ صندوق مقفل؛ يلزم عدّ المحصّل أولًا.');
         $box->update(['head_counts' => $data['counts'], 'received_by' => $actor->id]);
     }
 
     /** @param array<string, mixed> $data */
     public function receive(CashBox $box, User $actor, array $data): void
     {
-        $this->require($box->collector_submitted_at !== null, 'الصندوق لم يُرسل بعد.');
+        $this->require(! $this->awaitsCollector($box), 'الصندوق لم يُرسل بعد.');
         if (! $box->type->isCounted()) {
             $this->require($box->status === 'pending' && $box->user_id !== $actor->id, 'الصندوق لم يُرسل بعد، ولا أحد يستلم صندوقه.');
             $this->require(! $box->payments()->where('status', 'pending')->whereHas('transaction', fn ($query) => $query->where('status', SubscriptionTransaction::STATUS_ACTIVE))->exists(), 'راجع كل حركات الصندوق قبل استلامه.');
@@ -318,7 +320,7 @@ class BranchClosingWorkflow
             return;
         }
         $this->require($box->status === 'pending' && $box->user_id !== $actor->id && $box->head_counts !== null && $box->received_by === $actor->id, 'يلزم عدّ أعمى من المستلم أولًا، ولا أحد يستلم صندوقه.');
-        $this->require(! $this->hasDifference($this->differences($box->head_counts, $box->collector_counts)) || ($data['recounted'] ?? false), 'أكّد إعادة العدّ مع المحصّل لاختلاف العدّين.');
+        $this->require($box->collector_counts === null || ! $this->hasDifference($this->differences($box->head_counts, $box->collector_counts)) || ($data['recounted'] ?? false), 'أكّد إعادة العدّ مع المحصّل لاختلاف العدّين.');
         $differences = $this->differences($box->head_counts, $box->expected_counts);
         foreach ($differences as $currency => $amount) {
             if (Closing::cents($amount) === 0) {
@@ -329,8 +331,29 @@ class BranchClosingWorkflow
                 CollectorDebt::query()->create(['cash_box_id' => $box->id, 'branch_id' => $box->branch_id, 'user_id' => $box->user_id, 'currency' => $currency, 'amount' => Closing::money(-Closing::cents($amount)), 'remaining' => Closing::money(-Closing::cents($amount))]);
             }
         }
-        $box->update(['status' => 'received', 'received_at' => now(), 'decisions' => $data['decisions'] ?? [], 'reason' => $data['reason'] ?? $box->reason]);
+        $box->update(['status' => 'received', 'received_at' => now(), 'decisions' => $data['decisions'] ?? [], 'reason' => $data['reason'] ?? $box->reason, 'confirmed_at' => $this->ownerCanAct($box) ? null : now()]);
         $box->user?->notify(new BranchClosingNotification('تم استلام صندوقك؛ أكّد التسليم.', $box->number, ['counts' => $box->head_counts]));
+    }
+
+    /**
+     * Whether the box still waits on its owner to count or review it and send
+     * it to the branch. A box whose owner can no longer do that (they were
+     * deactivated, moved to another branch or lost the permission) waits on
+     * no one: the branch counts or reviews it without them.
+     */
+    public function awaitsCollector(CashBox $box): bool
+    {
+        return $box->kind !== 'direct' && $box->collector_submitted_at === null && $this->ownerCanAct($box);
+    }
+
+    /**
+     * Whether the box's owner can still act on it themselves.
+     */
+    private function ownerCanAct(CashBox $box): bool
+    {
+        $owner = $box->user;
+
+        return $owner !== null && $owner->is_active && $owner->branch_id === $box->branch_id && $owner->can('viewOwnCashBoxes', Subscription::class);
     }
 
     public function confirmBox(CashBox $box, User $actor): void
@@ -360,7 +383,7 @@ class BranchClosingWorkflow
         $allowed = $payment->method === 'clearing' ? ['confirmed', 'rejected'] : ['confirmed', 'missing'];
         $this->require($payment->method !== 'cash' && in_array($status, $allowed, true) && $payment->status !== 'confirmed', 'لا يمكن تغيير دفعة مؤكدة.');
         $this->require($payment->box->user_id !== $actor->id, 'لا يمكنك مراجعة حركات صندوقك.');
-        $this->require($payment->box->kind === 'direct' || $payment->box->collector_submitted_at !== null, 'الصندوق لم يُرسل بعد.');
+        $this->require(! $this->awaitsCollector($payment->box), 'الصندوق لم يُرسل بعد.');
         $this->require($payment->transaction->status === SubscriptionTransaction::STATUS_ACTIVE, 'الدفعة ملغاة أو مُرجعة.');
         $original = Closing::query()->where('branch_id', $payment->box->branch_id)->where('coverage_from', $payment->box->closing->coverage_from)->whereIn('book', ['combined', 'bank'])->firstOrFail();
         $closing = ! $original->submitted_snapshot && ! in_array($payment->status, ['missing', 'rejected'], true) ? $original : $this->current($payment->box->branch_id, 'bank');
@@ -531,7 +554,7 @@ class BranchClosingWorkflow
     {
         $periodIds = Closing::query()->where('branch_id', $closing->branch_id)->where('coverage_from', $closing->coverage_from)->pluck('id');
         $boxes = CashBox::query()->whereIn('closing_id', $periodIds)->with(['user:id,name', 'payments'])->get();
-        $electronic = CashBoxPayment::query()->where('method', '!=', 'cash')->where(fn ($query) => $query->whereIn('cash_box_id', $boxes->modelKeys())->orWhere('confirmed_in_closing_id', $closing->id))->with('transaction:id,reference_number,bank_name,status')->get();
+        $electronic = CashBoxPayment::query()->where('method', '!=', 'cash')->where(fn ($query) => $query->whereIn('cash_box_id', $boxes->modelKeys())->orWhere('confirmed_in_closing_id', $closing->id))->with('transaction:id,reference_number,bank_name,notes,status')->get();
         $syncs = CashBoxSync::query()->where('branch_id', $closing->branch_id)->get()->keyBy('user_id');
 
         return [
@@ -546,11 +569,12 @@ class BranchClosingWorkflow
             'adjustments' => ClosingAdjustment::query()->where('closing_id', $closing->id)->get()->toArray(),
             'safeBalanceAtSubmission' => $closing->book === 'bank' ? null : $this->balance($closing->branch_id),
             'cashLedger' => $closing->book === 'bank' ? null : $this->cashLedger($closing),
-            'unsyncedCollectors' => User::query()->where('branch_id', $closing->branch_id)->where('is_active', true)->with('permissions')->get()->filter(fn (User $user): bool => $user->hasPermission(PermissionKey::RecordCollections))->filter(function (User $collector) use ($closing, $syncs): bool {
-                $sync = $syncs->get($collector->id);
+            'unsyncedCollectors' => User::query()->where('branch_id', $closing->branch_id)->where('is_active', true)
+                ->where(fn ($query) => $query->where('role', UserRole::Collector)->orWhereIn('id', MobileAccessToken::query()->select('user_id')))->with('permissions')->get()->filter(fn (User $user): bool => $user->hasPermission(PermissionKey::RecordCollections))->filter(function (User $collector) use ($closing, $syncs): bool {
+                    $sync = $syncs->get($collector->id);
 
-                return ! $sync || $sync->pending_payments > 0 || $sync->synced_at->lessThan($closing->coverage_until);
-            })->map(fn (User $collector): array => ['id' => $collector->id, 'name' => $collector->name])->values()->all(),
+                    return ! $sync || $sync->pending_payments > 0 || $sync->synced_at->lessThan($closing->coverage_until);
+                })->map(fn (User $collector): array => ['id' => $collector->id, 'name' => $collector->name])->values()->all(),
         ];
     }
 

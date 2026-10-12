@@ -48,7 +48,7 @@ class BranchClosingController extends Controller
         $closings = Closing::query()->where('branch_id', $branchId)->whereNotNull('workflow_settings')->withCount(['auditNotes as open_notes_count' => fn ($query) => $query->where('status', '!=', 'closed')])->orderByDesc('coverage_from')->orderBy('id')->limit(60)->get();
         $boxes = CashBox::query()->where('branch_id', $branchId)
             ->where(fn ($query) => $query->whereIn('closing_id', $closings->modelKeys())->orWhere('status', '!=', 'received')->orWhereHas('payments', fn ($payments) => $payments->whereIn('status', ['pending', 'missing', 'rejected'])))
-            ->with(['user:id,name', 'payments.transaction:id,subscription_id,reference_number,bank_name,notes,status', 'payments.transaction.subscription:id,full_name,subscription_name,account_number'])->latest('id')->get();
+            ->with(['user:id,name,role,is_active,branch_id', 'payments.transaction:id,subscription_id,reference_number,bank_name,notes,status', 'payments.transaction.subscription:id,full_name,subscription_name,account_number'])->latest('id')->get();
         $boxRows = $boxes->map(function (CashBox $box) use ($actor): array {
             $row = $box->toArray();
             $row['expected_counts'] = ($box->head_counts && $box->received_by === $actor->id) || $box->received_at || ($box->collector_counts && $box->user_id === $actor->id) ? $box->expected_counts : null;
@@ -61,7 +61,7 @@ class BranchClosingController extends Controller
             $row['canCount'] = BranchClosingAccess::receive($actor, $box->branch_id) && $box->user_id !== $actor->id;
             $row['isOwn'] = $box->user_id === $actor->id;
             $row['stage'] = $box->stage();
-            $row['collectorCounted'] = $box->collector_submitted_at !== null;
+            $row['collectorCounted'] = ! $this->workflow->awaitsCollector($box);
             $row['payments'] = array_map(fn (array $entry): array => [...$entry, 'statement_url' => route('subscriptions.statement', $entry['transaction']['subscription_id'])], $row['payments']);
 
             return $row;

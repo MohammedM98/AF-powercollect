@@ -67,9 +67,9 @@ class PaymentController extends Controller
      * The quick payments page: the subscribers of the user's branch in a table
      * (search, filters and sort, with each one's balance) with a button on each
      * to record their payment and a menu for the account's other lines
-     * (charge, discount, clearing, a split transfer), a button for one
-     * transfer shared between several subscribers, and what the user
-     * collected today above it. It takes only the "Record Collections"
+     * (charge, discount, clearing, a split transfer), and a button for one
+     * transfer shared between several subscribers; what the user collected
+     * is on the summary page. It takes only the "Record Collections"
      * permission, so it works for someone who cannot open the subscriptions
      * list; the charge, discount and clearing need "Adjust Balances" too.
      */
@@ -98,8 +98,7 @@ class PaymentController extends Controller
             'scopeLabel' => $actor->isSuperAdmin() ? 'كل الفروع' : ($actor->branch?->name ?? '—'),
             'filters' => $this->dataTableState($request, 'display_name'),
             'filterOptions' => $this->filterOptions($actor, $request),
-            'today' => $this->todaysPayments($actor),
-            'cashBox' => $this->ownCashBoxes($actor),
+            'pendingCount' => $this->needsActionCount($actor),
             'collectionUrls' => $this->collectionUrls(),
             'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
             'transferBanks' => config('powercollect.transfer_banks'),
@@ -111,17 +110,41 @@ class PaymentController extends Controller
     }
 
     /**
-     * The collector's financial boxes: the ones open now with their entries
-     * (`?open=` picks the type, `?entries_page=` the page), what waits on
-     * them, and every box they had in a table filtered by `?type=` and
-     * `?state=`.
+     * The collector's summary: what they collected today and their latest
+     * payments, what waits on them (entries the branch sent back, a
+     * handover to confirm, audit notes, debts), and the boxes open now with
+     * their entries (`?open=` picks the type, `?entries_page=` the page).
+     */
+    public function summary(Request $request): InertiaResponse
+    {
+        $this->authorize('viewOwnCashBoxes', Subscription::class);
+
+        $actor = $request->user();
+        $cashBox = $this->ownCashBoxes($actor);
+
+        return Inertia::render('Payments/Summary', [
+            'today' => $this->todaysPayments($actor),
+            'cashBox' => $cashBox,
+            'current' => $cashBox['current'],
+            'openBox' => $this->openBoxEntries($request, $cashBox['current']),
+            'needsAction' => $cashBox['needsAction'],
+            'collectionUrls' => $this->collectionUrls(),
+        ]);
+    }
+
+    /**
+     * Every box the collector had, in one table filtered by `?type=` and
+     * `?state=`, each with its totals, dates, who closed it and its report.
      */
     public function cashBoxes(Request $request): InertiaResponse
     {
         $this->authorize('viewOwnCashBoxes', Subscription::class);
 
         $actor = $request->user();
-        $cashBox = $this->ownCashBoxes($actor, false);
+        $started = $this->boxesStarted($actor);
+        if ($started) {
+            $this->workflow->refresh($actor->branch_id);
+        }
         $type = in_array($request->query('type'), array_column(CashBoxType::cases(), 'value'), true) ? $request->query('type') : '';
         $state = in_array($request->query('state'), ['open', 'closed'], true) ? $request->query('state') : '';
         $perPage = $this->dataTablePerPage($request);
@@ -132,12 +155,11 @@ class PaymentController extends Controller
             ->paginate($perPage)->withQueryString()->through(fn (CashBox $box): array => $this->cashBoxRow($box));
 
         return Inertia::render('Payments/CashBoxes', [
-            'cashBox' => $cashBox,
-            'current' => $cashBox['current'],
-            'openBox' => $this->openBoxEntries($request, $cashBox['current']),
-            'needsAction' => $cashBox['needsAction'],
+            'started' => $started,
+            'branchName' => $actor->branch?->name,
             'boxes' => $boxes,
             'filters' => ['type' => $type, 'state' => $state, 'per_page' => $perPage],
+            'pendingCount' => $this->needsActionCount($actor),
             'collectionUrls' => $this->collectionUrls(),
         ]);
     }
@@ -189,7 +211,7 @@ class PaymentController extends Controller
 
         return Inertia::render('Payments/CashBoxShow', [
             'box' => $this->cashBoxRow($cashBox), 'entries' => $entries,
-            'needsActionCount' => $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count() + $this->waitingAuditNotes($actor)->count() + $this->returnedEntries($actor)->count(),
+            'needsActionCount' => $this->needsActionCount($actor),
             'collectionUrls' => $this->collectionUrls(),
         ]);
     }
@@ -331,10 +353,31 @@ class PaymentController extends Controller
             ->withCount('payments')->with(['payments.transaction:id,status', 'receivedBy:id,name', 'receivedIn:id,period_start,period_end'])->latest('id');
     }
 
-    /** @return array{payments: string, cashBoxes: string} */
+    /** @return array{payments: string, summary: string, cashBoxes: string} */
     private function collectionUrls(): array
     {
-        return ['payments' => route('payments.index'), 'cashBoxes' => route('payments.cash-boxes')];
+        return ['payments' => route('payments.index'), 'summary' => route('payments.summary'), 'cashBoxes' => route('payments.cash-boxes')];
+    }
+
+    /** Whether the actor's branch keeps collector boxes yet. */
+    private function boxesStarted(User $actor): bool
+    {
+        return $actor->branch_id && ClosingSetting::ownFor($actor->branch_id)?->workflow_started_at !== null;
+    }
+
+    /**
+     * How many things wait on the actor, for the badge on the summary tab:
+     * a handover left to confirm, entries the branch sent back, and audit
+     * notes to answer.
+     */
+    private function needsActionCount(User $actor): int
+    {
+        if (! $this->boxesStarted($actor)) {
+            return 0;
+        }
+
+        return $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count()
+            + $this->returnedEntries($actor)->count() + $this->waitingAuditNotes($actor)->count();
     }
 
     /**
@@ -346,8 +389,7 @@ class PaymentController extends Controller
      */
     private function ownCashBoxes(User $actor, bool $includeRecentHistory = true): array
     {
-        $started = $actor->branch_id && ClosingSetting::ownFor($actor->branch_id)?->workflow_started_at !== null;
-        if (! $started) {
+        if (! $this->boxesStarted($actor)) {
             return ['started' => false, 'branchName' => $actor->branch?->name, 'boxes' => [], 'current' => [], 'needsAction' => [], 'returnedEntries' => [], 'auditNotes' => [], 'debts' => []];
         }
 

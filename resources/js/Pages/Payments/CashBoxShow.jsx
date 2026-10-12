@@ -40,7 +40,7 @@ export default function CashBoxShow({ box, entries, collectionUrls, needsActionC
     return <AuthenticatedLayout header={<div className="flex items-center gap-3"><BoxTypeIcon type={box.type} className="h-12 w-12" /><div><h2 className="text-2xl font-bold text-gray-900">{boxTypes[box.type]}</h2><p className="mt-1 text-sm text-gray-500">صندوق رقم <bdi dir="ltr" className="font-display">{box.number}</bdi></p></div></div>}>
         <Head title={`${boxTypes[box.type]} ${box.number}`} />
         <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={needsActionCount} />
-        <Link href={collectionUrls.cashBoxes} prefetch className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600"><Icon name="chevron-right" className="h-4 w-4" />العودة إلى الصناديق المالية</Link>
+        <Link href={collectionUrls.cashBoxes} prefetch className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600"><Icon name="chevron-right" className="h-4 w-4" />العودة إلى كل الصناديق</Link>
         <div className="space-y-6">
             {saved && <p role="status" className="rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">{saved}</p>}
             <section className="space-y-5 rounded-panel border border-gray-100 bg-surface p-5 shadow-card">

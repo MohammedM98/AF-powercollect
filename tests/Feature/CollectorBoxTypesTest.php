@@ -259,7 +259,7 @@ class CollectorBoxTypesTest extends TestCase
         MobileAccessToken::issue($collector);
         $entry = $this->entry($branch, $collector, CashBoxType::Cash);
 
-        $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.cash.id', $entry->cash_box_id)->where('current.bank_transfer', null)->where('current.clearing', null));
+        $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.cash.id', $entry->cash_box_id)->where('current.bank_transfer', null)->where('current.clearing', null));
         $this->assertContains($collector->id, array_column(app(BranchClosingWorkflow::class)->snapshot($entry->box->closing)['unsyncedCollectors'], 'id'));
         $this->action($collector, $branch, 'close', $entry->cash_box_id, ['counts' => $this->counts()])->assertForbidden();
         $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open']);
@@ -325,7 +325,7 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertSame('completed', $active->box->fresh()->stage());
     }
 
-    public function test_collector_box_filters_keep_action_boxes_visible(): void
+    public function test_collector_box_table_filters_by_type_and_state(): void
     {
         [$branch, $head, $collector] = $this->start();
         $this->entry($branch, $collector, CashBoxType::Cash);
@@ -333,7 +333,7 @@ class CollectorBoxTypesTest extends TestCase
         $this->travelTo($entry->box->closing->coverage_until);
         app(BranchClosingWorkflow::class)->refresh($branch->id);
 
-        $this->actingAs($collector)->get(route('payments.cash-boxes', ['type' => 'clearing', 'state' => 'closed']))->assertInertia(fn (AssertableInertia $page) => $page->where('boxes.total', 1)->where('boxes.data.0.id', $entry->cash_box_id)->has('needsAction', 0)->where('filters.type', 'clearing')->where('filters.state', 'closed'));
+        $this->actingAs($collector)->get(route('payments.cash-boxes', ['type' => 'clearing', 'state' => 'closed']))->assertInertia(fn (AssertableInertia $page) => $page->where('boxes.total', 1)->where('boxes.data.0.id', $entry->cash_box_id)->where('filters.type', 'clearing')->where('filters.state', 'closed'));
     }
 
     public function test_collector_actions_require_collection_permission(): void
@@ -353,7 +353,7 @@ class CollectorBoxTypesTest extends TestCase
         $user = User::factory()->dataEntry()->for($branch)->withPermissions([PermissionKey::AdjustBalances])->create();
         $entry = $this->entry($branch, $user, CashBoxType::Clearing);
 
-        $this->actingAs($user)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.clearing.id', $entry->cash_box_id));
+        $this->actingAs($user)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.clearing.id', $entry->cash_box_id));
         $this->get(route('payments.cash-boxes.show', $entry->cash_box_id))->assertOk();
         $this->action($user, $branch, 'receive', $entry->cash_box_id)->assertForbidden();
 
@@ -370,7 +370,7 @@ class CollectorBoxTypesTest extends TestCase
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $transaction = SubscriptionTransaction::withoutEvents(fn (): SubscriptionTransaction => SubscriptionTransaction::factory()->for(Subscription::factory()->for($branch))->create(['branch_id' => $branch->id, 'recorded_by' => $collector->id, 'type' => 'clearing', 'status' => SubscriptionTransaction::STATUS_ACTIVE, 'source_key' => 'clearing:'.Str::ulid(), 'amount' => '-20', 'notes' => 'صيانة قديمة', 'created_at' => $occurred]));
 
-        $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.clearing.totals.ILS', '20.00'));
+        $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.clearing.totals.ILS', '20.00'));
 
         $entry = CashBoxPayment::query()->where('subscription_transaction_id', $transaction->id)->sole();
         $this->assertTrue($entry->is_late);

@@ -57,6 +57,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile/devices', [ProfileDeviceController::class, 'destroy'])->middleware('throttle:6,1')->name('profile.devices.destroy');
 
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
+    Route::get('/payments/summary', [PaymentController::class, 'summary'])->name('payments.summary');
     Route::get('/payments/cash-boxes', [PaymentController::class, 'cashBoxes'])->name('payments.cash-boxes');
     Route::get('/payments/cash-boxes/{cashBox}', [PaymentController::class, 'showCashBox'])->whereNumber('cashBox')->name('payments.cash-boxes.show');
     Route::post('/payments/audit-notes/{auditNote}/reply', [PaymentController::class, 'replyToAuditNote'])->whereNumber('auditNote')->name('payments.audit-notes.reply');

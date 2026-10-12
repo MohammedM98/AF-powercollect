@@ -207,14 +207,6 @@ export function BoxCard({ box, type, selected = false, onSelect }) {
     );
 }
 
-export default function CollectorCashBox({ cashBox }) {
-    if (!cashBox?.started) return null;
-
-    return <section className="mb-6 space-y-4" aria-label="صناديقي المفتوحة">
-        <div className="grid gap-4 lg:grid-cols-3">{Object.keys(boxTypes).map((type) => <BoxCard key={type} type={type} box={cashBox.current[type]} />)}</div>
-    </section>;
-}
-
 /** What the branch sent back about an entry, and the collector's answer once given. */
 function ReturnedNote({ returned }) {
     return (

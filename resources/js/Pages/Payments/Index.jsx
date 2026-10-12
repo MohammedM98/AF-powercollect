@@ -10,7 +10,6 @@ import RowIdentity from '@/Components/DataTable/RowIdentity';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
-import KpiTile from '@/Components/KpiTile';
 import PrimaryButton from '@/Components/PrimaryButton';
 import { useDataTable } from '@/hooks/useDataTable';
 import { describeBalance } from '@/lib/accountStatement';
@@ -21,7 +20,6 @@ import ClearingModal from '@/Pages/Subscriptions/ClearingModal';
 import DiscountModal from '@/Pages/Subscriptions/DiscountModal';
 import PaymentModal from '@/Pages/Subscriptions/PaymentModal';
 import SplitPaymentModal from './SplitPaymentModal';
-import CollectorCashBox, { pendingCount } from './CollectorCashBox';
 import CollectionNavigation from './CollectionNavigation';
 
 const STATUS_TONES = { active: 'green', suspended: 'amber', disconnected: 'gray' };
@@ -31,83 +29,8 @@ function needsPermission(permission) {
     return `تحتاج صلاحية «${permission}» — يمنحها مدير الفرع أو مدير النظام.`;
 }
 
-/** What the user collected today, in one wide card at the top of the page: the total, and how much in cash and by transfer. */
-function TodaysSummary({ today }) {
-    const parts = [
-        { icon: 'banknotes', label: 'نقدًا', value: today.cash },
-        { icon: 'bank', label: 'تحويلات بنكية', value: today.transfers },
-    ];
-
-    return (
-        <section aria-label="ما حصّلته اليوم" className="mb-6">
-            <KpiTile hero label="ما حصّلته اليوم" value={formatMoney(today.total)} unit="شيكل" hint={`${today.count.toLocaleString('en')} ${today.count === 1 ? 'دفعة' : 'دفعات'}`}>
-                <dl className="mt-5 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-2">
-                    {parts.map((part) => (
-                        <div key={part.label} className="flex items-center gap-3">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/80">
-                                <Icon name={part.icon} className="h-[18px] w-[18px]" />
-                            </span>
-                            <dt className="text-sm text-white/70">{part.label}</dt>
-                            <dd className="ms-auto flex items-baseline gap-1.5 sm:ms-0">
-                                <span className="font-display text-2xl font-bold">{formatMoney(part.value)}</span>
-                                <span className="text-xs text-white/60">شيكل</span>
-                            </dd>
-                        </div>
-                    ))}
-                </dl>
-            </KpiTile>
-        </section>
-    );
-}
-
-/** The user's latest payments today, each with its receipt. */
-function TodaysPayments({ today }) {
-    return (
-        <section aria-labelledby="todays-payments" className="mt-8 space-y-4">
-            <h3 id="todays-payments" className="text-lg font-bold text-gray-900">
-                آخر دفعاتك اليوم
-            </h3>
-
-            {today.payments.length > 0 ? (
-                <ul className="divide-y divide-gray-100 overflow-hidden rounded-panel border border-gray-100 bg-surface shadow-card">
-                    {today.payments.map((payment) => (
-                        <li key={payment.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 text-sm">
-                            <span className="min-w-0 flex-1 basis-48 font-semibold text-gray-900">{payment.subscriptionName}</span>
-                            <span className="text-gray-500">
-                                {payment.methodLabel}
-                                {payment.bankName && ` · ${payment.bankName}`}
-                            </span>
-                            {payment.voucherNumber && (
-                                <span dir="ltr" className="font-display text-xs text-gray-500">
-                                    #{payment.voucherNumber}
-                                </span>
-                            )}
-                            <span dir="ltr" className="font-display text-xs text-gray-500">
-                                {payment.time}
-                            </span>
-                            <b className="font-display text-base text-emerald-700 dark:text-emerald-400">{formatMoney(payment.amount)} ₪</b>
-                            <a
-                                href={payment.receiptUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-control border border-gray-200 bg-surface px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-900"
-                            >
-                                <Icon name="printer" className="h-4 w-4" />
-                                السند
-                            </a>
-                        </li>
-                    ))}
-                </ul>
-            ) : (
-                <p className="rounded-panel border border-dashed border-gray-200 bg-surface px-5 py-8 text-center text-sm text-gray-500">لم تسجّل أي دفعة اليوم بعد.</p>
-            )}
-        </section>
-    );
-}
-
 /**
- * The quick payments page: what the user collected today on top, then the
- * subscribers in a table to search and filter, each with a button to record
+ * The quick payments page: the subscribers in a table to search and filter, each with a button to record
  * their payment and a menu for the account's other lines (a split transfer,
  * a charge, a discount, a clearing), and a main button for one bank transfer
  * shared between several subscribers.
@@ -117,8 +40,7 @@ export default function Index({
     scopeLabel,
     filters,
     filterOptions,
-    today,
-    cashBox,
+    pendingCount,
     collectionUrls,
     paymentMethods,
     transferBanks,
@@ -175,9 +97,7 @@ export default function Index({
         >
             <Head title="تسجيل الدفعات" />
 
-            <CollectionNavigation urls={collectionUrls} active="payments" pendingCount={pendingCount(cashBox)} />
-            <TodaysSummary today={today} />
-            <CollectorCashBox cashBox={cashBox} mode="current" />
+            <CollectionNavigation urls={collectionUrls} active="payments" pendingCount={pendingCount} />
 
             <DataTableToolbar
                 search={search}
@@ -269,8 +189,6 @@ export default function Index({
             </div>
 
             <Pagination meta={subscriptions} filters={filters} baseUrl="/payments" />
-
-            <TodaysPayments today={today} />
 
             {paying && (
                 <PaymentModal

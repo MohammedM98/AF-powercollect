@@ -5,7 +5,8 @@ export default function CollectionNavigation({ urls, active, pendingCount = 0 })
     const { can } = usePage().props;
     const items = [
         { key: 'payments', label: 'تسجيل الدفعات', icon: 'banknotes' },
-        { key: 'cashBoxes', label: 'الصناديق المالية', icon: 'wallet' },
+        { key: 'summary', label: 'ملخص التحصيل', icon: 'gauge' },
+        { key: 'cashBoxes', label: 'كل الصناديق', icon: 'wallet' },
     ];
 
     return (
@@ -15,7 +16,7 @@ export default function CollectionNavigation({ urls, active, pendingCount = 0 })
                     className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${active === item.key ? 'bg-gray-900 text-surface shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>
                     <Icon name={item.icon} className="h-4 w-4" />
                     {item.label}
-                    {item.key === 'cashBoxes' && pendingCount > 0 && <span className="rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] text-white" aria-label={`${pendingCount} صناديق بانتظار الإكمال`}>{pendingCount}</span>}
+                    {item.key === 'summary' && pendingCount > 0 && <span className="rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] text-white" aria-label={`${pendingCount} أمور تنتظرك`}>{pendingCount}</span>}
                 </Link>
             ))}
         </nav>

@@ -31,6 +31,6 @@ export default function CashBoxes({ cashBox, current, needsAction, boxes, filter
                 {boxes.total === 0 ? <p className="p-5 text-center text-sm text-gray-500">لا توجد صناديق بهذه الفلاتر.</p> : <Pagination meta={boxes} filters={filters} baseUrl={collectionUrls.cashBoxes} />}
             </section>
         </div> : <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">{cashBox.branchName ? 'لم يُفعّل نظام الصناديق في فرعك بعد. يُفعّله مسؤول الفرع من صفحة الإغلاق.' : 'حسابك غير مرتبط بفرع، لذلك لا يوجد سجل صناديق شخصي.'}</p>}
-        {selected && <CashBoxAction key={`${selected.box.id}-${selected.action}`} {...selected} onClose={() => setSelected(null)} onSuccess={() => setSaved(selected.action === 'confirm' ? 'تم تأكيد التسليم.' : 'تم إرسال الصندوق إلى الفرع.')} />}
+        {selected && <CashBoxAction key={`${selected.box.id}-${selected.action}`} {...selected} onClose={() => setSelected(null)} onSuccess={() => setSaved('تم تأكيد التسليم.')} />}
     </AuthenticatedLayout>;
 }

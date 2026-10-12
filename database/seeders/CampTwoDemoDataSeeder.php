@@ -103,9 +103,8 @@ class CampTwoDemoDataSeeder extends Seeder
     private function closeDemoBox(BranchClosingWorkflow $workflow, Branch $branch, User $collector, User $head, array $counts, bool $receive, bool $confirm): void
     {
         $box = CashBox::query()->where('branch_id', $branch->id)->where('user_id', $collector->id)->where('type', CashBoxType::Cash)->where('status', 'open')->sole();
-        $workflow->closeByCollector($box, $collector, ['counts' => $counts, 'reason' => 'عدّ تجريبي مطابق لدفعات الصندوق']);
+        $workflow->countHead($box, $head, ['counts' => $counts]);
         if ($receive) {
-            $workflow->countHead($box, $head, ['counts' => $counts]);
             $workflow->receive($box, $head, ['recounted' => true, 'decisions' => []]);
         }
         if ($confirm) {

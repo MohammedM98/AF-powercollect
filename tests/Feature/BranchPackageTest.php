@@ -61,8 +61,6 @@ class BranchPackageTest extends TestCase
 
     private function receiveCash(Branch $branch, User $head, User $collector, CashBox $box): void
     {
-        $action = $box->fresh()->status === 'open' ? 'close' : 'collector-count';
-        $this->action($collector, $branch, $action, $box->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'head-count', $box->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $box->id, ['recounted' => true, 'decisions' => []])->assertSessionHasNoErrors();
     }
@@ -94,8 +92,6 @@ class BranchPackageTest extends TestCase
         $missing = $this->entry($branch, $collector, CashBoxType::BankTransfer);
         $pending = $this->entry($branch, $collector, CashBoxType::BankTransfer);
         $rejected = $this->entry($branch, $collector, CashBoxType::Clearing);
-        $this->action($collector, $branch, 'close', $missing->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
-        $this->action($collector, $branch, 'close', $rejected->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'electronic', $missing->id, ['status' => 'missing'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'electronic', $rejected->id, ['status' => 'rejected'])->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
@@ -144,7 +140,6 @@ class BranchPackageTest extends TestCase
         $actor = $role === 'admin' ? $head : $collector;
         ClosingSetting::ownFor($branch)->update(['receivers' => $role === 'receiver' ? [$actor->id] : [], 'approvers' => $role === 'approver' ? [$actor->id] : []]);
         $entry = $this->entry($branch, $actor);
-        $this->action($actor, $branch, 'close', $entry->cash_box_id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
 
         $response = $this->action($actor, $branch, 'head-count', $entry->cash_box_id, ['counts' => $this->counts()]);
 
@@ -234,7 +229,6 @@ class BranchPackageTest extends TestCase
     {
         [$branch, $head, $collector, $closing] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
@@ -262,7 +256,6 @@ class BranchPackageTest extends TestCase
     {
         [$branch, $head, $collector, $closing] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::BankTransfer);
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'missing'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);

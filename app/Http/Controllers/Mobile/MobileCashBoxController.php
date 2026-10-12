@@ -47,15 +47,11 @@ class MobileCashBoxController extends Controller
         $actor = $request->user();
         abort_unless($request->integer('branch_id') === $actor->branch_id, 404);
         $this->authorize('viewOwnCashBoxes', Subscription::class);
-        abort_unless(in_array($action, ['close', 'collector-count', 'confirm'], true), 403);
-        $this->workflow->locked($actor->branch_id, function () use ($request, $action, $record, $actor): void {
+        abort_unless($action === 'confirm', 403);
+        $this->workflow->locked($actor->branch_id, function () use ($record, $actor): void {
             $this->workflow->refresh($actor->branch_id);
             $box = CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->findOrFail($record);
-            match ($action) {
-                'close' => $this->workflow->closeByCollector($box, $actor, $request->validated()),
-                'collector-count' => $this->workflow->countCollector($box, $actor, $request->validated()),
-                'confirm' => $this->workflow->confirmBox($box, $actor),
-            };
+            $this->workflow->confirmBox($box, $actor);
         });
 
         return response()->json(['status' => 'saved']);

@@ -130,9 +130,7 @@ class PaymentController extends Controller
 
         return Inertia::render('Payments/CashBoxShow', [
             'box' => $this->cashBoxRow($cashBox), 'entries' => $entries,
-            'needsActionCount' => $this->ownBoxQuery($actor)->where(fn (Builder $query) => $query
-                ->where(fn (Builder $pending) => $pending->where('status', 'pending')->whereNull('collector_submitted_at'))
-                ->orWhere(fn (Builder $received) => $received->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')))->count(),
+            'needsActionCount' => $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count(),
             'collectionUrls' => $this->collectionUrls(),
         ]);
     }
@@ -168,7 +166,7 @@ class PaymentController extends Controller
             'branchName' => $actor->branch?->name,
             'boxes' => $rows->values()->all(),
             'current' => collect(CashBoxType::cases())->mapWithKeys(fn (CashBoxType $type): array => [$type->value => $rows->first(fn (array $box): bool => $box['type'] === $type->value && $box['status'] === 'open')])->all(),
-            'needsAction' => $rows->filter(fn (array $box): bool => in_array($box['stage'], ['awaiting_collector', 'awaiting_confirmation'], true))->values()->all(),
+            'needsAction' => $rows->filter(fn (array $box): bool => $box['stage'] === 'awaiting_confirmation')->values()->all(),
         ];
     }
 
@@ -193,7 +191,7 @@ class PaymentController extends Controller
             'expectedCounts' => $box->collector_counts ? $box->expected_counts : null,
             'receivedCounts' => $box->received_at ? $box->head_counts : null,
             'reason' => $box->reason,
-            'urls' => ['show' => route('payments.cash-boxes.show', $box), ...collect(['close', 'collector-count', 'confirm'])->mapWithKeys(fn (string $action): array => [$action => route('closings.actions', ['action' => $action, 'record' => $box->id])])->all()],
+            'urls' => ['show' => route('payments.cash-boxes.show', $box), 'confirm' => route('closings.actions', ['action' => 'confirm', 'record' => $box->id])],
             'branchId' => $box->branch_id,
         ];
     }

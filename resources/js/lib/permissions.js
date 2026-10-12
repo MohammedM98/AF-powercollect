@@ -36,6 +36,7 @@ export const SENSITIVE = {
     'meter_readings.correct_last': { label: 'تعديل القراءة السابقة', hint: 'يعدّل قراءة الأسبوع السابق من خانة «القراءة السابقة»، وتُحسب قراءة هذا الأسبوع من جديد؛ المعتمدة منهما تعود للاعتماد', danger: true },
     'subscriptions.bulk_update': { label: 'تعديل المشتركين جماعيًا', hint: 'تعديل الحالة أو الحد الأدنى لمجموعة، مع صلاحية تعديل الحقل نفسه', danger: true },
     'collections.amend': { label: 'تعديل بيانات الدفعة', hint: 'تعديل البنك والمرسل والملاحظات؛ لا يغيّر المبلغ أو رقم المرجع', danger: true },
+    'collections.close_boxes': { label: 'إغلاق صناديق المحصّلين', hint: 'يغلق صناديق محصّلي الفرع ويعدّها ويستلمها؛ لا يستلم صناديقه بنفسه', danger: true },
     'collections.refund': { label: 'ردّ الدفعة', hint: 'يردّ المبلغ بقيد مرتبط؛ تبقى الدفعة وسجل الردّ ظاهرين', danger: true },
     'collections.delete': { label: 'إلغاء الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف', danger: true },
     'collections.force_delete': { label: 'الحذف النهائي للحركة', hint: 'يحذف الحركة المؤهلة أو سلسلة إلغائها من الكشف، مع الاحتفاظ بسجل تدقيق؛ لا يحذف القراءة', danger: true },

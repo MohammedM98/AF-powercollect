@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\PermissionKey;
 use App\Models\ClosingSetting;
 use App\Models\User;
 
@@ -9,7 +10,7 @@ class BranchClosingAccess
 {
     public static function view(User $user): bool
     {
-        return $user->is_active && ($user->isSuperAdmin() || ($user->branch_id && ($user->isBranchAdmin() || in_array($user->id, ClosingSetting::forBranch($user->branch_id)->receivers ?? [], true) || in_array($user->id, ClosingSetting::forBranch($user->branch_id)->approvers ?? [], true))));
+        return $user->is_active && ($user->isSuperAdmin() || ($user->branch_id && ($user->isBranchAdmin() || $user->hasPermission(PermissionKey::CloseCashBoxes) || in_array($user->id, ClosingSetting::forBranch($user->branch_id)->receivers ?? [], true) || in_array($user->id, ClosingSetting::forBranch($user->branch_id)->approvers ?? [], true))));
     }
 
     public static function manage(User $user, int $branchId): bool
@@ -17,9 +18,15 @@ class BranchClosingAccess
         return $user->is_active && ($user->isSuperAdmin() || ($user->isBranchAdmin() && $user->branch_id === $branchId));
     }
 
+    /**
+     * Whether the user may close, count and receive the branch's boxes: the
+     * branch admin and approvers, anyone given the "Close Cash Boxes"
+     * permission, and the receivers named in the closing settings.
+     */
     public static function receive(User $user, int $branchId): bool
     {
-        return self::approve($user, $branchId) || ($user->is_active && $user->branch_id === $branchId && in_array($user->id, ClosingSetting::forBranch($branchId)->receivers ?? [], true));
+        return self::approve($user, $branchId) || ($user->is_active && $user->branch_id === $branchId
+            && ($user->hasPermission(PermissionKey::CloseCashBoxes) || in_array($user->id, ClosingSetting::forBranch($branchId)->receivers ?? [], true)));
     }
 
     public static function approve(User $user, int $branchId): bool

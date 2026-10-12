@@ -71,7 +71,7 @@ enum UserRole: string
                 PermissionKey::ViewSubAreas, PermissionKey::CreateSubAreas, PermissionKey::UpdateSubAreas,
                 PermissionKey::ViewMeterReadings, PermissionKey::RecordMeterReadings, PermissionKey::ApproveMeterReadings,
                 PermissionKey::CorrectMeterReadings, PermissionKey::CorrectLastMeterReadings, PermissionKey::BrowseMeterReadingWeeks,
-                PermissionKey::ViewCollections, PermissionKey::RecordCollections, PermissionKey::ConfirmCollections,
+                PermissionKey::ViewCollections, PermissionKey::RecordCollections, PermissionKey::CloseCashBoxes, PermissionKey::ConfirmCollections,
                 PermissionKey::ViewBranchPerformance, PermissionKey::ViewDebtAging, PermissionKey::ViewTransactionAudit,
                 PermissionKey::AdjustBalances, PermissionKey::CorrectTransactions, PermissionKey::DeleteTransactions,
                 PermissionKey::AmendTransactionDetails, PermissionKey::RefundPayments, PermissionKey::ExportFinancialReports,

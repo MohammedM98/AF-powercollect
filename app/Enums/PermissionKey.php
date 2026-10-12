@@ -64,6 +64,7 @@ enum PermissionKey: string
     case BrowseMeterReadingWeeks = 'meter_readings.browse_weeks';
     case ApproveMeterReadings = 'meter_readings.approve';
     case RecordCollections = 'collections.record';
+    case CloseCashBoxes = 'collections.close_boxes';
     case ConfirmCollections = 'collections.confirm';
     case ViewCollections = 'collections.view';
     case AdjustBalances = 'collections.adjust';
@@ -142,6 +143,7 @@ enum PermissionKey: string
             self::BrowseMeterReadingWeeks => 'Browse Earlier Reading Weeks',
             self::ApproveMeterReadings => 'Approve Meter Readings',
             self::RecordCollections => 'Add Payments',
+            self::CloseCashBoxes => 'Close Cash Boxes',
             self::ConfirmCollections => 'Confirm Collections',
             self::ViewCollections => 'View Collections',
             self::AdjustBalances => 'Add Charges and Discounts',
@@ -246,6 +248,7 @@ enum PermissionKey: string
                 'actions' => [
                     'view' => self::ViewCollections,
                     'record' => self::RecordCollections,
+                    'close_boxes' => self::CloseCashBoxes,
                     'confirm' => self::ConfirmCollections,
                     'adjust' => self::AdjustBalances,
                     'correct' => self::CorrectTransactions,

@@ -81,41 +81,59 @@ class CollectorBoxTypesTest extends TestCase
         $transfer = $this->entry($branch, $collector, CashBoxType::BankTransfer);
         $clearing = $this->entry($branch, $collector, CashBoxType::Clearing);
 
-        $this->action($collector, $branch, 'close', $cash->cash_box_id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'head-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
         $next = $this->entry($branch, $collector, CashBoxType::Cash, '25');
 
-        $this->assertSame('sent', $cash->box->fresh()->stage());
+        $this->assertSame('awaiting_branch', $cash->box->fresh()->stage());
         $this->assertSame('open', $transfer->box->fresh()->status);
         $this->assertSame('open', $clearing->box->fresh()->status);
         $this->assertNotSame($cash->cash_box_id, $next->cash_box_id);
         $this->assertSame(3, CashBox::query()->where('status', 'open')->count());
     }
 
-    public function test_non_cash_box_closes_with_review_and_without_counts(): void
+    public function test_collectors_cannot_close_their_own_boxes(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $cash = $this->entry($branch, $collector, CashBoxType::Cash);
+        $transfer = $this->entry($branch, $collector, CashBoxType::BankTransfer);
+
+        $this->action($collector, $branch, 'close', $cash->cash_box_id, ['counts' => $this->counts()])->assertForbidden();
+        $this->action($collector, $branch, 'collector-count', $transfer->cash_box_id)->assertForbidden();
+        $this->action($collector, $branch, 'head-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertForbidden();
+        $this->action($collector, $branch, 'receive', $transfer->cash_box_id)->assertForbidden();
+
+        $this->assertSame(2, CashBox::query()->where('status', 'open')->count());
+    }
+
+    public function test_branch_closes_and_receives_a_non_cash_box_in_one_step(): void
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::BankTransfer);
 
-        $this->action($collector, $branch, 'close', $entry->cash_box_id)->assertSessionHasErrors('reviewed');
-        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open', 'collector_submitted_at' => null]);
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasErrors('action');
+        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open']);
+        $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
 
-        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'pending', 'collector_counts' => null, 'collector_submitted_at' => now()]);
+        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'received', 'close_reason' => 'manual', 'received_by' => $head->id, 'collector_counts' => null]);
     }
 
-    public function test_cash_box_still_requires_counts_and_reason_for_difference(): void
+    public function test_branch_count_of_a_cash_box_needs_a_reason_and_decision_for_differences(): void
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Cash);
 
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasErrors('counts');
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['counts' => $this->counts('90')])->assertSessionHasErrors('action');
-        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open', 'collector_submitted_at' => null]);
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['counts' => $this->counts('90'), 'reason' => 'فرق العدّ'])->assertSessionHasNoErrors();
-        $this->assertSame('90', $entry->box->fresh()->collector_counts['ILS']);
+        $this->action($head, $branch, 'head-count', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasErrors('counts');
+        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open']);
+        $this->action($head, $branch, 'head-count', $entry->cash_box_id, ['counts' => $this->counts('90')])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $entry->cash_box_id, ['recounted' => false, 'decisions' => ['ILS' => 'accepted']])->assertSessionHasErrors('action');
+        $this->action($head, $branch, 'receive', $entry->cash_box_id, ['recounted' => false, 'reason' => 'فرق العدّ', 'decisions' => ['ILS' => 'accepted']])->assertSessionHasNoErrors();
+
+        $this->assertSame('90', $entry->box->fresh()->head_counts['ILS']);
+        $this->assertDatabaseCount('collector_debts', 0);
     }
 
-    public function test_auto_closed_box_waits_for_collector_before_receiver(): void
+    public function test_auto_closed_boxes_go_straight_to_the_branch(): void
     {
         [$branch, $head, $collector] = $this->start();
         $cash = $this->entry($branch, $collector, CashBoxType::Cash);
@@ -123,15 +141,15 @@ class CollectorBoxTypesTest extends TestCase
         $this->travelTo($cash->box->closing->coverage_until);
         $this->artisan('closings:process')->assertSuccessful();
 
-        $this->action($head, $branch, 'head-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertSessionHasErrors('action');
-        $this->action($head, $branch, 'receive', $cash->cash_box_id, ['recounted' => true, 'decisions' => []])->assertSessionHasErrors('action');
-        $this->action($head, $branch, 'receive', $transfer->cash_box_id)->assertSessionHasErrors('action');
-        $this->assertSame('awaiting_collector', $transfer->box->fresh()->stage());
-        $this->action($collector, $branch, 'collector-count', $transfer->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'head-count', $transfer->cash_box_id, ['counts' => $this->counts()])->assertSessionHasErrors('action');
-        $this->action($collector, $branch, 'collector-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
+        $this->assertSame('awaiting_branch', $transfer->box->fresh()->stage());
+        $this->action($collector, $branch, 'collector-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertForbidden();
         $this->action($head, $branch, 'head-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('cash_boxes', ['id' => $cash->cash_box_id, 'collector_submitted_at' => now(), 'received_by' => $head->id]);
+        $this->action($head, $branch, 'receive', $cash->cash_box_id, ['recounted' => false, 'decisions' => []])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'electronic', $transfer->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $transfer->cash_box_id)->assertSessionHasNoErrors();
+
+        $this->assertSame('awaiting_confirmation', $cash->box->fresh()->stage());
+        $this->assertSame('completed', $transfer->box->fresh()->stage());
     }
 
     public function test_non_cash_box_is_received_after_every_entry_is_reviewed(): void
@@ -139,7 +157,6 @@ class CollectorBoxTypesTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $accepted = $this->entry($branch, $collector, CashBoxType::Clearing);
         $rejected = $this->entry($branch, $collector, CashBoxType::Clearing, '25');
-        $this->action($collector, $branch, 'close', $accepted->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
 
         $this->action($head, $branch, 'receive', $accepted->cash_box_id)->assertSessionHasErrors('action');
         $this->action($head, $branch, 'electronic', $accepted->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
@@ -158,7 +175,6 @@ class CollectorBoxTypesTest extends TestCase
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
         Notification::fake([BranchClosingNotification::class]);
 
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'rejected'])->assertSessionHasNoErrors();
@@ -172,7 +188,6 @@ class CollectorBoxTypesTest extends TestCase
     {
         [$branch, $head] = $this->start();
         $entry = $this->entry($branch, $head, CashBoxType::Clearing);
-        $this->action($head, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
 
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
@@ -235,8 +250,8 @@ class CollectorBoxTypesTest extends TestCase
 
         $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.cash.id', $entry->cash_box_id)->where('current.bank_transfer', null)->where('current.clearing', null));
         $this->assertContains($collector->id, array_column(app(BranchClosingWorkflow::class)->snapshot($entry->box->closing)['unsyncedCollectors'], 'id'));
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'pending']);
+        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['counts' => $this->counts()])->assertForbidden();
+        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open']);
     }
 
     public function test_review_status_must_match_entry_type_and_clearings_cannot_be_direct(): void
@@ -245,9 +260,6 @@ class CollectorBoxTypesTest extends TestCase
         $clearing = $this->entry($branch, $collector, CashBoxType::Clearing);
         $transfer = $this->entry($branch, $collector, CashBoxType::BankTransfer);
         $this->action($head, $branch, 'direct', $clearing->id)->assertSessionHasErrors('action');
-        $this->action($head, $branch, 'electronic', $transfer->id, ['status' => 'confirmed'])->assertSessionHasErrors('action');
-        $this->action($collector, $branch, 'close', $clearing->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
-        $this->action($collector, $branch, 'close', $transfer->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
 
         $this->action($head, $branch, 'electronic', $clearing->id, ['status' => 'missing'])->assertSessionHasErrors('action');
         $this->action($head, $branch, 'electronic', $transfer->id, ['status' => 'rejected'])->assertSessionHasErrors('action');
@@ -256,16 +268,16 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertDatabaseHas('cash_box_payments', ['id' => $transfer->id, 'status' => 'pending']);
     }
 
-    public function test_mobile_api_closes_reviewed_boxes_and_returns_their_transactions(): void
+    public function test_mobile_api_returns_box_transactions_but_cannot_close_boxes(): void
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
         $this->withToken(MobileAccessToken::issue($collector))->getJson(route('mobile.cash-boxes.index'))->assertJsonPath('boxes.0.type', 'clearing')->assertJsonPath('boxes.0.stage', 'open')->assertJsonPath('boxes.0.totals.ILS', '100.00')->assertJsonPath('boxes.0.payments.0.transaction.notes', 'صيانة مولد');
 
-        $url = route('mobile.cash-boxes.actions', ['action' => 'close', 'record' => $entry->cash_box_id]);
-        $this->postJson($url, ['branch_id' => $branch->id])->assertUnprocessable()->assertJsonValidationErrors('reviewed');
-        $this->postJson($url, ['branch_id' => $branch->id, 'reviewed' => true])->assertJsonPath('status', 'saved');
-        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'collector_submitted_at' => now(), 'collector_counts' => null]);
+        foreach (['close', 'collector-count'] as $action) {
+            $this->postJson(route('mobile.cash-boxes.actions', ['action' => $action, 'record' => $entry->cash_box_id]), ['branch_id' => $branch->id, 'reviewed' => true])->assertForbidden();
+        }
+        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open']);
     }
 
     public function test_legacy_separate_periods_transition_to_one_package_without_box_blockers(): void
@@ -293,7 +305,6 @@ class CollectorBoxTypesTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $cancelled = $this->entry($branch, $collector, CashBoxType::Clearing);
         $active = $this->entry($branch, $collector, CashBoxType::Clearing, '25');
-        $this->action($collector, $branch, 'close', $active->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
         $cancelled->transaction->update(['status' => SubscriptionTransaction::STATUS_CANCELLED]);
         $this->action($head, $branch, 'electronic', $active->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
 
@@ -311,7 +322,7 @@ class CollectorBoxTypesTest extends TestCase
         $this->travelTo($entry->box->closing->coverage_until);
         app(BranchClosingWorkflow::class)->refresh($branch->id);
 
-        $this->actingAs($collector)->get(route('payments.cash-boxes', ['type' => 'clearing', 'state' => 'closed']))->assertInertia(fn (AssertableInertia $page) => $page->where('boxes.total', 1)->where('boxes.data.0.id', $entry->cash_box_id)->has('needsAction', 2)->where('filters.type', 'clearing')->where('filters.state', 'closed'));
+        $this->actingAs($collector)->get(route('payments.cash-boxes', ['type' => 'clearing', 'state' => 'closed']))->assertInertia(fn (AssertableInertia $page) => $page->where('boxes.total', 1)->where('boxes.data.0.id', $entry->cash_box_id)->has('needsAction', 0)->where('filters.type', 'clearing')->where('filters.state', 'closed'));
     }
 
     public function test_collector_actions_require_collection_permission(): void
@@ -325,7 +336,7 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open', 'collector_submitted_at' => null]);
     }
 
-    public function test_staff_with_only_adjustment_permission_can_review_and_send_their_clearings(): void
+    public function test_staff_with_only_adjustment_permission_see_their_clearings_but_cannot_close_them(): void
     {
         [$branch] = $this->start();
         $user = User::factory()->dataEntry()->for($branch)->withPermissions([PermissionKey::AdjustBalances])->create();
@@ -333,9 +344,9 @@ class CollectorBoxTypesTest extends TestCase
 
         $this->actingAs($user)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.clearing.id', $entry->cash_box_id));
         $this->get(route('payments.cash-boxes.show', $entry->cash_box_id))->assertOk();
-        $this->action($user, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
+        $this->action($user, $branch, 'receive', $entry->cash_box_id)->assertForbidden();
 
-        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'collector_submitted_at' => now(), 'collector_counts' => null]);
+        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open']);
     }
 
     public function test_refresh_attaches_historical_clearings_as_late_after_period_was_submitted(): void
@@ -373,7 +384,6 @@ class CollectorBoxTypesTest extends TestCase
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'rejected'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
 
@@ -389,7 +399,6 @@ class CollectorBoxTypesTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
         $closing = $entry->box->closing;
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'rejected'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
@@ -432,7 +441,6 @@ class CollectorBoxTypesTest extends TestCase
         $cash = $this->entry($branch, $collector, CashBoxType::Cash);
         $this->travelTo($cash->box->closing->coverage_until);
         $this->artisan('closings:process')->assertSuccessful();
-        $this->action($head, $branch, 'head-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertSessionHasErrors('action');
         $collector->permissions()->detach();
 
         $this->action($collector, $branch, 'collector-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertForbidden();

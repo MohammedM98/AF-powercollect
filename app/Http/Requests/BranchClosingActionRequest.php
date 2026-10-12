@@ -27,10 +27,7 @@ class BranchClosingActionRequest extends FormRequest
     {
         $action = $this->route('action');
         $rules = ['branch_id' => ['required', 'integer', 'exists:branches,id'], 'reason' => ['nullable', 'string', 'max:3000']];
-        $box = in_array($action, ['close', 'collector-count', 'receive'], true) ? CashBox::query()->find($this->route('record')) : null;
-        if (in_array($action, ['close', 'collector-count'], true)) {
-            $rules += $box?->type === CashBoxType::Cash ? $this->countRules() : ['reviewed' => ['accepted']];
-        }
+        $box = $action === 'receive' ? CashBox::query()->find($this->route('record')) : null;
         if (in_array($action, ['head-count', 'safe-count'], true)) {
             $rules += $this->countRules();
         }

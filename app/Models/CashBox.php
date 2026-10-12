@@ -26,8 +26,7 @@ class CashBox extends Model
     {
         return match (true) {
             $this->status === 'open' => 'open',
-            $this->status === 'pending' && ! $this->collector_submitted_at => 'awaiting_collector',
-            $this->status === 'pending' => 'sent',
+            $this->status === 'pending' => 'awaiting_branch',
             $this->status === 'received' && $this->type->isCounted() && ! $this->confirmed_at => 'awaiting_confirmation',
             default => 'completed',
         };

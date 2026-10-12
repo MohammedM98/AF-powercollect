@@ -61,8 +61,6 @@ class BranchPackageTest extends TestCase
 
     private function receiveCash(Branch $branch, User $head, User $collector, CashBox $box): void
     {
-        $action = $box->fresh()->status === 'open' ? 'close' : 'collector-count';
-        $this->action($collector, $branch, $action, $box->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'head-count', $box->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $box->id, ['recounted' => true, 'decisions' => []])->assertSessionHasNoErrors();
     }
@@ -92,18 +90,20 @@ class BranchPackageTest extends TestCase
     {
         [$branch, $head, $collector, $closing] = $this->start();
         $missing = $this->entry($branch, $collector, CashBoxType::BankTransfer);
-        $pending = $this->entry($branch, $collector, CashBoxType::BankTransfer);
         $rejected = $this->entry($branch, $collector, CashBoxType::Clearing);
-        $this->action($collector, $branch, 'close', $missing->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
-        $this->action($collector, $branch, 'close', $rejected->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
+        $pending = $this->entry($branch, User::factory()->collector()->for($branch)->create(), CashBoxType::BankTransfer);
         $this->action($head, $branch, 'electronic', $missing->id, ['status' => 'missing'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'electronic', $rejected->id, ['status' => 'rejected'])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $missing->cash_box_id)->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $rejected->cash_box_id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
 
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
         $snapshot = $closing->fresh()->submitted_snapshot;
-        $this->assertCount(3, $snapshot['carriedOut']['entries']);
+        $this->assertEqualsCanonicalizing([$missing->id, $rejected->id], array_column($snapshot['carriedOut']['entries'], 'id'));
+        $this->assertSame([$pending->cash_box_id], array_column($snapshot['carriedOut']['boxes'], 'id'));
+        $this->assertSame(['1 صندوق لم يُستلم وسيُرحّل إلى الأسبوع القادم.', '2 حركة (حوالة أو مقاصة) غير مؤكدة أو مرفوضة وستُرحّل إلى الأسبوع القادم.'], $snapshot['warnings']);
         $this->assertDatabaseCount('closing_payments', 0);
         $this->action($head, $branch, 'electronic', $missing->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
         $next = app(BranchClosingWorkflow::class)->current($branch->id);
@@ -144,7 +144,6 @@ class BranchPackageTest extends TestCase
         $actor = $role === 'admin' ? $head : $collector;
         ClosingSetting::ownFor($branch)->update(['receivers' => $role === 'receiver' ? [$actor->id] : [], 'approvers' => $role === 'approver' ? [$actor->id] : []]);
         $entry = $this->entry($branch, $actor);
-        $this->action($actor, $branch, 'close', $entry->cash_box_id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
 
         $response = $this->action($actor, $branch, 'head-count', $entry->cash_box_id, ['counts' => $this->counts()]);
 
@@ -234,7 +233,6 @@ class BranchPackageTest extends TestCase
     {
         [$branch, $head, $collector, $closing] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
@@ -262,7 +260,6 @@ class BranchPackageTest extends TestCase
     {
         [$branch, $head, $collector, $closing] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::BankTransfer);
-        $this->action($collector, $branch, 'close', $entry->cash_box_id, ['reviewed' => true])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'missing'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
@@ -275,5 +272,34 @@ class BranchPackageTest extends TestCase
         $this->assertSame('100.00', $summary['byCollector'][0]['bank']['ILS']);
         $this->assertSame($collector->id, $summary['byCollector'][0]['userId']);
         $this->assertSame(1, $summary['byCollector'][0]['boxCount']);
+    }
+
+    public function test_cash_received_after_the_safe_count_settles_in_the_next_package(): void
+    {
+        [$branch, $head, $collector, $closing] = $this->start();
+        $first = $this->entry($branch, $collector);
+        $late = $this->entry($branch, User::factory()->collector()->for($branch)->create());
+        $this->receiveCash($branch, $head, $collector, $first->box);
+        $this->travelTo($closing->coverage_until->addHour());
+        app(BranchClosingWorkflow::class)->refresh($branch->id);
+        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
+
+        $this->receiveCash($branch, $head, $collector, $late->box);
+        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+
+        $next = app(BranchClosingWorkflow::class)->current($branch->id);
+        $this->assertSame($next->id, $late->box->fresh()->received_in_closing_id);
+        $this->assertSame('100.00', app(BranchClosingWorkflow::class)->reviewSummary($closing->fresh())['cash']['ILS']);
+        $this->assertSame('100', $closing->fresh()->submitted_snapshot['safeCount']['counts']['ILS']);
+        $this->assertSame('100.00', app(BranchClosingWorkflow::class)->cashLedger($next)['received']['ILS']);
+    }
+
+    public function test_closing_page_does_not_send_staff_permissions(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $this->entry($branch, $collector);
+
+        $this->actingAs($head)->get(route('closings.index'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('boxes.0.user.id', $collector->id)->missing('boxes.0.user.permissions'));
     }
 }

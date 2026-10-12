@@ -50,6 +50,7 @@ class BranchClosingController extends Controller
             ->where(fn ($query) => $query->whereIn('closing_id', $closings->modelKeys())->orWhere('status', '!=', 'received')->orWhereHas('payments', fn ($payments) => $payments->whereIn('status', ['pending', 'missing', 'rejected'])))
             ->with(BranchClosingWorkflow::BOX_DETAILS)->latest('id')->get();
         $boxRows = $boxes->map(function (CashBox $box) use ($actor): array {
+            $box->user?->makeHidden('permissions');
             $row = $box->toArray();
             $row['expected_counts'] = ($box->head_counts && $box->received_by === $actor->id) || $box->received_at || ($box->collector_counts && $box->user_id === $actor->id) ? $box->expected_counts : null;
             if (! $box->head_counts && ! $box->received_at && $box->user_id !== $actor->id) {
@@ -61,7 +62,6 @@ class BranchClosingController extends Controller
             $row['canCount'] = $this->workflow->mayReceive($box, $actor);
             $row['isOwn'] = $box->user_id === $actor->id;
             $row['stage'] = $box->stage();
-            $row['collectorCounted'] = ! $this->workflow->awaitsCollector($box);
             $row['payments'] = array_map(fn (array $entry): array => [...$entry, 'statement_url' => route('subscriptions.statement', $entry['transaction']['subscription_id'])], $row['payments']);
 
             return $row;
@@ -106,7 +106,6 @@ class BranchClosingController extends Controller
             $live = $liveBoxes->get($box['id']);
             $box['isOwn'] = ($box['user_id'] ?? null) === $actor->id;
             $box['canCount'] = ! $frozen && $live && $this->workflow->mayReceive($live, $actor);
-            $box['collectorCounted'] = $live ? ! $this->workflow->awaitsCollector($live) : ($box['collector_submitted_at'] ?? null) !== null;
             $box['frozen'] = $frozen;
             $box['payments'] = array_map($presentEntry, $box['payments'] ?? []);
             unset($box['user']['permissions']);
@@ -135,7 +134,7 @@ class BranchClosingController extends Controller
         abort_unless($actor->isSuperAdmin() || $actor->branch_id === $branchId, 404);
         $data = $request->validated();
         $allowed = match ($action) {
-            'close', 'collector-count', 'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
+            'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
             'head-count', 'receive', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
             'submit', 'withdraw', 'safe-count', 'early', 'reply', 'transfer' => BranchClosingAccess::approve($actor, $branchId),
             'start', 'settings', 'direct' => BranchClosingAccess::manage($actor, $branchId),
@@ -150,11 +149,9 @@ class BranchClosingController extends Controller
             }
             $this->workflow->refresh($branchId);
             abort_unless(ClosingSetting::ownFor($branchId)?->workflow_started_at, 404);
-            if (in_array($action, ['close', 'collector-count', 'head-count', 'receive', 'confirm'], true)) {
+            if (in_array($action, ['head-count', 'receive', 'confirm'], true)) {
                 $box = CashBox::query()->where('branch_id', $branchId)->findOrFail($record);
                 match ($action) {
-                    'close' => $this->workflow->closeByCollector($box, $actor, $data),
-                    'collector-count' => $this->workflow->countCollector($box, $actor, $data),
                     'head-count' => $this->workflow->countHead($box, $actor, $data),
                     'receive' => $this->workflow->receive($box, $actor, $data),
                     'confirm' => $this->workflow->confirmBox($box, $actor),

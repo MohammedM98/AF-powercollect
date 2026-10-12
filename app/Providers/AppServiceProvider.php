@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\SubscriptionTransaction;
+use App\Support\BranchClosingWorkflow;
 use App\Support\BranchSettings;
 use App\Support\Messaging\HttpSmsGateway;
 use App\Support\Messaging\LogSmsGateway;
@@ -31,6 +33,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        SubscriptionTransaction::created(function (SubscriptionTransaction $payment): void {
+            app(BranchClosingWorkflow::class)->capture($payment);
+        });
+        SubscriptionTransaction::updated(function (SubscriptionTransaction $payment): void {
+            if ($payment->wasChanged(['currency', 'currency_amount', 'amount', 'payment_method'])) {
+                app(BranchClosingWorkflow::class)->syncEditablePayment($payment);
+            }
+        });
+        SubscriptionTransaction::deleting(function (SubscriptionTransaction $payment): void {
+            app(BranchClosingWorkflow::class)->releaseEditablePayment($payment);
+        });
         // Every password — a new user's, a user's own — is at least ten characters with letters and numbers; in
         // production it also must not be in a known breach (a check that calls out to a service, so not in tests).
         Password::defaults(fn (): Password => $this->app->isProduction()

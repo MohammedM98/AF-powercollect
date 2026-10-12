@@ -785,6 +785,10 @@ class SubscriptionTransaction extends Model
 
         $originalId = $this->reference_transaction_id ?? $this->reverses_id ?? $this->id;
 
+        if (ClosingSetting::ownFor($this->branch_id)?->workflow_started_at && CashBoxPayment::query()->where('subscription_transaction_id', $originalId)->whereHas('box', fn (Builder $query): Builder => $query->where('status', '!=', 'open'))->exists()) {
+            return true;
+        }
+
         return ClosingPayment::query()
             ->where('subscription_transaction_id', $originalId)
             ->whereHas('closing', fn (Builder $query): Builder => $query->whereIn('status', [
@@ -1171,6 +1175,10 @@ class SubscriptionTransaction extends Model
     /** Whether this payment belongs to a submitted or approved daily closing. */
     public function isInClosedDay(bool $lockForUpdate = false): bool
     {
+        if (ClosingSetting::ownFor($this->branch_id)?->workflow_started_at && CashBoxPayment::query()->where('subscription_transaction_id', $this->id)->whereHas('box', fn (Builder $query): Builder => $query->where('status', '!=', 'open'))->exists()) {
+            return true;
+        }
+
         if (! $lockForUpdate && $this->relationLoaded('closingLine')) {
             return $this->closingLine !== null
                 && $this->closingLine->closing !== null
@@ -1231,6 +1239,7 @@ class SubscriptionTransaction extends Model
         }
 
         return $this->isLastOnStatement($lockForUpdate)
+            && ! ($erased?->isInClosedDay($lockForUpdate) ?? false)
             && ! ClosingPayment::query()
                 ->where('subscription_transaction_id', $erased?->id)
                 ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())

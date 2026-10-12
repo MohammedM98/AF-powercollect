@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'number', 'type', 'branch_id', 'period_start', 'period_end', 'status', 'opening_cash', 'counted_cash', 'denominations',
     'difference_reason', 'difference_notes', 'prepared_by', 'submitted_at', 'reviewed_by', 'reviewed_at', 'return_reason',
-    'book', 'is_manual', 'coverage_from', 'coverage_until', 'branch_approved_by', 'branch_approved_at', 'branch_notes', 'submitted_snapshot',
+    'book', 'is_manual', 'coverage_from', 'coverage_until', 'branch_approved_by', 'branch_approved_at', 'branch_notes', 'submitted_snapshot', 'workflow_settings', 'scheduled_until',
 ])]
 class Closing extends Model
 {
@@ -41,6 +41,8 @@ class Closing extends Model
             'is_manual' => 'boolean',
             'branch_approved_at' => 'datetime',
             'submitted_snapshot' => 'array',
+            'workflow_settings' => 'array',
+            'scheduled_until' => 'immutable_datetime',
         ];
     }
 
@@ -72,6 +74,11 @@ class Closing extends Model
     public function events(): HasMany
     {
         return $this->hasMany(ClosingEvent::class);
+    }
+
+    public function auditNotes(): HasMany
+    {
+        return $this->hasMany(AuditNote::class);
     }
 
     public function transfers(): HasMany

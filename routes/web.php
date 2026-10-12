@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AreaController;
+use App\Http\Controllers\BranchClosingController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchPerformanceController;
 use App\Http\Controllers\CircuitBreakerController;
@@ -56,6 +57,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile/devices', [ProfileDeviceController::class, 'destroy'])->middleware('throttle:6,1')->name('profile.devices.destroy');
 
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
+    Route::get('/payments/cash-boxes', [PaymentController::class, 'cashBoxes'])->name('payments.cash-boxes');
+    Route::get('/reconciliation', [BranchClosingController::class, 'index'])->name('closings.index');
+    Route::post('/reconciliation/actions/{action}/{record?}', [BranchClosingController::class, 'action'])->whereNumber('record')->name('closings.actions');
+    Route::get('/reconciliation/proofs/{kind}/{record}', [BranchClosingController::class, 'proof'])->whereNumber('record')->name('closings.proofs');
+    Route::post('/reconciliation/transfer-receipts/{transfer}', [BranchClosingController::class, 'transferReceipt'])->name('closings.transfer-receipts');
     Route::get('/payments/search', [PaymentController::class, 'search'])->name('payments.search');
     Route::post('/payments/split', [SplitPaymentController::class, 'store'])->name('payments.split.store');
     Route::get('/split-payments/{splitPayment}', [SplitPaymentController::class, 'show'])->name('split-payments.show');

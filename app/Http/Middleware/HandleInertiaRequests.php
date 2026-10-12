@@ -17,6 +17,7 @@ use App\Models\SubscriptionTransaction;
 use App\Models\Tariff;
 use App\Models\User;
 use App\Models\UserType;
+use App\Support\BranchClosingAccess;
 use App\Support\FinancialReportAccess;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -71,6 +72,7 @@ class HandleInertiaRequests extends Middleware
                 'viewSubscriptions' => $user->can('viewAny', Subscription::class),
                 'recordPayments' => $user->can('recordAnyPayment', Subscription::class),
                 'viewLedger' => $user->can('viewAny', SubscriptionTransaction::class),
+                'viewBranchReconciliation' => BranchClosingAccess::view($user),
                 'viewBranchPerformance' => $user->can('viewBranchPerformance', SubscriptionTransaction::class),
                 'viewDebtAging' => $user->can('viewDebtAging', SubscriptionTransaction::class),
                 'viewTransactionAudit' => $user->can('viewTransactionAudit', SubscriptionTransaction::class),

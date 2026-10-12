@@ -10,10 +10,13 @@ use App\Models\Closing;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Support\ArabicSearch;
+use App\Support\BranchClosingWorkflow;
 use App\Support\ClosingPeriods;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class MobileCollectionController extends Controller
 {
@@ -158,21 +161,28 @@ class MobileCollectionController extends Controller
         $validated = $request->validated();
 
         try {
-            $transaction = SubscriptionTransaction::recordPayment($subscription, $request->user(), [
-                'mobile_operation_id' => $validated['mobile_operation_id'],
-                'amount' => $validated['amount'],
-                'currency' => $validated['currency'],
-                'exchange_rate' => $validated['exchange_rate'] ?? null,
-                'payment_method' => $validated['payment_method'],
-                'bank_name' => $validated['bank_name'] ?? null,
-                'sender_bank_name' => $validated['sender_bank_name'] ?? null,
-                'sender_name' => $validated['sender_name'] ?? null,
-                'reference_number' => $validated['reference_number'] ?? null,
-                'confirm_duplicate_reference' => (bool) ($validated['confirm_duplicate_reference'] ?? false),
-                'manual_voucher_number' => $validated['manual_voucher_number'] ?? null,
-                'cash_box' => $validated['cash_box'] ?? null,
-                'notes' => $validated['notes'] ?? null,
-            ]);
+            $transaction = DB::transaction(function () use ($subscription, $request, $validated): SubscriptionTransaction {
+                $transaction = SubscriptionTransaction::recordPayment($subscription, $request->user(), [
+                    'mobile_operation_id' => $validated['mobile_operation_id'],
+                    'amount' => $validated['amount'],
+                    'currency' => $validated['currency'],
+                    'exchange_rate' => $validated['exchange_rate'] ?? null,
+                    'payment_method' => $validated['payment_method'],
+                    'bank_name' => $validated['bank_name'] ?? null,
+                    'sender_bank_name' => $validated['sender_bank_name'] ?? null,
+                    'sender_name' => $validated['sender_name'] ?? null,
+                    'reference_number' => $validated['reference_number'] ?? null,
+                    'confirm_duplicate_reference' => (bool) ($validated['confirm_duplicate_reference'] ?? false),
+                    'manual_voucher_number' => $validated['manual_voucher_number'] ?? null,
+                    'cash_box' => $validated['cash_box'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                ]);
+                if (filled($validated['collected_at'] ?? null)) {
+                    app(BranchClosingWorkflow::class)->syncOriginalTime($transaction, CarbonImmutable::parse($validated['collected_at']));
+                }
+
+                return $transaction;
+            });
         } catch (UniqueConstraintViolationException $exception) {
             $transaction = $request->existingTransaction();
 

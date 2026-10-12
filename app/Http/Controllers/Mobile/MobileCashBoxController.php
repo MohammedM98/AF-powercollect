@@ -63,8 +63,7 @@ class MobileCashBoxController extends Controller
         $actor = $request->user();
         $this->workflow->locked($actor->branch_id, function () use ($actor, $note, $data): void {
             $item = AuditNote::query()->where('assigned_to', $actor->id)->where('status', 'with_collector')->whereHas('closing', fn ($query) => $query->where('branch_id', $actor->branch_id))->findOrFail($note);
-            $item->replies()->create(['user_id' => $actor->id, 'kind' => 'collector_response', 'body' => $data['body']]);
-            $item->update(['status' => 'collector_replied']);
+            $this->workflow->collectorReply($item, $actor, $data['body']);
         });
 
         return response()->json(['status' => 'saved']);

@@ -3,8 +3,11 @@
 namespace Tests\Feature;
 
 use App\Enums\PermissionKey;
+use App\Models\AuditNote;
 use App\Models\Branch;
 use App\Models\CashBox;
+use App\Models\Closing;
+use App\Models\CollectorDebt;
 use App\Models\ClosingSetting;
 use App\Models\MobileAccessToken;
 use App\Models\Permission;
@@ -113,7 +116,8 @@ class CollectorCashBoxWebTest extends TestCase
         $this->actingAs($head)->post(route('closings.actions', ['action' => 'head-count', 'record' => $box->id]), $payload)->assertSessionHasNoErrors();
         $this->post(route('closings.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id, 'recounted' => false, 'decisions' => []])->assertSessionHasNoErrors();
         $this->actingAs($collector)->get(route('payments.index'))
-            ->assertInertia(fn (AssertableInertia $page) => $page->where('cashBox.boxes.0.receivedCounts.ILS', '100')->where('cashBox.needsAction.0.id', $box->id));
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('cashBox.boxes.0.receivedCounts.ILS', '100')->where('cashBox.boxes.0.expectedCounts.ILS', '100.00')
+                ->where('cashBox.boxes.0.differences.ILS', '0.00')->where('cashBox.needsAction.0.id', $box->id));
         $this->from(route('payments.index'))->post(route('closings.actions', ['action' => 'confirm', 'record' => $box->id]), ['branch_id' => $branch->id])->assertRedirect(route('payments.index'))->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('cash_boxes', ['id' => $box->id, 'status' => 'received', 'confirmed_at' => now()]);
@@ -177,7 +181,7 @@ class CollectorCashBoxWebTest extends TestCase
         $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Payments/CashBoxes')
             ->has('needsAction', 1)->where('needsAction.0.id', $pending->id)
-            ->where('needsAction.0.expectedCounts', null)
+            ->where('needsAction.0.expectedCounts.ILS', '100')
             ->where('current.cash', null)->where('current.bank_transfer', null)->where('current.clearing', null)
             ->where('boxes.total', 28)->has('boxes.data', 15)
             ->where('boxes.data.0.id', $history->last()->id)
@@ -185,5 +189,45 @@ class CollectorCashBoxWebTest extends TestCase
 
         $this->get(route('payments.cash-boxes', ['page' => 2]))->assertInertia(fn (AssertableInertia $page) => $page
             ->has('needsAction', 1)->has('boxes.data', 13)->where('boxes.data.11.id', $history->first()->id)->where('boxes.data.12.id', $pending->id));
+    }
+
+    public function test_collector_sees_the_shortfall_the_branch_recorded_as_their_debt(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $box = $this->payment($branch, $collector);
+
+        $this->actingAs($head)->post(route('closings.actions', ['action' => 'head-count', 'record' => $box->id]), ['branch_id' => $branch->id, 'counts' => ['ILS' => '60', 'USD' => '0', 'JOD' => '0']])->assertSessionHasNoErrors();
+        $this->post(route('closings.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id, 'recounted' => false, 'reason' => 'عجز', 'decisions' => ['ILS' => 'debt']])->assertSessionHasNoErrors();
+
+        $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('needsAction.0.differences.ILS', '-40.00')
+            ->where('needsAction.0.decisions.ILS', 'debt')
+            ->has('cashBox.debts', 1)
+            ->where('cashBox.debts.0.remaining', '40.00')
+            ->where('cashBox.debts.0.box.number', $box->number));
+    }
+
+    public function test_collector_answers_an_audit_note_the_branch_sent_them(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $box = $this->payment($branch, $collector);
+        $note = AuditNote::factory()->create(['closing_id' => Closing::factory()->submitted()->create(['branch_id' => $branch->id])->id, 'cash_box_id' => $box->id, 'assigned_to' => $collector->id, 'status' => 'with_collector']);
+        $note->replies()->create(['user_id' => $head->id, 'kind' => 'collector', 'body' => 'أين ذهب الفرق؟']);
+
+        $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('cashBox.auditNotes', 1)
+            ->where('cashBox.auditNotes.0.question', 'أين ذهب الفرق؟')
+            ->where('cashBox.auditNotes.0.replyUrl', route('payments.audit-notes.reply', $note)));
+
+        $this->post(route('payments.audit-notes.reply', $note), ['body' => ''])->assertSessionHasErrors('body');
+        $this->actingAs($this->collector($branch))->post(route('payments.audit-notes.reply', $note), ['body' => 'ردّ'])->assertNotFound();
+        $this->assertDatabaseHas('audit_notes', ['id' => $note->id, 'status' => 'with_collector']);
+
+        $this->actingAs($collector)->from(route('payments.cash-boxes'))->post(route('payments.audit-notes.reply', $note), ['body' => 'سلّمت الفرق نقدًا.'])
+            ->assertRedirect(route('payments.cash-boxes'))->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('audit_notes', ['id' => $note->id, 'status' => 'collector_replied']);
+        $this->assertDatabaseHas('audit_note_replies', ['audit_note_id' => $note->id, 'user_id' => $collector->id, 'kind' => 'collector_response', 'body' => 'سلّمت الفرق نقدًا.']);
+        $this->post(route('payments.audit-notes.reply', $note), ['body' => 'مرة أخرى'])->assertNotFound();
     }
 }

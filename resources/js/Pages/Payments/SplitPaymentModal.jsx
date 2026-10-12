@@ -9,7 +9,7 @@ import SplitPaymentForm from './SplitPaymentForm';
  * between any subscribers. Closing it with something entered asks first, so a
  * long distribution is not lost by a stray click.
  */
-export default function SplitPaymentModal({ onClose, transferBanks, senderBanks }) {
+export default function SplitPaymentModal({ onClose, transferBanks, senderBanks, initialSubscription = null }) {
     const [dirty, setDirty] = useState(false);
     const [discarding, setDiscarding] = useState(false);
 
@@ -41,7 +41,7 @@ export default function SplitPaymentModal({ onClose, transferBanks, senderBanks 
                     </div>
 
                     <div className="flex-1 overflow-y-auto px-7 py-6">
-                        <SplitPaymentForm bare transferBanks={transferBanks} senderBanks={senderBanks} onDirtyChange={setDirty} />
+                        <SplitPaymentForm bare transferBanks={transferBanks} senderBanks={senderBanks} onDirtyChange={setDirty} initialSubscription={initialSubscription} />
                     </div>
                 </div>
             </Modal>

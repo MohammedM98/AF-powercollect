@@ -757,6 +757,17 @@ class BranchClosingWorkflow
         $note->replies()->create(['user_id' => $actor->id, 'kind' => $data['kind'], 'body' => $data['body'], 'document_path' => $document]);
     }
 
+    /**
+     * The collector's answer to an audit note the branch sent them; it goes
+     * back to the branch to pass on to the auditor.
+     */
+    public function collectorReply(AuditNote $note, User $actor, string $body): void
+    {
+        $this->require($note->assigned_to === $actor->id && $note->status === 'with_collector', 'الملاحظة لا تنتظر ردّك.');
+        $note->replies()->create(['user_id' => $actor->id, 'kind' => 'collector_response', 'body' => $body]);
+        $note->update(['status' => 'collector_replied']);
+    }
+
     /** @param array<string, mixed> $counts @param array<string, mixed> $expected @return array<string, string> */
     public function differences(array $counts, array $expected): array
     {

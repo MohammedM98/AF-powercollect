@@ -152,7 +152,7 @@ function RecordedSplit({ recorded, onAnother }) {
  * transferred; the server records a payment on each subscription together,
  * or none.
  */
-export default function SplitPaymentForm({ transferBanks, senderBanks, bare = false, onDirtyChange }) {
+export default function SplitPaymentForm({ transferBanks, senderBanks, bare = false, onDirtyChange, initialSubscription = null }) {
     const form = useForm({
         total_amount: '',
         bank_name: '',
@@ -165,7 +165,7 @@ export default function SplitPaymentForm({ transferBanks, senderBanks, bare = fa
         confirm_overpayment: false,
     });
     const { data, setData, errors, processing } = form;
-    const [parts, setParts] = useState([]);
+    const [parts, setParts] = useState(() => (initialSubscription ? [{ subscription: initialSubscription, amount: '' }] : []));
     const [recorded, setRecorded] = useState(null);
     const [confirmingSave, setConfirmingSave] = useState(false);
     const [term, setTerm] = useState('');
@@ -277,7 +277,7 @@ export default function SplitPaymentForm({ transferBanks, senderBanks, bare = fa
     }
 
     // Whether something is entered that closing the form would lose; the modal asks before throwing it away.
-    const dirty = parts.length > 0 || data.total_amount !== '' || data.sender_name !== '' || data.reference_number !== '' || data.bank_name !== '';
+    const dirty = parts.length !== (initialSubscription ? 1 : 0) || parts.some((part) => part.amount !== '') || data.total_amount !== '' || data.sender_name !== '' || data.reference_number !== '' || data.bank_name !== '';
     useEffect(() => {
         onDirtyChange?.(dirty);
     }, [dirty]);

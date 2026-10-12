@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import Pagination from '@/Components/DataTable/Pagination';
@@ -15,26 +16,57 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { describeBalance } from '@/lib/accountStatement';
 import { formatMoney } from '@/lib/format';
 import { balanceText, BALANCE_CHIPS } from '@/Pages/Subscriptions/AccountFormParts';
+import ChargeModal from '@/Pages/Subscriptions/ChargeModal';
+import ClearingModal from '@/Pages/Subscriptions/ClearingModal';
+import DiscountModal from '@/Pages/Subscriptions/DiscountModal';
 import PaymentModal from '@/Pages/Subscriptions/PaymentModal';
 import SplitPaymentModal from './SplitPaymentModal';
-import CollectorCashBox from './CollectorCashBox';
+import CollectorCashBox, { pendingCount } from './CollectorCashBox';
 import CollectionNavigation from './CollectionNavigation';
 
 const STATUS_TONES = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
-/** What the user collected today, as figures and their latest payments. */
+/** Why a menu action is locked: the permission it needs and who grants it. */
+function needsPermission(permission) {
+    return `تحتاج صلاحية «${permission}» — يمنحها مدير الفرع أو مدير النظام.`;
+}
+
+/** What the user collected today, in one wide card at the top of the page: the total, and how much in cash and by transfer. */
+function TodaysSummary({ today }) {
+    const parts = [
+        { icon: 'banknotes', label: 'نقدًا', value: today.cash },
+        { icon: 'bank', label: 'تحويلات بنكية', value: today.transfers },
+    ];
+
+    return (
+        <section aria-label="ما حصّلته اليوم" className="mb-6">
+            <KpiTile hero label="ما حصّلته اليوم" value={formatMoney(today.total)} unit="شيكل" hint={`${today.count.toLocaleString('en')} ${today.count === 1 ? 'دفعة' : 'دفعات'}`}>
+                <dl className="mt-5 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-2">
+                    {parts.map((part) => (
+                        <div key={part.label} className="flex items-center gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/80">
+                                <Icon name={part.icon} className="h-[18px] w-[18px]" />
+                            </span>
+                            <dt className="text-sm text-white/70">{part.label}</dt>
+                            <dd className="ms-auto flex items-baseline gap-1.5 sm:ms-0">
+                                <span className="font-display text-2xl font-bold">{formatMoney(part.value)}</span>
+                                <span className="text-xs text-white/60">شيكل</span>
+                            </dd>
+                        </div>
+                    ))}
+                </dl>
+            </KpiTile>
+        </section>
+    );
+}
+
+/** The user's latest payments today, each with its receipt. */
 function TodaysPayments({ today }) {
     return (
         <section aria-labelledby="todays-payments" className="mt-8 space-y-4">
             <h3 id="todays-payments" className="text-lg font-bold text-gray-900">
-                ما حصّلته اليوم
+                آخر دفعاتك اليوم
             </h3>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-                <KpiTile hero label="إجمالي دفعاتك اليوم" value={formatMoney(today.total)} unit="شيكل" hint={`${today.count.toLocaleString('en')} ${today.count === 1 ? 'دفعة' : 'دفعات'}`} />
-                <KpiTile icon="banknotes" label="نقدًا" value={formatMoney(today.cash)} unit="شيكل" />
-                <KpiTile icon="bank" label="تحويلات بنكية" value={formatMoney(today.transfers)} unit="شيكل" />
-            </div>
 
             {today.payments.length > 0 ? (
                 <ul className="divide-y divide-gray-100 overflow-hidden rounded-panel border border-gray-100 bg-surface shadow-card">
@@ -74,14 +106,55 @@ function TodaysPayments({ today }) {
 }
 
 /**
- * The quick payments page: the subscribers in a table to search and filter,
- * each with one button to record their payment, and a main button for one
- * bank transfer shared between several subscribers.
+ * The quick payments page: what the user collected today on top, then the
+ * subscribers in a table to search and filter, each with a button to record
+ * their payment and a menu for the account's other lines (a split transfer,
+ * a charge, a discount, a clearing), and a main button for one bank transfer
+ * shared between several subscribers.
  */
-export default function Index({ subscriptions, scopeLabel, filters, filterOptions, today, cashBox, collectionUrls, paymentMethods, transferBanks, senderBanks }) {
+export default function Index({
+    subscriptions,
+    scopeLabel,
+    filters,
+    filterOptions,
+    today,
+    cashBox,
+    collectionUrls,
+    paymentMethods,
+    transferBanks,
+    senderBanks,
+    chargeTypes,
+    discountMethods,
+    discountSegments,
+}) {
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/payments', filters);
     const [paying, setPaying] = useState(null);
-    const [splitting, setSplitting] = useState(false);
+    // The split transfer form, open: `{ subscription }` starts it with that subscriber, `{}` empty.
+    const [splitting, setSplitting] = useState(null);
+    // The account form open over the table: `{ form: 'charge' | 'discount' | 'clearing', subscription }`.
+    const [adjusting, setAdjusting] = useState(null);
+
+    /** The row's ⋯ menu: the account's other lines, besides the payment button beside it. */
+    function rowMenu(subscription) {
+        const adjustLock = subscription.canAdjustBalance ? null : needsPermission('إضافة تحميل وخصم');
+
+        return {
+            title: subscription.fullName,
+            subtitle: subscription.phone,
+            groups: [
+                {
+                    label: 'الحساب المالي',
+                    items: [
+                        { label: 'تسجيل دفعة', icon: 'banknotes', tone: 'emerald', shortcut: 'P', onSelect: () => setPaying(subscription) },
+                        { label: 'دفعة مقسّمة', icon: 'layers', tone: 'brand', hint: 'تحويل واحد لعدة مشتركين', onSelect: () => setSplitting({ subscription }) },
+                        { label: 'تحميل حركة', icon: 'document-plus', tone: 'amber', hint: 'غرامة أو رسوم', onSelect: () => setAdjusting({ form: 'charge', subscription }), lockedReason: adjustLock },
+                        { label: 'إضافة خصم', icon: 'discount', tone: 'violet', onSelect: () => setAdjusting({ form: 'discount', subscription }), lockedReason: adjustLock },
+                        { label: 'مقاصة', icon: 'scale', tone: 'teal', onSelect: () => setAdjusting({ form: 'clearing', subscription }), lockedReason: adjustLock },
+                    ],
+                },
+            ],
+        };
+    }
 
     return (
         <AuthenticatedLayout
@@ -92,7 +165,7 @@ export default function Index({ subscriptions, scopeLabel, filters, filterOption
                         <h2 className="mt-1 text-3xl font-bold text-gray-900">تسجيل الدفعات</h2>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <PrimaryButton type="button" onClick={() => setSplitting(true)} className="h-11 px-5">
+                        <PrimaryButton type="button" onClick={() => setSplitting({})} className="h-11 px-5">
                             <Icon name="layers" className="h-[18px] w-[18px]" />
                             دفعة مقسّمة على عدة مشتركين
                         </PrimaryButton>
@@ -102,7 +175,8 @@ export default function Index({ subscriptions, scopeLabel, filters, filterOption
         >
             <Head title="تسجيل الدفعات" />
 
-            <CollectionNavigation urls={collectionUrls} active="payments" pendingCount={cashBox.needsAction.length} />
+            <CollectionNavigation urls={collectionUrls} active="payments" pendingCount={pendingCount(cashBox)} />
+            <TodaysSummary today={today} />
             <CollectorCashBox cashBox={cashBox} mode="current" />
 
             <DataTableToolbar
@@ -178,10 +252,13 @@ export default function Index({ subscriptions, scopeLabel, filters, filterOption
                                             <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
                                         </td>
                                         <td className="text-end">
-                                            <PrimaryButton type="button" onClick={() => setPaying(subscription)} className="px-3.5 py-2">
-                                                <Icon name="banknotes" className="h-4 w-4" />
-                                                تسجيل دفعة
-                                            </PrimaryButton>
+                                            <div className="inline-flex items-center gap-2">
+                                                <PrimaryButton type="button" onClick={() => setPaying(subscription)} className="px-3.5 py-2">
+                                                    <Icon name="banknotes" className="h-4 w-4" />
+                                                    تسجيل دفعة
+                                                </PrimaryButton>
+                                                <RowActionsMenu menu={rowMenu(subscription)} />
+                                            </div>
                                         </td>
                                     </tr>
                                 );
@@ -208,7 +285,35 @@ export default function Index({ subscriptions, scopeLabel, filters, filterOption
                 />
             )}
 
-            {splitting && <SplitPaymentModal onClose={() => setSplitting(false)} transferBanks={transferBanks} senderBanks={senderBanks} />}
+            {adjusting?.form === 'charge' && (
+                <ChargeModal key={`charge-${adjusting.subscription.id}`} show onClose={() => setAdjusting(null)} subscription={adjusting.subscription} balance={adjusting.subscription.balance} chargeTypes={chargeTypes} />
+            )}
+
+            {adjusting?.form === 'discount' && (
+                <DiscountModal
+                    key={`discount-${adjusting.subscription.id}`}
+                    show
+                    onClose={() => setAdjusting(null)}
+                    subscription={adjusting.subscription}
+                    balance={adjusting.subscription.balance}
+                    discountMethods={discountMethods}
+                    discountSegments={discountSegments}
+                />
+            )}
+
+            {adjusting?.form === 'clearing' && (
+                <ClearingModal key={`clearing-${adjusting.subscription.id}`} show onClose={() => setAdjusting(null)} subscription={adjusting.subscription} balance={adjusting.subscription.balance} />
+            )}
+
+            {splitting && (
+                <SplitPaymentModal
+                    key={splitting.subscription?.id ?? 'split'}
+                    onClose={() => setSplitting(null)}
+                    transferBanks={transferBanks}
+                    senderBanks={senderBanks}
+                    initialSubscription={splitting.subscription ?? null}
+                />
+            )}
         </AuthenticatedLayout>
     );
 }

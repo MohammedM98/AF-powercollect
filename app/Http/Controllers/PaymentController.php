@@ -7,12 +7,15 @@ use App\Enums\SubscriptionStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Concerns\FiltersSubscriptionList;
 use App\Http\Requests\StoreSplitPaymentRequest;
+use App\Models\CashBox;
+use App\Models\ClosingSetting;
 use App\Models\MeterBox;
 use App\Models\SubArea;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\Tariff;
 use App\Models\User;
+use App\Support\BranchClosingWorkflow;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,6 +28,8 @@ use Inertia\Response as InertiaResponse;
 class PaymentController extends Controller
 {
     use FiltersDataTable, FiltersSubscriptionList;
+
+    public function __construct(private BranchClosingWorkflow $workflow) {}
 
     /** The columns the subscribers table may be sorted by. */
     private const SORTABLE = ['account_number', 'display_name', 'status', 'outstanding_balance'];
@@ -70,10 +75,76 @@ class PaymentController extends Controller
             'filters' => $this->dataTableState($request, 'display_name'),
             'filterOptions' => $this->filterOptions($actor, $request),
             'today' => $this->todaysPayments($actor),
+            'cashBox' => $this->ownCashBoxes($actor),
+            'collectionUrls' => $this->collectionUrls(),
             'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
             'transferBanks' => config('powercollect.transfer_banks'),
             'senderBanks' => config('powercollect.sender_banks'),
         ]);
+    }
+
+    public function cashBoxes(Request $request): InertiaResponse
+    {
+        $this->authorize('recordAnyPayment', Subscription::class);
+
+        $actor = $request->user();
+        $cashBox = $this->ownCashBoxes($actor, false);
+        $history = CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)
+            ->where('kind', '!=', 'direct')->whereNotNull('confirmed_at')->withCount('payments')->latest('id')
+            ->paginate(15)->through(fn (CashBox $box): array => $this->cashBoxRow($box));
+
+        return Inertia::render('Payments/CashBoxes', [
+            'cashBox' => $cashBox,
+            'history' => $history,
+            'collectionUrls' => $this->collectionUrls(),
+        ]);
+    }
+
+    /** @return array{payments: string, cashBoxes: string} */
+    private function collectionUrls(): array
+    {
+        return ['payments' => route('payments.index'), 'cashBoxes' => route('payments.cash-boxes')];
+    }
+
+    /** @return array{started: bool, branchName: ?string, boxes: array<int, array<string, mixed>>} */
+    private function ownCashBoxes(User $actor, bool $includeRecentHistory = true): array
+    {
+        $started = $actor->branch_id && ClosingSetting::ownFor($actor->branch_id)?->workflow_started_at !== null;
+        if (! $started) {
+            return ['started' => false, 'branchName' => $actor->branch?->name, 'boxes' => []];
+        }
+
+        $this->workflow->refresh($actor->branch_id);
+        $query = CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('kind', '!=', 'direct')->withCount('payments')->latest('id');
+        $outstanding = (clone $query)->whereNull('confirmed_at')->get();
+        $history = $includeRecentHistory ? (clone $query)->whereNotNull('confirmed_at')->limit(10)->get() : collect();
+
+        return [
+            'started' => true,
+            'branchName' => $actor->branch?->name,
+            'boxes' => $outstanding->concat($history)->map(fn (CashBox $box): array => $this->cashBoxRow($box))->values()->all(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function cashBoxRow(CashBox $box): array
+    {
+        return [
+            'id' => $box->id,
+            'number' => $box->number,
+            'status' => $box->status,
+            'openedAt' => $box->opened_at,
+            'closedAt' => $box->closed_at,
+            'receivedAt' => $box->received_at,
+            'confirmedAt' => $box->confirmed_at,
+            'paymentCount' => $box->payments_count,
+            'collectorCounts' => $box->collector_counts,
+            'expectedCounts' => $box->collector_counts ? $box->expected_counts : null,
+            'receivedCounts' => $box->received_at ? $box->head_counts : null,
+            'reason' => $box->reason,
+            'urls' => collect(['close', 'collector-count', 'confirm'])->mapWithKeys(fn (string $action): array => [$action => route('closings.actions', ['action' => $action, 'record' => $box->id])])->all(),
+            'branchId' => $box->branch_id,
+        ];
     }
 
     /**

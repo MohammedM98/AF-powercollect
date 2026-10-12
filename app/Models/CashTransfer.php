@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 #[Fillable([
     'closing_id', 'branch_id', 'amount', 'method', 'sent_by', 'recipient_id', 'sent_at', 'proof_path', 'notes',
-    'status', 'received_by', 'received_at',
+    'status', 'received_by', 'received_at', 'currency',
 ])]
 class CashTransfer extends Model
 {

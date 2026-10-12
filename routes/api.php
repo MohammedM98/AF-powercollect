@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Mobile\MobileCashBoxController;
 use App\Http\Controllers\Mobile\MobileCollectionController;
 use App\Http\Controllers\Mobile\MobileReadingController;
 use App\Http\Controllers\Mobile\MobileSessionController;
@@ -18,6 +19,10 @@ Route::prefix('mobile')->name('mobile.')->group(function (): void {
         Route::get('/collections/subscriptions', [MobileCollectionController::class, 'subscriptions'])->name('collections.subscriptions');
         Route::get('/collections/subscriptions/{subscription}', [MobileCollectionController::class, 'show'])->whereNumber('subscription')->name('collections.subscriptions.show');
         Route::get('/collections', [MobileCollectionController::class, 'index'])->name('collections.index');
+        Route::get('/cash-boxes', [MobileCashBoxController::class, 'index'])->name('cash-boxes.index');
+        Route::post('/cash-boxes/sync', [MobileCashBoxController::class, 'sync'])->name('cash-boxes.sync');
+        Route::post('/cash-boxes/{action}/{record}', [MobileCashBoxController::class, 'action'])->whereNumber('record')->name('cash-boxes.actions');
+        Route::post('/audit-notes/{note}/reply', [MobileCashBoxController::class, 'reply'])->whereNumber('note')->name('audit-notes.reply');
         Route::post('/collections', [MobileCollectionController::class, 'store'])->name('collections.store');
     });
 });

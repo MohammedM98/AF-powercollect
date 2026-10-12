@@ -17,6 +17,8 @@ import { formatMoney } from '@/lib/format';
 import { balanceText, BALANCE_CHIPS } from '@/Pages/Subscriptions/AccountFormParts';
 import PaymentModal from '@/Pages/Subscriptions/PaymentModal';
 import SplitPaymentModal from './SplitPaymentModal';
+import CollectorCashBox from './CollectorCashBox';
+import CollectionNavigation from './CollectionNavigation';
 
 const STATUS_TONES = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
@@ -76,7 +78,7 @@ function TodaysPayments({ today }) {
  * each with one button to record their payment, and a main button for one
  * bank transfer shared between several subscribers.
  */
-export default function Index({ subscriptions, scopeLabel, filters, filterOptions, today, paymentMethods, transferBanks, senderBanks }) {
+export default function Index({ subscriptions, scopeLabel, filters, filterOptions, today, cashBox, collectionUrls, paymentMethods, transferBanks, senderBanks }) {
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/payments', filters);
     const [paying, setPaying] = useState(null);
     const [splitting, setSplitting] = useState(false);
@@ -99,6 +101,9 @@ export default function Index({ subscriptions, scopeLabel, filters, filterOption
             }
         >
             <Head title="تسجيل الدفعات" />
+
+            <CollectionNavigation urls={collectionUrls} active="payments" pendingCount={cashBox.boxes.filter((box) => box.status !== 'open' && !box.confirmedAt).length} />
+            <CollectorCashBox cashBox={cashBox} mode="current" />
 
             <DataTableToolbar
                 search={search}

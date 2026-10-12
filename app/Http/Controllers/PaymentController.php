@@ -3,15 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Enums\CashBoxType;
+use App\Enums\ChargeType;
+use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
+use App\Enums\PermissionKey;
 use App\Enums\SubscriptionStatus;
+use App\Http\Concerns\BuildsSubscriptionStatement;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Concerns\FiltersSubscriptionList;
 use App\Http\Requests\StoreSplitPaymentRequest;
+use App\Models\AuditNote;
 use App\Models\CashBox;
 use App\Models\CashBoxPayment;
 use App\Models\ClosingSetting;
+use App\Models\CollectorDebt;
 use App\Models\MeterBox;
+use App\Models\StandingDiscount;
 use App\Models\SubArea;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
@@ -22,6 +29,7 @@ use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -29,7 +37,7 @@ use Inertia\Response as InertiaResponse;
 
 class PaymentController extends Controller
 {
-    use FiltersDataTable, FiltersSubscriptionList;
+    use BuildsSubscriptionStatement, FiltersDataTable, FiltersSubscriptionList;
 
     public function __construct(private BranchClosingWorkflow $workflow) {}
 
@@ -51,28 +59,35 @@ class PaymentController extends Controller
     /**
      * The quick payments page: the subscribers of the user's branch in a table
      * (search, filters and sort, with each one's balance) with a button on each
-     * to record their payment, a button for one transfer shared between
-     * several subscribers, and what the user collected today under it. It takes
-     * only the "Record Collections" permission, so it works for someone who
-     * cannot open the subscriptions list.
+     * to record their payment and a menu for the account's other lines
+     * (charge, discount, clearing, a split transfer), a button for one
+     * transfer shared between several subscribers, and what the user
+     * collected today above it. It takes only the "Record Collections"
+     * permission, so it works for someone who cannot open the subscriptions
+     * list; the charge, discount and clearing need "Adjust Balances" too.
      */
     public function index(Request $request): InertiaResponse
     {
         $this->authorize('recordAnyPayment', Subscription::class);
 
         $actor = $request->user();
+        $canAdjustBalances = $actor->hasPermission(PermissionKey::AdjustBalances);
         $query = Subscription::query()
             ->select('subscriptions.*')
             ->selectRaw("COALESCE(NULLIF(subscription_name, ''), full_name) as display_name")
             ->visibleTo($actor)
-            ->with(['branch', 'meterBox.subArea', 'circuitBreaker', 'profile'])
+            ->with(['branch', 'meterBox.subArea', 'circuitBreaker', 'profile', ...($canAdjustBalances ? ['standingDiscount.grantedBy'] : [])])
             ->withSum('transactions as outstanding_balance', 'amount');
         $this->applyTableFilters($query, $request);
 
         return Inertia::render('Payments/Index', [
             'subscriptions' => $query->paginate($this->dataTablePerPage($request))
                 ->withQueryString()
-                ->through(fn (Subscription $subscription): array => $this->row($subscription)),
+                ->through(fn (Subscription $subscription): array => [
+                    ...$this->row($subscription),
+                    'canAdjustBalance' => $actor->can('adjustBalance', $subscription),
+                    'standingDiscount' => $canAdjustBalances ? $this->statementStandingDiscount($subscription->standingDiscount) : null,
+                ]),
             'scopeLabel' => $actor->isSuperAdmin() ? 'كل الفروع' : ($actor->branch?->name ?? '—'),
             'filters' => $this->dataTableState($request, 'display_name'),
             'filterOptions' => $this->filterOptions($actor, $request),
@@ -82,6 +97,9 @@ class PaymentController extends Controller
             'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
             'transferBanks' => config('powercollect.transfer_banks'),
             'senderBanks' => config('powercollect.sender_banks'),
+            'chargeTypes' => ChargeType::formOptions(),
+            'discountMethods' => DiscountMethod::options(),
+            'discountSegments' => $canAdjustBalances ? StandingDiscount::segmentSuggestions() : [],
         ]);
     }
 
@@ -130,9 +148,37 @@ class PaymentController extends Controller
 
         return Inertia::render('Payments/CashBoxShow', [
             'box' => $this->cashBoxRow($cashBox), 'entries' => $entries,
-            'needsActionCount' => $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count(),
+            'needsActionCount' => $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count() + $this->waitingAuditNotes($actor)->count(),
             'collectionUrls' => $this->collectionUrls(),
         ]);
+    }
+
+    /**
+     * The collector's answer to an audit note the branch sent them.
+     */
+    public function replyToAuditNote(Request $request, int $auditNote): RedirectResponse
+    {
+        $this->authorize('viewOwnCashBoxes', Subscription::class);
+        $data = $request->validate(['body' => ['required', 'string', 'max:3000']]);
+        $actor = $request->user();
+        abort_unless($actor->branch_id, 403);
+
+        $this->workflow->locked($actor->branch_id, function () use ($actor, $auditNote, $data): void {
+            $this->workflow->collectorReply($this->waitingAuditNotes($actor)->findOrFail($auditNote), $actor, $data['body']);
+        });
+
+        return back()->with('status', 'audit-note-replied');
+    }
+
+    /**
+     * The audit notes of the actor's branch waiting on the actor's answer.
+     *
+     * @return Builder<AuditNote>
+     */
+    private function waitingAuditNotes(User $actor): Builder
+    {
+        return AuditNote::query()->where('assigned_to', $actor->id)->where('status', 'with_collector')
+            ->whereHas('closing', fn (Builder $query) => $query->where('branch_id', $actor->branch_id));
     }
 
     private function ownBoxQuery(User $actor): Builder
@@ -147,12 +193,17 @@ class PaymentController extends Controller
         return ['payments' => route('payments.index'), 'cashBoxes' => route('payments.cash-boxes')];
     }
 
-    /** @return array{started: bool, branchName: ?string, boxes: array<int, array<string, mixed>>, current: array<string, array<string, mixed>|null>, needsAction: array<int, array<string, mixed>>} */
+    /**
+     * The actor's boxes, with what waits on them: received cash boxes to
+     * confirm, audit notes to answer, and the shortfalls they still owe.
+     *
+     * @return array{started: bool, branchName: ?string, boxes: array<int, array<string, mixed>>, current: array<string, array<string, mixed>|null>, needsAction: array<int, array<string, mixed>>, auditNotes: array<int, array<string, mixed>>, debts: array<int, array<string, mixed>>}
+     */
     private function ownCashBoxes(User $actor, bool $includeRecentHistory = true): array
     {
         $started = $actor->branch_id && ClosingSetting::ownFor($actor->branch_id)?->workflow_started_at !== null;
         if (! $started) {
-            return ['started' => false, 'branchName' => $actor->branch?->name, 'boxes' => [], 'current' => [], 'needsAction' => []];
+            return ['started' => false, 'branchName' => $actor->branch?->name, 'boxes' => [], 'current' => [], 'needsAction' => [], 'auditNotes' => [], 'debts' => []];
         }
 
         $this->workflow->refresh($actor->branch_id);
@@ -167,6 +218,26 @@ class PaymentController extends Controller
             'boxes' => $rows->values()->all(),
             'current' => collect(CashBoxType::cases())->mapWithKeys(fn (CashBoxType $type): array => [$type->value => $rows->first(fn (array $box): bool => $box['type'] === $type->value && $box['status'] === 'open')])->all(),
             'needsAction' => $rows->filter(fn (array $box): bool => $box['stage'] === 'awaiting_confirmation')->values()->all(),
+            'auditNotes' => $this->waitingAuditNotes($actor)->with(['box:id,number', 'closing:id,period_start,period_end', 'replies' => fn ($query) => $query->where('kind', 'collector')->latest('id')])
+                ->latest('id')->get()->map(fn (AuditNote $note): array => [
+                    'id' => $note->id,
+                    'body' => $note->body,
+                    'question' => $note->replies->first()?->body,
+                    'differences' => $note->differences,
+                    'periodStart' => $note->closing->period_start->toDateString(),
+                    'periodEnd' => $note->closing->period_end->toDateString(),
+                    'box' => $note->box ? ['number' => $note->box->number, 'url' => route('payments.cash-boxes.show', $note->box)] : null,
+                    'replyUrl' => route('payments.audit-notes.reply', $note),
+                ])->all(),
+            'debts' => CollectorDebt::query()->where('user_id', $actor->id)->where('branch_id', $actor->branch_id)->where('remaining', '>', 0)
+                ->with('box:id,number')->oldest('id')->get()->map(fn (CollectorDebt $debt): array => [
+                    'id' => $debt->id,
+                    'currency' => $debt->currency,
+                    'amount' => $debt->amount,
+                    'remaining' => $debt->remaining,
+                    'createdAt' => $debt->created_at,
+                    'box' => $debt->box ? ['number' => $debt->box->number, 'url' => route('payments.cash-boxes.show', $debt->box)] : null,
+                ])->all(),
         ];
     }
 
@@ -183,13 +254,16 @@ class PaymentController extends Controller
             'rejectedCount' => $box->payments->whereIn('status', ['missing', 'rejected'])->filter(fn (CashBoxPayment $entry): bool => $entry->transaction?->status === SubscriptionTransaction::STATUS_ACTIVE)->count(),
             'openedAt' => $box->opened_at,
             'closedAt' => $box->closed_at,
-            'collectorSubmittedAt' => $box->collector_submitted_at,
             'receivedAt' => $box->received_at,
             'confirmedAt' => $box->confirmed_at,
             'paymentCount' => $box->payments_count,
-            'collectorCounts' => $box->collector_counts,
-            'expectedCounts' => $box->collector_counts ? $box->expected_counts : null,
-            'receivedCounts' => $box->received_at ? $box->head_counts : null,
+            // The branch counts blind, so the count and what it was checked against show only once the box is received.
+            ...($box->received_at && $box->type->isCounted() && $box->head_counts ? [
+                'expectedCounts' => $box->expected_counts,
+                'receivedCounts' => $box->head_counts,
+                'differences' => $this->workflow->differences($box->head_counts, $box->expected_counts ?? []),
+                'decisions' => $box->decisions ?: null,
+            ] : ['expectedCounts' => null, 'receivedCounts' => null, 'differences' => null, 'decisions' => null]),
             'reason' => $box->reason,
             'urls' => ['show' => route('payments.cash-boxes.show', $box), 'confirm' => route('closings.actions', ['action' => 'confirm', 'record' => $box->id])],
             'branchId' => $box->branch_id,

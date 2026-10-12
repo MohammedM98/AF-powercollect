@@ -182,6 +182,19 @@ class PaymentsPageTest extends TestCase
         return $subscription;
     }
 
+    public function test_the_charge_discount_and_clearing_actions_follow_the_adjust_balances_permission(): void
+    {
+        Subscription::factory()->create(['branch_id' => $this->branch->id]);
+        $adjuster = $this->userAllowedTo(PermissionKey::RecordCollections);
+        $adjuster->permissions()->syncWithoutDetaching(Permission::firstOrCreate(['key' => PermissionKey::AdjustBalances->value], ['label' => PermissionKey::AdjustBalances->label()]));
+
+        $this->actingAs($this->collector)->get(route('payments.index'))
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('subscriptions.data.0.canAdjustBalance', false)->where('discountSegments', []));
+
+        $this->actingAs($adjuster)->get(route('payments.index'))
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('subscriptions.data.0.canAdjustBalance', true)->has('chargeTypes.0.value'));
+    }
+
     private function userAllowedTo(PermissionKey $key): User
     {
         $user = User::factory()->collector()->create(['branch_id' => $this->branch->id]);

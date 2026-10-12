@@ -5,7 +5,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import PrimaryButton from '@/Components/PrimaryButton';
 import CollectionNavigation from './CollectionNavigation';
-import CollectorCashBox, { boxTypes, dateTime, BoxStage, BoxTotals, CashBoxAction, boxAction, actionLabel } from './CollectorCashBox';
+import CollectorCashBox, { boxTypes, dateTime, BoxStage, BoxTotals, CashBoxAction, CollectorAuditNotes, CollectorDebts, boxAction, actionLabel, pendingCount } from './CollectorCashBox';
 
 export default function CashBoxes({ cashBox, current, needsAction, boxes, filters, collectionUrls }) {
     const [selected, setSelected] = useState(null);
@@ -16,7 +16,7 @@ export default function CashBoxes({ cashBox, current, needsAction, boxes, filter
 
     return <AuthenticatedLayout header={<div><p className="text-sm font-semibold text-gray-500">{cashBox.branchName ?? 'حسابك الحالي'}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">صناديقي</h2></div>}>
         <Head title="صناديقي" />
-        <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={needsAction.length} />
+        <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount(cashBox)} />
         {saved && <p role="status" className="mb-4 rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">{saved}</p>}
         {cashBox.started ? <div className="space-y-6">
             <CollectorCashBox cashBox={{ ...cashBox, current }} />
@@ -24,6 +24,8 @@ export default function CashBoxes({ cashBox, current, needsAction, boxes, filter
                 <h3 className="font-bold text-gray-900">تحتاج إجراء منك</h3>
                 {needsAction.map((box) => <div key={box.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-amber-500/15 pt-3"><div className="space-y-2"><Link href={box.urls.show} prefetch className="font-semibold text-gray-900">{boxTypes[box.type]} · <span dir="ltr" className="font-display text-xs">{box.number}</span></Link><BoxStage box={box} /></div><PrimaryButton onClick={() => setSelected({ box, action: boxAction(box) })}>{actionLabel(box)}</PrimaryButton></div>)}
             </section>}
+            <CollectorAuditNotes notes={cashBox.auditNotes} onSaved={() => setSaved('أُرسل ردّك إلى الفرع.')} />
+            <CollectorDebts debts={cashBox.debts} />
             <section className="space-y-4 rounded-panel border border-gray-100 bg-surface p-5 shadow-card">
                 <h3 className="text-lg font-bold text-gray-900">كل صناديقي</h3>
                 <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-2" role="group" aria-label="نوع الصندوق">{[['', 'الكل'], ['cash', 'نقدي'], ['bank_transfer', 'حوالات'], ['clearing', 'مقاصات']].map(([key, label]) => <button key={key} type="button" aria-pressed={filters.type === key} onClick={() => filter('type', key)} className={`rounded-control px-3 py-2 text-sm font-semibold ${filters.type === key ? 'bg-gray-900 text-surface' : 'bg-gray-50 text-gray-600'}`}>{label}</button>)}</div><label className="flex items-center gap-2 text-sm text-gray-600">الحالة<select value={filters.state} onChange={(event) => filter('state', event.target.value)} className="rounded-control border-gray-200 text-sm"><option value="">الكل</option><option value="open">مفتوح</option><option value="closed">مغلق</option></select></label></div>

@@ -50,6 +50,7 @@ class BranchClosingController extends Controller
             ->where(fn ($query) => $query->whereIn('closing_id', $closings->modelKeys())->orWhere('status', '!=', 'received')->orWhereHas('payments', fn ($payments) => $payments->whereIn('status', ['pending', 'missing', 'rejected'])))
             ->with(BranchClosingWorkflow::BOX_DETAILS)->latest('id')->get();
         $boxRows = $boxes->map(function (CashBox $box) use ($actor): array {
+            $box->user?->makeHidden('permissions');
             $row = $box->toArray();
             $row['expected_counts'] = ($box->head_counts && $box->received_by === $actor->id) || $box->received_at || ($box->collector_counts && $box->user_id === $actor->id) ? $box->expected_counts : null;
             if (! $box->head_counts && ! $box->received_at && $box->user_id !== $actor->id) {

@@ -339,10 +339,18 @@ class BranchClosingWorkflow
             && ($box->user_id !== $actor->id || BranchClosingAccess::approve($actor, $box->branch_id));
     }
 
+    /**
+     * The package that settles a box received now: the earliest week not yet
+     * sent, from the box's own week on. Cash never settles in a week whose
+     * safe is already counted, so the count always matches the cash the
+     * package says was received; it goes to the next week instead.
+     */
     private function settlingClosing(CashBox $box): Closing
     {
         return Closing::query()->where('branch_id', $box->branch_id)->whereNotNull('workflow_settings')->whereNull('submitted_at')
-            ->where('coverage_from', '>=', $box->closing->coverage_from)->orderBy('coverage_from')->orderBy('id')->first() ?? $this->current($box->branch_id);
+            ->where('coverage_from', '>=', $box->closing->coverage_from)
+            ->when($box->type === CashBoxType::Cash, fn ($query) => $query->whereNotIn('id', SafeCount::query()->select('closing_id')))
+            ->orderBy('coverage_from')->orderBy('id')->first() ?? $this->current($box->branch_id);
     }
 
     /**
@@ -605,8 +613,9 @@ class BranchClosingWorkflow
 
         return [
             'boxes' => CashBox::query()->whereIn('closing_id', $periodIds)->where('kind', '!=', 'direct')->where('status', '!=', 'received')->whereHas('payments')->with(self::BOX_DETAILS)->get(),
+            // Entries of a box still carried are listed with that box, not again on their own.
             'entries' => CashBoxPayment::query()->where('method', '!=', 'cash')->whereIn('status', ['pending', 'missing', 'rejected'])
-                ->whereHas('box', fn ($query) => $query->whereIn('closing_id', $periodIds))
+                ->whereHas('box', fn ($query) => $query->whereIn('closing_id', $periodIds)->where(fn ($settled) => $settled->where('status', 'received')->orWhere('kind', 'direct')))
                 ->whereHas('transaction', fn ($query) => $query->where('status', SubscriptionTransaction::STATUS_ACTIVE))->with(self::ENTRY_DETAILS)->get(),
         ];
     }

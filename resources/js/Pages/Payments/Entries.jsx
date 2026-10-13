@@ -45,7 +45,7 @@ function ReturnedNote({ returned, own }) {
  * sent back to the collector, and to those waiting on an answer or
  * answered; the collector answers from the row.
  */
-export default function Entries({ scope, started, branchName, branch, branches, entries, filters, counts, pendingCount, branchPendingCount, collectionUrls }) {
+export default function Entries({ scope, started, branchName, branch, branches, entries, filters, counts, pendingCount, returnedCount, branchPendingCount, collectionUrls }) {
     const { can } = usePage().props;
     const own = scope === 'own';
     const url = own ? collectionUrls.entries : collectionUrls.branchEntries;
@@ -71,7 +71,7 @@ export default function Entries({ scope, started, branchName, branch, branches, 
         {!own && <CashBoxTabs urls={collectionUrls} active="branchEntries" branchPendingCount={branchPendingCount} />}
     </div>}>
         <Head title={own ? 'الحركات' : 'حركات الموظفين'} />
-        {(own || can.viewOwnCashBoxes) && <CollectionNavigation urls={collectionUrls} active={own ? 'entries' : 'cashBoxes'} pendingCount={pendingCount} />}
+        {(own || can.viewOwnCashBoxes) && <CollectionNavigation urls={collectionUrls} active={own ? 'entries' : 'cashBoxes'} pendingCount={pendingCount} returnedCount={returnedCount} />}
         {saved && <p role="status" className="mb-4 rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">{saved}</p>}
         {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">{branchName ? 'لم يُفعّل نظام الصناديق في هذا الفرع بعد. يُفعّله مسؤول الفرع من صفحة الخزنة والكشوفات.' : 'حسابك غير مرتبط بفرع، لذلك لا توجد حركات صناديق.'}</p> : <section aria-label={own ? 'حركات صناديقي' : 'حركات صناديق الموظفين'} className="space-y-4">
             <DataTableToolbar

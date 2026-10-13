@@ -100,7 +100,7 @@ class PaymentController extends Controller
             'scopeLabel' => $actor->isSuperAdmin() ? 'كل الفروع' : ($actor->branch?->name ?? '—'),
             'filters' => $this->dataTableState($request, 'display_name'),
             'filterOptions' => $this->filterOptions($actor, $request),
-            'pendingCount' => $this->needsActionCount($actor),
+            ...$this->collectionCounts($actor),
             'collectionUrls' => $this->collectionUrls(),
             'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
             'transferBanks' => config('powercollect.transfer_banks'),
@@ -130,6 +130,7 @@ class PaymentController extends Controller
             'current' => $cashBox['current'],
             'openBox' => $this->openBoxEntries($request, $cashBox['current']),
             'needsAction' => $cashBox['needsAction'],
+            ...$this->collectionCounts($actor),
             'collectionUrls' => $this->collectionUrls(),
         ]);
     }
@@ -165,7 +166,7 @@ class PaymentController extends Controller
             'branchName' => $actor->branch?->name,
             'boxes' => $boxes,
             'filters' => ['type' => $type, 'state' => $state, 'per_page' => $perPage],
-            'pendingCount' => $this->needsActionCount($actor),
+            ...$this->collectionCounts($actor),
             'branchPendingCount' => $actor->branch_id && BranchClosingAccess::view($actor) ? CashBox::query()->where('branch_id', $actor->branch_id)->where('status', 'pending')->count() : 0,
             'collectionUrls' => $this->collectionUrls(),
         ]);
@@ -189,7 +190,7 @@ class PaymentController extends Controller
             'started' => $this->boxesStarted($actor),
             'branchName' => $actor->branch?->name,
             ...$this->entryList($request, $query, fn (CashBox $box): string => route('payments.cash-boxes.show', $box)),
-            'pendingCount' => $this->needsActionCount($actor),
+            ...$this->collectionCounts($actor),
             'branchPendingCount' => $actor->branch_id && BranchClosingAccess::view($actor) ? CashBox::query()->where('branch_id', $actor->branch_id)->where('status', 'pending')->count() : 0,
             'collectionUrls' => $this->collectionUrls(),
         ]);
@@ -213,7 +214,7 @@ class PaymentController extends Controller
             'branchName' => $branch->name,
             'branch' => $branch, 'branches' => $branches,
             ...$this->entryList($request, $query, fn (CashBox $box): string => route('payments.cash-boxes.branch', ['branch_id' => $branch->id, 'box' => $box->id])),
-            'pendingCount' => $actor->can('viewOwnCashBoxes', Subscription::class) ? $this->needsActionCount($actor) : 0,
+            ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0, 'returnedCount' => 0]),
             'branchPendingCount' => CashBox::query()->where('branch_id', $branch->id)->where('status', 'pending')->count(),
             'collectionUrls' => $this->collectionUrls(),
         ]);
@@ -282,7 +283,7 @@ class PaymentController extends Controller
             'boxes' => $this->branchBoxes->rows($branch->id, $actor, $closings->modelKeys()),
             'closings' => $closings,
             'access' => $this->branchBoxes->access($actor, $branch->id),
-            'pendingCount' => $actor->can('viewOwnCashBoxes', Subscription::class) ? $this->needsActionCount($actor) : 0,
+            ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0, 'returnedCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
             'urls' => ['index' => route('payments.cash-boxes.branch'), 'actions' => url('/reconciliation/actions'), 'reconciliation' => route('closings.index')],
         ]);
@@ -335,7 +336,7 @@ class PaymentController extends Controller
 
         return Inertia::render('Payments/CashBoxShow', [
             'box' => $this->cashBoxRow($cashBox), 'entries' => $entries,
-            'needsActionCount' => $this->needsActionCount($actor),
+            ...$this->collectionCounts($actor),
             'collectionUrls' => $this->collectionUrls(),
         ]);
     }
@@ -490,31 +491,35 @@ class PaymentController extends Controller
     }
 
     /**
-     * How many things wait on the actor, for the badge on the summary tab:
-     * a handover left to confirm, entries the branch sent back, and audit
-     * notes to answer.
+     * The badges on the collector's pages: what waits on the actor on the
+     * summary page (a handover left to confirm, audit notes to answer), and
+     * the entries the branch sent back, which they answer on the entries page.
+     *
+     * @return array{pendingCount: int, returnedCount: int}
      */
-    private function needsActionCount(User $actor): int
+    private function collectionCounts(User $actor): array
     {
         if (! $this->boxesStarted($actor)) {
-            return 0;
+            return ['pendingCount' => 0, 'returnedCount' => 0];
         }
 
-        return $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count()
-            + $this->returnedEntries($actor)->count() + $this->waitingAuditNotes($actor)->count();
+        return [
+            'pendingCount' => $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count() + $this->waitingAuditNotes($actor)->count(),
+            'returnedCount' => $this->returnedEntries($actor)->count(),
+        ];
     }
 
     /**
      * The actor's boxes, with what waits on them: received cash boxes to
-     * confirm, entries the branch sent back, audit notes to answer, and the
-     * shortfalls they still owe.
+     * confirm, audit notes to answer, and the shortfalls they still owe.
+     * Entries the branch sent back are answered on the entries page.
      *
-     * @return array{started: bool, branchName: ?string, boxes: array<int, array<string, mixed>>, current: array<string, array<string, mixed>|null>, needsAction: array<int, array<string, mixed>>, returnedEntries: array<int, array<string, mixed>>, auditNotes: array<int, array<string, mixed>>, debts: array<int, array<string, mixed>>}
+     * @return array{started: bool, branchName: ?string, boxes: array<int, array<string, mixed>>, current: array<string, array<string, mixed>|null>, needsAction: array<int, array<string, mixed>>, auditNotes: array<int, array<string, mixed>>, debts: array<int, array<string, mixed>>}
      */
     private function ownCashBoxes(User $actor, bool $includeRecentHistory = true): array
     {
         if (! $this->boxesStarted($actor)) {
-            return ['started' => false, 'branchName' => $actor->branch?->name, 'boxes' => [], 'current' => [], 'needsAction' => [], 'returnedEntries' => [], 'auditNotes' => [], 'debts' => []];
+            return ['started' => false, 'branchName' => $actor->branch?->name, 'boxes' => [], 'current' => [], 'needsAction' => [], 'auditNotes' => [], 'debts' => []];
         }
 
         $this->workflow->refresh($actor->branch_id);
@@ -529,11 +534,6 @@ class PaymentController extends Controller
             'boxes' => $rows->values()->all(),
             'current' => collect(CashBoxType::cases())->mapWithKeys(fn (CashBoxType $type): array => [$type->value => $rows->first(fn (array $box): bool => $box['type'] === $type->value && $box['status'] === 'open')])->all(),
             'needsAction' => $rows->filter(fn (array $box): bool => $box['stage'] === 'awaiting_confirmation')->values()->all(),
-            'returnedEntries' => $this->returnedEntries($actor)->with(['box:id,number,type', 'returnedBy:id,name', 'transaction.subscription:id,full_name,subscription_name,account_number'])
-                ->oldest('returned_at')->get()->map(fn (CashBoxPayment $entry): array => [
-                    ...$this->cashBoxEntry($entry),
-                    'box' => ['number' => $entry->box->number, 'type' => $entry->box->type->value, 'url' => route('payments.cash-boxes.show', $entry->box)],
-                ])->all(),
             'auditNotes' => $this->waitingAuditNotes($actor)->with(['box:id,number', 'closing:id,period_start,period_end', 'replies' => fn ($query) => $query->where('kind', 'collector')->latest('id')])
                 ->latest('id')->get()->map(fn (AuditNote $note): array => [
                     'id' => $note->id,

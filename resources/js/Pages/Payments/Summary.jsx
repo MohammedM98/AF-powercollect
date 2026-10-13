@@ -17,10 +17,8 @@ import {
     CashBoxAction,
     CollectorAuditNotes,
     CollectorDebts,
-    CollectorReturnedEntries,
     boxAction,
     actionLabel,
-    pendingCount,
 } from './CollectorCashBox';
 
 /** What the user collected today, in one wide card at the top of the page: the total, and how much in cash and by transfer. */
@@ -139,7 +137,7 @@ function OpenBoxEntries({ current, openBox, onSelect, pagination }) {
  * debts), the boxes open now with every entry in them, and their latest
  * payments today with receipts.
  */
-export default function Summary({ today, cashBox, current, openBox, needsAction, collectionUrls }) {
+export default function Summary({ today, cashBox, current, openBox, needsAction, pendingCount, returnedCount, collectionUrls }) {
     const [selected, setSelected] = useState(null);
     const [saved, setSaved] = useState(null);
 
@@ -149,11 +147,10 @@ export default function Summary({ today, cashBox, current, openBox, needsAction,
 
     return <AuthenticatedLayout header={<div><p className="text-sm font-semibold text-gray-500">{cashBox.branchName ?? 'حسابك الحالي'}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">ملخص التحصيل</h2></div>}>
         <Head title="ملخص التحصيل" />
-        <CollectionNavigation urls={collectionUrls} active="summary" pendingCount={pendingCount(cashBox)} />
+        <CollectionNavigation urls={collectionUrls} active="summary" pendingCount={pendingCount} returnedCount={returnedCount} />
         {saved && <p role="status" className="mb-4 rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">{saved}</p>}
         <TodaysSummary today={today} />
         {cashBox.started ? <div className="space-y-8">
-            <CollectorReturnedEntries entries={cashBox.returnedEntries} onSaved={() => setSaved('أُرسل ردّك إلى الفرع.')} />
             {needsAction.length > 0 && <section className="space-y-3 rounded-panel border border-amber-500/25 bg-amber-500/5 p-5">
                 <h3 className="font-bold text-gray-900">تحتاج إجراء منك</h3>
                 {needsAction.map((box) => <div key={box.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-amber-500/15 pt-3"><div className="flex items-center gap-3"><BoxTypeIcon type={box.type} className="h-10 w-10" /><div className="space-y-2"><Link href={box.urls.show} prefetch className="font-semibold text-gray-900">{boxTypes[box.type]} · <bdi dir="ltr" className="font-display text-xs">{box.number}</bdi></Link><BoxStage box={box} /></div></div><PrimaryButton onClick={() => setSelected({ box, action: boxAction(box) })}>{actionLabel(box)}</PrimaryButton></div>)}

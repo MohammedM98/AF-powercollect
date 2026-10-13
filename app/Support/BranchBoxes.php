@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\Closing;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
@@ -65,10 +66,30 @@ class BranchBoxes
                 $row['canCount'] = $this->workflow->mayReceive($box, $actor);
                 $row['isOwn'] = $box->user_id === $actor->id;
                 $row['stage'] = $box->stage();
-                $row['payments'] = array_map(fn (array $entry): array => [...$entry, 'statement_url' => route('subscriptions.statement', $entry['transaction']['subscription_id'])], $row['payments']);
+                $row['payments'] = array_map($this->presentEntry(...), $row['payments']);
 
                 return $row;
             });
+    }
+
+    /**
+     * A box entry with links to its subscriber's statement and, for a
+     * payment, its receipt. Entries of a statement saved before the
+     * transaction's type was kept get no receipt link.
+     *
+     * @param  array<string, mixed>  $entry
+     * @return array<string, mixed>
+     */
+    public function presentEntry(array $entry): array
+    {
+        $subscriptionId = $entry['transaction']['subscription_id'] ?? null;
+        $payment = ($entry['transaction']['type'] ?? null) === SubscriptionTransaction::TYPE_PAYMENT;
+
+        return [
+            ...$entry,
+            'statement_url' => $subscriptionId ? route('subscriptions.statement', $subscriptionId) : null,
+            'receipt_url' => $subscriptionId && $payment ? route('subscriptions.payments.receipt', [$subscriptionId, $entry['transaction']['id']]) : null,
+        ];
     }
 
     /**

@@ -212,7 +212,7 @@ export default function ClosingsIndex(props) {
         {tab === 'settings' && <SettingsOverview {...props} onAction={openAction} />}
         </>}
     </div>{action && <ActionModal key={`${action.kind}-${action.record?.id}`} action={action} onClose={() => setAction(null)} props={props} />}
-    {selectedBox && <BoxDetails box={selectedBox} access={access} onClose={() => { setBoxId(null); setPackageBox(null); }} perform={perform} />}
+    {selectedBox && <BoxDetails box={selectedBox} access={access} onClose={() => { setBoxId(null); setPackageBox(null); }} perform={perform} period={periodLabel(closings.find((closing) => closing.id === selectedBox.closing_id))} />}
     </AuthenticatedLayout>;
 }
 

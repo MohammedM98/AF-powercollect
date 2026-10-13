@@ -91,6 +91,7 @@ class CloseCashBoxesPermissionTest extends TestCase
         $closer->permissions()->detach(Permission::idsFor([PermissionKey::RecordCollections, PermissionKey::AdjustBalances]));
         $box = $this->cashBox($branch, $collector);
         $this->assertTrue($closer->refresh()->cannot('viewOwnCashBoxes', Subscription::class));
+        $transaction = $box->payments()->sole()->transaction;
 
         $this->actingAs($closer)->get(route('payments.cash-boxes'))->assertRedirect(route('payments.cash-boxes.branch'));
         $this->get(route('payments.cash-boxes.branch'))->assertInertia(fn (AssertableInertia $page) => $page
@@ -99,6 +100,7 @@ class CloseCashBoxesPermissionTest extends TestCase
             ->where('started', true)
             ->where('boxes.0.id', $box->id)
             ->where('boxes.0.canCount', true)
+            ->where('boxes.0.payments.0.receipt_url', route('subscriptions.payments.receipt', [$transaction->subscription_id, $transaction->id]))
             ->where('access.receive', true)
             ->where('urls.reconciliation', route('closings.index')));
     }

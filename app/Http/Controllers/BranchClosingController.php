@@ -80,7 +80,7 @@ class BranchClosingController extends Controller
     {
         $boxIds = collect([...($package['boxes'] ?? []), ...($package['carriedIn'] ?? []), ...($package['carriedOut']['boxes'] ?? [])])->pluck('id')->unique();
         $liveBoxes = $frozen ? collect() : CashBox::query()->whereIn('id', $boxIds)->with('user.permissions')->get()->keyBy('id');
-        $presentEntry = fn (array $entry): array => [...$entry, 'statement_url' => isset($entry['transaction']['subscription_id']) ? route('subscriptions.statement', $entry['transaction']['subscription_id']) : null];
+        $presentEntry = $this->branchBoxes->presentEntry(...);
         $presentBox = function (array $box) use ($actor, $frozen, $liveBoxes, $presentEntry): array {
             $live = $liveBoxes->get($box['id']);
             $box['isOwn'] = ($box['user_id'] ?? null) === $actor->id;

@@ -111,6 +111,6 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
                 </div>
             </section>
         </div>}
-        {selectedBox && <BoxDetails box={selectedBox} access={access} onClose={() => setBoxId(null)} perform={perform} />}
+        {selectedBox && <BoxDetails box={selectedBox} access={access} onClose={() => setBoxId(null)} perform={perform} period={periodLabel(closings.find((closing) => closing.id === selectedBox.closing_id))} />}
     </AuthenticatedLayout>;
 }

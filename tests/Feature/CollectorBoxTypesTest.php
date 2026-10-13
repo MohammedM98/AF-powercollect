@@ -116,35 +116,39 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertDatabaseHas('cash_box_payments', ['id' => $entry->id, 'status' => 'confirmed', 'confirmed_by' => $head->id]);
     }
 
-    public function test_branch_returns_an_entry_to_its_collector_and_confirms_the_box_once_they_answer(): void
+    public function test_the_collector_corrects_an_entry_until_the_branch_confirms_its_box_closed(): void
     {
-        [$branch, $head, $collector] = $this->start();
-        $entry = $this->entry($branch, $collector, CashBoxType::Cash);
+        [$branch, $head] = $this->start();
+        $collector = User::factory()->collector()->withPermissions([PermissionKey::AmendTransactionDetails])->for($branch)->create();
+        $entry = $this->entry($branch, $collector, CashBoxType::BankTransfer);
+        $transaction = $entry->transaction;
+        $this->travelTo($entry->box->closing->coverage_until);
+        $this->artisan('closings:process')->assertSuccessful();
+        $this->assertSame('pending', $entry->box->fresh()->status);
+        $amend = fn (string $bank): TestResponse => $this->actingAs($collector)->patch(route('subscriptions.transactions.amend', [$transaction->subscription, $transaction]), ['bank_name' => $bank, 'amendment_reason' => 'طلب مدير الفرع']);
 
-        $this->action($collector, $branch, 'return-entry', $entry->id, ['note' => 'رقم السند غير واضح'])->assertForbidden();
-        $this->action($head, $branch, 'return-entry', $entry->id)->assertSessionHasErrors('note');
-        $this->action($head, $branch, 'return-entry', $entry->id, ['note' => 'رقم السند غير واضح'])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasErrors('action');
-        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open']);
+        $amend('جوال باي')->assertSessionHasNoErrors();
+        $this->assertSame('جوال باي', $transaction->fresh()->bank_name);
 
-        $this->actingAs($collector)->post(route('payments.cash-box-entries.reply', $entry), ['body' => 'السند رقم 15'])->assertSessionHasNoErrors();
-        $this->actingAs($collector)->post(route('payments.cash-box-entries.reply', $entry), ['body' => 'مرة أخرى'])->assertNotFound();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
 
-        $this->assertDatabaseHas('cash_box_payments', ['id' => $entry->id, 'return_note' => 'رقم السند غير واضح', 'returned_by' => $head->id, 'collector_reply' => 'السند رقم 15']);
-        $this->assertSame('received', $entry->box->fresh()->status);
-        $this->action($head, $branch, 'return-entry', $entry->id, ['note' => 'بعد الإغلاق'])->assertSessionHasErrors('action');
+        $this->assertTrue($transaction->fresh()->isInClosedDay());
+        $amend('بنك فلسطين')->assertForbidden();
     }
 
-    public function test_a_returned_entry_the_collector_cancels_no_longer_holds_the_box(): void
+    public function test_a_cash_box_closed_at_the_cutoff_keeps_its_expected_cash_in_step_with_corrections(): void
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Cash);
-        $this->action($head, $branch, 'return-entry', $entry->id, ['note' => 'دفعة مكررة'])->assertSessionHasNoErrors();
+        $this->travelTo($entry->box->closing->coverage_until);
+        $this->artisan('closings:process')->assertSuccessful();
 
-        $entry->transaction->forceFill(['status' => SubscriptionTransaction::STATUS_CANCELLED, 'cancelled_at' => now()])->save();
+        $entry->transaction->update(['amount' => '-150', 'currency_amount' => '150']);
 
+        $this->assertSame('150.00', $entry->fresh()->amount);
+        $this->assertSame('150.00', $entry->box->fresh()->expected_counts['ILS']);
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
+        $this->assertSame('150.00', $entry->box->fresh()->head_counts['ILS']);
     }
 
     public function test_auto_closed_boxes_go_straight_to_the_branch(): void

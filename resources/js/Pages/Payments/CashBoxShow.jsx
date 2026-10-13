@@ -28,7 +28,7 @@ function otherCurrencies(amounts) {
  * timeline, the branch's count for a cash box, and every entry in it with
  * each payment's receipt.
  */
-export default function CashBoxShow({ box, entries, collectionUrls, pendingCount, returnedCount }) {
+export default function CashBoxShow({ box, entries, collectionUrls, pendingCount }) {
     const [showAction, setShowAction] = useState(false);
     const [saved, setSaved] = useState(null);
     const cash = box.type === 'cash';
@@ -39,7 +39,7 @@ export default function CashBoxShow({ box, entries, collectionUrls, pendingCount
 
     return <AuthenticatedLayout header={<div className="flex items-center gap-3"><BoxTypeIcon type={box.type} className="h-12 w-12" /><div><h2 className="text-2xl font-bold text-gray-900">{boxTypes[box.type]}</h2><p className="mt-1 text-sm text-gray-500">صندوق رقم <bdi dir="ltr" className="font-display">{box.number}</bdi></p></div></div>}>
         <Head title={`${boxTypes[box.type]} ${box.number}`} />
-        <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount} returnedCount={returnedCount} />
+        <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount} />
         <Link href={collectionUrls.cashBoxes} prefetch className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600"><Icon name="chevron-right" className="h-4 w-4" />العودة إلى الصناديق المالية</Link>
         <div className="space-y-6">
             {saved && <p role="status" className="rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">{saved}</p>}
@@ -74,7 +74,7 @@ export default function CashBoxShow({ box, entries, collectionUrls, pendingCount
             </div>
             <section className="space-y-4">
                 <h3 className="text-lg font-bold text-gray-900">حركات الصندوق</h3>
-                <BoxEntriesTable type={box.type} entries={entries} pagination={{ filters: {}, baseUrl: box.urls.show }} />
+                <BoxEntriesTable type={box.type} boxNumber={box.number} entries={entries} pagination={{ filters: {}, baseUrl: box.urls.show }} />
             </section>
         </div>
         {showAction && action && <CashBoxAction box={box} action={action} onClose={() => setShowAction(false)} onSuccess={() => setSaved('تم تأكيد التسليم.')} />}

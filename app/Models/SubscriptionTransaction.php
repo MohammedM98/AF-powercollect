@@ -1179,10 +1179,15 @@ class SubscriptionTransaction extends Model
         };
     }
 
-    /** Whether this payment belongs to a submitted or approved daily closing. */
+    /**
+     * Whether this payment belongs to a submitted or approved daily closing,
+     * or to a box the branch has confirmed closed. Until the branch confirms
+     * it, a box stays open to its collector's corrections, even once closed
+     * at the weekly cutoff.
+     */
     public function isInClosedDay(bool $lockForUpdate = false): bool
     {
-        if (ClosingSetting::ownFor($this->branch_id)?->workflow_started_at && CashBoxPayment::query()->where('subscription_transaction_id', $this->id)->when($this->isClearing(), fn (Builder $query): Builder => $query->where('status', '!=', 'rejected'))->whereHas('box', fn (Builder $query): Builder => $query->where('status', '!=', 'open'))->exists()) {
+        if (ClosingSetting::ownFor($this->branch_id)?->workflow_started_at && CashBoxPayment::query()->where('subscription_transaction_id', $this->id)->when($this->isClearing(), fn (Builder $query): Builder => $query->where('status', '!=', 'rejected'))->whereHas('box', fn (Builder $query): Builder => $query->whereNotIn('status', ['open', 'pending']))->exists()) {
             return true;
         }
 
@@ -1433,6 +1438,32 @@ class SubscriptionTransaction extends Model
     public function readingDiscountSegment(): ?string
     {
         return $this->meterReading?->discount_segment ?? $this->notes;
+    }
+
+    /**
+     * The line as the subscriber's statement shows it, for the tables of
+     * box entries: its voucher, bank details, date, description, type,
+     * method, currency and rate, and who recorded it. Loads `recordedBy`
+     * when not loaded already.
+     *
+     * @return array{voucherNumber: ?string, referenceNumber: ?string, bankName: ?string, senderBankName: ?string, date: string, description: string, typeLabel: string, isCredit: bool, paymentMethodLabel: ?string, currencyLabel: string, exchangeRate: string, recordedByName: ?string}
+     */
+    public function ledgerDetails(): array
+    {
+        return [
+            'voucherNumber' => $this->displayVoucherNumber(),
+            'referenceNumber' => $this->reference_number,
+            'bankName' => $this->bank_name,
+            'senderBankName' => $this->sender_bank_name,
+            'date' => $this->created_at->copy()->setTimezone(config('app.business_timezone'))->format('Y-m-d H:i'),
+            'description' => $this->description(),
+            'typeLabel' => $this->typeLabel(),
+            'isCredit' => $this->isCredit(),
+            'paymentMethodLabel' => $this->payment_method ? __($this->payment_method->label()) : null,
+            'currencyLabel' => __($this->currency->label()),
+            'exchangeRate' => rtrim(rtrim($this->exchange_rate, '0'), '.'),
+            'recordedByName' => $this->recordedBy?->name,
+        ];
     }
 
     /**

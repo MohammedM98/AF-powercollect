@@ -80,7 +80,10 @@ class BranchClosingController extends Controller
     {
         $boxIds = collect([...($package['boxes'] ?? []), ...($package['carriedIn'] ?? []), ...($package['carriedOut']['boxes'] ?? [])])->pluck('id')->unique();
         $liveBoxes = $frozen ? collect() : CashBox::query()->whereIn('id', $boxIds)->with('user.permissions')->get()->keyBy('id');
-        $presentEntry = $this->branchBoxes->presentEntry(...);
+        $entries = collect([...($package['boxes'] ?? []), ...($package['carriedIn'] ?? []), ...($package['carriedOut']['boxes'] ?? [])])->flatMap(fn (array $box) => $box['payments'] ?? [])
+            ->concat([...($package['carriedOut']['entries'] ?? []), ...($package['electronic'] ?? []), ...($package['clearings'] ?? [])]);
+        $ledgers = $this->branchBoxes->ledgers($entries->pluck('subscription_transaction_id')->all());
+        $presentEntry = fn (array $entry): array => $this->branchBoxes->presentEntry($entry, $ledgers);
         $presentBox = function (array $box) use ($actor, $frozen, $liveBoxes, $presentEntry): array {
             $live = $liveBoxes->get($box['id']);
             $box['isOwn'] = ($box['user_id'] ?? null) === $actor->id;
@@ -109,7 +112,7 @@ class BranchClosingController extends Controller
         $data = $request->validated();
         $allowed = match ($action) {
             'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
-            'receive', 'return-entry', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
+            'receive', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
             'submit', 'withdraw', 'safe-count', 'early', 'reply', 'transfer' => BranchClosingAccess::approve($actor, $branchId),
             'start', 'settings', 'direct' => BranchClosingAccess::manage($actor, $branchId),
             default => false,
@@ -129,9 +132,6 @@ class BranchClosingController extends Controller
                     'receive' => $this->workflow->receive($box, $actor),
                     'confirm' => $this->workflow->confirmBox($box, $actor),
                 };
-            } elseif ($action === 'return-entry') {
-                $payment = CashBoxPayment::query()->whereHas('box', fn ($query) => $query->where('branch_id', $branchId))->findOrFail($record);
-                $this->workflow->returnEntry($payment, $actor, $data['note']);
             } elseif ($action === 'electronic') {
                 $payment = CashBoxPayment::query()->whereHas('box', fn ($query) => $query->where('branch_id', $branchId))->findOrFail($record);
                 $this->workflow->reviewEntry($payment, $actor, $data['status']);

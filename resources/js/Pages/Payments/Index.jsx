@@ -41,7 +41,6 @@ export default function Index({
     filters,
     filterOptions,
     pendingCount,
-    returnedCount,
     collectionUrls,
     paymentMethods,
     transferBanks,
@@ -98,7 +97,7 @@ export default function Index({
         >
             <Head title="تسجيل الدفعات" />
 
-            <CollectionNavigation urls={collectionUrls} active="payments" pendingCount={pendingCount} returnedCount={returnedCount} />
+            <CollectionNavigation urls={collectionUrls} active="payments" pendingCount={pendingCount} />
 
             <DataTableToolbar
                 search={search}

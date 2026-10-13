@@ -113,8 +113,8 @@ class PaymentController extends Controller
 
     /**
      * The collector's summary: what they collected today and their latest
-     * payments, what waits on them (entries the branch sent back, a
-     * handover to confirm, audit notes, debts), and the boxes open now with
+     * payments, what waits on them (a handover to confirm, audit notes,
+     * debts), and the boxes open now with
      * their entries (`?open=` picks the type, `?entries_page=` the page).
      */
     public function summary(Request $request): InertiaResponse
@@ -173,11 +173,11 @@ class PaymentController extends Controller
     }
 
     /**
-     * Every entry of the collector's boxes in one table, each with the box it
-     * sits in, filtered by `?filter[state]=` to the entries the branch sent back
-     * (`returned`), those still waiting on the collector's answer
-     * (`waiting`) or those answered (`replied`), and searched by subscriber,
-     * voucher, transfer reference or box number.
+     * Every entry of the collector's boxes in one table, each as the
+     * subscriber's statement shows it and with the box it sits in, filtered
+     * by `?filter[type]=` to one type of box (cash, bank transfers or
+     * clearings), and searched by subscriber, voucher, transfer reference or
+     * box number.
      */
     public function entries(Request $request): InertiaResponse
     {
@@ -214,39 +214,34 @@ class PaymentController extends Controller
             'branchName' => $branch->name,
             'branch' => $branch, 'branches' => $branches,
             ...$this->entryList($request, $query, fn (CashBox $box): string => route('payments.cash-boxes.branch', ['branch_id' => $branch->id, 'box' => $box->id])),
-            ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0, 'returnedCount' => 0]),
+            ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'branchPendingCount' => CashBox::query()->where('branch_id', $branch->id)->where('status', 'pending')->count(),
             'collectionUrls' => $this->collectionUrls(),
         ]);
     }
 
     /**
-     * One page of box entries, newest first (most recently sent back first
-     * when looking at returned ones), with how many fall under each filter.
+     * One page of box entries, newest first, with how many sit in each type
+     * of box.
      *
      * @param  Builder<CashBoxPayment>  $query
      * @param  callable(CashBox): string  $boxUrl
-     * @return array{entries: LengthAwarePaginator<int, array<string, mixed>>, filters: array{filter: array{state: string}, search: string, per_page: int}, counts: array<string, int>}
+     * @return array{entries: LengthAwarePaginator<int, array<string, mixed>>, filters: array{filter: array{type: string}, search: string, per_page: int}, counts: array<string, int>}
      */
     private function entryList(Request $request, Builder $query, callable $boxUrl): array
     {
-        $filter = in_array($request->input('filter.state'), ['returned', 'waiting', 'replied'], true) ? $request->input('filter.state') : '';
+        $types = array_column(CashBoxType::cases(), 'value');
+        $filter = in_array($request->input('filter.type'), $types, true) ? $request->input('filter.type') : '';
         $search = trim((string) $request->query('search'));
         $perPage = $this->dataTablePerPage($request);
-        $active = fn (Builder $transaction) => $transaction->where('status', SubscriptionTransaction::STATUS_ACTIVE);
-        $filters = [
-            'returned' => fn (Builder $entries) => $entries->whereNotNull('returned_at'),
-            'waiting' => fn (Builder $entries) => $entries->waitingOnCollector()->whereHas('transaction', $active),
-            'replied' => fn (Builder $entries) => $entries->whereNotNull('replied_at'),
-        ];
+        $ofType = fn (Builder $entries, string $type) => $entries->whereHas('box', fn (Builder $box) => $box->where('type', $type));
         $searched = (clone $query)->when($search !== '', fn (Builder $entries) => $entries->where(fn (Builder $matching) => $matching
             ->whereHas('transaction.subscription', fn (Builder $subscription) => $subscription->matchingSearch($search))
             ->orWhereHas('transaction', fn (Builder $transaction) => $transaction->where(fn (Builder $numbers) => $numbers->where('voucher_number', $search)->orWhere('manual_voucher_number', $search)->orWhere('reference_number', 'like', "%{$search}%")))
             ->orWhereHas('box', fn (Builder $box) => $box->where('number', $search))));
         $entries = (clone $searched)
-            ->when($filter !== '', fn (Builder $entries) => $filters[$filter]($entries))
-            ->with(['box:id,number,type,user_id', 'box.user:id,name', 'returnedBy:id,name', 'transaction', 'transaction.subscription:id,full_name,subscription_name,account_number'])
-            ->when($filter !== '', fn (Builder $entries) => $entries->orderByDesc('returned_at'))
+            ->when($filter !== '', fn (Builder $entries) => $ofType($entries, $filter))
+            ->with(['box:id,number,type,user_id', 'box.user:id,name', 'transaction', 'transaction.recordedBy:id,name', 'transaction.subscription:id,full_name,subscription_name,account_number'])
             ->orderByDesc('occurred_at')->orderByDesc('id')
             ->paginate($perPage)->withQueryString()
             ->through(fn (CashBoxPayment $entry): array => [
@@ -257,15 +252,15 @@ class PaymentController extends Controller
 
         return [
             'entries' => $entries,
-            'filters' => ['filter' => ['state' => $filter], 'search' => $search, 'per_page' => $perPage],
-            'counts' => ['all' => (clone $searched)->count(), ...array_map(fn (callable $matches): int => $matches(clone $searched)->count(), $filters)],
+            'filters' => ['filter' => ['type' => $filter], 'search' => $search, 'per_page' => $perPage],
+            'counts' => ['all' => (clone $searched)->count(), ...collect($types)->mapWithKeys(fn (string $type): array => [$type => $ofType(clone $searched, $type)->count()])->all()],
         ];
     }
 
     /**
      * The financial boxes page's staff tab, for those who close the branch's
-     * boxes: every box of the branch's people, to review its entries, send
-     * any back to its collector and confirm it closed.
+     * boxes: every box of the branch's people, to look over its entries and
+     * confirm it closed.
      */
     public function branchCashBoxes(Request $request): InertiaResponse
     {
@@ -283,7 +278,7 @@ class PaymentController extends Controller
             'boxes' => $this->branchBoxes->rows($branch->id, $actor, $closings->modelKeys()),
             'closings' => $closings,
             'access' => $this->branchBoxes->access($actor, $branch->id),
-            ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0, 'returnedCount' => 0]),
+            ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
             'urls' => ['index' => route('payments.cash-boxes.branch'), 'actions' => url('/reconciliation/actions'), 'reconciliation' => route('closings.index')],
         ]);
@@ -306,7 +301,7 @@ class PaymentController extends Controller
         return [
             'type' => $type,
             'entries' => $box === null ? null : CashBoxPayment::query()->where('cash_box_id', $box['id'])
-                ->with(['transaction.subscription:id,full_name,subscription_name,account_number', 'returnedBy:id,name'])
+                ->with(['transaction.subscription:id,full_name,subscription_name,account_number', 'transaction.recordedBy:id,name'])
                 ->orderByDesc('occurred_at')->orderByDesc('id')
                 ->paginate(self::OPEN_BOX_ENTRIES, ['*'], 'entries_page')->withQueryString()
                 ->through(fn (CashBoxPayment $entry): array => $this->cashBoxEntry($entry)),
@@ -325,7 +320,7 @@ class PaymentController extends Controller
         abort_unless($cashBox->user_id === $actor->id && $cashBox->branch_id === $actor->branch_id && $cashBox->kind !== 'direct', 404);
         $this->workflow->refresh($cashBox->branch_id);
         $cashBox->refresh()->loadCount('payments');
-        $entryQuery = $cashBox->payments()->with(['transaction.subscription:id,full_name,subscription_name,account_number', 'returnedBy:id,name'])
+        $entryQuery = $cashBox->payments()->with(['transaction.subscription:id,full_name,subscription_name,account_number', 'transaction.recordedBy:id,name'])
             ->orderByDesc('occurred_at')->orderByDesc('id');
 
         if ($request->query('format') === 'csv') {
@@ -343,8 +338,8 @@ class PaymentController extends Controller
 
     /**
      * One entry of a box: the payment or clearing, who it was for, where
-     * the branch's review of it stands, the payment's receipt, and what the
-     * branch sent back about it with the collector's answer.
+     * its check stands, the payment's receipt, and the transaction as the
+     * subscriber's statement shows it.
      *
      * @return array<string, mixed>
      */
@@ -360,11 +355,7 @@ class PaymentController extends Controller
             'bankName' => $entry->transaction->bank_name, 'senderBank' => $entry->transaction->sender_bank_name,
             'referenceNumber' => $entry->transaction->reference_number, 'service' => $entry->transaction->notes,
             'receiptUrl' => $entry->transaction->isPayment() ? route('subscriptions.payments.receipt', [$entry->transaction->subscription, $entry->transaction]) : null,
-            'returned' => $entry->returned_at ? [
-                'note' => $entry->return_note, 'at' => $entry->returned_at, 'by' => $entry->returnedBy?->name,
-                'reply' => $entry->collector_reply, 'repliedAt' => $entry->replied_at,
-                'replyUrl' => $entry->waitsOnCollector() ? route('payments.cash-box-entries.reply', $entry) : null,
-            ] : null,
+            'ledger' => $entry->transaction->ledgerDetails(),
         ];
     }
 
@@ -431,37 +422,6 @@ class PaymentController extends Controller
     }
 
     /**
-     * The collector's answer to an entry the branch sent back to them before
-     * confirming its box.
-     */
-    public function replyToReturnedEntry(Request $request, int $entry): RedirectResponse
-    {
-        $this->authorize('viewOwnCashBoxes', Subscription::class);
-        $data = $request->validate(['body' => ['required', 'string', 'max:3000']]);
-        $actor = $request->user();
-        abort_unless($actor->branch_id, 403);
-
-        $this->workflow->locked($actor->branch_id, function () use ($actor, $entry, $data): void {
-            $this->workflow->answerReturnedEntry($this->returnedEntries($actor)->findOrFail($entry), $actor, $data['body']);
-        });
-
-        return back()->with('status', 'returned-entry-replied');
-    }
-
-    /**
-     * The entries of the actor's boxes the branch sent back and waiting on
-     * the actor's answer, cancelled payments left out.
-     *
-     * @return Builder<CashBoxPayment>
-     */
-    private function returnedEntries(User $actor): Builder
-    {
-        return CashBoxPayment::query()->waitingOnCollector()
-            ->whereHas('box', fn (Builder $query) => $query->where('user_id', $actor->id)->where('branch_id', $actor->branch_id))
-            ->whereHas('transaction', fn (Builder $query) => $query->where('status', SubscriptionTransaction::STATUS_ACTIVE));
-    }
-
-    /**
      * The audit notes of the actor's branch waiting on the actor's answer.
      *
      * @return Builder<AuditNote>
@@ -491,28 +451,25 @@ class PaymentController extends Controller
     }
 
     /**
-     * The badges on the collector's pages: what waits on the actor on the
-     * summary page (a handover left to confirm, audit notes to answer), and
-     * the entries the branch sent back, which they answer on the entries page.
+     * The badge on the collector's pages: what waits on the actor on the
+     * summary page (a handover left to confirm, audit notes to answer).
      *
-     * @return array{pendingCount: int, returnedCount: int}
+     * @return array{pendingCount: int}
      */
     private function collectionCounts(User $actor): array
     {
         if (! $this->boxesStarted($actor)) {
-            return ['pendingCount' => 0, 'returnedCount' => 0];
+            return ['pendingCount' => 0];
         }
 
         return [
             'pendingCount' => $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count() + $this->waitingAuditNotes($actor)->count(),
-            'returnedCount' => $this->returnedEntries($actor)->count(),
         ];
     }
 
     /**
      * The actor's boxes, with what waits on them: received cash boxes to
      * confirm, audit notes to answer, and the shortfalls they still owe.
-     * Entries the branch sent back are answered on the entries page.
      *
      * @return array{started: bool, branchName: ?string, boxes: array<int, array<string, mixed>>, current: array<string, array<string, mixed>|null>, needsAction: array<int, array<string, mixed>>, auditNotes: array<int, array<string, mixed>>, debts: array<int, array<string, mixed>>}
      */

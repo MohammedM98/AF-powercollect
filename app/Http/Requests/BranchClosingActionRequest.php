@@ -28,9 +28,6 @@ class BranchClosingActionRequest extends FormRequest
         if ($action === 'safe-count') {
             $rules += $this->countRules();
         }
-        if ($action === 'return-entry') {
-            $rules += ['note' => ['required', 'string', 'max:1000']];
-        }
         if ($action === 'electronic') {
             $rules += ['status' => ['required', 'in:confirmed,missing,rejected']];
         }

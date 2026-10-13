@@ -47,8 +47,16 @@ test('retired closing destinations stay absent even with old permission flags', 
 });
 
 test('staff with box access can reach their boxes without payment access and only the box link is active', () => {
-    const groups = allowedNavigationGroups({ viewOwnCashBoxes: true });
-    assert.deepEqual(groups.flatMap((group) => group.links.map((link) => link.href)), ['/payments/cash-boxes']);
+    const groups = allowedNavigationGroups({ viewOwnCashBoxes: true, viewCashBoxes: true });
+    const boxes = groups[0].links.find((link) => link.href === '/payments/cash-boxes');
+    assert.deepEqual(groups.flatMap((group) => group.links.map((link) => link.href)), ['/payments/summary', '/payments/cash-boxes']);
     assert.equal(isActiveLink(MAIN_LINKS.find((link) => link.href === '/payments'), '/payments/cash-boxes/12'), false);
-    assert.equal(isActiveLink(groups[0].links[0], '/payments/cash-boxes/12'), true);
+    assert.equal(isActiveLink(boxes, '/payments/cash-boxes/12'), true);
+});
+
+test('closing boxes lives in the financial boxes link, beside the safe and statements page', () => {
+    const links = allowedNavigationGroups({ viewCashBoxes: true, viewBranchReconciliation: true }).flatMap((group) => group.links);
+
+    assert.deepEqual(links.map((link) => [link.href, link.label]), [['/payments/cash-boxes', 'الصناديق المالية'], ['/reconciliation', 'الخزنة والكشوفات']]);
+    assert.equal(isActiveLink(links[0], '/payments/cash-boxes/branch?branch_id=2'), true);
 });

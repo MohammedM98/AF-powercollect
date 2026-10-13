@@ -114,6 +114,14 @@
 .closing-ui .dt .rsn small{display:block;color:var(--closing-pur);font-weight:600}
 .closing-ui .dt .acts{display:flex;align-items:center;gap:6px;justify-content:flex-end}
 .closing-ui .dt tfoot td{background:var(--closing-raised);font-weight:700}
+/* Box tables keep set column widths (FixedTable): a figure of any size stays in its cell, one currency per line. */
+.closing-ui .dt.fx{table-layout:fixed}
+.closing-ui .dt.fx td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.closing-ui .dt.fx td small{display:block;overflow:hidden;text-overflow:ellipsis}
+.closing-ui .dt.fx .who{max-width:100%}
+.closing-ui .dt.fx .who>span:last-child{overflow:hidden;text-overflow:ellipsis}
+.closing-ui .dt .money-stack{display:grid;justify-items:start;gap:2px}
+.closing-ui .dt .mny.zero{color:var(--closing-faint)}
 .closing-ui .empty{display:grid;justify-items:center;text-align:center;gap:8px;padding:40px 16px;color:var(--closing-muted)}
 .closing-ui .empty>.i{width:44px;height:44px;padding:10px;border-radius:14px;background:var(--closing-sunken)}
 .closing-ui .empty b{color:var(--closing-ink);font-size:16.5px}

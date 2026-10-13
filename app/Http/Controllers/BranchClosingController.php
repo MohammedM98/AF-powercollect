@@ -71,7 +71,7 @@ class BranchClosingController extends Controller
             'selectedClosingId' => $selected?->id, 'staff' => User::query()->where('branch_id', $branchId)->where('is_active', true)->get(['id', 'name']),
             'recipients' => User::query()->where('is_active', true)->whereIn('role', ['accountant', 'financial_auditor', 'super_admin'])->get(['id', 'name']),
             'access' => $this->branchBoxes->access($actor, $branchId),
-            'urls' => ['index' => route('closings.index'), 'boxes' => route('payments.cash-boxes.branch'), 'actions' => url('/reconciliation/actions'), 'proofs' => url('/reconciliation/proofs'), 'transferReceipts' => url('/reconciliation/transfer-receipts')],
+            'urls' => ['index' => route('closings.index'), 'boxes' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'proofs' => url('/reconciliation/proofs'), 'transferReceipts' => url('/reconciliation/transfer-receipts')],
         ]);
     }
 

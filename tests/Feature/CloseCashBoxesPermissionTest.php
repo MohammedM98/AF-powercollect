@@ -97,8 +97,7 @@ class CloseCashBoxesPermissionTest extends TestCase
         $this->assertTrue($closer->refresh()->cannot('viewOwnCashBoxes', Subscription::class));
         $transaction = $box->payments()->sole()->transaction;
 
-        $this->actingAs($closer)->get(route('payments.cash-boxes'))->assertRedirect(route('payments.cash-boxes.branch'));
-        $this->get(route('payments.cash-boxes.branch'))->assertInertia(fn (AssertableInertia $page) => $page
+        $this->actingAs($closer)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Payments/BranchCashBoxes')
             ->where('branch.id', $branch->id)
             ->where('started', true)
@@ -109,17 +108,17 @@ class CloseCashBoxesPermissionTest extends TestCase
             ->where('urls.reconciliation', route('closings.index')));
     }
 
-    public function test_head_who_also_collects_sees_how_many_staff_boxes_wait_from_their_own_boxes(): void
+    public function test_head_who_also_collects_finds_their_own_boxes_among_the_branch_boxes(): void
     {
         [$branch, $head, $collector] = $this->start();
         $head->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::RecordCollections]));
-        $box = $this->cashBox($branch, $collector);
-        $box->update(['status' => 'pending']);
+        $staffBox = $this->cashBox($branch, $collector);
+        $ownBox = $this->cashBox($branch, $head);
 
         $this->actingAs($head)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('Payments/CashBoxes')
-            ->where('branchPendingCount', 1)
-            ->where('collectionUrls.branchCashBoxes', route('payments.cash-boxes.branch')));
+            ->component('Payments/BranchCashBoxes')
+            ->where('boxes', fn ($boxes): bool => collect($boxes)->pluck('id')->sort()->values()->all() === collect([$staffBox->id, $ownBox->id])->sort()->values()->all())
+            ->missing('collectionUrls.branchCashBoxes'));
     }
 
     public function test_staff_boxes_stay_closed_to_those_who_do_not_close_boxes(): void
@@ -127,9 +126,8 @@ class CloseCashBoxesPermissionTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $staff = User::factory()->accountant()->for($branch)->create();
 
-        $this->actingAs($staff)->get(route('payments.cash-boxes.branch'))->assertForbidden();
-        $this->actingAs($collector)->get(route('payments.cash-boxes.branch'))->assertForbidden();
-        $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertOk();
+        $this->actingAs($staff)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->component('Payments/CashBoxes'));
+        $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->component('Payments/CashBoxes'));
     }
 
     public function test_branch_admins_get_the_permission_and_may_grant_it(): void

@@ -239,7 +239,7 @@ export function entryState(type, entry) {
  * is passed to the table's Pagination.
  */
 export function BoxEntriesTable({ type, boxNumber, entries, pagination }) {
-    const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', null], ...ledgerColumns.after, ['الحالة', 140], ['', 48]];
+    const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', 150], ...ledgerColumns.after, ['الحالة', 140], ['', 48]];
     const widths = columns.map(([, width]) => width);
 
     return (

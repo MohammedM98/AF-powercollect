@@ -93,7 +93,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
     const filterOptions = Object.entries(groups).map(([value, [label, matches]]) => ({ value, label: `${label} · ${entries.filter(matches).length}`, count: entries.filter(matches).length })).filter((option) => option.value === 'all' || option.count > 0);
     const query = search.trim();
     const shown = entries.filter(groups[filter]?.[1] ?? (() => true)).filter((entry) => !query || [subscriberName(entry), entry.transaction?.subscription?.account_number, entry.transaction?.manual_voucher_number, entry.transaction?.voucher_number, entry.transaction?.reference_number, entry.transaction?.notes].some((value) => String(value ?? '').includes(query)));
-    const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', null], ...ledgerColumns.after, ['الحالة', 140], ['', canReview ? 190 : 110]];
+    const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', 150], ...ledgerColumns.after, ['الحالة', 140], ['', canReview ? 190 : 110]];
     const widths = columns.map(([, width]) => width);
 
     return <Modal show onClose={onClose} maxWidth="full" centered panelClassName="flex max-h-[calc(100dvh-6rem)] flex-col">

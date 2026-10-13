@@ -136,15 +136,16 @@ class PaymentController extends Controller
     }
 
     /**
-     * Every box the collector had, in one table filtered by `?type=` and
-     * `?state=`, each with its totals, dates, who closed it and its report.
-     * Someone who only closes other people's boxes goes to the staff boxes.
+     * The financial boxes: for those who close the branch's boxes, every box
+     * of the branch in one table, their own among them; for a collector,
+     * every box they had, filtered by `?type=` and `?state=`, each with its
+     * totals, dates, who closed it and its report.
      */
-    public function cashBoxes(Request $request): InertiaResponse|RedirectResponse
+    public function cashBoxes(Request $request): InertiaResponse
     {
         $actor = $request->user();
-        if ($actor->cannot('viewOwnCashBoxes', Subscription::class) && BranchClosingAccess::view($actor)) {
-            return redirect()->route('payments.cash-boxes.branch');
+        if (BranchClosingAccess::view($actor)) {
+            return $this->branchCashBoxes($request);
         }
         $this->authorize('viewOwnCashBoxes', Subscription::class);
 
@@ -167,22 +168,25 @@ class PaymentController extends Controller
             'boxes' => $boxes,
             'filters' => ['type' => $type, 'state' => $state, 'per_page' => $perPage],
             ...$this->collectionCounts($actor),
-            'branchPendingCount' => $actor->branch_id && BranchClosingAccess::view($actor) ? CashBox::query()->where('branch_id', $actor->branch_id)->where('status', 'pending')->count() : 0,
             'collectionUrls' => $this->collectionUrls(),
         ]);
     }
 
     /**
-     * Every entry of the collector's boxes in one table, each as the
-     * subscriber's statement shows it and with the box it sits in, filtered
-     * by `?filter[type]=` to one type of box (cash, bank transfers or
+     * Every entry of the boxes in one table, each as the subscriber's
+     * statement shows it and with the box it sits in, filtered by
+     * `?filter[type]=` to one type of box (cash, bank transfers or
      * clearings), and searched by subscriber, voucher, transfer reference or
-     * box number.
+     * box number: every entry of the branch for those who close its boxes,
+     * else the collector's own.
      */
     public function entries(Request $request): InertiaResponse
     {
-        $this->authorize('viewOwnCashBoxes', Subscription::class);
         $actor = $request->user();
+        if (BranchClosingAccess::view($actor)) {
+            return $this->branchEntries($request);
+        }
+        $this->authorize('viewOwnCashBoxes', Subscription::class);
         $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('kind', '!=', 'direct'));
 
         return Inertia::render('Payments/Entries', [
@@ -191,31 +195,33 @@ class PaymentController extends Controller
             'branchName' => $actor->branch?->name,
             ...$this->entryList($request, $query, fn (CashBox $box): string => route('payments.cash-boxes.show', $box)),
             ...$this->collectionCounts($actor),
-            'branchPendingCount' => $actor->branch_id && BranchClosingAccess::view($actor) ? CashBox::query()->where('branch_id', $actor->branch_id)->where('status', 'pending')->count() : 0,
             'collectionUrls' => $this->collectionUrls(),
         ]);
     }
 
     /**
-     * Every entry of the branch's boxes, for those who close them: whose box
-     * each sits in, filtered and searched as the collector's entries are, with
-     * a link that opens its box on the staff boxes tab.
+     * Every entry of the branch's boxes, for those who close them, theirs
+     * among them: whose box each sits in, narrowed to one person's boxes by
+     * `?filter[user]=`, filtered and searched as the collector's entries are,
+     * with a link that opens its box on the financial boxes page.
      */
-    public function branchEntries(Request $request): InertiaResponse
+    private function branchEntries(Request $request): InertiaResponse
     {
         $actor = $request->user();
-        abort_unless(BranchClosingAccess::view($actor), 403);
         [$branches, $branch] = $this->branchBoxes->branch($request, $actor);
-        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id));
+        $people = $this->branchBoxes->people($branch->id);
+        $person = $people->firstWhere('id', $request->integer('filter.user'));
+        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->when($person, fn (Builder $box) => $box->where('user_id', $person->id)));
+        $list = $this->entryList($request, $query, fn (CashBox $box): string => route('payments.cash-boxes', ['branch_id' => $branch->id, 'box' => $box->id]));
+        $list['filters']['filter']['user'] = $person ? (string) $person->id : '';
 
         return Inertia::render('Payments/Entries', [
             'scope' => 'branch',
             'started' => ClosingSetting::forBranch($branch->id)->workflow_started_at !== null,
             'branchName' => $branch->name,
-            'branch' => $branch, 'branches' => $branches,
-            ...$this->entryList($request, $query, fn (CashBox $box): string => route('payments.cash-boxes.branch', ['branch_id' => $branch->id, 'box' => $box->id])),
+            'branch' => $branch, 'branches' => $branches, 'people' => $people,
+            ...$list,
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
-            'branchPendingCount' => CashBox::query()->where('branch_id', $branch->id)->where('status', 'pending')->count(),
             'collectionUrls' => $this->collectionUrls(),
         ]);
     }
@@ -258,14 +264,13 @@ class PaymentController extends Controller
     }
 
     /**
-     * The financial boxes page's staff tab, for those who close the branch's
-     * boxes: every box of the branch's people, to look over its entries and
-     * confirm it closed.
+     * The financial boxes page for those who close the branch's boxes: every
+     * box of the branch's people in one table, their own among them, to look
+     * over its entries and confirm it closed.
      */
-    public function branchCashBoxes(Request $request): InertiaResponse
+    private function branchCashBoxes(Request $request): InertiaResponse
     {
         $actor = $request->user();
-        abort_unless(BranchClosingAccess::view($actor), 403);
         [$branches, $branch] = $this->branchBoxes->branch($request, $actor);
         $started = ClosingSetting::forBranch($branch->id)->workflow_started_at !== null;
         if ($started) {
@@ -280,7 +285,7 @@ class PaymentController extends Controller
             'access' => $this->branchBoxes->access($actor, $branch->id),
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
-            'urls' => ['index' => route('payments.cash-boxes.branch'), 'actions' => url('/reconciliation/actions'), 'reconciliation' => route('closings.index')],
+            'urls' => ['index' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'reconciliation' => route('closings.index')],
         ]);
     }
 
@@ -438,10 +443,10 @@ class PaymentController extends Controller
             ->withCount('payments')->with(['payments.transaction:id,status', 'receivedBy:id,name', 'receivedIn:id,period_start,period_end'])->latest('id');
     }
 
-    /** @return array{payments: string, summary: string, cashBoxes: string, entries: string, branchCashBoxes: string, branchEntries: string} */
+    /** @return array{payments: string, summary: string, cashBoxes: string, entries: string} */
     private function collectionUrls(): array
     {
-        return ['payments' => route('payments.index'), 'summary' => route('payments.summary'), 'cashBoxes' => route('payments.cash-boxes'), 'entries' => route('payments.entries'), 'branchCashBoxes' => route('payments.cash-boxes.branch'), 'branchEntries' => route('payments.cash-boxes.branch-entries')];
+        return ['payments' => route('payments.index'), 'summary' => route('payments.summary'), 'cashBoxes' => route('payments.cash-boxes'), 'entries' => route('payments.entries')];
     }
 
     /** Whether the actor's branch keeps collector boxes yet. */

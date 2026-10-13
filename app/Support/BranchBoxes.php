@@ -38,6 +38,17 @@ class BranchBoxes
     }
 
     /**
+     * The people who had boxes in the branch, by name, to narrow its boxes
+     * and entries to one of them.
+     *
+     * @return EloquentCollection<int, User>
+     */
+    public function people(int $branchId): EloquentCollection
+    {
+        return User::query()->whereIn('id', CashBox::query()->where('branch_id', $branchId)->whereNotNull('user_id')->select('user_id'))->orderBy('name')->get(['id', 'name']);
+    }
+
+    /**
      * The branch's latest weekly closings, newest first.
      *
      * @return EloquentCollection<int, Closing>

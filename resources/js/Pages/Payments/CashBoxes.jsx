@@ -6,7 +6,6 @@ import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import Pagination from '@/Components/DataTable/Pagination';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import SegmentedTabs from '@/Components/SegmentedTabs';
-import CashBoxTabs from './CashBoxTabs';
 import CollectionNavigation from './CollectionNavigation';
 import { boxTypes, boxTypeStyles, currencies, dateTime, Amounts, BoxReportActions, BoxStage, BoxTypeChip } from './CollectorCashBox';
 
@@ -35,12 +34,12 @@ function heldCurrencies(box) {
  * report to print or download. What is open now and what waits on the
  * collector are on the summary page.
  */
-export default function CashBoxes({ started, branchName, boxes, filters, pendingCount, branchPendingCount, collectionUrls }) {
+export default function CashBoxes({ started, branchName, boxes, filters, pendingCount, collectionUrls }) {
     function filter(key, value) {
         router.get(collectionUrls.cashBoxes, { ...filters, [key]: value }, { preserveState: true, preserveScroll: true, replace: true });
     }
 
-    return <AuthenticatedLayout header={<div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-gray-500">{branchName ?? 'حسابك الحالي'}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">الصناديق المالية</h2></div><CashBoxTabs urls={collectionUrls} active="own" branchPendingCount={branchPendingCount} /></div>}>
+    return <AuthenticatedLayout header={<div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-gray-500">{branchName ?? 'حسابك الحالي'}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">الصناديق المالية</h2></div></div>}>
         <Head title="الصناديق المالية" />
         <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount} />
         {started ? <div className="space-y-4">

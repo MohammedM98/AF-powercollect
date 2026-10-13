@@ -12,7 +12,6 @@ import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
 import BoxDetails, { boxStatuses } from '../Closings/BoxDetails';
 import { periodLabel } from '../Closings/ClosingComponents';
-import CashBoxTabs from './CashBoxTabs';
 import CollectionNavigation from './CollectionNavigation';
 import { boxTypes, boxTypeStyles, currencies, dateTime, Amounts } from './CollectorCashBox';
 
@@ -35,20 +34,22 @@ function closable(box) {
 }
 
 /**
- * The financial boxes page's staff tab, for those who close the branch's
- * boxes: every box of the branch's people, waiting ones first, each opened
- * to review its entries, send any back to its collector and confirm it
- * closed. The safe, the weekly statements and the audit notes are on the
- * safe and statements page.
+ * The financial boxes page for those who close the branch's boxes: every box
+ * of the branch's people in one table, their own among them, waiting ones
+ * first, narrowed by status, by person or by a search, each opened to look
+ * over its entries and confirm it closed. The safe, the weekly statements
+ * and the audit notes are on the safe and statements page.
  */
 export default function BranchCashBoxes({ branch, branches, started, boxes, closings, access, pendingCount, collectionUrls, urls }) {
     const { can, errors } = usePage().props;
     const pending = boxes.filter((box) => box.status === 'pending');
     const [status, setStatus] = useState(pending.length ? 'pending' : 'all');
     const [search, setSearch] = useState('');
+    const [person, setPerson] = useState('');
+    const people = [...new Map(boxes.filter((box) => box.user).map((box) => [box.user.id, box.user.name])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar'));
     const [boxId, setBoxId] = useState(() => Number(new URLSearchParams(window.location.search).get('box')) || null);
     const selectedBox = boxes.find((box) => box.id === boxId);
-    const shown = boxes.filter((box) => (status === 'all' || box.status === status) && `${box.number} ${box.user?.name ?? 'الدفعات المباشرة'}`.includes(search.trim()));
+    const shown = boxes.filter((box) => (status === 'all' || box.status === status) && (!person || String(box.user?.id) === person) && `${box.number} ${box.user?.name ?? 'الدفعات المباشرة'}`.includes(search.trim()));
     const rejected = boxes.flatMap((box) => box.payments.filter((entry) => ['missing', 'rejected'].includes(entry.status) && entry.transaction?.status === 'active').map((entry) => ({ ...entry, box })));
     const statusFilters = [['pending', 'بانتظار الإغلاق'], ['open', 'مفتوحة'], ['received', 'مؤكدة'], ['all', 'الكل']].map(([value, label]) => ({ value, label: `${label} · ${value === 'all' ? boxes.length : boxes.filter((box) => box.status === value).length}` }));
 
@@ -64,8 +65,8 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
         router.post(`${urls.actions}/${kind}/${record.id}`, { branch_id: branch.id, ...extra }, { preserveScroll: true });
     }
 
-    return <AuthenticatedLayout header={<div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-gray-500">{branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : branch.name}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">الصناديق المالية</h2></div><CashBoxTabs urls={collectionUrls} active="branch" branchPendingCount={pending.length} /></div>}>
-        <Head title="صناديق الموظفين" />
+    return <AuthenticatedLayout header={<div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-gray-500">{branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : branch.name}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">الصناديق المالية</h2></div></div>}>
+        <Head title="الصناديق المالية" />
         {can.viewOwnCashBoxes && <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount} />}
         {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. {access.manage ? <>ابدأه من <Link href={urls.reconciliation} className="font-semibold text-brand-600">صفحة الخزنة والكشوفات</Link>.</> : 'يُفعّله مسؤول الفرع من صفحة الخزنة والكشوفات.'}</p> : <div className="space-y-4">
             {errors?.action && <p role="alert" className="rounded-control bg-red-500/10 p-4 text-sm text-red-700">{errors.action}</p>}
@@ -78,11 +79,17 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
                     <div className="flex flex-wrap items-center gap-3"><SecondaryButton onClick={() => setBoxId(entry.box.id)}>مراجعة</SecondaryButton><Link href={entry.statement_url} prefetch className="font-semibold text-brand-600">حساب المشترك</Link></div>
                 </div>)}
             </section>}
-            <section aria-label="صناديق الموظفين" className="space-y-4">
+            <section aria-label="الصناديق المالية" className="space-y-4">
                 <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
-                    <div className="relative w-full sm:max-w-sm">
-                        <Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" />
-                        <input type="text" aria-label="ابحث باسم الموظف أو رقم الصندوق" placeholder="ابحث باسم الموظف أو رقم الصندوق" value={search} onChange={(event) => setSearch(event.target.value)} className="block w-full py-2.5 pe-4 ps-10 text-sm" />
+                    <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+                        <div className="relative w-full sm:w-72">
+                            <Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" />
+                            <input type="text" aria-label="ابحث باسم الموظف أو رقم الصندوق" placeholder="ابحث باسم الموظف أو رقم الصندوق" value={search} onChange={(event) => setSearch(event.target.value)} className="block w-full py-2.5 pe-4 ps-10 text-sm" />
+                        </div>
+                        <select aria-label="الموظف" value={person} onChange={(event) => setPerson(event.target.value)} className="w-full py-2.5 text-sm sm:w-56">
+                            <option value="">كل الموظفين</option>
+                            {people.map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}
+                        </select>
                     </div>
                     <SegmentedTabs label="حالة الصندوق" value={status} onChange={setStatus} options={statusFilters} />
                 </div>

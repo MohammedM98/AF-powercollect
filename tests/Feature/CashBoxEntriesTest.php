@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\CashBoxPayment;
+use App\Models\Permission;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
@@ -73,13 +75,32 @@ class CashBoxEntriesTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector);
 
-        $this->actingAs($head)->get(route('payments.cash-boxes.branch-entries', ['search' => $entry->box->number]))->assertInertia(fn (AssertableInertia $page) => $page
+        $this->actingAs($head)->get(route('payments.entries', ['search' => $entry->box->number]))->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Payments/Entries')
             ->where('scope', 'branch')
             ->where('entries.total', 1)
             ->where('entries.data.0.collector', 'سامي')
             ->where('entries.data.0.ledger.recordedByName', 'سامي')
-            ->where('entries.data.0.box.url', route('payments.cash-boxes.branch', ['branch_id' => $branch->id, 'box' => $entry->cash_box_id])));
+            ->where('entries.data.0.box.url', route('payments.cash-boxes', ['branch_id' => $branch->id, 'box' => $entry->cash_box_id])));
+    }
+
+    public function test_closer_sees_every_entry_of_the_branch_their_own_among_them_and_narrows_them_to_one_person(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $head->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::RecordCollections]));
+        $staffEntry = $this->entry($branch, $collector);
+        $ownEntry = $this->entry($branch, $head, '40');
+
+        $this->actingAs($head)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('scope', 'branch')
+            ->where('entries.total', 2)
+            ->where('people', [['id' => $head->id, 'name' => $head->name], ['id' => $collector->id, 'name' => 'سامي']]));
+
+        $this->get(route('payments.entries', ['filter' => ['user' => $head->id]]))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('entries.total', 1)
+            ->where('entries.data.0.id', $ownEntry->id)
+            ->where('filters.filter.user', (string) $head->id));
+        $this->assertNotSame($staffEntry->cash_box_id, $ownEntry->cash_box_id);
     }
 
     public function test_the_branch_sees_each_box_entry_as_the_statement_shows_it(): void
@@ -87,7 +108,7 @@ class CashBoxEntriesTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, '250', 'bank_transfer');
 
-        $this->actingAs($head)->get(route('payments.cash-boxes.branch'))->assertInertia(fn (AssertableInertia $page) => $page
+        $this->actingAs($head)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('boxes.0.id', $entry->cash_box_id)
             ->where('boxes.0.payments.0.ledger.referenceNumber', 'TRX-77')
             ->where('boxes.0.payments.0.ledger.paymentMethodLabel', __('Bank Transfer'))
@@ -99,8 +120,8 @@ class CashBoxEntriesTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $staff = User::factory()->accountant()->for($branch)->create();
 
-        $this->actingAs($collector)->get(route('payments.cash-boxes.branch-entries'))->assertForbidden();
-        $this->actingAs($staff)->get(route('payments.cash-boxes.branch-entries'))->assertForbidden();
+        $this->actingAs($collector)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page->where('scope', 'own'));
+        $this->actingAs($staff)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page->where('scope', 'own'));
         $this->actingAs(User::factory()->dataEntry()->for($branch)->create())->get(route('payments.entries'))->assertForbidden();
     }
 }

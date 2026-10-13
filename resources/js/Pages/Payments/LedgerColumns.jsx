@@ -60,7 +60,7 @@ export function LedgerLeadCells({ ledger }) {
     return <>
         <td style={stacked}>
             <span className="block font-display font-semibold text-gray-900">{ledger.voucherNumber ? <bdi dir="ltr">{ledger.voucherNumber}</bdi> : <Dash />}</span>
-            {ledger.date && <span className="mt-0.5 block font-display text-xs text-gray-500" title="تاريخ الحركة">{ledger.date.split(' ').map((part) => <bdi key={part} dir="ltr" className="inline-block whitespace-nowrap pe-1">{part}</bdi>)}</span>}
+            {ledger.date && <span className="mt-0.5 block font-display text-xs text-gray-500" title="تاريخ الحركة"><bdi dir="ltr">{ledger.date.split(' ').map((part) => <span key={part} className="inline-block whitespace-nowrap pe-1">{part}</span>)}</bdi></span>}
         </td>
         <td className="text-xs leading-5 text-gray-700" style={stacked}>
             {ledger.referenceNumber ? <span className="block break-all font-display text-sm text-gray-900" title="الرقم المرجعي"><bdi dir="ltr">{ledger.referenceNumber}</bdi></span> : !ledger.bankName && <Dash />}

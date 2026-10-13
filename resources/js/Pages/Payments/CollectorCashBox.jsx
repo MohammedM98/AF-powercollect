@@ -27,6 +27,17 @@ export const boxTypeStyles = {
 };
 
 /** The box's type as a tinted chip with its icon: نقدي، حوالات بنكية or مقاصة. */
+/** A box's amounts by currency, one line each: shekels always, another currency only when it has some. */
+export function Amounts({ amounts }) {
+    const shown = Object.keys(currencies).filter((currency) => currency === 'ILS' || Number(amounts?.[currency] ?? 0) !== 0);
+
+    return shown.map((currency) => (
+        <span key={currency} className="block whitespace-nowrap">
+            <b dir="ltr" className="font-display">{formatMoney(amounts?.[currency] ?? 0)}</b> <span className="text-xs text-gray-500">{currencies[currency]}</span>
+        </span>
+    ));
+}
+
 export function BoxTypeChip({ type }) {
     const style = boxTypeStyles[type];
 

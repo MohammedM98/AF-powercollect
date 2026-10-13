@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Requests\BranchClosingActionRequest;
 use App\Models\AuditNote;
 use App\Models\AuditNoteReply;
-use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\CashBoxPayment;
 use App\Models\CashTransfer;
@@ -18,6 +17,7 @@ use App\Models\CollectorDebt;
 use App\Models\SafeCount;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Support\BranchBoxes;
 use App\Support\BranchClosingAccess;
 use App\Support\BranchClosingWorkflow;
 use Illuminate\Http\RedirectResponse;
@@ -29,36 +29,22 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BranchClosingController extends Controller
 {
-    public function __construct(private BranchClosingWorkflow $workflow) {}
+    public function __construct(private BranchClosingWorkflow $workflow, private BranchBoxes $branchBoxes) {}
 
     public function index(Request $request): Response
     {
         $actor = $request->user();
         abort_unless(BranchClosingAccess::view($actor), 403);
-        $branches = $actor->isSuperAdmin() ? Branch::query()->orderBy('name')->get(['id', 'name']) : Branch::query()->whereKey($actor->branch_id)->get(['id', 'name']);
-        $branchId = $actor->isSuperAdmin() ? ($request->integer('branch_id') ?: $branches->first()?->id) : $actor->branch_id;
-        $branch = $branches->firstWhere('id', $branchId);
-        abort_unless($branch, 404);
+        [$branches, $branch] = $this->branchBoxes->branch($request, $actor);
+        $branchId = $branch->id;
         $setting = ClosingSetting::forBranch($branchId);
         $started = $setting->workflow_started_at !== null;
         if ($started) {
             $this->workflow->refresh($branchId);
             $setting = ClosingSetting::forBranch($branchId);
         }
-        $closings = Closing::query()->where('branch_id', $branchId)->whereNotNull('workflow_settings')->withCount(['auditNotes as open_notes_count' => fn ($query) => $query->where('status', '!=', 'closed')])->orderByDesc('coverage_from')->orderBy('id')->limit(60)->get();
-        $boxes = CashBox::query()->where('branch_id', $branchId)
-            ->where(fn ($query) => $query->whereIn('closing_id', $closings->modelKeys())->orWhere('status', '!=', 'received')->orWhereHas('payments', fn ($payments) => $payments->whereIn('status', ['pending', 'missing', 'rejected'])))
-            ->with(BranchClosingWorkflow::BOX_DETAILS)->latest('id')->get();
-        $boxRows = $boxes->map(function (CashBox $box) use ($actor): array {
-            $box->user?->makeHidden('permissions');
-            $row = $box->toArray();
-            $row['canCount'] = $this->workflow->mayReceive($box, $actor);
-            $row['isOwn'] = $box->user_id === $actor->id;
-            $row['stage'] = $box->stage();
-            $row['payments'] = array_map(fn (array $entry): array => [...$entry, 'statement_url' => route('subscriptions.statement', $entry['transaction']['subscription_id'])], $row['payments']);
-
-            return $row;
-        });
+        $closings = $this->branchBoxes->closings($branchId);
+        $boxRows = $this->branchBoxes->rows($branchId, $actor, $closings->modelKeys());
         $current = $started ? $this->workflow->current($branchId) : null;
         $pendingChange = ClosingSettingChange::query()->where('branch_id', $branchId)->whereNull('applied_at')->latest('id')->first();
         $selected = $request->integer('closing_id') ? $closings->firstWhere('id', $request->integer('closing_id')) : null;
@@ -84,8 +70,8 @@ class BranchClosingController extends Controller
             'versions' => $selected ? ClosingVersion::query()->where('closing_id', $selected->id)->orderByDesc('version')->get()->map(fn (ClosingVersion $version): array => [...$version->toArray(), 'snapshot' => $this->presentPackage($version->snapshot, $actor, true)]) : [],
             'selectedClosingId' => $selected?->id, 'staff' => User::query()->where('branch_id', $branchId)->where('is_active', true)->get(['id', 'name']),
             'recipients' => User::query()->where('is_active', true)->whereIn('role', ['accountant', 'financial_auditor', 'super_admin'])->get(['id', 'name']),
-            'access' => ['manage' => BranchClosingAccess::manage($actor, $branchId), 'receive' => BranchClosingAccess::receive($actor, $branchId), 'approve' => BranchClosingAccess::approve($actor, $branchId)],
-            'urls' => ['index' => route('closings.index'), 'actions' => url('/reconciliation/actions'), 'proofs' => url('/reconciliation/proofs'), 'transferReceipts' => url('/reconciliation/transfer-receipts')],
+            'access' => $this->branchBoxes->access($actor, $branchId),
+            'urls' => ['index' => route('closings.index'), 'boxes' => route('payments.cash-boxes.branch'), 'actions' => url('/reconciliation/actions'), 'proofs' => url('/reconciliation/proofs'), 'transferReceipts' => url('/reconciliation/transfer-receipts')],
         ]);
     }
 

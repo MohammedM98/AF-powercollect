@@ -6,7 +6,7 @@ export default function CollectionNavigation({ urls, active, pendingCount = 0 })
     const items = [
         { key: 'payments', label: 'تسجيل الدفعات', icon: 'banknotes' },
         { key: 'summary', label: 'ملخص التحصيل', icon: 'gauge' },
-        { key: 'cashBoxes', label: 'كل الصناديق', icon: 'wallet' },
+        { key: 'cashBoxes', label: 'الصناديق المالية', icon: 'wallet' },
     ];
 
     return (

@@ -59,6 +59,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/summary', [PaymentController::class, 'summary'])->name('payments.summary');
     Route::get('/payments/cash-boxes', [PaymentController::class, 'cashBoxes'])->name('payments.cash-boxes');
+    Route::get('/payments/cash-boxes/branch', [PaymentController::class, 'branchCashBoxes'])->name('payments.cash-boxes.branch');
     Route::get('/payments/cash-boxes/{cashBox}', [PaymentController::class, 'showCashBox'])->whereNumber('cashBox')->name('payments.cash-boxes.show');
     Route::post('/payments/audit-notes/{auditNote}/reply', [PaymentController::class, 'replyToAuditNote'])->whereNumber('auditNote')->name('payments.audit-notes.reply');
     Route::post('/payments/cash-box-entries/{entry}/reply', [PaymentController::class, 'replyToReturnedEntry'])->whereNumber('entry')->name('payments.cash-box-entries.reply');

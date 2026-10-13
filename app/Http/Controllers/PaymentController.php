@@ -25,6 +25,8 @@ use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\Tariff;
 use App\Models\User;
+use App\Support\BranchBoxes;
+use App\Support\BranchClosingAccess;
 use App\Support\BranchClosingWorkflow;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
@@ -43,7 +45,7 @@ class PaymentController extends Controller
 {
     use BuildsSubscriptionStatement, FiltersDataTable, FiltersSubscriptionList;
 
-    public function __construct(private BranchClosingWorkflow $workflow) {}
+    public function __construct(private BranchClosingWorkflow $workflow, private BranchBoxes $branchBoxes) {}
 
     /** The columns the subscribers table may be sorted by. */
     private const SORTABLE = ['account_number', 'display_name', 'status', 'outstanding_balance'];
@@ -135,12 +137,16 @@ class PaymentController extends Controller
     /**
      * Every box the collector had, in one table filtered by `?type=` and
      * `?state=`, each with its totals, dates, who closed it and its report.
+     * Someone who only closes other people's boxes goes to the staff boxes.
      */
-    public function cashBoxes(Request $request): InertiaResponse
+    public function cashBoxes(Request $request): InertiaResponse|RedirectResponse
     {
+        $actor = $request->user();
+        if ($actor->cannot('viewOwnCashBoxes', Subscription::class) && BranchClosingAccess::view($actor)) {
+            return redirect()->route('payments.cash-boxes.branch');
+        }
         $this->authorize('viewOwnCashBoxes', Subscription::class);
 
-        $actor = $request->user();
         $started = $this->boxesStarted($actor);
         if ($started) {
             $this->workflow->refresh($actor->branch_id);
@@ -160,7 +166,35 @@ class PaymentController extends Controller
             'boxes' => $boxes,
             'filters' => ['type' => $type, 'state' => $state, 'per_page' => $perPage],
             'pendingCount' => $this->needsActionCount($actor),
+            'branchPendingCount' => $actor->branch_id && BranchClosingAccess::view($actor) ? CashBox::query()->where('branch_id', $actor->branch_id)->where('status', 'pending')->count() : 0,
             'collectionUrls' => $this->collectionUrls(),
+        ]);
+    }
+
+    /**
+     * The financial boxes page's staff tab, for those who close the branch's
+     * boxes: every box of the branch's people, to review its entries, send
+     * any back to its collector and confirm it closed.
+     */
+    public function branchCashBoxes(Request $request): InertiaResponse
+    {
+        $actor = $request->user();
+        abort_unless(BranchClosingAccess::view($actor), 403);
+        [$branches, $branch] = $this->branchBoxes->branch($request, $actor);
+        $started = ClosingSetting::forBranch($branch->id)->workflow_started_at !== null;
+        if ($started) {
+            $this->workflow->refresh($branch->id);
+        }
+        $closings = $this->branchBoxes->closings($branch->id);
+
+        return Inertia::render('Payments/BranchCashBoxes', [
+            'branch' => $branch, 'branches' => $branches, 'started' => $started,
+            'boxes' => $this->branchBoxes->rows($branch->id, $actor, $closings->modelKeys()),
+            'closings' => $closings,
+            'access' => $this->branchBoxes->access($actor, $branch->id),
+            'pendingCount' => $actor->can('viewOwnCashBoxes', Subscription::class) ? $this->needsActionCount($actor) : 0,
+            'collectionUrls' => $this->collectionUrls(),
+            'urls' => ['index' => route('payments.cash-boxes.branch'), 'actions' => url('/reconciliation/actions'), 'reconciliation' => route('closings.index')],
         ]);
     }
 
@@ -353,10 +387,10 @@ class PaymentController extends Controller
             ->withCount('payments')->with(['payments.transaction:id,status', 'receivedBy:id,name', 'receivedIn:id,period_start,period_end'])->latest('id');
     }
 
-    /** @return array{payments: string, summary: string, cashBoxes: string} */
+    /** @return array{payments: string, summary: string, cashBoxes: string, branchCashBoxes: string} */
     private function collectionUrls(): array
     {
-        return ['payments' => route('payments.index'), 'summary' => route('payments.summary'), 'cashBoxes' => route('payments.cash-boxes')];
+        return ['payments' => route('payments.index'), 'summary' => route('payments.summary'), 'cashBoxes' => route('payments.cash-boxes'), 'branchCashBoxes' => route('payments.cash-boxes.branch')];
     }
 
     /** Whether the actor's branch keeps collector boxes yet. */

@@ -5,7 +5,7 @@ import { formatMoney } from '@/lib/format';
 import { closingVersionDifferences } from '@/lib/closingVersions';
 const currencies = { ILS: 'شيكل', USD: 'دولار', JOD: 'دينار' };
 const symbols = { ILS: '₪', USD: '$', JOD: 'د.أ' };
-const money = (value, currency = 'ILS') => `${formatMoney(value ?? 0)} ${symbols[currency]}`;
+export const money = (value, currency = 'ILS') => `${formatMoney(value ?? 0)} ${symbols[currency]}`;
 export function PrimaryButton({ className = '', children, ...props }) {
     return <button type="button" {...props} className={`btn pr ${className}`}>{children}</button>;
 }

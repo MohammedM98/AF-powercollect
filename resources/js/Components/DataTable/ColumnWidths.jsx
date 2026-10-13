@@ -14,7 +14,7 @@ export default function ColumnWidths({ widths }) {
     );
 }
 
-/** The table's least width: every set column, and 180px for the one left open. */
+/** The table's least width: every set column, and 150px for the one left open. */
 export function fixedTableStyle(widths) {
-    return { '--table-min-width': `${widths.reduce((sum, width) => sum + (width ?? 180), 0)}px` };
+    return { '--table-min-width': `${widths.reduce((sum, width) => sum + (width ?? 150), 0)}px` };
 }

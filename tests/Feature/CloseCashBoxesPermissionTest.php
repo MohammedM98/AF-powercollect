@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Support\BranchClosingWorkflow;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 class CloseCashBoxesPermissionTest extends TestCase
@@ -81,6 +82,48 @@ class CloseCashBoxesPermissionTest extends TestCase
         $this->action($staff, $branch, 'receive', $box->id)->assertForbidden();
 
         $this->assertDatabaseHas('cash_boxes', ['id' => $box->id, 'status' => 'open']);
+    }
+
+    public function test_closer_finds_staff_boxes_to_close_on_the_financial_boxes_page(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $closer = User::factory()->accountant()->for($branch)->withPermissions([PermissionKey::CloseCashBoxes])->create();
+        $closer->permissions()->detach(Permission::idsFor([PermissionKey::RecordCollections, PermissionKey::AdjustBalances]));
+        $box = $this->cashBox($branch, $collector);
+        $this->assertTrue($closer->refresh()->cannot('viewOwnCashBoxes', Subscription::class));
+
+        $this->actingAs($closer)->get(route('payments.cash-boxes'))->assertRedirect(route('payments.cash-boxes.branch'));
+        $this->get(route('payments.cash-boxes.branch'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Payments/BranchCashBoxes')
+            ->where('branch.id', $branch->id)
+            ->where('started', true)
+            ->where('boxes.0.id', $box->id)
+            ->where('boxes.0.canCount', true)
+            ->where('access.receive', true)
+            ->where('urls.reconciliation', route('closings.index')));
+    }
+
+    public function test_head_who_also_collects_sees_how_many_staff_boxes_wait_from_their_own_boxes(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $head->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::RecordCollections]));
+        $box = $this->cashBox($branch, $collector);
+        $box->update(['status' => 'pending']);
+
+        $this->actingAs($head)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Payments/CashBoxes')
+            ->where('branchPendingCount', 1)
+            ->where('collectionUrls.branchCashBoxes', route('payments.cash-boxes.branch')));
+    }
+
+    public function test_staff_boxes_stay_closed_to_those_who_do_not_close_boxes(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $staff = User::factory()->accountant()->for($branch)->create();
+
+        $this->actingAs($staff)->get(route('payments.cash-boxes.branch'))->assertForbidden();
+        $this->actingAs($collector)->get(route('payments.cash-boxes.branch'))->assertForbidden();
+        $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertOk();
     }
 
     public function test_branch_admins_get_the_permission_and_may_grant_it(): void

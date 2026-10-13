@@ -302,7 +302,10 @@
     background: linear-gradient(90deg, transparent, rgb(var(--brand-500) / 0.55));
 }
 
+/* Relative so what is placed absolutely inside a wide table (the actions
+   column's hidden title) scrolls with it instead of widening the page. */
 .data-table-container {
+    position: relative;
     container-type: inline-size;
     overflow-x: auto;
     padding: 4px 16px 12px;

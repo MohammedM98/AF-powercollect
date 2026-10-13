@@ -355,38 +355,6 @@ export function AuditNoteReply({ note, onSaved }) {
     );
 }
 
-/**
- * The entries the branch sent back to the collector before confirming
- * their box: what it asks about each, with a form for the answer. The box
- * waits on these answers before the branch can confirm it.
- */
-export function CollectorReturnedEntries({ entries, onSaved }) {
-    if (!entries?.length) return null;
-
-    return (
-        <section className="space-y-3 rounded-panel border border-amber-500/25 bg-amber-500/5 p-5" aria-labelledby="collector-returned-entries">
-            <div>
-                <h3 id="collector-returned-entries" className="font-bold text-gray-900">حركات أعادها الفرع إليك</h3>
-                <p className="mt-1 text-xs leading-6 text-gray-500">راجع كل حركة وصحّحها إن لزم، ثم اكتب ردّك. لا يؤكد الفرع إغلاق الصندوق قبل ردّك.</p>
-            </div>
-            {entries.map((entry) => (
-                <article key={entry.id} className="space-y-3 border-t border-amber-500/15 pt-3">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                        <BoxTypeChip type={entry.box.type} />
-                        <Link href={entry.box.url} prefetch className="text-xs font-semibold text-brand-600">صندوق <bdi dir="ltr" className="font-display">{entry.box.number}</bdi></Link>
-                        <b className="text-gray-900">{entry.subscriber}</b>
-                        <span dir="ltr" className="font-display text-xs text-gray-500">{entry.accountNumber}</span>
-                        <b dir="ltr" className="font-display text-emerald-700 dark:text-emerald-400">{formatMoney(entry.amount)} <span className="text-xs font-normal text-gray-500">{currencies[entry.currency]}</span></b>
-                        <span className="text-xs text-gray-500">{dateTime(entry.occurredAt)}</span>
-                    </div>
-                    <p className="rounded-control bg-surface p-3 text-sm leading-7 text-gray-700"><b className="text-gray-900">{entry.returned.by ?? 'الفرع'}: </b>{entry.returned.note}</p>
-                    <AuditNoteReply note={{ id: `entry-${entry.id}`, replyUrl: entry.returned.replyUrl }} onSaved={onSaved} />
-                </article>
-            ))}
-        </section>
-    );
-}
-
 /** The audit notes the branch passed to the collector to answer. */
 export function CollectorAuditNotes({ notes, onSaved }) {
     if (!notes?.length) return null;
@@ -414,9 +382,4 @@ export function CollectorAuditNotes({ notes, onSaved }) {
             ))}
         </section>
     );
-}
-
-/** Everything waiting on the collector: boxes to confirm, entries the branch sent back and audit notes to answer. */
-export function pendingCount(cashBox) {
-    return (cashBox?.needsAction?.length ?? 0) + (cashBox?.returnedEntries?.length ?? 0) + (cashBox?.auditNotes?.length ?? 0);
 }

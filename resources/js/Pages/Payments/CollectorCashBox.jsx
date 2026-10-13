@@ -1,7 +1,6 @@
 import { Link, router, useForm } from '@inertiajs/react';
 import Pagination from '@/Components/DataTable/Pagination';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
-import RowIdentity from '@/Components/DataTable/RowIdentity';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
 import ColumnWidths, { fixedTableStyle } from '@/Components/DataTable/ColumnWidths';
 import Icon from '@/Components/Icon';
@@ -12,7 +11,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatMoney } from '@/lib/format';
 import { printUrl } from '@/lib/print';
-import { ledgerColumns, ledgerOf, LedgerLeadCells, LedgerTrailCells } from './LedgerColumns';
+import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from './LedgerColumns';
 
 export const currencies = { ILS: 'شيكل', USD: 'دولار', JOD: 'دينار' };
 export const boxTypes = { cash: 'الصندوق النقدي', bank_transfer: 'صندوق الحوالات البنكية', clearing: 'صندوق المقاصات' };
@@ -240,13 +239,13 @@ export function entryState(type, entry) {
  * is passed to the table's Pagination.
  */
 export function BoxEntriesTable({ type, boxNumber, entries, pagination }) {
-    const columns = [['#', 56], ['رقم الصندوق', 100], ...ledgerColumns.before, ['المشترك', null], ...ledgerColumns.after, ['الحالة', 150], ['', 64]];
+    const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', null], ...ledgerColumns.after, ['الحالة', 140], ['', 48]];
     const widths = columns.map(([, width]) => width);
 
     return (
         <>
             <div className="data-table-container">
-                <table className="data-table data-table-fixed w-full text-start text-sm" style={fixedTableStyle(widths)}>
+                <table className={ledgerTableClass} style={fixedTableStyle(widths)}>
                     <ColumnWidths widths={widths} />
                     <thead>
                         <tr>{columns.map(([label], index) => index === columns.length - 1 ? <ActionsTh key={index} /> : <th key={index}>{label}</th>)}</tr>
@@ -261,10 +260,12 @@ export function BoxEntriesTable({ type, boxNumber, entries, pagination }) {
 
                             return (
                                 <tr key={entry.id} className={cancelled ? 'opacity-60' : undefined}>
-                                    <td className="font-display text-gray-500">{entries.from + index}</td>
-                                    <td dir="ltr" className="text-start font-display text-gray-700">{boxNumber ?? '—'}</td>
+                                    <BoxNumberCell number={boxNumber} position={entries.from + index} />
                                     <LedgerLeadCells ledger={ledger} />
-                                    <td title={entry.subscriber}><RowIdentity name={entry.subscriber} subtitle={entry.accountNumber} subtitleDir="ltr" /></td>
+                                    <td title={entry.subscriber} style={{ whiteSpace: 'normal' }}>
+                                        <span className="block font-semibold text-gray-900">{entry.subscriber}</span>
+                                        <span className="block font-display text-xs text-gray-400"><bdi dir="ltr">{entry.accountNumber}</bdi></span>
+                                    </td>
                                     <LedgerTrailCells ledger={ledger} amount={entry.amount} currency={entry.currency} cancelled={cancelled} />
                                     <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} />{entry.isLate && <div className="mt-1"><StatusPill tone="amber" label="متأخرة" /></div>}</td>
                                     <td className="text-end">{entry.receiptUrl && (

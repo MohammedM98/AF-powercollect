@@ -314,8 +314,8 @@ export function balanceAfterRow(label, balance) {
     };
 }
 
-/** After saving: what was recorded, as a receipt, with "another" and "done". */
-export function DoneScreen({ tone = 'green', title, text, rows, anotherLabel, onAnother, onDone }) {
+/** After saving: what was recorded, as a receipt, with its voucher to print (`printUrl`), "another" and "done". */
+export function DoneScreen({ tone = 'green', title, text, rows, anotherLabel, onAnother, onDone, printUrl = null }) {
     return (
         <div role="dialog" aria-modal="true" aria-label={title} className="px-6 pb-8 pt-10 text-center sm:px-8">
             <span
@@ -340,6 +340,12 @@ export function DoneScreen({ tone = 'green', title, text, rows, anotherLabel, on
                 ))}
             </dl>
             <div className="mt-6 flex flex-wrap justify-center gap-2.5">
+                {printUrl && (
+                    <SecondaryButton onClick={() => window.open(printUrl, '_blank')} title="يُفتح السند في نافذة جديدة جاهزًا للطباعة" className="h-12 rounded-[14px] px-5 text-[15.5px]">
+                        <Icon name="printer" className="h-[18px] w-[18px]" />
+                        طباعة السند
+                    </SecondaryButton>
+                )}
                 {onAnother && (
                     <SecondaryButton onClick={onAnother} className="h-12 rounded-[14px] px-5 text-[15.5px]">
                         <Icon name="plus" className="h-[18px] w-[18px]" strokeWidth={2} />

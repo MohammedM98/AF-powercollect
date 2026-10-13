@@ -47,10 +47,14 @@ class CollectorBoxTypesTest extends TestCase
         return CashBoxPayment::query()->where('subscription_transaction_id', $transaction->id)->sole();
     }
 
-    /** @param array<string, mixed> $data */
+    /**
+     * Confirming a box's close says the cash was counted, unless `$data` says otherwise.
+     *
+     * @param  array<string, mixed>  $data
+     */
     private function action(User $actor, Branch $branch, string $action, int $record, array $data = []): TestResponse
     {
-        return $this->actingAs($actor)->post(route('closings.actions', ['action' => $action, 'record' => $record]), ['branch_id' => $branch->id, ...$data]);
+        return $this->actingAs($actor)->post(route('closings.actions', ['action' => $action, 'record' => $record]), ['branch_id' => $branch->id, ...($action === 'receive' ? ['cash_counted' => true] : []), ...$data]);
     }
 
     /** @return array<string, string> */
@@ -149,6 +153,31 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertSame('150.00', $entry->box->fresh()->expected_counts['ILS']);
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
         $this->assertSame('150.00', $entry->box->fresh()->head_counts['ILS']);
+    }
+
+    public function test_a_cash_box_closes_only_once_the_branch_says_it_counted_the_cash(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $cash = $this->entry($branch, $collector, CashBoxType::Cash);
+        $transfer = $this->entry($branch, $collector, CashBoxType::BankTransfer);
+
+        $this->action($head, $branch, 'receive', $cash->cash_box_id, ['cash_counted' => false])->assertSessionHasErrors('action');
+        $this->assertSame('open', $cash->box->fresh()->status);
+        $this->action($head, $branch, 'receive', $transfer->cash_box_id, ['cash_counted' => false])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $cash->cash_box_id, ['cash_counted' => true])->assertSessionHasNoErrors();
+
+        $this->assertSame('received', $cash->box->fresh()->status);
+    }
+
+    public function test_a_payment_in_dollars_sits_in_the_box_at_its_value_in_shekels(): void
+    {
+        [$branch, , $collector] = $this->start();
+        $payment = SubscriptionTransaction::recordPayment(Subscription::factory()->for($branch)->create(), $collector, ['amount' => '10', 'currency' => 'USD', 'exchange_rate' => '3.6', 'payment_method' => 'cash']);
+        $entry = CashBoxPayment::query()->where('subscription_transaction_id', $payment->id)->sole();
+
+        $this->assertSame(['ILS', '36.00'], [$entry->currency, $entry->amount]);
+        $this->assertSame(['ILS' => '36.00', 'USD' => '0.00', 'JOD' => '0.00'], $entry->box->totals());
+        $this->assertSame(['10.00', false, '3.6'], [$payment->ledgerDetails()['paidAmount'], $payment->ledgerDetails()['isShekel'], $payment->ledgerDetails()['exchangeRate']]);
     }
 
     public function test_auto_closed_boxes_go_straight_to_the_branch(): void

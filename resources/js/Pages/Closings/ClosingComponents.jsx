@@ -60,7 +60,9 @@ export function ClosingStepper({ closing }) {
 
 export function CashLedger({ ledger }) {
     const labels = { opening: 'رصيد أول الفترة', received: 'استلام الصناديق', repayments: 'تسديد الديون', sent: 'ما خرج للشركة (−)', adjustments: 'قيود التصحيح', safeDifference: 'فرق جرد الخزنة', remaining: 'الرصيد الباقي للفترة', afterCutoff: 'حركة الفترات التالية', actualNow: 'الرصيد الفعلي الآن' };
-    return <div className="overflow-x-auto rounded-xl border border-gray-200"><table className="dt w-full min-w-[440px] text-sm"><thead className="bg-gray-50 text-gray-500"><tr><th className="p-3 text-start">معادلة الكاش</th>{Object.values(currencies).map((label) => <th key={label} className="p-3 text-start">{label}</th>)}</tr></thead><tbody>{Object.entries(labels).map(([key, label]) => <tr key={key} className={`border-t border-gray-100 ${['remaining', 'actualNow'].includes(key) ? 'bg-brand-50 font-bold text-brand-600' : 'text-gray-700'}`}><td className="p-3">{label}</td>{Object.keys(currencies).map((currency) => <td key={currency} dir="ltr" className="p-3 font-display tabular-nums">{formatMoney(ledger[key]?.[currency])}</td>)}</tr>)}</tbody></table></div>;
+    // Shekels always; a dollar or dinar column only for a period that still moved some.
+    const shown = Object.keys(currencies).filter((currency) => currency === 'ILS' || Object.keys(labels).some((key) => Number(ledger[key]?.[currency] ?? 0) !== 0));
+    return <div className="overflow-x-auto rounded-xl border border-gray-200"><table className="dt w-full min-w-[440px] text-sm"><thead className="bg-gray-50 text-gray-500"><tr><th className="p-3 text-start">معادلة الكاش</th>{shown.map((currency) => <th key={currency} className="p-3 text-start">{currencies[currency]}</th>)}</tr></thead><tbody>{Object.entries(labels).map(([key, label]) => <tr key={key} className={`border-t border-gray-100 ${['remaining', 'actualNow'].includes(key) ? 'bg-brand-50 font-bold text-brand-600' : 'text-gray-700'}`}><td className="p-3">{label}</td>{shown.map((currency) => <td key={currency} dir="ltr" className="p-3 font-display tabular-nums">{formatMoney(ledger[key]?.[currency])}</td>)}</tr>)}</tbody></table></div>;
 }
 
 

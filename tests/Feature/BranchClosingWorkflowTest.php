@@ -46,9 +46,10 @@ class BranchClosingWorkflowTest extends TestCase
         return SubscriptionTransaction::factory()->for(Subscription::factory()->for($branch)->create())->create(['recorded_by' => $collector->id, 'type' => 'payment', 'source_key' => 'payment:'.Str::ulid(), 'amount' => '-'.$amount, 'currency_amount' => $amount, 'currency' => $currency, 'payment_method' => $method, ...$extra]);
     }
 
+    /** Confirming a box's close says the cash was counted, unless `$data` says otherwise. */
     private function action(User $actor, Branch $branch, string $action, int $record, array $data = []): TestResponse
     {
-        return $this->actingAs($actor)->post(route('closings.actions', ['action' => $action, 'record' => $record]), ['branch_id' => $branch->id, ...$data]);
+        return $this->actingAs($actor)->post(route('closings.actions', ['action' => $action, 'record' => $record]), ['branch_id' => $branch->id, ...($action === 'receive' ? ['cash_counted' => true] : []), ...$data]);
     }
 
     private function counts(string $ils = '100', string $usd = '0', string $jod = '0'): array
@@ -98,7 +99,8 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertSame('manual', $box->close_reason);
         $this->assertSame($head->id, $box->received_by);
         $this->assertNotNull($box->confirmed_at);
-        $this->assertSame(['ILS' => '100.00', 'USD' => '10.00', 'JOD' => '0.00'], $box->expected_counts);
+        // The dollars count at their value in shekels: boxes hold shekels only.
+        $this->assertSame(['ILS' => '110.00', 'USD' => '0.00', 'JOD' => '0.00'], $box->expected_counts);
         $this->assertSame($box->expected_counts, $box->head_counts);
         $this->assertSame(1, CashBox::query()->where('user_id', $collector->id)->where('status', 'open')->count());
         $this->assertSame(2, $box->payments()->count());

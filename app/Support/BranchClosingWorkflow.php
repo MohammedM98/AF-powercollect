@@ -195,6 +195,18 @@ class BranchClosingWorkflow
         return $transaction->isClearing() ? 'clearing' : $transaction->payment_method->value;
     }
 
+    /**
+     * What an entry holds: always shekels, the company's only currency. A
+     * payment in dollars or dinars counts at its value in shekels, at the
+     * rate it was recorded at; the transaction keeps what was paid.
+     *
+     * @return array{currency: string, amount: string}
+     */
+    private function entryAmount(SubscriptionTransaction $payment): array
+    {
+        return ['currency' => 'ILS', 'amount' => Closing::money(abs(Closing::cents($payment->amount)))];
+    }
+
     private function attachEntry(SubscriptionTransaction $payment, ?CarbonImmutable $originalTime = null): void
     {
         $type = CashBoxType::for($payment);
@@ -210,7 +222,7 @@ class BranchClosingWorkflow
         $box = $closing->coverage_until->lessThanOrEqualTo(now())
             ? $this->newBox(['branch_id' => $closing->branch_id, 'user_id' => $userId, 'type' => $type, 'closing_id' => $closing->id, 'opened_at' => $occurred, 'closed_at' => $closing->coverage_until, 'close_reason' => 'late_sync', 'status' => 'pending'])
             : $this->openBox($closing, $userId, $type);
-        $box->payments()->create(['subscription_transaction_id' => $payment->id, 'currency' => $payment->currency?->value ?? 'ILS', 'amount' => $payment->currency_amount ?? abs((float) $payment->amount), 'method' => $this->entryMethod($payment), 'status' => $type === CashBoxType::Cash ? 'cash' : 'pending', 'occurred_at' => $occurred, 'synced_at' => now(), 'is_late' => $late]);
+        $box->payments()->create(['subscription_transaction_id' => $payment->id, ...$this->entryAmount($payment), 'method' => $this->entryMethod($payment), 'status' => $type === CashBoxType::Cash ? 'cash' : 'pending', 'occurred_at' => $occurred, 'synced_at' => now(), 'is_late' => $late]);
         if ($box->status !== 'open') {
             $box->update(['expected_counts' => $this->expected($box)]);
         }
@@ -249,8 +261,7 @@ class BranchClosingWorkflow
         }
         $methodChanged = $entry->method !== $this->entryMethod($payment);
         $entry->update([
-            'currency' => $payment->currency?->value ?? 'ILS',
-            'amount' => $payment->currency_amount ?? abs((float) $payment->amount),
+            ...$this->entryAmount($payment),
             'method' => $this->entryMethod($payment),
             ...($methodChanged ? ['status' => $payment->payment_method === PaymentMethod::Cash ? 'cash' : 'pending', 'confirmed_by' => null, 'confirmed_at' => null, 'confirmed_in_closing_id' => null] : []),
         ]);
@@ -335,11 +346,14 @@ class BranchClosingWorkflow
      * holds what its payments say, and transfers or clearings not yet
      * marked are taken as confirmed; the audit rejects what it finds wrong.
      * Handing the cash on is a separate step. Once confirmed, the box's
-     * entries can no longer be corrected.
+     * entries can no longer be corrected. A cash box is confirmed only once
+     * the branch confirms it counted the cash and found the box's total
+     * (`$cashCounted`); it records no count of its own.
      */
-    public function receive(CashBox $box, User $actor): void
+    public function receive(CashBox $box, User $actor, bool $cashCounted = false): void
     {
         $this->require(in_array($box->status, ['open', 'pending'], true) && $box->kind !== 'direct' && $this->mayReceive($box, $actor), 'لا يمكنك تأكيد إغلاق هذا الصندوق.');
+        $this->require(! $box->type->isCounted() || $cashCounted, 'أكّد أنك عددت النقد ووجدته مطابقًا لإجمالي الصندوق قبل تأكيد إغلاقه.');
         $this->closeForReceipt($box);
         $settling = $this->settlingClosing($box);
         if (! $box->type->isCounted()) {

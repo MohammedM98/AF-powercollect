@@ -90,7 +90,7 @@ class BranchBoxes
 
     /**
      * A box entry with links to its subscriber's statement and, for a
-     * payment, its receipt, and its transaction as the statement shows it
+     * payment or clearing, its voucher, and its transaction as the statement shows it
      * when found among `$ledgers`. Entries of a statement saved before the
      * transaction's type was kept get no receipt link.
      *
@@ -101,12 +101,12 @@ class BranchBoxes
     public function presentEntry(array $entry, array $ledgers = []): array
     {
         $subscriptionId = $entry['transaction']['subscription_id'] ?? null;
-        $payment = ($entry['transaction']['type'] ?? null) === SubscriptionTransaction::TYPE_PAYMENT;
+        $vouched = in_array($entry['transaction']['type'] ?? null, [SubscriptionTransaction::TYPE_PAYMENT, SubscriptionTransaction::TYPE_CLEARING], true);
 
         return [
             ...$entry,
             'statement_url' => $subscriptionId ? route('subscriptions.statement', $subscriptionId) : null,
-            'receipt_url' => $subscriptionId && $payment ? route('subscriptions.payments.receipt', [$subscriptionId, $entry['transaction']['id']]) : null,
+            'receipt_url' => $subscriptionId && $vouched ? route('subscriptions.payments.receipt', [$subscriptionId, $entry['transaction']['id']]) : null,
             'ledger' => $ledgers[$entry['subscription_transaction_id'] ?? null] ?? null,
         ];
     }

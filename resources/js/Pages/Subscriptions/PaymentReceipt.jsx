@@ -26,9 +26,9 @@ function ReceiptLine({ label, children, ltr = false }) {
 }
 
 /**
- * A payment's receipt (سند قبض), opened in its own tab from the statement
- * or from the payment form once it is saved, and printed straight away on
- * a sheet of A5. The tab is always light, whatever the app's theme, so the
+ * A payment's receipt (سند قبض), or a clearing's voucher (سند مقاصة),
+ * opened in its own tab from the statement or from the form once it is
+ * saved, and printed straight away on a sheet of A5. The tab is always light, whatever the app's theme, so the
  * screen shows what the paper will. A cancelled payment prints marked as
  * cancelled.
  */
@@ -38,6 +38,7 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
     const printed = useRef(false);
     const balance = receipt.balanceAfter === null ? null : describeBalance(receipt.balanceAfter);
     const transferredFrom = [receipt.senderName, receipt.senderBankName].filter(Boolean).join(' · ');
+    const title = receipt.isClearing ? 'سند مقاصة' : 'سند قبض';
 
     // The receipt is light whatever the app's theme, as the print designer's sheet is.
     useEffect(() => {
@@ -69,11 +70,11 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
 
     return (
         <div className="min-h-screen bg-gray-100 px-4 py-6 text-gray-900 sm:py-10 print:min-h-0 print:bg-white print:p-0" dir="rtl">
-            <Head title={`سند قبض ${receipt.voucherNumber ?? ''} — ${subscription.fullName}`} />
+            <Head title={`${title} ${receipt.voucherNumber ?? ''} — ${subscription.fullName}`} />
             <style>{'@page { size: A5 portrait; margin: 10mm; }'}</style>
 
             <div className="pd-screen-only mx-auto mb-4 flex max-w-[148mm] flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-gray-600">سند قبض جاهز للطباعة على ورق A5.</p>
+                <p className="text-sm text-gray-600">{title} جاهز للطباعة على ورق A5.</p>
                 <div className="flex gap-2">
                     <SecondaryButton type="button" onClick={() => window.close()}>
                         إغلاق
@@ -110,7 +111,7 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
                         </div>
                     </div>
                     <div className="shrink-0 text-end">
-                        <h1 className="text-2xl font-bold text-brand-600">سند قبض</h1>
+                        <h1 className="text-2xl font-bold text-brand-600">{title}</h1>
                         <div className="mt-1 font-display text-lg font-bold tabular-nums">
                             رقم <bdi dir="ltr">{receipt.voucherNumber ?? '—'}</bdi>
                         </div>
@@ -122,7 +123,7 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
 
                 {receipt.cancellation && (
                     <p className="mt-3 rounded-lg border border-brand-600/30 bg-brand-50 px-3 py-2 text-brand-700">
-                        هذه الدفعة ملغاة
+                        {receipt.isClearing ? 'هذه المقاصة ملغاة' : 'هذه الدفعة ملغاة'}
                         {receipt.cancellation.reasonLabel && <>: {receipt.cancellation.reasonLabel}</>}
                         {receipt.cancellation.byName && <> · {receipt.cancellation.byName}</>}
                         {receipt.cancellation.date && (
@@ -135,7 +136,7 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
                 )}
 
                 <p className="mt-4 text-[14px]">
-                    استلمنا من السيد/ة <b className="text-[15px]">{subscription.fullName}</b>
+                    {receipt.isClearing ? 'قاصصنا السيد/ة' : 'استلمنا من السيد/ة'} <b className="text-[15px]">{subscription.fullName}</b>
                 </p>
                 <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-gray-600">
                     <span>
@@ -155,7 +156,7 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
                 </div>
 
                 <div className="mt-4 rounded-xl border-2 border-gray-900 px-4 py-3 text-center">
-                    <div className="text-gray-600">مبلغ وقدره</div>
+                    <div className="text-gray-600">{receipt.isClearing ? 'بمبلغ وقدره' : 'مبلغ وقدره'}</div>
                     <div className="mt-1 font-display text-3xl font-bold tabular-nums">
                         {formatMoney(receipt.amount)} <span className="text-lg font-semibold">{receipt.currencyLabel}</span>
                     </div>
@@ -184,8 +185,8 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
                             {receipt.systemVoucherNumber}
                         </ReceiptLine>
                     )}
-                    <ReceiptLine label="ملاحظات">{receipt.notes}</ReceiptLine>
-                    {balance && <ReceiptLine label="الرصيد بعد الدفعة">{balanceText(balance)}</ReceiptLine>}
+                    <ReceiptLine label={receipt.isClearing ? 'مقابل خدمة' : 'ملاحظات'}>{receipt.notes}</ReceiptLine>
+                    {balance && <ReceiptLine label={receipt.isClearing ? 'الرصيد بعد المقاصة' : 'الرصيد بعد الدفعة'}>{balanceText(balance)}</ReceiptLine>}
                 </dl>
 
                 <div className="pd-signatures mt-10 grid grid-cols-2 gap-8 text-center">

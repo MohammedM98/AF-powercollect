@@ -11,8 +11,9 @@ const stacked = { whiteSpace: 'normal' };
  * their widths: the transaction as it was recorded. Related details share a
  * column, one per line, so every detail fits on the screen without
  * scrolling sideways: the voucher over its date, the reference over its
- * banks, the type over its description, the amount over its currency and
- * rate, and the payment method over who recorded it. Each table of entries puts its own number, box,
+ * banks, the type over its description, the amount in shekels over what
+ * was paid in another currency and its rate, and the payment method over
+ * who recorded it. Each table of entries puts its own number, box,
  * subscriber and state around them.
  */
 export const ledgerColumns = {
@@ -79,7 +80,8 @@ export function LedgerTrailCells({ ledger, amount, currency, cancelled }) {
         </td>
         <td style={stacked}>
             <b className={`block font-display ${cancelled ? 'text-gray-400 line-through' : 'text-emerald-700 dark:text-emerald-400'}`}><bdi dir="ltr">{formatMoney(amount)}</bdi></b>
-            <span className="mt-0.5 block text-xs text-gray-500">{ledger.currencyLabel ?? currencyLabels[currency] ?? currency}</span>
+            <span className="mt-0.5 block text-xs text-gray-500">{currencyLabels[currency] ?? currency}</span>
+            {ledger.isShekel === false && currency === 'ILS' && <span className="block text-xs text-gray-500">دُفعت <bdi dir="ltr" className="font-display">{formatMoney(ledger.paidAmount)}</bdi> {ledger.currencyLabel}</span>}
             {ledger.exchangeRate && <span className="block whitespace-nowrap text-xs text-gray-500">سعر الصرف <bdi dir="ltr" className="font-display">{ledger.exchangeRate}</bdi></span>}
         </td>
         <td className="text-gray-700" style={stacked}>

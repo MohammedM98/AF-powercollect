@@ -79,7 +79,7 @@ class SubscriptionTransactionController extends Controller
             fn (Subscription $subscription): SubscriptionTransaction => match (true) {
                 $transaction->isPayment() => SubscriptionTransaction::recordPayment($subscription, $actor, $details),
                 $transaction->isDiscount() => SubscriptionTransaction::recordDiscount($subscription, $actor, DiscountMethod::from($details['method']), $details['value'], $details['notes'] ?? null),
-                $transaction->isClearing() => SubscriptionTransaction::recordClearing($subscription, $actor, $details['amount'], $details['notes']),
+                $transaction->isClearing() => SubscriptionTransaction::recordClearing($subscription, $actor, $details['amount'], $details['notes'], $details['manual_voucher_number'] ?? null),
                 default => SubscriptionTransaction::recordCharge($subscription, $actor, ChargeType::from($details['type']), $details['amount'], $details['notes'] ?? null),
             },
         );

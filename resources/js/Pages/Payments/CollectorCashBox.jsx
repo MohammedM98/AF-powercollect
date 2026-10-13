@@ -232,7 +232,7 @@ function ReturnedNote({ returned }) {
 const entryStatuses = { pending: ['بانتظار التحقق', 'amber'], confirmed: ['مؤكدة', 'green'], missing: ['غير موجودة في البنك', 'red'], rejected: ['مرفوضة', 'red'] };
 
 /** An entry's state: cancelled, in force (cash), or where the branch's check of the transfer or clearing stands. */
-function entryState(type, entry) {
+export function entryState(type, entry) {
     if (entry.transactionStatus !== 'active') return ['ملغاة', 'gray'];
     if (type === 'cash') return ['سارية', 'green'];
     if (type === 'clearing' && entry.status === 'pending') return ['بانتظار المراجعة', 'amber'];
@@ -327,7 +327,7 @@ export function CollectorDebts({ debts }) {
 }
 
 /** A reply form posting `body` to `note.replyUrl`. */
-function AuditNoteReply({ note, onSaved }) {
+export function AuditNoteReply({ note, onSaved }) {
     const form = useForm({ body: '' });
 
     function submit(event) {

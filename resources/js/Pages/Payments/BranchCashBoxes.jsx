@@ -46,11 +46,19 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
     const pending = boxes.filter((box) => box.status === 'pending');
     const [status, setStatus] = useState(pending.length ? 'pending' : 'all');
     const [search, setSearch] = useState('');
-    const [boxId, setBoxId] = useState(null);
+    const [boxId, setBoxId] = useState(() => Number(new URLSearchParams(window.location.search).get('box')) || null);
     const selectedBox = boxes.find((box) => box.id === boxId);
     const shown = boxes.filter((box) => (status === 'all' || box.status === status) && `${box.number} ${box.user?.name ?? 'الدفعات المباشرة'}`.includes(search.trim()));
     const rejected = boxes.flatMap((box) => box.payments.filter((entry) => ['missing', 'rejected'].includes(entry.status) && entry.transaction?.status === 'active').map((entry) => ({ ...entry, box })));
     const statusFilters = [['pending', 'بانتظار الإغلاق'], ['open', 'مفتوحة'], ['received', 'مؤكدة'], ['all', 'الكل']].map(([value, label]) => ({ value, label: `${label} · ${value === 'all' ? boxes.length : boxes.filter((box) => box.status === value).length}` }));
+
+    /** Closes the box's dialog, and forgets the box a link opened it with. */
+    function closeBox() {
+        setBoxId(null);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('box');
+        window.history.replaceState(window.history.state, '', url);
+    }
 
     function perform(kind, record, extra = {}) {
         router.post(`${urls.actions}/${kind}/${record.id}`, { branch_id: branch.id, ...extra }, { preserveScroll: true });
@@ -111,6 +119,6 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
                 </div>
             </section>
         </div>}
-        {selectedBox && <BoxDetails box={selectedBox} access={access} onClose={() => setBoxId(null)} perform={perform} period={periodLabel(closings.find((closing) => closing.id === selectedBox.closing_id))} />}
+        {selectedBox && <BoxDetails box={selectedBox} access={access} onClose={closeBox} perform={perform} period={periodLabel(closings.find((closing) => closing.id === selectedBox.closing_id))} />}
     </AuthenticatedLayout>;
 }

@@ -1,20 +1,21 @@
 import { Link, usePage } from '@inertiajs/react';
 
 /**
- * The financial boxes page's two views: the user's own boxes, and the boxes
- * of the branch's staff for those who close them, with how many wait on
- * their confirmation. Shown only to someone who has both.
+ * The financial boxes page's views for those who close the branch's boxes:
+ * their own boxes when they collect too, the staff's boxes with how many
+ * wait on their confirmation, and every entry of the staff's boxes.
  */
 export default function CashBoxTabs({ urls, active, branchPendingCount = 0 }) {
     const { can } = usePage().props;
 
-    if (!can.viewOwnCashBoxes || !can.viewBranchReconciliation) {
+    if (!can.viewBranchReconciliation) {
         return null;
     }
 
     const tabs = [
-        { key: 'own', label: 'صناديقي', href: urls.cashBoxes },
+        ...(can.viewOwnCashBoxes ? [{ key: 'own', label: 'صناديقي', href: urls.cashBoxes }] : []),
         { key: 'branch', label: 'صناديق الموظفين', href: urls.branchCashBoxes },
+        { key: 'branchEntries', label: 'حركات الموظفين', href: urls.branchEntries },
     ];
 
     return (

@@ -7,6 +7,7 @@ export default function CollectionNavigation({ urls, active, pendingCount = 0 })
         { key: 'payments', label: 'تسجيل الدفعات', icon: 'banknotes' },
         { key: 'summary', label: 'ملخص التحصيل', icon: 'gauge' },
         { key: 'cashBoxes', label: 'الصناديق المالية', icon: 'wallet' },
+        { key: 'entries', label: 'الحركات', icon: 'list' },
     ];
 
     return (

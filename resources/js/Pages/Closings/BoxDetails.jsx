@@ -10,7 +10,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
 import { boxTypes, currencies, dateTime, BoxTypeIcon } from '../Payments/CollectorCashBox';
-import { ledgerColumns, ledgerOf, LedgerLeadCells, LedgerTrailCells } from '../Payments/LedgerColumns';
+import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from '../Payments/LedgerColumns';
 
 export const boxStatuses = { open: ['مفتوح', 'blue'], pending: ['بانتظار تأكيد الإغلاق', 'amber'], received: ['أُكّد إغلاقه', 'green'] };
 
@@ -93,10 +93,10 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
     const filterOptions = Object.entries(groups).map(([value, [label, matches]]) => ({ value, label: `${label} · ${entries.filter(matches).length}`, count: entries.filter(matches).length })).filter((option) => option.value === 'all' || option.count > 0);
     const query = search.trim();
     const shown = entries.filter(groups[filter]?.[1] ?? (() => true)).filter((entry) => !query || [subscriberName(entry), entry.transaction?.subscription?.account_number, entry.transaction?.manual_voucher_number, entry.transaction?.voucher_number, entry.transaction?.reference_number, entry.transaction?.notes].some((value) => String(value ?? '').includes(query)));
-    const columns = [['#', 56], ['رقم الصندوق', 100], ...ledgerColumns.before, ['المشترك', null], ...ledgerColumns.after, ['الحالة', 170], ['', canReview ? 230 : 110]];
+    const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', null], ...ledgerColumns.after, ['الحالة', 140], ['', canReview ? 190 : 110]];
     const widths = columns.map(([, width]) => width);
 
-    return <Modal show onClose={onClose} maxWidth="7xl" centered panelClassName="flex max-h-[calc(100dvh-6rem)] flex-col">
+    return <Modal show onClose={onClose} maxWidth="full" centered panelClassName="flex max-h-[calc(100dvh-6rem)] flex-col">
         <header className="flex shrink-0 flex-wrap items-start justify-between gap-4 border-b border-gray-100 p-6">
             <div className="flex items-center gap-3">
                 <BoxTypeIcon type={type} className="h-12 w-12" />
@@ -130,7 +130,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
                     <SegmentedTabs label="حالة الحركة" value={filter} onChange={setFilter} options={filterOptions} />
                 </div>
                 <div className="data-table-container">
-                    <table className="data-table data-table-fixed w-full text-start text-sm" style={fixedTableStyle(widths)}>
+                    <table className={ledgerTableClass} style={fixedTableStyle(widths)}>
                         <ColumnWidths widths={widths} />
                         <thead><tr>{columns.map(([label], index) => index === columns.length - 1 ? <ActionsTh key={index} /> : <th key={index}>{label}</th>)}</tr></thead>
                         <tbody>
@@ -142,12 +142,11 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
                                 const ledger = ledgerOf(entry);
 
                                 return <tr key={entry.id} className={live ? undefined : 'opacity-60'}>
-                                    <td className="font-display text-gray-500">{entries.indexOf(entry) + 1}</td>
-                                    <td dir="ltr" className="text-start font-display text-gray-700">{box.number}</td>
+                                    <BoxNumberCell number={box.number} position={entries.indexOf(entry) + 1} />
                                     <LedgerLeadCells ledger={ledger} />
-                                    <td title={subscriberName(entry)}>
+                                    <td title={subscriberName(entry)} style={{ whiteSpace: 'normal' }}>
                                         {entry.statement_url ? <Link href={entry.statement_url} prefetch className="font-semibold text-gray-900 hover:text-brand-600">{subscriberName(entry)}</Link> : <span className="font-semibold text-gray-900">{subscriberName(entry)}</span>}
-                                        <span dir="ltr" className="block text-start font-display text-xs text-gray-400">{entry.transaction?.subscription?.account_number ?? '—'}</span>
+                                        <span className="block font-display text-xs text-gray-400"><bdi dir="ltr">{entry.transaction?.subscription?.account_number ?? '—'}</bdi></span>
                                     </td>
                                     <LedgerTrailCells ledger={ledger} amount={entry.amount} currency={entry.currency} cancelled={!live} />
                                     <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} />{entry.is_late && <span className="mt-1 block"><StatusPill tone="amber" label="متأخرة" /></span>}</td>

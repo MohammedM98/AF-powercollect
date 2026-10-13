@@ -396,6 +396,19 @@
         box-shadow 160ms ease;
 }
 
+/* Tables with many columns, such as the box entries: tighter cells, so
+   every column fits on the screen without scrolling sideways. */
+.data-table-dense th,
+.data-table-dense td {
+    padding-inline: 10px;
+}
+
+.data-table-dense th {
+    white-space: normal;
+    vertical-align: bottom;
+    line-height: 1.35;
+}
+
 /* The app is right-to-left, so a row starts on the right. Physical sides
    keep the corners right even when a cell's own text runs left-to-right. */
 .data-table td:first-child {

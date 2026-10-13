@@ -22,6 +22,7 @@ import {
     SummaryPanel,
 } from './AccountFormParts';
 import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './CorrectionFields';
+import { inputClass } from './PaymentModal';
 
 const QUICK_AMOUNTS = [50, 100, 200];
 
@@ -50,7 +51,9 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
     const form = useResourceForm(
         correcting ? `/subscriptions/${subscription.id}/transactions` : `/subscriptions/${subscription.id}/clearings`,
         correcting,
-        correcting ? { amount: correcting.recorded.amount, notes: correcting.recorded.notes, ...EMPTY_CORRECTION } : { amount: '', notes: '' },
+        correcting
+            ? { amount: correcting.recorded.amount, notes: correcting.recorded.notes, manual_voucher_number: correcting.recorded.manual_voucher_number ?? '', ...EMPTY_CORRECTION }
+            : { amount: '', notes: '', manual_voucher_number: '' },
     );
     const { data, setData, errors } = form;
     const [discarding, setDiscarding] = useState(false);
@@ -112,8 +115,10 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
 
         form.save({
             preserveScroll: true,
-            onSuccess: () => {
-                setReceipt(recorded);
+            onSuccess: (page) => {
+                const flashed = page.flash?.recordedClearing ?? {};
+
+                setReceipt({ ...recorded, voucherNumber: flashed.voucherNumber ?? null, receiptUrl: flashed.receiptUrl ?? null });
                 form.resetAndClearErrors();
             },
         });
@@ -128,10 +133,12 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                         title={correcting ? 'صُحّحت المقاصة' : 'سُجّلت المقاصة'}
                         text={`نزل ${formatMoney(receipt.amount)} ₪ من حساب ${subscription.fullName} مقابل خدمته للشركة.`}
                         rows={[
+                            ...(receipt.voucherNumber ? [['رقم السند', receipt.voucherNumber]] : []),
                             ['الخدمة', receipt.service],
                             ['قيمة المقاصة', `−${formatMoney(receipt.amount)} ₪`],
                             ['الرصيد بعد', balanceText(describeBalance(receipt.balanceAfter))],
                         ]}
+                        printUrl={receipt.receiptUrl}
                         anotherLabel="مقاصة أخرى"
                         onAnother={correcting ? null : () => setReceipt(null)}
                         onDone={close}
@@ -219,6 +226,24 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                                     {amount > LARGE_CLEARING && (
                                         <FieldWarning>مبلغ كبير. تأكد أنه صحيح قبل الحفظ، فهو يظهر في كشف حساب المشترك.</FieldWarning>
                                     )}
+                                </div>
+
+                                <div>
+                                    <FieldLabel htmlFor="clearing_manual_voucher_number" hint="اختياري — رقم السند الورقي إن وُجد">
+                                        رقم السند اليدوي
+                                    </FieldLabel>
+                                    <input
+                                        id="clearing_manual_voucher_number"
+                                        name="manual_voucher_number"
+                                        dir="ltr"
+                                        autoComplete="off"
+                                        maxLength={50}
+                                        placeholder="مثال: 00412"
+                                        value={data.manual_voucher_number}
+                                        onChange={(e) => setData('manual_voucher_number', e.target.value)}
+                                        className={`${inputClass} text-end font-display placeholder:font-sans placeholder:font-normal`}
+                                    />
+                                    <InputError message={errors.manual_voucher_number} className="mt-2" />
                                 </div>
 
                                 {correcting && <CorrectionReasonFields form={form} reasons={correctionReasons} />}

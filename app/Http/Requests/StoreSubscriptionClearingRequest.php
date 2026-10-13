@@ -20,7 +20,7 @@ class StoreSubscriptionClearingRequest extends FormRequest
 
     /**
      * `amount` is what the service is worth in shekels; `notes` says what
-     * the service was.
+     * the service was; `manual_voucher_number` is the paper voucher's, if any.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -39,6 +39,7 @@ class StoreSubscriptionClearingRequest extends FormRequest
         return [
             'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'],
             'notes' => ['required', 'string', 'max:1000'],
+            'manual_voucher_number' => ['nullable', 'string', 'max:50'],
         ];
     }
 

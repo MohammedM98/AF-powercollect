@@ -273,17 +273,21 @@ class SubscriptionTransaction extends Model
 
     /**
      * Take the value of a service the subscription gave the company off what
-     * they owe; `$service` says what it was. It may leave them in credit.
+     * they owe; `$service` says what it was. It may leave them in credit. It
+     * gets a voucher number, and keeps the paper voucher's number if given.
      */
-    public static function recordClearing(Subscription $subscription, User $recorder, float|string $amount, string $service): self
+    public static function recordClearing(Subscription $subscription, User $recorder, float|string $amount, string $service, ?string $manualVoucherNumber = null): self
     {
-        return $subscription->transactions()->create([
+        return DB::transaction(fn (): self => $subscription->transactions()->create([
             'recorded_by' => $recorder->id,
             'type' => self::TYPE_CLEARING,
             'source_key' => 'clearing:'.Str::ulid(),
             'amount' => number_format(-(float) $amount, 2, '.', ''),
             'notes' => $service,
-        ]);
+            // A clearing is vouched for like a cash payment: a number from the same sequence, and the paper voucher's if there is one.
+            'voucher_number' => self::claimNextVoucherNumber(),
+            'manual_voucher_number' => filled($manualVoucherNumber) ? trim($manualVoucherNumber) : null,
+        ]));
     }
 
     /**
@@ -1446,7 +1450,7 @@ class SubscriptionTransaction extends Model
      * method, currency and rate, and who recorded it. Loads `recordedBy`
      * when not loaded already.
      *
-     * @return array{voucherNumber: ?string, referenceNumber: ?string, bankName: ?string, senderBankName: ?string, date: string, description: string, typeLabel: string, isCredit: bool, paymentMethodLabel: ?string, currencyLabel: string, exchangeRate: string, recordedByName: ?string}
+     * @return array{voucherNumber: ?string, referenceNumber: ?string, bankName: ?string, senderBankName: ?string, date: string, description: string, typeLabel: string, isCredit: bool, paymentMethodLabel: ?string, currencyLabel: string, paidAmount: string, isShekel: bool, exchangeRate: string, recordedByName: ?string}
      */
     public function ledgerDetails(): array
     {
@@ -1461,6 +1465,9 @@ class SubscriptionTransaction extends Model
             'isCredit' => $this->isCredit(),
             'paymentMethodLabel' => $this->payment_method ? __($this->payment_method->label()) : null,
             'currencyLabel' => __($this->currency->label()),
+            // What was paid in its own currency; boxes hold its value in shekels.
+            'paidAmount' => $this->currency_amount ?? ltrim($this->amount, '-'),
+            'isShekel' => $this->currency === Currency::Shekel,
             'exchangeRate' => rtrim(rtrim($this->exchange_rate, '0'), '.'),
             'recordedByName' => $this->recordedBy?->name,
         ];

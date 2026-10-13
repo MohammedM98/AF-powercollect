@@ -102,7 +102,7 @@ class CampTwoDemoDataSeeder extends Seeder
     /** The branch confirms the collector's open cash box closed, as it does after reviewing it. */
     private function closeDemoBox(BranchClosingWorkflow $workflow, Branch $branch, User $collector, User $head): void
     {
-        $workflow->receive($this->openCashBox($branch, $collector), $head);
+        $workflow->receive($this->openCashBox($branch, $collector), $head, cashCounted: true);
     }
 
     private function openCashBox(Branch $branch, User $collector): CashBox

@@ -354,7 +354,7 @@ class PaymentController extends Controller
             'voucherNumber' => $entry->transaction->manual_voucher_number ?? $entry->transaction->voucher_number,
             'bankName' => $entry->transaction->bank_name, 'senderBank' => $entry->transaction->sender_bank_name,
             'referenceNumber' => $entry->transaction->reference_number, 'service' => $entry->transaction->notes,
-            'receiptUrl' => $entry->transaction->isPayment() ? route('subscriptions.payments.receipt', [$entry->transaction->subscription, $entry->transaction]) : null,
+            'receiptUrl' => $entry->transaction->isPayment() || $entry->transaction->isClearing() ? route('subscriptions.payments.receipt', [$entry->transaction->subscription, $entry->transaction]) : null,
             'ledger' => $entry->transaction->ledgerDetails(),
         ];
     }

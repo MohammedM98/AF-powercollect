@@ -101,6 +101,25 @@ class SubscriptionChargesAndDiscountsTest extends TestCase
                 ->where('summary.clearingsCount', 1));
     }
 
+    public function test_a_clearing_gets_a_voucher_like_a_cash_payment_and_keeps_its_paper_voucher(): void
+    {
+        $this->subscriptionOwes('100.00');
+        $payment = SubscriptionTransaction::recordPayment($this->subscription, $this->branchAdmin, ['amount' => '10', 'currency' => 'ILS', 'payment_method' => 'cash']);
+
+        $this->postAs($this->branchAdmin, route('subscriptions.clearings.store', $this->subscription), ['amount' => '40', 'notes' => 'صيانة المولد', 'manual_voucher_number' => 'M-77'])
+            ->assertSessionHasNoErrors();
+
+        $clearing = $this->latestTransaction();
+        $this->assertSame($payment->voucher_number + 1, $clearing->voucher_number);
+        $this->assertSame('M-77', $clearing->manual_voucher_number);
+        $this->actingAs($this->branchAdmin)->get(route('subscriptions.payments.receipt', [$this->subscription, $clearing]))
+            ->assertInertia(fn ($page) => $page
+                ->component('Subscriptions/PaymentReceipt')
+                ->where('receipt.isClearing', true)
+                ->where('receipt.voucherNumber', 'M-77')
+                ->where('receipt.systemVoucherNumber', $clearing->printedVoucherNumber()));
+    }
+
     public function test_a_clearing_worth_more_than_the_subscription_owes_is_refused(): void
     {
         $this->subscriptionOwes('30.00');

@@ -57,7 +57,8 @@ class CampTwoDemoDataSeederTest extends TestCase
         $this->assertSame(['cash', 'cash', 'cash', 'cash', 'bank_transfer'], $boxes->pluck('type')->map->value->all());
         $this->assertNotNull($boxes[0]->confirmed_at);
         $this->assertNotNull($boxes[1]->confirmed_at);
-        $this->assertSame(['ILS' => '150.00', 'USD' => '20.00', 'JOD' => '5.00'], $boxes[0]->expected_counts);
+        // 150 shekels, 20 dollars at 3.5 and 5 dinars at 5, all in shekels.
+        $this->assertSame(['ILS' => '245.00', 'USD' => '0.00', 'JOD' => '0.00'], $boxes[0]->expected_counts);
         $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page
             ->has('needsAction', 0)->where('pendingCount', 0)->where('today.count', 9)
             ->where('current.cash.id', $boxes[3]->id)->where('current.bank_transfer.id', $boxes[4]->id)->where('current.clearing', null));

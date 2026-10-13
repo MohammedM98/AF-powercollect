@@ -73,6 +73,7 @@ function Stat({ icon, label, value, hint }) {
 export default function BoxDetails({ box, access, onClose, perform, period }) {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
+    const [cashCounted, setCashCounted] = useState(false);
     const type = box.type ?? 'cash';
     const cash = type === 'cash';
     const clearing = type === 'clearing';
@@ -119,7 +120,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
                 <Stat icon="calendar" label="فُتح ← أُغلق" value={<span className="text-sm">{dateTime(box.opened_at)}</span>} hint={box.closed_at ? dateTime(box.closed_at) : 'لا يزال مفتوحًا'} />
             </dl>
 
-            {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">اطّلع على حركات الصندوق ثم أكّد إغلاقه. إن رأيت خطأ في حركة فتواصل مع المحصّل ليعدّلها بنفسه قبل التأكيد؛ بعد التأكيد تُقفل الحركات ويذهب الصندوق إلى التدقيق، وهو من يرفض الحوالات أو المقاصات ويبيّن السبب. لا يلزم عدّ النقد؛ تسليم الصناديق للشركة خطوة منفصلة.</p>}
+            {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">اطّلع على حركات الصندوق ثم أكّد إغلاقه. إن رأيت خطأ في حركة فتواصل مع المحصّل ليعدّلها بنفسه قبل التأكيد؛ بعد التأكيد تُقفل الحركات ويذهب الصندوق إلى التدقيق، وهو من يرفض الحوالات أو المقاصات ويبيّن السبب.{cash ? ' عُدّ النقد الذي سلّمه المحصّل وتأكد أنه يطابق إجمالي الصندوق قبل التأكيد.' : ''} تسليم الصناديق للشركة خطوة منفصلة.</p>}
 
             <section aria-label="حركات الصندوق" className="space-y-4">
                 <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
@@ -174,11 +175,15 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
         </div>
 
         <footer className="shrink-0 border-t border-gray-100 bg-surface p-4 sm:px-6">
+            {confirmable && cash && <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-control border border-emerald-500/25 bg-emerald-500/5 p-3 text-sm text-gray-800">
+                <input type="checkbox" className="mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" checked={cashCounted} onChange={(event) => setCashCounted(event.target.checked)} />
+                <span>عددتُ النقد الذي سلّمه المحصّل، ووجدته مطابقًا لإجمالي الصندوق: <b className="text-gray-900">{amountsLine(totals)}</b></span>
+            </label>}
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-gray-600">الإجمالي: <b className="text-gray-900">{amountsLine(totals)}</b> · {active.length} حركة سارية</p>
                 <div className="flex flex-wrap items-center gap-2">
                     <SecondaryButton onClick={onClose}>إغلاق النافذة</SecondaryButton>
-                    {confirmable && <PrimaryButton disabled={entries.length === 0} onClick={() => perform('receive', box)}><Icon name="check" className="h-4 w-4" />تأكيد إغلاق الصندوق</PrimaryButton>}
+                    {confirmable && <PrimaryButton disabled={entries.length === 0 || (cash && !cashCounted)} onClick={() => perform('receive', box, cash ? { cash_counted: true } : {})}><Icon name="check" className="h-4 w-4" />تأكيد إغلاق الصندوق</PrimaryButton>}
                     {confirmsDelivery && <PrimaryButton onClick={() => perform('confirm', box)}>أؤكّد تسليم الصندوق</PrimaryButton>}
                 </div>
             </div>

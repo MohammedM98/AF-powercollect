@@ -129,7 +129,7 @@ class BranchClosingController extends Controller
             if (in_array($action, ['receive', 'confirm'], true)) {
                 $box = CashBox::query()->where('branch_id', $branchId)->findOrFail($record);
                 match ($action) {
-                    'receive' => $this->workflow->receive($box, $actor),
+                    'receive' => $this->workflow->receive($box, $actor, $request->boolean('cash_counted')),
                     'confirm' => $this->workflow->confirmBox($box, $actor),
                 };
             } elseif ($action === 'electronic') {

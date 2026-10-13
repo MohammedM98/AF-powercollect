@@ -40,10 +40,14 @@ class CloseCashBoxesPermissionTest extends TestCase
         return CashBoxPayment::query()->where('subscription_transaction_id', $payment->id)->sole()->box;
     }
 
-    /** @param array<string, mixed> $data */
+    /**
+     * Confirming a box's close says the cash was counted, unless `$data` says otherwise.
+     *
+     * @param  array<string, mixed>  $data
+     */
     private function action(User $actor, Branch $branch, string $action, int $record, array $data = []): TestResponse
     {
-        return $this->actingAs($actor)->post(route('closings.actions', ['action' => $action, 'record' => $record]), ['branch_id' => $branch->id, ...$data]);
+        return $this->actingAs($actor)->post(route('closings.actions', ['action' => $action, 'record' => $record]), ['branch_id' => $branch->id, ...($action === 'receive' ? ['cash_counted' => true] : []), ...$data]);
     }
 
     public function test_user_given_the_permission_confirms_another_collectors_box_closed(): void

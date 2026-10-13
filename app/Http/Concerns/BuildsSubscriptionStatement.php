@@ -354,7 +354,7 @@ trait BuildsSubscriptionStatement
             // a reading's discount has no menu of its own, as it goes with its reading.
             'reading' => $transaction->type === SubscriptionTransaction::TYPE_READING_DISCOUNT ? null : $this->correctableReading($transaction, $actor),
             // A payment's receipt, to print or reprint from the line's menu.
-            'receiptUrl' => $transaction->isPayment() ? route('subscriptions.payments.receipt', [$transaction->subscription_id, $transaction->id]) : null,
+            'receiptUrl' => $transaction->isPayment() || $transaction->isClearing() ? route('subscriptions.payments.receipt', [$transaction->subscription_id, $transaction->id]) : null,
             'details' => match ($transaction->type) {
                 SubscriptionTransaction::TYPE_METER_READING => $transaction->notes ?? $transaction->meterReading?->notes,
                 // Its customer segment is already in the description.
@@ -533,6 +533,7 @@ trait BuildsSubscriptionStatement
             $transaction->isClearing() => [
                 'kind' => 'clearing',
                 'amount' => SubscriptionTransaction::formatAmount(ltrim($transaction->amount, '-')),
+                'manual_voucher_number' => $transaction->manual_voucher_number ?? '',
             ],
             default => [
                 'kind' => 'charge',

@@ -89,13 +89,14 @@ class SubscriptionPaymentController extends Controller
      * A payment's receipt (سند قبض), laid out to be printed and handed to
      * the subscription: the voucher, who paid and how much, how it was paid
      * and the balance it left. A cancelled or refunded payment still prints,
-     * marked as cancelled, so a copy can be reprinted for the records.
+     * marked as cancelled, so a copy can be reprinted for the records. A
+     * clearing prints its voucher the same way.
      */
     public function receipt(Request $request, Subscription $subscription, SubscriptionTransaction $transaction): InertiaResponse
     {
         // Whoever records payments may print their receipts, even without access to the subscriptions list.
         abort_unless($request->user()->can('view', $subscription) || $request->user()->can('recordPayment', $subscription), 403);
-        abort_unless($transaction->isPayment(), 404);
+        abort_unless($transaction->isPayment() || $transaction->isClearing(), 404);
 
         $subscription->loadMissing(['profile', 'branch', 'meterBox']);
         $transaction->loadMissing(['recordedBy', 'cancelledBy']);
@@ -112,6 +113,7 @@ class SubscriptionPaymentController extends Controller
             ],
             'receipt' => [
                 'id' => $transaction->id,
+                'isClearing' => $transaction->isClearing(),
                 'voucherNumber' => $transaction->displayVoucherNumber(),
                 'systemVoucherNumber' => $transaction->printedVoucherNumber(),
                 'manualVoucherNumber' => $transaction->manual_voucher_number,

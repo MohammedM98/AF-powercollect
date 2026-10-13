@@ -35,7 +35,17 @@ export function MoneyStack({ amounts, className = '' }) {
 }
 
 export function Money({ amount, currency = 'ILS' }) {
-    return <span className="mny"><b className="num" dir="ltr">{formatMoney(amount ?? 0)}</b><i>{symbols[currency]}</i></span>;
+    return <span className={`mny ${Number(amount ?? 0) === 0 ? 'zero' : ''}`}><b className="num" dir="ltr">{formatMoney(amount ?? 0)}</b><i>{symbols[currency]}</i></span>;
+}
+
+/**
+ * A table whose columns keep set widths (`[title, width]`, a width in
+ * pixels or none for the one column that takes what is left), so a big or
+ * small figure never resizes a column; wider than its panel, it scrolls.
+ */
+export function FixedTable({ columns, className = '', children }) {
+    const minWidth = columns.reduce((sum, [, width]) => sum + (width ?? 180), 0);
+    return <table className={`dt fx ${className}`} style={{ minWidth }}><colgroup>{columns.map(([, width], index) => <col key={index} style={width ? { width } : undefined} />)}</colgroup><thead><tr>{columns.map(([title], index) => <th key={index}>{title}</th>)}</tr></thead><tbody>{children}</tbody></table>;
 }
 
 

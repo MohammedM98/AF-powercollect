@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
+import ColumnWidths, { fixedTableStyle } from '@/Components/DataTable/ColumnWidths';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import Pagination from '@/Components/DataTable/Pagination';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
@@ -17,6 +18,9 @@ const stageDots = { open: 'green', awaiting_branch: 'amber', awaiting_confirmati
 
 const typeFilters = [{ value: '', label: 'الكل' }, ...Object.entries(boxTypeStyles).map(([value, style]) => ({ value, label: style.label }))];
 const stateFilters = [{ value: '', label: 'الكل' }, { value: 'open', label: 'مفتوح' }, { value: 'closed', label: 'مغلق' }];
+
+/** The table's column widths, in its column order; who closed the box takes what is left. */
+const columnWidths = [190, 150, 120, 100, 170, 170, 170, 170, 160, 230, null, 150];
 
 /** A box's amounts by currency, one line each: shekels always, another currency only when it has some. */
 function Amounts({ amounts }) {
@@ -65,7 +69,8 @@ export default function CashBoxes({ started, branchName, boxes, filters, pending
                     }
                 />
                 <div className="data-table-container">
-                    <table className="data-table w-full text-start text-sm">
+                    <table className="data-table data-table-fixed w-full text-start text-sm" style={fixedTableStyle(columnWidths)}>
+                        <ColumnWidths widths={columnWidths} />
                         <thead>
                             <tr>
                                 <th>رقم الصندوق</th>

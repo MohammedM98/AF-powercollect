@@ -527,6 +527,22 @@
     }
 }
 
+/* Tables with set column widths (a <colgroup>): a big or small figure never
+   widens its column or squeezes the next. Wider than a phone each cell keeps
+   one line, cuts what does not fit, and the table scrolls sideways. */
+@container (min-width: 641px) {
+    .data-table-fixed {
+        table-layout: fixed;
+        min-width: var(--table-min-width, 100%);
+    }
+
+    .data-table-fixed td {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
 /*
  * A statement line that was corrected or deleted stays, greyed and struck
  * through; the reversal and replacement under it are marked in blue.

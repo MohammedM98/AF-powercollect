@@ -123,7 +123,7 @@ function OpenBoxEntries({ current, openBox, onSelect, pagination }) {
                 />
             </div>
             {openBox.entries ? (
-                <BoxEntriesTable type={openBox.type} entries={openBox.entries} pagination={pagination} />
+                <BoxEntriesTable type={openBox.type} boxNumber={box?.number} entries={openBox.entries} pagination={pagination} />
             ) : (
                 <p className="rounded-panel border border-dashed border-gray-200 bg-surface px-5 py-8 text-center text-sm text-gray-500">يُفتح الصندوق تلقائيًا عند تسجيل أول حركة من هذا النوع، وتظهر حركاته هنا.</p>
             )}
@@ -137,7 +137,7 @@ function OpenBoxEntries({ current, openBox, onSelect, pagination }) {
  * debts), the boxes open now with every entry in them, and their latest
  * payments today with receipts.
  */
-export default function Summary({ today, cashBox, current, openBox, needsAction, pendingCount, returnedCount, collectionUrls }) {
+export default function Summary({ today, cashBox, current, openBox, needsAction, pendingCount, collectionUrls }) {
     const [selected, setSelected] = useState(null);
     const [saved, setSaved] = useState(null);
 
@@ -147,7 +147,7 @@ export default function Summary({ today, cashBox, current, openBox, needsAction,
 
     return <AuthenticatedLayout header={<div><p className="text-sm font-semibold text-gray-500">{cashBox.branchName ?? 'حسابك الحالي'}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">ملخص التحصيل</h2></div>}>
         <Head title="ملخص التحصيل" />
-        <CollectionNavigation urls={collectionUrls} active="summary" pendingCount={pendingCount} returnedCount={returnedCount} />
+        <CollectionNavigation urls={collectionUrls} active="summary" pendingCount={pendingCount} />
         {saved && <p role="status" className="mb-4 rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">{saved}</p>}
         <TodaysSummary today={today} />
         {cashBox.started ? <div className="space-y-8">

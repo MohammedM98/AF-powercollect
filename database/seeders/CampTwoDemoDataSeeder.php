@@ -86,7 +86,6 @@ class CampTwoDemoDataSeeder extends Seeder
                 'amount' => '90', 'currency' => 'ILS', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين',
                 'sender_name' => 'مرسل تجريبي', 'reference_number' => 'CAMP2-DEMO-TRANSFER-01', 'notes' => self::MARKER,
             ]);
-            $workflow->returnEntry($this->openCashBox($branch, $collector)->payments()->sole(), $head, 'تأكد من رقم السند قبل إغلاق الصندوق.');
         });
 
         $this->command?->info('Six demo subscribers and five collector boxes (four cash, one bank transfer) are ready in مخيم 2.');

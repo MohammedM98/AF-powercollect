@@ -59,10 +59,10 @@ class CampTwoDemoDataSeederTest extends TestCase
         $this->assertNotNull($boxes[1]->confirmed_at);
         $this->assertSame(['ILS' => '150.00', 'USD' => '20.00', 'JOD' => '5.00'], $boxes[0]->expected_counts);
         $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page
-            ->has('needsAction', 0)->where('pendingCount', 0)->where('returnedCount', 1)->where('today.count', 9)
+            ->has('needsAction', 0)->where('pendingCount', 0)->where('today.count', 9)
             ->where('current.cash.id', $boxes[3]->id)->where('current.bank_transfer.id', $boxes[4]->id)->where('current.clearing', null));
-        $this->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->has('boxes.data', 5)->where('pendingCount', 0)->where('returnedCount', 1));
-        $this->get(route('payments.index'))->assertInertia(fn (AssertableInertia $page) => $page->has('subscriptions.data', 6)->where('pendingCount', 0)->where('returnedCount', 1));
+        $this->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->has('boxes.data', 5)->where('pendingCount', 0));
+        $this->get(route('payments.index'))->assertInertia(fn (AssertableInertia $page) => $page->has('subscriptions.data', 6)->where('pendingCount', 0));
     }
 
     public function test_repeated_demo_seed_does_not_duplicate_data_or_change_other_branches(): void

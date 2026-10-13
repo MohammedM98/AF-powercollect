@@ -3,6 +3,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
+import ColumnWidths, { fixedTableStyle } from '@/Components/DataTable/ColumnWidths';
 import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
@@ -11,6 +12,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatMoney } from '@/lib/format';
 import { printUrl } from '@/lib/print';
+import { ledgerColumns, ledgerOf, LedgerLeadCells, LedgerTrailCells } from './LedgerColumns';
 
 export const currencies = { ILS: 'شيكل', USD: 'دولار', JOD: 'دينار' };
 export const boxTypes = { cash: 'الصندوق النقدي', bank_transfer: 'صندوق الحوالات البنكية', clearing: 'صندوق المقاصات' };
@@ -218,17 +220,6 @@ export function BoxCard({ box, type, selected = false, onSelect }) {
     );
 }
 
-/** What the branch sent back about an entry, and the collector's answer once given. */
-function ReturnedNote({ returned }) {
-    return (
-        <div className="mt-2 max-w-xs space-y-1 text-xs leading-5">
-            <StatusPill tone={returned.replyUrl ? 'amber' : 'gray'} label={returned.replyUrl ? 'أعادها الفرع إليك' : 'ردّك أُرسل'} />
-            <p className="text-gray-600">{returned.by ? `${returned.by}: ` : ''}{returned.note}</p>
-            {returned.reply && <p className="text-gray-500">ردّك: {returned.reply}</p>}
-        </div>
-    );
-}
-
 const entryStatuses = { pending: ['بانتظار التحقق', 'amber'], confirmed: ['مؤكدة', 'green'], missing: ['غير موجودة في البنك', 'red'], rejected: ['مرفوضة', 'red'] };
 
 /** An entry's state: cancelled, in force (cash), or where the branch's check of the transfer or clearing stands. */
@@ -242,49 +233,40 @@ export function entryState(type, entry) {
 }
 
 /**
- * A box's entries in the site's table: when, for whom, the columns its type
- * records (voucher and currency, banks and transfer number, or the service
- * cleared), the amount, its state, and each payment's receipt to print.
- * `pagination` is passed to the table's Pagination.
+ * A box's entries in the site's table, each as the subscriber's statement
+ * shows it (voucher, reference, banks, date, description, amount, currency,
+ * type, method, rate and who recorded it) with the box's number, the
+ * subscriber, its state, and each payment's receipt to print. `pagination`
+ * is passed to the table's Pagination.
  */
-export function BoxEntriesTable({ type, entries, pagination }) {
-    const cash = type === 'cash';
-    const transfer = type === 'bank_transfer';
-    const columns = ['التاريخ والوقت', 'المشترك', ...(cash ? ['رقم السند', 'العملة'] : transfer ? ['البنك المستلم', 'البنك المرسل', 'رقم الحوالة'] : ['الخدمة المقدّمة']), 'المبلغ', 'الحالة'];
+export function BoxEntriesTable({ type, boxNumber, entries, pagination }) {
+    const columns = [['#', 56], ['رقم الصندوق', 100], ...ledgerColumns.before, ['المشترك', null], ...ledgerColumns.after, ['الحالة', 150], ['', 64]];
+    const widths = columns.map(([, width]) => width);
 
     return (
         <>
             <div className="data-table-container">
-                <table className="data-table w-full text-start text-sm">
+                <table className="data-table data-table-fixed w-full text-start text-sm" style={fixedTableStyle(widths)}>
+                    <ColumnWidths widths={widths} />
                     <thead>
-                        <tr>
-                            <th>#</th>
-                            {columns.map((label) => <th key={label}>{label}</th>)}
-                            <ActionsTh />
-                        </tr>
+                        <tr>{columns.map(([label], index) => index === columns.length - 1 ? <ActionsTh key={index} /> : <th key={index}>{label}</th>)}</tr>
                     </thead>
                     <tbody>
                         {entries.data.length === 0 ? (
-                            <tr><td colSpan={columns.length + 2} className="text-center text-gray-500">لا توجد حركات في هذا الصندوق.</td></tr>
+                            <tr><td colSpan={columns.length} className="text-center text-gray-500">لا توجد حركات في هذا الصندوق.</td></tr>
                         ) : entries.data.map((entry, index) => {
                             const [label, tone] = entryState(type, entry);
                             const cancelled = entry.transactionStatus !== 'active';
+                            const ledger = ledgerOf(entry);
 
                             return (
                                 <tr key={entry.id} className={cancelled ? 'opacity-60' : undefined}>
                                     <td className="font-display text-gray-500">{entries.from + index}</td>
-                                    <td className="whitespace-nowrap text-xs text-gray-600">{dateTime(entry.occurredAt)}{entry.isLate && <div className="mt-1"><StatusPill tone="amber" label="متأخرة" /></div>}</td>
-                                    <td><RowIdentity name={entry.subscriber} subtitle={entry.accountNumber} subtitleDir="ltr" /></td>
-                                    {cash ? <>
-                                        <td dir="ltr" className="text-start font-display text-gray-600">{entry.voucherNumber ?? '—'}</td>
-                                        <td className="text-gray-600">{currencies[entry.currency]}</td>
-                                    </> : transfer ? <>
-                                        <td className="whitespace-nowrap text-gray-600">{entry.bankName ?? '—'}</td>
-                                        <td className="whitespace-nowrap text-gray-600">{entry.senderBank ?? '—'}</td>
-                                        <td dir="ltr" className="text-start font-display text-gray-600">{entry.referenceNumber ?? '—'}</td>
-                                    </> : <td className="min-w-48 text-gray-600">{entry.service ?? '—'}</td>}
-                                    <td className="whitespace-nowrap"><b dir="ltr" className={`font-display ${cancelled ? 'text-gray-400 line-through' : 'text-emerald-700 dark:text-emerald-400'}`}>{formatMoney(entry.amount)}</b> <span className="text-xs text-gray-500">{currencies[entry.currency]}</span></td>
-                                    <td><StatusPill tone={tone} label={label} />{entry.returned && <ReturnedNote returned={entry.returned} />}</td>
+                                    <td dir="ltr" className="text-start font-display text-gray-700">{boxNumber ?? '—'}</td>
+                                    <LedgerLeadCells ledger={ledger} />
+                                    <td title={entry.subscriber}><RowIdentity name={entry.subscriber} subtitle={entry.accountNumber} subtitleDir="ltr" /></td>
+                                    <LedgerTrailCells ledger={ledger} amount={entry.amount} currency={entry.currency} cancelled={cancelled} />
+                                    <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} />{entry.isLate && <div className="mt-1"><StatusPill tone="amber" label="متأخرة" /></div>}</td>
                                     <td className="text-end">{entry.receiptUrl && (
                                         <RowActionsMenu>
                                             <button onClick={() => window.open(entry.receiptUrl, '_blank', 'noopener')}>طباعة السند</button>

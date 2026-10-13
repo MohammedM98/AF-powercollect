@@ -32,6 +32,15 @@ class CashBox extends Model
         };
     }
 
+    /**
+     * Whether its collector may still correct the box's entries: until the
+     * branch confirms it closed, even once closed at the weekly cutoff.
+     */
+    public function isEditable(): bool
+    {
+        return in_array($this->status, ['open', 'pending'], true);
+    }
+
     /** @return array<string, string> */
     public function totals(): array
     {

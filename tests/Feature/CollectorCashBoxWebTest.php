@@ -294,29 +294,4 @@ class CollectorCashBoxWebTest extends TestCase
         $this->get(route('payments.summary', ['open' => 'bank_transfer']))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('openBox.type', 'bank_transfer')->where('openBox.entries', null));
     }
-
-    public function test_collector_answers_an_entry_the_branch_returned_from_the_entries_page(): void
-    {
-        [$branch, $head, $collector] = $this->start();
-        $box = $this->payment($branch, $collector);
-        $entry = $box->payments()->sole();
-        $this->actingAs($head)->post(route('closings.actions', ['action' => 'return-entry', 'record' => $entry->id]), ['branch_id' => $branch->id, 'note' => 'المبلغ لا يطابق السند'])->assertSessionHasNoErrors();
-
-        $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page
-            ->missing('cashBox.returnedEntries')
-            ->where('pendingCount', 0)
-            ->where('returnedCount', 1)
-            ->where('openBox.entries.data.0.returned.note', 'المبلغ لا يطابق السند'));
-        $this->get(route('payments.entries', ['filter' => ['state' => 'waiting']]))->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('entries.data.0.returned.by', $head->name)
-            ->where('entries.data.0.returned.replyUrl', route('payments.cash-box-entries.reply', $entry))
-            ->where('entries.data.0.box.number', $box->number));
-
-        $this->post(route('payments.cash-box-entries.reply', $entry), ['body' => 'صحّحت المبلغ'])->assertSessionHasNoErrors();
-
-        $this->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('returnedCount', 0)
-            ->where('openBox.entries.data.0.returned.reply', 'صحّحت المبلغ')
-            ->where('openBox.entries.data.0.returned.replyUrl', null));
-    }
 }

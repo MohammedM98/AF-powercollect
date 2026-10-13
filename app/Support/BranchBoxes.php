@@ -57,30 +57,48 @@ class BranchBoxes
      */
     public function rows(int $branchId, User $actor, array $closingIds): Collection
     {
-        return CashBox::query()->where('branch_id', $branchId)
+        $boxes = CashBox::query()->where('branch_id', $branchId)
             ->where(fn ($query) => $query->whereIn('closing_id', $closingIds)->orWhere('status', '!=', 'received')->orWhereHas('payments', fn ($payments) => $payments->whereIn('status', ['pending', 'missing', 'rejected'])))
-            ->with(BranchClosingWorkflow::BOX_DETAILS)->latest('id')->get()
-            ->map(function (CashBox $box) use ($actor): array {
-                $box->user?->makeHidden('permissions');
-                $row = $box->toArray();
-                $row['canCount'] = $this->workflow->mayReceive($box, $actor);
-                $row['isOwn'] = $box->user_id === $actor->id;
-                $row['stage'] = $box->stage();
-                $row['payments'] = array_map($this->presentEntry(...), $row['payments']);
+            ->with(BranchClosingWorkflow::BOX_DETAILS)->latest('id')->get();
+        $ledgers = $this->ledgers($boxes->flatMap(fn (CashBox $box) => $box->payments->pluck('subscription_transaction_id'))->all());
 
-                return $row;
-            });
+        return $boxes->map(function (CashBox $box) use ($actor, $ledgers): array {
+            $box->user?->makeHidden('permissions');
+            $row = $box->toArray();
+            $row['canCount'] = $this->workflow->mayReceive($box, $actor);
+            $row['isOwn'] = $box->user_id === $actor->id;
+            $row['stage'] = $box->stage();
+            $row['payments'] = array_map(fn (array $entry): array => $this->presentEntry($entry, $ledgers), $row['payments']);
+
+            return $row;
+        });
+    }
+
+    /**
+     * Each of the transactions as the subscriber's statement shows it, by id.
+     *
+     * @param  array<int, int|null>  $transactionIds
+     * @return array<int, array<string, mixed>>
+     */
+    public function ledgers(array $transactionIds): array
+    {
+        $ids = array_values(array_unique(array_filter($transactionIds)));
+
+        return $ids === [] ? [] : SubscriptionTransaction::query()->whereIn('id', $ids)->with('recordedBy:id,name')->get()
+            ->mapWithKeys(fn (SubscriptionTransaction $transaction): array => [$transaction->id => $transaction->ledgerDetails()])->all();
     }
 
     /**
      * A box entry with links to its subscriber's statement and, for a
-     * payment, its receipt. Entries of a statement saved before the
+     * payment, its receipt, and its transaction as the statement shows it
+     * when found among `$ledgers`. Entries of a statement saved before the
      * transaction's type was kept get no receipt link.
      *
      * @param  array<string, mixed>  $entry
+     * @param  array<int, array<string, mixed>>  $ledgers
      * @return array<string, mixed>
      */
-    public function presentEntry(array $entry): array
+    public function presentEntry(array $entry, array $ledgers = []): array
     {
         $subscriptionId = $entry['transaction']['subscription_id'] ?? null;
         $payment = ($entry['transaction']['type'] ?? null) === SubscriptionTransaction::TYPE_PAYMENT;
@@ -89,6 +107,7 @@ class BranchBoxes
             ...$entry,
             'statement_url' => $subscriptionId ? route('subscriptions.statement', $subscriptionId) : null,
             'receipt_url' => $subscriptionId && $payment ? route('subscriptions.payments.receipt', [$subscriptionId, $entry['transaction']['id']]) : null,
+            'ledger' => $ledgers[$entry['subscription_transaction_id'] ?? null] ?? null,
         ];
     }
 

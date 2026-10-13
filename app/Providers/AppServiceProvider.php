@@ -37,7 +37,7 @@ class AppServiceProvider extends ServiceProvider
             app(BranchClosingWorkflow::class)->capture($payment);
         });
         SubscriptionTransaction::updated(function (SubscriptionTransaction $payment): void {
-            if ($payment->wasChanged(['currency', 'currency_amount', 'amount', 'payment_method'])) {
+            if ($payment->wasChanged(['currency', 'currency_amount', 'amount', 'payment_method', 'status'])) {
                 app(BranchClosingWorkflow::class)->syncEditablePayment($payment);
             }
         });

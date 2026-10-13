@@ -41,7 +41,7 @@ function closable(box) {
  * closed. The safe, the weekly statements and the audit notes are on the
  * safe and statements page.
  */
-export default function BranchCashBoxes({ branch, branches, started, boxes, closings, access, pendingCount, returnedCount, collectionUrls, urls }) {
+export default function BranchCashBoxes({ branch, branches, started, boxes, closings, access, pendingCount, collectionUrls, urls }) {
     const { can, errors } = usePage().props;
     const pending = boxes.filter((box) => box.status === 'pending');
     const [status, setStatus] = useState(pending.length ? 'pending' : 'all');
@@ -66,7 +66,7 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
 
     return <AuthenticatedLayout header={<div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-gray-500">{branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : branch.name}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">الصناديق المالية</h2></div><CashBoxTabs urls={collectionUrls} active="branch" branchPendingCount={pending.length} /></div>}>
         <Head title="صناديق الموظفين" />
-        {can.viewOwnCashBoxes && <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount} returnedCount={returnedCount} />}
+        {can.viewOwnCashBoxes && <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount} />}
         {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. {access.manage ? <>ابدأه من <Link href={urls.reconciliation} className="font-semibold text-brand-600">صفحة الخزنة والكشوفات</Link>.</> : 'يُفعّله مسؤول الفرع من صفحة الخزنة والكشوفات.'}</p> : <div className="space-y-4">
             {errors?.action && <p role="alert" className="rounded-control bg-red-500/10 p-4 text-sm text-red-700">{errors.action}</p>}
             {access.manage && rejected.length > 0 && <section aria-label="حركات مرفوضة" className="space-y-2 rounded-panel border border-gray-100 bg-surface p-5 shadow-card">

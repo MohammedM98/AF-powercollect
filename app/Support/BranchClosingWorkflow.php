@@ -50,7 +50,6 @@ class BranchClosingWorkflow
         'user.permissions',
         'payments.transaction:id,subscription_id,type,reference_number,bank_name,sender_bank_name,voucher_number,manual_voucher_number,notes,status',
         'payments.transaction.subscription:id,account_number,full_name,subscription_name',
-        'payments.returnedBy:id,name',
     ];
 
     public function locked(int $branchId, callable $operation): mixed
@@ -236,13 +235,15 @@ class BranchClosingWorkflow
             return;
         }
         $entry = CashBoxPayment::query()->where('subscription_transaction_id', $payment->id)->first();
-        if (! $entry || $entry->box->status !== 'open') {
+        $box = $entry?->box;
+        if (! $box || ! $box->isEditable()) {
             return;
         }
-        if (CashBoxType::for($payment) !== $entry->box->type) {
+        if (CashBoxType::for($payment) !== $box->type) {
             $occurred = $entry->occurred_at;
             $entry->delete();
             $this->attachEntry($payment, $occurred);
+            $this->recountClosed($box);
 
             return;
         }
@@ -253,6 +254,7 @@ class BranchClosingWorkflow
             'method' => $this->entryMethod($payment),
             ...($methodChanged ? ['status' => $payment->payment_method === PaymentMethod::Cash ? 'cash' : 'pending', 'confirmed_by' => null, 'confirmed_at' => null, 'confirmed_in_closing_id' => null] : []),
         ]);
+        $this->recountClosed($box);
     }
 
     public function releaseEditablePayment(SubscriptionTransaction $payment): void
@@ -262,8 +264,21 @@ class BranchClosingWorkflow
         }
         $entry = CashBoxPayment::query()->where('subscription_transaction_id', $payment->id)->first();
         if ($entry) {
-            $this->require($entry->box->status === 'open', 'الدفعة مرتبطة بصندوق مغلق؛ استخدم الإرجاع أو قيد التصحيح.');
+            $box = $entry->box;
+            $this->require($box->isEditable(), 'الدفعة مرتبطة بصندوق أكّد الفرع إغلاقه؛ استخدم الإرجاع أو قيد التصحيح.');
             $entry->delete();
+            $this->recountClosed($box);
+        }
+    }
+
+    /**
+     * Keep the expected cash of a box closed at the cutoff, and still waiting
+     * on the branch, in step with its collector's corrections.
+     */
+    private function recountClosed(CashBox $box): void
+    {
+        if ($box->status === 'pending') {
+            $box->update(['expected_counts' => $this->expected($box)]);
         }
     }
 
@@ -314,51 +329,29 @@ class BranchClosingWorkflow
     }
 
     /**
-     * The branch confirms a collector's box closed, in one step: it reviewed
-     * the entries, sent back what needed the collector, and accepts the
-     * rest. Nothing is counted: a cash box holds what its payments say, and
-     * transfers or clearings not yet marked are taken as confirmed. Handing
-     * the cash on is a separate step. Not while an entry waits on the
-     * collector's answer.
+     * The branch confirms a collector's box closed, in one step: it looked
+     * over the entries, had the collector correct any mistake in them
+     * first, and closes the box for audit. Nothing is counted: a cash box
+     * holds what its payments say, and transfers or clearings not yet
+     * marked are taken as confirmed; the audit rejects what it finds wrong.
+     * Handing the cash on is a separate step. Once confirmed, the box's
+     * entries can no longer be corrected.
      */
     public function receive(CashBox $box, User $actor): void
     {
         $this->require(in_array($box->status, ['open', 'pending'], true) && $box->kind !== 'direct' && $this->mayReceive($box, $actor), 'لا يمكنك تأكيد إغلاق هذا الصندوق.');
-        $this->require(! $box->payments()->waitingOnCollector()->whereHas('transaction', fn ($query) => $query->where('status', SubscriptionTransaction::STATUS_ACTIVE))->exists(), 'في الصندوق حركات أعدتها إلى المحصّل ولم يردّ عليها بعد.');
         $this->closeForReceipt($box);
         $settling = $this->settlingClosing($box);
         if (! $box->type->isCounted()) {
             $box->payments()->where('status', 'pending')->whereHas('transaction', fn ($query) => $query->where('status', SubscriptionTransaction::STATUS_ACTIVE))
                 ->update(['status' => 'confirmed', 'confirmed_by' => $actor->id, 'confirmed_at' => now(), 'confirmed_in_closing_id' => $settling->id]);
         }
+        $expected = $this->expected($box);
         $box->update([
             'status' => 'received', 'received_by' => $actor->id, 'received_at' => now(), 'confirmed_at' => now(), 'received_in_closing_id' => $settling->id,
-            ...($box->type->isCounted() ? ['head_counts' => $this->expected($box), 'decisions' => []] : []),
+            ...($box->type->isCounted() ? ['expected_counts' => $expected, 'head_counts' => $expected, 'decisions' => []] : []),
         ]);
         $box->user?->notify(new BranchClosingNotification('أكّد الفرع إغلاق صندوقك.', $box->number));
-    }
-
-    /**
-     * Send an entry of a box not yet confirmed back to its collector with
-     * what to check; the box cannot be confirmed until they answer.
-     */
-    public function returnEntry(CashBoxPayment $payment, User $actor, string $note): void
-    {
-        $box = $payment->box;
-        $this->require(in_array($box->status, ['open', 'pending'], true) && $box->kind !== 'direct' && $box->user_id !== null && $this->mayReceive($box, $actor), 'لا يمكنك إعادة حركات هذا الصندوق.');
-        $this->require($payment->transaction->status === SubscriptionTransaction::STATUS_ACTIVE, 'الدفعة ملغاة أو مُرجعة.');
-        $payment->update(['returned_at' => now(), 'returned_by' => $actor->id, 'return_note' => $note, 'collector_reply' => null, 'replied_at' => null]);
-        $box->user->notify(new BranchClosingNotification('أعاد الفرع حركة إليك لمراجعتها.', $box->number, ['entry_id' => $payment->id, 'note' => $note]));
-    }
-
-    /**
-     * The collector's answer to an entry the branch sent back to them.
-     */
-    public function answerReturnedEntry(CashBoxPayment $payment, User $actor, string $reply): void
-    {
-        $this->require($payment->box->user_id === $actor->id && $payment->waitsOnCollector(), 'هذه الحركة لا تنتظر ردّك.');
-        $payment->update(['collector_reply' => $reply, 'replied_at' => now()]);
-        $payment->returnedBy?->notify(new BranchClosingNotification('ردّ المحصّل على حركة أعدتها إليه.', $payment->box->number, ['entry_id' => $payment->id]));
     }
 
     public function mayReceive(CashBox $box, User $actor): bool

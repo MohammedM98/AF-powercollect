@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from '@inertiajs/react';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
 import ColumnWidths, { fixedTableStyle } from '@/Components/DataTable/ColumnWidths';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
@@ -9,6 +10,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
 import { boxTypes, currencies, dateTime, BoxTypeIcon } from '../Payments/CollectorCashBox';
+import { ledgerColumns, ledgerOf, LedgerLeadCells, LedgerTrailCells } from '../Payments/LedgerColumns';
 
 export const boxStatuses = { open: ['مفتوح', 'blue'], pending: ['بانتظار تأكيد الإغلاق', 'amber'], received: ['أُكّد إغلاقه', 'green'] };
 
@@ -17,7 +19,6 @@ const rowButton = 'inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs f
 
 const isActive = (entry) => !entry.transaction || entry.transaction.status === 'active';
 const isRejected = (entry) => ['missing', 'rejected'].includes(entry.status);
-const waitsOnCollector = (entry) => entry.returned_at && !entry.replied_at && isActive(entry);
 const subscriberName = (entry) => entry.transaction?.subscription?.subscription_name || entry.transaction?.subscription?.full_name || '—';
 
 /** Amounts added up by currency. */
@@ -48,22 +49,6 @@ function entryState(box, entry) {
     return ['بانتظار المراجعة', 'amber'];
 }
 
-/** The entry columns of each type of box, with their widths; the subscriber's column takes what is left. */
-function entryColumns(type) {
-    const middle = type === 'bank_transfer' ? [['البنك المستلم', 150], ['البنك المرسل', 150], ['رقم الحوالة', 150]] : type === 'clearing' ? [['الخدمة المقدّمة', 240]] : [['رقم السند', 120]];
-
-    return [['#', 56], ['التاريخ والوقت', 170], ['المشترك', null], ...middle, ['المبلغ', 160], ['الحالة', 230], ['', 230]];
-}
-
-/** What the branch sent back to the collector about an entry, and their answer once given. */
-function ReturnedEntry({ entry }) {
-    return <div className="mt-2 space-y-1 text-xs leading-5" style={{ whiteSpace: 'normal' }}>
-        <StatusPill tone={entry.replied_at ? 'blue' : 'amber'} label={entry.replied_at ? 'ردّ المحصّل' : 'عند المحصّل'} />
-        <p className="text-gray-600">{entry.returned_by?.name ? `${entry.returned_by.name}: ` : ''}{entry.return_note}</p>
-        {entry.collector_reply && <p className="text-gray-900">ردّه: {entry.collector_reply}</p>}
-    </div>;
-}
-
 /** One figure in the box's summary strip. */
 function Stat({ icon, label, value, hint }) {
     return <div className="flex items-start gap-3 p-4">
@@ -78,24 +63,24 @@ function Stat({ icon, label, value, hint }) {
 
 /**
  * One of the branch's boxes, large: who it belongs to, its totals and
- * dates, and every entry in it with its details and receipt, to search,
- * filter, check (transfers and clearings), send back to the collector and,
- * once all is well, confirm the box closed from the footer.
+ * dates, and every entry in it as the subscriber's statement shows it, to
+ * search, filter and, once the collector has corrected anything the branch
+ * raised with them, confirm the box closed from the footer. The branch does
+ * not check a collector's transfers or clearings one by one: the audit does,
+ * after the box's close; only direct payments, with no collector, are
+ * checked here.
  */
 export default function BoxDetails({ box, access, onClose, perform, period }) {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
-    const [returning, setReturning] = useState(null);
-    const [note, setNote] = useState('');
     const type = box.type ?? 'cash';
     const cash = type === 'cash';
     const clearing = type === 'clearing';
     const entries = box.payments ?? [];
     const active = entries.filter(isActive);
     const totals = sumByCurrency(active);
-    const waiting = entries.filter(waitsOnCollector).length;
-    const canReview = box.canCount;
-    const canReturn = canReview && !box.frozen && ['open', 'pending'].includes(box.status) && box.kind !== 'direct' && box.user_id;
+    const canReview = box.canCount && box.kind === 'direct';
+    const editable = ['open', 'pending'].includes(box.status);
     const confirmable = !box.frozen && box.canCount && ['open', 'pending'].includes(box.status) && box.kind !== 'direct';
     const confirmsDelivery = cash && box.isOwn && box.status === 'received' && !box.confirmed_at && !box.frozen;
     const counted = cash && box.head_counts && box.expected_counts && Object.keys(currencies).some((currency) => Number(box.head_counts[currency] ?? 0) !== Number(box.expected_counts[currency] ?? 0));
@@ -103,22 +88,13 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
         all: ['الكل', () => true],
         active: ['سارية', isActive],
         ...(cash ? {} : { pending: ['بانتظار المراجعة', (entry) => isActive(entry) && entry.status === 'pending'], rejected: [clearing ? 'مرفوضة' : 'غير موجودة', (entry) => isActive(entry) && isRejected(entry)] }),
-        returned: ['مُرجعة للمحصّل', (entry) => entry.returned_at && isActive(entry)],
         cancelled: ['ملغاة', (entry) => !isActive(entry)],
     };
     const filterOptions = Object.entries(groups).map(([value, [label, matches]]) => ({ value, label: `${label} · ${entries.filter(matches).length}`, count: entries.filter(matches).length })).filter((option) => option.value === 'all' || option.count > 0);
     const query = search.trim();
     const shown = entries.filter(groups[filter]?.[1] ?? (() => true)).filter((entry) => !query || [subscriberName(entry), entry.transaction?.subscription?.account_number, entry.transaction?.manual_voucher_number, entry.transaction?.voucher_number, entry.transaction?.reference_number, entry.transaction?.notes].some((value) => String(value ?? '').includes(query)));
-    const columns = entryColumns(type);
+    const columns = [['#', 56], ['رقم الصندوق', 100], ...ledgerColumns.before, ['المشترك', null], ...ledgerColumns.after, ['الحالة', 170], ['', canReview ? 230 : 110]];
     const widths = columns.map(([, width]) => width);
-    const returnedEntry = entries.find((entry) => entry.id === returning);
-
-    function sendBack(event) {
-        event.preventDefault();
-        perform('return-entry', returnedEntry, { note });
-        setReturning(null);
-        setNote('');
-    }
 
     return <Modal show onClose={onClose} maxWidth="7xl" centered panelClassName="flex max-h-[calc(100dvh-6rem)] flex-col">
         <header className="flex shrink-0 flex-wrap items-start justify-between gap-4 border-b border-gray-100 p-6">
@@ -139,51 +115,47 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
             <dl className="grid divide-y divide-gray-100 rounded-panel border border-gray-100 bg-surface sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 xl:divide-x xl:divide-x-reverse">
                 <Stat icon="wallet" label="إجمالي الحركات السارية" value={<>{formatMoney(totals.ILS)} <span className="text-sm font-normal text-gray-500">شيكل</span></>} hint={otherCurrencies(totals)} />
                 <Stat icon="list" label="الحركات" value={active.length.toLocaleString('en')} hint={entries.length > active.length ? `و${entries.length - active.length} ملغاة` : 'لا حركات ملغاة'} />
-                <Stat icon="undo" label="مُرجعة للمحصّل" value={waiting.toLocaleString('en')} hint={waiting ? 'بانتظار ردّه قبل تأكيد الإغلاق' : 'لا شيء بانتظار ردّه'} />
+                <Stat icon={editable ? 'unlock' : 'lock'} label="تصحيح الحركات" value={<span className="text-base">{editable ? 'متاح للمحصّل' : 'مقفل'}</span>} hint={editable ? 'حتى تأكيد إغلاق الصندوق' : 'أُكّد إغلاق الصندوق'} />
                 <Stat icon="calendar" label="فُتح ← أُغلق" value={<span className="text-sm">{dateTime(box.opened_at)}</span>} hint={box.closed_at ? dateTime(box.closed_at) : 'لا يزال مفتوحًا'} />
             </dl>
 
-            {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">راجع حركات الصندوق وأرجع ما فيه مشكلة للمحصّل، ثم أكّد إغلاق الصندوق. لا يلزم عدّ النقد؛ تسليم الصناديق للشركة خطوة منفصلة.</p>}
+            {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">اطّلع على حركات الصندوق ثم أكّد إغلاقه. إن رأيت خطأ في حركة فتواصل مع المحصّل ليعدّلها بنفسه قبل التأكيد؛ بعد التأكيد تُقفل الحركات ويذهب الصندوق إلى التدقيق، وهو من يرفض الحوالات أو المقاصات ويبيّن السبب. لا يلزم عدّ النقد؛ تسليم الصناديق للشركة خطوة منفصلة.</p>}
 
             <section aria-label="حركات الصندوق" className="space-y-4">
                 <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
                     <div className="relative w-full sm:max-w-sm">
                         <Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" />
-                        <input type="text" aria-label="ابحث في حركات الصندوق" placeholder="ابحث بالمشترك أو رقم الحساب أو السند" value={search} onChange={(event) => setSearch(event.target.value)} className="block w-full py-2.5 pe-4 ps-10 text-sm" />
+                        <input type="text" aria-label="ابحث في حركات الصندوق" placeholder="ابحث بالمشترك أو رقم الحساب أو السند أو الحوالة" value={search} onChange={(event) => setSearch(event.target.value)} className="block w-full py-2.5 pe-4 ps-10 text-sm" />
                     </div>
                     <SegmentedTabs label="حالة الحركة" value={filter} onChange={setFilter} options={filterOptions} />
                 </div>
                 <div className="data-table-container">
                     <table className="data-table data-table-fixed w-full text-start text-sm" style={fixedTableStyle(widths)}>
                         <ColumnWidths widths={widths} />
-                        <thead><tr>{columns.map(([label], index) => <th key={index}>{label}</th>)}</tr></thead>
+                        <thead><tr>{columns.map(([label], index) => index === columns.length - 1 ? <ActionsTh key={index} /> : <th key={index}>{label}</th>)}</tr></thead>
                         <tbody>
                             {shown.length === 0 ? (
                                 <tr><td colSpan={columns.length} className="text-center text-gray-500">{entries.length ? 'لا توجد حركات بهذا البحث.' : 'لا توجد حركات في هذا الصندوق.'}</td></tr>
                             ) : shown.map((entry) => {
                                 const [label, tone] = entryState(box, entry);
                                 const live = isActive(entry);
+                                const ledger = ledgerOf(entry);
 
                                 return <tr key={entry.id} className={live ? undefined : 'opacity-60'}>
                                     <td className="font-display text-gray-500">{entries.indexOf(entry) + 1}</td>
-                                    <td className="text-xs text-gray-600">{dateTime(entry.occurred_at)}{entry.is_late && <span className="mt-1 block"><StatusPill tone="amber" label="متأخرة" /></span>}</td>
+                                    <td dir="ltr" className="text-start font-display text-gray-700">{box.number}</td>
+                                    <LedgerLeadCells ledger={ledger} />
                                     <td title={subscriberName(entry)}>
                                         {entry.statement_url ? <Link href={entry.statement_url} prefetch className="font-semibold text-gray-900 hover:text-brand-600">{subscriberName(entry)}</Link> : <span className="font-semibold text-gray-900">{subscriberName(entry)}</span>}
                                         <span dir="ltr" className="block text-start font-display text-xs text-gray-400">{entry.transaction?.subscription?.account_number ?? '—'}</span>
                                     </td>
-                                    {type === 'bank_transfer' ? <>
-                                        <td className="text-gray-600">{entry.transaction?.bank_name ?? '—'}</td>
-                                        <td className="text-gray-600">{entry.transaction?.sender_bank_name ?? '—'}</td>
-                                        <td dir="ltr" className="text-start font-display text-gray-600">{entry.transaction?.reference_number ?? '—'}</td>
-                                    </> : clearing ? <td className="text-gray-600" title={entry.transaction?.notes ?? ''}>{entry.transaction?.notes ?? '—'}</td> : <td dir="ltr" className="text-start font-display text-gray-600">{entry.transaction?.manual_voucher_number ?? entry.transaction?.voucher_number ?? '—'}</td>}
-                                    <td><b dir="ltr" className={`font-display ${live ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{formatMoney(entry.amount)}</b> <span className="text-xs text-gray-500">{currencies[entry.currency]}</span></td>
-                                    <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} />{entry.returned_at && live && <ReturnedEntry entry={entry} />}</td>
+                                    <LedgerTrailCells ledger={ledger} amount={entry.amount} currency={entry.currency} cancelled={!live} />
+                                    <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} />{entry.is_late && <span className="mt-1 block"><StatusPill tone="amber" label="متأخرة" /></span>}</td>
                                     <td style={{ whiteSpace: 'normal' }}><div className="flex flex-wrap items-center gap-1">
                                         {live && !cash && canReview && !box.frozen && entry.status !== 'confirmed' && <>
                                             <button type="button" className={`${rowButton} text-emerald-700 dark:text-emerald-400`} onClick={() => perform('electronic', entry, { status: 'confirmed' })}><Icon name="check" className="h-3.5 w-3.5" />{clearing ? 'قبول' : 'تأكيد'}</button>
                                             {!isRejected(entry) && <button type="button" className={`${rowButton} text-brand-600`} onClick={() => perform('electronic', entry, { status: clearing ? 'rejected' : 'missing' })}><Icon name="close" className="h-3.5 w-3.5" />{clearing ? 'رفض' : 'غير موجودة'}</button>}
                                         </>}
-                                        {live && canReturn && !waitsOnCollector(entry) && <button type="button" className={`${rowButton} text-amber-700 dark:text-amber-400`} onClick={() => { setReturning(entry.id); setNote(''); }}><Icon name="undo" className="h-3.5 w-3.5" />{entry.returned_at ? 'إرجاع مرة أخرى' : 'إرجاع للمحصّل'}</button>}
                                         {live && !box.frozen && access.manage && box.kind !== 'direct' && box.status === 'open' && type === 'bank_transfer' && entry.status === 'pending' && <button type="button" className={`${rowButton} text-gray-600`} onClick={() => perform('direct', entry)}>نقل للدفعات المباشرة</button>}
                                         {entry.receipt_url && <a href={entry.receipt_url} target="_blank" rel="noopener noreferrer" className={`${rowButton} text-gray-600`}><Icon name="printer" className="h-3.5 w-3.5" />السند</a>}
                                     </div></td>
@@ -203,18 +175,14 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
         </div>
 
         <footer className="shrink-0 border-t border-gray-100 bg-surface p-4 sm:px-6">
-            {returnedEntry ? <form className="space-y-2" onSubmit={sendBack}>
-                <label className="block text-sm font-semibold text-gray-900" htmlFor={`return-${returnedEntry.id}`}>إرجاع حركة {subscriberName(returnedEntry)} · {formatMoney(returnedEntry.amount)} {currencies[returnedEntry.currency]} للمحصّل: ما الذي يراجعه فيها؟</label>
-                <textarea id={`return-${returnedEntry.id}`} required autoFocus maxLength={1000} rows="2" className="block w-full text-sm" value={note} onChange={(event) => setNote(event.target.value)} />
-                <div className="flex justify-end gap-2"><SecondaryButton onClick={() => setReturning(null)}>إلغاء</SecondaryButton><PrimaryButton type="submit" disabled={!note.trim()}>إرسال للمحصّل</PrimaryButton></div>
-            </form> : <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-gray-600">{confirmable && waiting > 0 ? <span className="text-amber-700 dark:text-amber-400">بانتظار ردّ المحصّل على {waiting} {waiting === 1 ? 'حركة' : 'حركات'} أعدتها إليه.</span> : <>الإجمالي: <b className="text-gray-900">{amountsLine(totals)}</b> · {active.length} حركة سارية</>}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-gray-600">الإجمالي: <b className="text-gray-900">{amountsLine(totals)}</b> · {active.length} حركة سارية</p>
                 <div className="flex flex-wrap items-center gap-2">
                     <SecondaryButton onClick={onClose}>إغلاق النافذة</SecondaryButton>
-                    {confirmable && <PrimaryButton disabled={waiting > 0 || entries.length === 0} onClick={() => perform('receive', box)}><Icon name="check" className="h-4 w-4" />تأكيد إغلاق الصندوق</PrimaryButton>}
+                    {confirmable && <PrimaryButton disabled={entries.length === 0} onClick={() => perform('receive', box)}><Icon name="check" className="h-4 w-4" />تأكيد إغلاق الصندوق</PrimaryButton>}
                     {confirmsDelivery && <PrimaryButton onClick={() => perform('confirm', box)}>أؤكّد تسليم الصندوق</PrimaryButton>}
                 </div>
-            </div>}
+            </div>
         </footer>
     </Modal>;
 }

@@ -134,7 +134,7 @@ class BranchClosingController extends Controller
                     'confirm' => $this->workflow->confirmBox($box, $actor),
                 };
             } elseif ($action === 'receive-type') {
-                $this->workflow->receiveType($branchId, $actor, CashBoxType::from($data['type']), $request->integer('user_id') ?: null, $request->boolean('cash_counted'));
+                $this->workflow->receiveType($branchId, $actor, CashBoxType::from($data['type']), array_map('intval', $data['box_ids']), $request->boolean('cash_counted'));
             } elseif ($action === 'electronic') {
                 $payment = CashBoxPayment::query()->whereHas('box', fn ($query) => $query->where('branch_id', $branchId))->findOrFail($record);
                 $this->workflow->reviewEntry($payment, $actor, $data['status']);

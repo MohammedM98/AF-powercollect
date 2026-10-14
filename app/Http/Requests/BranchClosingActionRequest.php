@@ -30,7 +30,7 @@ class BranchClosingActionRequest extends FormRequest
             $rules += ['cash_counted' => ['sometimes', 'boolean']];
         }
         if ($action === 'receive-type') {
-            $rules += ['type' => ['required', Rule::enum(CashBoxType::class)], 'user_id' => ['nullable', 'integer']];
+            $rules += ['type' => ['required', Rule::enum(CashBoxType::class)], 'box_ids' => ['required', 'array', 'min:1'], 'box_ids.*' => ['integer', 'distinct']];
         }
         if ($action === 'safe-count') {
             $rules += $this->countRules();

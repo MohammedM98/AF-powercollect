@@ -11,6 +11,7 @@ import Icon from '@/Components/Icon';
 import { financialBoxesTotals } from '@/lib/financialBoxes';
 import { FinancialBoxCard, FinancialBoxSummary, financialAmountsLine } from './FinancialBoxComponents';
 import CollectionNavigation from './CollectionNavigation';
+import StatusGuide from './StatusGuide';
 import { boxTypes, boxTypeStyles, currencies, dateTime, Amounts, BoxReportActions, BoxStage, BoxTypeChip } from './CollectorCashBox';
 
 /** Where each type of box goes when it closes. */
@@ -51,6 +52,7 @@ export default function CashBoxes({ started, branchName, boxes, filters, pending
         <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount} className="flex-wrap" />
         {started ? <div className="financial-boxes space-y-6">
             <FinancialBoxSummary boxes={presentedBoxes} pageOnly />
+            <StatusGuide />
             <section aria-label="كل صناديقي">
                 <DataTableToolbar
                     showSearch={false}

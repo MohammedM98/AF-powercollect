@@ -53,12 +53,37 @@ export function groupFinancialBoxes(boxes) {
     return [...groups.values()].sort((a, b) => (a.key === 'direct') - (b.key === 'direct') || waiting(b) - waiting(a) || a.name.localeCompare(b.name, 'ar'));
 }
 
-export function financialBoxChecks(box) {
-    const entries = activeBoxEntries(box);
-    const labels = [box.type === 'clearing' ? 'مقبولة' : 'مؤكدة', 'بانتظار المراجعة', box.type === 'clearing' ? 'مرفوضة' : 'غير موجودة'];
-    return ['confirmed', 'pending', 'rejected'].map((status, index) => ({
-        color: ['bg-emerald-500', 'bg-amber-500', 'bg-brand-500'][index],
-        label: labels[index],
-        count: entries.filter((entry) => status === 'rejected' ? ['rejected', 'missing'].includes(entry.status) : entry.status === status).length,
-    }));
+/**
+ * A box's status as everyone sees it, with its pill tone: still collecting,
+ * closed at the weekly cutoff and waiting for the branch, or closed.
+ */
+export const boxStatusLabels = {
+    open: ['مفتوح', 'blue'],
+    pending: ['بانتظار تأكيد الإغلاق', 'amber'],
+    received: ['مُغلق', 'green'],
+};
+
+/**
+ * An entry's status as everyone sees it, with its pill tone: in effect,
+ * cancelled on the subscriber's statement, or a transfer or clearing found
+ * wrong when it was checked. Confirming transfers and clearings is the
+ * auditors' work, so an entry not yet checked simply stays in effect.
+ * Takes an entry as the box pages send it (`transactionStatus`) or as the
+ * branch's boxes do (`transaction.status`).
+ */
+export function entryStatus(entry) {
+    if ((entry.transactionStatus ?? entry.transaction?.status ?? 'active') !== 'active') {
+        return ['ملغاة', 'gray'];
+    }
+    if (entry.status === 'missing') {
+        return ['غير موجودة في البنك', 'red'];
+    }
+    if (entry.status === 'rejected') {
+        return ['مرفوضة', 'red'];
+    }
+
+    return ['سارية', 'green'];
 }
+
+/** Whether a transfer or clearing was found wrong when it was checked. */
+export const isFlaggedEntry = (entry) => ['missing', 'rejected'].includes(entry.status);

@@ -11,6 +11,7 @@ import { boxPersonName, financialBoxesTotals, filterFinancialBoxes, groupFinanci
 import BoxDetails from '../Closings/BoxDetails';
 import { periodLabel, periodRange } from '../Closings/ClosingComponents';
 import CollectionNavigation from './CollectionNavigation';
+import StatusGuide from './StatusGuide';
 import { boxTypes, currencies } from './CollectorCashBox';
 import { BoxPersonAvatar, FinancialBoxAmount, FinancialBoxButton, FinancialBoxCard, FinancialBoxDates, FinancialBoxEntries, FinancialBoxIdentity, FinancialBoxStatus, FinancialBoxSummary, financialAmountsLine } from './FinancialBoxComponents';
 
@@ -45,7 +46,7 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
     const directChecks = boxes.filter((box) => box.kind === 'direct' && box.type === 'bank_transfer').flatMap((box) => box.payments.filter((entry) => entry.status === 'pending' && active(entry)).map((entry) => ({ ...entry, box })));
     const followupEntries = followup === 'rejected' ? rejected : directChecks;
     const currentClosing = closings.find((closing) => new Date(closing.coverage_from) <= new Date() && new Date(closing.coverage_until) >= new Date());
-    const statusFilters = [['pending', 'بانتظار الإغلاق'], ['open', 'مفتوحة'], ['received', 'مؤكدة'], ['all', 'الكل']].map(([value, label]) => ({ value, label: <>{label} · <span className="font-display">{value === 'all' ? boxes.length : boxes.filter((box) => box.status === value).length}</span></> }));
+    const statusFilters = [['pending', 'بانتظار الإغلاق'], ['open', 'مفتوحة'], ['received', 'مغلقة'], ['all', 'الكل']].map(([value, label]) => ({ value, label: <>{label} · <span className="font-display">{value === 'all' ? boxes.length : boxes.filter((box) => box.status === value).length}</span></> }));
     const boxPeriod = (box) => periodLabel(closings.find((closing) => closing.id === box.closing_id));
 
     useEffect(() => {
@@ -108,6 +109,7 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
         {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. {access.manage ? <>ابدأه من <Link href={urls.reconciliation} className="font-semibold text-brand-600">صفحة الخزنة والكشوفات</Link>.</> : 'يُفعّله مسؤول الفرع من صفحة الخزنة والكشوفات.'}</p> : <div className="financial-boxes space-y-6">
             {errors?.action && <p role="alert" className="rounded-control bg-red-500/10 p-4 text-sm text-red-700">{errors.action}</p>}
             <FinancialBoxSummary boxes={boxes} />
+            <StatusGuide />
             {access.manage && <section aria-label="بانتظار المتابعة" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{attentionCards.map((item) => <button key={item.key} type="button" onClick={() => setFollowup(item.key)} className="group flex min-w-0 items-center gap-3 rounded-2xl border border-gray-100 bg-surface p-3 pe-4 text-start shadow-card transition hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 motion-reduce:transform-none motion-reduce:transition-none"><span className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${item.count ? item.tone : 'bg-gray-100 text-gray-400'}`}><Icon name={item.count ? item.icon : 'check'} className="h-5 w-5" />{item.count > 0 && <span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 font-display text-[11px] font-bold text-white ring-2 ring-surface">{item.count}</span>}</span><span className="min-w-0 flex-1"><span className={`block text-sm font-semibold ${item.count ? 'text-gray-900' : 'text-gray-500'}`}>{item.label}</span><span className="block truncate text-xs text-gray-500">{item.hint}</span></span><Icon name="chevron-left" className="h-4 w-4 text-gray-300 transition group-hover:text-gray-600" /></button>)}</section>}
             <section aria-label="الصناديق المالية">
                 <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">

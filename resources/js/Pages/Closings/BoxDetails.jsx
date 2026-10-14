@@ -12,15 +12,15 @@ import { formatMoney } from '@/lib/format';
 import { boxTypes, currencies, dateTime, BoxTypeIcon } from '../Payments/CollectorCashBox';
 import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from '../Payments/LedgerColumns';
 import BoxBreakdown, { breakdownEntry } from '../Payments/BoxBreakdown';
+import StatusGuide from '../Payments/StatusGuide';
+import { boxStatusLabels, entryStatus, isFlaggedEntry } from '@/lib/financialBoxes';
 import '../Payments/financial-boxes.css';
 
-export const boxStatuses = { open: ['مفتوح', 'blue'], pending: ['بانتظار تأكيد الإغلاق', 'amber'], received: ['أُكّد إغلاقه', 'green'] };
 
 /** A small action in an entry's row. */
 const rowButton = 'inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition hover:bg-gray-100';
 
 const isActive = (entry) => !entry.transaction || entry.transaction.status === 'active';
-const isRejected = (entry) => ['missing', 'rejected'].includes(entry.status);
 const subscriberName = (entry) => entry.transaction?.subscription?.subscription_name || entry.transaction?.subscription?.full_name || '—';
 
 /** Amounts added up by currency. */
@@ -38,17 +38,6 @@ function otherCurrencies(amounts) {
     const lines = Object.keys(currencies).filter((currency) => currency !== 'ILS' && Number(amounts?.[currency] ?? 0) !== 0).map((currency) => `${formatMoney(amounts[currency])} ${currencies[currency]}`);
 
     return lines.length ? lines.join(' · ') : undefined;
-}
-
-/** An entry's state as a word and a tone: cancelled, in force, or where its bank or clearing check stands. */
-function entryState(box, entry) {
-    const clearing = box.type === 'clearing';
-    if (!isActive(entry)) return ['ملغاة', 'gray'];
-    if ((box.type ?? 'cash') === 'cash') return ['سارية', 'green'];
-    if (entry.status === 'confirmed') return [clearing ? 'مقبولة' : 'مؤكدة', 'green'];
-    if (isRejected(entry)) return [clearing ? 'مرفوضة' : 'غير موجودة في البنك', 'red'];
-
-    return ['بانتظار المراجعة', 'amber'];
 }
 
 /** One figure in the box's summary strip. */
@@ -89,8 +78,8 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
     const counted = cash && box.head_counts && box.expected_counts && Object.keys(currencies).some((currency) => Number(box.head_counts[currency] ?? 0) !== Number(box.expected_counts[currency] ?? 0));
     const groups = {
         all: ['الكل', () => true],
-        active: ['سارية', isActive],
-        ...(cash ? {} : { pending: ['بانتظار المراجعة', (entry) => isActive(entry) && entry.status === 'pending'], rejected: [clearing ? 'مرفوضة' : 'غير موجودة', (entry) => isActive(entry) && isRejected(entry)] }),
+        active: ['سارية', (entry) => isActive(entry) && !isFlaggedEntry(entry)],
+        ...(cash ? {} : { rejected: [clearing ? 'مرفوضة' : 'غير موجودة في البنك', (entry) => isActive(entry) && isFlaggedEntry(entry)] }),
         cancelled: ['ملغاة', (entry) => !isActive(entry)],
     };
     const filterOptions = Object.entries(groups).map(([value, [label, matches]]) => ({ value, label: `${label} · ${entries.filter(matches).length}`, count: entries.filter(matches).length })).filter((option) => option.value === 'all' || option.count > 0);
@@ -109,7 +98,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
                 </div>
             </div>
             <div className="flex items-center gap-3">
-                <StatusPill tone={boxStatuses[box.status][1]} label={boxStatuses[box.status][0]} />
+                <StatusPill tone={boxStatusLabels[box.status][1]} label={boxStatusLabels[box.status][0]} />
                 <button type="button" onClick={onClose} aria-label="إغلاق النافذة" className="rounded-control p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"><Icon name="close" className="h-5 w-5" /></button>
             </div>
         </header>
@@ -125,6 +114,8 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
             <BoxBreakdown type={type} entries={active.map(breakdownEntry)} wide />
 
             {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">اطّلع على حركات الصندوق ثم أكّد إغلاقه. إن رأيت خطأ في حركة فتواصل مع المحصّل ليعدّلها بنفسه قبل التأكيد؛ بعد التأكيد تُقفل الحركات ويذهب الصندوق إلى التدقيق، وهو من يرفض الحوالات أو المقاصات ويبيّن السبب.{cash ? ' عُدّ النقد الذي سلّمه المحصّل وتأكد أنه يطابق إجمالي الصندوق قبل التأكيد.' : ''} تسليم الصناديق للشركة خطوة منفصلة.</p>}
+
+            <StatusGuide />
 
             <section aria-label="حركات الصندوق" className="space-y-4">
                 <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
@@ -142,7 +133,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
                             {shown.length === 0 ? (
                                 <tr><td colSpan={columns.length} className="text-center text-gray-500">{entries.length ? 'لا توجد حركات بهذا البحث.' : 'لا توجد حركات في هذا الصندوق.'}</td></tr>
                             ) : shown.map((entry) => {
-                                const [label, tone] = entryState(box, entry);
+                                const [label, tone] = entryStatus(entry);
                                 const live = isActive(entry);
                                 const ledger = ledgerOf(entry);
 
@@ -158,7 +149,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
                                     <td style={{ whiteSpace: 'normal' }}><div className="flex flex-wrap items-center gap-1">
                                         {live && !cash && canReview && !box.frozen && entry.status !== 'confirmed' && <>
                                             <button type="button" className={`${rowButton} text-emerald-700 dark:text-emerald-400`} onClick={() => perform('electronic', entry, { status: 'confirmed' })}><Icon name="check" className="h-3.5 w-3.5" />{clearing ? 'قبول' : 'تأكيد'}</button>
-                                            {!isRejected(entry) && <button type="button" className={`${rowButton} text-brand-600`} onClick={() => perform('electronic', entry, { status: clearing ? 'rejected' : 'missing' })}><Icon name="close" className="h-3.5 w-3.5" />{clearing ? 'رفض' : 'غير موجودة'}</button>}
+                                            {!isFlaggedEntry(entry) && <button type="button" className={`${rowButton} text-brand-600`} onClick={() => perform('electronic', entry, { status: clearing ? 'rejected' : 'missing' })}><Icon name="close" className="h-3.5 w-3.5" />{clearing ? 'رفض' : 'غير موجودة'}</button>}
                                         </>}
                                         {live && !box.frozen && access.manage && box.kind !== 'direct' && box.status === 'open' && type === 'bank_transfer' && entry.status === 'pending' && <button type="button" className={`${rowButton} text-gray-600`} onClick={() => perform('direct', entry)}>نقل للدفعات المباشرة</button>}
                                         {entry.receipt_url && <a href={entry.receipt_url} target="_blank" rel="noopener noreferrer" className={`${rowButton} text-gray-600`}><Icon name="printer" className="h-3.5 w-3.5" />السند</a>}

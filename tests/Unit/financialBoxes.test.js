@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { financialBoxTotals, financialBoxesTotals, financialBoxChecks, filterFinancialBoxes, groupFinancialBoxes, sortFinancialBoxes } from '../../resources/js/lib/financialBoxes.js';
+import { entryStatus, financialBoxTotals, financialBoxesTotals, filterFinancialBoxes, groupFinancialBoxes, sortFinancialBoxes } from '../../resources/js/lib/financialBoxes.js';
 
 test('display totals exclude cancelled payments and keep foreign currencies separate', () => {
     const boxes = [{ payments: [
@@ -61,18 +61,11 @@ test('employee groups keep same-name employees separate, waiting employees first
     assert.equal(groups[2].name, 'الدفعات المباشرة');
 });
 
-test('review tracks combine missing and rejected entries and exclude cancelled entries', () => {
-    const box = { type: 'bank_transfer', payments: [
-        { status: 'confirmed' }, { status: 'pending' }, { status: 'missing' }, { status: 'rejected' },
-        { status: 'confirmed', transaction: { status: 'cancelled' } },
-    ] };
-
-    const checks = financialBoxChecks(box);
-
-    assert.deepEqual(checks.map(({ label, count }) => ({ label, count })), [
-        { label: 'مؤكدة', count: 1 }, { label: 'بانتظار المراجعة', count: 1 }, { label: 'غير موجودة', count: 2 },
-    ]);
-    assert.deepEqual(financialBoxChecks({ type: 'clearing', payments: [] }).map(({ label, count }) => ({ label, count })), [
-        { label: 'مقبولة', count: 0 }, { label: 'بانتظار المراجعة', count: 0 }, { label: 'مرفوضة', count: 0 },
-    ]);
+test('an entry is in effect until cancelled, whether or not the audit has checked it yet', () => {
+    assert.deepEqual(entryStatus({ status: 'pending', transactionStatus: 'active' }), ['سارية', 'green']);
+    assert.deepEqual(entryStatus({ status: 'confirmed', transaction: { status: 'active' } }), ['سارية', 'green']);
+    assert.deepEqual(entryStatus({ status: 'cash' }), ['سارية', 'green']);
+    assert.deepEqual(entryStatus({ status: 'missing', transactionStatus: 'active' }), ['غير موجودة في البنك', 'red']);
+    assert.deepEqual(entryStatus({ status: 'rejected', transaction: { status: 'active' } }), ['مرفوضة', 'red']);
+    assert.deepEqual(entryStatus({ status: 'missing', transactionStatus: 'cancelled' }), ['ملغاة', 'gray']);
 });

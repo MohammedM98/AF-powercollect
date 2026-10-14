@@ -3,11 +3,10 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatMoney } from '@/lib/format';
-import { activeBoxEntries, boxPersonName, financialBoxChecks, financialBoxTotals, financialBoxesTotals } from '@/lib/financialBoxes';
+import { activeBoxEntries, boxPersonName, boxStatusLabels, financialBoxTotals, financialBoxesTotals, isFlaggedEntry } from '@/lib/financialBoxes';
 import { boxTypes, boxTypeStyles, currencies, BoxTypeIcon } from './CollectorCashBox';
 import './financial-boxes.css';
 
-const statuses = { open: ['مفتوح', 'blue'], pending: ['بانتظار تأكيد الإغلاق', 'amber'], received: ['أُكّد إغلاقه', 'green'] };
 const dots = { open: 'bg-emerald-500', pending: 'bg-amber-500', received: 'bg-gray-400' };
 const date = (value) => value ? new Intl.DateTimeFormat('ar-u-nu-latn', { day: 'numeric', month: 'short', timeZone: 'Asia/Gaza' }).format(new Date(value)) : '—';
 
@@ -31,7 +30,7 @@ export function FinancialBoxIdentity({ box, period, card = false }) {
 }
 
 export function FinancialBoxStatus({ box, compact = false }) {
-    const [label, tone] = statuses[box.status];
+    const [label, tone] = boxStatusLabels[box.status];
     return <><StatusPill tone={tone} label={compact && box.status === 'pending' ? 'بانتظار الإغلاق' : label} />{box.status === 'received' && !box.confirmed_at && <span className="mt-1 block text-xs text-amber-700 dark:text-amber-400">ينتظر تأكيد المحصّل</span>}</>;
 }
 
@@ -39,10 +38,6 @@ export function FinancialBoxAmount({ box, large = false }) {
     const totals = financialBoxTotals(box);
     const others = foreignAmounts(totals);
     return <><p className="flex flex-wrap items-baseline gap-x-1.5"><b dir="ltr" className={`font-display text-gray-900 ${large ? 'text-[1.75rem] leading-tight' : 'text-[1.0625rem]'}`}>{formatMoney(totals.ILS)}</b><span className={`${large ? 'text-sm' : 'text-xs'} text-gray-500`}>شيكل</span></p><p className={`${large ? 'min-h-[1.4rem]' : ''} font-display text-xs text-gray-500`}>{others ? `و${others}` : ''}</p></>;
-}
-
-function CheckTrack({ parts, small = false }) {
-    return <span className={`financial-box-track ${small ? '!h-1.5 w-16 shrink-0' : 'w-full'}`} role="img" aria-label={parts.map((part) => `${part.label} ${part.count}`).join('، ')}>{parts.filter((part) => part.count).map((part) => <span key={part.label} className={part.color} style={{ flex: part.count }} />)}</span>;
 }
 
 export function FinancialBoxEntries({ box, card = false }) {
@@ -56,8 +51,9 @@ export function FinancialBoxEntries({ box, card = false }) {
     if (!box.payments) {
         return <p className="text-xs text-gray-500"><b className="font-display text-gray-900">{count}</b> حركة{box.rejectedCount ? ` · ${box.rejectedCount} مرفوضة` : ''}</p>;
     }
-    const parts = financialBoxChecks(box);
-    return card ? <div><CheckTrack parts={parts} /><p className="mt-1.5 flex flex-wrap gap-x-3 text-xs text-gray-500">{parts.filter((part) => part.count).map((part) => <span key={part.label} className="inline-flex items-center gap-1"><span className={`h-1.5 w-1.5 rounded-full ${part.color}`} />{part.label} <b className="font-display text-gray-700">{part.count}</b></span>)}</p></div> : <><p><b className="font-display text-gray-900">{count}</b> <span className="text-xs text-gray-500">حركة{cancelled ? ` · ${cancelled} ملغاة` : ''}</span></p><span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5"><CheckTrack parts={parts} small /><span className="text-xs text-gray-500"><b className="font-display text-gray-700">{parts[0].count}/{count}</b> {parts[0].label}{parts[2].count > 0 && <b className="font-semibold text-brand-600"> · {parts[2].count} {parts[2].label}</b>}</span></span></>;
+    const flagged = entries.filter(isFlaggedEntry).length;
+    const note = <p className="mt-1 flex items-center gap-2 text-xs text-gray-500"><Icon name={box.type === 'clearing' ? 'scale' : 'bank'} className="h-4 w-4" />{flagged ? <b className="font-semibold text-brand-600">{flagged} {box.type === 'clearing' ? 'مرفوضة' : 'غير موجودة في البنك'}</b> : 'يدقّقها قسم التدقيق بعد الإغلاق'}</p>;
+    return card ? note : <><p><b className="font-display text-gray-900">{count}</b> <span className="text-xs text-gray-500">حركة{cancelled ? ` · ${cancelled} ملغاة` : ''}</span></p>{note}</>;
 }
 
 export function FinancialBoxDates({ box }) {
@@ -83,5 +79,5 @@ export function FinancialBoxCard({ box, period, onOpen }) {
 export function FinancialBoxSummary({ boxes, pageOnly = false }) {
     const pending = boxes.filter((box) => box.status === 'pending');
     const cells = [{ icon: <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-amber-500/10 text-amber-600 dark:text-amber-400"><Icon name="clock" className="h-5 w-5" /></span>, label: 'بانتظار تأكيد الإغلاق', boxes: pending }, ...Object.keys(boxTypes).map((type) => ({ icon: <BoxTypeIcon type={type} className="h-10 w-10" />, label: boxTypes[type], boxes: boxes.filter((box) => box.type === type && box.status !== 'received'), unconfirmed: true }))];
-    return <section aria-label="ملخص الصناديق"><div className="grid gap-px overflow-hidden rounded-panel border border-gray-100 bg-gray-100 shadow-card sm:grid-cols-2 xl:grid-cols-4">{cells.map((cell) => <div key={cell.label} className="flex items-center gap-3 bg-surface px-5 py-4">{cell.icon}<div className="min-w-0"><p className="text-xs font-semibold text-gray-500">{cell.label}</p><p className="mt-0.5 flex items-baseline gap-1.5"><span dir="ltr" className="font-display text-xl font-bold text-gray-900">{formatMoney(financialBoxesTotals(cell.boxes).ILS)}</span><span className="text-xs text-gray-500">₪</span></p><p className="truncate text-xs text-gray-400">{cell.boxes.length} صناديق{cell.unconfirmed ? ' غير مؤكدة' : ''}{pageOnly ? ' في هذه الصفحة' : ''}</p></div></div>)}</div></section>;
+    return <section aria-label="ملخص الصناديق"><div className="grid gap-px overflow-hidden rounded-panel border border-gray-100 bg-gray-100 shadow-card sm:grid-cols-2 xl:grid-cols-4">{cells.map((cell) => <div key={cell.label} className="flex items-center gap-3 bg-surface px-5 py-4">{cell.icon}<div className="min-w-0"><p className="text-xs font-semibold text-gray-500">{cell.label}</p><p className="mt-0.5 flex items-baseline gap-1.5"><span dir="ltr" className="font-display text-xl font-bold text-gray-900">{formatMoney(financialBoxesTotals(cell.boxes).ILS)}</span><span className="text-xs text-gray-500">₪</span></p><p className="truncate text-xs text-gray-400">{cell.boxes.length} صناديق{cell.unconfirmed ? ' لم تُغلق بعد' : ''}{pageOnly ? ' في هذه الصفحة' : ''}</p></div></div>)}</div></section>;
 }

@@ -7,6 +7,7 @@ import Icon from '@/Components/Icon';
 import { formatMoney } from '@/lib/format';
 import { isPrintMode, printUrl } from '@/lib/print';
 import CollectionNavigation from './CollectionNavigation';
+import StatusGuide from './StatusGuide';
 import { boxTypes, currencies, dateTime, BoxEntriesTable, BoxStage, BoxTypeChip, BoxTypeIcon, CountSummary, CashBoxAction, boxAction, actionLabel } from './CollectorCashBox';
 
 /** A link that looks like the quiet outlined button. */
@@ -74,6 +75,7 @@ export default function CashBoxShow({ box, entries, collectionUrls, pendingCount
             </div>
             <section className="space-y-4">
                 <h3 className="text-lg font-bold text-gray-900">حركات الصندوق</h3>
+                <StatusGuide />
                 <BoxEntriesTable type={box.type} boxNumber={box.number} entries={entries} pagination={{ filters: {}, baseUrl: box.urls.show }} />
             </section>
         </div>

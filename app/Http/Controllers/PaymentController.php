@@ -406,9 +406,9 @@ class PaymentController extends Controller
     {
         $row = $this->cashBoxRow($box);
         $local = fn (?CarbonInterface $time): string => $time ? $time->copy()->setTimezone(config('app.business_timezone'))->format('Y-m-d H:i') : '';
-        $statuses = ['cash' => 'سارية', 'pending' => 'بانتظار التحقق', 'confirmed' => 'مؤكدة', 'missing' => 'غير موجودة في البنك', 'rejected' => 'مرفوضة'];
+        $statuses = ['missing' => 'غير موجودة في البنك', 'rejected' => 'مرفوضة'];
         $types = ['cash' => 'نقدي', 'bank_transfer' => 'حوالات بنكية', 'clearing' => 'مقاصات'];
-        $stages = ['open' => 'مفتوح', 'awaiting_branch' => 'مغلق – بانتظار تأكيد الفرع', 'awaiting_confirmation' => 'استُلم – بانتظار تأكيد التسليم', 'completed' => 'أكّد الفرع إغلاقه'];
+        $stages = ['open' => 'مفتوح', 'awaiting_branch' => 'بانتظار تأكيد الإغلاق', 'awaiting_confirmation' => 'استُلم – بانتظار تأكيد التسليم', 'completed' => 'مُغلق'];
         $safe = fn (array $cells): array => array_map(fn ($cell) => is_string($cell) && preg_match('/^[=+@\-\t\r]/u', $cell) ? "'".$cell : $cell, $cells);
 
         return response()->streamDownload(function () use ($box, $row, $entries, $local, $statuses, $types, $stages, $safe): void {
@@ -435,7 +435,7 @@ class PaymentController extends Controller
                     $index + 1, $local($entry->occurred_at), $entry->transaction->subscription->displayName(), $entry->transaction->subscription->account_number,
                     $entry->transaction->manual_voucher_number ?? $entry->transaction->voucher_number ?? '', $entry->transaction->bank_name ?? '', $entry->transaction->sender_bank_name ?? '',
                     $entry->transaction->reference_number ?? '', $entry->method === 'clearing' ? ($entry->transaction->notes ?? '') : '', $entry->currency, (float) $entry->amount,
-                    $cancelled ? 'ملغاة' : ($statuses[$entry->status] ?? $entry->status),
+                    $cancelled ? 'ملغاة' : ($statuses[$entry->status] ?? 'سارية'),
                 ]));
             }
             fclose($file);

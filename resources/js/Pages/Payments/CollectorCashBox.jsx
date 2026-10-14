@@ -10,6 +10,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatMoney } from '@/lib/format';
+import { boxStatusLabels, entryStatus } from '@/lib/financialBoxes';
 import { printUrl } from '@/lib/print';
 import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from './LedgerColumns';
 
@@ -61,7 +62,7 @@ export function BoxTypeIcon({ type, className = 'h-11 w-11' }) {
     );
 }
 
-const stages = { open: 'مفتوح', awaiting_branch: 'مغلق – بانتظار تأكيد الفرع', awaiting_confirmation: 'استُلم – أكّد التسليم', completed: 'أكّد الفرع الإغلاق' };
+const stages = { open: boxStatusLabels.open[0], awaiting_branch: boxStatusLabels.pending[0], awaiting_confirmation: 'استُلم – أكّد التسليم', completed: boxStatusLabels.received[0] };
 
 export function BoxStage({ box }) {
     return <div className="flex flex-wrap gap-2"><StatusPill tone={box.stage === 'open' ? 'blue' : box.stage === 'completed' ? 'green' : 'amber'} label={stages[box.stage]} />{box.rejectedCount > 0 && <StatusPill tone="red" label={`حركات مرفوضة: ${box.rejectedCount}`} />}</div>;
@@ -219,18 +220,6 @@ export function BoxCard({ box, type, selected = false, onSelect }) {
     );
 }
 
-const entryStatuses = { pending: ['بانتظار التحقق', 'amber'], confirmed: ['مؤكدة', 'green'], missing: ['غير موجودة في البنك', 'red'], rejected: ['مرفوضة', 'red'] };
-
-/** An entry's state: cancelled, in force (cash), or where the branch's check of the transfer or clearing stands. */
-export function entryState(type, entry) {
-    if (entry.transactionStatus !== 'active') return ['ملغاة', 'gray'];
-    if (type === 'cash') return ['سارية', 'green'];
-    if (type === 'clearing' && entry.status === 'pending') return ['بانتظار المراجعة', 'amber'];
-    if (type === 'clearing' && entry.status === 'confirmed') return ['مقبولة', 'green'];
-
-    return entryStatuses[entry.status] ?? ['سارية', 'green'];
-}
-
 /**
  * A box's entries in the site's table, each as the subscriber's statement
  * shows it (voucher, reference, banks, date, description, amount, currency,
@@ -254,7 +243,7 @@ export function BoxEntriesTable({ type, boxNumber, entries, pagination }) {
                         {entries.data.length === 0 ? (
                             <tr><td colSpan={columns.length} className="text-center text-gray-500">لا توجد حركات في هذا الصندوق.</td></tr>
                         ) : entries.data.map((entry, index) => {
-                            const [label, tone] = entryState(type, entry);
+                            const [label, tone] = entryStatus(entry);
                             const cancelled = entry.transactionStatus !== 'active';
                             const ledger = ledgerOf(entry);
 

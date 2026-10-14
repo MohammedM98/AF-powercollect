@@ -13,6 +13,7 @@ const ICONS = {
     طباعة: 'printer',
     'طباعة السند': 'printer',
     Excel: 'table',
+    'مراجعة وإغلاق': 'lock',
 };
 
 /** Actions with a color of their own: blue to edit, burgundy to delete, teal to print, green for Excel. */

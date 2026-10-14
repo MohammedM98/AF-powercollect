@@ -39,20 +39,6 @@ export function sortFinancialBoxes(boxes, { key = 'status', direction = 'asc' } 
         || statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status) || Number(a.number) - Number(b.number));
 }
 
-/** Keep employees with waiting boxes first, and direct payments last. */
-export function groupFinancialBoxes(boxes) {
-    const groups = new Map();
-    boxes.forEach((box) => {
-        const key = box.user ? String(box.user.id) : 'direct';
-        if (!groups.has(key)) {
-            groups.set(key, { key, name: boxPersonName(box), boxes: [] });
-        }
-        groups.get(key).boxes.push(box);
-    });
-    const waiting = (group) => group.boxes.filter((box) => box.status === 'pending').length;
-    return [...groups.values()].sort((a, b) => (a.key === 'direct') - (b.key === 'direct') || waiting(b) - waiting(a) || a.name.localeCompare(b.name, 'ar'));
-}
-
 /**
  * A box's status as everyone sees it, with its pill tone: still collecting,
  * closed at the weekly cutoff and waiting for the branch, or closed.

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entryStatus, financialBoxTotals, financialBoxesTotals, filterFinancialBoxes, groupFinancialBoxes, sortFinancialBoxes } from '../../resources/js/lib/financialBoxes.js';
+import { entryStatus, financialBoxTotals, financialBoxesTotals, filterFinancialBoxes, sortFinancialBoxes } from '../../resources/js/lib/financialBoxes.js';
 
 test('display totals exclude cancelled payments and keep foreign currencies separate', () => {
     const boxes = [{ payments: [
@@ -44,21 +44,6 @@ test('sorting prioritizes waiting boxes and supports numeric amounts, numbers an
     assert.deepEqual(sortFinancialBoxes(boxes, { key: 'total', direction: 'desc' }).map((box) => box.number), ['2', '10', '3']);
     assert.deepEqual(sortFinancialBoxes(boxes, { key: 'dates', direction: 'asc' }).map((box) => box.number), ['2', '3', '10']);
     assert.deepEqual(boxes.map((box) => box.number), ['10', '2', '3']);
-});
-
-test('employee groups keep same-name employees separate, waiting employees first and direct payments last', () => {
-    const boxes = [
-        { number: 1, status: 'open', user: { id: 1, name: 'أحمد' } },
-        { number: 2, status: 'pending', user: { id: 2, name: 'أحمد' } },
-        { number: 3, status: 'pending', user: { id: 2, name: 'أحمد' } },
-        { number: 4, status: 'pending', user: null },
-    ];
-
-    const groups = groupFinancialBoxes(boxes);
-
-    assert.deepEqual(groups.map((group) => group.key), ['2', '1', 'direct']);
-    assert.deepEqual(groups[0].boxes.map((box) => box.number), [2, 3]);
-    assert.equal(groups[2].name, 'الدفعات المباشرة');
 });
 
 test('an entry is in effect until cancelled, whether or not the audit has checked it yet', () => {

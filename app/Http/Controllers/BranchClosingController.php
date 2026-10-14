@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CashBoxType;
 use App\Http\Requests\BranchClosingActionRequest;
 use App\Models\AuditNote;
 use App\Models\AuditNoteReply;
@@ -112,7 +113,7 @@ class BranchClosingController extends Controller
         $data = $request->validated();
         $allowed = match ($action) {
             'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
-            'receive', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
+            'receive', 'receive-type', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
             'submit', 'withdraw', 'safe-count', 'early', 'reply', 'transfer' => BranchClosingAccess::approve($actor, $branchId),
             'start', 'settings', 'direct' => BranchClosingAccess::manage($actor, $branchId),
             default => false,
@@ -132,6 +133,8 @@ class BranchClosingController extends Controller
                     'receive' => $this->workflow->receive($box, $actor, $request->boolean('cash_counted')),
                     'confirm' => $this->workflow->confirmBox($box, $actor),
                 };
+            } elseif ($action === 'receive-type') {
+                $this->workflow->receiveType($branchId, $actor, CashBoxType::from($data['type']), $request->integer('user_id') ?: null, $request->boolean('cash_counted'));
             } elseif ($action === 'electronic') {
                 $payment = CashBoxPayment::query()->whereHas('box', fn ($query) => $query->where('branch_id', $branchId))->findOrFail($record);
                 $this->workflow->reviewEntry($payment, $actor, $data['status']);

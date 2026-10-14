@@ -115,7 +115,7 @@ class BranchClosingController extends Controller
             'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
             'receive', 'receive-type', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
             'submit', 'withdraw', 'safe-count', 'early', 'reply', 'transfer' => BranchClosingAccess::approve($actor, $branchId),
-            'start', 'settings', 'direct' => BranchClosingAccess::manage($actor, $branchId),
+            'start', 'settings' => BranchClosingAccess::manage($actor, $branchId),
             default => false,
         };
         abort_unless($allowed, 403);
@@ -138,9 +138,6 @@ class BranchClosingController extends Controller
             } elseif ($action === 'electronic') {
                 $payment = CashBoxPayment::query()->whereHas('box', fn ($query) => $query->where('branch_id', $branchId))->findOrFail($record);
                 $this->workflow->reviewEntry($payment, $actor, $data['status']);
-            } elseif ($action === 'direct') {
-                $payment = CashBoxPayment::query()->whereHas('box', fn ($query) => $query->where('branch_id', $branchId))->findOrFail($record);
-                $this->workflow->direct($payment);
             } elseif ($action === 'settings') {
                 $this->workflow->changeSettings($branchId, $actor, $data);
             } elseif ($action === 'repay') {

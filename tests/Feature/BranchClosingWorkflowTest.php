@@ -341,24 +341,6 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertSame('0.00', app(BranchClosingWorkflow::class)->balance($branch->id)['ILS']);
     }
 
-    public function test_direct_payment_box_can_only_close_at_cutoff_and_needs_no_cash_count(): void
-    {
-        [$branch, $head] = $this->start();
-        $this->payment($branch, $head, method: 'bank_transfer');
-        $entry = CashBoxPayment::query()->sole();
-        $this->action($head, $branch, 'direct', $entry->id)->assertSessionHasNoErrors();
-        $box = $entry->fresh()->box;
-        $closing = $box->closing;
-
-        $this->action($head, $branch, 'receive', $box->id)->assertSessionHasErrors('action');
-        $this->travelTo($closing->coverage_until);
-        $this->artisan('closings:process')->assertSuccessful();
-        $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
-
-        $this->assertSame('received', $box->fresh()->status);
-        $this->assertNotNull($box->fresh()->confirmed_at);
-    }
-
     public function test_transfer_requires_proof_and_confirmation_does_not_move_cash_twice(): void
     {
         Storage::fake('local');
@@ -471,23 +453,6 @@ class BranchClosingWorkflowTest extends TestCase
         $this->postJson(route('mobile.collections.store'), [...$data, 'collected_at' => now()->toIso8601String()])->assertCreated()->assertJsonPath('id', $response->json('id'));
         $this->assertDatabaseCount('cash_box_payments', 1);
         $this->assertTrue($entry->fresh()->occurred_at->equalTo($originalTime));
-    }
-
-    public function test_direct_box_with_unconfirmed_electronic_payments_does_not_block_cash_submission(): void
-    {
-        [$branch, $head, $collector] = $this->start();
-        $this->payment($branch, $head, '20', 'ILS', 'bank_transfer');
-        $entry = CashBoxPayment::query()->sole();
-        $this->action($head, $branch, 'direct', $entry->id)->assertSessionHasNoErrors();
-        $closing = $entry->fresh()->box->closing;
-        $this->travelTo($closing->coverage_until);
-        $this->artisan('closings:process')->assertSuccessful();
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
-
-        $this->assertSame('submitted', $closing->fresh()->status->value);
-        $this->assertSame('pending', $entry->fresh()->status);
-        $this->assertSame(1, app(BranchClosingWorkflow::class)->reviewSummary($closing->fresh())['pendingElectronic']);
     }
 
     public function test_audit_shortage_requires_decision_and_creates_debt_once_without_changing_snapshot(): void

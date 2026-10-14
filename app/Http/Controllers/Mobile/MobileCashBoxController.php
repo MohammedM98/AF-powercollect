@@ -27,7 +27,7 @@ class MobileCashBoxController extends Controller
         if ($started) {
             $this->workflow->refresh($actor->branch_id);
         }
-        $boxes = CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('kind', '!=', 'direct')->with(['payments.transaction:id,subscription_id,reference_number,bank_name,sender_bank_name,voucher_number,notes,status', 'payments.transaction.subscription:id,full_name,subscription_name,account_number'])->latest('id')->limit(100)->get()
+        $boxes = CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->with(['payments.transaction:id,subscription_id,reference_number,bank_name,sender_bank_name,voucher_number,notes,status', 'payments.transaction.subscription:id,full_name,subscription_name,account_number'])->latest('id')->limit(100)->get()
             ->map(function (CashBox $box): array {
                 $row = $box->toArray();
                 $row['stage'] = $box->stage();

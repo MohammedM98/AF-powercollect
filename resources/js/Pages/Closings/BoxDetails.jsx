@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from '@inertiajs/react';
+import ConfirmDialog from '@/Components/ConfirmDialog';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
 import ColumnWidths, { fixedTableStyle } from '@/Components/DataTable/ColumnWidths';
 import StatusPill from '@/Components/DataTable/StatusPill';
@@ -65,6 +66,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [cashCounted, setCashCounted] = useState(false);
+    const [confirmingClose, setConfirmingClose] = useState(false);
     const type = box.type ?? 'cash';
     const cash = type === 'cash';
     const clearing = type === 'clearing';
@@ -178,11 +180,20 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
                 <p className="text-sm text-gray-600">الإجمالي: <b className="text-gray-900">{amountsLine(totals)}</b> · {active.length} حركة سارية</p>
                 <div className="flex flex-wrap items-center gap-2">
                     <SecondaryButton onClick={onClose}>إغلاق النافذة</SecondaryButton>
-                    {confirmable && <PrimaryButton disabled={entries.length === 0 || (cash && !cashCounted)} onClick={() => perform('receive', box, cash ? { cash_counted: true } : {})}><Icon name="check" className="h-4 w-4" />تأكيد إغلاق الصندوق</PrimaryButton>}
+                    {confirmable && <PrimaryButton disabled={entries.length === 0 || (cash && !cashCounted)} onClick={() => setConfirmingClose(true)}><Icon name="check" className="h-4 w-4" />تأكيد إغلاق الصندوق</PrimaryButton>}
                     {confirmsDelivery && <PrimaryButton onClick={() => perform('confirm', box)}>أؤكّد تسليم الصندوق</PrimaryButton>}
                 </div>
             </div>
         </footer>
+        <ConfirmDialog
+            show={confirmingClose}
+            onCancel={() => setConfirmingClose(false)}
+            onConfirm={() => { setConfirmingClose(false); perform('receive', box, cash ? { cash_counted: true } : {}); }}
+            title="إغلاق الصندوق؟"
+            message={<>سيُغلق {boxTypes[type]} رقم <bdi dir="ltr">{box.number}</bdi> لـ{box.user?.name ?? 'الدفعات المباشرة'} بإجمالي <b className="text-gray-900">{amountsLine(totals)}</b> ({active.length} حركة سارية).{cash ? ' وأنت تؤكد أنك عددت نقده ووجدته مطابقًا لإجماليه.' : ''} بعد الإغلاق تُقفل حركاته فلا يستطيع المحصّل تعديلها، وينتقل إلى قسم التدقيق.</>}
+            confirmLabel="نعم، أغلق الصندوق"
+            icon="lock"
+        />
     </Modal>;
 }
 

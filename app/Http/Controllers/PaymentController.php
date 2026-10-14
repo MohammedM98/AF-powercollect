@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\CashBoxType;
 use App\Enums\ChargeType;
+use App\Enums\ClosingStatus;
 use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
@@ -16,6 +17,7 @@ use App\Models\AuditNote;
 use App\Models\CashBox;
 use App\Models\CashBoxPayment;
 use App\Models\Closing;
+use App\Models\ClosingConfirmation;
 use App\Models\ClosingSetting;
 use App\Models\CollectorDebt;
 use App\Models\MeterBox;
@@ -130,6 +132,7 @@ class PaymentController extends Controller
             'current' => $cashBox['current'],
             'openBox' => $this->openBoxEntries($request, $cashBox['current']),
             'needsAction' => $cashBox['needsAction'],
+            'weeklyConfirmations' => $this->waitingWeeklyConfirmations($actor),
             ...$this->collectionCounts($actor),
             'collectionUrls' => $this->collectionUrls(),
         ]);
@@ -460,6 +463,24 @@ class PaymentController extends Controller
     }
 
     /**
+     * The weekly closings the actor's branch closed that wait on the actor
+     * to confirm their boxes in them, oldest first.
+     *
+     * @return list<array{id: int, coverage_from: mixed, coverage_until: mixed, url: string}>
+     */
+    private function waitingWeeklyConfirmations(User $actor): array
+    {
+        if (! $actor->branch_id) {
+            return [];
+        }
+
+        return Closing::query()->where('branch_id', $actor->branch_id)->where('status', ClosingStatus::Locked)
+            ->whereHas('confirmations', fn (Builder $query) => $query->where('user_id', $actor->id)->whereNull('confirmed_at'))
+            ->orderBy('coverage_from')->get(['id', 'coverage_from', 'coverage_until', 'workflow_settings'])
+            ->map(fn (Closing $closing): array => [...$closing->only(['id', 'coverage_from', 'coverage_until', 'workflow_settings']), 'url' => route('weekly-packages.index', ['closing_id' => $closing->id, 'year' => $closing->coverage_from->setTimezone(config('app.business_timezone'))->year])])->all();
+    }
+
+    /**
      * The audit notes of the actor's branch waiting on the actor's answer.
      *
      * @return Builder<AuditNote>
@@ -490,7 +511,8 @@ class PaymentController extends Controller
 
     /**
      * The badge on the collector's pages: what waits on the actor on the
-     * summary page (a handover left to confirm, audit notes to answer).
+     * summary page (a handover left to confirm, audit notes to answer) and
+     * the weekly closings the branch closed that wait on their confirmation.
      *
      * @return array{pendingCount: int}
      */
@@ -501,7 +523,8 @@ class PaymentController extends Controller
         }
 
         return [
-            'pendingCount' => $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count() + $this->waitingAuditNotes($actor)->count(),
+            'pendingCount' => $this->ownBoxQuery($actor)->where('type', CashBoxType::Cash)->where('status', 'received')->whereNull('confirmed_at')->count() + $this->waitingAuditNotes($actor)->count()
+                + ClosingConfirmation::query()->where('user_id', $actor->id)->whereNull('confirmed_at')->whereHas('closing', fn (Builder $query) => $query->where('branch_id', $actor->branch_id)->where('status', ClosingStatus::Locked))->count(),
         ];
     }
 

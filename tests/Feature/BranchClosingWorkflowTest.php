@@ -182,16 +182,16 @@ class BranchClosingWorkflowTest extends TestCase
         $this->receiveBox($branch, $head, $box);
         $this->travelTo($closing->coverage_until);
 
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasErrors('action');
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasErrors('action');
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $snapshot = $closing->fresh()->submitted_snapshot;
         $this->payment($branch, $collector, '9');
 
         $this->assertSame($snapshot, $closing->fresh()->submitted_snapshot);
-        $this->assertSame('submitted', $closing->fresh()->status->value);
+        $this->assertSame('locked', $closing->fresh()->status->value);
         $this->assertDatabaseCount('closing_versions', 1);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasErrors('action');
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasErrors('action');
     }
 
     public function test_withdrawal_preserves_versions_and_is_forbidden_after_audit_opens(): void
@@ -200,16 +200,16 @@ class BranchClosingWorkflowTest extends TestCase
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
         $this->travelTo($closing->coverage_until);
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')]);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true]);
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true]);
 
         $this->action($head, $branch, 'withdraw', $closing->id)->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
         $this->assertDatabaseCount('closing_versions', 2);
         $this->assertNotNull(ClosingVersion::query()->where('version', 1)->sole()->withdrawn_at);
         $closing->refresh()->update(['reviewed_at' => now()]);
         $this->action($head, $branch, 'withdraw', $closing->id)->assertSessionHasErrors('action');
-        $this->assertSame('submitted', $closing->fresh()->status->value);
+        $this->assertSame('locked', $closing->fresh()->status->value);
     }
 
     public function test_early_closing_joins_the_remaining_days_to_the_next_week(): void
@@ -258,7 +258,7 @@ class BranchClosingWorkflowTest extends TestCase
         $occurred = now()->addHour();
         $this->travelTo($closing->coverage_until);
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')]);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true]);
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true]);
         $snapshot = $closing->fresh()->submitted_snapshot;
 
         $this->payment($branch, $collector, extra: ['created_at' => $occurred]);
@@ -275,7 +275,7 @@ class BranchClosingWorkflowTest extends TestCase
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
         $this->travelTo($closing->coverage_until);
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')]);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true]);
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true]);
         $note = AuditNote::factory()->create(['closing_id' => $closing->id]);
         $snapshot = $closing->fresh()->submitted_snapshot;
 
@@ -298,9 +298,9 @@ class BranchClosingWorkflowTest extends TestCase
         $this->travelTo($closing->coverage_until);
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts()]);
 
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
-        $this->assertNotNull($closing->fresh()->submitted_at);
+        $this->assertSame('locked', $closing->fresh()->status->value);
         $this->assertContains('1 صندوق استُلم ولم يؤكّد صاحبه التسليم بعد.', $closing->fresh()->submitted_snapshot['warnings']);
     }
 
@@ -331,7 +331,7 @@ class BranchClosingWorkflowTest extends TestCase
         $this->action($head, $branch, 'receive', $box->id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')]);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $snapshot = $closing->fresh()->submitted_snapshot;
 
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
@@ -464,7 +464,7 @@ class BranchClosingWorkflowTest extends TestCase
         $closing = $box->closing;
         $this->travelTo($closing->coverage_until);
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $snapshot = $closing->fresh()->submitted_snapshot;
         $note = AuditNote::factory()->create(['closing_id' => $closing->id, 'cash_box_id' => $box->id, 'differences' => ['USD' => '-10.00']]);
 
@@ -492,7 +492,7 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertSame([], app(BranchClosingWorkflow::class)->reviewSummary($closing)['unsyncedCollectors']);
         $this->withToken($token)->postJson(route('mobile.cash-boxes.sync'), ['pending_payments' => 2])->assertOk();
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $this->assertSame([$collector->id], array_column($closing->fresh()->submitted_snapshot['unsyncedCollectors'], 'id'));
     }
 }

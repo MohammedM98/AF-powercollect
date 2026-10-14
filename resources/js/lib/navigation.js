@@ -12,6 +12,7 @@ export const MAIN_LINKS = [
     { href: '/payments/entries', label: 'الحركات', icon: 'list', can: 'viewCashBoxes' },
     { href: '/ledger', label: 'السجل المالي', icon: 'ledger', can: 'viewLedger' },
     { href: '/reconciliation', label: 'الخزنة والكشوفات', icon: 'bank', can: 'viewBranchReconciliation' },
+    { href: '/weekly-packages', label: 'الإغلاق الأسبوعي', icon: 'layers', can: 'viewWeeklyClosings' },
     { href: '/receivables', label: 'أعمار الديون', icon: 'wallet', can: 'viewDebtAging' },
     { href: '/transaction-audit', label: 'سجل التدقيق', icon: 'history', can: 'viewTransactionAudit' },
     { href: '/branch-performance', label: 'أداء الفروع', icon: 'trend', can: 'viewBranchPerformance' },
@@ -37,7 +38,7 @@ const linksByHref = new Map([...MAIN_LINKS, ...SETTINGS_LINKS].map((link) => [li
 
 export const NAVIGATION_GROUPS = [
     { id: 'daily', label: 'العمل اليومي', icon: 'users', defaultOpen: true, hrefs: ['/subscriptions', '/meter-readings', '/messages'] },
-    { id: 'finance', label: 'المالية والتحصيل', icon: 'wallet', defaultOpen: true, hrefs: ['/payments', '/payments/summary', '/payments/cash-boxes', '/payments/entries', '/ledger', '/receivables', '/reconciliation'] },
+    { id: 'finance', label: 'المالية والتحصيل', icon: 'wallet', defaultOpen: true, hrefs: ['/payments', '/payments/summary', '/payments/cash-boxes', '/payments/entries', '/ledger', '/receivables', '/reconciliation', '/weekly-packages'] },
     { id: 'reports', label: 'التقارير والرقابة', icon: 'trend', hrefs: ['/reports', '/branch-performance', '/transaction-audit'] },
     { id: 'infrastructure', label: 'الفروع والبنية الكهربائية', icon: 'bolt', hrefs: ['/branches', '/governorates', '/meter-boxes', '/circuit-breakers'] },
     { id: 'administration', label: 'الإدارة والإعدادات', icon: 'cog', hrefs: ['/users', '/settings/permissions', '/tariffs', '/settings/reading-schedule', '/settings/print-templates'] },

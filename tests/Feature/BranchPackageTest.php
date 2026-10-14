@@ -74,7 +74,7 @@ class BranchPackageTest extends TestCase
         $entry = $this->entry($branch, $collector);
         $this->travelTo($closing->coverage_until);
 
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
         $snapshot = $closing->fresh()->submitted_snapshot;
         $this->assertSame($entry->cash_box_id, $snapshot['carriedOut']['boxes'][0]['id']);
@@ -101,7 +101,7 @@ class BranchPackageTest extends TestCase
         $this->action($head, $branch, 'receive', $rejected->cash_box_id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
 
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
         $snapshot = $closing->fresh()->submitted_snapshot;
         $this->assertEqualsCanonicalizing([$missing->id, $rejected->id], array_column($snapshot['carriedOut']['entries'], 'id'));
@@ -121,16 +121,16 @@ class BranchPackageTest extends TestCase
         $workflow = app(BranchClosingWorkflow::class);
         $this->assertFalse($workflow->holdsCash($branch->id));
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $next = $workflow->current($branch->id);
         $entry = $this->entry($branch, $collector);
         $this->receiveCash($branch, $head, $collector, $entry->box);
         $this->travelTo($next->coverage_until);
 
-        $this->action($head, $branch, 'submit', $next->id, ['acknowledged' => true])->assertSessionHasErrors('action');
+        $this->action($head, $branch, 'lock', $next->id, ['acknowledged' => true])->assertSessionHasErrors('action');
         $this->assertTrue($workflow->holdsCash($branch->id));
         $this->action($head, $branch, 'safe-count', $next->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'submit', $next->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $next->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('safe_counts', ['closing_id' => $next->id]);
     }
 
@@ -165,7 +165,7 @@ class BranchPackageTest extends TestCase
         [$branch, $head, $collector, $closing] = $this->start();
         $entry = $this->entry($branch, $collector);
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $unsent = app(BranchClosingWorkflow::class)->current($branch->id);
         $this->travelTo($unsent->coverage_until);
         app(BranchClosingWorkflow::class)->refresh($branch->id);
@@ -223,7 +223,7 @@ class BranchPackageTest extends TestCase
             ->where('package.version', 2)->where('package.boxes.0.payments.0.amount', '100.00')->where('package.boxes.0.expected_counts.ILS', '100.00')
             ->where('package.boxes.0.payments.0.statement_url', route('subscriptions.statement', $entry->transaction->subscription))
             ->has('warnings', 1)->where('holdsCash', false));
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $this->receiveCash($branch, $head, $collector, $entry->box);
 
         $this->actingAs($head)->get($url)->assertInertia(fn (AssertableInertia $page) => $page
@@ -239,7 +239,7 @@ class BranchPackageTest extends TestCase
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
 
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('closing_payments', ['subscription_transaction_id' => $entry->subscription_transaction_id, 'closing_id' => $closing->id]);
         $this->assertTrue($entry->transaction->fresh()->isInClosedDay());
@@ -265,7 +265,7 @@ class BranchPackageTest extends TestCase
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'missing'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $next = app(BranchClosingWorkflow::class)->current($branch->id);
 
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
@@ -287,7 +287,7 @@ class BranchPackageTest extends TestCase
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
 
         $this->receiveCash($branch, $head, $collector, $late->box);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
         $next = app(BranchClosingWorkflow::class)->current($branch->id);
         $this->assertSame($next->id, $late->box->fresh()->received_in_closing_id);

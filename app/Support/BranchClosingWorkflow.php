@@ -39,6 +39,8 @@ class BranchClosingWorkflow
 {
     public const CURRENCIES = ['ILS', 'USD', 'JOD'];
 
+    public const PREVIOUS_WEEK_OPEN = 'أغلق الأسبوع السابق أولًا.';
+
     public const ENTRY_DETAILS = [
         'transaction:id,subscription_id,reference_number,bank_name,sender_bank_name,voucher_number,manual_voucher_number,notes,status',
         'transaction.subscription:id,account_number,full_name,subscription_name',
@@ -403,14 +405,14 @@ class BranchClosingWorkflow
     }
 
     /**
-     * The package that settles a box received now: the earliest week not yet
-     * sent, from the box's own week on. Cash never settles in a week whose
+     * The package that settles a box received now: the earliest week the
+     * branch has not closed yet, from the box's own week on. Cash never settles in a week whose
      * safe is already counted, so the count always matches the cash the
      * package says was received; it goes to the next week instead.
      */
     private function settlingClosing(CashBox $box): Closing
     {
-        return Closing::query()->where('branch_id', $box->branch_id)->whereNotNull('workflow_settings')->whereNull('submitted_at')
+        return Closing::query()->where('branch_id', $box->branch_id)->whereNotNull('workflow_settings')->whereNull('submitted_snapshot')
             ->where('coverage_from', '>=', $box->closing->coverage_from)
             ->when($box->type === CashBoxType::Cash, fn ($query) => $query->whereNotIn('id', SafeCount::query()->select('closing_id')))
             ->orderBy('coverage_from')->orderBy('id')->first() ?? $this->current($box->branch_id);
@@ -638,8 +640,8 @@ class BranchClosingWorkflow
         if ($closing->coverage_until->greaterThan(now())) {
             $blockers[] = 'لم يصل وقت القطع بعد.';
         }
-        if (Closing::query()->where('branch_id', $closing->branch_id)->whereNotNull('workflow_settings')->where('coverage_from', '<', $closing->coverage_from)->whereIn('book', [$closing->book, 'combined', ...($closing->book === 'combined' ? ['cash', 'bank'] : [])])->whereNull('submitted_at')->exists()) {
-            $blockers[] = 'أرسل الإغلاق السابق أولًا.';
+        if (Closing::query()->where('branch_id', $closing->branch_id)->whereNotNull('workflow_settings')->where('coverage_from', '<', $closing->coverage_from)->whereIn('book', [$closing->book, 'combined', ...($closing->book === 'combined' ? ['cash', 'bank'] : [])])->whereNull('submitted_snapshot')->exists()) {
+            $blockers[] = self::PREVIOUS_WEEK_OPEN;
         }
         if ($closing->book !== 'bank' && $this->holdsCash($closing->branch_id) && ! SafeCount::query()->where('closing_id', $closing->id)->exists()) {
             $blockers[] = 'الفرع يحتفظ بكاش: جرد الخزنة مطلوب قبل الإرسال.';
@@ -725,7 +727,13 @@ class BranchClosingWorkflow
         ];
     }
 
-    public function submit(Closing $closing, User $actor, ?string $notes): void
+    /**
+     * The branch closes the week it looked over: its figures freeze in a new
+     * version, its payments can no longer change, and each collector with a
+     * box in it is asked to confirm it before the week goes to audit. The
+     * one closing it confirms their own boxes by closing it.
+     */
+    public function lock(Closing $closing, User $actor, ?string $notes): void
     {
         $this->editableEnded($closing);
         $blockers = $this->blockers($closing);
@@ -733,24 +741,99 @@ class BranchClosingWorkflow
         $snapshot = $this->snapshot($closing);
         $version = (int) ClosingVersion::query()->where('closing_id', $closing->id)->max('version') + 1;
         ClosingVersion::query()->create(['closing_id' => $closing->id, 'version' => $version, 'snapshot' => $snapshot, 'user_id' => $actor->id, 'notes' => $notes]);
-        $closing->update(['status' => ClosingStatus::Submitted, 'branch_approved_by' => $actor->id, 'branch_approved_at' => now(), 'branch_notes' => $notes, 'submitted_at' => now(), 'submitted_snapshot' => $snapshot]);
+        $closing->update(['status' => ClosingStatus::Locked, 'branch_approved_by' => $actor->id, 'branch_approved_at' => now(), 'branch_notes' => $notes, 'submitted_snapshot' => $snapshot]);
         $payments = CashBoxPayment::query()->where(fn ($query) => $query
             ->where(fn ($cash) => $cash->where('method', 'cash')->whereHas('box', fn ($boxes) => $boxes->where('received_in_closing_id', $closing->id)))
             ->orWhere('confirmed_in_closing_id', $closing->id))->get();
         foreach ($payments as $payment) {
             ClosingPayment::query()->firstOrCreate(['subscription_transaction_id' => $payment->subscription_transaction_id], ['closing_id' => $closing->id]);
         }
-        $closing->events()->create(['user_id' => $actor->id, 'action' => 'branch_submitted', 'description' => 'أُرسلت النسخة '.$version]);
+        foreach ($this->collectorsToConfirm($closing, $snapshot) as $collector) {
+            $own = $collector->id === $actor->id;
+            $closing->confirmations()->create(['user_id' => $collector->id, 'confirmed_at' => $own ? now() : null]);
+            if (! $own) {
+                $collector->notify(new BranchClosingNotification('أغلق الفرع الإغلاق الأسبوعي؛ راجع صناديقك فيه وأكّدها.', $closing->number, ['closing_id' => $closing->id]));
+            }
+        }
+        $closing->events()->create(['user_id' => $actor->id, 'action' => 'branch_locked', 'description' => 'أُغلق الأسبوع وثُبّتت النسخة '.$version]);
+    }
+
+    /**
+     * The people whose boxes the closed week holds who can still confirm
+     * it: active and still in the branch.
+     *
+     * @param  array<string, mixed>  $snapshot
+     * @return EloquentCollection<int, User>
+     */
+    private function collectorsToConfirm(Closing $closing, array $snapshot): EloquentCollection
+    {
+        $userIds = collect([...($snapshot['boxes'] ?? []), ...($snapshot['carriedIn'] ?? [])])
+            ->filter(fn (array $box): bool => ($box['payments'] ?? []) !== [])->pluck('user_id')->filter()->unique();
+
+        return User::query()->whereIn('id', $userIds)->where('is_active', true)->where('branch_id', $closing->branch_id)->orderBy('id')->get();
+    }
+
+    /**
+     * A collector confirms the boxes the closed week holds of theirs.
+     */
+    public function acknowledge(Closing $closing, User $actor): void
+    {
+        $this->require($closing->status === ClosingStatus::Locked, 'لا ينتظر هذا الإغلاق تأكيدك.');
+        $confirmation = $closing->confirmations()->where('user_id', $actor->id)->first();
+        $this->require($confirmation !== null && $confirmation->confirmed_at === null, 'لا ينتظر هذا الإغلاق تأكيدك.');
+        $confirmation->update(['confirmed_at' => now()]);
+        $closing->events()->create(['user_id' => $actor->id, 'action' => 'collector_confirmed', 'description' => 'أكّد المحصّل صناديقه في الإغلاق.']);
+    }
+
+    /**
+     * What still keeps a closed week from going to audit: collectors who
+     * have not confirmed it, and earlier weeks not sent yet.
+     *
+     * @return list<string>
+     */
+    public function sendBlockers(Closing $closing): array
+    {
+        if ($closing->status !== ClosingStatus::Locked) {
+            return ['أغلق الأسبوع أولًا.'];
+        }
+        $waiting = $closing->confirmations()->whereNull('confirmed_at')
+            ->whereHas('user', fn ($query) => $query->where('is_active', true)->where('branch_id', $closing->branch_id))
+            ->with('user:id,name')->get();
+        $earlier = Closing::query()->where('branch_id', $closing->branch_id)->whereNotNull('workflow_settings')
+            ->where('coverage_from', '<', $closing->coverage_from)->whereNull('submitted_at')->exists();
+
+        return array_values(array_filter([
+            $waiting->isNotEmpty() ? 'بانتظار تأكيد: '.$waiting->map(fn ($confirmation): string => $confirmation->user->name)->implode('، ').'.' : null,
+            $earlier ? 'أرسل الأسابيع السابقة للتدقيق أولًا.' : null,
+        ]));
+    }
+
+    /**
+     * The branch sends the week it closed, once its collectors confirmed it,
+     * to audit.
+     */
+    public function submit(Closing $closing, User $actor): void
+    {
+        $blockers = $this->sendBlockers($closing);
+        $this->require($blockers === [], implode(' ', $blockers));
+        $closing->update(['status' => ClosingStatus::Submitted, 'submitted_at' => now()]);
+        $closing->events()->create(['user_id' => $actor->id, 'action' => 'branch_submitted', 'description' => 'أُرسل الإغلاق الأسبوعي للتدقيق.']);
         foreach (User::query()->where('is_active', true)->where('role', UserRole::FinancialAuditor)->get() as $auditor) {
             $auditor->notify(new BranchClosingNotification('إغلاق فرع بانتظار التدقيق', $closing->number));
         }
     }
 
+    /**
+     * The branch reopens a week it closed, before audit opens it: its
+     * frozen version is kept, the collectors' confirmations are dropped,
+     * and closing it again freezes a new version.
+     */
     public function withdraw(Closing $closing, User $actor): void
     {
-        $this->require($closing->status === ClosingStatus::Submitted && ! $closing->reviewed_at && ! $closing->reviewed_by && ! AuditNote::query()->where('closing_id', $closing->id)->exists(), 'لا يمكن السحب بعد فتح التدقيق للإغلاق.');
+        $this->require(in_array($closing->status, [ClosingStatus::Locked, ClosingStatus::Submitted], true) && ! $closing->reviewed_at && ! $closing->reviewed_by && ! AuditNote::query()->where('closing_id', $closing->id)->exists(), 'لا يمكن السحب بعد فتح التدقيق للإغلاق.');
         ClosingVersion::query()->where('closing_id', $closing->id)->whereNull('withdrawn_at')->update(['withdrawn_at' => now()]);
         $closing->lines()->delete();
+        $closing->confirmations()->delete();
         $closing->update(['status' => ClosingStatus::Draft, 'submitted_snapshot' => null, 'submitted_at' => null, 'branch_approved_at' => null, 'branch_approved_by' => null]);
         $closing->events()->create(['user_id' => $actor->id, 'action' => 'branch_withdrawn', 'description' => 'سُحب الإغلاق قبل فتحه للتدقيق.']);
     }

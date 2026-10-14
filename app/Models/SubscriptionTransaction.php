@@ -803,6 +803,7 @@ class SubscriptionTransaction extends Model
         return ClosingPayment::query()
             ->where('subscription_transaction_id', $originalId)
             ->whereHas('closing', fn (Builder $query): Builder => $query->whereIn('status', [
+                ClosingStatus::Locked->value,
                 ClosingStatus::Submitted->value,
                 ClosingStatus::Approved->value,
             ]))
@@ -1204,6 +1205,7 @@ class SubscriptionTransaction extends Model
         return ClosingPayment::query()
             ->where('subscription_transaction_id', $this->id)
             ->whereHas('closing', fn (Builder $query): Builder => $query->whereIn('status', [
+                ClosingStatus::Locked->value,
                 ClosingStatus::Submitted->value,
                 ClosingStatus::Approved->value,
             ]))

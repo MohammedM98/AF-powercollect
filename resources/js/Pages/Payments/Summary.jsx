@@ -7,6 +7,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
 import CollectionNavigation from './CollectionNavigation';
+import { periodLabel, periodRange } from '../Closings/ClosingComponents';
 import {
     boxTypes,
     boxTypeStyles,
@@ -137,7 +138,7 @@ function OpenBoxEntries({ current, openBox, onSelect, pagination }) {
  * debts), the boxes open now with every entry in them, and their latest
  * payments today with receipts.
  */
-export default function Summary({ today, cashBox, current, openBox, needsAction, pendingCount, collectionUrls }) {
+export default function Summary({ today, cashBox, current, openBox, needsAction, weeklyConfirmations = [], pendingCount, collectionUrls }) {
     const [selected, setSelected] = useState(null);
     const [saved, setSaved] = useState(null);
 
@@ -154,6 +155,10 @@ export default function Summary({ today, cashBox, current, openBox, needsAction,
             {needsAction.length > 0 && <section className="space-y-3 rounded-panel border border-amber-500/25 bg-amber-500/5 p-5">
                 <h3 className="font-bold text-gray-900">تحتاج إجراء منك</h3>
                 {needsAction.map((box) => <div key={box.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-amber-500/15 pt-3"><div className="flex items-center gap-3"><BoxTypeIcon type={box.type} className="h-10 w-10" /><div className="space-y-2"><Link href={box.urls.show} prefetch className="font-semibold text-gray-900">{boxTypes[box.type]} · <bdi dir="ltr" className="font-display text-xs">{box.number}</bdi></Link><BoxStage box={box} /></div></div><PrimaryButton onClick={() => setSelected({ box, action: boxAction(box) })}>{actionLabel(box)}</PrimaryButton></div>)}
+            </section>}
+            {weeklyConfirmations.length > 0 && <section className="space-y-3 rounded-panel border border-amber-500/25 bg-amber-500/5 p-5">
+                <h3 className="font-bold text-gray-900">إغلاق أسبوعي ينتظر تأكيدك</h3>
+                {weeklyConfirmations.map((week) => <div key={week.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-amber-500/15 pt-3"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600"><Icon name="layers" className="h-5 w-5" /></span><div><p className="font-semibold text-gray-900">{periodLabel(week)}</p><p className="text-xs text-gray-500">{periodRange(week)} · أغلقه الفرع، راجع صناديقك فيه وأكّدها.</p></div></div><Link href={week.url} className="inline-flex items-center gap-2 rounded-control bg-gray-900 px-4 py-2 text-sm font-semibold text-surface">مراجعة وتأكيد</Link></div>)}
             </section>}
             <CollectorAuditNotes notes={cashBox.auditNotes} onSaved={() => setSaved('أُرسل ردّك إلى الفرع.')} />
             <CollectorDebts debts={cashBox.debts} />

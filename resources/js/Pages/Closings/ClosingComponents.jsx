@@ -53,8 +53,8 @@ export function Panel({ title, hint, icon, children }) {
 
 
 export function ClosingStepper({ closing }) {
-    const labels = ['مفتوح', 'جاهز للمراجعة', 'مُرسل', 'قيد التدقيق', closing.open_notes_count > 0 ? 'بملاحظات' : 'مقبول'];
-    const stage = closing.open_notes_count > 0 || closing.status === 'approved' ? 4 : closing.submitted_snapshot ? (closing.reviewed_at ? 3 : 2) : new Date(closing.coverage_until) > new Date() ? 0 : 1;
+    const labels = ['مفتوح', 'جاهز للإغلاق', 'مغلق · تأكيد المحصّلين', closing.reviewed_at ? 'قيد التدقيق' : 'مُرسل للتدقيق', closing.open_notes_count > 0 ? 'بملاحظات' : 'مقبول'];
+    const stage = closing.open_notes_count > 0 || closing.status === 'approved' ? 4 : closing.submitted_at ? 3 : closing.submitted_snapshot ? 2 : new Date(closing.coverage_until) > new Date() ? 0 : 1;
     return <ol className="stp">{labels.map((label, index) => <li key={label} className={index < stage ? 'done' : index === stage ? `on ${closing.open_notes_count > 0 ? 'bad' : ''}` : ''}><span>{index < stage ? <Icon name="check" /> : index + 1}</span><b>{label}</b></li>)}</ol>;
 }
 

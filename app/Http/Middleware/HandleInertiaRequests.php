@@ -75,6 +75,7 @@ class HandleInertiaRequests extends Middleware
                 'viewCashBoxes' => $user->can('viewOwnCashBoxes', Subscription::class) || BranchClosingAccess::view($user),
                 'viewLedger' => $user->can('viewAny', SubscriptionTransaction::class),
                 'viewBranchReconciliation' => BranchClosingAccess::view($user),
+                'viewWeeklyClosings' => BranchClosingAccess::view($user) || ($user->branch_id !== null && $user->can('viewOwnCashBoxes', Subscription::class)),
                 'viewBranchPerformance' => $user->can('viewBranchPerformance', SubscriptionTransaction::class),
                 'viewDebtAging' => $user->can('viewDebtAging', SubscriptionTransaction::class),
                 'viewTransactionAudit' => $user->can('viewTransactionAudit', SubscriptionTransaction::class),

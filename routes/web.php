@@ -42,6 +42,7 @@ use App\Http\Controllers\TariffSegmentController;
 use App\Http\Controllers\TransactionAuditController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserTypeController;
+use App\Http\Controllers\WeeklyClosingController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -63,6 +64,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments/cash-boxes/{cashBox}', [PaymentController::class, 'showCashBox'])->whereNumber('cashBox')->name('payments.cash-boxes.show');
     Route::post('/payments/audit-notes/{auditNote}/reply', [PaymentController::class, 'replyToAuditNote'])->whereNumber('auditNote')->name('payments.audit-notes.reply');
     Route::get('/reconciliation', [BranchClosingController::class, 'index'])->name('closings.index');
+    Route::get('/weekly-packages', [WeeklyClosingController::class, 'index'])->name('weekly-packages.index');
     Route::post('/reconciliation/actions/{action}/{record?}', [BranchClosingController::class, 'action'])->whereNumber('record')->name('closings.actions');
     Route::get('/reconciliation/proofs/{kind}/{record}', [BranchClosingController::class, 'proof'])->whereNumber('record')->name('closings.proofs');
     Route::post('/reconciliation/transfer-receipts/{transfer}', [BranchClosingController::class, 'transferReceipt'])->name('closings.transfer-receipts');

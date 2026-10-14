@@ -386,14 +386,17 @@ class BranchClosingWorkflow
     }
 
     /**
-     * The branch confirms every open box of one type closed at once, or
-     * only one person's when `$userId` is given, each as `receive()`
-     * confirms a single box.
+     * The branch confirms the open boxes of one type it picked closed at
+     * once (`$boxIds`), each as `receive()` confirms a single box. Nothing
+     * is closed when any of them is no longer open or not the actor's to
+     * close.
+     *
+     * @param  list<int>  $boxIds
      */
-    public function receiveType(int $branchId, User $actor, CashBoxType $type, ?int $userId = null, bool $cashCounted = false): void
+    public function receiveType(int $branchId, User $actor, CashBoxType $type, array $boxIds, bool $cashCounted = false): void
     {
-        $boxes = $this->closableBoxes($branchId, $actor, $type, $userId);
-        $this->require($boxes->isNotEmpty(), 'لا توجد صناديق مفتوحة من هذا النوع يمكنك إغلاقها.');
+        $boxes = $this->closableBoxes($branchId, $actor, $type)->whereIn('id', $boxIds);
+        $this->require($boxIds !== [] && $boxes->count() === count(array_unique($boxIds)), 'بعض الصناديق المختارة لم تعد مفتوحة أو لا يمكنك إغلاقها.');
         foreach ($boxes as $box) {
             $this->receive($box, $actor, $cashCounted);
         }

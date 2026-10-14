@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\CashBoxType;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,8 +26,11 @@ class BranchClosingActionRequest extends FormRequest
     {
         $action = $this->route('action');
         $rules = ['branch_id' => ['required', 'integer', 'exists:branches,id'], 'reason' => ['nullable', 'string', 'max:3000']];
-        if ($action === 'receive') {
+        if (in_array($action, ['receive', 'receive-type'], true)) {
             $rules += ['cash_counted' => ['sometimes', 'boolean']];
+        }
+        if ($action === 'receive-type') {
+            $rules += ['type' => ['required', Rule::enum(CashBoxType::class)], 'user_id' => ['nullable', 'integer']];
         }
         if ($action === 'safe-count') {
             $rules += $this->countRules();

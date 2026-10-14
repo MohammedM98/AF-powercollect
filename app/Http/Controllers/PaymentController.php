@@ -173,12 +173,13 @@ class PaymentController extends Controller
     }
 
     /**
-     * Every entry of the boxes in one table, each as the subscriber's
+     * Every entry of the open boxes in one table, each as the subscriber's
      * statement shows it and with the box it sits in, filtered by
      * `?filter[type]=` to one type of box (cash, bank transfers or
      * clearings), and searched by subscriber, voucher, transfer reference or
      * box number: every entry of the branch for those who close its boxes,
-     * else the collector's own.
+     * else the collector's own. The entries of a closed box are looked over
+     * inside that box.
      */
     public function entries(Request $request): InertiaResponse
     {
@@ -187,7 +188,7 @@ class PaymentController extends Controller
             return $this->branchEntries($request);
         }
         $this->authorize('viewOwnCashBoxes', Subscription::class);
-        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('kind', '!=', 'direct'));
+        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('kind', '!=', 'direct')->where('status', 'open'));
 
         return Inertia::render('Payments/Entries', [
             'scope' => 'own',
@@ -200,10 +201,11 @@ class PaymentController extends Controller
     }
 
     /**
-     * Every entry of the branch's boxes, for those who close them, theirs
-     * among them: whose box each sits in, narrowed to one person's boxes by
-     * `?filter[user]=`, filtered and searched as the collector's entries are,
-     * with a link that opens its box on the financial boxes page.
+     * Every entry of the branch's open boxes, for those who close them,
+     * theirs among them: whose box each sits in, narrowed to one person's
+     * boxes by `?filter[user]=`, filtered and searched as the collector's
+     * entries are, with a link that opens its box on the financial boxes
+     * page, and the open boxes of each type the actor may close at once.
      */
     private function branchEntries(Request $request): InertiaResponse
     {
@@ -211,19 +213,39 @@ class PaymentController extends Controller
         [$branches, $branch] = $this->branchBoxes->branch($request, $actor);
         $people = $this->branchBoxes->people($branch->id);
         $person = $people->firstWhere('id', $request->integer('filter.user'));
-        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->when($person, fn (Builder $box) => $box->where('user_id', $person->id)));
+        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->where('status', 'open')->when($person, fn (Builder $box) => $box->where('user_id', $person->id)));
         $list = $this->entryList($request, $query, fn (CashBox $box): string => route('payments.cash-boxes', ['branch_id' => $branch->id, 'box' => $box->id]));
         $list['filters']['filter']['user'] = $person ? (string) $person->id : '';
+        $started = ClosingSetting::forBranch($branch->id)->workflow_started_at !== null;
 
         return Inertia::render('Payments/Entries', [
             'scope' => 'branch',
-            'started' => ClosingSetting::forBranch($branch->id)->workflow_started_at !== null,
+            'started' => $started,
             'branchName' => $branch->name,
             'branch' => $branch, 'branches' => $branches, 'people' => $people,
             ...$list,
+            'closableBoxes' => $started && BranchClosingAccess::receive($actor, $branch->id) ? $this->closableBoxes($branch->id, $actor, $person?->id) : null,
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
+            'urls' => ['actions' => url('/reconciliation/actions')],
         ]);
+    }
+
+    /**
+     * The open boxes of the branch the actor may confirm closed, one
+     * person's when `$userId` is given, each with whose it is, how many
+     * entries are still in effect and their totals, to close them by type.
+     *
+     * @return list<array{id: int, number: string, type: string, person: string|null, count: int, totals: array<string, string>}>
+     */
+    private function closableBoxes(int $branchId, User $actor, ?int $userId): array
+    {
+        return $this->workflow->closableBoxes($branchId, $actor, userId: $userId)->load(['user:id,name', 'payments.transaction:id,status'])
+            ->map(fn (CashBox $box): array => [
+                'id' => $box->id, 'number' => $box->number, 'type' => $box->type->value, 'person' => $box->user?->name,
+                'count' => $box->payments->filter(fn (CashBoxPayment $entry): bool => $entry->transaction?->status === SubscriptionTransaction::STATUS_ACTIVE)->count(),
+                'totals' => $box->totals(),
+            ])->all();
     }
 
     /**

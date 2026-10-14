@@ -28,6 +28,7 @@ use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Notifications\BranchClosingNotification;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -368,6 +369,36 @@ class BranchClosingWorkflow
         $box->user?->notify(new BranchClosingNotification('أكّد الفرع إغلاق صندوقك.', $box->number));
     }
 
+    /**
+     * The branch's open boxes that hold entries and that the actor may
+     * confirm closed, oldest first: of one type when `$type` is given, and
+     * one person's when `$userId` is.
+     *
+     * @return EloquentCollection<int, CashBox>
+     */
+    public function closableBoxes(int $branchId, User $actor, ?CashBoxType $type = null, ?int $userId = null): EloquentCollection
+    {
+        return CashBox::query()->where('branch_id', $branchId)->where('status', 'open')->where('kind', '!=', 'direct')
+            ->when($type, fn ($query) => $query->where('type', $type))
+            ->when($userId, fn ($query) => $query->where('user_id', $userId))
+            ->whereHas('payments')->orderBy('id')->get()
+            ->filter(fn (CashBox $box): bool => $this->mayReceive($box, $actor))->values();
+    }
+
+    /**
+     * The branch confirms every open box of one type closed at once, or
+     * only one person's when `$userId` is given, each as `receive()`
+     * confirms a single box.
+     */
+    public function receiveType(int $branchId, User $actor, CashBoxType $type, ?int $userId = null, bool $cashCounted = false): void
+    {
+        $boxes = $this->closableBoxes($branchId, $actor, $type, $userId);
+        $this->require($boxes->isNotEmpty(), 'لا توجد صناديق مفتوحة من هذا النوع يمكنك إغلاقها.');
+        foreach ($boxes as $box) {
+            $this->receive($box, $actor, $cashCounted);
+        }
+    }
+
     public function mayReceive(CashBox $box, User $actor): bool
     {
         return BranchClosingAccess::receive($actor, $box->branch_id)
@@ -641,7 +672,7 @@ class BranchClosingWorkflow
         return Closing::query()->where('branch_id', $closing->branch_id)->where('coverage_from', $closing->coverage_from)->pluck('id');
     }
 
-    /** @return array{boxes: \Illuminate\Database\Eloquent\Collection<int, CashBox>, entries: \Illuminate\Database\Eloquent\Collection<int, CashBoxPayment>} */
+    /** @return array{boxes: EloquentCollection<int, CashBox>, entries: EloquentCollection<int, CashBoxPayment>} */
     public function carryOut(Closing $closing): array
     {
         $periodIds = Closing::query()->where('branch_id', $closing->branch_id)->whereNotNull('workflow_settings')->where('coverage_from', '<=', $closing->coverage_from)->select('id');
@@ -655,7 +686,7 @@ class BranchClosingWorkflow
         ];
     }
 
-    /** @param array{boxes: \Illuminate\Database\Eloquent\Collection<int, CashBox>, entries: \Illuminate\Database\Eloquent\Collection<int, CashBoxPayment>}|null $carry @return list<string> */
+    /** @param array{boxes: EloquentCollection<int, CashBox>, entries: EloquentCollection<int, CashBoxPayment>}|null $carry @return list<string> */
     public function warnings(Closing $closing, ?array $carry = null): array
     {
         $carry ??= $this->carryOut($closing);

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\PermissionKey;
 use App\Models\Branch;
+use App\Models\CashBox;
 use App\Models\CashBoxPayment;
 use App\Models\Permission;
 use App\Models\Subscription;
@@ -123,5 +124,78 @@ class CashBoxEntriesTest extends TestCase
         $this->actingAs($collector)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page->where('scope', 'own'));
         $this->actingAs($staff)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page->where('scope', 'own'));
         $this->actingAs(User::factory()->dataEntry()->for($branch)->create())->get(route('payments.entries'))->assertForbidden();
+    }
+
+    public function test_entries_of_closed_boxes_are_left_to_their_box_for_the_collector_and_the_branch(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $closed = $this->entry($branch, $collector, '100');
+        $this->actingAs($head)->post(route('closings.actions', ['action' => 'receive', 'record' => $closed->cash_box_id]), ['branch_id' => $branch->id, 'cash_counted' => true])->assertSessionHasNoErrors();
+        $open = $this->entry($branch, $collector, '40');
+
+        $this->actingAs($collector)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('entries.total', 1)
+            ->where('entries.data.0.id', $open->id)
+            ->where('counts.all', 1));
+        $this->actingAs($head)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('entries.total', 1)
+            ->where('entries.data.0.id', $open->id));
+    }
+
+    public function test_closer_closes_every_open_box_of_one_type_at_once_and_only_that_type(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $other = User::factory()->collector()->for($branch)->create();
+        $first = $this->entry($branch, $collector, '100');
+        $second = $this->entry($branch, $other, '60');
+        $transfer = $this->entry($branch, $collector, '250', 'bank_transfer');
+
+        $this->actingAs($head)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('closableBoxes', 3)
+            ->where('closableBoxes.0.id', $first->cash_box_id)
+            ->where('closableBoxes.0.person', 'سامي')
+            ->where('closableBoxes.0.count', 1)
+            ->where('closableBoxes.0.totals.ILS', '100.00'));
+
+        $this->post(route('closings.actions', ['action' => 'receive-type']), ['branch_id' => $branch->id, 'type' => 'cash'])->assertSessionHasErrors('action');
+        $this->assertSame('open', $first->box->fresh()->status);
+
+        $this->post(route('closings.actions', ['action' => 'receive-type']), ['branch_id' => $branch->id, 'type' => 'cash', 'cash_counted' => true])->assertSessionHasNoErrors();
+
+        $this->assertSame('received', $first->box->fresh()->status);
+        $this->assertSame('received', $second->box->fresh()->status);
+        $this->assertSame($head->id, $second->box->fresh()->received_by);
+        $this->assertSame('open', $transfer->box->fresh()->status);
+    }
+
+    public function test_closing_by_type_narrowed_to_one_person_leaves_the_others_open(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $other = User::factory()->collector()->for($branch)->create();
+        $mine = $this->entry($branch, $collector, '250');
+        $theirs = $this->entry($branch, $other, '90');
+
+        $this->actingAs($head)->post(route('closings.actions', ['action' => 'receive-type']), ['branch_id' => $branch->id, 'type' => 'cash', 'user_id' => $collector->id, 'cash_counted' => true])->assertSessionHasNoErrors();
+
+        $this->assertSame('received', $mine->box->fresh()->status);
+        $this->assertSame('open', $theirs->box->fresh()->status);
+    }
+
+    public function test_only_those_who_may_close_boxes_can_close_them_by_type(): void
+    {
+        [$branch, , $collector] = $this->start();
+        $entry = $this->entry($branch, $collector);
+        $staff = User::factory()->accountant()->for($branch)->create();
+
+        $this->actingAs($collector)->post(route('closings.actions', ['action' => 'receive-type']), ['branch_id' => $branch->id, 'type' => 'cash', 'cash_counted' => true])->assertForbidden();
+        $this->actingAs($staff)->post(route('closings.actions', ['action' => 'receive-type']), ['branch_id' => $branch->id, 'type' => 'cash', 'cash_counted' => true])->assertForbidden();
+        $this->actingAs($collector)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page->missing('closableBoxes'));
+
+        $closer = User::factory()->collector()->for($branch)->create();
+        $closer->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::CloseCashBoxes]));
+        $this->actingAs($closer)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page->has('closableBoxes', 1));
+        $this->post(route('closings.actions', ['action' => 'receive-type']), ['branch_id' => $branch->id, 'type' => 'cash', 'cash_counted' => true])->assertSessionHasNoErrors();
+
+        $this->assertSame('received', CashBox::query()->findOrFail($entry->cash_box_id)->status);
     }
 }

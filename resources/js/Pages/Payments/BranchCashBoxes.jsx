@@ -28,7 +28,10 @@ function savedPreference(key, fallback, allowed) {
 export default function BranchCashBoxes({ branch, branches, started, boxes, closings, access, pendingCount, collectionUrls, urls }) {
     const { can, errors } = usePage().props;
     const pending = boxes.filter((box) => box.status === 'pending');
-    const [status, setStatus] = useState(pending.length ? 'pending' : 'all');
+    const [chosenStatus, setStatus] = useState(pending.length ? 'pending' : 'all');
+    // Confirming the last box waiting for its close keeps the page's state, so
+    // the filter falls back to every box rather than stay on an empty list.
+    const status = chosenStatus === 'pending' && !pending.length ? 'all' : chosenStatus;
     const [search, setSearch] = useState('');
     const [person, setPerson] = useState('');
     const [view, setView] = useState(() => savedPreference('view', 'table', ['table', 'cards']));
@@ -46,7 +49,7 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
     const directChecks = boxes.filter((box) => box.kind === 'direct' && box.type === 'bank_transfer').flatMap((box) => box.payments.filter((entry) => entry.status === 'pending' && active(entry)).map((entry) => ({ ...entry, box })));
     const followupEntries = followup === 'rejected' ? rejected : directChecks;
     const currentClosing = closings.find((closing) => new Date(closing.coverage_from) <= new Date() && new Date(closing.coverage_until) >= new Date());
-    const statusFilters = [['pending', 'بانتظار الإغلاق'], ['open', 'مفتوحة'], ['received', 'مغلقة'], ['all', 'الكل']].map(([value, label]) => ({ value, label: <>{label} · <span className="font-display">{value === 'all' ? boxes.length : boxes.filter((box) => box.status === value).length}</span></> }));
+    const statusFilters = [['pending', 'بانتظار تأكيد الإغلاق'], ['open', 'مفتوحة'], ['received', 'مغلقة'], ['all', 'الكل']].map(([value, label]) => ({ value, label: <>{label} · <span className="font-display">{value === 'all' ? boxes.length : boxes.filter((box) => box.status === value).length}</span></> }));
     const boxPeriod = (box) => periodLabel(closings.find((closing) => closing.id === box.closing_id));
 
     useEffect(() => {

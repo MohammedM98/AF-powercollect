@@ -2,7 +2,7 @@ const currencyCodes = ['ILS', 'USD', 'JOD'];
 const statusOrder = ['pending', 'open', 'received'];
 
 export const activeBoxEntries = (box) => (box.payments ?? []).filter((entry) => !entry.transaction || entry.transaction.status === 'active');
-export const boxPersonName = (box) => box.user?.name ?? 'الدفعات المباشرة';
+export const boxPersonName = (box) => box.user?.name ?? '—';
 
 /** Active entries only; currencies stay separate, including old foreign cash. */
 export function financialBoxTotals(box) {
@@ -23,7 +23,7 @@ export function financialBoxesTotals(boxes) {
 
 export function filterFinancialBoxes(boxes, { status = 'all', person = '', search = '' } = {}) {
     return boxes.filter((box) => (status === 'all' || box.status === status)
-        && (!person || (person === 'direct' ? !box.user : String(box.user?.id) === person))
+        && (!person || String(box.user?.id) === person)
         && `${box.number} ${boxPersonName(box)}`.includes(search.trim()));
 }
 

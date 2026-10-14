@@ -169,12 +169,12 @@ class BranchClosingWorkflow
         $this->refresh($payment->branch_id);
     }
 
-    private function openBox(Closing $closing, ?int $userId, CashBoxType $type): CashBox
+    private function openBox(Closing $closing, int $userId, CashBoxType $type): CashBox
     {
-        $key = $closing->branch_id.':'.($userId ?? 'direct').':'.$type->value;
+        $key = $closing->branch_id.':'.$userId.':'.$type->value;
 
         return CashBox::query()->where('open_key', $key)->first()
-            ?? $this->newBox(['open_key' => $key, 'branch_id' => $closing->branch_id, 'user_id' => $userId, 'kind' => $userId ? 'staff' : 'direct', 'type' => $type, 'closing_id' => $closing->id, 'opened_at' => now(), 'status' => 'open']);
+            ?? $this->newBox(['open_key' => $key, 'branch_id' => $closing->branch_id, 'user_id' => $userId, 'type' => $type, 'closing_id' => $closing->id, 'opened_at' => now(), 'status' => 'open']);
     }
 
     /**
@@ -305,17 +305,11 @@ class BranchClosingWorkflow
     private function close(CashBox $box, string $reason, CarbonImmutable $at): void
     {
         $box->update(['status' => 'pending', 'closed_at' => $at, 'close_reason' => $reason, 'open_key' => null, 'expected_counts' => $this->expected($box)]);
-        if ($box->kind === 'direct' && ! $box->payments()->where('status', 'pending')->exists()) {
-            $box->update(['status' => 'received', 'received_at' => $at, 'confirmed_at' => $at, 'received_in_closing_id' => $this->settlingClosing($box)->id, 'head_counts' => array_fill_keys(self::CURRENCIES, '0.00')]);
-        }
     }
 
     private function closePeriodBoxes(Closing $closing, CarbonImmutable $at, string $reason): void
     {
         foreach (CashBox::query()->where('branch_id', $closing->branch_id)->where('status', 'open')->where('opened_at', '<', $at)->get() as $box) {
-            if ($box->kind === 'direct' && $reason !== 'cutoff') {
-                continue;
-            }
             if ($box->payments()->exists()) {
                 $this->close($box, $reason, $at);
             } else {
@@ -335,7 +329,7 @@ class BranchClosingWorkflow
         if ($box->status !== 'open') {
             return;
         }
-        $this->require($box->kind !== 'direct' && $box->payments()->exists(), 'لا يمكن إغلاق صندوق فارغ.');
+        $this->require($box->payments()->exists(), 'لا يمكن إغلاق صندوق فارغ.');
         $this->close($box, 'manual', now()->toImmutable()->utc());
         $box->refresh();
     }
@@ -353,7 +347,7 @@ class BranchClosingWorkflow
      */
     public function receive(CashBox $box, User $actor, bool $cashCounted = false): void
     {
-        $this->require(in_array($box->status, ['open', 'pending'], true) && $box->kind !== 'direct' && $this->mayReceive($box, $actor), 'لا يمكنك تأكيد إغلاق هذا الصندوق.');
+        $this->require(in_array($box->status, ['open', 'pending'], true) && $this->mayReceive($box, $actor), 'لا يمكنك تأكيد إغلاق هذا الصندوق.');
         $this->require(! $box->type->isCounted() || $cashCounted, 'أكّد أنك عددت النقد ووجدته مطابقًا لإجمالي الصندوق قبل تأكيد إغلاقه.');
         $this->closeForReceipt($box);
         $settling = $this->settlingClosing($box);
@@ -378,7 +372,7 @@ class BranchClosingWorkflow
      */
     public function closableBoxes(int $branchId, User $actor, ?CashBoxType $type = null, ?int $userId = null): EloquentCollection
     {
-        return CashBox::query()->where('branch_id', $branchId)->where('status', 'open')->where('kind', '!=', 'direct')
+        return CashBox::query()->where('branch_id', $branchId)->where('status', 'open')
             ->when($type, fn ($query) => $query->where('type', $type))
             ->when($userId, fn ($query) => $query->where('user_id', $userId))
             ->whereHas('payments')->orderBy('id')->get()
@@ -468,16 +462,6 @@ class BranchClosingWorkflow
                 $admin->notify(new BranchClosingNotification('حركة مرفوضة تحتاج مراجعة الفرع.', $box->number, ['entry_id' => $payment->id, 'status' => $status]));
             }
         }
-        if ($box->kind === 'direct' && $box->status === 'pending' && ! $box->payments()->where('status', 'pending')->exists()) {
-            $box->update(['status' => 'received', 'received_by' => $actor->id, 'received_at' => now(), 'confirmed_at' => now(), 'received_in_closing_id' => $this->settlingClosing($box)->id, 'head_counts' => array_fill_keys(self::CURRENCIES, '0.00')]);
-        }
-    }
-
-    public function direct(CashBoxPayment $payment): void
-    {
-        $this->require(! in_array($payment->method, ['cash', 'clearing'], true) && $payment->box->status === 'open' && $payment->status === 'pending', 'الدفعات المباشرة متاحة للدفعات الإلكترونية في صندوق مفتوح فقط.');
-        $box = $this->openBox($this->current($payment->box->branch_id), null, CashBoxType::BankTransfer);
-        $payment->update(['cash_box_id' => $box->id]);
     }
 
     /** @return array<string, mixed> */
@@ -681,10 +665,10 @@ class BranchClosingWorkflow
         $periodIds = Closing::query()->where('branch_id', $closing->branch_id)->whereNotNull('workflow_settings')->where('coverage_from', '<=', $closing->coverage_from)->select('id');
 
         return [
-            'boxes' => CashBox::query()->whereIn('closing_id', $periodIds)->where('kind', '!=', 'direct')->where('status', '!=', 'received')->whereHas('payments')->with(self::BOX_DETAILS)->get(),
+            'boxes' => CashBox::query()->whereIn('closing_id', $periodIds)->where('status', '!=', 'received')->whereHas('payments')->with(self::BOX_DETAILS)->get(),
             // Entries of a box still carried are listed with that box, not again on their own.
             'entries' => CashBoxPayment::query()->where('method', '!=', 'cash')->whereIn('status', ['pending', 'missing', 'rejected'])
-                ->whereHas('box', fn ($query) => $query->whereIn('closing_id', $periodIds)->where(fn ($settled) => $settled->where('status', 'received')->orWhere('kind', 'direct')))
+                ->whereHas('box', fn ($query) => $query->whereIn('closing_id', $periodIds)->where('status', 'received'))
                 ->whereHas('transaction', fn ($query) => $query->where('status', SubscriptionTransaction::STATUS_ACTIVE))->with(self::ENTRY_DETAILS)->get(),
         ];
     }
@@ -779,7 +763,6 @@ class BranchClosingWorkflow
         Closing::query()->where('branch_id', $closing->branch_id)->where('coverage_from', $closing->coverage_from)->update(['coverage_until' => $at, 'is_manual' => true]);
         $settings = $this->weekly($closing->workflow_settings);
         $remainder = $this->createPeriod($closing->branch_id, $at, $this->nextEnd($closing->scheduled_until, $settings), $settings);
-        CashBox::query()->where('branch_id', $closing->branch_id)->where('kind', 'direct')->where('status', 'open')->update(['closing_id' => $remainder->id]);
     }
 
     /** @param array<string, mixed> $data */

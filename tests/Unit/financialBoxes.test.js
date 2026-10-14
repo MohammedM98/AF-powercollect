@@ -26,12 +26,6 @@ test('status, employee and trimmed search filters work together', () => {
     assert.deepEqual(filterFinancialBoxes(boxes, { person: '9' }), []);
 });
 
-test('direct payments can be selected without including employee boxes', () => {
-    const boxes = [{ number: 1, status: 'open', user: null }, { number: 2, status: 'pending', user: { id: 2, name: 'موظف' } }];
-
-    assert.deepEqual(filterFinancialBoxes(boxes, { person: 'direct', search: 'المباشرة' }).map((box) => box.number), [1]);
-});
-
 test('sorting prioritizes waiting boxes and supports numeric amounts, numbers and dates in both directions', () => {
     const boxes = [
         { number: '10', status: 'received', totals: { ILS: 50 }, opened_at: '2026-10-01', closed_at: '2026-10-05' },

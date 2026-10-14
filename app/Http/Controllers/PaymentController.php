@@ -188,7 +188,7 @@ class PaymentController extends Controller
             return $this->branchEntries($request);
         }
         $this->authorize('viewOwnCashBoxes', Subscription::class);
-        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('kind', '!=', 'direct')->where('status', 'open'));
+        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('status', 'open'));
 
         return Inertia::render('Payments/Entries', [
             'scope' => 'own',
@@ -355,7 +355,7 @@ class PaymentController extends Controller
     {
         $this->authorize('viewOwnCashBoxes', Subscription::class);
         $actor = $request->user();
-        abort_unless($cashBox->user_id === $actor->id && $cashBox->branch_id === $actor->branch_id && $cashBox->kind !== 'direct', 404);
+        abort_unless($cashBox->user_id === $actor->id && $cashBox->branch_id === $actor->branch_id, 404);
         $this->workflow->refresh($cashBox->branch_id);
         $cashBox->refresh()->loadCount('payments');
         $entryQuery = $cashBox->payments()->with(['transaction.subscription:id,full_name,subscription_name,account_number', 'transaction.recordedBy:id,name'])
@@ -472,7 +472,7 @@ class PaymentController extends Controller
 
     private function ownBoxQuery(User $actor): Builder
     {
-        return CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('kind', '!=', 'direct')
+        return CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)
             ->withCount('payments')->with(['payments.transaction:id,status', 'receivedBy:id,name', 'receivedIn:id,period_start,period_end'])->latest('id');
     }
 

@@ -58,11 +58,10 @@ function Stat({ icon, label, value, hint }) {
  * dates, and every entry in it as the subscriber's statement shows it, to
  * search, filter and, once the collector has corrected anything the branch
  * raised with them, confirm the box closed from the footer. The branch does
- * not check a collector's transfers or clearings one by one: the audit does,
- * after the box's close; only direct payments, with no collector, are
- * checked here.
+ * not check transfers or clearings one by one: the audit does, after the
+ * box's close.
  */
-export default function BoxDetails({ box, access, onClose, perform, period }) {
+export default function BoxDetails({ box, onClose, perform, period }) {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [cashCounted, setCashCounted] = useState(false);
@@ -73,9 +72,8 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
     const entries = box.payments ?? [];
     const active = entries.filter(isActive);
     const totals = sumByCurrency(active);
-    const canReview = box.canCount && box.kind === 'direct';
     const editable = ['open', 'pending'].includes(box.status);
-    const confirmable = !box.frozen && box.canCount && ['open', 'pending'].includes(box.status) && box.kind !== 'direct';
+    const confirmable = !box.frozen && box.canCount && ['open', 'pending'].includes(box.status);
     const confirmsDelivery = cash && box.isOwn && box.status === 'received' && !box.confirmed_at && !box.frozen;
     const counted = cash && box.head_counts && box.expected_counts && Object.keys(currencies).some((currency) => Number(box.head_counts[currency] ?? 0) !== Number(box.expected_counts[currency] ?? 0));
     const groups = {
@@ -87,7 +85,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
     const filterOptions = Object.entries(groups).map(([value, [label, matches]]) => ({ value, label: `${label} · ${entries.filter(matches).length}`, count: entries.filter(matches).length })).filter((option) => option.value === 'all' || option.count > 0);
     const query = search.trim();
     const shown = entries.filter(groups[filter]?.[1] ?? (() => true)).filter((entry) => !query || [subscriberName(entry), entry.transaction?.subscription?.account_number, entry.transaction?.manual_voucher_number, entry.transaction?.voucher_number, entry.transaction?.reference_number, entry.transaction?.notes].some((value) => String(value ?? '').includes(query)));
-    const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', 150], ...ledgerColumns.after, ['الحالة', 140], ['', canReview ? 190 : 110]];
+    const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', 150], ...ledgerColumns.after, ['الحالة', 140], ['', 110]];
     const widths = columns.map(([, width]) => width);
 
     return <Modal show onClose={onClose} maxWidth="full" centered panelClassName="financial-box-detail flex max-h-[calc(100dvh-4rem)] flex-col">
@@ -96,7 +94,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
                 <BoxTypeIcon type={type} className="h-12 w-12" />
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900">{boxTypes[type]} · صندوق <bdi dir="ltr" className="font-display">{box.number}</bdi></h2>
-                    <p className="mt-1 text-sm text-gray-500">{box.user?.name ?? 'الدفعات المباشرة'}{period ? ` · ${period}` : ''}</p>
+                    <p className="mt-1 text-sm text-gray-500">{box.user?.name ?? '—'}{period ? ` · ${period}` : ''}</p>
                 </div>
             </div>
             <div className="flex items-center gap-3">
@@ -149,11 +147,6 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
                                     <LedgerTrailCells ledger={ledger} amount={entry.amount} currency={entry.currency} cancelled={!live} />
                                     <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} />{entry.is_late && <span className="mt-1 block"><StatusPill tone="amber" label="متأخرة" /></span>}</td>
                                     <td style={{ whiteSpace: 'normal' }}><div className="flex flex-wrap items-center gap-1">
-                                        {live && !cash && canReview && !box.frozen && entry.status !== 'confirmed' && <>
-                                            <button type="button" className={`${rowButton} text-emerald-700 dark:text-emerald-400`} onClick={() => perform('electronic', entry, { status: 'confirmed' })}><Icon name="check" className="h-3.5 w-3.5" />{clearing ? 'قبول' : 'تأكيد'}</button>
-                                            {!isFlaggedEntry(entry) && <button type="button" className={`${rowButton} text-brand-600`} onClick={() => perform('electronic', entry, { status: clearing ? 'rejected' : 'missing' })}><Icon name="close" className="h-3.5 w-3.5" />{clearing ? 'رفض' : 'غير موجودة'}</button>}
-                                        </>}
-                                        {live && !box.frozen && access.manage && box.kind !== 'direct' && box.status === 'open' && type === 'bank_transfer' && entry.status === 'pending' && <button type="button" className={`${rowButton} text-gray-600`} onClick={() => perform('direct', entry)}>نقل للدفعات المباشرة</button>}
                                         {entry.receipt_url && <a href={entry.receipt_url} target="_blank" rel="noopener noreferrer" className={`${rowButton} text-gray-600`}><Icon name="printer" className="h-3.5 w-3.5" />السند</a>}
                                     </div></td>
                                 </tr>;
@@ -190,7 +183,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
             onCancel={() => setConfirmingClose(false)}
             onConfirm={() => { setConfirmingClose(false); perform('receive', box, cash ? { cash_counted: true } : {}); }}
             title="إغلاق الصندوق؟"
-            message={<>سيُغلق {boxTypes[type]} رقم <bdi dir="ltr">{box.number}</bdi> لـ{box.user?.name ?? 'الدفعات المباشرة'} بإجمالي <b className="text-gray-900">{amountsLine(totals)}</b> ({active.length} حركة سارية).{cash ? ' وأنت تؤكد أنك عددت نقده ووجدته مطابقًا لإجماليه.' : ''} بعد الإغلاق تُقفل حركاته فلا يستطيع المحصّل تعديلها، وينتقل إلى قسم التدقيق.</>}
+            message={<>سيُغلق {boxTypes[type]} رقم <bdi dir="ltr">{box.number}</bdi> لـ{box.user?.name ?? '—'} بإجمالي <b className="text-gray-900">{amountsLine(totals)}</b> ({active.length} حركة سارية).{cash ? ' وأنت تؤكد أنك عددت نقده ووجدته مطابقًا لإجماليه.' : ''} بعد الإغلاق تُقفل حركاته فلا يستطيع المحصّل تعديلها، وينتقل إلى قسم التدقيق.</>}
             confirmLabel="نعم، أغلق الصندوق"
             icon="lock"
         />

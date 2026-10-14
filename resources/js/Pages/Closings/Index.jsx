@@ -66,15 +66,14 @@ function ClosingPill({ closing }) {
     return <StatusPill tone={state[1]}>{state[0]}</StatusPill>;
 }
 
-function CollectorCard({ name, boxes, debts, onOpen, direct = false, color = 0 }) {
+function CollectorCard({ name, boxes, debts, onOpen, color = 0 }) {
     const open = boxes.find((box) => box.status === 'open');
     const pending = boxes.filter((box) => box.status === 'pending');
-    return <article className="cc"><header><span className={`av hu${color % 5 + 1}`}>{direct ? <Icon name="wallet" /> : name.slice(0, 1)}</span><div><b>{name}</b><small>{direct ? 'دفعات المشترك المباشرة' : 'صندوق الموظف'}</small></div>{open && <button className="ib sm" aria-label={`عرض صندوق ${name}`} onClick={() => onOpen(open)}><Icon name="eye" /></button>}</header>
+    return <article className="cc"><header><span className={`av hu${color % 5 + 1}`}>{name.slice(0, 1)}</span><div><b>{name}</b><small>صندوق الموظف</small></div>{open && <button className="ib sm" aria-label={`عرض صندوق ${name}`} onClick={() => onOpen(open)}><Icon name="eye" /></button>}</header>
         <div className="cc-o"><span className="lbl">{open ? <>صندوق مفتوح <b className="num">{open.number.slice(-8)}</b></> : 'لا يوجد صندوق مفتوح'}</span>
-            <div className="v"><MoneyStack amounts={totals(open?.payments ?? [], direct ? 'electronic' : 'cash')} /><small>{open?.payments.length ? `${open.payments.length} دفعات · من ${dateTime(open.opened_at)}` : 'لسا فاضي'}</small></div>
-            {direct && <small className="muted">بيتسكّر لحاله بوقت القطع بس</small>}
+            <div className="v"><MoneyStack amounts={totals(open?.payments ?? [], 'cash')} /><small>{open?.payments.length ? `${open.payments.length} دفعات · من ${dateTime(open.opened_at)}` : 'لسا فاضي'}</small></div>
         </div>
-        <div className={`cc-p ${pending.length ? '' : 'ok'}`}><div>{pending.length ? <><span>{pending.length} صندوق بانتظار {direct ? 'التأكيد' : 'تأكيد الإغلاق'}</span><small><MoneyStack amounts={totals(pending.flatMap((box) => box.payments), direct ? 'electronic' : 'cash')} /></small></> : <span><Icon name="check" /> ما معه صناديق بانتظار تأكيد الإغلاق</span>}</div>{pending.length > 0 && <SecondaryButton className="sm" onClick={() => onOpen(pending[0])}>{direct ? 'تأكيد' : 'مراجعة'}</SecondaryButton>}</div>
+        <div className={`cc-p ${pending.length ? '' : 'ok'}`}><div>{pending.length ? <><span>{pending.length} صندوق بانتظار تأكيد الإغلاق</span><small><MoneyStack amounts={totals(pending.flatMap((box) => box.payments), 'cash')} /></small></> : <span><Icon name="check" /> ما معه صناديق بانتظار تأكيد الإغلاق</span>}</div>{pending.length > 0 && <SecondaryButton className="sm" onClick={() => onOpen(pending[0])}>مراجعة</SecondaryButton>}</div>
         {debts.map((debt) => <div key={debt.id} className="cc-d"><span><Icon name="currency" /> دين متبقٍ: <Money amount={debt.remaining} currency={debt.currency} /></span></div>)}
     </article>;
 }
@@ -194,7 +193,6 @@ export default function ClosingsIndex(props) {
             </div>
             <Section title="المحصّلين والصناديق" action={<Link href={urls.boxes} prefetch className="lnk">الصناديق المالية</Link>}><div className="cgrid">
                 {people.map((person, index) => <CollectorCard key={person.id} name={person.name} color={index} boxes={boxes.filter((box) => box.user_id === person.id)} debts={debts.filter((debt) => debt.user_id === person.id)} onOpen={(box) => setBoxId(box.id)} />)}
-                <CollectorCard name="الدفعات المباشرة" direct boxes={boxes.filter((box) => box.kind === 'direct')} debts={[]} onOpen={(box) => setBoxId(box.id)} />
             </div></Section>
             <Section title="آخر الحركات"><ClosingFeed boxes={boxes} transfers={transfers} notes={notes} /></Section>
         </>}
@@ -220,7 +218,7 @@ export default function ClosingsIndex(props) {
         {tab === 'settings' && <SettingsOverview {...props} onAction={openAction} />}
         </>}
     </div>{action && <ActionModal key={`${action.kind}-${action.record?.id}`} action={action} onClose={() => setAction(null)} props={props} />}
-    {selectedBox && <BoxDetails box={selectedBox} access={access} onClose={() => { setBoxId(null); setPackageBox(null); }} perform={perform} period={periodLabel(closings.find((closing) => closing.id === selectedBox.closing_id))} />}
+    {selectedBox && <BoxDetails box={selectedBox} onClose={() => { setBoxId(null); setPackageBox(null); }} perform={perform} period={periodLabel(closings.find((closing) => closing.id === selectedBox.closing_id))} />}
     </AuthenticatedLayout>;
 }
 
@@ -250,7 +248,7 @@ function DailyBars({ payments, current, now }) {
 
 function ClosingFeed({ boxes, transfers, notes }) {
     const movements = [
-        ...boxes.filter((box) => box.closed_at).map((box) => ({ id: `box-${box.id}`, at: box.closed_at, icon: 'table', tone: box.status === 'received' ? 'g' : 'a', text: `${box.user?.name ?? 'الدفعات المباشرة'} · ${box.status === 'received' ? 'استلام صندوق' : 'إغلاق صندوق'} ${box.number.slice(-8)}` })),
+        ...boxes.filter((box) => box.closed_at).map((box) => ({ id: `box-${box.id}`, at: box.closed_at, icon: 'table', tone: box.status === 'received' ? 'g' : 'a', text: `${box.user?.name ?? '—'} · ${box.status === 'received' ? 'استلام صندوق' : 'إغلاق صندوق'} ${box.number.slice(-8)}` })),
         ...transfers.map((transfer) => ({ id: `transfer-${transfer.id}`, at: transfer.sent_at, icon: 'bank', tone: 'b', text: `تسليم للشركة · ${money(transfer.amount, transfer.currency)}` })),
         ...notes.map((note) => ({ id: `note-${note.id}`, at: note.created_at, icon: 'messages', tone: 'p', text: `ملاحظة تدقيق #${note.id} · ${noteStatuses[note.status]}` })),
     ].sort((left, right) => new Date(right.at) - new Date(left.at)).slice(0, 8);

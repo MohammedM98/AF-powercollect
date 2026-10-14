@@ -273,14 +273,12 @@ class CollectorBoxTypesTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::BankTransfer);
         $other = $this->entry($branch, $head, CashBoxType::Cash);
-        $direct = CashBox::factory()->bankTransfer()->create(['branch_id' => $branch->id, 'user_id' => $collector->id, 'kind' => 'direct']);
 
         $this->actingAs($collector)->get(route('payments.cash-boxes.show', $entry->cash_box_id))->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Payments/CashBoxShow')->where('box.type', 'bank_transfer')->where('box.stage', 'open')
             ->where('box.totals.ILS', '100.00')->has('entries.data', 1)->where('entries.data.0.referenceNumber', $entry->transaction->reference_number)
             ->where('entries.data.0.accountNumber', $entry->transaction->subscription->account_number));
         $this->get(route('payments.cash-boxes.show', $other->cash_box_id))->assertNotFound();
-        $this->get(route('payments.cash-boxes.show', $direct))->assertNotFound();
         $this->actingAs(User::factory()->dataEntry()->for($branch)->create())->get(route('payments.cash-boxes.show', $entry->cash_box_id))->assertForbidden();
         $this->actingAs(User::factory()->collector()->create())->get(route('payments.cash-boxes.show', $entry->cash_box_id))->assertNotFound();
     }
@@ -298,13 +296,12 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open']);
     }
 
-    public function test_review_status_must_match_entry_type_and_clearings_cannot_be_direct(): void
+    public function test_review_status_must_match_entry_type(): void
     {
         [$branch, $head, $collector] = $this->start();
         $clearing = $this->entry($branch, $collector, CashBoxType::Clearing);
         $transfer = $this->entry($branch, $collector, CashBoxType::BankTransfer);
-        $this->action($head, $branch, 'direct', $clearing->id)->assertSessionHasErrors('action');
-
+        $this->action($head, $branch, 'direct', $transfer->id)->assertForbidden();
         $this->action($head, $branch, 'electronic', $clearing->id, ['status' => 'missing'])->assertSessionHasErrors('action');
         $this->action($head, $branch, 'electronic', $transfer->id, ['status' => 'rejected'])->assertSessionHasErrors('action');
 

@@ -61,12 +61,12 @@ export function FinancialBoxDates({ box }) {
 }
 
 /**
- * Whether the actor may review and close the box now: theirs to close, not
- * a direct payments box, still open or waiting, and holding entries (an
- * empty box cannot be closed).
+ * Whether the actor may review and close the box now: theirs to close,
+ * still open or waiting, and holding entries (an empty box cannot be
+ * closed).
  */
 export function canCloseBox(box) {
-    return !box.frozen && box.canCount && box.kind !== 'direct' && ['open', 'pending'].includes(box.status) && (box.payments?.length ?? box.paymentCount ?? 0) > 0;
+    return !box.frozen && box.canCount && ['open', 'pending'].includes(box.status) && (box.payments?.length ?? box.paymentCount ?? 0) > 0;
 }
 
 export function FinancialBoxButton({ box, onOpen, className = '' }) {

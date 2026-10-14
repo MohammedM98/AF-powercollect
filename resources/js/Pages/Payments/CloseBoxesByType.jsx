@@ -8,12 +8,14 @@ import SegmentedTabs from '@/Components/SegmentedTabs';
 import { boxTypes, boxTypeStyles, BoxTypeIcon } from './CollectorCashBox';
 import { financialAmountsLine } from './FinancialBoxComponents';
 import { financialBoxesTotals } from '@/lib/financialBoxes';
+import BoxBreakdown from './BoxBreakdown';
 
 /**
  * Closes every open box of one type at once, for those who may confirm
  * the branch's boxes closed: the open boxes of the picked type (one
- * person's when the entries are narrowed to them) with their totals, and,
- * for cash, the confirmation that the cash was counted.
+ * person's when the entries are narrowed to them) with their totals, their
+ * entries summed up by bank, service or currency paid, and, for cash, the
+ * confirmation that the cash was counted.
  */
 export default function CloseBoxesByType({ boxes, branchId, userId, initialType, actionsUrl, onClose }) {
     const { errors } = usePage().props;
@@ -45,6 +47,7 @@ export default function CloseBoxesByType({ boxes, branchId, userId, initialType,
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
             <SegmentedTabs label="نوع الصندوق" value={type} onChange={(value) => { setType(value); setCashCounted(false); }} options={types.map((value) => ({ value, label: `${boxTypeStyles[value].label} · ${boxes.filter((box) => box.type === value).length}` }))} />
             {errors?.action && <p role="alert" className="rounded-control bg-red-500/10 p-3 text-sm text-red-700">{errors.action}</p>}
+            <BoxBreakdown type={type} entries={shown.flatMap((box) => box.entries ?? [])} />
             {!shown.length ? <p className="rounded-control border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">لا توجد صناديق مفتوحة من هذا النوع يمكنك إغلاقها.</p> : <ul className="divide-y divide-gray-100 rounded-panel border border-gray-100">
                 {shown.map((box) => <li key={box.id} className="flex flex-wrap items-center gap-3 p-3">
                     <BoxTypeIcon type={box.type} className="h-9 w-9" />
@@ -52,7 +55,7 @@ export default function CloseBoxesByType({ boxes, branchId, userId, initialType,
                         <span className="block font-semibold text-gray-900">صندوق <bdi dir="ltr" className="font-display">{box.number}</bdi></span>
                         <span className="block text-xs text-gray-500">{box.person ?? '—'} · <b className="font-display">{box.count}</b> حركة سارية</span>
                     </span>
-                    <b className="text-sm text-gray-900">{financialAmountsLine(box.totals)}</b>
+                    <b className="text-sm text-gray-900">{financialAmountsLine(financialBoxesTotals([box]))}</b>
                 </li>)}
             </ul>}
         </div>

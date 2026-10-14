@@ -234,18 +234,29 @@ class PaymentController extends Controller
     /**
      * The open boxes of the branch the actor may confirm closed, one
      * person's when `$userId` is given, each with whose it is, how many
-     * entries are still in effect and their totals, to close them by type.
+     * entries are still in effect, their totals, and those entries as the
+     * box's summary groups them (by bank, service or currency paid), to
+     * close them by type.
      *
-     * @return list<array{id: int, number: string, type: string, person: string|null, count: int, totals: array<string, string>}>
+     * @return list<array{id: int, number: string, type: string, person: string|null, count: int, totals: array<string, string>, entries: list<array<string, mixed>>}>
      */
     private function closableBoxes(int $branchId, User $actor, ?int $userId): array
     {
-        return $this->workflow->closableBoxes($branchId, $actor, userId: $userId)->load(['user:id,name', 'payments.transaction:id,status'])
-            ->map(fn (CashBox $box): array => [
-                'id' => $box->id, 'number' => $box->number, 'type' => $box->type->value, 'person' => $box->user?->name,
-                'count' => $box->payments->filter(fn (CashBoxPayment $entry): bool => $entry->transaction?->status === SubscriptionTransaction::STATUS_ACTIVE)->count(),
-                'totals' => $box->totals(),
-            ])->all();
+        return $this->workflow->closableBoxes($branchId, $actor, userId: $userId)->load(['user:id,name', 'payments.transaction:id,status,amount,currency,currency_amount,bank_name,notes'])
+            ->map(function (CashBox $box): array {
+                $active = $box->payments->filter(fn (CashBoxPayment $entry): bool => $entry->transaction?->status === SubscriptionTransaction::STATUS_ACTIVE);
+
+                return [
+                    'id' => $box->id, 'number' => $box->number, 'type' => $box->type->value, 'person' => $box->user?->name,
+                    'count' => $active->count(),
+                    'totals' => $box->totals(),
+                    'entries' => $active->map(fn (CashBoxPayment $entry): array => [
+                        'amount' => $entry->amount, 'bankName' => $entry->transaction->bank_name, 'service' => $entry->transaction->notes,
+                        'currency' => $entry->transaction->currency->value, 'currencyLabel' => __($entry->transaction->currency->label()),
+                        'paidAmount' => $entry->transaction->currency_amount ?? ltrim($entry->transaction->amount, '-'),
+                    ])->values()->all(),
+                ];
+            })->all();
     }
 
     /**

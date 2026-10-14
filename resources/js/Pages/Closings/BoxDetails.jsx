@@ -11,6 +11,7 @@ import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
 import { boxTypes, currencies, dateTime, BoxTypeIcon } from '../Payments/CollectorCashBox';
 import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from '../Payments/LedgerColumns';
+import BoxBreakdown, { breakdownEntry } from '../Payments/BoxBreakdown';
 import '../Payments/financial-boxes.css';
 
 export const boxStatuses = { open: ['مفتوح', 'blue'], pending: ['بانتظار تأكيد الإغلاق', 'amber'], received: ['أُكّد إغلاقه', 'green'] };
@@ -120,6 +121,8 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
                 <Stat icon={editable ? 'unlock' : 'lock'} label="تصحيح الحركات" value={<span className="text-base">{editable ? 'متاح للمحصّل' : 'مقفل'}</span>} hint={editable ? 'حتى تأكيد إغلاق الصندوق' : 'أُكّد إغلاق الصندوق'} />
                 <Stat icon="calendar" label="فُتح ← أُغلق" value={<span className="text-sm">{dateTime(box.opened_at)}</span>} hint={box.closed_at ? dateTime(box.closed_at) : 'لا يزال مفتوحًا'} />
             </dl>
+
+            <BoxBreakdown type={type} entries={active.map(breakdownEntry)} wide />
 
             {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">اطّلع على حركات الصندوق ثم أكّد إغلاقه. إن رأيت خطأ في حركة فتواصل مع المحصّل ليعدّلها بنفسه قبل التأكيد؛ بعد التأكيد تُقفل الحركات ويذهب الصندوق إلى التدقيق، وهو من يرفض الحوالات أو المقاصات ويبيّن السبب.{cash ? ' عُدّ النقد الذي سلّمه المحصّل وتأكد أنه يطابق إجمالي الصندوق قبل التأكيد.' : ''} تسليم الصناديق للشركة خطوة منفصلة.</p>}
 

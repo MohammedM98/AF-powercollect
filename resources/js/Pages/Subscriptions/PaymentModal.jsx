@@ -65,7 +65,7 @@ function MethodTile({ value, checked, onChange, icon, title, hint }) {
     );
 }
 
-function BankMark({ bank }) {
+export function BankMark({ bank }) {
     const look = BANKS[bank];
 
     if (!look) {

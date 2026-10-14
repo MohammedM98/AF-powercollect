@@ -155,7 +155,11 @@ class CashBoxEntriesTest extends TestCase
             ->where('closableBoxes.0.id', $first->cash_box_id)
             ->where('closableBoxes.0.person', 'سامي')
             ->where('closableBoxes.0.count', 1)
-            ->where('closableBoxes.0.totals.ILS', '100.00'));
+            ->where('closableBoxes.0.totals.ILS', '100.00')
+            ->where('closableBoxes.0.entries', [['amount' => '100.00', 'bankName' => null, 'service' => null, 'currency' => 'ILS', 'currencyLabel' => __('Shekel'), 'paidAmount' => '100.00']])
+            ->where('closableBoxes.2.id', $transfer->cash_box_id)
+            ->where('closableBoxes.2.entries.0.bankName', 'بنك فلسطين')
+            ->where('closableBoxes.2.entries.0.amount', '250.00'));
 
         $this->post(route('closings.actions', ['action' => 'receive-type']), ['branch_id' => $branch->id, 'type' => 'cash'])->assertSessionHasErrors('action');
         $this->assertSame('open', $first->box->fresh()->status);

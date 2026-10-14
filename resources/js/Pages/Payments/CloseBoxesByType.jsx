@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
+import ConfirmDialog from '@/Components/ConfirmDialog';
 import Icon from '@/Components/Icon';
 import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -25,6 +26,7 @@ export default function CloseBoxesByType({ boxes, branchId, userId, initialType,
     const [cashCounted, setCashCounted] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
     const [processing, setProcessing] = useState(false);
+    const [confirming, setConfirming] = useState(false);
     const shown = boxes.filter((box) => box.type === type);
     const selected = shown.filter((box) => selectedIds.includes(box.id));
     const allSelected = shown.length > 0 && selected.length === shown.length;
@@ -134,10 +136,19 @@ export default function CloseBoxesByType({ boxes, branchId, userId, initialType,
                 <p className="text-sm text-gray-600">{selected.length ? <>{selected.length === 1 ? 'صندوق واحد مختار' : <><b className="font-display text-gray-900">{selected.length}</b> صناديق مختارة</>} · <b className="text-gray-900">{financialAmountsLine(totals)}</b></> : 'لم تختر أي صندوق بعد'}</p>
                 <div className="flex flex-wrap items-center gap-2">
                     <SecondaryButton onClick={onClose}>إلغاء</SecondaryButton>
-                    <PrimaryButton disabled={processing || !selected.length || (cash && !cashCounted)} onClick={submit}><Icon name="check" className="h-4 w-4" />{selected.length === 1 ? 'تأكيد إغلاق الصندوق' : selected.length ? `تأكيد إغلاق ${selected.length} صناديق` : 'تأكيد الإغلاق'}</PrimaryButton>
+                    <PrimaryButton disabled={processing || !selected.length || (cash && !cashCounted)} onClick={() => setConfirming(true)}><Icon name="check" className="h-4 w-4" />{selected.length === 1 ? 'تأكيد إغلاق الصندوق' : selected.length ? `تأكيد إغلاق ${selected.length} صناديق` : 'تأكيد الإغلاق'}</PrimaryButton>
                 </div>
             </div>
         </footer>
+        <ConfirmDialog
+            show={confirming}
+            onCancel={() => setConfirming(false)}
+            onConfirm={() => { setConfirming(false); submit(); }}
+            title={selected.length === 1 ? 'إغلاق الصندوق؟' : `إغلاق ${selected.length} صناديق؟`}
+            message={<>{selected.length === 1 ? 'سيُغلق صندوق' : `ستُغلق ${selected.length} صناديق`} {boxTypeStyles[type].label} ({[...new Set(selected.map((box) => box.person ?? '—'))].join('، ')}) بإجمالي <b className="text-gray-900">{financialAmountsLine(totals)}</b>.{cash ? ' وأنت تؤكد أنك عددت نقد كل صندوق ووجدته مطابقًا لإجماليه.' : ''} بعد الإغلاق تُقفل حركاتها فلا يستطيع المحصّل تعديلها، وتنتقل إلى قسم التدقيق.</>}
+            confirmLabel={selected.length === 1 ? 'نعم، أغلق الصندوق' : `نعم، أغلق ${selected.length} صناديق`}
+            icon="lock"
+        />
     </Modal>;
 }
 

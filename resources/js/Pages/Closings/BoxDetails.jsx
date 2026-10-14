@@ -11,6 +11,7 @@ import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
 import { boxTypes, currencies, dateTime, BoxTypeIcon } from '../Payments/CollectorCashBox';
 import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from '../Payments/LedgerColumns';
+import '../Payments/financial-boxes.css';
 
 export const boxStatuses = { open: ['مفتوح', 'blue'], pending: ['بانتظار تأكيد الإغلاق', 'amber'], received: ['أُكّد إغلاقه', 'green'] };
 
@@ -97,7 +98,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
     const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', 150], ...ledgerColumns.after, ['الحالة', 140], ['', canReview ? 190 : 110]];
     const widths = columns.map(([, width]) => width);
 
-    return <Modal show onClose={onClose} maxWidth="full" centered panelClassName="flex max-h-[calc(100dvh-6rem)] flex-col">
+    return <Modal show onClose={onClose} maxWidth="full" centered panelClassName="financial-box-detail flex max-h-[calc(100dvh-4rem)] flex-col">
         <header className="flex shrink-0 flex-wrap items-start justify-between gap-4 border-b border-gray-100 p-6">
             <div className="flex items-center gap-3">
                 <BoxTypeIcon type={type} className="h-12 w-12" />
@@ -112,7 +113,7 @@ export default function BoxDetails({ box, access, onClose, perform, period }) {
             </div>
         </header>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto bg-gray-50/60 p-6">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto bg-gray-50/60 p-4 sm:p-6">
             <dl className="grid divide-y divide-gray-100 rounded-panel border border-gray-100 bg-surface sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 xl:divide-x xl:divide-x-reverse">
                 <Stat icon="wallet" label="إجمالي الحركات السارية" value={<>{formatMoney(totals.ILS)} <span className="text-sm font-normal text-gray-500">شيكل</span></>} hint={otherCurrencies(totals)} />
                 <Stat icon="list" label="الحركات" value={active.length.toLocaleString('en')} hint={entries.length > active.length ? `و${entries.length - active.length} ملغاة` : 'لا حركات ملغاة'} />

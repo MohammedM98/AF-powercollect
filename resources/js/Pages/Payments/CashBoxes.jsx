@@ -1,4 +1,5 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
 import ColumnWidths, { fixedTableStyle } from '@/Components/DataTable/ColumnWidths';
@@ -6,6 +7,9 @@ import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import Pagination from '@/Components/DataTable/Pagination';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import SegmentedTabs from '@/Components/SegmentedTabs';
+import Icon from '@/Components/Icon';
+import { financialBoxesTotals } from '@/lib/financialBoxes';
+import { FinancialBoxCard, FinancialBoxSummary, financialAmountsLine } from './FinancialBoxComponents';
 import CollectionNavigation from './CollectionNavigation';
 import { boxTypes, boxTypeStyles, currencies, dateTime, Amounts, BoxReportActions, BoxStage, BoxTypeChip } from './CollectorCashBox';
 
@@ -35,15 +39,19 @@ function heldCurrencies(box) {
  * collector are on the summary page.
  */
 export default function CashBoxes({ started, branchName, boxes, filters, pendingCount, collectionUrls }) {
+    const { auth } = usePage().props;
+    const [view, setView] = useState('table');
+    const presentedBoxes = boxes.data.map((box) => ({ ...box, user: auth.user, opened_at: box.openedAt, closed_at: box.closedAt, confirmed_at: box.confirmedAt }));
     function filter(key, value) {
         router.get(collectionUrls.cashBoxes, { ...filters, [key]: value }, { preserveState: true, preserveScroll: true, replace: true });
     }
 
     return <AuthenticatedLayout header={<div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-gray-500">{branchName ?? 'حسابك الحالي'}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">الصناديق المالية</h2></div></div>}>
         <Head title="الصناديق المالية" />
-        <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount} />
-        {started ? <div className="space-y-4">
-            <section aria-label="كل صناديقي" className="space-y-4">
+        <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount} className="flex-wrap" />
+        {started ? <div className="financial-boxes space-y-6">
+            <FinancialBoxSummary boxes={presentedBoxes} pageOnly />
+            <section aria-label="كل صناديقي">
                 <DataTableToolbar
                     showSearch={false}
                     perPage={filters.per_page}
@@ -53,10 +61,12 @@ export default function CashBoxes({ started, branchName, boxes, filters, pending
                         <div className="flex w-full flex-wrap items-center gap-3">
                             <SegmentedTabs label="نوع الصندوق" value={filters.type} onChange={(value) => filter('type', value)} options={typeFilters} />
                             <SegmentedTabs label="حالة الصندوق" value={filters.state} onChange={(value) => filter('state', value)} options={stateFilters} />
+                            <SegmentedTabs label="طريقة العرض" value={view} onChange={setView} options={[{ value: 'table', label: <><Icon name="table" className="h-4 w-4" />جدول</> }, { value: 'cards', label: <><Icon name="grid" className="h-4 w-4" />بطاقات</> }]} />
                         </div>
                     }
                 />
                 <div className="data-table-container">
+                    {view === 'cards' ? (presentedBoxes.length ? <div className="grid gap-4 py-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{presentedBoxes.map((box) => <FinancialBoxCard key={box.id} box={box} onOpen={(item) => router.visit(item.urls.show)} />)}</div> : <p className="px-4 py-14 text-center text-gray-500">لا توجد صناديق بهذه الفلاتر.</p>) :
                     <table className="data-table data-table-fixed w-full text-start text-sm" style={fixedTableStyle(columnWidths)}>
                         <ColumnWidths widths={columnWidths} />
                         <thead>
@@ -95,8 +105,9 @@ export default function CashBoxes({ started, branchName, boxes, filters, pending
                                 </tr>
                             ))}
                         </tbody>
-                    </table>
+                    </table>}
                 </div>
+                <p className="data-table-totals text-sm text-gray-600"><span>المعروض <b className="font-display text-gray-900">{boxes.data.length}</b> من <b className="font-display text-gray-900">{boxes.total}</b> صندوقًا</span><span>مجموع الصناديق المعروضة: <b className="font-display text-gray-900">{financialAmountsLine(financialBoxesTotals(presentedBoxes))}</b></span></p>
                 <Pagination meta={boxes} filters={filters} baseUrl={collectionUrls.cashBoxes} />
             </section>
         </div> : <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">{branchName ? 'لم يُفعّل نظام الصناديق في فرعك بعد. يُفعّله مسؤول الفرع من صفحة الخزنة والكشوفات.' : 'حسابك غير مرتبط بفرع، لذلك لا يوجد سجل صناديق شخصي.'}</p>}

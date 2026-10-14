@@ -29,9 +29,9 @@ export function FinancialBoxIdentity({ box, period, card = false }) {
     </div>;
 }
 
-export function FinancialBoxStatus({ box, compact = false }) {
+export function FinancialBoxStatus({ box }) {
     const [label, tone] = boxStatusLabels[box.status];
-    return <><StatusPill tone={tone} label={compact && box.status === 'pending' ? 'بانتظار الإغلاق' : label} />{box.status === 'received' && !box.confirmed_at && <span className="mt-1 block text-xs text-amber-700 dark:text-amber-400">ينتظر تأكيد المحصّل</span>}</>;
+    return <><StatusPill tone={tone} label={label} />{box.status === 'received' && !box.confirmed_at && <span className="mt-1 block text-xs text-amber-700 dark:text-amber-400">ينتظر تأكيد المحصّل</span>}</>;
 }
 
 export function FinancialBoxAmount({ box, large = false }) {
@@ -60,9 +60,17 @@ export function FinancialBoxDates({ box }) {
     return <span className="text-xs text-gray-600">{date(box.opened_at)} ← {box.closed_at ? date(box.closed_at) : <span className="text-gray-400">مفتوح</span>}</span>;
 }
 
+/**
+ * Whether the actor may review and close the box now: theirs to close, not
+ * a direct payments box, still open or waiting, and holding entries (an
+ * empty box cannot be closed).
+ */
+export function canCloseBox(box) {
+    return !box.frozen && box.canCount && box.kind !== 'direct' && ['open', 'pending'].includes(box.status) && (box.payments?.length ?? box.paymentCount ?? 0) > 0;
+}
+
 export function FinancialBoxButton({ box, onOpen, className = '' }) {
-    const canClose = !box.frozen && box.canCount && box.kind !== 'direct' && ['open', 'pending'].includes(box.status);
-    return canClose ? <PrimaryButton type="button" onClick={() => onOpen(box)} className={`whitespace-nowrap px-3 py-1.5 ${className}`}><Icon name="check" className="h-4 w-4" />مراجعة وإغلاق</PrimaryButton> : <SecondaryButton type="button" onClick={() => onOpen(box)} className={`whitespace-nowrap px-3 py-1.5 ${className}`}>عرض الصندوق</SecondaryButton>;
+    return canCloseBox(box) ? <PrimaryButton type="button" onClick={() => onOpen(box)} className={`whitespace-nowrap px-3 py-1.5 ${className}`}><Icon name="check" className="h-4 w-4" />مراجعة وإغلاق</PrimaryButton> : <SecondaryButton type="button" onClick={() => onOpen(box)} className={`whitespace-nowrap px-3 py-1.5 ${className}`}>عرض الصندوق</SecondaryButton>;
 }
 
 export function FinancialBoxCard({ box, period, onOpen }) {
@@ -72,7 +80,7 @@ export function FinancialBoxCard({ box, period, onOpen }) {
         <div className="flex items-center gap-2.5 rounded-control bg-gray-50 px-3 py-2"><BoxPersonAvatar name={box.user?.name} /><span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-700">{boxPersonName(box)}</span><span className="shrink-0 text-xs text-gray-500"><b className="font-display text-gray-900">{count}</b> حركة</span></div>
         <div><p className="text-xs font-semibold text-gray-500">إجمالي الحركات السارية</p><div className="mt-0.5"><FinancialBoxAmount box={box} large /></div></div>
         <FinancialBoxEntries box={box} card />
-        <footer className="mt-auto space-y-3 border-t border-gray-100 pt-3"><div className="flex flex-wrap items-center justify-between gap-2"><FinancialBoxStatus box={box} compact /><span className="inline-flex items-center gap-1.5"><Icon name="clock" className="h-3.5 w-3.5 text-gray-500" /><FinancialBoxDates box={box} /></span></div><FinancialBoxButton box={box} onOpen={onOpen} className="w-full" /></footer>
+        <footer className="mt-auto space-y-3 border-t border-gray-100 pt-3"><div className="flex flex-wrap items-center justify-between gap-2"><FinancialBoxStatus box={box} /><span className="inline-flex items-center gap-1.5"><Icon name="clock" className="h-3.5 w-3.5 text-gray-500" /><FinancialBoxDates box={box} /></span></div><FinancialBoxButton box={box} onOpen={onOpen} className="w-full" /></footer>
     </article>;
 }
 

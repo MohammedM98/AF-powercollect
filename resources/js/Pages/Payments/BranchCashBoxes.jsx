@@ -1,19 +1,23 @@
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import Modal from '@/Components/Modal';
 import SecondaryButton from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
-import StatusPill from '@/Components/DataTable/StatusPill';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
+import RowIdentity from '@/Components/DataTable/RowIdentity';
+import SortableTh from '@/Components/DataTable/SortableTh';
+import { useRowClick } from '@/hooks/useRowClick';
 import { formatMoney } from '@/lib/format';
-import { boxPersonName, financialBoxesTotals, filterFinancialBoxes, groupFinancialBoxes, sortFinancialBoxes } from '@/lib/financialBoxes';
+import { boxPersonName, financialBoxesTotals, filterFinancialBoxes, sortFinancialBoxes } from '@/lib/financialBoxes';
 import BoxDetails from '../Closings/BoxDetails';
 import { periodLabel, periodRange } from '../Closings/ClosingComponents';
 import CollectionNavigation from './CollectionNavigation';
 import StatusGuide from './StatusGuide';
-import { boxTypes, currencies } from './CollectorCashBox';
-import { BoxPersonAvatar, FinancialBoxAmount, FinancialBoxButton, FinancialBoxCard, FinancialBoxDates, FinancialBoxEntries, FinancialBoxIdentity, FinancialBoxStatus, FinancialBoxSummary, financialAmountsLine } from './FinancialBoxComponents';
+import { boxTypes, boxTypeStyles, currencies } from './CollectorCashBox';
+import { canCloseBox, FinancialBoxAmount, FinancialBoxCard, FinancialBoxDates, FinancialBoxEntries, FinancialBoxStatus, FinancialBoxSummary, financialAmountsLine } from './FinancialBoxComponents';
 
 function savedPreference(key, fallback, allowed) {
     try {
@@ -24,7 +28,7 @@ function savedPreference(key, fallback, allowed) {
     }
 }
 
-/** The branch's financial boxes, grouped by employee or shown as cards. */
+/** The branch's financial boxes, in the site's table (whose box each is in its own column) or as cards. */
 export default function BranchCashBoxes({ branch, branches, started, boxes, closings, access, pendingCount, collectionUrls, urls }) {
     const { can, errors } = usePage().props;
     const pending = boxes.filter((box) => box.status === 'pending');
@@ -35,31 +39,29 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
     const [search, setSearch] = useState('');
     const [person, setPerson] = useState('');
     const [view, setView] = useState(() => savedPreference('view', 'table', ['table', 'cards']));
-    const [group, setGroup] = useState(() => savedPreference('group', 'person', ['person', 'none']));
     const [sort, setSort] = useState({ key: 'status', direction: 'asc' });
-    const [collapsed, setCollapsed] = useState(new Set());
     const [followup, setFollowup] = useState(null);
     const [boxId, setBoxId] = useState(() => Number(new URLSearchParams(window.location.search).get('box')) || null);
     const selectedBox = boxes.find((box) => box.id === boxId);
     const people = [...new Map(boxes.filter((box) => box.user).map((box) => [box.user.id, box.user.name])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar'));
     const shown = filterFinancialBoxes(boxes, { status, person, search });
-    const grouped = group === 'person';
     const active = (entry) => !entry.transaction || entry.transaction.status === 'active';
     const rejected = boxes.flatMap((box) => box.payments.filter((entry) => ['missing', 'rejected'].includes(entry.status) && active(entry)).map((entry) => ({ ...entry, box })));
     const directChecks = boxes.filter((box) => box.kind === 'direct' && box.type === 'bank_transfer').flatMap((box) => box.payments.filter((entry) => entry.status === 'pending' && active(entry)).map((entry) => ({ ...entry, box })));
     const followupEntries = followup === 'rejected' ? rejected : directChecks;
     const currentClosing = closings.find((closing) => new Date(closing.coverage_from) <= new Date() && new Date(closing.coverage_until) >= new Date());
     const statusFilters = [['pending', 'بانتظار تأكيد الإغلاق'], ['open', 'مفتوحة'], ['received', 'مغلقة'], ['all', 'الكل']].map(([value, label]) => ({ value, label: <>{label} · <span className="font-display">{value === 'all' ? boxes.length : boxes.filter((box) => box.status === value).length}</span></> }));
+    const sortState = { sort: sort.key, direction: sort.direction };
+    const rowClick = useRowClick();
     const boxPeriod = (box) => periodLabel(closings.find((closing) => closing.id === box.closing_id));
 
     useEffect(() => {
         try {
             localStorage.setItem('financial-boxes:view', view);
-            localStorage.setItem('financial-boxes:group', group);
         } catch {
             return;
         }
-    }, [view, group]);
+    }, [view]);
 
     function closeBox() {
         setBoxId(null);
@@ -72,32 +74,23 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
         router.post(`${urls.actions}/${kind}/${record.id}`, { branch_id: branch.id, ...extra }, { preserveScroll: true });
     }
 
-    function toggleGroup(key) {
-        setCollapsed((previous) => {
-            const next = new Set(previous);
-            if (next.has(key)) {
-                next.delete(key);
-            } else {
-                next.add(key);
-            }
-            return next;
-        });
-    }
-
-    function sortHeading(key, label) {
-        const selected = sort.key === key;
-        return <th aria-sort={selected ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}><button type="button" className={`inline-flex items-center gap-1 rounded-md hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${selected ? 'text-gray-900' : ''}`} onClick={() => setSort({ key, direction: selected && sort.direction === 'asc' ? 'desc' : 'asc' })}>{label}<span className={`font-display text-[11px] ${selected ? 'text-brand-600' : 'text-gray-400'}`} aria-hidden="true">{selected ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}{'\uFE0E'}</span></button></th>;
+    function sortBy(key) {
+        setSort((current) => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }));
     }
 
     function boxRow(box) {
-        return <tr key={box.id} className={`box-row ${box.status === 'pending' ? 'is-pending' : ''}`} onClick={(event) => { if (!event.target.closest('button, a')) { setBoxId(box.id); } }}>
-            <td><button type="button" className="block w-full text-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900" onClick={() => setBoxId(box.id)} aria-label={`عرض صندوق ${box.number}`}><FinancialBoxIdentity box={box} period={boxPeriod(box)} /></button></td>
-            {!grouped && <td data-label="الموظف"><span className="flex items-center gap-2"><BoxPersonAvatar name={box.user?.name} small /><span className="text-gray-700">{boxPersonName(box)}</span></span></td>}
+        return <tr key={box.id} {...rowClick(() => setBoxId(box.id))}>
+            <td data-label="الصندوق"><RowIdentity icon={boxTypeStyles[box.type].icon} name={`صندوق ${box.number}`} subtitle={[boxTypeStyles[box.type].label, boxPeriod(box)].filter((part) => part && part !== '—').join(' · ')} status={{ open: 'green', pending: 'amber', received: 'gray' }[box.status]} /></td>
+            <td data-label="الموظف" className="text-gray-700">{boxPersonName(box)}{box.isOwn && <span className="text-xs text-gray-400"> (أنت)</span>}</td>
             <td data-label="الحركات"><FinancialBoxEntries box={box} /></td>
-            <td data-label="الإجمالي" data-financial-label="الإجمالي"><FinancialBoxAmount box={box} /></td>
-            <td data-label="فُتح ← أُغلق" data-financial-label="فُتح ← أُغلق"><FinancialBoxDates box={box} /></td>
-            <td data-label="الحالة" data-financial-label="الحالة"><FinancialBoxStatus box={box} compact /></td>
-            <td className="text-end"><FinancialBoxButton box={box} onOpen={(item) => setBoxId(item.id)} /></td>
+            <td data-label="الإجمالي"><FinancialBoxAmount box={box} /></td>
+            <td data-label="فُتح ← أُغلق"><FinancialBoxDates box={box} /></td>
+            <td data-label="الحالة"><FinancialBoxStatus box={box} /></td>
+            <td data-actions="" className="text-end">
+                <RowActionsMenu onView={() => setBoxId(box.id)}>
+                    {canCloseBox(box) && <button onClick={() => setBoxId(box.id)}>مراجعة وإغلاق</button>}
+                </RowActionsMenu>
+            </td>
         </tr>;
     }
 
@@ -122,20 +115,21 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
                     </div>
                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
                         <SegmentedTabs label="حالة الصندوق" value={status} onChange={setStatus} options={statusFilters} />
-                        {view === 'table' && <SegmentedTabs label="تجميع الصناديق" value={group} onChange={setGroup} options={[{ value: 'person', label: <><Icon name="users" className="h-4 w-4" />حسب الموظف</> }, { value: 'none', label: <><Icon name="list" className="h-4 w-4" />قائمة واحدة</> }]} />}
                         <SegmentedTabs label="طريقة العرض" value={view} onChange={setView} options={[{ value: 'table', label: <><Icon name="table" className="h-4 w-4" />جدول</> }, { value: 'cards', label: <><Icon name="grid" className="h-4 w-4" />بطاقات</> }]} />
                     </div>
                 </div>
                 <div className="data-table-container">
                     {!shown.length ? <div className="flex flex-col items-center gap-2 px-4 py-14 text-center text-gray-500"><Icon name="wallet" className="h-8 w-8 text-gray-400" /><p>لا توجد صناديق بهذه الفلاتر.</p></div> : view === 'cards' ? <div className="grid gap-4 py-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{sortFinancialBoxes(shown, sort).map((box) => <FinancialBoxCard key={box.id} box={box} period={boxPeriod(box)} onOpen={(item) => setBoxId(item.id)} />)}</div> : <table className="data-table w-full text-start text-sm">
-                        <thead><tr>{sortHeading('number', 'الصندوق')}{!grouped && <th>الموظف</th>}<th>الحركات</th>{sortHeading('total', 'الإجمالي')}{sortHeading('dates', 'فُتح ← أُغلق')}{sortHeading('status', 'الحالة')}<th data-actions><span className="sr-only">الإجراءات</span></th></tr></thead>
-                        <tbody>{grouped ? groupFinancialBoxes(shown).map((employee) => {
-                            const waiting = employee.boxes.filter((box) => box.status === 'pending').length;
-                            return <Fragment key={employee.key}>
-                                <tr className="group-row"><td colSpan={6}><button type="button" onClick={() => toggleGroup(employee.key)} aria-expanded={!collapsed.has(employee.key)} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-control px-2 py-1.5 text-start transition hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"><Icon name="chevron-down" className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${collapsed.has(employee.key) ? 'rotate-90' : ''}`} /><BoxPersonAvatar name={employee.key === 'direct' ? null : employee.name} /><span className="font-bold text-gray-900">{employee.name}{employee.boxes[0]?.isOwn && <span className="text-xs font-semibold text-gray-400"> (أنت)</span>}</span><span className="text-xs text-gray-500"><b className="font-display text-gray-700">{employee.boxes.length}</b> صناديق</span>{waiting > 0 && <StatusPill tone="amber" label={`${waiting} بانتظار الإغلاق`} />}<span className="ms-auto text-sm text-gray-600">المجموع: <b className="font-display text-gray-900">{financialAmountsLine(financialBoxesTotals(employee.boxes))}</b></span></button></td></tr>
-                                {!collapsed.has(employee.key) && sortFinancialBoxes(employee.boxes, sort).map(boxRow)}
-                            </Fragment>;
-                        }) : sortFinancialBoxes(shown, sort).map(boxRow)}</tbody>
+                        <thead><tr>
+                            <SortableTh column="number" label="الصندوق" sortState={sortState} onSort={sortBy} />
+                            <th>الموظف</th>
+                            <th>الحركات</th>
+                            <SortableTh column="total" label="الإجمالي" sortState={sortState} onSort={sortBy} />
+                            <SortableTh column="dates" label="فُتح ← أُغلق" sortState={sortState} onSort={sortBy} />
+                            <SortableTh column="status" label="الحالة" sortState={sortState} onSort={sortBy} />
+                            <ActionsTh />
+                        </tr></thead>
+                        <tbody>{sortFinancialBoxes(shown, sort).map(boxRow)}</tbody>
                     </table>}
                 </div>
                 <p className="data-table-totals text-sm text-gray-600"><span>المعروض <b className="font-display text-gray-900">{shown.length}</b> من <b className="font-display text-gray-900">{boxes.length}</b> صندوقًا</span><span>مجموع الصناديق المعروضة: <b className="font-display text-gray-900">{financialAmountsLine(financialBoxesTotals(shown))}</b></span></p>

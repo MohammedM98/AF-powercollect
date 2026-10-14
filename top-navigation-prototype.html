@@ -1,0 +1,1050 @@
+<!doctype html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PowerCollect Top Navigation</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alexandria:wght@500;600;700;800&family=El+Messiri:wght@600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<style>
+/*
+ * Layout: a two-row sticky top bar replaces the 288px sidebar. Row one holds
+ * the brand, search and account; row two holds the five task groups, each
+ * opening a dropdown of its pages. Phones keep the slide-in drawer.
+ * Tokens are copied from resources/css/app.css (RGB triples).
+ */
+:root {
+    --brand-50: 251 241 241; --brand-100: 244 214 216; --brand-400: 196 81 90;
+    --brand-500: 165 29 38; --brand-600: 143 24 32;
+    --gray-50: 239 241 244; --gray-100: 233 236 239; --gray-200: 223 226 230; --gray-300: 205 211 218;
+    --gray-400: 94 103 115; --gray-500: 76 84 96; --gray-600: 70 78 89; --gray-700: 53 60 70;
+    --gray-800: 35 42 51; --gray-900: 17 24 32;
+    --surface: 255 255 255;
+    --graphite-700: 38 44 51; --graphite-800: 27 32 38; --graphite-900: 17 21 25;
+    --silver: 154 163 174;
+    --spectrum: linear-gradient(90deg, #5c0d14, #a51d26 40%, #9aa3ae 75%, #dfe3e8);
+    --graphite-gradient: linear-gradient(135deg, #262c33, #1b2026 60%, #111519);
+    --brand-gradient: linear-gradient(180deg, #b8232c, #7d121b);
+    --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 14px 34px -18px rgb(16 24 40 / 0.18);
+    --shadow-lift: 0 2px 6px rgb(16 24 40 / 0.06), 0 24px 44px -20px rgb(16 24 40 / 0.32);
+    --shadow-glow: 0 10px 24px -12px rgb(165 29 38 / 0.9);
+    --dark-ring: 0 0 0 0 transparent;
+
+    --font-sans: 'IBM Plex Sans Arabic', system-ui, 'Segoe UI', Tahoma, sans-serif;
+    --font-luxe: 'El Messiri', 'IBM Plex Sans Arabic', Georgia, serif;
+    --font-display: 'Alexandria', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+    --gutter-sm: 16px; --gutter-lg: 40px;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --brand-50: 42 16 19; --brand-100: 58 20 24; --brand-400: 196 70 78;
+        --brand-500: 184 35 44; --brand-600: 222 92 100;
+        --gray-50: 11 13 16; --gray-100: 27 31 37; --gray-200: 37 42 50; --gray-300: 52 58 67;
+        --gray-400: 128 137 149; --gray-500: 158 166 177; --gray-600: 184 190 199; --gray-700: 204 209 216;
+        --gray-800: 226 229 233; --gray-900: 244 245 247;
+        --surface: 20 23 28;
+        --spectrum: linear-gradient(90deg, #5c0d14, #b8232c 40%, #6b7480 75%, #252a32);
+        --dark-ring: 0 0 0 1px rgb(255 255 255 / 0.1);
+    }
+}
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --brand-50: 42 16 19; --brand-100: 58 20 24; --brand-400: 196 70 78;
+    --brand-500: 184 35 44; --brand-600: 222 92 100;
+    --gray-50: 11 13 16; --gray-100: 27 31 37; --gray-200: 37 42 50; --gray-300: 52 58 67;
+    --gray-400: 128 137 149; --gray-500: 158 166 177; --gray-600: 184 190 199; --gray-700: 204 209 216;
+    --gray-800: 226 229 233; --gray-900: 244 245 247;
+    --surface: 20 23 28;
+    --spectrum: linear-gradient(90deg, #5c0d14, #b8232c 40%, #6b7480 75%, #252a32);
+    --dark-ring: 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+    background: rgb(var(--gray-50));
+    color: rgb(var(--gray-900));
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+}
+h1, h2 { font-family: var(--font-luxe); text-wrap: balance; margin: 0; }
+h3 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+button { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+svg { flex-shrink: 0; }
+:focus-visible { outline: 2px solid rgb(var(--gray-900)); outline-offset: 2px; }
+
+.gutter {
+    padding-left: max(var(--gutter-sm), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--gutter-sm), env(safe-area-inset-right, 0px));
+}
+@media (min-width: 1024px) {
+    .gutter {
+        padding-left: max(var(--gutter-lg), env(safe-area-inset-left, 0px));
+        padding-right: max(var(--gutter-lg), env(safe-area-inset-right, 0px));
+    }
+}
+.container { max-width: 1536px; margin-inline: auto; }
+
+.skip-link {
+    position: absolute; inset-inline-start: 16px; top: -100px; z-index: 70;
+    padding: 12px 16px; border-radius: 8px; background: rgb(var(--surface)); color: rgb(var(--gray-900));
+}
+.skip-link:focus { top: 16px; }
+
+/* ── Top bar ─────────────────────────────────────────────── */
+.topbar {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 30;
+    background: rgb(var(--surface) / 0.8);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border-bottom: 1px solid rgb(var(--gray-100));
+}
+.bar-row { display: flex; align-items: center; gap: 12px; height: 72px; }
+
+.icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; flex-shrink: 0;
+    border-radius: 12px; border: 1px solid rgb(var(--gray-200));
+    background: rgb(var(--surface)); color: rgb(var(--gray-700));
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.05);
+    cursor: pointer; position: relative;
+    transition: border-color 150ms, color 150ms;
+}
+.icon-btn:hover { border-color: rgb(var(--gray-300)); color: rgb(var(--gray-900)); }
+.icon-btn svg { width: 20px; height: 20px; }
+.badge {
+    position: absolute; top: -5px; inset-inline-end: -5px;
+    min-width: 20px; height: 20px; padding-inline: 5px;
+    border-radius: 999px; background: rgb(var(--brand-500)); color: #fff;
+    font-family: var(--font-display); font-size: 12px; font-weight: 700; line-height: 20px; text-align: center;
+    border: 2px solid rgb(var(--surface));
+}
+
+.brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; border-radius: 8px; padding-block: 4px; }
+.brand img { height: 44px; width: auto; }
+.brand-divider { width: 1px; height: 36px; background: rgb(var(--gray-200)); }
+.brand-name { display: block; font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+.brand-branch { display: block; font-size: 0.875rem; color: rgb(var(--gray-500)); line-height: 1.5; }
+
+.search {
+    display: flex; align-items: center; gap: 10px;
+    flex: 1; min-width: 0; max-width: 26rem; margin-inline-start: 16px;
+    padding: 10px 14px; border-radius: 12px; border: 1px solid rgb(var(--gray-200));
+    background: rgb(var(--surface)); color: rgb(var(--gray-400));
+    font-size: 1rem; text-align: start; cursor: pointer;
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.05);
+}
+.search:hover { border-color: rgb(var(--gray-300)); }
+.search svg { width: 18px; height: 18px; }
+.search span:first-of-type { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kbd {
+    display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 6px;
+    border: 1px solid rgb(var(--gray-200)); background: rgb(var(--surface));
+    font-family: var(--font-display); font-size: 12px; font-weight: 600; color: rgb(var(--gray-500));
+}
+.bar-actions { display: flex; align-items: center; gap: 8px; margin-inline-start: auto; }
+
+.user-btn {
+    display: flex; align-items: center; gap: 10px; height: 44px; padding-inline: 4px 10px;
+    border-radius: 12px; border: 1px solid transparent; background: none; cursor: pointer;
+}
+.user-btn:hover, .user-btn[aria-expanded="true"] { background: rgb(var(--gray-100)); }
+.avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: 999px;
+    background: var(--graphite-gradient); color: #fff; font-weight: 600; font-size: 1rem;
+    box-shadow: var(--dark-ring);
+}
+.user-text { text-align: start; line-height: 1.3; }
+.user-text b { display: block; font-size: 0.95rem; }
+.user-text small { display: block; font-size: 0.8rem; color: rgb(var(--gray-500)); }
+.user-btn > svg { width: 16px; height: 16px; color: rgb(var(--gray-500)); }
+
+/* Row two: the task groups */
+.nav-row { border-top: 1px solid rgb(var(--gray-100)); }
+.nav-scroll {
+    display: flex; align-items: center; gap: 4px; height: 58px;
+    overflow-x: auto; scrollbar-width: none;
+}
+.nav-scroll::-webkit-scrollbar { display: none; }
+.nav-item {
+    display: inline-flex; align-items: center; gap: 8px; height: 42px; padding-inline: 14px;
+    border-radius: 12px; border: 0; background: none; cursor: pointer;
+    font-size: 1rem; font-weight: 600; color: rgb(var(--gray-600)); white-space: nowrap;
+    transition: background-color 150ms, color 150ms;
+}
+.nav-item svg { width: 19px; height: 19px; color: rgb(var(--gray-500)); }
+.nav-item .chev { width: 15px; height: 15px; transition: transform 200ms; }
+.nav-item[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.nav-item:hover, .nav-item[aria-expanded="true"] { background: rgb(var(--gray-100)); color: rgb(var(--gray-900)); }
+.nav-item:hover svg { color: rgb(var(--gray-700)); }
+/* A link that is the current page: the sidebar's burgundy tint and edge, turned to sit under it. */
+.nav-item[aria-current="page"] {
+    background: rgb(var(--brand-50)); color: rgb(var(--brand-600));
+    box-shadow: inset 0 -3px 0 rgb(var(--brand-600));
+}
+.nav-item[aria-current="page"] svg { color: rgb(var(--brand-600)); }
+/* A group that holds the current page: the sidebar's graphite heading. */
+.nav-item[data-active="true"] {
+    background: var(--graphite-gradient); color: #fff;
+    box-shadow: inset 0 -3px 0 rgb(var(--brand-500)), 0 14px 26px -14px rgb(16 24 40 / 0.55), var(--dark-ring);
+}
+.nav-item[data-active="true"] svg, .nav-item[data-active="true"]:hover svg { color: rgb(var(--silver)); }
+.nav-sep { width: 1px; height: 24px; background: rgb(var(--gray-200)); margin-inline: 6px; flex-shrink: 0; }
+.nav-current {
+    margin-inline-start: auto; padding-inline-start: 16px;
+    font-size: 0.875rem; color: rgb(var(--gray-500)); white-space: nowrap;
+}
+.nav-current b { color: rgb(var(--gray-800)); font-weight: 600; }
+
+/* Dropdown of a group's pages */
+.mega {
+    position: fixed; z-index: 40;
+    width: min(37rem, calc(100vw - 32px));
+    padding: 18px 12px 12px;
+    border-radius: 24px; border: 1px solid rgb(var(--gray-100));
+    background: rgb(var(--surface));
+    box-shadow: var(--shadow-lift), var(--dark-ring);
+    animation: drop 170ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.mega::before {
+    content: ''; position: absolute; top: -1px; inset-inline: 28px; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, rgb(var(--brand-500) / 0.55));
+}
+@keyframes drop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.mega-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 12px 10px; }
+.mega-head h3 { font-size: 1rem; font-weight: 700; }
+.mega-head span { font-size: 0.875rem; color: rgb(var(--gray-500)); }
+.mega-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.mega-grid.single { grid-template-columns: minmax(0, 1fr); }
+.mega-link {
+    display: grid; grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 18px;
+    transition: background-color 150ms;
+}
+.mega-link:hover, .mega-link:focus-visible { background: rgb(var(--gray-50)); }
+.mega-link:focus-visible { outline-offset: -2px; }
+.tile {
+    display: flex; align-items: center; justify-content: center; width: 42px; height: 42px;
+    border-radius: 12px; border: 1px solid rgb(var(--gray-100)); background: rgb(var(--gray-50));
+    color: rgb(var(--gray-500));
+}
+.tile svg { width: 20px; height: 20px; }
+.mega-link:hover .tile { background: rgb(var(--surface)); color: rgb(var(--gray-800)); }
+.mega-link b { display: block; font-size: 1rem; font-weight: 600; line-height: 1.4; }
+.mega-link small { display: block; font-size: 0.85rem; color: rgb(var(--gray-500)); line-height: 1.5; }
+.mega-link[aria-current="page"] { background: rgb(var(--brand-50)); box-shadow: inset -3px 0 0 rgb(var(--brand-600)); }
+.mega-link[aria-current="page"] b { color: rgb(var(--brand-600)); }
+.mega-link[aria-current="page"] .tile { background: rgb(var(--brand-500) / 0.1); border-color: transparent; color: rgb(var(--brand-600)); }
+.mega-foot {
+    display: flex; align-items: center; gap: 8px; margin: 10px 4px 0; padding: 10px 8px 0;
+    border-top: 1px solid rgb(var(--gray-100)); font-size: 0.85rem; color: rgb(var(--gray-500));
+}
+
+/* Account menu */
+.menu {
+    position: fixed; z-index: 40; width: 16rem; padding: 8px;
+    border-radius: 18px; border: 1px solid rgb(var(--gray-100)); background: rgb(var(--surface));
+    box-shadow: var(--shadow-lift), var(--dark-ring);
+    animation: drop 170ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.menu-head { padding: 8px 10px 12px; border-bottom: 1px solid rgb(var(--gray-100)); margin-bottom: 6px; }
+.menu-head b { display: block; }
+.menu-head small { display: block; color: rgb(var(--gray-500)); font-size: 0.85rem; }
+.menu-item {
+    display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 10px;
+    border: 0; border-radius: 10px; background: none; cursor: pointer; font-size: 1rem; color: rgb(var(--gray-700)); text-align: start;
+}
+.menu-item svg { width: 20px; height: 20px; color: rgb(var(--gray-500)); }
+.menu-item:hover { background: rgb(var(--gray-50)); color: rgb(var(--gray-900)); }
+.menu-item.danger:hover, .menu-item.danger:hover svg { background: rgb(var(--brand-50)); color: rgb(var(--brand-600)); }
+
+/* ── Phone drawer (unchanged idea from today's sidebar) ─── */
+.drawer {
+    position: fixed; inset-block: 0; inset-inline-start: 0; inset-inline-end: auto;
+    margin: 0; width: min(18rem, 85vw); height: 100dvh; max-height: none; max-width: none;
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+    border: 0; background: rgb(var(--surface)); color: rgb(var(--gray-900));
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+.drawer::backdrop { background: rgb(var(--graphite-900) / 0.6); backdrop-filter: blur(4px); }
+.drawer-inner { display: flex; flex-direction: column; height: 100%; }
+.drawer-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px 0; font-size: 0.875rem; font-weight: 600; color: rgb(var(--gray-500)); }
+.drawer-top button { border: 0; background: none; width: 44px; height: 44px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.drawer-top button svg { width: 20px; height: 20px; }
+.drawer .brand { padding: 16px 24px; }
+.drawer nav { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px; }
+.side-link {
+    display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 12px; border-radius: 8px;
+    font-size: 1rem; color: rgb(var(--gray-700));
+}
+.side-link svg { width: 20px; height: 20px; color: rgb(var(--gray-500)); }
+.side-link:hover { background: rgb(var(--gray-50)); }
+.side-link[aria-current="page"] { background: rgb(var(--brand-50)); color: rgb(var(--brand-600)); font-weight: 600; box-shadow: inset -3px 0 0 rgb(var(--brand-600)); }
+.side-link[aria-current="page"] svg { color: rgb(var(--brand-600)); }
+.side-group { border-top: 1px solid rgb(var(--gray-200)); padding-top: 8px; }
+.side-group > button {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 8px 12px;
+    border: 0; border-radius: 16px; background: none; cursor: pointer; text-align: start;
+    font-size: 1rem; font-weight: 600; color: rgb(var(--gray-500));
+}
+.side-group > button span { flex: 1; }
+.side-group > button svg { width: 16px; height: 16px; transition: transform 200ms; }
+.side-group > button[aria-expanded="true"] svg { transform: rotate(180deg); }
+.side-group > button[data-active="true"] {
+    background: var(--graphite-gradient); color: #fff;
+    box-shadow: inset -3px 0 0 rgb(var(--brand-500)), 0 14px 26px -14px rgb(16 24 40 / 0.55), var(--dark-ring);
+}
+.side-group .links { padding-block: 4px; }
+.drawer-foot { display: flex; align-items: center; gap: 10px; margin-inline: 16px; padding-block: 12px; border-top: 1px solid rgb(var(--gray-200)); }
+.drawer-foot .user-text { flex: 1; min-width: 0; }
+
+/* ── Search palette ───────────────────────────────────────── */
+.palette {
+    width: min(36rem, calc(100vw - 32px)); max-height: min(32rem, 80dvh); margin: 10vh auto auto; padding: 0;
+    border: 1px solid rgb(var(--gray-100)); border-radius: 24px; background: rgb(var(--surface)); color: rgb(var(--gray-900));
+    box-shadow: var(--shadow-lift), var(--dark-ring); overflow: hidden;
+}
+.palette::backdrop { background: rgb(var(--graphite-900) / 0.5); backdrop-filter: blur(4px); }
+.palette-field { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid rgb(var(--gray-100)); }
+.palette-field svg { width: 20px; height: 20px; color: rgb(var(--gray-400)); }
+.palette-field input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; color: inherit; outline: none; }
+.palette-field input::placeholder { color: rgb(var(--gray-400)); }
+.palette-list { max-height: 24rem; overflow-y: auto; padding: 8px; }
+.palette-list .group-label { padding: 8px 10px 4px; font-size: 0.85rem; font-weight: 600; color: rgb(var(--gray-500)); }
+.palette-list a { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; }
+.palette-list a svg { width: 18px; height: 18px; color: rgb(var(--gray-500)); }
+.palette-list a:hover, .palette-list a.is-first { background: rgb(var(--gray-50)); }
+.palette-empty { padding: 24px; text-align: center; color: rgb(var(--gray-500)); font-size: 0.95rem; }
+
+/* ── Page content ─────────────────────────────────────────── */
+main { padding-block: 32px 48px; }
+.page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+.crumbs { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: rgb(var(--gray-500)); margin-bottom: 4px; }
+.crumbs svg { width: 14px; height: 14px; }
+.page-head h2 { font-size: 2rem; font-weight: 700; line-height: 1.3; }
+.page-head h2 em { font-style: normal; color: rgb(var(--brand-600)); }
+.page-head p { margin-top: 4px; font-size: 1rem; color: rgb(var(--gray-500)); }
+.add-btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border: 0; border-radius: 12px;
+    background: var(--brand-gradient); color: #fff; font-weight: 600; font-size: 1rem; cursor: pointer; box-shadow: var(--shadow-glow);
+}
+.add-btn svg { width: 18px; height: 18px; }
+.add-btn:hover { filter: brightness(1.1); }
+
+.stack { display: flex; flex-direction: column; gap: 24px; }
+.hero {
+    position: relative; overflow: hidden; border-radius: 32px; padding: 36px 32px;
+    background: var(--graphite-gradient); color: #fff; box-shadow: var(--shadow-lift), var(--dark-ring);
+}
+.hero::after {
+    content: ''; position: absolute; bottom: -96px; inset-inline-start: -40px; width: 288px; height: 288px; border-radius: 999px;
+    background: rgb(165 29 38 / 0.25); filter: blur(64px); pointer-events: none;
+}
+.hero-row { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 32px; }
+.hero-label { font-size: 1rem; font-weight: 600; color: #cdd3da; }
+.hero-num {
+    margin-top: 8px; font-family: var(--font-display); font-size: clamp(3.5rem, 9vw, 4.5rem); font-weight: 700; line-height: 1;
+    background: linear-gradient(180deg, #fff, #9aa3ae); -webkit-background-clip: text; background-clip: text; color: transparent;
+    font-variant-numeric: tabular-nums;
+}
+.hero-sub { margin-top: 12px; font-size: 1rem; color: #9aa3ae; }
+.spectrum { position: relative; z-index: 1; height: 3px; width: 160px; border-radius: 999px; background: var(--spectrum); margin-top: 28px; }
+.hero-note { position: relative; z-index: 1; margin-top: 12px; font-size: 0.875rem; color: #9aa3ae; }
+
+.ring { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+.ring svg { transform: rotate(-90deg); }
+.ring span { position: absolute; font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+.stat {
+    display: flex; align-items: center; gap: 16px; padding: 20px; border-radius: 24px;
+    border: 1px solid rgb(var(--gray-100)); background: rgb(var(--surface)); box-shadow: var(--shadow-card);
+}
+.stat-num { font-family: var(--font-display); font-size: 1.625rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 0.95rem; color: rgb(var(--gray-500)); }
+
+.table-card { border-radius: 28px; overflow: hidden; border: 1px solid rgb(var(--gray-100)); }
+.table-toolbar {
+    position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 18px 24px; background: rgb(var(--surface)); border-bottom: 1px solid rgb(var(--gray-100));
+}
+.table-toolbar::before {
+    content: ''; position: absolute; top: 0; inset-inline: 28px; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, rgb(var(--brand-500) / 0.55));
+}
+.table-toolbar h3 { font-size: 1.1rem; }
+.table-toolbar small { color: rgb(var(--gray-500)); font-size: 0.9rem; }
+.tray { padding: 6px 16px 14px; background: rgb(var(--gray-50)); display: flex; flex-direction: column; gap: 10px; }
+.tray-row {
+    display: grid; grid-template-columns: 2fr 1.2fr 1fr 0.8fr; gap: 16px; align-items: center;
+    padding: 16px 18px; border-radius: 18px; border: 1px solid rgb(var(--gray-100)); background: rgb(var(--surface));
+}
+.bar { height: 12px; border-radius: 999px; background: rgb(var(--gray-100)); }
+.bar.pulse { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.55; } }
+.tray-note { padding: 14px 24px; background: rgb(var(--surface)); border-top: 1px solid rgb(var(--gray-100)); font-size: 0.95rem; color: rgb(var(--gray-500)); }
+
+.notes {
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 24px; border-radius: 24px;
+    border: 1px dashed rgb(var(--gray-300)); background: rgb(var(--surface));
+}
+@media (min-width: 900px) { .notes { grid-template-columns: 16rem minmax(0, 1fr); } }
+.notes h3 { font-size: 1.1rem; }
+.notes > div > p { margin-top: 6px; font-size: 0.95rem; color: rgb(var(--gray-500)); }
+.proto-chip {
+    display: inline-block; margin-bottom: 8px; padding: 2px 10px; border-radius: 999px;
+    background: rgb(var(--brand-500) / 0.1); color: rgb(var(--brand-600)); font-size: 0.8rem; font-weight: 600;
+}
+.notes ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 12px; }
+.notes li { display: flex; gap: 12px; padding: 14px; border-radius: 18px; background: rgb(var(--gray-50)); font-size: 0.95rem; }
+.notes li .tile { width: 36px; height: 36px; background: rgb(var(--surface)); }
+.notes li b { display: block; }
+.notes li span { color: rgb(var(--gray-600)); }
+
+/* ── Breakpoints ─────────────────────────────────────────── */
+.lg-only { display: none; }
+@media (min-width: 1024px) {
+    .lg-only { display: block; }
+    .sm-only { display: none !important; }
+}
+@media (max-width: 1279px) {
+    .user-text.in-bar, .nav-current { display: none; }
+    .nav-item { padding-inline: 10px; gap: 6px; }
+    .nav-item[data-group] svg:not(.chev) { display: none; }
+    .dash-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (max-width: 1023px) {
+    .bar-row { height: 64px; gap: 8px; }
+    .brand-divider, .brand-text { display: none; }
+    .brand img { height: 36px; }
+    .search { margin-inline-start: 4px; }
+}
+@media (max-width: 560px) {
+    .search span, .search .kbd { display: none; }
+    .search { flex: 0 0 44px; width: 44px; height: 44px; padding: 0; justify-content: center; color: rgb(var(--gray-700)); }
+    .search svg { width: 20px; height: 20px; }
+    .user-btn > svg { display: none; }
+    .user-btn { padding: 0; }
+    .hero { padding: 28px 22px; }
+    .tray-row { grid-template-columns: 2fr 1fr; }
+    .tray-row .bar:nth-child(n+3) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main-content">تخطي إلى المحتوى</a>
+
+<div dir="rtl" lang="ar">
+<header class="topbar">
+    <div class="gutter">
+        <div class="container bar-row">
+            <button type="button" class="icon-btn sm-only" id="drawer-btn" aria-label="فتح القائمة" aria-controls="drawer" aria-expanded="false" data-icon="menu"></button>
+            <a href="#" class="brand" data-href="/dashboard" aria-label="AF PowerCollect، لوحة التحكم">
+                <img src="data:image/webp;base64,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" alt="AF PowerCollect">
+                <span class="brand-divider" aria-hidden="true"></span>
+                <span class="brand-text">
+                    <span class="brand-name" dir="auto">PowerCollect</span>
+                    <span class="brand-branch">فرع الكرادة</span>
+                </span>
+            </a>
+
+            <button type="button" class="search" id="search-btn" aria-label="ابحث أو انتقل إلى صفحة">
+                <svg data-icon-inline="search"></svg>
+                <span>ابحث أو انتقل إلى صفحة...</span>
+                <span class="kbd" dir="ltr">Ctrl K</span>
+            </button>
+
+            <div class="bar-actions">
+                <button type="button" class="icon-btn" id="theme-btn" aria-label="التبديل إلى الوضع الغامق"></button>
+                <button type="button" class="icon-btn" aria-label="آخر العمليات، 3 جديدة" data-icon="bell"><span class="badge">3</span></button>
+                <button type="button" class="user-btn" id="user-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu">
+                    <span class="avatar" aria-hidden="true">م</span>
+                    <span class="user-text in-bar"><b>مدير النظام</b><small>مسؤول عام</small></span>
+                    <svg data-icon-inline="chevron-down"></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="nav-row lg-only gutter">
+        <nav class="container nav-scroll" id="nav-scroll" aria-label="القائمة الرئيسية"></nav>
+    </div>
+</header>
+
+<div class="mega" id="mega" role="region" hidden></div>
+
+<div class="menu" id="user-menu" role="menu" aria-label="الحساب" hidden>
+    <div class="menu-head"><b>مدير النظام</b><small>مسؤول عام · فرع الكرادة</small></div>
+    <button type="button" class="menu-item" role="menuitem" data-href="/profile"><svg data-icon-inline="user"></svg>الملف الشخصي</button>
+    <button type="button" class="menu-item danger" role="menuitem"><svg data-icon-inline="logout"></svg>تسجيل الخروج</button>
+</div>
+
+<dialog class="drawer" id="drawer" aria-label="القائمة الرئيسية">
+    <div class="drawer-inner" id="drawer-inner"></div>
+</dialog>
+
+<dialog class="palette" id="palette" aria-label="البحث في الصفحات">
+    <div class="palette-field">
+        <svg data-icon-inline="search"></svg>
+        <input id="palette-q" type="text" placeholder="اكتب اسم الصفحة..." autocomplete="off" aria-label="اسم الصفحة">
+        <span class="kbd">Esc</span>
+    </div>
+    <div class="palette-list" id="palette-list"></div>
+</dialog>
+
+<main id="main-content" tabindex="-1" class="gutter">
+    <div class="container" id="page"></div>
+</main>
+</div>
+
+<script>
+const PATHS = {
+    grid: 'M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25a2.25 2.25 0 01-2.25-2.25v-2.25z',
+    banknotes: 'M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z',
+    gauge: ['M12 14l4-4', 'M3.3 17a9 9 0 1117.4 0', 'M12 5v1M5.6 8.6l.7.7M18.4 8.6l-.7.7'],
+    wallet: 'M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3',
+    list: 'M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z',
+    ledger: ['M5.25 3.75h13.5a1.5 1.5 0 011.5 1.5v13.5a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5V5.25a1.5 1.5 0 011.5-1.5z', 'M3.75 9h16.5M3.75 14.25h16.5M8.25 9v11.25'],
+    bank: 'M12 3L2.25 8.25h19.5L12 3zM3.75 8.25v9m4.5-9v9m7.5-9v9m4.5-9v9M12 8.25v9M2.25 20.25h19.5',
+    history: ['M3 12a9 9 0 103-6.7L3 8', 'M3 3v5h5M12 7v5l3 2'],
+    trend: ['M3 3v18h18', 'M7 15l4-4 3 3 6-6'],
+    receipt: 'M6 3h12v18l-3-2-3 2-3-2-3 2V3zm3 5h6m-6 4h6m-6 4h3',
+    users: 'M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.294M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z',
+    chart: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z',
+    messages: 'M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155',
+    user: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z',
+    pin: ['M15 10.5a3 3 0 11-6 0 3 3 0 016 0z', 'M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z'],
+    dollar: 'M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33',
+    bolt: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z',
+    table: 'M3.75 3.75v16.5h16.5V3.75H3.75zM3.75 9h16.5M9 3.75v16.5',
+    map: 'M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z',
+    shield: 'M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z',
+    calendar: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5',
+    printer: 'M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z',
+    cog: ['M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z', 'M15 12a3 3 0 11-6 0 3 3 0 016 0z'],
+    search: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z',
+    sun: 'M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z',
+    moon: 'M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z',
+    menu: 'M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5',
+    bell: 'M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0',
+    'chevron-down': 'm19.5 8.25-7.5 7.5-7.5-7.5',
+    'chevron-left': 'M15.75 19.5L8.25 12l7.5-7.5',
+    close: 'M6 18L18 6M6 6l12 12',
+    logout: 'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m-3 0l-3-3m0 0l3-3m-3 3H21',
+    plus: 'M12 4.5v15m7.5-7.5h-15',
+    columns: 'M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z',
+};
+
+function icon(name, cls = '') {
+    const paths = [].concat(PATHS[name] ?? []);
+    return `<svg aria-hidden="true" class="${cls}" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">${paths
+        .map((d) => `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="${d}"/>`)
+        .join('')}</svg>`;
+}
+
+/* The same pages, groups and icons as resources/js/lib/navigation.js, plus a one-line hint for the dropdown. */
+const LINKS = [
+    { href: '/dashboard', label: 'لوحة التحكم', icon: 'grid' },
+    { href: '/payments', label: 'تسجيل الدفعات', icon: 'banknotes', hint: 'استلام دفعة من مشترك وطباعة الوصل' },
+    { href: '/payments/summary', label: 'ملخص التحصيل', icon: 'gauge', hint: 'ما حُصّل اليوم وهذا الشهر' },
+    { href: '/payments/cash-boxes', label: 'الصناديق المالية', icon: 'wallet', hint: 'أرصدة صناديق المحصّلين' },
+    { href: '/payments/entries', label: 'الحركات', icon: 'list', hint: 'الإيداعات والسحوبات والتحويلات' },
+    { href: '/ledger', label: 'السجل المالي', icon: 'ledger', hint: 'القيود حسب التاريخ والفرع' },
+    { href: '/reconciliation', label: 'الخزنة والكشوفات', icon: 'bank', hint: 'مطابقة الخزنة مع كشوف البنك' },
+    { href: '/receivables', label: 'أعمار الديون', icon: 'wallet', hint: 'الذمم المتأخرة حسب مدتها' },
+    { href: '/transaction-audit', label: 'سجل التدقيق', icon: 'history', hint: 'من غيّر ماذا ومتى' },
+    { href: '/branch-performance', label: 'أداء الفروع', icon: 'trend', hint: 'مقارنة نسب التحصيل بين الفروع' },
+    { href: '/reports', label: 'التقارير', icon: 'receipt', hint: 'تقارير التحصيل والقراءات الجاهزة' },
+    { href: '/subscriptions', label: 'المشتركون', icon: 'users', hint: 'البحث عن مشترك وإضافته وتعديله' },
+    { href: '/meter-readings', label: 'القراءات', icon: 'chart', hint: 'قراءات العدادات لهذه الدورة' },
+    { href: '/messages', label: 'الرسائل', icon: 'messages', hint: 'تنبيهات الدفع والقطع للمشتركين' },
+    { href: '/users', label: 'المستخدمون', icon: 'user', hint: 'الحسابات والأدوار والفروع' },
+    { href: '/branches', label: 'الفروع', icon: 'pin', hint: 'الفروع ومسؤولوها ومناطقها' },
+    { href: '/tariffs', label: 'التعرفات', icon: 'dollar', hint: 'سعر الأمبير وشرائح الاشتراك' },
+    { href: '/circuit-breakers', label: 'القواطع', icon: 'bolt', hint: 'أحجام القواطع المتاحة للمشتركين' },
+    { href: '/meter-boxes', label: 'الطبلونات', icon: 'table', hint: 'الطبلونات وأماكنها ومشتركوها' },
+    { href: '/governorates', label: 'المحافظات', icon: 'map', hint: 'المحافظات والمناطق والأحياء' },
+    { href: '/settings/permissions', label: 'الصلاحيات', icon: 'shield', hint: 'ما يراه كل دور وما يعدّله' },
+    { href: '/settings/reading-schedule', label: 'مواعيد القراءات', icon: 'calendar', hint: 'أيام فتح وإغلاق دورة القراءة' },
+    { href: '/settings/print-templates', label: 'قوالب الطباعة', icon: 'printer', hint: 'شكل الوصل والكشوفات المطبوعة' },
+    { href: '/profile', label: 'الملف الشخصي', icon: 'user', hint: '' },
+];
+const byHref = new Map(LINKS.map((link) => [link.href, link]));
+
+const GROUPS = [
+    { id: 'daily', label: 'العمل اليومي', icon: 'users', hrefs: ['/subscriptions', '/meter-readings', '/messages'] },
+    { id: 'finance', label: 'المالية والتحصيل', icon: 'wallet', hrefs: ['/payments', '/payments/summary', '/payments/cash-boxes', '/payments/entries', '/ledger', '/receivables', '/reconciliation'] },
+    { id: 'reports', label: 'التقارير والرقابة', icon: 'trend', hrefs: ['/reports', '/branch-performance', '/transaction-audit'] },
+    { id: 'infrastructure', label: 'الفروع والبنية الكهربائية', icon: 'bolt', hrefs: ['/branches', '/governorates', '/meter-boxes', '/circuit-breakers'] },
+    { id: 'administration', label: 'الإدارة والإعدادات', icon: 'cog', hrefs: ['/users', '/settings/permissions', '/tariffs', '/settings/reading-schedule', '/settings/print-templates'] },
+];
+
+document.documentElement.dir = 'rtl';
+document.documentElement.lang = 'ar';
+
+const state = { current: '/dashboard', openGroup: null, drawerOpen: new Set(['daily', 'finance']) };
+
+const groupOf = (href) => GROUPS.find((group) => group.hrefs.includes(href));
+const current = () => byHref.get(state.current);
+const $ = (id) => document.getElementById(id);
+
+document.querySelectorAll('[data-icon]').forEach((el) => el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon)));
+document.querySelectorAll('svg[data-icon-inline]').forEach((el) => el.outerHTML = icon(el.dataset.iconInline));
+
+/* ── Top bar groups ───────────────────────────────────────── */
+function renderNav() {
+    const activeGroup = groupOf(state.current);
+    const dashboard = byHref.get('/dashboard');
+    const page = current();
+
+    $('nav-scroll').innerHTML = `
+        <a href="#" class="nav-item" data-href="/dashboard" title="${dashboard.label}" ${state.current === '/dashboard' ? 'aria-current="page"' : ''}>${icon(dashboard.icon)}<span class="dash-label">${dashboard.label}</span></a>
+        <span class="nav-sep" aria-hidden="true"></span>
+        ${GROUPS.map((group) => `
+            <button type="button" class="nav-item" data-group="${group.id}"
+                aria-expanded="${state.openGroup === group.id}" aria-controls="mega"
+                ${activeGroup?.id === group.id ? 'data-active="true"' : ''}>
+                ${icon(group.icon)}${group.label}${icon('chevron-down', 'chev')}
+            </button>`).join('')}
+        ${activeGroup ? `<span class="nav-current">أنت في <b>${page.label}</b></span>` : ''}`;
+}
+
+function renderMega() {
+    const mega = $('mega');
+    const group = GROUPS.find((item) => item.id === state.openGroup);
+
+    if (!group) {
+        mega.hidden = true;
+        return;
+    }
+
+    mega.setAttribute('aria-label', group.label);
+    mega.innerHTML = `
+        <div class="mega-head"><h3>${group.label}</h3><span>${group.hrefs.length} صفحات</span></div>
+        <div class="mega-grid ${group.hrefs.length <= 3 ? 'single' : ''}">
+            ${group.hrefs.map((href) => {
+                const link = byHref.get(href);
+                return `<a href="#" class="mega-link" data-href="${href}" ${href === state.current ? 'aria-current="page"' : ''}>
+                    <span class="tile">${icon(link.icon)}</span>
+                    <span><b>${link.label}</b><small>${link.hint}</small></span>
+                </a>`;
+            }).join('')}
+        </div>
+        <div class="mega-foot">${icon('search')}<span>تبحث عن صفحة أخرى؟ اضغط <span class="kbd" dir="ltr">Ctrl K</span></span></div>`;
+    mega.hidden = false;
+    placeUnder(mega, document.querySelector(`[data-group="${group.id}"]`), 'start');
+}
+
+/** Puts a floating panel under its button; in RTL its right edge meets the button's right edge ('start') or its left edge the button's left edge ('end'). */
+function placeUnder(panel, anchor, align) {
+    const rect = anchor.getBoundingClientRect();
+    const viewport = document.documentElement.clientWidth;
+    const width = panel.offsetWidth;
+    panel.style.top = `${rect.bottom + 8}px`;
+    panel.style.left = 'auto';
+
+    let right = align === 'start' ? viewport - rect.right : viewport - rect.left - width;
+    right = Math.min(Math.max(16, right), viewport - width - 16);
+    panel.style.right = `${Math.max(16, right)}px`;
+}
+
+function syncExpanded() {
+    document.querySelectorAll('[data-group]').forEach((trigger) => trigger.setAttribute('aria-expanded', String(trigger.dataset.group === state.openGroup)));
+}
+
+function openGroup(id, focusFirst = false) {
+    closeUserMenu();
+    state.openGroup = id;
+    syncExpanded();
+    renderMega();
+    if (focusFirst) {
+        $('mega').querySelector('.mega-link')?.focus();
+    }
+}
+
+function closeGroup(returnFocus = false) {
+    const id = state.openGroup;
+    if (!id) {
+        return;
+    }
+    state.openGroup = null;
+    syncExpanded();
+    renderMega();
+    if (returnFocus) {
+        document.querySelector(`[data-group="${id}"]`)?.focus();
+    }
+}
+
+/* ── Account menu ─────────────────────────────────────────── */
+function toggleUserMenu() {
+    const menu = $('user-menu');
+    const willOpen = menu.hidden;
+    closeGroup();
+    menu.hidden = !willOpen;
+    $('user-btn').setAttribute('aria-expanded', String(willOpen));
+    if (willOpen) {
+        placeUnder(menu, $('user-btn'), 'end');
+        menu.querySelector('.menu-item').focus();
+    }
+}
+
+function closeUserMenu(returnFocus = false) {
+    if ($('user-menu').hidden) {
+        return;
+    }
+    $('user-menu').hidden = true;
+    $('user-btn').setAttribute('aria-expanded', 'false');
+    if (returnFocus) {
+        $('user-btn').focus();
+    }
+}
+
+/* ── Phone drawer ─────────────────────────────────────────── */
+function renderDrawer() {
+    const activeGroup = groupOf(state.current);
+    if (activeGroup) {
+        state.drawerOpen.add(activeGroup.id);
+    }
+    const sideLink = (link) => `<a href="#" class="side-link" data-href="${link.href}" ${link.href === state.current ? 'aria-current="page"' : ''}>${icon(link.icon)}<span>${link.label}</span></a>`;
+
+    $('drawer-inner').innerHTML = `
+        <div class="drawer-top"><span>القائمة الرئيسية</span><button type="button" id="drawer-close" aria-label="إغلاق القائمة">${icon('close')}</button></div>
+        <a href="#" class="brand" data-href="/dashboard"><img src="${document.querySelector('.brand img').src}" alt="AF PowerCollect"><span class="brand-divider" aria-hidden="true" style="display:block"></span><span><span class="brand-name">PowerCollect</span><span class="brand-branch">فرع الكرادة</span></span></a>
+        <nav aria-label="القائمة الرئيسية">
+            ${sideLink(byHref.get('/dashboard'))}
+            ${GROUPS.map((group) => {
+                const open = state.drawerOpen.has(group.id);
+                return `<div class="side-group">
+                    <button type="button" data-side-group="${group.id}" aria-expanded="${open}" ${activeGroup?.id === group.id ? 'data-active="true"' : ''}><span>${group.label}</span>${icon('chevron-down')}</button>
+                    <div class="links" ${open ? '' : 'hidden'}>${group.hrefs.map((href) => sideLink(byHref.get(href))).join('')}</div>
+                </div>`;
+            }).join('')}
+        </nav>
+        <div class="drawer-foot">
+            <span class="avatar" aria-hidden="true">م</span>
+            <span class="user-text"><b>مدير النظام</b><small>مسؤول عام</small></span>
+            <button type="button" class="icon-btn" aria-label="تسجيل الخروج" style="border:0;box-shadow:none">${icon('logout')}</button>
+        </div>`;
+}
+
+function setDrawer(open) {
+    const drawer = $('drawer');
+    $('drawer-btn').setAttribute('aria-expanded', String(open));
+    if (open && !drawer.open) {
+        renderDrawer();
+        drawer.showModal();
+        $('drawer-close').focus();
+    } else if (!open && drawer.open) {
+        drawer.close();
+    }
+}
+
+/* ── Search palette ───────────────────────────────────────── */
+function renderPalette() {
+    const query = $('palette-q').value.trim();
+    const sections = [{ label: 'عام', hrefs: ['/dashboard'] }, ...GROUPS.map((group) => ({ label: group.label, hrefs: group.hrefs }))]
+        .map((section) => ({ ...section, links: section.hrefs.map((href) => byHref.get(href)).filter((link) => !query || link.label.includes(query) || link.hint?.includes(query)) }))
+        .filter((section) => section.links.length);
+
+    let first = true;
+    $('palette-list').innerHTML = sections.length
+        ? sections.map((section) => `<div class="group-label">${section.label}</div>${section.links.map((link) => {
+            const html = `<a href="#" data-href="${link.href}" class="${first ? 'is-first' : ''}">${icon(link.icon)}${link.label}</a>`;
+            first = false;
+            return html;
+        }).join('')}`).join('')
+        : `<p class="palette-empty">لا توجد صفحة باسم «${query.replace(/[<>&"]/g, '')}»</p>`;
+}
+
+function openPalette() {
+    closeGroup();
+    closeUserMenu();
+    setDrawer(false);
+    $('palette-q').value = '';
+    renderPalette();
+    $('palette').showModal();
+    $('palette-q').focus();
+}
+
+/* ── Page content ─────────────────────────────────────────── */
+function ring(percent, size, color, track, labelSize) {
+    const radius = (size - 10) / 2;
+    const circumference = 2 * Math.PI * radius;
+    return `<span class="ring" style="width:${size}px;height:${size}px">
+        <svg width="${size}" height="${size}" aria-hidden="true">
+            <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" style="stroke:${track}" stroke-width="8"/>
+            <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" style="stroke:${color}" stroke-width="8" stroke-linecap="round"
+                stroke-dasharray="${circumference}" stroke-dashoffset="${circumference * (1 - percent / 100)}"/>
+        </svg>
+        <span style="font-size:${labelSize}">${percent}%</span>
+    </span>`;
+}
+
+const NOTES = `
+    <section class="notes" aria-labelledby="notes-title">
+        <div>
+            <span class="proto-chip">نموذج أولي</span>
+            <h3 id="notes-title">شريط علوي بدل القائمة الجانبية</h3>
+            <p>نفس الصفحات والمجموعات والصلاحيات. تغيّر مكان القائمة فقط.</p>
+        </div>
+        <ul>
+            <li><span class="tile">${icon('columns')}</span><span><b>عرض أكبر للجداول</b><span>تعود مساحة القائمة الجانبية (288 بكسل) إلى المحتوى، فتظهر أعمدة الجداول دون تمرير جانبي.</span></span></li>
+            <li><span class="tile">${icon('grid')}</span><span><b>المجموعات قوائم منسدلة</b><span>كل مجموعة تفتح صفحاتها مع سطر يشرح كل صفحة. الأسهم وEsc تعمل من لوحة المفاتيح.</span></span></li>
+            <li><span class="tile">${icon('pin')}</span><span><b>تعرف أين أنت</b><span>المجموعة الحالية بلون الغرافيت مع الخط العنابي، واسم الصفحة يظهر في طرف الشريط وفي مسار الصفحة.</span></span></li>
+            <li><span class="tile">${icon('user')}</span><span><b>الحساب في الزاوية</b><span>الملف الشخصي وتسجيل الخروج انتقلا إلى قائمة الصورة الرمزية. على الهاتف تبقى القائمة الجانبية المنزلقة.</span></span></li>
+        </ul>
+    </section>`;
+
+function renderPage() {
+    const page = current();
+    const group = groupOf(state.current);
+    const crumbs = group
+        ? `<div class="crumbs"><span>${group.label}</span>${icon('chevron-left')}<span>${page.label}</span></div>`
+        : '';
+
+    if (state.current === '/dashboard') {
+        $('page').innerHTML = `
+            <div class="page-head">
+                <div><h2>مساء الخير، <em>مدير النظام</em></h2><p>14 فرعًا · 86 مستخدمًا نشطًا عبر النظام (بيانات تجريبية)</p></div>
+                <button type="button" class="add-btn">${icon('plus')}فرع جديد</button>
+            </div>
+            <div class="stack">
+                <div class="hero">
+                    <div class="hero-row">
+                        <div>
+                            <p class="hero-label">المشتركون النشطون</p>
+                            <div class="hero-num">4,812</div>
+                            <p class="hero-sub">من 5,230 · 418 غير نشط</p>
+                        </div>
+                        ${ring(92, 104, 'rgb(196 81 90)', 'rgb(255 255 255 / 0.1)', '1.0625rem')}
+                    </div>
+                    <div class="spectrum"></div>
+                    <p class="hero-note">وصول قائم على الأدوار · بيانات مقسّمة حسب الفرع · بلا جداول بيانات</p>
+                </div>
+                <div class="stats">
+                    ${[
+                        ['الفروع النشطة', '12', 86, 'rgb(var(--brand-500))'],
+                        ['المستخدمون النشطون', '86', 94, 'rgb(var(--gray-400))'],
+                        ['الطبلونات', '340', 78, '#f59e0b'],
+                        ['التعرفات', '6', 100, '#10b981'],
+                    ].map(([label, value, pct, color]) => `
+                        <div class="stat">${ring(pct, 64, color, 'rgb(var(--gray-100))', '0.85rem')}
+                            <div><div class="stat-num">${value}</div><div class="stat-label">${label}</div></div>
+                        </div>`).join('')}
+                </div>
+                ${NOTES}
+            </div>`;
+    } else {
+        $('page').innerHTML = `
+            <div class="page-head">
+                <div>${crumbs}<h2>${page.label}</h2>${page.hint ? `<p>${page.hint}</p>` : ''}</div>
+                ${group ? `<button type="button" class="add-btn">${icon('plus')}إضافة</button>` : ''}
+            </div>
+            <div class="stack">
+                <div class="table-card">
+                    <div class="table-toolbar"><h3>${page.label}</h3><small>محتوى الصفحة كما هو اليوم</small></div>
+                    <div class="tray">
+                        ${[78, 64, 88, 56, 72].map((width) => `<div class="tray-row">
+                            <span class="bar pulse" style="width:${width}%"></span>
+                            <span class="bar pulse" style="width:70%"></span>
+                            <span class="bar pulse" style="width:55%"></span>
+                            <span class="bar pulse" style="width:40%"></span>
+                        </div>`).join('')}
+                    </div>
+                    <p class="tray-note">في هذا النموذج يتغيّر التنقّل فقط؛ الجداول والنوافذ تبقى كما هي.</p>
+                </div>
+                ${NOTES}
+            </div>`;
+    }
+}
+
+function navigate(href) {
+    state.current = href;
+    state.openGroup = null;
+    closeUserMenu();
+    renderNav();
+    renderMega();
+    renderPage();
+    if ($('drawer').open) {
+        renderDrawer();
+        setDrawer(false);
+    }
+    if ($('palette').open) {
+        $('palette').close();
+    }
+    $('main-content').focus({ preventScroll: true });
+    window.scrollTo({ top: 0 });
+}
+
+/* ── Theme ────────────────────────────────────────────────── */
+function isDark() {
+    const chosen = document.documentElement.dataset.theme;
+    return chosen ? chosen === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function renderThemeButton() {
+    const dark = isDark();
+    const button = $('theme-btn');
+    button.innerHTML = icon(dark ? 'sun' : 'moon');
+    button.setAttribute('aria-label', dark ? 'التبديل إلى الوضع الفاتح' : 'التبديل إلى الوضع الغامق');
+    button.title = dark ? 'الوضع الفاتح' : 'الوضع الغامق';
+}
+
+$('theme-btn').addEventListener('click', () => {
+    document.documentElement.dataset.theme = isDark() ? 'light' : 'dark';
+    renderThemeButton();
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderThemeButton);
+
+/* ── Events ───────────────────────────────────────────────── */
+document.addEventListener('click', (event) => {
+    const link = event.target.closest('[data-href]');
+    if (link) {
+        event.preventDefault();
+        navigate(link.dataset.href);
+        return;
+    }
+
+    const trigger = event.target.closest('[data-group]');
+    if (trigger) {
+        state.openGroup === trigger.dataset.group ? closeGroup() : openGroup(trigger.dataset.group);
+        return;
+    }
+
+    const sideGroup = event.target.closest('[data-side-group]');
+    if (sideGroup) {
+        const id = sideGroup.dataset.sideGroup;
+        state.drawerOpen.has(id) ? state.drawerOpen.delete(id) : state.drawerOpen.add(id);
+        renderDrawer();
+        document.querySelector(`[data-side-group="${id}"]`).focus();
+        return;
+    }
+
+    if (event.target.closest('#user-btn')) {
+        toggleUserMenu();
+        return;
+    }
+    if (event.target.closest('#drawer-btn')) {
+        setDrawer(true);
+        return;
+    }
+    if (event.target.closest('#drawer-close') || event.target === $('drawer')) {
+        setDrawer(false);
+        $('drawer-btn').focus();
+        return;
+    }
+    if (event.target.closest('#search-btn')) {
+        openPalette();
+        return;
+    }
+    if (event.target === $('palette')) {
+        $('palette').close();
+        return;
+    }
+
+    if (!event.target.closest('#mega')) {
+        closeGroup();
+    }
+    if (!event.target.closest('#user-menu')) {
+        closeUserMenu();
+    }
+});
+
+/* Once a dropdown is open, pointing at another group switches to it, like a menu bar. */
+document.addEventListener('pointerover', (event) => {
+    const trigger = event.target.closest('[data-group]');
+    if (trigger && state.openGroup && state.openGroup !== trigger.dataset.group && event.pointerType === 'mouse') {
+        openGroup(trigger.dataset.group);
+        trigger.focus({ preventScroll: true });
+    }
+});
+
+document.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        openPalette();
+        return;
+    }
+
+    if (event.key === 'Escape') {
+        if (state.openGroup) {
+            closeGroup(true);
+        }
+        closeUserMenu(true);
+        return;
+    }
+
+    const trigger = event.target.closest?.('[data-group]');
+    if (trigger && event.key === 'ArrowDown') {
+        event.preventDefault();
+        openGroup(trigger.dataset.group, true);
+        return;
+    }
+    if (trigger && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+        const triggers = [...document.querySelectorAll('[data-group]')];
+        const step = event.key === 'ArrowLeft' ? 1 : -1;
+        const next = triggers[(triggers.indexOf(trigger) + step + triggers.length) % triggers.length];
+        event.preventDefault();
+        if (state.openGroup) {
+            openGroup(next.dataset.group);
+        }
+        next.focus();
+        return;
+    }
+
+    const inPanel = event.target.closest?.('#mega, #user-menu');
+    if (inPanel && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        const items = [...inPanel.querySelectorAll('.mega-link, .menu-item')];
+        const index = items.indexOf(event.target);
+        event.preventDefault();
+        if (index === 0 && event.key === 'ArrowUp' && inPanel.id === 'mega') {
+            closeGroup(true);
+            return;
+        }
+        items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+    }
+});
+
+$('palette-q').addEventListener('input', renderPalette);
+$('palette-q').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        const first = $('palette-list').querySelector('[data-href]');
+        if (first) {
+            navigate(first.dataset.href);
+        }
+    }
+});
+$('drawer').addEventListener('close', () => $('drawer-btn').setAttribute('aria-expanded', 'false'));
+$('nav-scroll').addEventListener('scroll', () => closeGroup());
+window.addEventListener('resize', () => {
+    closeGroup();
+    closeUserMenu();
+    if (matchMedia('(min-width: 1024px)').matches) {
+        setDrawer(false);
+    }
+});
+window.addEventListener('scroll', () => {
+    if (state.openGroup) {
+        placeUnder($('mega'), document.querySelector(`[data-group="${state.openGroup}"]`), 'start');
+    }
+}, { passive: true });
+
+renderThemeButton();
+renderNav();
+renderPage();
+</script>
+</body>
+</html>

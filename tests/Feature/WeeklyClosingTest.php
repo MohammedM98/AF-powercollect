@@ -2,16 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditNote;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\Closing;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
-use App\Notifications\BranchClosingNotification;
 use App\Support\BranchClosingWorkflow;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia;
@@ -44,8 +43,8 @@ class WeeklyClosingTest extends TestCase
     }
 
     /**
-     * A week whose cash box the branch confirmed closed and whose safe it
-     * counted, ended and ready for the branch to close.
+     * A week whose cash box the branch closed and whose safe it counted,
+     * ended and waiting on the branch to confirm it and send it.
      *
      * @return array{0: Branch, 1: User, 2: User, 3: Closing}
      */
@@ -62,86 +61,9 @@ class WeeklyClosingTest extends TestCase
         return [$branch, $head, $collector, $closing];
     }
 
-    public function test_the_branch_closes_the_week_its_collectors_confirm_it_and_then_it_goes_to_audit(): void
+    private function page(User $actor, array $query = []): TestResponse
     {
-        Notification::fake();
-        [$branch, $head, $collector, $closing] = $this->endedWeek();
-        $auditor = User::factory()->financialAuditor()->create();
-
-        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true, 'notes' => 'تمت المراجعة'])->assertSessionHasNoErrors();
-
-        $closing->refresh();
-        $this->assertSame('locked', $closing->status->value);
-        $this->assertNull($closing->submitted_at);
-        $this->assertNotNull($closing->submitted_snapshot);
-        $this->assertDatabaseHas('closing_confirmations', ['closing_id' => $closing->id, 'user_id' => $collector->id, 'confirmed_at' => null]);
-        Notification::assertSentTo($collector, BranchClosingNotification::class);
-        Notification::assertNotSentTo($auditor, BranchClosingNotification::class);
-
-        $this->action($head, $branch, 'submit', $closing->id)->assertSessionHasErrors('action');
-        $this->action($collector, $branch, 'acknowledge', $closing->id)->assertSessionHasNoErrors();
-        $this->action($collector, $branch, 'acknowledge', $closing->id)->assertSessionHasErrors('action');
-        $this->action($head, $branch, 'submit', $closing->id)->assertSessionHasNoErrors();
-
-        $closing->refresh();
-        $this->assertSame('submitted', $closing->status->value);
-        $this->assertNotNull($closing->submitted_at);
-        Notification::assertSentTo($auditor, BranchClosingNotification::class);
-    }
-
-    public function test_only_those_who_approve_the_branch_close_and_send_the_week(): void
-    {
-        [$branch, , $collector, $closing] = $this->endedWeek();
-
-        $this->action($collector, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertForbidden();
-        $this->action($collector, $branch, 'submit', $closing->id)->assertForbidden();
-        $this->action($collector, $branch, 'acknowledge', $closing->id)->assertSessionHasErrors('action');
-
-        $this->assertSame('draft', $closing->fresh()->status->value);
-    }
-
-    public function test_the_one_closing_the_week_confirms_their_own_boxes_by_closing_it(): void
-    {
-        [$branch, $head] = $this->start();
-        $this->payment($branch, $head);
-        $box = CashBox::query()->sole();
-        $this->action($head, $branch, 'receive', $box->id, ['cash_counted' => true])->assertSessionHasNoErrors();
-        $closing = $box->closing;
-        $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => ['ILS' => '100', 'USD' => '0', 'JOD' => '0']])->assertSessionHasNoErrors();
-
-        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'submit', $closing->id)->assertSessionHasNoErrors();
-
-        $this->assertSame('submitted', $closing->fresh()->status->value);
-    }
-
-    public function test_reopening_a_closed_week_drops_its_confirmations(): void
-    {
-        [$branch, $head, $collector, $closing] = $this->endedWeek();
-        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
-        $this->action($collector, $branch, 'acknowledge', $closing->id)->assertSessionHasNoErrors();
-
-        $this->action($head, $branch, 'withdraw', $closing->id)->assertSessionHasNoErrors();
-
-        $closing->refresh();
-        $this->assertSame('draft', $closing->status->value);
-        $this->assertNull($closing->submitted_snapshot);
-        $this->assertDatabaseCount('closing_confirmations', 0);
-    }
-
-    public function test_a_box_confirmed_after_its_week_was_closed_settles_in_the_open_week(): void
-    {
-        [$branch, $head, $collector] = $this->start();
-        $this->payment($branch, $collector);
-        $box = CashBox::query()->sole();
-        $closing = $box->closing;
-        $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
-
-        $this->action($head, $branch, 'receive', $box->id, ['cash_counted' => true])->assertSessionHasNoErrors();
-
-        $this->assertSame(app(BranchClosingWorkflow::class)->current($branch->id)->id, $box->fresh()->received_in_closing_id);
+        return $this->actingAs($actor)->get(route('weekly-packages.index', $query));
     }
 
     public function test_the_branch_sees_each_weeks_boxes_by_type_and_by_collector(): void
@@ -151,38 +73,45 @@ class WeeklyClosingTest extends TestCase
         $this->payment($branch, $collector, '100');
         $this->payment($branch, $collector, '40', 'bank_transfer');
         $this->payment($branch, $other, '25');
+        $this->action($head, $branch, 'receive', CashBox::query()->where('user_id', $other->id)->sole()->id, ['cash_counted' => true])->assertSessionHasNoErrors();
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
 
-        $this->actingAs($head)->get(route('weekly-packages.index', ['closing_id' => $closing->id]))->assertInertia(fn (AssertableInertia $page) => $page
+        $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
             ->component('WeeklyClosings/Index')
-            ->where('mode', 'branch')
-            ->where('weeks.0.id', $closing->id)
-            ->where('weeks.0.year', 2026)->where('weeks.0.month', 10)
-            ->where('weeks.0.totals.boxes', 3)->where('weeks.0.totals.collectors', 2)->where('weeks.0.totals.amounts.ILS', '165.00')
-            ->where('selected.step', 'review')
+            ->where('weeks.0.id', $closing->id)->where('weeks.0.year', 2026)->where('weeks.0.month', 10)->where('weeks.0.step', 'review')
+            ->where('weeks.0.totals.boxes', 3)->where('weeks.0.totals.closedBoxes', 1)->where('weeks.0.totals.collectors', 2)->where('weeks.0.totals.amounts.ILS', '165.00')
             ->where('selected.totals.byType.0.amounts.ILS', '125.00')
             ->where('selected.totals.byType.1.amounts.ILS', '40.00')
-            ->has('selected.totals.byCollector', 2));
+            ->has('selected.totals.byCollector', 2)
+            ->where('selected.can.submit', false));
 
-        $this->get(route('weekly-packages.index', ['closing_id' => $closing->id, 'user_id' => $other->id]))->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('selected.totals.amounts.ILS', '25.00')->has('selected.boxes', 1));
-        $this->get(route('weekly-packages.index', ['year' => 2026, 'month' => 9]))->assertInertia(fn (AssertableInertia $page) => $page->has('weeks', 0));
+        $this->page($head, ['closing_id' => $closing->id, 'user_id' => $other->id])->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('selected.totals.amounts.ILS', '25.00')->has('selected.boxes', 1)->where('selected.weekTotals.amounts.ILS', '165.00'));
+        $this->page($head, ['year' => 2026, 'month' => 9])->assertInertia(fn (AssertableInertia $page) => $page->has('weeks', 0));
     }
 
-    public function test_a_collector_sees_only_their_own_boxes_and_confirms_from_the_page(): void
+    public function test_an_ended_week_is_confirmed_and_sent_to_audit_in_one_step(): void
     {
-        [$branch, $head, $collector, $closing] = $this->endedWeek();
-        $other = User::factory()->collector()->for($branch)->create();
-        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        [$branch, $head, , $closing] = $this->endedWeek();
 
-        $this->actingAs($collector)->get(route('weekly-packages.index', ['closing_id' => $closing->id]))->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('mode', 'collector')->where('people', [])
-            ->where('selected.step', 'confirm')->where('selected.can.acknowledge', true)->where('selected.can.lock', false)
-            ->has('selected.boxes', 1)->where('selected.boxes.0.userId', $collector->id));
-        $this->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page->where('weeklyConfirmations.0.id', $closing->id));
+        $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('selected.step', 'confirm')->where('selected.can.submit', true)->where('selected.blockers', []));
+        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
-        $this->actingAs($other)->get(route('weekly-packages.index'))->assertInertia(fn (AssertableInertia $page) => $page->has('weeks', 0));
-        $this->get(route('weekly-packages.index', ['closing_id' => $closing->id]))->assertNotFound();
-        $this->actingAs(User::factory()->dataEntry()->for($branch)->create())->get(route('weekly-packages.index'))->assertForbidden();
+        $this->assertSame('submitted', $closing->fresh()->status->value);
+        $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('selected.step', 'audit')->where('selected.frozen', true)->where('selected.can.submit', false)->where('selected.can.withdraw', true));
+
+        AuditNote::query()->create(['closing_id' => $closing->id, 'body' => 'راجعوا الصندوق']);
+        $this->page($head, ['step' => 'answered'])->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('weeks.0.id', $closing->id)->has('weeks', 1));
+    }
+
+    public function test_only_branch_closers_open_the_page(): void
+    {
+        [$branch, , $collector] = $this->start();
+
+        $this->page($collector)->assertForbidden();
+        $this->page(User::factory()->branchAdmin()->create(), ['branch_id' => $branch->id])->assertInertia(fn (AssertableInertia $page) => $page->whereNot('branch.id', $branch->id));
     }
 }

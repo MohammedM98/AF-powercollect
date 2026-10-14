@@ -6,7 +6,6 @@ use App\Enums\CashBoxType;
 use App\Enums\ClosingStatus;
 use App\Models\CashBox;
 use App\Models\Closing;
-use App\Models\ClosingConfirmation;
 use App\Models\SubscriptionTransaction;
 use Illuminate\Support\Collection;
 
@@ -19,19 +18,20 @@ use Illuminate\Support\Collection;
 class WeeklyClosingSummary
 {
     /** The steps of a week, in order, the page's progress bar shows. */
-    public const STEPS = ['review', 'lock', 'confirm', 'submit', 'audit'];
+    public const STEPS = ['review', 'confirm', 'audit', 'answered'];
 
     /**
-     * The step the week waits on, from `STEPS`, or `done` once audit
-     * accepted it.
+     * The step the week waits on, from `STEPS`: its boxes are still being
+     * closed, it ended and waits on the branch to confirm it and send it,
+     * it waits on audit, or audit answered it (accepted it, sent it back or
+     * wrote notes on it).
      */
     public function step(Closing $closing): string
     {
         return match (true) {
-            $closing->status === ClosingStatus::Approved => 'done',
-            in_array($closing->status, [ClosingStatus::Submitted, ClosingStatus::Returned], true) => 'audit',
-            $closing->status === ClosingStatus::Locked => $closing->confirmations->contains(fn (ClosingConfirmation $confirmation): bool => $confirmation->confirmed_at === null) ? 'confirm' : 'submit',
-            $closing->coverage_until->lessThanOrEqualTo(now()) => 'lock',
+            in_array($closing->status, [ClosingStatus::Approved, ClosingStatus::Returned], true) || ($closing->audit_notes_count ?? $closing->auditNotes()->count()) > 0 => 'answered',
+            $closing->submitted_snapshot !== null => 'audit',
+            $closing->coverage_until->lessThanOrEqualTo(now()) => 'confirm',
             default => 'review',
         };
     }
@@ -94,7 +94,7 @@ class WeeklyClosingSummary
      * The week's totals, by type of box and by collector.
      *
      * @param  list<array<string, mixed>>  $boxes
-     * @return array{boxes: int, entries: int, collectors: int, amounts: array<string, string>, byType: list<array<string, mixed>>, byCollector: list<array<string, mixed>>}
+     * @return array{boxes: int, closedBoxes: int, entries: int, collectors: int, amounts: array<string, string>, byType: list<array<string, mixed>>, byCollector: list<array<string, mixed>>}
      */
     public function totals(array $boxes): array
     {
@@ -103,6 +103,7 @@ class WeeklyClosingSummary
 
         return [
             'boxes' => $rows->count(),
+            'closedBoxes' => $rows->where('status', 'received')->count(),
             'entries' => $rows->sum('entries'),
             'collectors' => $rows->pluck('userId')->filter()->unique()->count(),
             'amounts' => $sum($rows),
@@ -116,6 +117,7 @@ class WeeklyClosingSummary
                 'userId' => $group->first()['userId'],
                 'name' => $group->first()['userName'] ?? '—',
                 'boxes' => $group->count(),
+                'closedBoxes' => $group->where('status', 'received')->count(),
                 'entries' => $group->sum('entries'),
                 'amounts' => $sum($group),
                 'types' => $group->groupBy('type')->map(fn (Collection $typed): array => ['boxes' => $typed->count(), 'amounts' => $sum($typed)])->all(),

@@ -72,7 +72,7 @@ class BranchClosingController extends Controller
             'selectedClosingId' => $selected?->id, 'staff' => User::query()->where('branch_id', $branchId)->where('is_active', true)->get(['id', 'name']),
             'recipients' => User::query()->where('is_active', true)->whereIn('role', ['accountant', 'financial_auditor', 'super_admin'])->get(['id', 'name']),
             'access' => $this->branchBoxes->access($actor, $branchId),
-            'urls' => ['index' => route('closings.index'), 'weeklyClosings' => route('weekly-packages.index'), 'boxes' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'proofs' => url('/reconciliation/proofs'), 'transferReceipts' => url('/reconciliation/transfer-receipts')],
+            'urls' => ['index' => route('closings.index'), 'boxes' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'proofs' => url('/reconciliation/proofs'), 'transferReceipts' => url('/reconciliation/transfer-receipts')],
         ]);
     }
 
@@ -113,9 +113,8 @@ class BranchClosingController extends Controller
         $data = $request->validated();
         $allowed = match ($action) {
             'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
-            'acknowledge' => $actor->is_active && $actor->branch_id === $branchId,
             'receive', 'receive-type', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
-            'lock', 'submit', 'withdraw', 'safe-count', 'early', 'reply', 'transfer' => BranchClosingAccess::approve($actor, $branchId),
+            'submit', 'withdraw', 'safe-count', 'early', 'reply', 'transfer' => BranchClosingAccess::approve($actor, $branchId),
             'start', 'settings' => BranchClosingAccess::manage($actor, $branchId),
             default => false,
         };
@@ -165,9 +164,7 @@ class BranchClosingController extends Controller
             } else {
                 $closing = Closing::query()->where('branch_id', $branchId)->whereNotNull('workflow_settings')->findOrFail($record);
                 match ($action) {
-                    'lock' => $this->workflow->lock($closing, $actor, $data['notes'] ?? null),
-                    'acknowledge' => $this->workflow->acknowledge($closing, $actor),
-                    'submit' => $this->workflow->submit($closing, $actor),
+                    'submit' => $this->workflow->submit($closing, $actor, $data['notes'] ?? null),
                     'withdraw' => $this->workflow->withdraw($closing, $actor),
                     'safe-count' => $this->workflow->safeCount($closing, $actor, $data),
                     'early' => $this->workflow->earlyClose($closing),

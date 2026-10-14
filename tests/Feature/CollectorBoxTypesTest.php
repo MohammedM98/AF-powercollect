@@ -397,7 +397,7 @@ class CollectorBoxTypesTest extends TestCase
         $occurred = now();
         $this->travelTo($closing->coverage_until);
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $transaction = SubscriptionTransaction::withoutEvents(fn (): SubscriptionTransaction => SubscriptionTransaction::factory()->for(Subscription::factory()->for($branch))->create(['branch_id' => $branch->id, 'recorded_by' => $collector->id, 'type' => 'clearing', 'status' => SubscriptionTransaction::STATUS_ACTIVE, 'source_key' => 'clearing:'.Str::ulid(), 'amount' => '-20', 'notes' => 'صيانة قديمة', 'created_at' => $occurred]));
 
         $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.clearing.totals.ILS', '20.00'));
@@ -444,7 +444,7 @@ class CollectorBoxTypesTest extends TestCase
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
         $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'lock', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
         SubscriptionTransaction::factory()->for($entry->transaction->subscription)->create(['type' => 'penalty', 'source_key' => 'after-clearing:'.$entry->id, 'amount' => '20']);
         $snapshot = $closing->fresh()->submitted_snapshot;

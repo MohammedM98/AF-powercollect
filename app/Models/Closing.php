@@ -81,11 +81,6 @@ class Closing extends Model
         return $this->hasMany(AuditNote::class);
     }
 
-    public function confirmations(): HasMany
-    {
-        return $this->hasMany(ClosingConfirmation::class);
-    }
-
     public function transfers(): HasMany
     {
         return $this->hasMany(CashTransfer::class);

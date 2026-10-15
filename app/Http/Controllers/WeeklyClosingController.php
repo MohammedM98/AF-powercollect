@@ -7,6 +7,8 @@ use App\Enums\ClosingStatus;
 use App\Models\Closing;
 use App\Models\ClosingEvent;
 use App\Models\ClosingSetting;
+use App\Models\ClosingVersion;
+use App\Models\SafeCount;
 use App\Models\User;
 use App\Support\BranchBoxes;
 use App\Support\BranchClosingAccess;
@@ -95,8 +97,9 @@ class WeeklyClosingController extends Controller
 
     /**
      * The week in full, narrowed to the collector and type asked for, with
-     * the whole week's totals for the confirmation, and what the actor may
-     * do with it now.
+     * the whole week's totals for the confirmation, its safe and cash
+     * ledger, the versions sent of it, and what the actor may do with it
+     * now: count the safe, close the week early, send it or withdraw it.
      *
      * @param  callable(list<array<string, mixed>>): list<array<string, mixed>>  $narrow
      * @return array<string, mixed>
@@ -107,6 +110,8 @@ class WeeklyClosingController extends Controller
         $shown = $narrow($boxes);
         $step = $this->summary->step($closing);
         $approve = BranchClosingAccess::approve($actor, $closing->branch_id);
+        $safe = $this->safe($closing);
+        $running = ! $closing->submitted_snapshot && $closing->coverage_from->lessThan(now()) && $closing->coverage_until->greaterThan(now());
 
         return [
             ...$this->week($closing),
@@ -121,11 +126,63 @@ class WeeklyClosingController extends Controller
             'blockers' => $step === 'confirm' ? $this->workflow->blockers($closing) : [],
             'warnings' => $closing->submitted_snapshot['warnings'] ?? ($step === 'confirm' ? $this->workflow->warnings($closing) : []),
             'events' => $closing->events()->with('user:id,name')->latest('id')->limit(15)->get()->map(fn (ClosingEvent $event): array => ['id' => $event->id, 'description' => $event->description, 'user' => $event->user?->name, 'at' => $event->created_at]),
+            'safe' => $safe,
+            'versions' => $this->versions($closing),
             'can' => [
                 'submit' => $approve && $step === 'confirm',
                 'withdraw' => $approve && $closing->status === ClosingStatus::Submitted && ! $closing->reviewed_at && ! $closing->reviewed_by && $step === 'audit',
+                'countSafe' => $approve && $step === 'confirm' && $safe['required'] && $safe['count'] === null,
+                'closeEarly' => $approve && $running,
             ],
-            'packageUrl' => route('closings.index', ['branch_id' => $closing->branch_id, 'closing_id' => $closing->id, 'tab' => 'history']),
         ];
+    }
+
+    /**
+     * The branch's safe for the week: whether it must be counted before the
+     * week is sent (the branch holds cash), the count when there is one,
+     * the currencies the count asks for, and the week's cash ledger. A sent
+     * week answers from what was saved when it was sent.
+     *
+     * @return array{required: bool, count: array<string, mixed>|null, currencies: list<string>, ledger: array<string, array<string, string>>|null}
+     */
+    private function safe(Closing $closing): array
+    {
+        $snapshot = $closing->submitted_snapshot;
+        $balance = $snapshot ? ($snapshot['safeBalanceAtSubmission'] ?? []) : $this->workflow->balance($closing->branch_id);
+        $holdsCash = collect($balance)->contains(fn (string $amount): bool => Closing::cents($amount) !== 0);
+        $count = $snapshot ? ($snapshot['safeCount'] ?? null) : SafeCount::query()->where('closing_id', $closing->id)->first()?->toArray();
+
+        return [
+            'required' => $closing->book !== 'bank' && $holdsCash,
+            'count' => $count ? [
+                'counts' => $count['counts'], 'expected' => $count['expected'], 'differences' => $count['differences'], 'reason' => $count['reason'],
+                'by' => User::query()->whereKey($count['user_id'] ?? null)->value('name'), 'at' => $count['created_at'] ?? null,
+            ] : null,
+            'currencies' => array_values(array_filter(BranchClosingWorkflow::CURRENCIES, fn (string $currency): bool => $currency === 'ILS' || Closing::cents($balance[$currency] ?? 0) !== 0)),
+            'ledger' => $closing->book === 'bank' ? null : ($snapshot['cashLedger'] ?? ($snapshot ? null : $this->workflow->cashLedger($closing))),
+        ];
+    }
+
+    /**
+     * Each version of the week the branch sent, newest first: who sent it
+     * and when, its note, whether it was withdrawn, and what it held.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function versions(Closing $closing): array
+    {
+        $versions = ClosingVersion::query()->where('closing_id', $closing->id)->orderByDesc('version')->get();
+        $names = User::query()->whereIn('id', $versions->pluck('user_id')->filter())->pluck('name', 'id');
+
+        return $versions->map(function (ClosingVersion $version) use ($closing, $names): array {
+            $summary = $this->workflow->reviewSummary($closing, [...['electronic' => [], 'clearings' => [], 'transfers' => []], ...$version->snapshot]);
+
+            return [
+                'id' => $version->id, 'version' => $version->version, 'notes' => $version->notes,
+                'by' => $names[$version->user_id] ?? null, 'at' => $version->created_at, 'withdrawnAt' => $version->withdrawn_at,
+                'cash' => $summary['cash'], 'bank' => $summary['bank'], 'clearing' => $summary['clearing'],
+                'safe' => $version->snapshot['safeBalanceAtSubmission'] ?? null,
+            ];
+        })->all();
     }
 }

@@ -213,22 +213,12 @@ class BranchPackageTest extends TestCase
         $this->assertSame('صيانة مولد', $snapshot['clearings'][0]['transaction']['notes']);
     }
 
-    public function test_package_page_shows_live_package_then_immutable_sent_snapshot(): void
+    public function test_a_link_to_one_week_opens_it_on_the_weekly_closing_page(): void
     {
-        [$branch, $head, $collector, $closing] = $this->start();
-        $entry = $this->entry($branch, $collector);
-        $this->travelTo($closing->coverage_until);
-        $url = route('closings.index', ['closing_id' => $closing->id]);
-        $this->actingAs($head)->get($url)->assertInertia(fn (AssertableInertia $page) => $page->component('Closings/Index')
-            ->where('package.version', 2)->where('package.boxes.0.payments.0.amount', '100.00')->where('package.boxes.0.expected_counts.ILS', '100.00')
-            ->where('package.boxes.0.payments.0.statement_url', route('subscriptions.statement', $entry->transaction->subscription))
-            ->has('warnings', 1)->where('holdsCash', false));
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
-        $this->receiveCash($branch, $head, $collector, $entry->box);
+        [$branch, $head, , $closing] = $this->start();
 
-        $this->actingAs($head)->get($url)->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('package.boxes.0.status', 'pending')->where('package.boxes.0.canCount', false)->where('package.boxes.0.frozen', true)
-            ->where('closings.1.summary.cash.ILS', '0.00')->where('holdsCash', true));
+        $this->actingAs($head)->get(route('closings.index', ['closing_id' => $closing->id, 'tab' => 'history']))
+            ->assertRedirect(route('weekly-packages.index', ['branch_id' => $branch->id, 'closing_id' => $closing->id]));
     }
 
     public function test_accepted_entries_are_locked_and_removed_from_carry_over_after_submission(): void

@@ -7,6 +7,7 @@ import NavigationDrawer from '@/Components/TopBar/NavigationDrawer';
 import KeyboardShortcuts from '@/Components/TopBar/KeyboardShortcuts';
 import QuickTour from '@/Components/TopBar/QuickTour';
 import { Breadcrumb, SectionPages } from '@/Components/TopBar/PageTrail';
+import { pageWindowOpen } from '@/Components/TopBar/shortcuts';
 import { useTheme } from '@/hooks/useTheme';
 import { currentPrintSettings } from '@/lib/print';
 import { HOME_LINK, MAIN_LINKS, allowedNavigationGroups, pageTrail } from '@/lib/navigation';
@@ -85,10 +86,11 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
         }
     }
 
-    // From any page: / opens the search, ? the keys, N the payment page.
+    // From any page: / opens the search, ? the keys, N the payment page. Listened on the window, after the page's own
+    // keys: a page that uses one of them (a table's / to its search) keeps it, and nothing fires over a page's window.
     useEffect(() => {
         function onKeyDown(event) {
-            if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey || anyLayerOpen) {
+            if (event.defaultPrevented || isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey || anyLayerOpen || pageWindowOpen()) {
                 return;
             }
 
@@ -98,15 +100,15 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
             } else if (event.key === '/' || event.code === 'Slash') {
                 event.preventDefault();
                 setPaletteOpen(true);
-            } else if (can?.recordPayments && (event.key === 'n' || event.key === 'N' || event.code === 'KeyN') && !document.querySelector('dialog[open]')) {
+            } else if (can?.recordPayments && (event.key === 'n' || event.key === 'N' || event.code === 'KeyN')) {
                 event.preventDefault();
                 router.visit('/payments');
             }
         }
 
-        document.addEventListener('keydown', onKeyDown);
+        window.addEventListener('keydown', onKeyDown);
 
-        return () => document.removeEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
     }, [anyLayerOpen, can?.recordPayments]);
 
     // After opening a page from the bar, the search or a link, focus lands on its content, not at the top of the document.

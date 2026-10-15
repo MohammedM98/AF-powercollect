@@ -5,6 +5,7 @@ import ActivityBell from '@/Components/ActivityBell';
 import { HOME_LINK, currentGroup, isActiveLink, topBarItems } from '@/lib/navigation';
 import MegaMenu, { megaWidth } from './MegaMenu';
 import AccountMenu from './AccountMenu';
+import { pageWindowOpen } from './shortcuts';
 import './top-bar.css';
 
 /** The app name without the "AF" the logo already shows. */
@@ -54,7 +55,7 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
     const panelsRef = useRef([]);
     panelsRef.current = panels;
     const state = useRef({ openId: null, pinned: false, popover: null, popoverY: 0 });
-    state.current = { ...state.current, openId, pinned, popover };
+    state.current = { ...state.current, openId, pinned, popover, layerOpen };
 
     const currentKey = groups.length === 1
         ? items.find((item) => item.link && isActiveLink(item.link, url))?.key
@@ -305,7 +306,7 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
 
             const digit = /^Digit[1-9]$/.test(event.code) ? Number(event.code.slice(5)) : /^[1-9]$/.test(event.key) ? Number(event.key) : null;
 
-            if (event.altKey && !event.ctrlKey && digit && navRef.current?.offsetParent) {
+            if (event.altKey && !event.ctrlKey && digit && navRef.current?.offsetParent && !state.current.layerOpen && !pageWindowOpen()) {
                 const item = items[digit - 1];
 
                 if (!item) {

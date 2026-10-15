@@ -49,7 +49,7 @@ export default function KeyboardShortcuts({ open, onClose, canRecordPayments, se
 
     return (
         <div className="tn-scrim flex items-start justify-center px-4 pt-[12vh]" dir="rtl" onClick={(event) => event.target === event.currentTarget && onClose()}>
-            <div className="tn-palette tn-lift w-full max-w-[440px] rounded-[24px] bg-surface p-5 text-gray-900" role="dialog" aria-modal="true" aria-label="اختصارات لوحة المفاتيح">
+            <div className="tn-palette tn-lift w-full max-w-[440px] rounded-[24px] bg-surface p-5 text-gray-900" role="dialog" aria-modal="true" data-top-bar-layer aria-label="اختصارات لوحة المفاتيح">
                 <div className="mb-3 flex items-center gap-3">
                     <span className="grid h-10 w-10 place-items-center rounded-xl bg-graphite-gradient text-white"><Icon name="keyboard" className="h-5 w-5" /></span>
                     <b className="flex-1 text-[17px]">اختصارات لوحة المفاتيح</b>

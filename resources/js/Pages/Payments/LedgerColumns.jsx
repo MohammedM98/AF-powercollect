@@ -1,3 +1,4 @@
+import './financial-boxes.css';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatMoney } from '@/lib/format';
 
@@ -22,7 +23,7 @@ export const ledgerColumns = {
 };
 
 /** The classes of a table of box entries: fixed column widths and tighter cells. */
-export const ledgerTableClass = 'data-table data-table-fixed data-table-dense w-full text-start text-sm';
+export const ledgerTableClass = 'financial-ledger-table w-full text-start text-sm';
 
 /**
  * The first cell of a box's entries: the box's number, with the entry's

@@ -5,19 +5,15 @@ import Icon from '@/Components/Icon';
 import Modal from '@/Components/Modal';
 import SecondaryButton from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
-import ActionsTh from '@/Components/DataTable/ActionsTh';
-import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
-import RowIdentity from '@/Components/DataTable/RowIdentity';
-import SortableTh from '@/Components/DataTable/SortableTh';
-import { useRowClick } from '@/hooks/useRowClick';
 import { formatMoney } from '@/lib/format';
 import { boxPersonName, financialBoxesTotals, filterFinancialBoxes, sortFinancialBoxes } from '@/lib/financialBoxes';
 import BoxDetails from '../Closings/BoxDetails';
 import { periodLabel, periodRange } from '../Closings/ClosingComponents';
 import CollectionNavigation from './CollectionNavigation';
 import StatusGuide from './StatusGuide';
+import FinancialBoxList from './FinancialBoxList';
 import { boxTypes, boxTypeStyles, currencies } from './CollectorCashBox';
-import { canCloseBox, FinancialBoxAmount, FinancialBoxCard, FinancialBoxDates, FinancialBoxEntries, FinancialBoxStatus, FinancialBoxSummary, financialAmountsLine } from './FinancialBoxComponents';
+import { FinancialBoxCard, FinancialBoxSummary, financialAmountsLine } from './FinancialBoxComponents';
 
 function savedPreference(key, fallback, allowed) {
     try {
@@ -50,7 +46,6 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
     const currentClosing = closings.find((closing) => new Date(closing.coverage_from) <= new Date() && new Date(closing.coverage_until) >= new Date());
     const statusFilters = [['pending', 'بانتظار تأكيد الإغلاق'], ['open', 'مفتوحة'], ['received', 'مغلقة'], ['all', 'الكل']].map(([value, label]) => ({ value, label: <>{label} · <span className="font-display">{value === 'all' ? boxes.length : boxes.filter((box) => box.status === value).length}</span></> }));
     const sortState = { sort: sort.key, direction: sort.direction };
-    const rowClick = useRowClick();
     const boxPeriod = (box) => periodLabel(closings.find((closing) => closing.id === box.closing_id));
 
     useEffect(() => {
@@ -76,22 +71,6 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
         setSort((current) => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }));
     }
 
-    function boxRow(box) {
-        return <tr key={box.id} {...rowClick(() => setBoxId(box.id))}>
-            <td data-label="الصندوق"><RowIdentity icon={boxTypeStyles[box.type].icon} name={`صندوق ${box.number}`} subtitle={[boxTypeStyles[box.type].label, boxPeriod(box)].filter((part) => part && part !== '—').join(' · ')} status={{ open: 'green', pending: 'amber', received: 'gray' }[box.status]} /></td>
-            <td data-label="الموظف" className="text-gray-700">{boxPersonName(box)}{box.isOwn && <span className="text-xs text-gray-400"> (أنت)</span>}</td>
-            <td data-label="الحركات"><FinancialBoxEntries box={box} /></td>
-            <td data-label="الإجمالي"><FinancialBoxAmount box={box} /></td>
-            <td data-label="فُتح ← أُغلق"><FinancialBoxDates box={box} /></td>
-            <td data-label="الحالة"><FinancialBoxStatus box={box} /></td>
-            <td data-actions="" className="text-end">
-                <RowActionsMenu onView={() => setBoxId(box.id)}>
-                    {canCloseBox(box) && <button onClick={() => setBoxId(box.id)}>مراجعة وإغلاق</button>}
-                </RowActionsMenu>
-            </td>
-        </tr>;
-    }
-
     const attentionCards = [
         { key: 'rejected', icon: 'alert', label: 'الحركات المرفوضة', count: rejected.length, hint: rejected.length ? `في ${new Set(rejected.map((entry) => entry.box.id)).size} صناديق` : 'لا حركات مرفوضة', tone: 'bg-brand-500/10 text-brand-600' },
     ];
@@ -99,11 +78,11 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
     return <AuthenticatedLayout header={<div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-gray-500">{branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : branch.name}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">الصناديق المالية</h2></div>{currentClosing && <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-surface px-3 py-1.5 text-sm text-gray-600"><Icon name="calendar" className="h-4 w-4" />{periodRange(currentClosing)}</span>}</div>}>
         <Head title="الصناديق المالية" />
         {can.viewOwnCashBoxes && <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount} className="flex-wrap" />}
-        {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. {access.manage ? <>ابدأه من <Link href={urls.reconciliation} className="font-semibold text-brand-600">صفحة الإغلاقات والكشوفات</Link>.</> : 'يُفعّله مسؤول الفرع من صفحة الإغلاقات والكشوفات.'}</p> : <div className="financial-boxes space-y-6">
+        {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. {access.manage ? <>ابدأه من <Link href={urls.reconciliation} className="font-semibold text-brand-600">صفحة الإغلاقات والكشوفات</Link>.</> : 'يُفعّله مسؤول الفرع من صفحة الإغلاقات والكشوفات.'}</p> : <div className="financial-boxes financial-surface space-y-5">
             {errors?.action && <p role="alert" className="rounded-control bg-red-500/10 p-4 text-sm text-red-700">{errors.action}</p>}
             <FinancialBoxSummary boxes={boxes} />
             <StatusGuide />
-            {access.manage && <section aria-label="بانتظار المتابعة" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{attentionCards.map((item) => <button key={item.key} type="button" onClick={() => setFollowup(item.key)} className="group flex min-w-0 items-center gap-3 rounded-2xl border border-gray-100 bg-surface p-3 pe-4 text-start shadow-card transition hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 motion-reduce:transform-none motion-reduce:transition-none"><span className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${item.count ? item.tone : 'bg-gray-100 text-gray-400'}`}><Icon name={item.count ? item.icon : 'check'} className="h-5 w-5" />{item.count > 0 && <span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 font-display text-[11px] font-bold text-white ring-2 ring-surface">{item.count}</span>}</span><span className="min-w-0 flex-1"><span className={`block text-sm font-semibold ${item.count ? 'text-gray-900' : 'text-gray-500'}`}>{item.label}</span><span className="block truncate text-xs text-gray-500">{item.hint}</span></span><Icon name="chevron-left" className="h-4 w-4 text-gray-300 transition group-hover:text-gray-600" /></button>)}</section>}
+            {access.manage && <section aria-label="بانتظار المتابعة" className="flex flex-wrap gap-3">{attentionCards.map((item) => <button key={item.key} type="button" onClick={() => setFollowup(item.key)} className="group flex min-w-0 items-center gap-3 rounded-card border border-gray-100 bg-surface p-3 pe-4 sm:min-w-[320px] text-start shadow-card transition hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 motion-reduce:transform-none motion-reduce:transition-none"><span className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${item.count ? item.tone : 'bg-gray-100 text-gray-400'}`}><Icon name={item.count ? item.icon : 'check'} className="h-5 w-5" />{item.count > 0 && <span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 font-display text-[11px] font-bold text-white ring-2 ring-surface">{item.count}</span>}</span><span className="min-w-0 flex-1"><span className={`block text-sm font-semibold ${item.count ? 'text-gray-900' : 'text-gray-500'}`}>{item.label}</span><span className="block truncate text-xs text-gray-500">{item.hint}</span></span><Icon name="chevron-left" className="h-4 w-4 text-gray-300 transition group-hover:text-gray-600" /></button>)}</section>}
             <section aria-label="الصناديق المالية">
                 <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
                     <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
@@ -115,19 +94,8 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
                         <SegmentedTabs label="طريقة العرض" value={view} onChange={setView} options={[{ value: 'table', label: <><Icon name="table" className="h-4 w-4" />جدول</> }, { value: 'cards', label: <><Icon name="grid" className="h-4 w-4" />بطاقات</> }]} />
                     </div>
                 </div>
-                <div className="data-table-container">
-                    {!shown.length ? <div className="flex flex-col items-center gap-2 px-4 py-14 text-center text-gray-500"><Icon name="wallet" className="h-8 w-8 text-gray-400" /><p>لا توجد صناديق بهذه الفلاتر.</p></div> : view === 'cards' ? <div className="grid gap-4 py-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{sortFinancialBoxes(shown, sort).map((box) => <FinancialBoxCard key={box.id} box={box} period={boxPeriod(box)} onOpen={(item) => setBoxId(item.id)} />)}</div> : <table className="data-table w-full text-start text-sm">
-                        <thead><tr>
-                            <SortableTh column="number" label="الصندوق" sortState={sortState} onSort={sortBy} />
-                            <th>الموظف</th>
-                            <th>الحركات</th>
-                            <SortableTh column="total" label="الإجمالي" sortState={sortState} onSort={sortBy} />
-                            <SortableTh column="dates" label="فُتح ← أُغلق" sortState={sortState} onSort={sortBy} />
-                            <SortableTh column="status" label="الحالة" sortState={sortState} onSort={sortBy} />
-                            <ActionsTh />
-                        </tr></thead>
-                        <tbody>{sortFinancialBoxes(shown, sort).map(boxRow)}</tbody>
-                    </table>}
+                <div className="data-table-container financial-box-list-container">
+                    {!shown.length ? <div className="flex flex-col items-center gap-2 px-4 py-14 text-center text-gray-500"><Icon name="wallet" className="h-8 w-8 text-gray-400" /><p>لا توجد صناديق بهذه الفلاتر.</p></div> : view === 'cards' ? <div className="grid gap-4 py-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{sortFinancialBoxes(shown, sort).map((box) => <FinancialBoxCard key={box.id} box={box} period={boxPeriod(box)} onOpen={(item) => setBoxId(item.id)} />)}</div> : <FinancialBoxList boxes={sortFinancialBoxes(shown, sort)} onOpen={(box) => setBoxId(box.id)} periodFor={boxPeriod} sortState={sortState} onSort={sortBy} />}
                 </div>
                 <p className="data-table-totals text-sm text-gray-600"><span>المعروض <b className="font-display text-gray-900">{shown.length}</b> من <b className="font-display text-gray-900">{boxes.length}</b> صندوقًا</span><span>مجموع الصناديق المعروضة: <b className="font-display text-gray-900">{financialAmountsLine(financialBoxesTotals(shown))}</b></span></p>
             </section>

@@ -42,7 +42,7 @@ export default function CashBoxShow({ box, entries, collectionUrls, pendingCount
         <Head title={`${boxTypes[box.type]} ${box.number}`} />
         <CollectionNavigation urls={collectionUrls} active="cashBoxes" pendingCount={pendingCount} />
         <Link href={collectionUrls.cashBoxes} prefetch className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600"><Icon name="chevron-right" className="h-4 w-4" />العودة إلى الصناديق المالية</Link>
-        <div className="space-y-6">
+        <div className="financial-surface space-y-5">
             {saved && <p role="status" className="rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">{saved}</p>}
             <section className="space-y-5 rounded-panel border border-gray-100 bg-surface p-5 shadow-card">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -73,7 +73,7 @@ export default function CashBoxShow({ box, entries, collectionUrls, pendingCount
                 <KpiTile icon="list" label="الحركات" value={box.paymentCount.toLocaleString('en')} hint={box.rejectedCount > 0 ? `${box.rejectedCount} مرفوضة` : undefined} />
                 <KpiTile icon="lock" label="أغلقه" value={<span className="text-xl">{box.closedBy ?? 'لا يزال مفتوحًا'}</span>} hint={box.status === 'open' ? 'يؤكد الفرع إغلاقه بعد مراجعته، أو يُغلق عند القطع الأسبوعي' : `أُغلق إلى ${destinations[box.type]}`} />
             </div>
-            <section className="space-y-4">
+            <section className="financial-ledger-section space-y-4">
                 <h3 className="text-lg font-bold text-gray-900">حركات الصندوق</h3>
                 <StatusGuide />
                 <BoxEntriesTable type={box.type} boxNumber={box.number} entries={entries} pagination={{ filters: {}, baseUrl: box.urls.show }} />

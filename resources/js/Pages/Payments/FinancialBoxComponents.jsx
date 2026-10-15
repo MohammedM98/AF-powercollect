@@ -11,7 +11,7 @@ const dots = { open: 'bg-emerald-500', pending: 'bg-amber-500', received: 'bg-gr
 const date = (value) => value ? new Intl.DateTimeFormat('ar-u-nu-latn', { day: 'numeric', month: 'short', timeZone: 'Asia/Gaza' }).format(new Date(value)) : '—';
 
 export function financialAmountsLine(amounts) {
-    return Object.keys(currencies).filter((currency) => currency === 'ILS' || amounts[currency]).map((currency) => `${formatMoney(amounts[currency])} ${currencies[currency]}`).join(' · ');
+    return Object.keys(currencies).filter((currency) => currency === 'ILS' || Number(amounts?.[currency] ?? 0) !== 0).map((currency) => `${formatMoney(amounts?.[currency] ?? 0)} ${currencies[currency]}`).join(' · ');
 }
 
 function foreignAmounts(amounts) {
@@ -87,5 +87,5 @@ export function FinancialBoxCard({ box, period, onOpen }) {
 export function FinancialBoxSummary({ boxes, pageOnly = false }) {
     const pending = boxes.filter((box) => box.status === 'pending');
     const cells = [{ icon: <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-amber-500/10 text-amber-600 dark:text-amber-400"><Icon name="clock" className="h-5 w-5" /></span>, label: 'بانتظار تأكيد الإغلاق', boxes: pending }, ...Object.keys(boxTypes).map((type) => ({ icon: <BoxTypeIcon type={type} className="h-10 w-10" />, label: boxTypes[type], boxes: boxes.filter((box) => box.type === type && box.status !== 'received'), unconfirmed: true }))];
-    return <section aria-label="ملخص الصناديق"><div className="grid gap-px overflow-hidden rounded-panel border border-gray-100 bg-gray-100 shadow-card sm:grid-cols-2 xl:grid-cols-4">{cells.map((cell) => <div key={cell.label} className="flex items-center gap-3 bg-surface px-5 py-4">{cell.icon}<div className="min-w-0"><p className="text-xs font-semibold text-gray-500">{cell.label}</p><p className="mt-0.5 flex items-baseline gap-1.5"><span dir="ltr" className="font-display text-xl font-bold text-gray-900">{formatMoney(financialBoxesTotals(cell.boxes).ILS)}</span><span className="text-xs text-gray-500">₪</span></p><p className="truncate text-xs text-gray-400">{cell.boxes.length} صناديق{cell.unconfirmed ? ' لم تُغلق بعد' : ''}{pageOnly ? ' في هذه الصفحة' : ''}</p></div></div>)}</div></section>;
+    return <section aria-label="ملخص الصناديق" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{cells.map((cell) => <article key={cell.label} className="flex min-w-0 items-center gap-3 rounded-card border border-gray-100 bg-surface p-4 shadow-card">{cell.icon}<div className="min-w-0"><p className="text-sm font-semibold text-gray-600">{cell.label}</p><p className="mt-0.5 flex flex-wrap items-baseline gap-1.5"><span dir="ltr" className="font-display text-xl font-bold text-gray-900">{formatMoney(financialBoxesTotals(cell.boxes).ILS)}</span><span className="text-xs text-gray-500">₪</span></p><p className="text-xs text-gray-500">{cell.boxes.length} صناديق{cell.unconfirmed ? ' لم تُغلق بعد' : ''}{pageOnly ? ' في هذه الصفحة' : ''}</p></div></article>)}</section>;
 }

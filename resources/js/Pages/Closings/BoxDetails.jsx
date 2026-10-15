@@ -43,7 +43,7 @@ function otherCurrencies(amounts) {
 
 /** One figure in the box's summary strip. */
 function Stat({ icon, label, value, hint }) {
-    return <div className="flex items-start gap-3 p-4">
+    return <div className="flex min-w-0 items-start gap-3 bg-surface p-3 sm:p-4">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-gray-500"><Icon name={icon} className="h-[18px] w-[18px]" /></span>
         <div className="min-w-0">
             <dt className="text-xs font-semibold text-gray-500">{label}</dt>
@@ -63,6 +63,7 @@ function Stat({ icon, label, value, hint }) {
  */
 export default function BoxDetails({ box, onClose, perform, period }) {
     const [search, setSearch] = useState('');
+    const [maximized, setMaximized] = useState(false);
     const [filter, setFilter] = useState('all');
     const [cashCounted, setCashCounted] = useState(false);
     const [confirmingClose, setConfirmingClose] = useState(false);
@@ -88,7 +89,7 @@ export default function BoxDetails({ box, onClose, perform, period }) {
     const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', 150], ...ledgerColumns.after, ['الحالة', 140], ['', 110]];
     const widths = columns.map(([, width]) => width);
 
-    return <Modal show onClose={onClose} maxWidth="full" centered panelClassName="financial-box-detail flex max-h-[calc(100dvh-4rem)] flex-col">
+    return <Modal show onClose={onClose} maxWidth="full" centered panelClassName={`financial-box-detail financial-surface flex flex-col ${maximized ? 'financial-box-detail-maximized' : ''}`}>
         <header className="flex shrink-0 flex-wrap items-start justify-between gap-4 border-b border-gray-100 p-6">
             <div className="flex items-center gap-3">
                 <BoxTypeIcon type={type} className="h-12 w-12" />
@@ -98,20 +99,20 @@ export default function BoxDetails({ box, onClose, perform, period }) {
                 </div>
             </div>
             <div className="flex items-center gap-3">
-                <StatusPill tone={boxStatusLabels[box.status][1]} label={boxStatusLabels[box.status][0]} />
+                <StatusPill tone={boxStatusLabels[box.status][1]} label={boxStatusLabels[box.status][0]} /><SecondaryButton type="button" className="hidden gap-2 px-3 py-2 sm:inline-flex" onClick={() => setMaximized((value) => !value)} aria-pressed={maximized}><Icon name="expand" className="h-4 w-4" />{maximized ? 'تصغير' : 'ملء الشاشة'}</SecondaryButton>
                 <button type="button" onClick={onClose} aria-label="إغلاق النافذة" className="rounded-control p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"><Icon name="close" className="h-5 w-5" /></button>
             </div>
         </header>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto bg-gray-50/60 p-4 sm:p-6">
-            <dl className="grid divide-y divide-gray-100 rounded-panel border border-gray-100 bg-surface sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 xl:divide-x xl:divide-x-reverse">
+            <dl className="financial-box-detail-stats grid grid-cols-2 gap-px overflow-hidden rounded-card border border-gray-100 bg-gray-100 xl:grid-cols-4">
                 <Stat icon="wallet" label="إجمالي الحركات السارية" value={<>{formatMoney(totals.ILS)} <span className="text-sm font-normal text-gray-500">شيكل</span></>} hint={otherCurrencies(totals)} />
                 <Stat icon="list" label="الحركات" value={active.length.toLocaleString('en')} hint={entries.length > active.length ? `و${entries.length - active.length} ملغاة` : 'لا حركات ملغاة'} />
                 <Stat icon={editable ? 'unlock' : 'lock'} label="تصحيح الحركات" value={<span className="text-base">{editable ? 'متاح للمحصّل' : 'مقفل'}</span>} hint={editable ? 'حتى تأكيد إغلاق الصندوق' : 'أُكّد إغلاق الصندوق'} />
                 <Stat icon="calendar" label="فُتح ← أُغلق" value={<span className="text-sm">{dateTime(box.opened_at)}</span>} hint={box.closed_at ? dateTime(box.closed_at) : 'لا يزال مفتوحًا'} />
             </dl>
 
-            <BoxBreakdown type={type} entries={active.map(breakdownEntry)} wide />
+            <BoxBreakdown type={type} entries={active.map(breakdownEntry)} />
 
             {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">اطّلع على حركات الصندوق ثم أكّد إغلاقه. إن رأيت خطأ في حركة فتواصل مع المحصّل ليعدّلها بنفسه قبل التأكيد؛ بعد التأكيد تُقفل الحركات ويذهب الصندوق إلى التدقيق، وهو من يرفض الحوالات أو المقاصات ويبيّن السبب.{cash ? ' عُدّ النقد الذي سلّمه المحصّل وتأكد أنه يطابق إجمالي الصندوق قبل التأكيد.' : ''} تسليم الصناديق للشركة خطوة منفصلة.</p>}
 
@@ -125,7 +126,7 @@ export default function BoxDetails({ box, onClose, perform, period }) {
                     </div>
                     <SegmentedTabs label="حالة الحركة" value={filter} onChange={setFilter} options={filterOptions} />
                 </div>
-                <div className="data-table-container">
+                <div className="data-table-container financial-ledger-container">
                     <table className={ledgerTableClass} style={fixedTableStyle(widths)}>
                         <ColumnWidths widths={widths} />
                         <thead><tr>{columns.map(([label], index) => index === columns.length - 1 ? <ActionsTh key={index} /> : <th key={index}>{label}</th>)}</tr></thead>

@@ -233,7 +233,7 @@ export function BoxEntriesTable({ type, boxNumber, entries, pagination }) {
 
     return (
         <>
-            <div className="data-table-container">
+            <div className="data-table-container financial-ledger-container">
                 <table className={ledgerTableClass} style={fixedTableStyle(widths)}>
                     <ColumnWidths widths={widths} />
                     <thead>

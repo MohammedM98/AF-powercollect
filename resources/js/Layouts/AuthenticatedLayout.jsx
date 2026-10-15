@@ -14,6 +14,9 @@ import { useResponsiveTables } from '@/hooks/useResponsiveTables';
 
 const NO_BADGES = {};
 
+// How far down the floating bar reaches, so content under it counts as scrolled away.
+const BAR_CLEARANCE = 90;
+
 /** Whether the user is typing, so a single-key shortcut must not fire. */
 function isTyping(target) {
     return Boolean(target?.closest?.('input, textarea, select, [contenteditable="true"]'));
@@ -21,7 +24,8 @@ function isTyping(target) {
 
 /**
  * Every signed-in page: the floating top bar with the sections, the trail to
- * the page, its title, the section's other pages, then the page itself.
+ * the page, the section's other pages, the page's title, then the page itself.
+ * Only the top bar stays on screen while scrolling, so tables keep the room.
  * `badges` counts what waits on a page, by its link: { '/payments/summary': 2 }.
  */
 export default function AuthenticatedLayout({ header, badges = NO_BADGES, children }) {
@@ -34,6 +38,8 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
     const [tourOpen, setTourOpen] = useState(false);
     const [printSettings] = useState(currentPrintSettings);
     const menuButtonRef = useRef(null);
+    const titleEndRef = useRef(null);
+    const [pastTitle, setPastTitle] = useState(false);
     useResponsiveTables();
 
     const groups = allowedNavigationGroups(can);
@@ -97,6 +103,22 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
         return () => document.removeEventListener('keydown', onKeyDown);
     }, [anyLayerOpen, can?.recordPayments]);
 
+    // Whether the page's title has scrolled up under the bar.
+    useEffect(() => {
+        const marker = titleEndRef.current;
+
+        if (!marker) {
+            return undefined;
+        }
+
+        const observer = new IntersectionObserver(([entry]) => setPastTitle(!entry.isIntersecting && entry.boundingClientRect.top < BAR_CLEARANCE), {
+            rootMargin: `-${BAR_CLEARANCE}px 0px 0px 0px`,
+        });
+        observer.observe(marker);
+
+        return () => observer.disconnect();
+    }, []);
+
     // The phone menu is for narrow screens only.
     useEffect(() => {
         const media = window.matchMedia('(min-width: 1024px)');
@@ -122,6 +144,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
             <TopBar
                 groups={groups}
                 badges={badges}
+                where={pastTitle && trail ? { section: trail.group?.shortLabel, page: trail.link.label } : null}
                 drawerOpen={drawerOpen}
                 onOpenPalette={() => onPaletteOpenChange(true)}
                 onOpenDrawer={(event) => {
@@ -134,8 +157,9 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
 
             <main id="main-content" tabIndex={-1} className="mx-auto max-w-[1720px] px-[var(--tn-gutter)] pb-16 pt-8 outline-none">
                 <Breadcrumb trail={trail} />
-                {header && <div className="rise-in mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">{header}</div>}
                 <SectionPages trail={trail} url={url} badges={badges} />
+                {header && <div className="rise-in mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">{header}</div>}
+                <div ref={titleEndRef} aria-hidden="true" />
                 {children}
             </main>
 

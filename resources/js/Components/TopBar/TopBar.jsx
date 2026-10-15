@@ -20,15 +20,19 @@ function badgeOf(group, badges) {
 /**
  * The floating glass bar at the top of every page: the logo, the sections in
  * the middle with a dark light that follows the pointer, and the tools (search,
- * activity, account; the menu button on phones). A section's pages open in one
- * panel under it that reshapes itself as the pointer moves between sections.
+ * activity, account; the menu button on phones). Once the page's title has
+ * scrolled away, `where` ({ section, page }) takes the branch's place under
+ * the name, and the page's name sits beside the logo on phones, so the user
+ * still sees where they are. A section's pages open in one panel under it
+ * that reshapes itself as the pointer moves between sections.
  */
-export default function TopBar({ groups, badges, onOpenPalette, onOpenDrawer, drawerOpen, onShowShortcuts, onStartTour }) {
+export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDrawer, drawerOpen, onShowShortcuts, onStartTour }) {
     const { props, url } = usePage();
     const { appName, auth } = props;
     const user = auth?.user;
     const items = topBarItems(groups);
     const current = currentGroup(groups, url);
+    const pageLabel = where ? [where.section, where.page].filter(Boolean).join(' · ') : null;
 
     const [scrolled, setScrolled] = useState(false);
     const [hoverKey, setHoverKey] = useState(null);
@@ -421,9 +425,12 @@ export default function TopBar({ groups, badges, onOpenPalette, onOpenDrawer, dr
                             <span className="tn-brand-divider" aria-hidden="true" />
                             <span className="tn-brand-text">
                                 <span className="tn-brand-name" dir="auto">{shortAppName(appName)}</span>
-                                <span className="tn-brand-branch" dir="auto">{user?.branchName ?? 'نظام التحصيل الكهربائي'}</span>
+                                <span className="tn-brand-branch" dir="auto">
+                                    <span key={pageLabel ?? ''} className={`tn-brand-swap ${pageLabel ? 'is-page' : ''}`}>{pageLabel ?? user?.branchName ?? 'نظام التحصيل الكهربائي'}</span>
+                                </span>
                             </span>
                         </Link>
+                        {where && <span key={where.page} className="tn-where" aria-hidden="true">{where.page}</span>}
                     </div>
 
                     <nav

@@ -195,6 +195,47 @@ html.tn-locked {
     white-space: nowrap;
 }
 
+/* The line under the name: the branch, then the page once its title has scrolled away. */
+.tn-brand-swap {
+    display: block;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    animation: tn-swap 0.28s var(--tn-ease);
+}
+
+.tn-brand-swap.is-page {
+    color: rgb(var(--gray-700));
+    font-weight: 600;
+}
+
+@keyframes tn-swap {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+}
+
+/* On phones the page's name sits beside the logo once its title has scrolled away. */
+.tn-where {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+    .tn-where {
+        display: block;
+        min-width: 0;
+        padding-inline-start: 4px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 14px;
+        font-weight: 600;
+        color: rgb(var(--gray-700));
+        animation: tn-swap 0.28s var(--tn-ease);
+    }
+}
+
 /* The sections, and the dark light that slides between them. */
 .tn-sections {
     position: relative;
@@ -1268,7 +1309,9 @@ html.tn-locked {
     .tn-rise,
     .tn-spot,
     .tn-tour-card,
-    .tn-progress {
+    .tn-progress,
+    .tn-brand-swap,
+    .tn-where {
         animation: none !important;
         transition: none !important;
     }

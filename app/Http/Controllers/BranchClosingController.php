@@ -84,7 +84,7 @@ class BranchClosingController extends Controller
         $allowed = match ($action) {
             'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
             'receive', 'receive-type', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
-            'submit', 'withdraw', 'safe-count', 'early', 'reply', 'transfer' => BranchClosingAccess::approve($actor, $branchId),
+            'submit', 'withdraw', 'early', 'reply', 'transfer' => BranchClosingAccess::approve($actor, $branchId),
             'start', 'settings' => BranchClosingAccess::manage($actor, $branchId),
             default => false,
         };
@@ -136,7 +136,6 @@ class BranchClosingController extends Controller
                 match ($action) {
                     'submit' => $this->workflow->submit($closing, $actor, $data['notes'] ?? null),
                     'withdraw' => $this->workflow->withdraw($closing, $actor),
-                    'safe-count' => $this->workflow->safeCount($closing, $actor, $data),
                     'early' => $this->workflow->earlyClose($closing),
                 };
             }

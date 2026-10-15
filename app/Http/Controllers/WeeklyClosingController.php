@@ -97,9 +97,9 @@ class WeeklyClosingController extends Controller
 
     /**
      * The week in full, narrowed to the collector and type asked for, with
-     * the whole week's totals for the confirmation, its safe and cash
-     * ledger, the versions sent of it, and what the actor may do with it
-     * now: count the safe, close the week early, send it or withdraw it.
+     * the whole week's totals for the confirmation, its cash ledger, the
+     * versions sent of it, and what the actor may do with it now: close the
+     * week early, send it or withdraw it.
      *
      * @param  callable(list<array<string, mixed>>): list<array<string, mixed>>  $narrow
      * @return array<string, mixed>
@@ -110,7 +110,6 @@ class WeeklyClosingController extends Controller
         $shown = $narrow($boxes);
         $step = $this->summary->step($closing);
         $approve = BranchClosingAccess::approve($actor, $closing->branch_id);
-        $safe = $this->safe($closing);
         $running = ! $closing->submitted_snapshot && $closing->coverage_from->lessThan(now()) && $closing->coverage_until->greaterThan(now());
 
         return [
@@ -126,40 +125,34 @@ class WeeklyClosingController extends Controller
             'blockers' => $step === 'confirm' ? $this->workflow->blockers($closing) : [],
             'warnings' => $closing->submitted_snapshot['warnings'] ?? ($step === 'confirm' ? $this->workflow->warnings($closing) : []),
             'events' => $closing->events()->with('user:id,name')->latest('id')->limit(15)->get()->map(fn (ClosingEvent $event): array => ['id' => $event->id, 'description' => $event->description, 'user' => $event->user?->name, 'at' => $event->created_at]),
-            'safe' => $safe,
+            ...$this->cash($closing),
             'versions' => $this->versions($closing),
             'can' => [
                 'submit' => $approve && $step === 'confirm',
                 'withdraw' => $approve && $closing->status === ClosingStatus::Submitted && ! $closing->reviewed_at && ! $closing->reviewed_by && $step === 'audit',
-                'countSafe' => $approve && $step === 'confirm' && $safe['required'] && $safe['count'] === null,
                 'closeEarly' => $approve && $running,
             ],
         ];
     }
 
     /**
-     * The branch's safe for the week: whether it must be counted before the
-     * week is sent (the branch holds cash), the count when there is one,
-     * the currencies the count asks for, and the week's cash ledger. A sent
-     * week answers from what was saved when it was sent.
+     * The week's cash ledger, which adds up to the cash in the branch's
+     * safe, and the safe count saved with the week when an older week had
+     * one. A sent week answers from what was saved when it was sent.
      *
-     * @return array{required: bool, count: array<string, mixed>|null, currencies: list<string>, ledger: array<string, array<string, string>>|null}
+     * @return array{cashLedger: array<string, array<string, string>>|null, safeCount: array<string, mixed>|null}
      */
-    private function safe(Closing $closing): array
+    private function cash(Closing $closing): array
     {
         $snapshot = $closing->submitted_snapshot;
-        $balance = $snapshot ? ($snapshot['safeBalanceAtSubmission'] ?? []) : $this->workflow->balance($closing->branch_id);
-        $holdsCash = collect($balance)->contains(fn (string $amount): bool => Closing::cents($amount) !== 0);
         $count = $snapshot ? ($snapshot['safeCount'] ?? null) : SafeCount::query()->where('closing_id', $closing->id)->first()?->toArray();
 
         return [
-            'required' => $closing->book !== 'bank' && $holdsCash,
-            'count' => $count ? [
+            'cashLedger' => $closing->book === 'bank' ? null : ($snapshot ? ($snapshot['cashLedger'] ?? null) : $this->workflow->cashLedger($closing)),
+            'safeCount' => $count ? [
                 'counts' => $count['counts'], 'expected' => $count['expected'], 'differences' => $count['differences'], 'reason' => $count['reason'],
                 'by' => User::query()->whereKey($count['user_id'] ?? null)->value('name'), 'at' => $count['created_at'] ?? null,
             ] : null,
-            'currencies' => array_values(array_filter(BranchClosingWorkflow::CURRENCIES, fn (string $currency): bool => $currency === 'ILS' || Closing::cents($balance[$currency] ?? 0) !== 0)),
-            'ledger' => $closing->book === 'bank' ? null : ($snapshot['cashLedger'] ?? ($snapshot ? null : $this->workflow->cashLedger($closing))),
         ];
     }
 

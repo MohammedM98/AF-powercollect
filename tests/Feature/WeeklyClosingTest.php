@@ -43,8 +43,8 @@ class WeeklyClosingTest extends TestCase
     }
 
     /**
-     * A week whose cash box the branch closed and whose safe it counted,
-     * ended and waiting on the branch to confirm it and send it.
+     * A week whose cash box the branch closed, ended and waiting on the
+     * branch to confirm it and send it.
      *
      * @return array{0: Branch, 1: User, 2: User, 3: Closing}
      */
@@ -56,7 +56,6 @@ class WeeklyClosingTest extends TestCase
         $this->action($head, $branch, 'receive', $box->id, ['cash_counted' => true])->assertSessionHasNoErrors();
         $closing = $box->closing;
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => ['ILS' => '100', 'USD' => '0', 'JOD' => '0']])->assertSessionHasNoErrors();
 
         return [$branch, $head, $collector, $closing];
     }
@@ -135,25 +134,14 @@ class WeeklyClosingTest extends TestCase
             ->where('selected.boxes.0.payments.0.senderName', 'هدى خالد'));
     }
 
-    public function test_a_branch_holding_cash_counts_its_safe_before_sending_the_week(): void
+    public function test_a_branch_holding_cash_sends_the_week_with_its_cash_ledger_and_no_safe_count(): void
     {
-        [$branch, $head, $collector] = $this->start();
-        $this->payment($branch, $collector);
-        $box = CashBox::query()->sole();
-        $this->action($head, $branch, 'receive', $box->id, ['cash_counted' => true])->assertSessionHasNoErrors();
-        $closing = $box->closing;
-        $this->travelTo($closing->coverage_until);
+        [, $head, , $closing] = $this->endedWeek();
 
         $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('selected.safe.required', true)->where('selected.safe.count', null)->where('selected.safe.currencies', ['ILS'])
-            ->where('selected.safe.ledger.received.ILS', '100.00')
-            ->where('selected.can.countSafe', true)->where('selected.blockers', ['الفرع يحتفظ بكاش: جرد الخزنة مطلوب قبل الإرسال.']));
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => ['ILS' => '90', 'USD' => '0', 'JOD' => '0'], 'reason' => 'نقص عشرة'])->assertSessionHasNoErrors();
-
-        $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('selected.safe.count.counts.ILS', '90')->where('selected.safe.count.differences.ILS', '-10.00')
-            ->where('selected.safe.count.reason', 'نقص عشرة')->where('selected.safe.count.by', $head->name)
-            ->where('selected.can.countSafe', false)->where('selected.blockers', []));
+            ->where('selected.blockers', [])->where('selected.can.submit', true)
+            ->where('selected.cashLedger.received.ILS', '100.00')->where('selected.safeCount', null)
+            ->missing('selected.can.countSafe'));
     }
 
     public function test_only_the_running_week_can_be_closed_early(): void

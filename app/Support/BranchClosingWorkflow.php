@@ -349,6 +349,16 @@ class BranchClosingWorkflow
     {
         $this->require(in_array($box->status, ['open', 'pending'], true) && $this->mayReceive($box, $actor), 'لا يمكنك تأكيد إغلاق هذا الصندوق.');
         $this->require(! $box->type->isCounted() || $cashCounted, 'أكّد أنك عددت النقد ووجدته مطابقًا لإجمالي الصندوق قبل تأكيد إغلاقه.');
+        $this->accept($box, $actor);
+    }
+
+    /**
+     * Confirms a box closed for the branch: closes it if it is still open,
+     * takes its transfers and clearings as confirmed, and settles it in the
+     * earliest week not yet sent from its own week on.
+     */
+    private function accept(CashBox $box, User $actor): void
+    {
         $this->closeForReceipt($box);
         $settling = $this->settlingClosing($box);
         if (! $box->type->isCounted()) {
@@ -404,15 +414,14 @@ class BranchClosingWorkflow
 
     /**
      * The package that settles a box received now: the earliest week not yet
-     * sent, from the box's own week on. Cash received after a week's cutoff
-     * belongs to the week still open, as the only cash the branch takes in
-     * after the cutoff is paid in that week.
+     * sent, from the box's own week on. A box belongs to the week its
+     * payments were recorded in; cash paid after a cutoff is already in the
+     * next week's boxes.
      */
     private function settlingClosing(CashBox $box): Closing
     {
         return Closing::query()->where('branch_id', $box->branch_id)->whereNotNull('workflow_settings')->whereNull('submitted_at')
             ->where('coverage_from', '>=', $box->closing->coverage_from)
-            ->when($box->type === CashBoxType::Cash, fn ($query) => $query->where('coverage_until', '>', now()))
             ->orderBy('coverage_from')->orderBy('id')->first() ?? $this->current($box->branch_id);
     }
 
@@ -638,7 +647,7 @@ class BranchClosingWorkflow
         $periodIds = Closing::query()->where('branch_id', $closing->branch_id)->whereNotNull('workflow_settings')->where('coverage_from', '<=', $closing->coverage_from)->select('id');
 
         return [
-            'boxes' => CashBox::query()->whereIn('closing_id', $periodIds)->where('status', '!=', 'received')->whereHas('payments')->with(self::BOX_DETAILS)->get(),
+            'boxes' => CashBox::query()->whereIn('closing_id', $periodIds)->where('status', 'open')->whereHas('payments')->with(self::BOX_DETAILS)->get(),
             // Entries of a box still carried are listed with that box, not again on their own.
             'entries' => CashBoxPayment::query()->where('method', '!=', 'cash')->whereIn('status', ['pending', 'missing', 'rejected'])
                 ->whereHas('box', fn ($query) => $query->whereIn('closing_id', $periodIds)->where('status', 'received'))
@@ -653,7 +662,7 @@ class BranchClosingWorkflow
         $unconfirmed = CashBox::query()->where('received_in_closing_id', $closing->id)->where('status', 'received')->whereNull('confirmed_at')->count();
 
         return array_values(array_filter([
-            $carry['boxes']->isNotEmpty() ? $carry['boxes']->count().' صندوق لم يُستلم وسيُرحّل إلى الأسبوع القادم.' : null,
+            $carry['boxes']->isNotEmpty() ? $carry['boxes']->count().' صندوق ما زال مفتوحًا وسيُرحّل إلى الأسبوع القادم.' : null,
             $carry['entries']->isNotEmpty() ? $carry['entries']->count().' حركة (حوالة أو مقاصة) غير مؤكدة أو مرفوضة وستُرحّل إلى الأسبوع القادم.' : null,
             $unconfirmed > 0 ? $unconfirmed.' صندوق استُلم ولم يؤكّد صاحبه التسليم بعد.' : null,
         ]));
@@ -702,6 +711,11 @@ class BranchClosingWorkflow
         $this->editableEnded($closing);
         $blockers = $this->blockers($closing);
         $this->require($blockers === [], implode(' ', $blockers));
+        // Every box of the week belongs to it: sending the week closes any box
+        // still open and accepts the boxes the cutoff closed.
+        foreach (CashBox::query()->whereIn('closing_id', $this->periodIds($closing))->whereIn('status', ['open', 'pending'])->whereHas('payments')->orderBy('id')->get() as $box) {
+            $this->accept($box, $actor);
+        }
         $snapshot = $this->snapshot($closing);
         $version = (int) ClosingVersion::query()->where('closing_id', $closing->id)->max('version') + 1;
         ClosingVersion::query()->create(['closing_id' => $closing->id, 'version' => $version, 'snapshot' => $snapshot, 'user_id' => $actor->id, 'notes' => $notes]);

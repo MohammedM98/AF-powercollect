@@ -64,7 +64,7 @@ class WeeklyClosingSummary
                 ? ['user:id,name', 'payments:id,cash_box_id,subscription_transaction_id,currency,amount,method,status,occurred_at', 'payments.transaction:id,subscription_id,reference_number,bank_name,sender_bank_name,sender_name,voucher_number,manual_voucher_number,notes,status', 'payments.transaction.subscription:id,account_number,full_name,subscription_name']
                 : ['user:id,name', 'payments:id,cash_box_id,subscription_transaction_id,currency,amount,method,status', 'payments.transaction:id,status'])
             ->orderBy('id')->get()
-            ->map(fn (CashBox $box): array => $this->row($box->toArray(), ! $periodIds->contains($box->closing_id) ? 'in' : ($ended && $box->status !== 'received' ? 'out' : null), $withEntries))
+            ->map(fn (CashBox $box): array => $this->row($box->toArray(), ! $periodIds->contains($box->closing_id) ? 'in' : ($ended && $box->status === 'open' ? 'out' : null), $withEntries))
             ->all();
     }
 
@@ -138,7 +138,7 @@ class WeeklyClosingSummary
 
         return [
             'boxes' => $rows->count(),
-            'closedBoxes' => $rows->where('status', 'received')->count(),
+            'closedBoxes' => $rows->where('status', '!=', 'open')->count(),
             'entries' => $rows->sum('entries'),
             'collectors' => $rows->pluck('userId')->filter()->unique()->count(),
             'amounts' => $sum($rows),
@@ -152,7 +152,7 @@ class WeeklyClosingSummary
                 'userId' => $group->first()['userId'],
                 'name' => $group->first()['userName'] ?? '—',
                 'boxes' => $group->count(),
-                'closedBoxes' => $group->where('status', 'received')->count(),
+                'closedBoxes' => $group->where('status', '!=', 'open')->count(),
                 'entries' => $group->sum('entries'),
                 'amounts' => $sum($group),
                 'types' => $group->groupBy('type')->map(fn (Collection $typed): array => ['boxes' => $typed->count(), 'amounts' => $sum($typed)])->all(),

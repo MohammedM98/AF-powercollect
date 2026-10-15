@@ -160,7 +160,7 @@ export default function ClosingsIndex(props) {
             </section>
             <Section title="شو لازم تعمل هلأ"><div className="todo">
                 {overdue.length > 0 && <Task tone="b" icon="shield" label={`${overdue.length} طرد جاهز للإرسال`} hint="كمّل النواقص ثم أرسل الإغلاقات بالترتيب." onClick={() => go('history')} action="راجع وابعت" />}
-                {pendingBoxes.length > 0 && <Task tone="a" icon="table" label={`${pendingBoxes.length} صناديق بانتظار تأكيد الإغلاق (تُرحّل إن لم تُؤكَّد)`} hint="اطّلع على الحركات، واطلب من المحصّل تعديل ما فيه خطأ، ثم أكّد إغلاق الصندوق." onClick={openBoxes} action="مراجعة" />}
+                {pendingBoxes.length > 0 && <Task tone="a" icon="table" label={`${pendingBoxes.length} صناديق بانتظار تأكيد الإغلاق (تُعتمد مع إرسال الأسبوع)`} hint="اطّلع على الحركات، واطلب من المحصّل تعديل ما فيه خطأ، ثم أكّد إغلاق الصندوق." onClick={openBoxes} action="مراجعة" />}
                 {openNotes.length > 0 && <Task tone="r" icon="messages" label={`${openNotes.length} ملاحظة تدقيق بانتظار ردّك`} hint="كل تصحيح بينزل بالأسبوع المفتوح." onClick={() => go('notes')} action="ردّ" />}
                 {!pendingBoxes.length && !overdue.length && !openNotes.length && <Task tone="g" icon="check" label="كل اشي تمام" hint="ما في اشي بانتظارك هلأ" />}
             </div></Section>

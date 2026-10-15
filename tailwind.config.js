@@ -48,6 +48,8 @@ export default {
                 gray: scale('gray', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]),
                 graphite: scale('graphite', [700, 800, 900]),
                 blue: scale('blue', [500, 600, 700]),
+                print: scale('print', [300, 500, 600, 700]),
+                excel: scale('excel', [300, 500, 600, 700]),
                 surface: variable('surface'),
             },
             borderRadius: {

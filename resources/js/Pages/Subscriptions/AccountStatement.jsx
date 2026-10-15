@@ -290,6 +290,7 @@ function lineActionsMenu(entry, onAction) {
                               label: 'طباعة سند القبض',
                               description: 'يُفتح السند في نافذة جديدة جاهزًا للطباعة',
                               icon: 'printer',
+                              tone: 'violet',
                               onSelect: () => window.open(entry.receiptUrl, '_blank'),
                           },
                       ],

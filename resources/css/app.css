@@ -282,38 +282,6 @@
         @apply inline-flex items-center rounded-md border border-gray-200 bg-surface px-1.5 py-0.5 font-display text-[12px] font-semibold text-gray-500;
     }
 
-    /*
-     * A print or Excel button in its own colour: a soft tint at rest, filled
-     * solid on hover. Pair it with the button's size classes, not its colours.
-     * Page styles that restyle their own buttons read the same variables.
-     */
-    .tone-print {
-        --tone: var(--print-500);
-        --tone-ink: var(--print-600);
-        --tone-deep: var(--print-700);
-        --tone-soft: var(--print-300);
-    }
-
-    .tone-excel {
-        --tone: var(--excel-500);
-        --tone-ink: var(--excel-600);
-        --tone-deep: var(--excel-700);
-        --tone-soft: var(--excel-300);
-    }
-
-    .tone-print,
-    .tone-excel {
-        border-color: rgb(var(--tone) / 0.3);
-        background: rgb(var(--tone) / 0.08);
-        color: rgb(var(--tone-ink));
-    }
-
-    :is(.tone-print, .tone-excel):hover:not(:disabled) {
-        border-color: transparent;
-        background: linear-gradient(180deg, rgb(var(--tone)), rgb(var(--tone-deep)));
-        color: #fff;
-        box-shadow: 0 8px 16px -8px rgb(var(--tone) / 0.8);
-    }
 }
 
 /*
@@ -963,6 +931,55 @@
     background: linear-gradient(180deg, rgb(var(--excel-500)), rgb(var(--excel-700)));
     color: #fff;
     box-shadow: 0 8px 16px -8px rgb(var(--excel-500) / 0.8);
+}
+
+/*
+ * A print or Excel button in its own colour, on any button: a soft tint at
+ * rest, filled solid on hover. Outside the components layer so it wins over
+ * the colours of the button it sits on (PrimaryButton, SecondaryButton…).
+ * Page styles that restyle their own buttons read the same variables.
+ */
+.tone-print {
+    --tone: var(--print-500);
+    --tone-ink: var(--print-600);
+    --tone-deep: var(--print-700);
+    --tone-soft: var(--print-300);
+}
+
+.tone-excel {
+    --tone: var(--excel-500);
+    --tone-ink: var(--excel-600);
+    --tone-deep: var(--excel-700);
+    --tone-soft: var(--excel-300);
+}
+
+.tone-print,
+.tone-excel {
+    border-color: rgb(var(--tone) / 0.3);
+    background: rgb(var(--tone) / 0.08);
+    color: rgb(var(--tone-ink));
+}
+
+:is(.tone-print, .tone-excel):hover:not(:disabled) {
+    border-color: transparent;
+    background: linear-gradient(180deg, rgb(var(--tone)), rgb(var(--tone-deep)));
+    color: #fff;
+    box-shadow: 0 8px 16px -8px rgb(var(--tone) / 0.8);
+}
+
+/* The screen's main action: filled in its colour at rest too. */
+:is(.tone-print, .tone-excel).tone-solid {
+    border-color: transparent;
+    background: linear-gradient(180deg, rgb(var(--tone)), rgb(var(--tone-deep)));
+    color: #fff;
+    box-shadow: 0 10px 24px -12px rgb(var(--tone) / 0.9);
+}
+
+/* On a dark bar or header: a lighter ink so it stays readable. */
+:is(.tone-print, .tone-excel).tone-on-dark:not(:hover) {
+    border-color: rgb(var(--tone) / 0.5);
+    background: rgb(var(--tone) / 0.2);
+    color: rgb(var(--tone-soft));
 }
 
 .row-action[aria-expanded='true'] {

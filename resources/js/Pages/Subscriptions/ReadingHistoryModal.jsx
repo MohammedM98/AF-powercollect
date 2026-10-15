@@ -288,8 +288,8 @@ export default function ReadingHistoryModal({ subscription, onClose, readingWeek
                         </div>
                     </div>
                     <div className="rh-actions">
-                        <button type="button" className="tone-excel" onClick={exportReadings} disabled={!visibleReadings.length} title="تصدير القراءات المعروضة بصيغة CSV المتوافقة مع Excel"><Icon name="excel" />تصدير Excel</button>
-                        <button type="button" className="tone-print" onClick={() => window.print()} disabled={!visibleReadings.length}><Icon name="printer" />طباعة</button>
+                        <button type="button" className="tone-excel tone-on-dark" onClick={exportReadings} disabled={!visibleReadings.length} title="تصدير القراءات المعروضة بصيغة CSV المتوافقة مع Excel"><Icon name="excel" />تصدير Excel</button>
+                        <button type="button" className="tone-print tone-on-dark" onClick={() => window.print()} disabled={!visibleReadings.length}><Icon name="printer" />طباعة</button>
                         <button type="button" className="rh-close" onClick={onClose} aria-label="إغلاق"><Icon name="close" /></button>
                     </div>
                 </header>

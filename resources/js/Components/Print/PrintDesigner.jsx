@@ -175,7 +175,7 @@ export default function PrintDesigner({ settings, children }) {
                 className="pd-toolbar sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 sm:px-6"
             >
                 <span className="flex items-center gap-2 font-bold text-gray-900">
-                    <Icon name="printer" className="h-5 w-5" />
+                    <Icon name="printer" className="h-5 w-5 text-print-600" />
                     تصميم الطباعة
                 </span>
                 {isCut && (
@@ -196,7 +196,7 @@ export default function PrintDesigner({ settings, children }) {
                             ))}
                         </select>
                     </label>
-                    <PrimaryButton type="button" onClick={() => window.print()} disabled={!layout} autoFocus>
+                    <PrimaryButton type="button" className="tone-print tone-solid" onClick={() => window.print()} disabled={!layout} autoFocus>
                         <Icon name="printer" className="h-4 w-4" />
                         طباعة
                     </PrimaryButton>

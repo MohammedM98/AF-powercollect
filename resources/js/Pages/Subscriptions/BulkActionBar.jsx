@@ -41,7 +41,7 @@ export function messageUrl({ all, ids, filters }) {
     return `/messages/create?${params}`;
 }
 
-function BarButton({ icon, label, onClick, disabled = false, hint }) {
+function BarButton({ icon, label, onClick, disabled = false, hint, className = '' }) {
     return (
         <button
             type="button"
@@ -49,7 +49,7 @@ function BarButton({ icon, label, onClick, disabled = false, hint }) {
             disabled={disabled}
             title={disabled ? hint : label}
             aria-describedby={undefined}
-            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-control bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
+            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-control bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING} ${className}`}
         >
             <Icon name={icon} className="h-4 w-4" />
             {label}
@@ -98,7 +98,7 @@ export default function BulkActionBar({ count, selection, filters, abilities, on
                         hint={!toMessages ? 'فلتر نوع الاشتراك لا ينتقل إلى صفحة الرسائل؛ حدّد المشتركين بدلًا منه' : linkHint}
                     />
                 )}
-                <BarButton icon="printer" label="طباعة" onClick={print} disabled={tooManyToLink} hint={linkHint} />
+                <BarButton icon="printer" label="طباعة" onClick={print} disabled={tooManyToLink} hint={linkHint} className="tone-print tone-on-dark border" />
             </div>
             <button
                 type="button"

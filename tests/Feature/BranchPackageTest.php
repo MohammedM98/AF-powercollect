@@ -155,7 +155,7 @@ class BranchPackageTest extends TestCase
         $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'received_in_closing_id' => $closing->id, 'confirmed_at' => now()]);
     }
 
-    public function test_receiving_a_sent_week_box_settles_in_the_earliest_unsent_week(): void
+    public function test_receiving_a_sent_week_box_after_later_cutoffs_settles_its_cash_in_the_open_week(): void
     {
         [$branch, $head, $collector, $closing] = $this->start();
         $entry = $this->entry($branch, $collector);
@@ -167,8 +167,9 @@ class BranchPackageTest extends TestCase
 
         $this->receiveCash($branch, $head, $collector, $entry->box);
 
-        $this->assertSame($unsent->id, $entry->box->fresh()->received_in_closing_id);
-        $this->assertNotSame($unsent->id, app(BranchClosingWorkflow::class)->current($branch->id)->id);
+        $open = app(BranchClosingWorkflow::class)->current($branch->id);
+        $this->assertNotSame($unsent->id, $open->id);
+        $this->assertSame($open->id, $entry->box->fresh()->received_in_closing_id);
     }
 
     public function test_settings_reject_daily_and_separate_and_normalize_future_periods(): void
@@ -261,7 +262,7 @@ class BranchPackageTest extends TestCase
         $this->assertSame(1, $summary['byCollector'][0]['boxCount']);
     }
 
-    public function test_cash_received_after_the_cutoff_settles_in_the_ended_week_not_yet_sent(): void
+    public function test_cash_received_after_the_cutoff_settles_in_the_next_week(): void
     {
         [$branch, $head, $collector, $closing] = $this->start();
         $first = $this->entry($branch, $collector);
@@ -273,9 +274,10 @@ class BranchPackageTest extends TestCase
         $this->receiveCash($branch, $head, $collector, $late->box);
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
-        $this->assertSame($closing->id, $late->box->fresh()->received_in_closing_id);
-        $this->assertSame('200.00', app(BranchClosingWorkflow::class)->reviewSummary($closing->fresh())['cash']['ILS']);
-        $this->assertSame('200.00', app(BranchClosingWorkflow::class)->cashLedger($closing->fresh())['received']['ILS']);
+        $next = app(BranchClosingWorkflow::class)->current($branch->id);
+        $this->assertSame($next->id, $late->box->fresh()->received_in_closing_id);
+        $this->assertSame('100.00', app(BranchClosingWorkflow::class)->reviewSummary($closing->fresh())['cash']['ILS']);
+        $this->assertSame('100.00', app(BranchClosingWorkflow::class)->cashLedger($next)['received']['ILS']);
     }
 
     public function test_closing_page_does_not_send_staff_permissions(): void

@@ -404,12 +404,15 @@ class BranchClosingWorkflow
 
     /**
      * The package that settles a box received now: the earliest week not yet
-     * sent, from the box's own week on.
+     * sent, from the box's own week on. Cash received after a week's cutoff
+     * belongs to the week still open, as the only cash the branch takes in
+     * after the cutoff is paid in that week.
      */
     private function settlingClosing(CashBox $box): Closing
     {
         return Closing::query()->where('branch_id', $box->branch_id)->whereNotNull('workflow_settings')->whereNull('submitted_at')
             ->where('coverage_from', '>=', $box->closing->coverage_from)
+            ->when($box->type === CashBoxType::Cash, fn ($query) => $query->where('coverage_until', '>', now()))
             ->orderBy('coverage_from')->orderBy('id')->first() ?? $this->current($box->branch_id);
     }
 

@@ -1174,13 +1174,13 @@ html.tn-locked {
 .tn-subnav a {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    height: 38px;
-    padding: 0 14px;
+    gap: 8px;
+    height: 44px;
+    padding: 0 17px;
     border-radius: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    color: rgb(var(--gray-600));
+    font-size: 16px;
+    font-weight: 700;
+    color: rgb(var(--gray-900));
     white-space: nowrap;
     transition: background 0.2s, color 0.2s, box-shadow 0.2s;
 }
@@ -1206,8 +1206,13 @@ html.tn-locked {
 }
 
 .tn-subnav a svg {
-    width: 17px;
-    height: 17px;
+    width: 19px;
+    height: 19px;
+    color: rgb(var(--gray-600));
+}
+
+.tn-subnav a[aria-current='page'] svg {
+    color: #fff;
 }
 
 .tn-subnav a .tn-badge {

@@ -67,7 +67,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/weekly-packages', [WeeklyClosingController::class, 'index'])->name('weekly-packages.index');
     Route::post('/reconciliation/actions/{action}/{record?}', [BranchClosingController::class, 'action'])->whereNumber('record')->name('closings.actions');
     Route::get('/reconciliation/proofs/{kind}/{record}', [BranchClosingController::class, 'proof'])->whereNumber('record')->name('closings.proofs');
-    Route::post('/reconciliation/transfer-receipts/{transfer}', [BranchClosingController::class, 'transferReceipt'])->name('closings.transfer-receipts');
     Route::get('/payments/search', [PaymentController::class, 'search'])->name('payments.search');
     Route::post('/payments/split', [SplitPaymentController::class, 'store'])->name('payments.split.store');
     Route::get('/split-payments/{splitPayment}', [SplitPaymentController::class, 'show'])->name('split-payments.show');

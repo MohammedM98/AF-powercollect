@@ -53,7 +53,7 @@ export default function Entries({ scope, started, branchName, branch, branches, 
         {(own || can.viewOwnCashBoxes) && <CollectionNavigation urls={collectionUrls} active="entries" pendingCount={pendingCount} />}
         {started && <p className="mb-4 flex items-center gap-2 text-sm text-gray-500"><Icon name="unlock" className="h-4 w-4 shrink-0" />تعرض هذه الصفحة حركات الصناديق المفتوحة فقط؛ حركات الصناديق المغلقة تجدها داخل كل صندوق في <Link href={collectionUrls.cashBoxes} className="font-semibold text-brand-600 hover:underline">الصناديق المالية</Link>.</p>}
         {started && <StatusGuide className="mb-4" />}
-        {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">{branchName ? 'لم يُفعّل نظام الصناديق في هذا الفرع بعد. يُفعّله مسؤول الفرع من صفحة الخزنة والكشوفات.' : 'حسابك غير مرتبط بفرع، لذلك لا توجد حركات صناديق.'}</p> : <section aria-label={own ? 'حركات صناديقي' : 'حركات الفرع'} className="space-y-4">
+        {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">{branchName ? 'لم يُفعّل نظام الصناديق في هذا الفرع بعد. يُفعّله مسؤول الفرع من صفحة الإغلاقات والكشوفات.' : 'حسابك غير مرتبط بفرع، لذلك لا توجد حركات صناديق.'}</p> : <section aria-label={own ? 'حركات صناديقي' : 'حركات الفرع'} className="space-y-4">
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}

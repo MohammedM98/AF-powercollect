@@ -8,7 +8,6 @@ use App\Models\Closing;
 use App\Models\ClosingEvent;
 use App\Models\ClosingSetting;
 use App\Models\ClosingVersion;
-use App\Models\SafeCount;
 use App\Models\User;
 use App\Support\BranchBoxes;
 use App\Support\BranchClosingAccess;
@@ -97,9 +96,9 @@ class WeeklyClosingController extends Controller
 
     /**
      * The week in full, narrowed to the collector and type asked for, with
-     * the whole week's totals for the confirmation, its cash ledger, the
-     * versions sent of it, and what the actor may do with it now: close the
-     * week early, send it or withdraw it.
+     * the whole week's totals for the confirmation, the versions sent of
+     * it, and what the actor may do with it now: close the week early, send
+     * it or withdraw it.
      *
      * @param  callable(list<array<string, mixed>>): list<array<string, mixed>>  $narrow
      * @return array<string, mixed>
@@ -125,34 +124,12 @@ class WeeklyClosingController extends Controller
             'blockers' => $step === 'confirm' ? $this->workflow->blockers($closing) : [],
             'warnings' => $closing->submitted_snapshot['warnings'] ?? ($step === 'confirm' ? $this->workflow->warnings($closing) : []),
             'events' => $closing->events()->with('user:id,name')->latest('id')->limit(15)->get()->map(fn (ClosingEvent $event): array => ['id' => $event->id, 'description' => $event->description, 'user' => $event->user?->name, 'at' => $event->created_at]),
-            ...$this->cash($closing),
             'versions' => $this->versions($closing),
             'can' => [
                 'submit' => $approve && $step === 'confirm',
                 'withdraw' => $approve && $closing->status === ClosingStatus::Submitted && ! $closing->reviewed_at && ! $closing->reviewed_by && $step === 'audit',
                 'closeEarly' => $approve && $running,
             ],
-        ];
-    }
-
-    /**
-     * The week's cash ledger, which adds up to the cash in the branch's
-     * safe, and the safe count saved with the week when an older week had
-     * one. A sent week answers from what was saved when it was sent.
-     *
-     * @return array{cashLedger: array<string, array<string, string>>|null, safeCount: array<string, mixed>|null}
-     */
-    private function cash(Closing $closing): array
-    {
-        $snapshot = $closing->submitted_snapshot;
-        $count = $snapshot ? ($snapshot['safeCount'] ?? null) : SafeCount::query()->where('closing_id', $closing->id)->first()?->toArray();
-
-        return [
-            'cashLedger' => $closing->book === 'bank' ? null : ($snapshot ? ($snapshot['cashLedger'] ?? null) : $this->workflow->cashLedger($closing)),
-            'safeCount' => $count ? [
-                'counts' => $count['counts'], 'expected' => $count['expected'], 'differences' => $count['differences'], 'reason' => $count['reason'],
-                'by' => User::query()->whereKey($count['user_id'] ?? null)->value('name'), 'at' => $count['created_at'] ?? null,
-            ] : null,
         ];
     }
 
@@ -174,7 +151,6 @@ class WeeklyClosingController extends Controller
                 'id' => $version->id, 'version' => $version->version, 'notes' => $version->notes,
                 'by' => $names[$version->user_id] ?? null, 'at' => $version->created_at, 'withdrawnAt' => $version->withdrawn_at,
                 'cash' => $summary['cash'], 'bank' => $summary['bank'], 'clearing' => $summary['clearing'],
-                'safe' => $version->snapshot['safeBalanceAtSubmission'] ?? null,
             ];
         })->all();
     }

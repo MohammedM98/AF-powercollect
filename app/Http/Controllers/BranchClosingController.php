@@ -8,7 +8,6 @@ use App\Models\AuditNote;
 use App\Models\AuditNoteReply;
 use App\Models\CashBox;
 use App\Models\CashBoxPayment;
-use App\Models\CashTransfer;
 use App\Models\Closing;
 use App\Models\ClosingAdjustment;
 use App\Models\ClosingSetting;
@@ -63,15 +62,13 @@ class BranchClosingController extends Controller
             'settings' => $this->workflow->settings($setting), 'receivers' => $setting->receivers ?? [], 'approvers' => $setting->approvers ?? [],
             'pendingChange' => $pendingChange, 'transitionUntil' => $current ? $this->workflow->nextEnd($current->scheduled_until, $pendingChange?->settings ?? $this->workflow->settings($setting))->toIso8601String() : null,
             'current' => $current, 'closings' => $closings->map(fn (Closing $closing): array => [...$closing->toArray(), 'submitted_snapshot' => $closing->submitted_snapshot ? true : null]),
-            'boxes' => $boxRows, 'safeBalance' => $started ? $this->workflow->balance($branchId) : array_fill_keys(BranchClosingWorkflow::CURRENCIES, '0.00'),
-            'transfers' => CashTransfer::query()->where('branch_id', $branchId)->whereHas('closing', fn ($query) => $query->whereNotNull('workflow_settings'))->with('recipient:id,name')->latest('id')->get(),
+            'boxes' => $boxRows,
             'debts' => CollectorDebt::query()->where('branch_id', $branchId)->with('user:id,name')->where('remaining', '>', 0)->get(),
             'adjustments' => ClosingAdjustment::query()->whereIn('closing_id', $closings->modelKeys())->get(),
             'safeCounts' => SafeCount::query()->whereIn('closing_id', $closings->modelKeys())->get(), 'notes' => $notes,
             'staff' => User::query()->where('branch_id', $branchId)->where('is_active', true)->get(['id', 'name']),
-            'recipients' => User::query()->where('is_active', true)->whereIn('role', ['accountant', 'financial_auditor', 'super_admin'])->get(['id', 'name']),
             'access' => $this->branchBoxes->access($actor, $branchId),
-            'urls' => ['index' => route('closings.index'), 'weekly' => route('weekly-packages.index'), 'boxes' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'proofs' => url('/reconciliation/proofs'), 'transferReceipts' => url('/reconciliation/transfer-receipts')],
+            'urls' => ['index' => route('closings.index'), 'weekly' => route('weekly-packages.index'), 'boxes' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'proofs' => url('/reconciliation/proofs')],
         ]);
     }
 
@@ -84,7 +81,7 @@ class BranchClosingController extends Controller
         $allowed = match ($action) {
             'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
             'receive', 'receive-type', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
-            'submit', 'withdraw', 'early', 'reply', 'transfer' => BranchClosingAccess::approve($actor, $branchId),
+            'submit', 'withdraw', 'early', 'reply' => BranchClosingAccess::approve($actor, $branchId),
             'start', 'settings' => BranchClosingAccess::manage($actor, $branchId),
             default => false,
         };
@@ -112,14 +109,6 @@ class BranchClosingController extends Controller
                 $this->workflow->changeSettings($branchId, $actor, $data);
             } elseif ($action === 'repay') {
                 $this->workflow->repay(CollectorDebt::query()->where('branch_id', $branchId)->findOrFail($record), $actor, (string) $data['amount']);
-            } elseif ($action === 'transfer') {
-                $path = $request->file('proof')->store('closing-proofs', 'local');
-                try {
-                    $this->workflow->transfer($branchId, $actor, $data, $path);
-                } catch (\Throwable $exception) {
-                    Storage::disk('local')->delete($path);
-                    throw $exception;
-                }
             } elseif ($action === 'reply') {
                 $note = AuditNote::query()->whereHas('closing', fn ($query) => $query->where('branch_id', $branchId))->findOrFail($record);
                 $path = $request->file('document')?->store('closing-documents', 'local');
@@ -146,33 +135,14 @@ class BranchClosingController extends Controller
 
     public function proof(Request $request, string $kind, int $record): StreamedResponse
     {
-        if ($kind === 'transfer') {
-            $item = CashTransfer::query()->findOrFail($record);
-            $branchId = $item->branch_id;
-            $path = $item->proof_path;
-        } else {
-            abort_unless($kind === 'reply', 404);
-            $item = AuditNoteReply::query()->findOrFail($record);
-            $branchId = AuditNote::query()->findOrFail($item->audit_note_id)->closing->branch_id;
-            $path = $item->document_path;
-        }
+        abort_unless($kind === 'reply', 404);
+        $item = AuditNoteReply::query()->findOrFail($record);
+        $branchId = AuditNote::query()->findOrFail($item->audit_note_id)->closing->branch_id;
+        $path = $item->document_path;
         $actor = $request->user();
         abort_unless(BranchClosingAccess::view($actor) && ($actor->isSuperAdmin() || $actor->branch_id === $branchId), 404);
         abort_unless($path && Storage::disk('local')->exists($path), 404);
 
         return Storage::disk('local')->download($path);
-    }
-
-    public function transferReceipt(Request $request, CashTransfer $transfer): RedirectResponse
-    {
-        $actor = $request->user();
-        abort_unless($actor->is_active && $transfer->recipient_id === $actor->id && $transfer->sent_by !== $actor->id, 404);
-        $this->workflow->locked($transfer->branch_id, function () use ($transfer, $actor): void {
-            $transfer->refresh();
-            $this->workflow->require($transfer->status->value === 'in_transit', 'التسليم مؤكد بالفعل.');
-            $transfer->update(['status' => 'received', 'received_by' => $actor->id, 'received_at' => now()]);
-        });
-
-        return back()->with('status', 'تم تأكيد استلام التسليم.');
     }
 }

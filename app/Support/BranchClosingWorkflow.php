@@ -432,14 +432,6 @@ class BranchClosingWorkflow
         $box->update(['confirmed_at' => now()]);
     }
 
-    /** @param array<string, mixed> $data */
-    public function transfer(int $branchId, User $actor, array $data, string $proof): void
-    {
-        $this->require((int) $data['recipient_id'] !== $actor->id, 'لا يمكنك تسليم الكاش لنفسك.');
-        $this->require(Closing::cents($data['amount']) <= Closing::cents($this->balance($branchId)[$data['currency']]), 'المبلغ أكبر من رصيد الخزنة بهذه العملة.');
-        CashTransfer::query()->create(['closing_id' => $this->current($branchId, 'cash')->id, 'branch_id' => $branchId, 'currency' => $data['currency'], 'amount' => $data['amount'], 'method' => $data['method'], 'sent_by' => $actor->id, 'recipient_id' => $data['recipient_id'], 'sent_at' => now(), 'proof_path' => $proof, 'status' => 'in_transit']);
-    }
-
     public function repay(CollectorDebt $debt, User $actor, string $amount): void
     {
         $this->require(Closing::cents($amount) <= Closing::cents($debt->remaining), 'المبلغ أكبر من الدين المتبقي.');
@@ -664,7 +656,6 @@ class BranchClosingWorkflow
             $carry['boxes']->isNotEmpty() ? $carry['boxes']->count().' صندوق لم يُستلم وسيُرحّل إلى الأسبوع القادم.' : null,
             $carry['entries']->isNotEmpty() ? $carry['entries']->count().' حركة (حوالة أو مقاصة) غير مؤكدة أو مرفوضة وستُرحّل إلى الأسبوع القادم.' : null,
             $unconfirmed > 0 ? $unconfirmed.' صندوق استُلم ولم يؤكّد صاحبه التسليم بعد.' : null,
-            $closing->transfers()->where('status', 'in_transit')->exists() ? 'يوجد تسليم للشركة قيد النقل.' : null,
         ]));
     }
 

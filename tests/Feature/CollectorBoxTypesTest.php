@@ -338,7 +338,6 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertCount(1, $workflow->snapshot($bank)['boxes']);
         $this->assertCount(1, $workflow->snapshot($bank)['clearings']);
         $this->assertSame('combined', $workflow->current($branch->id)->book);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')])->assertSessionHasNoErrors();
     }
 
     public function test_cancelled_entries_stay_visible_but_do_not_count_or_block_receipt(): void
@@ -396,7 +395,6 @@ class CollectorBoxTypesTest extends TestCase
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
         $occurred = now();
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $transaction = SubscriptionTransaction::withoutEvents(fn (): SubscriptionTransaction => SubscriptionTransaction::factory()->for(Subscription::factory()->for($branch))->create(['branch_id' => $branch->id, 'recorded_by' => $collector->id, 'type' => 'clearing', 'status' => SubscriptionTransaction::STATUS_ACTIVE, 'source_key' => 'clearing:'.Str::ulid(), 'amount' => '-20', 'notes' => 'صيانة قديمة', 'created_at' => $occurred]));
 
@@ -443,7 +441,6 @@ class CollectorBoxTypesTest extends TestCase
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'rejected'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
         SubscriptionTransaction::factory()->for($entry->transaction->subscription)->create(['type' => 'penalty', 'source_key' => 'after-clearing:'.$entry->id, 'amount' => '20']);

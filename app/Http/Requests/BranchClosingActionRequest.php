@@ -32,9 +32,6 @@ class BranchClosingActionRequest extends FormRequest
         if ($action === 'receive-type') {
             $rules += ['type' => ['required', Rule::enum(CashBoxType::class)], 'box_ids' => ['required', 'array', 'min:1'], 'box_ids.*' => ['integer', 'distinct']];
         }
-        if ($action === 'safe-count') {
-            $rules += $this->countRules();
-        }
         if ($action === 'electronic') {
             $rules += ['status' => ['required', 'in:confirmed,missing,rejected']];
         }
@@ -57,11 +54,5 @@ class BranchClosingActionRequest extends FormRequest
         }
 
         return $rules;
-    }
-
-    /** @return array<string, list<string>> */
-    private function countRules(): array
-    {
-        return ['counts' => ['required', 'array:ILS,USD,JOD'], 'counts.ILS' => ['required', 'numeric', 'min:0', 'max:9999999999'], 'counts.USD' => ['required', 'numeric', 'min:0', 'max:9999999999'], 'counts.JOD' => ['required', 'numeric', 'min:0', 'max:9999999999']];
     }
 }

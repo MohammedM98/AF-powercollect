@@ -404,15 +404,15 @@ class BranchClosingWorkflow
 
     /**
      * The package that settles a box received now: the earliest week not yet
-     * sent, from the box's own week on. Cash never settles in a week whose
-     * safe is already counted, so the count always matches the cash the
-     * package says was received; it goes to the next week instead.
+     * sent, from the box's own week on. Cash received after a week's cutoff
+     * belongs to the week still open, as the only cash the branch takes in
+     * after the cutoff is paid in that week.
      */
     private function settlingClosing(CashBox $box): Closing
     {
         return Closing::query()->where('branch_id', $box->branch_id)->whereNotNull('workflow_settings')->whereNull('submitted_at')
             ->where('coverage_from', '>=', $box->closing->coverage_from)
-            ->when($box->type === CashBoxType::Cash, fn ($query) => $query->whereNotIn('id', SafeCount::query()->select('closing_id')))
+            ->when($box->type === CashBoxType::Cash, fn ($query) => $query->where('coverage_until', '>', now()))
             ->orderBy('coverage_from')->orderBy('id')->first() ?? $this->current($box->branch_id);
     }
 
@@ -620,17 +620,6 @@ class BranchClosingWorkflow
         return array_map(fn (array $amounts): array => array_map(Closing::money(...), $amounts), $rows);
     }
 
-    /** @param array<string, mixed> $data */
-    public function safeCount(Closing $closing, User $actor, array $data): void
-    {
-        $this->editableEnded($closing);
-        $this->require($closing->book !== 'bank' && ! SafeCount::query()->where('closing_id', $closing->id)->exists(), 'الجرد محفوظ أو هذا إغلاق بنك.');
-        $expected = $this->balance($closing->branch_id);
-        $diff = $this->differences($data['counts'], $expected);
-        $this->require(! $this->hasDifference($diff) || filled($data['reason'] ?? null), 'اكتب سبب فرق جرد الخزنة.');
-        SafeCount::query()->create(['closing_id' => $closing->id, 'user_id' => $actor->id, 'counts' => $data['counts'], 'expected' => $expected, 'differences' => $diff, 'reason' => $data['reason'] ?? null]);
-    }
-
     /** @return array<int, string> */
     public function blockers(Closing $closing): array
     {
@@ -641,16 +630,8 @@ class BranchClosingWorkflow
         if (Closing::query()->where('branch_id', $closing->branch_id)->whereNotNull('workflow_settings')->where('coverage_from', '<', $closing->coverage_from)->whereIn('book', [$closing->book, 'combined', ...($closing->book === 'combined' ? ['cash', 'bank'] : [])])->whereNull('submitted_at')->exists()) {
             $blockers[] = 'أرسل الإغلاق السابق أولًا.';
         }
-        if ($closing->book !== 'bank' && $this->holdsCash($closing->branch_id) && ! SafeCount::query()->where('closing_id', $closing->id)->exists()) {
-            $blockers[] = 'الفرع يحتفظ بكاش: جرد الخزنة مطلوب قبل الإرسال.';
-        }
 
         return $blockers;
-    }
-
-    public function holdsCash(int $branchId): bool
-    {
-        return collect($this->balance($branchId))->contains(fn (string $amount): bool => Closing::cents($amount) !== 0);
     }
 
     /** @return Collection<int, int> */

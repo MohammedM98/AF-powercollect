@@ -13,7 +13,6 @@ use App\Models\ClosingSetting;
 use App\Models\ClosingVersion;
 use App\Models\CollectorDebt;
 use App\Models\MobileAccessToken;
-use App\Models\SafeCount;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
@@ -173,7 +172,7 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertSame(1, CashBoxPayment::query()->whereHas('box', fn ($query) => $query->where('closing_id', $next->id))->count());
     }
 
-    public function test_safe_count_blocks_submission_then_snapshot_remains_frozen(): void
+    public function test_a_branch_holding_cash_sends_its_week_and_the_snapshot_remains_frozen(): void
     {
         [$branch, $head, $collector] = $this->start();
         $this->payment($branch, $collector);
@@ -182,8 +181,6 @@ class BranchClosingWorkflowTest extends TestCase
         $this->receiveBox($branch, $head, $box);
         $this->travelTo($closing->coverage_until);
 
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasErrors('action');
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $snapshot = $closing->fresh()->submitted_snapshot;
         $this->payment($branch, $collector, '9');
@@ -199,7 +196,6 @@ class BranchClosingWorkflowTest extends TestCase
         [$branch, $head] = $this->start();
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')]);
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true]);
 
         $this->action($head, $branch, 'withdraw', $closing->id)->assertSessionHasNoErrors();
@@ -257,7 +253,6 @@ class BranchClosingWorkflowTest extends TestCase
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
         $occurred = now()->addHour();
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')]);
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true]);
         $snapshot = $closing->fresh()->submitted_snapshot;
 
@@ -274,7 +269,6 @@ class BranchClosingWorkflowTest extends TestCase
         [$branch, $head] = $this->start();
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')]);
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true]);
         $note = AuditNote::factory()->create(['closing_id' => $closing->id]);
         $snapshot = $closing->fresh()->submitted_snapshot;
@@ -296,7 +290,6 @@ class BranchClosingWorkflowTest extends TestCase
         // A box received under the old two-step receipt, its collector's confirmation still owed.
         $box->refresh()->update(['confirmed_at' => null]);
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts()]);
 
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
@@ -330,7 +323,6 @@ class BranchClosingWorkflowTest extends TestCase
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'missing'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $box->id)->assertSessionHasNoErrors();
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')]);
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $snapshot = $closing->fresh()->submitted_snapshot;
 
@@ -376,7 +368,7 @@ class BranchClosingWorkflowTest extends TestCase
         $this->withToken($token)->postJson(route('mobile.cash-boxes.actions', ['action' => 'head-count', 'record' => $box->id]), ['branch_id' => $branch->id, 'counts' => $this->counts()])->assertForbidden();
     }
 
-    public function test_post_cutoff_cash_movements_are_included_in_vault_count(): void
+    public function test_post_cutoff_cash_movements_are_kept_apart_in_the_cash_ledger(): void
     {
         [$branch, $head, $collector] = $this->start();
         $this->payment($branch, $collector);
@@ -388,10 +380,6 @@ class BranchClosingWorkflowTest extends TestCase
         $nextBox = CashBox::query()->where('status', 'open')->whereHas('payments')->sole();
         $this->receiveBox($branch, $head, $nextBox);
 
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('130')])->assertSessionHasNoErrors();
-
-        $this->assertSame('130.00', SafeCount::query()->sole()->expected['ILS']);
-        $this->assertSame('0.00', SafeCount::query()->sole()->differences['ILS']);
         $ledger = app(BranchClosingWorkflow::class)->cashLedger($closing);
         $this->assertSame('100.00', $ledger['remaining']['ILS']);
         $this->assertSame('30.00', $ledger['afterCutoff']['ILS']);
@@ -463,7 +451,6 @@ class BranchClosingWorkflowTest extends TestCase
         $this->receiveBox($branch, $head, $box);
         $closing = $box->closing;
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts()])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $snapshot = $closing->fresh()->submitted_snapshot;
         $note = AuditNote::factory()->create(['closing_id' => $closing->id, 'cash_box_id' => $box->id, 'differences' => ['USD' => '-10.00']]);
@@ -491,7 +478,6 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertDatabaseHas('cash_box_syncs', ['user_id' => $collector->id, 'branch_id' => $branch->id, 'pending_payments' => 0]);
         $this->assertSame([], app(BranchClosingWorkflow::class)->reviewSummary($closing)['unsyncedCollectors']);
         $this->withToken($token)->postJson(route('mobile.cash-boxes.sync'), ['pending_payments' => 2])->assertOk();
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => $this->counts('0')])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $this->assertSame([$collector->id], array_column($closing->fresh()->submitted_snapshot['unsyncedCollectors'], 'id'));
     }

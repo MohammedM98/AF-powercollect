@@ -43,8 +43,8 @@ class WeeklyClosingTest extends TestCase
     }
 
     /**
-     * A week whose cash box the branch closed and whose safe it counted,
-     * ended and waiting on the branch to confirm it and send it.
+     * A week whose cash box the branch closed, ended and waiting on the
+     * branch to confirm it and send it.
      *
      * @return array{0: Branch, 1: User, 2: User, 3: Closing}
      */
@@ -56,7 +56,6 @@ class WeeklyClosingTest extends TestCase
         $this->action($head, $branch, 'receive', $box->id, ['cash_counted' => true])->assertSessionHasNoErrors();
         $closing = $box->closing;
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'safe-count', $closing->id, ['counts' => ['ILS' => '100', 'USD' => '0', 'JOD' => '0']])->assertSessionHasNoErrors();
 
         return [$branch, $head, $collector, $closing];
     }
@@ -133,6 +132,42 @@ class WeeklyClosingTest extends TestCase
             ->where('selected.boxes.0.payments.0.bankName', 'بنك فلسطين')
             ->where('selected.boxes.0.payments.0.senderBank', 'بنك القدس')
             ->where('selected.boxes.0.payments.0.senderName', 'هدى خالد'));
+    }
+
+    public function test_a_branch_holding_cash_sends_the_week_with_its_cash_ledger_and_no_safe_count(): void
+    {
+        [, $head, , $closing] = $this->endedWeek();
+
+        $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('selected.blockers', [])->where('selected.can.submit', true)
+            ->where('selected.cashLedger.received.ILS', '100.00')->where('selected.safeCount', null)
+            ->missing('selected.can.countSafe'));
+    }
+
+    public function test_only_the_running_week_can_be_closed_early(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $this->payment($branch, $collector);
+        $closing = app(BranchClosingWorkflow::class)->current($branch->id);
+
+        $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page->where('selected.can.closeEarly', true));
+        $this->action($head, $branch, 'early', $closing->id)->assertSessionHasNoErrors();
+
+        $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('selected.step', 'confirm')->where('selected.can.closeEarly', false));
+    }
+
+    public function test_each_version_sent_is_listed_with_what_it_held(): void
+    {
+        [$branch, $head, , $closing] = $this->endedWeek();
+        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true, 'notes' => 'الأولى'])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'withdraw', $closing->id)->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+
+        $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('selected.versions', 2)
+            ->where('selected.versions.0.version', 2)->where('selected.versions.0.withdrawnAt', null)->where('selected.versions.0.cash.ILS', '100.00')->where('selected.versions.0.by', $head->name)
+            ->where('selected.versions.1.version', 1)->whereNot('selected.versions.1.withdrawnAt', null)->where('selected.versions.1.notes', 'الأولى'));
     }
 
     public function test_only_branch_closers_open_the_page(): void

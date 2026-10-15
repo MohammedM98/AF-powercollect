@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useHttp, usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
+import { usePopover } from '@/Components/TopBar/usePopover';
 import { ACTION_MESSAGES } from '@/lib/actionMessages';
 
 const relativeTime = new Intl.RelativeTimeFormat('ar-u-nu-latn', { numeric: 'auto' });
+
+// The count's ring pulses once per visit to the app, not on every page.
+let pinged = false;
 
 /** When an action happened: "الآن", "قبل 5 دقائق", … and a plain date after a week. */
 function timeAgo(isoDate) {
@@ -29,142 +34,100 @@ function timeAgo(isoDate) {
     return date.toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+/** The icon for an action: an alert, a deletion, an addition or an edit. */
+function iconOf(action) {
+    if (action === 'meter-reading-needs-reapproval') {
+        return 'alert';
+    }
+    if (action.endsWith('-deleted')) {
+        return 'trash';
+    }
+
+    return action.endsWith('-created') || ['payment-recorded', 'split-payment-recorded'].includes(action) ? 'plus' : 'pencil';
+}
+
 /**
- * The bell in the top bar: the user's own latest saved actions (the
- * shared `activity` prop), with a count of the ones they haven't seen.
- * Opening it marks them all as seen.
+ * The bell in the top bar: the user's own latest saved actions and the alerts
+ * sent to them (the shared `activity` prop), with a count of the unread ones.
+ * "تحديد الكل كمقروء" marks them all as read.
  */
-export default function ActivityBell() {
+export default function ActivityBell({ open, onToggle, onClose }) {
     const { activity } = usePage().props;
-    const [open, setOpen] = useState(false);
-    // The `activity` whose unread items were just marked as seen here; the next page visit brings a fresh one from the server.
-    const [seenActivity, setSeenActivity] = useState(null);
-    const menuRef = useRef(null);
+    const [tab, setTab] = useState('all');
+    // The `activity` whose unread items were just marked as read here; the next page visit brings a fresh one from the server.
+    const [readActivity, setReadActivity] = useState(null);
+    const [ping] = useState(() => !pinged);
     const http = useHttp();
-
-    useEffect(() => {
-        if (!open) {
-            return;
-        }
-
-        function onPointerDown(event) {
-            if (menuRef.current && !menuRef.current.contains(event.target)) {
-                setOpen(false);
-            }
-        }
-
-        function onKeyDown(event) {
-            if (event.key === 'Escape') {
-                setOpen(false);
-            }
-        }
-
-        document.addEventListener('mousedown', onPointerDown);
-        document.addEventListener('keydown', onKeyDown);
-        return () => {
-            document.removeEventListener('mousedown', onPointerDown);
-            document.removeEventListener('keydown', onKeyDown);
-        };
-    }, [open]);
+    const { anchorRef, popoverRef } = usePopover(open, onClose);
 
     if (!activity) {
         return null;
     }
 
-    const unreadCount = seenActivity === activity ? 0 : activity.unreadCount;
+    pinged = true;
+    const allRead = readActivity === activity;
+    const items = activity.recent.map((item) => ({ ...item, read: item.read || allRead }));
+    const unreadCount = allRead ? 0 : activity.unreadCount;
+    const shown = tab === 'unread' ? items.filter((item) => !item.read) : items;
 
-    function toggle() {
-        setOpen(!open);
-
-        if (!open && unreadCount > 0) {
-            setSeenActivity(activity);
-            http.post('/notifications/read').catch(() => {});
-        }
+    function markAllRead() {
+        setReadActivity(activity);
+        http.post('/notifications/read').catch(() => {});
+        popoverRef.current?.querySelector('[aria-pressed="true"]')?.focus();
     }
 
     return (
-        <div ref={menuRef} className="relative shrink-0">
+        <>
             <button
+                ref={anchorRef}
                 type="button"
-                onClick={toggle}
-                aria-label={unreadCount > 0 ? `آخر الإجراءات، ${unreadCount} جديدة` : 'آخر الإجراءات'}
-                title="آخر الإجراءات"
+                className="tn-tool"
+                data-tour="bell"
+                onClick={onToggle}
+                aria-haspopup="dialog"
                 aria-expanded={open}
-                aria-haspopup="true"
-                className={`relative flex h-11 w-11 items-center justify-center rounded-control border bg-surface shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 ${
-                    open ? 'border-gray-300 text-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-300 hover:text-gray-900'
-                }`}
+                aria-label={unreadCount > 0 ? `الإشعارات، ${unreadCount} جديدة` : 'الإشعارات'}
+                title="الإشعارات"
             >
-                <Icon name="bell" className="h-5 w-5" />
-                {unreadCount > 0 && (
-                    <span
-                        dir="ltr"
-                        className="absolute -end-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-brand-600 px-1 text-[12px] font-bold leading-none tabular-nums text-white ring-2 ring-surface"
-                    >
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                )}
+                <Icon name="bell" />
+                {unreadCount > 0 && <span dir="ltr" className={`tn-tool-count ${ping ? 'is-pinging' : ''}`}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
             </button>
 
-            {open && (
-                <div className="animate-dropdown fixed inset-x-4 top-[84px] z-40 overflow-hidden rounded-card border border-gray-100 bg-surface shadow-lift sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-3 sm:w-96">
-                    <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
-                            <Icon name="bell" className="h-[18px] w-[18px]" />
-                        </span>
-                        <div>
-                            <h3 className="font-bold text-gray-900">آخر الإجراءات</h3>
-                            <p className="text-xs text-gray-500">ما حفظته مؤخرًا والتنبيهات الموجّهة إليك</p>
-                        </div>
+            {open && createPortal(
+                <div ref={popoverRef} dir="rtl" className="tn-popover w-[380px] max-w-[calc(100vw-24px)] text-gray-900" role="dialog" aria-label="الإشعارات">
+                    <div className="flex items-center gap-2 px-4 pb-2 pt-4">
+                        <b className="text-[16px]">الإشعارات</b>
+                        {unreadCount > 0 && <span className="tn-num rounded-full bg-brand-500 px-2 text-[12px] font-bold leading-5 text-white">{unreadCount}</span>}
+                        <button type="button" onClick={markAllRead} disabled={unreadCount === 0} className="ms-auto text-[13px] font-semibold text-gray-500 hover:text-gray-900 disabled:opacity-40">
+                            تحديد الكل كمقروء
+                        </button>
                     </div>
-
-                    {activity.recent.length === 0 ? (
-                        <div className="flex flex-col items-center px-6 py-10 text-center">
-                            <Icon name="clock" className="h-9 w-9 text-gray-300" />
-                            <p className="mt-3 text-sm font-medium text-gray-600">لا توجد إجراءات بعد.</p>
-                            <p className="mt-1 text-xs text-gray-400">ستظهر هنا الإضافات والتعديلات التي تحفظها.</p>
-                        </div>
-                    ) : (
-                        <ul className="max-h-[min(28rem,calc(100dvh-8rem))] divide-y divide-gray-100 overflow-y-auto">
-                            {activity.recent.map((item) => {
-                                const isCreation = item.action.endsWith('-created') || ['payment-recorded', 'split-payment-recorded'].includes(item.action);
-                                const isAlert = item.action === 'meter-reading-needs-reapproval';
-                                const isDeletion = item.action.endsWith('-deleted');
-
-                                return (
-                                    <li key={item.id} className={`flex items-start gap-3 px-5 py-3.5 ${item.read ? '' : 'bg-brand-50/60'}`}>
-                                        <span
-                                            className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                                                isAlert
-                                                    ? 'bg-amber-500/10 text-amber-600'
-                                                    : isDeletion
-                                                      ? 'bg-brand-500/10 text-brand-600'
-                                                      : isCreation
-                                                        ? 'bg-emerald-500/10 text-emerald-600'
-                                                        : 'bg-gray-500/10 text-gray-600'
-                                            }`}
-                                        >
-                                            <Icon
-                                                name={isAlert ? 'alert' : isDeletion ? 'trash' : isCreation ? 'plus' : 'pencil'}
-                                                className="h-4 w-4"
-                                                strokeWidth={2}
-                                            />
-                                        </span>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-gray-900">{ACTION_MESSAGES[item.action] ?? item.action}</p>
-                                            {item.subject && <p className="mt-0.5 truncate text-sm text-gray-600">{item.subject}</p>}
-                                            <time dateTime={item.createdAt} className="mt-1 block text-xs text-gray-400">
-                                                {timeAgo(item.createdAt)}
-                                            </time>
-                                        </div>
-                                        {!item.read && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand-500" title="جديد" />}
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    )}
-                </div>
+                    <div className="tn-segments mx-4 mb-2 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
+                        <button type="button" aria-pressed={tab === 'all'} onClick={() => setTab('all')}>الكل</button>
+                        <button type="button" aria-pressed={tab === 'unread'} onClick={() => setTab('unread')}>غير المقروءة{unreadCount > 0 ? ` (${unreadCount})` : ''}</button>
+                    </div>
+                    <div className="grid max-h-[360px] gap-0.5 overflow-y-auto px-2 pb-2">
+                        {shown.length > 0 ? shown.map((item) => (
+                            <div key={item.id} className={`tn-note ${item.read ? '' : 'is-unread'}`}>
+                                <span className="tn-note-icon"><Icon name={iconOf(item.action)} /></span>
+                                <span className="min-w-0 flex-1">
+                                    <b className="block text-[14.5px] font-semibold leading-snug">{ACTION_MESSAGES[item.action] ?? item.action}</b>
+                                    {item.subject && <small className="block truncate text-[12.5px] text-gray-500">{item.subject}</small>}
+                                    <time dateTime={item.createdAt} className="mt-0.5 block text-[12px] text-gray-400">{timeAgo(item.createdAt)}</time>
+                                </span>
+                                {!item.read && <span className="tn-unread-dot" aria-label="جديد" />}
+                            </div>
+                        )) : (
+                            <div className="grid justify-items-center gap-2 px-4 py-8 text-center text-gray-500">
+                                <Icon name={tab === 'unread' ? 'check' : 'clock'} className={`h-8 w-8 ${tab === 'unread' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-300'}`} />
+                                <b className="text-gray-900">{tab === 'unread' ? 'لا شيء جديد' : 'لا توجد إجراءات بعد'}</b>
+                                <small>{tab === 'unread' ? 'كل الإشعارات مقروءة' : 'ستظهر هنا الإضافات والتعديلات التي تحفظها.'}</small>
+                            </div>
+                        )}
+                    </div>
+                </div>,
+                document.body,
             )}
-        </div>
+        </>
     );
 }

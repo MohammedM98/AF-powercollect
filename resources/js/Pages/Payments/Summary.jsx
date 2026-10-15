@@ -6,7 +6,6 @@ import KpiTile from '@/Components/KpiTile';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
-import CollectionNavigation from './CollectionNavigation';
 import {
     boxTypes,
     boxTypeStyles,
@@ -145,9 +144,8 @@ export default function Summary({ today, cashBox, current, openBox, needsAction,
         router.get(collectionUrls.summary, { open: type }, { preserveState: true, preserveScroll: true, replace: true, only: ['openBox'] });
     }
 
-    return <AuthenticatedLayout header={<div><p className="text-sm font-semibold text-gray-500">{cashBox.branchName ?? 'حسابك الحالي'}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">ملخص التحصيل</h2></div>}>
+    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<div><p className="text-sm font-semibold text-gray-500">{cashBox.branchName ?? 'حسابك الحالي'}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">ملخص التحصيل</h2></div>}>
         <Head title="ملخص التحصيل" />
-        <CollectionNavigation urls={collectionUrls} active="summary" pendingCount={pendingCount} />
         {saved && <p role="status" className="mb-4 rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">{saved}</p>}
         <TodaysSummary today={today} />
         {cashBox.started ? <div className="space-y-8">

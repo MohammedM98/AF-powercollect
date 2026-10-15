@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
 import ColumnWidths, { fixedTableStyle } from '@/Components/DataTable/ColumnWidths';
@@ -12,7 +12,6 @@ import Icon from '@/Components/Icon';
 import PrimaryButton from '@/Components/PrimaryButton';
 import { useDataTable } from '@/hooks/useDataTable';
 import CloseBoxesByType from './CloseBoxesByType';
-import CollectionNavigation from './CollectionNavigation';
 import { boxTypeStyles } from './CollectorCashBox';
 import { entryStatus } from '@/lib/financialBoxes';
 import StatusGuide from './StatusGuide';
@@ -29,7 +28,6 @@ import { ledgerColumns, ledgerOf, ledgerTableClass, LedgerLeadCells, LedgerTrail
  * the branch's boxes closed can close every open box of one type at once.
  */
 export default function Entries({ scope, started, branchName, branch, branches, people = [], entries, filters, counts, closableBoxes = null, pendingCount, collectionUrls, urls }) {
-    const { can } = usePage().props;
     const [closingByType, setClosingByType] = useState(false);
     const own = scope === 'own';
     const url = collectionUrls.entries;
@@ -42,7 +40,7 @@ export default function Entries({ scope, started, branchName, branch, branches, 
     const columns = [['رقم الصندوق', 76], ...ledgerColumns.before, ['المشترك', 150], ...ledgerColumns.after, ['الحالة', 140], ['', 48]];
     const columnWidths = columns.map(([, width]) => width);
 
-    return <AuthenticatedLayout header={<>
+    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<>
         <div>
             <p className="text-sm font-semibold text-gray-500">{!own && branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(url, { branch_id: event.target.value })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : (branchName ?? 'حسابك الحالي')}</p>
             <h2 className="mt-1 text-3xl font-bold text-gray-900">الحركات</h2>
@@ -50,7 +48,6 @@ export default function Entries({ scope, started, branchName, branch, branches, 
         {started && closableBoxes && <div className="shrink-0"><PrimaryButton type="button" onClick={() => setClosingByType(true)} disabled={!closableBoxes.length}><Icon name="lock" className="h-4 w-4" />إغلاق الصناديق حسب النوع{closableBoxes.length > 0 && <span className="rounded-full bg-white/20 px-2 py-0.5 font-display text-xs">{closableBoxes.length}</span>}</PrimaryButton></div>}
     </>}>
         <Head title="الحركات" />
-        {(own || can.viewOwnCashBoxes) && <CollectionNavigation urls={collectionUrls} active="entries" pendingCount={pendingCount} />}
         {started && <p className="mb-4 flex items-center gap-2 text-sm text-gray-500"><Icon name="unlock" className="h-4 w-4 shrink-0" />تعرض هذه الصفحة حركات الصناديق المفتوحة فقط؛ حركات الصناديق المغلقة تجدها داخل كل صندوق في <Link href={collectionUrls.cashBoxes} className="font-semibold text-brand-600 hover:underline">الصناديق المالية</Link>.</p>}
         {started && <StatusGuide className="mb-4" />}
         {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">{branchName ? 'لم يُفعّل نظام الصناديق في هذا الفرع بعد. يُفعّله مسؤول الفرع من صفحة الإغلاقات والكشوفات.' : 'حسابك غير مرتبط بفرع، لذلك لا توجد حركات صناديق.'}</p> : <section aria-label={own ? 'حركات صناديقي' : 'حركات الفرع'} className="financial-surface space-y-4">

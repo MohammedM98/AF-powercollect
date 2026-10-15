@@ -20,7 +20,6 @@ import ClearingModal from '@/Pages/Subscriptions/ClearingModal';
 import DiscountModal from '@/Pages/Subscriptions/DiscountModal';
 import PaymentModal from '@/Pages/Subscriptions/PaymentModal';
 import SplitPaymentModal from './SplitPaymentModal';
-import CollectionNavigation from './CollectionNavigation';
 
 const STATUS_TONES = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
@@ -41,7 +40,6 @@ export default function Index({
     filters,
     filterOptions,
     pendingCount,
-    collectionUrls,
     paymentMethods,
     transferBanks,
     senderBanks,
@@ -80,6 +78,7 @@ export default function Index({
 
     return (
         <AuthenticatedLayout
+            badges={{ '/payments/summary': pendingCount }}
             header={
                 <>
                     <div className="min-w-0">
@@ -96,8 +95,6 @@ export default function Index({
             }
         >
             <Head title="تسجيل الدفعات" />
-
-            <CollectionNavigation urls={collectionUrls} active="payments" pendingCount={pendingCount} />
 
             <DataTableToolbar
                 search={search}

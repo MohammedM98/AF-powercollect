@@ -13,6 +13,7 @@ use App\Support\BranchClosingAccess;
 use App\Support\BranchClosingWorkflow;
 use App\Support\WeeklyClosingSummary;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,12 +24,15 @@ class WeeklyClosingController extends Controller
 
     /**
      * The branch's weekly closings by year and month, each with its boxes'
-     * sums and the step it reached, and the one picked with `?closing_id=`
-     * in full: its boxes by type and by collector, and whether the actor
-     * may confirm it and send it to audit. `?step=`, `?type=` and
-     * `?user_id=` narrow the weeks and their boxes.
+     * sums and the step it reached, and one week in full: the one picked
+     * with `?closing_id=`, else the first waiting on the branch to confirm
+     * it, else the latest, whose address the page then moves to so that
+     * acting on the week comes back to it. In full, a week has its boxes with their entries,
+     * its sums by type and by collector, and whether the actor may confirm
+     * it and send it to audit. `?step=`, `?type=` and `?user_id=` narrow the
+     * weeks and their boxes.
      */
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
         $actor = $request->user();
         abort_unless(BranchClosingAccess::view($actor), 403);
@@ -58,7 +62,11 @@ class WeeklyClosingController extends Controller
             ->when($step, fn ($rows) => $rows->where('step', $step))
             ->when($collectorId || $type, fn ($rows) => $rows->where('totals.boxes', '>', 0))->values();
 
-        $selected = $request->integer('closing_id') ? (clone $weeks)->findOrFail($request->integer('closing_id')) : null;
+        $selectedId = $request->integer('closing_id') ?: ($rows->firstWhere('step', 'confirm') ?? $rows->first())['id'] ?? null;
+        if ($selectedId && ! $request->integer('closing_id')) {
+            return redirect()->route('weekly-packages.index', [...$request->query(), 'closing_id' => $selectedId]);
+        }
+        $selected = $selectedId ? (clone $weeks)->findOrFail($selectedId) : null;
 
         return Inertia::render('WeeklyClosings/Index', [
             'branch' => $branch,
@@ -95,7 +103,7 @@ class WeeklyClosingController extends Controller
      */
     private function details(Closing $closing, User $actor, callable $narrow): array
     {
-        $boxes = $this->summary->boxes($closing);
+        $boxes = $this->summary->boxes($closing, withEntries: true);
         $shown = $narrow($boxes);
         $step = $this->summary->step($closing);
         $approve = BranchClosingAccess::approve($actor, $closing->branch_id);

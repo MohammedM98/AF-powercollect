@@ -49,7 +49,7 @@ class BranchClosingWorkflow
     public const BOX_DETAILS = [
         'user:id,name,role,is_active,branch_id',
         'user.permissions',
-        'payments.transaction:id,subscription_id,type,reference_number,bank_name,sender_bank_name,voucher_number,manual_voucher_number,notes,status',
+        'payments.transaction:id,subscription_id,type,reference_number,bank_name,sender_bank_name,sender_name,voucher_number,manual_voucher_number,notes,status',
         'payments.transaction.subscription:id,account_number,full_name,subscription_name',
     ];
 

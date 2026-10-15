@@ -32,9 +32,9 @@ class WeeklyClosingTest extends TestCase
         return [$branch, $head, $collector];
     }
 
-    private function payment(Branch $branch, User $collector, string $amount = '100', string $method = 'cash'): SubscriptionTransaction
+    private function payment(Branch $branch, User $collector, string $amount = '100', string $method = 'cash', array $details = []): SubscriptionTransaction
     {
-        return SubscriptionTransaction::factory()->for(Subscription::factory()->for($branch)->create())->create(['recorded_by' => $collector->id, 'type' => 'payment', 'source_key' => 'payment:'.Str::ulid(), 'amount' => '-'.$amount, 'currency_amount' => $amount, 'currency' => 'ILS', 'payment_method' => $method, ...($method === 'cash' ? [] : ['reference_number' => 'REF-'.Str::random(6), 'bank_name' => 'بنك فلسطين'])]);
+        return SubscriptionTransaction::factory()->for(Subscription::factory()->for($branch)->create())->create(['recorded_by' => $collector->id, 'type' => 'payment', 'source_key' => 'payment:'.Str::ulid(), 'amount' => '-'.$amount, 'currency_amount' => $amount, 'currency' => 'ILS', 'payment_method' => $method, ...($method === 'cash' ? [] : ['reference_number' => 'REF-'.Str::random(6), 'bank_name' => 'بنك فلسطين']), ...$details]);
     }
 
     private function action(User $actor, Branch $branch, string $action, int $record, array $data = []): TestResponse
@@ -63,7 +63,7 @@ class WeeklyClosingTest extends TestCase
 
     private function page(User $actor, array $query = []): TestResponse
     {
-        return $this->actingAs($actor)->get(route('weekly-packages.index', $query));
+        return $this->actingAs($actor)->followingRedirects()->get(route('weekly-packages.index', $query));
     }
 
     public function test_the_branch_sees_each_weeks_boxes_by_type_and_by_collector(): void
@@ -100,11 +100,39 @@ class WeeklyClosingTest extends TestCase
 
         $this->assertSame('submitted', $closing->fresh()->status->value);
         $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('selected.step', 'audit')->where('selected.frozen', true)->where('selected.can.submit', false)->where('selected.can.withdraw', true));
+            ->where('selected.step', 'audit')->where('selected.frozen', true)->where('selected.can.submit', false)->where('selected.can.withdraw', true)
+            ->where('selected.boxes.0.payments.0.amount', '100.00')->where('selected.boxes.0.payments.0.transactionStatus', 'active'));
 
         AuditNote::query()->create(['closing_id' => $closing->id, 'body' => 'راجعوا الصندوق']);
         $this->page($head, ['step' => 'answered'])->assertInertia(fn (AssertableInertia $page) => $page
             ->where('weeks.0.id', $closing->id)->has('weeks', 1));
+    }
+
+    public function test_the_page_opens_on_the_week_waiting_on_the_branch(): void
+    {
+        [, $head, , $closing] = $this->endedWeek();
+
+        $this->actingAs($head)->get(route('weekly-packages.index'))->assertRedirect(route('weekly-packages.index', ['closing_id' => $closing->id]));
+        $this->page($head)->assertInertia(fn (AssertableInertia $page) => $page
+            ->whereNot('weeks.0.id', $closing->id)
+            ->where('selected.id', $closing->id)->where('selected.step', 'confirm'));
+    }
+
+    public function test_each_box_lists_its_entries_with_the_banks_a_transfer_went_between(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $transfer = $this->payment($branch, $collector, '40', 'bank_transfer', ['sender_name' => 'هدى خالد', 'sender_bank_name' => 'بنك القدس']);
+        $closing = app(BranchClosingWorkflow::class)->current($branch->id);
+
+        $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('selected.boxes.0.type', 'bank_transfer')
+            ->has('selected.boxes.0.payments', 1)
+            ->where('selected.boxes.0.payments.0.amount', '40.00')
+            ->where('selected.boxes.0.payments.0.accountNumber', $transfer->subscription->account_number)
+            ->where('selected.boxes.0.payments.0.reference', $transfer->reference_number)
+            ->where('selected.boxes.0.payments.0.bankName', 'بنك فلسطين')
+            ->where('selected.boxes.0.payments.0.senderBank', 'بنك القدس')
+            ->where('selected.boxes.0.payments.0.senderName', 'هدى خالد'));
     }
 
     public function test_only_branch_closers_open_the_page(): void

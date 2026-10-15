@@ -65,19 +65,19 @@ function MethodTile({ value, checked, onChange, icon, title, hint }) {
     );
 }
 
-export function BankMark({ bank }) {
+export function BankMark({ bank, className = 'h-10 w-10 rounded-xl' }) {
     const look = BANKS[bank];
 
     if (!look) {
         return (
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
-                <Icon name="bank" className="h-5 w-5" />
+            <span className={`flex shrink-0 items-center justify-center bg-gray-100 text-gray-600 ${className}`}>
+                <Icon name="bank" className="h-1/2 w-1/2" />
             </span>
         );
     }
 
     return (
-        <span className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-[0_4px_10px_-6px_rgb(0_0_0/0.4)]">
+        <span className={`shrink-0 overflow-hidden border border-gray-100 bg-white shadow-[0_4px_10px_-6px_rgb(0_0_0/0.4)] ${className}`}>
             <img src={look.logo} alt="" className="h-full w-full object-contain" />
         </span>
     );

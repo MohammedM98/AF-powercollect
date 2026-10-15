@@ -39,18 +39,20 @@ class WeeklyClosingSummary
     /**
      * The week's boxes that hold entries: its own and those older ones it
      * settled, each marked `in` when it came from an earlier week and `out`
-     * when it is carried to the next one.
+     * when it is carried to the next one. With `$withEntries`, each box also
+     * lists its entries: who paid, how, and the banks a transfer went
+     * between.
      *
      * @return list<array<string, mixed>>
      */
-    public function boxes(Closing $closing): array
+    public function boxes(Closing $closing, bool $withEntries = false): array
     {
         if ($closing->submitted_snapshot) {
             $snapshot = $closing->submitted_snapshot;
             $carriedOut = array_column($snapshot['carriedOut']['boxes'] ?? [], 'id');
 
-            return collect($snapshot['boxes'] ?? [])->map(fn (array $box): array => $this->row($box, in_array($box['id'], $carriedOut, true) ? 'out' : null))
-                ->concat(collect($snapshot['carriedIn'] ?? [])->map(fn (array $box): array => $this->row($box, 'in')))
+            return collect($snapshot['boxes'] ?? [])->map(fn (array $box): array => $this->row($box, in_array($box['id'], $carriedOut, true) ? 'out' : null, $withEntries))
+                ->concat(collect($snapshot['carriedIn'] ?? [])->map(fn (array $box): array => $this->row($box, 'in', $withEntries)))
                 ->filter(fn (array $box): bool => $box['entries'] + $box['cancelled'] > 0)->unique('id')->values()->all();
         }
         $periodIds = Closing::query()->where('branch_id', $closing->branch_id)->where('coverage_from', $closing->coverage_from)->pluck('id');
@@ -58,9 +60,11 @@ class WeeklyClosingSummary
 
         return CashBox::query()->where('branch_id', $closing->branch_id)
             ->where(fn ($query) => $query->whereIn('closing_id', $periodIds)->orWhere('received_in_closing_id', $closing->id))
-            ->whereHas('payments')->with(['user:id,name', 'payments:id,cash_box_id,subscription_transaction_id,currency,amount,method,status', 'payments.transaction:id,status'])
+            ->whereHas('payments')->with($withEntries
+                ? ['user:id,name', 'payments:id,cash_box_id,subscription_transaction_id,currency,amount,method,status,occurred_at', 'payments.transaction:id,subscription_id,reference_number,bank_name,sender_bank_name,sender_name,voucher_number,manual_voucher_number,notes,status', 'payments.transaction.subscription:id,account_number,full_name,subscription_name']
+                : ['user:id,name', 'payments:id,cash_box_id,subscription_transaction_id,currency,amount,method,status', 'payments.transaction:id,status'])
             ->orderBy('id')->get()
-            ->map(fn (CashBox $box): array => $this->row($box->toArray(), ! $periodIds->contains($box->closing_id) ? 'in' : ($ended && $box->status !== 'received' ? 'out' : null)))
+            ->map(fn (CashBox $box): array => $this->row($box->toArray(), ! $periodIds->contains($box->closing_id) ? 'in' : ($ended && $box->status !== 'received' ? 'out' : null), $withEntries))
             ->all();
     }
 
@@ -68,7 +72,7 @@ class WeeklyClosingSummary
      * @param  array<string, mixed>  $box
      * @return array<string, mixed>
      */
-    private function row(array $box, ?string $carried): array
+    private function row(array $box, ?string $carried, bool $withEntries = false): array
     {
         $payments = collect($box['payments'] ?? []);
         $active = $payments->filter(fn (array $entry): bool => ($entry['transaction']['status'] ?? SubscriptionTransaction::STATUS_ACTIVE) === SubscriptionTransaction::STATUS_ACTIVE);
@@ -87,6 +91,37 @@ class WeeklyClosingSummary
             'cancelled' => $payments->count() - $active->count(),
             'amounts' => $this->amounts($active),
             'url' => route('payments.cash-boxes.show', $box['id']),
+            ...($withEntries ? ['payments' => $payments->sortBy('occurred_at')->map(fn (array $entry): array => $this->entry($entry))->values()->all()] : []),
+        ];
+    }
+
+    /**
+     * One entry of a box as the week's box window lists it.
+     *
+     * @param  array<string, mixed>  $entry
+     * @return array<string, mixed>
+     */
+    private function entry(array $entry): array
+    {
+        $transaction = $entry['transaction'] ?? [];
+        $subscription = $transaction['subscription'] ?? [];
+
+        return [
+            'id' => $entry['id'],
+            'occurredAt' => $entry['occurred_at'] ?? null,
+            'method' => $entry['method'],
+            'currency' => $entry['currency'],
+            'amount' => $entry['amount'],
+            'status' => $entry['status'],
+            'transactionStatus' => $transaction['status'] ?? SubscriptionTransaction::STATUS_ACTIVE,
+            'subscriber' => ($subscription['subscription_name'] ?? null) ?: ($subscription['full_name'] ?? null),
+            'accountNumber' => $subscription['account_number'] ?? null,
+            'reference' => $transaction['reference_number'] ?? null,
+            'voucher' => ($transaction['manual_voucher_number'] ?? null) ?: ($transaction['voucher_number'] ?? null),
+            'bankName' => $transaction['bank_name'] ?? null,
+            'senderBank' => $transaction['sender_bank_name'] ?? null,
+            'senderName' => $transaction['sender_name'] ?? null,
+            'notes' => $transaction['notes'] ?? null,
         ];
     }
 

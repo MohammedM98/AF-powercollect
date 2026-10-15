@@ -13,8 +13,8 @@ function refreshesInPlace(visit) {
 /**
  * The thin burgundy line at the very top while a page opens: it runs most of
  * the way, waits for the page, then completes and fades. A page already
- * loaded ahead of time (on hover) still gets the full run when it opens;
- * the loading ahead itself shows nothing.
+ * loaded ahead of time (on hover), or opened with Back or Forward, still gets
+ * the full run; the loading ahead itself shows nothing.
  */
 export default function NavigationProgress() {
     const [run, setRun] = useState(null);
@@ -63,8 +63,9 @@ export default function NavigationProgress() {
             setRun((current) => (current?.phase === 'loading' && progress.current.loaded ? { ...current, phase: 'done' } : current));
         });
 
+        // A page opened from the cache, or from history (Back and Forward, which carry no visit), runs the line in full.
         const offNavigate = router.on('navigate', (event) => {
-            if (event.detail.cached) {
+            if (event.detail.cached || !event.detail.visitId) {
                 start(true);
             }
         });

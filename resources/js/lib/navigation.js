@@ -62,7 +62,7 @@ export const NAVIGATION_GROUPS = [
 export function allowedNavigationGroups(can) {
     return NAVIGATION_GROUPS.map(({ hrefs, ...group }) => {
         const links = allowedLinks(hrefs.map((href) => linksByHref.get(href)), can)
-            .map((link) => (seesOwnBoxesOnly(can) && OWN_LABELS[link.href] ? { ...link, label: OWN_LABELS[link.href] } : link));
+            .map((link) => (seesOwnBoxesOnly(can) && OWN_LABELS[link.href] ? { ...link, label: OWN_LABELS[link.href], aliases: [link.label] } : link));
 
         return { ...group, links, complete: links.length === hrefs.length };
     }).filter((group) => group.links.length > 0);

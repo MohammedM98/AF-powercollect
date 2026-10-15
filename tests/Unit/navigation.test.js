@@ -76,6 +76,7 @@ test('a collector who sees only their own boxes finds them named as theirs', () 
     const branch = allowedNavigationGroups({ viewOwnCashBoxes: true, viewCashBoxes: true, viewBranchReconciliation: true }).flatMap((group) => group.links);
 
     assert.deepEqual(own.map((link) => link.label), ['تسجيل الدفعات', 'ملخص التحصيل', 'صناديقي', 'حركاتي']);
+    assert.deepEqual(own.slice(2).map((link) => link.aliases), [['الصناديق المالية'], ['الحركات']]);
     assert.deepEqual(branch.map((link) => link.label).slice(0, 3), ['ملخص التحصيل', 'الصناديق المالية', 'الحركات']);
 });
 

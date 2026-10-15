@@ -35,7 +35,7 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
     const current = currentGroup(groups, url);
     const pageLabel = where ? [where.section, where.page].filter(Boolean).join(' · ') : null;
 
-    const [scrolled, setScrolled] = useState(false);
+    const [scrolled, setScrolled] = useState(() => window.scrollY > 12);
     const [hoverKey, setHoverKey] = useState(null);
     const [openId, setOpenId] = useState(null);
     const [pinned, setPinned] = useState(false);
@@ -450,7 +450,7 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
                                 </span>
                             </span>
                         </Link>
-                        {where && <span key={where.page} className="tn-where" aria-hidden="true">{where.page}</span>}
+                        <span className="tn-where" aria-hidden="true">{where && <span key={where.page} className="tn-where-text">{where.page}</span>}</span>
                     </div>
 
                     <nav
@@ -502,7 +502,12 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
                                     >
                                         <Icon name={item.link.icon} className="tn-section-icon" />
                                         <span>{item.link.label}</span>
-                                        {badges[item.link.href] > 0 && <span className="tn-badge" aria-hidden="true">{badges[item.link.href]}</span>}
+                                        {badges[item.link.href] > 0 && (
+                                            <>
+                                                <span className="tn-badge" aria-hidden="true">{badges[item.link.href]}</span>
+                                                <span className="sr-only">، {badges[item.link.href]} بانتظارك</span>
+                                            </>
+                                        )}
                                     </Link>
                                 );
                             }

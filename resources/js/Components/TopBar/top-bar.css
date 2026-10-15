@@ -112,6 +112,17 @@ html.tn-locked {
     --tn-bar-height: 58px;
 }
 
+/* The header keeps its full height while the bar inside it slims, so the page below never shifts. */
+.tn-header {
+    height: 80px;
+}
+
+@media (max-width: 1023px) {
+    .tn-header {
+        height: 72px;
+    }
+}
+
 .tn-glass {
     pointer-events: auto;
     position: relative;
@@ -228,12 +239,16 @@ html.tn-locked {
     }
 }
 
-/* On phones the page's name sits beside the logo once its title has scrolled away. */
+/*
+ * Where the name and branch are hidden (below 1200px), the page's name sits
+ * beside the logo once its title has scrolled away. Beside the sections it
+ * has a fixed slot, so they never move when it appears.
+ */
 .tn-where {
     display: none;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1199px) {
     .tn-where {
         display: block;
         min-width: 0;
@@ -244,7 +259,18 @@ html.tn-locked {
         font-size: 14px;
         font-weight: 600;
         color: rgb(var(--gray-700));
+    }
+
+    .tn-where-text {
+        display: inline;
         animation: tn-swap 0.28s var(--tn-ease);
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1199px) {
+    .tn-where {
+        width: 120px;
+        flex: none;
     }
 }
 
@@ -1318,8 +1344,20 @@ html.tn-locked {
     .tn-tour-card,
     .tn-progress,
     .tn-brand-swap,
-    .tn-where {
+    .tn-where-text {
         animation: none !important;
         transition: none !important;
+    }
+}
+
+/* On paper the page stands alone, without the bar, the trail or the section's pages. */
+@media print {
+    .tn-header,
+    .tn-mega,
+    .tn-trail,
+    .tn-subnav,
+    .tn-backdrop,
+    .tn-progress {
+        display: none !important;
     }
 }

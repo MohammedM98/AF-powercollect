@@ -116,7 +116,7 @@ export default function CommandPalette({ open, onOpenChange, sections, commands,
         if (!q) {
             sections.forEach(([title, links]) => result.push([title, links.map((link) => ({ kind: 'page', ...link }))]));
         } else {
-            const pages = sections.flatMap(([, links]) => links).filter((link) => hit(link.label) || hit(link.description ?? ''));
+            const pages = sections.flatMap(([, links]) => links).filter((link) => hit(link.label) || hit(link.description ?? '') || (link.aliases ?? []).some(hit));
             const unique = [...new Map(pages.map((link) => [link.href, link])).values()];
 
             if (unique.length) {

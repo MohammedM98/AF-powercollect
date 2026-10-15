@@ -89,6 +89,11 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
     // From any page: / opens the search, ? the keys, N the payment page. Listened on the window, after the page's own
     // keys: a page that uses one of them (a table's / to its search) keeps it, and nothing fires over a page's window.
     useEffect(() => {
+        // The print designer shows no bar, so none of its keys apply there.
+        if (printSettings) {
+            return undefined;
+        }
+
         function onKeyDown(event) {
             if (event.defaultPrevented || isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey || anyLayerOpen || pageWindowOpen()) {
                 return;
@@ -109,7 +114,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
         window.addEventListener('keydown', onKeyDown);
 
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [anyLayerOpen, can?.recordPayments]);
+    }, [anyLayerOpen, can?.recordPayments, printSettings]);
 
     // After opening a page from the bar, the search or a link, focus lands on its content, not at the top of the document.
     useEffect(() => {
@@ -120,9 +125,11 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
         openedOnce = true;
     }, []);
 
-    // Whether the page's title has scrolled up under the bar.
+    // Whether the page's title has scrolled up under the bar. Pages that draw their own title (no `header`) are watched by it.
+    const hasHeader = Boolean(header);
+
     useEffect(() => {
-        const marker = titleEndRef.current;
+        const marker = (!hasHeader && document.querySelector('#main-content h1')?.parentElement) || titleEndRef.current;
 
         if (!marker) {
             return undefined;
@@ -134,7 +141,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
         observer.observe(marker);
 
         return () => observer.disconnect();
-    }, []);
+    }, [hasHeader]);
 
     // The phone menu is for narrow screens only.
     useEffect(() => {
@@ -154,7 +161,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
     return (
         <div className="min-h-screen text-gray-900">
             <div className="tn-backdrop" aria-hidden="true" />
-            <a href="#main-content" className="fixed start-4 -top-24 z-[100] rounded-xl bg-surface px-4 py-3 font-semibold tn-lift focus:top-3">
+            <a href="#main-content" className="fixed start-4 -top-24 z-[100] rounded-xl bg-surface px-4 py-3 font-semibold tn-lift focus:top-3 print:hidden">
                 تخطي إلى المحتوى
             </a>
 

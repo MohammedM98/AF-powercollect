@@ -19,8 +19,6 @@ const shortDate = (date) => date ? `${date.slice(8, 10)}/${date.slice(5, 7)}` : 
 
 function HistoryIcon({ name }) {
     const paths = {
-        print: <><path d="M6 9V3h12v6" /><rect x="3" y="9" width="18" height="8" rx="2" /><path d="M6 14h12v7H6z" /></>,
-        excel: <><path d="M14 3H6v18h12V7z" /><path d="M14 3v4h4M9 12l5 5M14 12l-5 5" /></>,
         app: <><rect x="6" y="2" width="12" height="20" rx="3" /><path d="M11 18h2" /></>,
         web: <><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></>,
     };
@@ -290,8 +288,8 @@ export default function ReadingHistoryModal({ subscription, onClose, readingWeek
                         </div>
                     </div>
                     <div className="rh-actions">
-                        <button type="button" onClick={exportReadings} disabled={!visibleReadings.length} title="تصدير القراءات المعروضة بصيغة CSV المتوافقة مع Excel"><HistoryIcon name="excel" />تصدير Excel</button>
-                        <button type="button" onClick={() => window.print()} disabled={!visibleReadings.length}><HistoryIcon name="print" />طباعة</button>
+                        <button type="button" className="tone-excel" onClick={exportReadings} disabled={!visibleReadings.length} title="تصدير القراءات المعروضة بصيغة CSV المتوافقة مع Excel"><Icon name="excel" />تصدير Excel</button>
+                        <button type="button" className="tone-print" onClick={() => window.print()} disabled={!visibleReadings.length}><Icon name="printer" />طباعة</button>
                         <button type="button" className="rh-close" onClick={onClose} aria-label="إغلاق"><Icon name="close" /></button>
                     </div>
                 </header>

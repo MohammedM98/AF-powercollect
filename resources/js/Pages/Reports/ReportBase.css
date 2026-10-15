@@ -125,6 +125,16 @@
 .financial-report .btn:hover {
     background: var(--cl-sunken);
 }
+.financial-report .btn:is(.tone-print, .tone-excel) {
+    border-color: rgb(var(--tone) / 0.3);
+    background: rgb(var(--tone) / 0.08);
+    color: rgb(var(--tone-ink));
+}
+.financial-report .btn:is(.tone-print, .tone-excel):hover {
+    border-color: transparent;
+    background: linear-gradient(180deg, rgb(var(--tone)), rgb(var(--tone-deep)));
+    color: #fff;
+}
 .financial-report .btn.pr {
     border: 0;
     color: #fff;

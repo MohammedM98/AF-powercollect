@@ -12,11 +12,11 @@ const ICONS = {
     'كشف الحساب': 'ledger',
     طباعة: 'printer',
     'طباعة السند': 'printer',
-    Excel: 'table',
+    Excel: 'excel',
     'مراجعة وإغلاق': 'lock',
 };
 
-/** Actions with a color of their own: blue to edit, burgundy to delete, teal to print, green for Excel. */
+/** Actions with a color of their own: blue to edit, burgundy to delete, violet to print, Excel green for Excel. */
 const TONES = {
     تعديل: 'row-action-edit',
     حذف: 'row-action-delete',

@@ -146,6 +146,8 @@
 .ledger-page .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 16px; border: 1px solid var(--ledger-line); border-radius: 13px; background: var(--ledger-surface); color: var(--ledger-ink2); font-size: 15px; font-weight: 700; cursor: pointer; text-decoration: none; }
 .ledger-page .btn:hover { border-color: var(--ledger-ink); color: var(--ledger-ink); }
 .ledger-page .btn.pr { color: white; border-color: transparent; }
+.ledger-page .btn:is(.tone-print, .tone-excel) { border-color: rgb(var(--tone) / 0.3); background: rgb(var(--tone) / 0.08); color: rgb(var(--tone-ink)); }
+.ledger-page .btn:is(.tone-print, .tone-excel):hover { border-color: transparent; background: linear-gradient(180deg, rgb(var(--tone)), rgb(var(--tone-deep))); color: #fff; }
 .ledger-page .rpop h3 { margin: 0 0 10px; font-size: 15px; font-weight: 700; }
 .ledger-page .rpop input { font-family: Alexandria, sans-serif; }
 .ledger-page .err { color: var(--ledger-danger); font-size: 12.5px; }

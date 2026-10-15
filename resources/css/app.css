@@ -46,6 +46,20 @@
         --blue-600: 32 84 190;
         --blue-700: 24 64 150;
 
+        /*
+         * Violet, for printing, and Excel's own green, for exporting to Excel:
+         * each action wears its colour on every page so it is found at a glance.
+         * 300 is the soft ink on a dark header, 600 the ink on a light tint.
+         */
+        --print-300: 196 181 253;
+        --print-500: 124 58 237;
+        --print-600: 109 40 217;
+        --print-700: 91 33 182;
+        --excel-300: 134 220 165;
+        --excel-500: 31 135 80;
+        --excel-600: 33 115 70;
+        --excel-700: 22 84 51;
+
         /* Cards, tables, dialogs and fields. */
         --surface: 255 255 255;
 
@@ -87,6 +101,11 @@
         --blue-500: 96 143 240;
         --blue-600: 133 169 245;
         --blue-700: 62 104 196;
+
+        --print-600: 196 181 253;
+        --excel-500: 26 128 72;
+        --excel-600: 110 220 150;
+        --excel-700: 20 96 54;
 
         --surface: 20 23 28;
 
@@ -261,6 +280,39 @@
 
     .kbd {
         @apply inline-flex items-center rounded-md border border-gray-200 bg-surface px-1.5 py-0.5 font-display text-[12px] font-semibold text-gray-500;
+    }
+
+    /*
+     * A print or Excel button in its own colour: a soft tint at rest, filled
+     * solid on hover. Pair it with the button's size classes, not its colours.
+     * Page styles that restyle their own buttons read the same variables.
+     */
+    .tone-print {
+        --tone: var(--print-500);
+        --tone-ink: var(--print-600);
+        --tone-deep: var(--print-700);
+        --tone-soft: var(--print-300);
+    }
+
+    .tone-excel {
+        --tone: var(--excel-500);
+        --tone-ink: var(--excel-600);
+        --tone-deep: var(--excel-700);
+        --tone-soft: var(--excel-300);
+    }
+
+    .tone-print,
+    .tone-excel {
+        border-color: rgb(var(--tone) / 0.3);
+        background: rgb(var(--tone) / 0.08);
+        color: rgb(var(--tone-ink));
+    }
+
+    :is(.tone-print, .tone-excel):hover:not(:disabled) {
+        border-color: transparent;
+        background: linear-gradient(180deg, rgb(var(--tone)), rgb(var(--tone-deep)));
+        color: #fff;
+        box-shadow: 0 8px 16px -8px rgb(var(--tone) / 0.8);
     }
 }
 
@@ -888,37 +940,29 @@
 }
 
 .row-action-print {
-    border-color: rgb(13 148 136 / 0.28);
-    background: rgb(13 148 136 / 0.08);
-    color: rgb(13 148 136);
+    border-color: rgb(var(--print-500) / 0.28);
+    background: rgb(var(--print-500) / 0.08);
+    color: rgb(var(--print-600));
 }
 
 .row-action-print:hover {
     border-color: transparent;
-    background: linear-gradient(180deg, #14b8a6, #0f766e);
+    background: linear-gradient(180deg, rgb(var(--print-500)), rgb(var(--print-700)));
     color: #fff;
-    box-shadow: 0 8px 16px -8px rgb(13 148 136 / 0.8);
+    box-shadow: 0 8px 16px -8px rgb(var(--print-500) / 0.8);
 }
 
 .row-action-excel {
-    border-color: rgb(5 150 105 / 0.28);
-    background: rgb(5 150 105 / 0.08);
-    color: rgb(5 150 105);
+    border-color: rgb(var(--excel-500) / 0.28);
+    background: rgb(var(--excel-500) / 0.08);
+    color: rgb(var(--excel-600));
 }
 
 .row-action-excel:hover {
     border-color: transparent;
-    background: linear-gradient(180deg, #10b981, #047857);
+    background: linear-gradient(180deg, rgb(var(--excel-500)), rgb(var(--excel-700)));
     color: #fff;
-    box-shadow: 0 8px 16px -8px rgb(5 150 105 / 0.8);
-}
-
-.dark .row-action-print:not(:hover) {
-    color: rgb(45 212 191);
-}
-
-.dark .row-action-excel:not(:hover) {
-    color: rgb(52 211 153);
+    box-shadow: 0 8px 16px -8px rgb(var(--excel-500) / 0.8);
 }
 
 .row-action[aria-expanded='true'] {

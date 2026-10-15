@@ -130,11 +130,11 @@ export default function Index({ branches, filters, scopeLabel, presets, today, k
                         />
                     </label>
                     <span className="sp" />
-                    {canExport && <a className="btn" href={`/reports/lines.csv?${query}`}>
-                        <Icon name="arrow-down-tray" />
+                    {canExport && <a className="btn tone-excel" href={`/reports/lines.csv?${query}`}>
+                        <Icon name="excel" />
                         تنزيل Excel (CSV)
                     </a>}
-                    <button type="button" className="btn" onClick={() => window.print()}>
+                    <button type="button" className="btn tone-print" onClick={() => window.print()}>
                         <Icon name="printer" />
                         طباعة
                     </button>

@@ -43,9 +43,9 @@ const EMPTY_FILTERS = { search: '', type: '', method: '', dateFrom: '', dateTo: 
 // The time printed on the statement, in the app's Arabic with Western digits.
 const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
 
-/** The toolbar's quiet buttons, as the table toolbar's print button looks. */
+/** The toolbar's buttons, as the table toolbar's print button looks; each takes its colour (tone-excel, tone-print). */
 const TOOL_BUTTON =
-    'inline-flex h-[34px] items-center gap-1.5 rounded-control border border-gray-100 bg-gray-50 px-3 text-sm font-semibold text-gray-600 transition hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 disabled:cursor-not-allowed disabled:opacity-50';
+    'inline-flex h-[34px] items-center gap-1.5 rounded-control border px-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 disabled:cursor-not-allowed disabled:opacity-50';
 
 /** Keeps dates like 2026-09-18 reading left to right inside Arabic text. */
 function withLtrDates(text) {
@@ -735,9 +735,9 @@ export default function AccountStatement({ subscription, entries, summary, payme
                         onClick={exportEntries}
                         disabled={visibleEntries.length === 0}
                         title="تنزيل الحركات المعروضة بصيغة CSV المتوافقة مع Excel"
-                        className={TOOL_BUTTON}
+                        className={`${TOOL_BUTTON} tone-excel`}
                     >
-                        <Icon name="arrow-down-tray" className="h-4 w-4" />
+                        <Icon name="excel" className="h-4 w-4" />
                         تصدير Excel
                     </button>
                     <button
@@ -745,7 +745,7 @@ export default function AccountStatement({ subscription, entries, summary, payme
                         onClick={() => window.print()}
                         disabled={visibleEntries.length === 0}
                         title="طباعة الحركات المعروضة مع رأس الكشف وملخّصه"
-                        className={TOOL_BUTTON}
+                        className={`${TOOL_BUTTON} tone-print`}
                     >
                         <Icon name="printer" className="h-4 w-4" />
                         طباعة

@@ -90,14 +90,14 @@ export default function ActivityBell({ open, onToggle, onClose }) {
                 title="الإشعارات"
             >
                 <Icon name="bell" />
-                {unreadCount > 0 && <span dir="ltr" className={`tn-tool-count ${ping ? 'is-pinging' : ''}`}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+                {unreadCount > 0 && <span className={`tn-tool-count ${ping ? 'is-pinging' : ''}`}><bdi dir="ltr">{unreadCount > 9 ? '9+' : unreadCount}</bdi></span>}
             </button>
 
             {open && createPortal(
                 <div ref={popoverRef} dir="rtl" className="tn-popover w-[380px] max-w-[calc(100vw-24px)] text-gray-900" role="dialog" aria-label="الإشعارات">
                     <div className="flex items-center gap-2 px-4 pb-2 pt-4">
                         <b className="text-[16px]">الإشعارات</b>
-                        {unreadCount > 0 && <span className="tn-num rounded-full bg-brand-500 px-2 text-[12px] font-bold leading-5 text-white">{unreadCount}</span>}
+                        {unreadCount > 0 && <span className="rounded-full bg-brand-500 px-2 text-[12px] font-bold leading-5 text-white">{unreadCount}</span>}
                         <button type="button" onClick={markAllRead} disabled={unreadCount === 0} className="ms-auto text-[13px] font-semibold text-gray-500 hover:text-gray-900 disabled:opacity-40">
                             تحديد الكل كمقروء
                         </button>

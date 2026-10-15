@@ -47,9 +47,7 @@ export default function QuickTour({ open, onClose, searchesSubscribers }) {
         return () => {
             document.documentElement.classList.remove('tn-locked');
 
-            if (returnTo?.isConnected && returnTo !== document.body) {
-                returnTo.focus({ preventScroll: true });
-            }
+            (returnTo?.isConnected && returnTo !== document.body ? returnTo : document.getElementById('main-content'))?.focus({ preventScroll: true });
         };
     }, [open, searchesSubscribers]);
 
@@ -102,6 +100,19 @@ export default function QuickTour({ open, onClose, searchesSubscribers }) {
             } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
                 event.preventDefault();
                 move(event.key === 'ArrowLeft' ? 1 : -1);
+            } else if (event.key === 'Tab' && cardRef.current) {
+                const buttons = [...cardRef.current.querySelectorAll('button')];
+
+                if (event.shiftKey && document.activeElement === buttons[0]) {
+                    event.preventDefault();
+                    buttons.at(-1).focus();
+                } else if (!event.shiftKey && document.activeElement === buttons.at(-1)) {
+                    event.preventDefault();
+                    buttons[0].focus();
+                } else if (!cardRef.current.contains(document.activeElement)) {
+                    event.preventDefault();
+                    buttons[0].focus();
+                }
             }
         }
 
@@ -129,16 +140,16 @@ export default function QuickTour({ open, onClose, searchesSubscribers }) {
 
     return (
         <div dir="rtl">
-            <div className="tn-spot" style={{ left: box.left - pad, top: box.top - pad, width: box.width + pad * 2, height: box.height + pad * 2 }} />
+            <div key={`spot-${index}`} className="tn-spot" style={{ left: box.left - pad, top: box.top - pad, width: box.width + pad * 2, height: box.height + pad * 2 }} />
             <div className="fixed inset-0 z-[89]" onClick={onClose} />
-            <div ref={cardRef} className="tn-tour-card rounded-[22px] bg-graphite-gradient p-5 text-white shadow-lift ring-1 ring-white/10" role="dialog" aria-label="جولة سريعة">
-                <div className="tn-num mb-1 text-[12px] font-bold text-[#ff9aa0]">{index + 1} من {steps.length}</div>
+            <div key={`card-${index}`} ref={cardRef} className="tn-tour-card tn-lift rounded-[22px] bg-graphite-gradient p-5 text-white ring-1 ring-white/10" role="dialog" aria-label="جولة سريعة">
+                <div className="mb-1 text-[12px] font-bold text-[#ff9aa0]">{index + 1} من {steps.length}</div>
                 <b className="block text-[17px]">{title}</b>
                 <p className="mt-1 text-[14px] leading-7 text-[#d4d9df]">{text}</p>
                 {hint && <p className="mt-2 text-[12.5px] text-[#b9a8ff]">{hint}</p>}
                 <div className="mt-4 flex items-center gap-2">
                     <div className="flex gap-1">
-                        {steps.map(([name], dot) => <i key={name} className={`h-1.5 rounded-full transition-all ${dot === index ? 'w-5 bg-white' : 'w-1.5 bg-white/30'}`} />)}
+                        {steps.map(([name], dot) => <i key={name} className={`h-1.5 rounded-full ${dot === index ? 'w-5 bg-white' : 'w-1.5 bg-white/30'}`} />)}
                     </div>
                     <button type="button" onClick={onClose} className="ms-auto h-9 rounded-xl px-3 text-[13.5px] font-semibold text-[#cfd5dc] hover:bg-white/10">إنهاء</button>
                     {index > 0 && <button type="button" onClick={() => move(-1)} className="h-9 rounded-xl px-3 text-[13.5px] font-semibold hover:bg-white/10">السابق</button>}

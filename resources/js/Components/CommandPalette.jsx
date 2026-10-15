@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { router, useHttp } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import { formatMoney } from '@/lib/format';
+import { pageWindowOpen } from '@/Components/TopBar/shortcuts';
 
 const SEARCH_DELAY = 200;
 
@@ -47,6 +48,11 @@ export default function CommandPalette({ open, onOpenChange, sections, commands,
     useEffect(() => {
         function onKeyDown(event) {
             if ((event.ctrlKey || event.metaKey) && !event.altKey && (event.code === 'KeyK' || event.key.toLowerCase() === 'k')) {
+                // Over a page's own window the search waits until that window is closed.
+                if (!open && pageWindowOpen()) {
+                    return;
+                }
+
                 event.preventDefault();
                 onOpenChange(!open);
             }
@@ -87,14 +93,19 @@ export default function CommandPalette({ open, onOpenChange, sections, commands,
             return undefined;
         }
 
+        // An answer to an older search is ignored once the search has changed.
+        let current = true;
         const timer = setTimeout(() => {
             httpRef.current
                 .get(`/payments/search?${new URLSearchParams({ search: term })}`)
-                .then((result) => setSubscribers(result.subscriptions.slice(0, 4)))
-                .catch(() => setSubscribers([]));
+                .then((result) => current && setSubscribers(result.subscriptions.slice(0, 4)))
+                .catch(() => current && setSubscribers([]));
         }, SEARCH_DELAY);
 
-        return () => clearTimeout(timer);
+        return () => {
+            current = false;
+            clearTimeout(timer);
+        };
     }, [open, query, searchSubscribers]);
 
     const groups = useMemo(() => {
@@ -189,9 +200,10 @@ export default function CommandPalette({ open, onOpenChange, sections, commands,
         <div className="tn-scrim flex items-start justify-center px-4 pt-[11vh]" dir="rtl" onClick={(event) => event.target === event.currentTarget && onOpenChange(false)}>
             <div
                 ref={dialogRef}
-                className="tn-palette flex max-h-[min(580px,80dvh)] w-full max-w-[660px] flex-col overflow-hidden rounded-[26px] border border-gray-200/70 bg-surface text-gray-900 shadow-lift"
+                className="tn-palette flex max-h-[min(580px,80dvh)] w-full max-w-[660px] flex-col overflow-hidden rounded-[26px] border border-gray-200/70 bg-surface text-gray-900 tn-lift"
                 role="dialog"
                 aria-modal="true"
+                data-top-bar-layer
                 aria-label="بحث وأوامر"
                 onKeyDown={onKeyDown}
             >
@@ -235,7 +247,6 @@ export default function CommandPalette({ open, onOpenChange, sections, commands,
                                         id={`tn-palette-item-${index}`}
                                         role="option"
                                         aria-selected={index === active}
-                                        tabIndex={-1}
                                         className={`tn-palette-item ${index === active ? 'is-active' : ''}`}
                                         onClick={() => run(item)}
                                     >

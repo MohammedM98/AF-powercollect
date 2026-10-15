@@ -85,7 +85,7 @@ export default function DataTableToolbar({
                         onClick={openPrintDesigner}
                         aria-label="طباعة الجدول (تُفتح في نافذة جديدة)"
                         title="طباعة الجدول: صمّم الطباعة كما تريد في نافذة جديدة"
-                        className="inline-flex h-[34px] items-center gap-1.5 rounded-control border border-gray-100 bg-gray-50 px-3 text-sm font-semibold text-gray-600 transition hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
+                        className="tone-print inline-flex h-[34px] items-center gap-1.5 rounded-control border px-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
                     >
                         <Icon name="printer" className="h-4 w-4" />
                         طباعة

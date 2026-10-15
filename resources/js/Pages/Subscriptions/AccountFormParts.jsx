@@ -341,7 +341,7 @@ export function DoneScreen({ tone = 'green', title, text, rows, anotherLabel, on
             </dl>
             <div className="mt-6 flex flex-wrap justify-center gap-2.5">
                 {printUrl && (
-                    <SecondaryButton onClick={() => window.open(printUrl, '_blank')} title="يُفتح السند في نافذة جديدة جاهزًا للطباعة" className="h-12 rounded-[14px] px-5 text-[15.5px]">
+                    <SecondaryButton onClick={() => window.open(printUrl, '_blank')} title="يُفتح السند في نافذة جديدة جاهزًا للطباعة" className="tone-print h-12 rounded-[14px] px-5 text-[15.5px]">
                         <Icon name="printer" className="h-[18px] w-[18px]" />
                         طباعة السند
                     </SecondaryButton>

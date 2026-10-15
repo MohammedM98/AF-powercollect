@@ -79,7 +79,7 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
                     <SecondaryButton type="button" onClick={() => window.close()}>
                         إغلاق
                     </SecondaryButton>
-                    <PrimaryButton type="button" onClick={() => window.print()}>
+                    <PrimaryButton type="button" className="tone-print tone-solid" onClick={() => window.print()}>
                         <Icon name="printer" className="h-4 w-4" />
                         طباعة
                     </PrimaryButton>

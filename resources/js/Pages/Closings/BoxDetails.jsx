@@ -148,7 +148,7 @@ export default function BoxDetails({ box, onClose, perform, period }) {
                                     <LedgerTrailCells ledger={ledger} amount={entry.amount} currency={entry.currency} cancelled={!live} />
                                     <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} />{entry.is_late && <span className="mt-1 block"><StatusPill tone="amber" label="متأخرة" /></span>}</td>
                                     <td style={{ whiteSpace: 'normal' }}><div className="flex flex-wrap items-center gap-1">
-                                        {entry.receipt_url && <a href={entry.receipt_url} target="_blank" rel="noopener noreferrer" className={`${rowButton} text-gray-600`}><Icon name="printer" className="h-3.5 w-3.5" />السند</a>}
+                                        {entry.receipt_url && <a href={entry.receipt_url} target="_blank" rel="noopener noreferrer" className={`${rowButton} tone-print border`}><Icon name="printer" className="h-3.5 w-3.5" />السند</a>}
                                     </div></td>
                                 </tr>;
                             })}

@@ -10,7 +10,8 @@ import StatusGuide from './StatusGuide';
 import { boxTypes, currencies, dateTime, BoxEntriesTable, BoxStage, BoxTypeChip, BoxTypeIcon, CountSummary, CashBoxAction, boxAction, actionLabel } from './CollectorCashBox';
 
 /** A link that looks like the quiet outlined button. */
-const linkButton = 'inline-flex items-center justify-center gap-2 rounded-control border border-gray-200 bg-surface px-4 py-2.5 text-sm font-semibold text-gray-900 transition hover:border-gray-300 hover:bg-gray-50';
+/** The report links' shape; each takes its colour (tone-print, tone-excel). */
+const reportButton = 'inline-flex items-center justify-center gap-2 rounded-control border px-4 py-2.5 text-sm font-semibold transition';
 
 /** Where each type of box goes when it closes. */
 const destinations = { cash: 'خزنة الفرع', bank_transfer: 'حساب البنك', clearing: 'المقاصات' };
@@ -46,8 +47,8 @@ export default function CashBoxShow({ box, entries, collectionUrls, pendingCount
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-2"><BoxTypeChip type={box.type} /><BoxStage box={box} /></div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <a href={printUrl(`تقرير الصندوق ${box.number}`)} target="_blank" rel="noopener noreferrer" className={linkButton}><Icon name="printer" className="h-4 w-4" />طباعة / PDF</a>
-                        <a href={box.urls.export} className={linkButton}><Icon name="table" className="h-4 w-4" />Excel</a>
+                        <a href={printUrl(`تقرير الصندوق ${box.number}`)} target="_blank" rel="noopener noreferrer" className={`${reportButton} tone-print`}><Icon name="printer" className="h-4 w-4" />طباعة / PDF</a>
+                        <a href={box.urls.export} className={`${reportButton} tone-excel`}><Icon name="excel" className="h-4 w-4" />Excel</a>
                         {action && <PrimaryButton onClick={() => setShowAction(true)}>{actionLabel(box)}</PrimaryButton>}
                     </div>
                 </div>

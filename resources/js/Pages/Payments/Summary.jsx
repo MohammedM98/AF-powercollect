@@ -79,7 +79,7 @@ function TodaysPayments({ today }) {
                                 href={payment.receiptUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-control border border-gray-200 bg-surface px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-900"
+                                className="tone-print inline-flex items-center gap-1.5 rounded-control border px-3 py-1.5 text-xs font-semibold transition"
                             >
                                 <Icon name="printer" className="h-4 w-4" />
                                 السند

@@ -134,14 +134,13 @@ class WeeklyClosingTest extends TestCase
             ->where('selected.boxes.0.payments.0.senderName', 'هدى خالد'));
     }
 
-    public function test_a_branch_holding_cash_sends_the_week_with_its_cash_ledger_and_no_safe_count(): void
+    public function test_a_branch_holding_cash_sends_the_week_without_a_safe_count_or_delivery(): void
     {
         [, $head, , $closing] = $this->endedWeek();
 
         $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
             ->where('selected.blockers', [])->where('selected.can.submit', true)
-            ->where('selected.cashLedger.received.ILS', '100.00')->where('selected.safeCount', null)
-            ->missing('selected.can.countSafe'));
+            ->missing('selected.can.countSafe')->missing('selected.cashLedger'));
     }
 
     public function test_only_the_running_week_can_be_closed_early(): void

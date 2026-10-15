@@ -11,7 +11,7 @@ export const MAIN_LINKS = [
     { href: '/payments/cash-boxes', label: 'الصناديق المالية', icon: 'wallet', can: 'viewCashBoxes' },
     { href: '/payments/entries', label: 'الحركات', icon: 'list', can: 'viewCashBoxes' },
     { href: '/ledger', label: 'السجل المالي', icon: 'ledger', can: 'viewLedger' },
-    { href: '/reconciliation', label: 'الخزنة والكشوفات', icon: 'bank', can: 'viewBranchReconciliation' },
+    { href: '/reconciliation', label: 'الإغلاقات والكشوفات', icon: 'bank', can: 'viewBranchReconciliation' },
     { href: '/weekly-packages', label: 'الإغلاق الأسبوعي', icon: 'layers', can: 'viewWeeklyClosings' },
     { href: '/receivables', label: 'أعمار الديون', icon: 'wallet', can: 'viewDebtAging' },
     { href: '/transaction-audit', label: 'سجل التدقيق', icon: 'history', can: 'viewTransactionAudit' },

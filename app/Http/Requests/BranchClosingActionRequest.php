@@ -42,11 +42,8 @@ class BranchClosingActionRequest extends FormRequest
             $staff = Rule::exists('users', 'id')->where('branch_id', $this->integer('branch_id'))->where('is_active', true);
             $rules += ['settings' => ['required', 'array:week_starts_on,cutoff_time'], 'settings.week_starts_on' => ['required', 'integer', 'between:0,6'], 'settings.cutoff_time' => ['required', 'date_format:H:i'], 'receivers' => ['present', 'array'], 'receivers.*' => ['integer', $staff], 'approvers' => ['present', 'array'], 'approvers.*' => ['integer', $staff]];
         }
-        if (in_array($action, ['transfer', 'repay'], true)) {
+        if ($action === 'repay') {
             $rules += ['amount' => ['required', 'numeric', 'min:0.01', 'max:9999999999']];
-        }
-        if ($action === 'transfer') {
-            $rules += ['currency' => ['required', 'in:ILS,USD,JOD'], 'method' => ['required', 'in:hand_delivery,bank_deposit'], 'proof' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'], 'recipient_id' => ['required', 'integer', Rule::exists('users', 'id')->where('is_active', true)]];
         }
         if ($action === 'reply') {
             $rules += ['decisions' => ['sometimes', 'array:ILS,USD,JOD'], 'decisions.*' => ['in:accepted,debt']];

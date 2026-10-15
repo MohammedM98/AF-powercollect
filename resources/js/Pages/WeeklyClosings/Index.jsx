@@ -13,7 +13,7 @@ import { boxTypeStyles, BoxTypeIcon } from '../Payments/CollectorCashBox';
 import { BoxPersonAvatar } from '../Payments/FinancialBoxComponents';
 import { branchClock, branchDate, dateTime, periodLabel, periodRange } from '../Closings/ClosingComponents';
 import WeeklyBoxModal from './WeeklyBoxModal';
-import { CashLedgerSection, VersionsSection } from './WeeklyLedger';
+import { VersionsSection } from './WeeklyVersions';
 import { activeEntries, addAmounts, amountOf, BankStack, BigShekels, boxesWord, byReceivingBank, collectorsWord, entriesWord, foreignLine, ReviewMeter, ReviewPill, Shekels, typeBars } from './WeeklyParts';
 
 const TYPES = Object.keys(boxTypeStyles);
@@ -434,7 +434,6 @@ function WeekPackage({ week, branch, urls }) {
                     <p className="data-table-totals text-sm text-gray-600"><span>المعروض <b className="font-display text-gray-900">{shown.length}</b> من <b className="font-display text-gray-900">{week.boxes.length}</b> صندوقًا · الفلترة للعرض فقط، تُرسل الحزمة بكل صناديقها</span><span>مجموع الصناديق المعروضة: <b className="text-gray-900"><Shekels value={shownTotals.ILS} /></b>{foreignLine(shownTotals) && <span className="text-gray-500"> · {foreignLine(shownTotals)}</span>}</span></p>
                 </section>
 
-                {(week.cashLedger || week.safeCount) && <CashLedgerSection week={week} />}
                 {week.versions.length > 0 && <VersionsSection versions={week.versions} />}
             </div>
 
@@ -485,7 +484,7 @@ export default function WeeklyClosingsIndex({ branch, branches, started, weeks, 
 
     return <AuthenticatedLayout header={header}>
         <Head title="الإغلاق الأسبوعي" />
-        {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. يُفعّله مسؤول الفرع من صفحة الخزنة والكشوفات.</p> : <div className="space-y-5">
+        {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. يُفعّله مسؤول الفرع من صفحة الإغلاقات والكشوفات.</p> : <div className="space-y-5">
             {errors?.action && <p role="alert" className="rounded-control bg-brand-500/10 p-4 text-sm text-brand-600">{errors.action}</p>}
             {selected ? <WeekPackage key={selected.id} week={selected} branch={branch} urls={urls} />
                 : <div className="flex flex-col items-center gap-2 rounded-panel border border-dashed border-gray-200 bg-surface px-4 py-14 text-center text-gray-500"><Icon name="calendar" className="h-8 w-8 text-gray-400" /><p>لا أسابيع إغلاق في <span className="font-display">{filters.year}</span> بعد.</p></div>}

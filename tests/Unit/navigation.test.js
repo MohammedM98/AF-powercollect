@@ -57,6 +57,6 @@ test('staff with box access can reach their boxes without payment access and onl
 test('closing boxes lives in the financial boxes and entries links, beside the safe and statements page', () => {
     const links = allowedNavigationGroups({ viewCashBoxes: true, viewBranchReconciliation: true }).flatMap((group) => group.links);
 
-    assert.deepEqual(links.map((link) => [link.href, link.label]), [['/payments/cash-boxes', 'الصناديق المالية'], ['/payments/entries', 'الحركات'], ['/reconciliation', 'الخزنة والكشوفات']]);
+    assert.deepEqual(links.map((link) => [link.href, link.label]), [['/payments/cash-boxes', 'الصناديق المالية'], ['/payments/entries', 'الحركات'], ['/reconciliation', 'الإغلاقات والكشوفات']]);
     assert.equal(isActiveLink(links[0], '/payments/cash-boxes?branch_id=2&box=7'), true);
 });

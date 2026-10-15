@@ -333,26 +333,20 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertSame('0.00', app(BranchClosingWorkflow::class)->balance($branch->id)['ILS']);
     }
 
-    public function test_transfer_requires_proof_and_confirmation_does_not_move_cash_twice(): void
+    public function test_delivering_cash_to_the_company_is_gone_and_past_deliveries_are_kept(): void
     {
         Storage::fake('local');
-        [$branch, $head, $collector] = $this->start();
-        $this->payment($branch, $collector);
-        $box = CashBox::query()->sole();
-        $this->receiveBox($branch, $head, $box);
+        [$branch, $head] = $this->start();
         $recipient = User::factory()->accountant()->create();
-        $data = ['currency' => 'ILS', 'amount' => '40', 'method' => 'bank_deposit', 'recipient_id' => $recipient->id];
+        $transfer = CashTransfer::factory()->create(['branch_id' => $branch->id, 'recipient_id' => $recipient->id, 'status' => 'in_transit']);
+        $before = $transfer->fresh()->getAttributes();
 
-        $this->action($head, $branch, 'transfer', 0, $data)->assertSessionHasErrors('proof');
-        $proof = UploadedFile::fake()->image('deposit.jpg');
-        $this->action($head, $branch, 'transfer', 0, [...$data, 'proof' => $proof])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'transfer', 0, ['currency' => 'ILS', 'amount' => '40', 'method' => 'bank_deposit', 'recipient_id' => $recipient->id, 'proof' => UploadedFile::fake()->image('deposit.jpg')])->assertForbidden();
+        $this->actingAs($recipient)->post("/reconciliation/transfer-receipts/{$transfer->id}")->assertNotFound();
+        $this->actingAs($head)->get(route('closings.proofs', ['kind' => 'transfer', 'record' => $transfer->id]))->assertNotFound();
 
-        $transfer = CashTransfer::query()->sole();
-        Storage::disk('local')->assertExists($transfer->proof_path);
-        $this->assertSame('60.00', app(BranchClosingWorkflow::class)->balance($branch->id)['ILS']);
-        $this->actingAs($recipient)->post(route('closings.transfer-receipts', $transfer))->assertSessionHasNoErrors();
-        $this->assertSame('received', $transfer->fresh()->status->value);
-        $this->assertSame('60.00', app(BranchClosingWorkflow::class)->balance($branch->id)['ILS']);
+        $this->assertSame($before, $transfer->fresh()->getAttributes());
+        $this->assertDatabaseCount('cash_transfers', 1);
     }
 
     public function test_mobile_session_only_lists_own_boxes(): void

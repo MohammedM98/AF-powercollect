@@ -112,6 +112,6 @@ export default function CashBoxes({ started, branchName, boxes, filters, pending
                 <p className="data-table-totals text-sm text-gray-600"><span>المعروض <b className="font-display text-gray-900">{boxes.data.length}</b> من <b className="font-display text-gray-900">{boxes.total}</b> صندوقًا</span><span>مجموع الصناديق المعروضة: <b className="font-display text-gray-900">{financialAmountsLine(financialBoxesTotals(presentedBoxes))}</b></span></p>
                 <Pagination meta={boxes} filters={filters} baseUrl={collectionUrls.cashBoxes} />
             </section>
-        </div> : <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">{branchName ? 'لم يُفعّل نظام الصناديق في فرعك بعد. يُفعّله مسؤول الفرع من صفحة الخزنة والكشوفات.' : 'حسابك غير مرتبط بفرع، لذلك لا يوجد سجل صناديق شخصي.'}</p>}
+        </div> : <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">{branchName ? 'لم يُفعّل نظام الصناديق في فرعك بعد. يُفعّله مسؤول الفرع من صفحة الإغلاقات والكشوفات.' : 'حسابك غير مرتبط بفرع، لذلك لا يوجد سجل صناديق شخصي.'}</p>}
     </AuthenticatedLayout>;
 }

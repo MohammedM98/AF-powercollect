@@ -14,6 +14,9 @@ import { useResponsiveTables } from '@/hooks/useResponsiveTables';
 
 const NO_BADGES = {};
 
+// The first page of a visit to the app keeps the browser's own focus; later pages put it on their content.
+let openedOnce = false;
+
 // How far down the floating bar reaches, so content under it counts as scrolled away.
 const BAR_CLEARANCE = 90;
 
@@ -55,9 +58,12 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
         { id: 'keys', label: 'اختصارات لوحة المفاتيح', icon: 'keyboard', key: '?' },
     ];
 
+    // The search replaces whatever else is open, as one layer at a time.
     const onPaletteOpenChange = useCallback((open) => {
         if (open) {
             setDrawerOpen(false);
+            setShortcutsOpen(false);
+            setTourOpen(false);
         }
 
         setPaletteOpen(open);
@@ -103,6 +109,15 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
         return () => document.removeEventListener('keydown', onKeyDown);
     }, [anyLayerOpen, can?.recordPayments]);
 
+    // After opening a page from the bar, the search or a link, focus lands on its content, not at the top of the document.
+    useEffect(() => {
+        if (openedOnce && (!document.activeElement || document.activeElement === document.body)) {
+            document.getElementById('main-content')?.focus({ preventScroll: true });
+        }
+
+        openedOnce = true;
+    }, []);
+
     // Whether the page's title has scrolled up under the bar.
     useEffect(() => {
         const marker = titleEndRef.current;
@@ -137,7 +152,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
     return (
         <div className="min-h-screen text-gray-900">
             <div className="tn-backdrop" aria-hidden="true" />
-            <a href="#main-content" className="fixed start-4 -top-24 z-[100] rounded-xl bg-surface px-4 py-3 font-semibold shadow-lift focus:top-3">
+            <a href="#main-content" className="fixed start-4 -top-24 z-[100] rounded-xl bg-surface px-4 py-3 font-semibold tn-lift focus:top-3">
                 تخطي إلى المحتوى
             </a>
 
@@ -146,6 +161,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
                 badges={badges}
                 where={pastTitle && trail ? { section: trail.group?.shortLabel, page: trail.link.label } : null}
                 drawerOpen={drawerOpen}
+                layerOpen={anyLayerOpen}
                 onOpenPalette={() => onPaletteOpenChange(true)}
                 onOpenDrawer={(event) => {
                     menuButtonRef.current = event.currentTarget;
@@ -179,7 +195,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
                 onCommand={runCommand}
                 searchSubscribers={searchesSubscribers}
             />
-            <KeyboardShortcuts open={shortcutsOpen} onClose={closeShortcuts} canRecordPayments={Boolean(can?.recordPayments)} />
+            <KeyboardShortcuts open={shortcutsOpen} onClose={closeShortcuts} canRecordPayments={Boolean(can?.recordPayments)} searchesSubscribers={searchesSubscribers} />
             <QuickTour open={tourOpen} onClose={closeTour} searchesSubscribers={searchesSubscribers} />
         </div>
     );

@@ -96,7 +96,7 @@ export default function NavigationDrawer({ open, groups, badges, onClose, onOpen
         }
     }, [url]);
 
-    if (!shown) {
+    if (!open && !shown) {
         return null;
     }
 
@@ -135,12 +135,11 @@ export default function NavigationDrawer({ open, groups, badges, onClose, onOpen
                                         type="button"
                                         className="tn-drawer-group"
                                         aria-expanded={isOpen}
-                                        data-current={(current?.id === group.id && !isOpen) || undefined}
                                         onClick={() => setExpanded(isOpen ? null : group.id)}
                                     >
                                         <Icon name={group.icon} className="tn-section-icon" />
                                         {group.label}
-                                        {badge > 0 && <span className="tn-num rounded-full bg-brand-500 px-1.5 text-[11px] font-bold leading-[18px] text-white">{badge}</span>}
+                                        {badge > 0 && <span className="rounded-full bg-brand-500 px-1.5 text-[11px] font-bold leading-[18px] text-white">{badge}</span>}
                                         <Icon name="chevron-down" className="tn-chevron" />
                                     </button>
                                     <div className={`tn-drawer-pages ${isOpen ? 'is-open' : ''}`} inert={!isOpen}>
@@ -150,7 +149,7 @@ export default function NavigationDrawer({ open, groups, badges, onClose, onOpen
                                                     <Link key={link.href} href={link.href} prefetch className="tn-drawer-link" aria-current={isActiveLink(link, url) ? 'page' : undefined}>
                                                         <Icon name={link.icon} />
                                                         <span className="flex-1">{link.label}</span>
-                                                        {badges[link.href] > 0 && <span className="tn-num rounded-full bg-brand-500 px-1.5 text-[11px] font-bold leading-[18px] text-white">{badges[link.href]}</span>}
+                                                        {badges[link.href] > 0 && <span className="rounded-full bg-brand-500 px-1.5 text-[11px] font-bold leading-[18px] text-white">{badges[link.href]}</span>}
                                                     </Link>
                                                 ))}
                                             </div>

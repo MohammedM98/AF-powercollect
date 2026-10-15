@@ -87,14 +87,19 @@ export default function CommandPalette({ open, onOpenChange, sections, commands,
             return undefined;
         }
 
+        // An answer to an older search is ignored once the search has changed.
+        let current = true;
         const timer = setTimeout(() => {
             httpRef.current
                 .get(`/payments/search?${new URLSearchParams({ search: term })}`)
-                .then((result) => setSubscribers(result.subscriptions.slice(0, 4)))
-                .catch(() => setSubscribers([]));
+                .then((result) => current && setSubscribers(result.subscriptions.slice(0, 4)))
+                .catch(() => current && setSubscribers([]));
         }, SEARCH_DELAY);
 
-        return () => clearTimeout(timer);
+        return () => {
+            current = false;
+            clearTimeout(timer);
+        };
     }, [open, query, searchSubscribers]);
 
     const groups = useMemo(() => {
@@ -189,7 +194,7 @@ export default function CommandPalette({ open, onOpenChange, sections, commands,
         <div className="tn-scrim flex items-start justify-center px-4 pt-[11vh]" dir="rtl" onClick={(event) => event.target === event.currentTarget && onOpenChange(false)}>
             <div
                 ref={dialogRef}
-                className="tn-palette flex max-h-[min(580px,80dvh)] w-full max-w-[660px] flex-col overflow-hidden rounded-[26px] border border-gray-200/70 bg-surface text-gray-900 shadow-lift"
+                className="tn-palette flex max-h-[min(580px,80dvh)] w-full max-w-[660px] flex-col overflow-hidden rounded-[26px] border border-gray-200/70 bg-surface text-gray-900 tn-lift"
                 role="dialog"
                 aria-modal="true"
                 aria-label="بحث وأوامر"
@@ -235,7 +240,6 @@ export default function CommandPalette({ open, onOpenChange, sections, commands,
                                         id={`tn-palette-item-${index}`}
                                         role="option"
                                         aria-selected={index === active}
-                                        tabIndex={-1}
                                         className={`tn-palette-item ${index === active ? 'is-active' : ''}`}
                                         onClick={() => run(item)}
                                     >

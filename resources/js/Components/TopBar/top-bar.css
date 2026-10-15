@@ -37,6 +37,18 @@ html.tn-locked {
     line-height: 1.5;
 }
 
+/* The design's focus ring for everything in the bar and its menus; components with their own ring keep it. */
+:where(.tn-header, .tn-mega, .tn-popover, .tn-drawer, .tn-scrim, .tn-trail, .tn-subnav, .tn-tour-card) :focus-visible:not(input) {
+    outline: 2px solid rgb(var(--gray-900));
+    outline-offset: 2px;
+    border-radius: 12px;
+}
+
+/* The design's lifted shadow for the search, the keys window, the tour card and the skip link. */
+.tn-lift {
+    box-shadow: 0 2px 6px rgb(16 24 40 / 0.06), 0 30px 60px -24px rgb(16 24 40 / 0.38);
+}
+
 /* A soft burgundy and silver glow behind every page. */
 .tn-backdrop {
     position: fixed;
@@ -736,10 +748,6 @@ html.tn-locked {
     transform: translateY(-1px);
 }
 
-.tn-mega-link:focus-visible {
-    box-shadow: inset 0 0 0 2px rgb(var(--gray-900));
-}
-
 .tn-mega-link b {
     display: block;
     font-size: 15px;
@@ -764,8 +772,7 @@ html.tn-locked {
     transition: opacity 0.2s, transform 0.2s;
 }
 
-.tn-mega-link:hover .tn-go,
-.tn-mega-link:focus-visible .tn-go {
+.tn-mega-link:hover .tn-go {
     opacity: 1;
     transform: none;
 }
@@ -783,6 +790,11 @@ html.tn-locked {
     background: rgb(var(--brand-500) / 0.1);
     color: rgb(var(--brand-600));
     border-color: transparent;
+}
+
+/* After the current page's edge, so the focus ring replaces it. */
+.tn-mega-link:focus-visible {
+    box-shadow: inset 0 0 0 2px rgb(var(--gray-900));
 }
 
 .tn-mega-link .tn-badge {
@@ -945,11 +957,6 @@ html.tn-locked {
     background: var(--tn-graphite);
     color: #fff;
     box-shadow: 0 6px 14px -8px rgb(16 24 40 / 0.7);
-}
-
-.tn-segments button:focus-visible {
-    outline: 2px solid rgb(var(--gray-900));
-    outline-offset: 1px;
 }
 
 .tn-note {

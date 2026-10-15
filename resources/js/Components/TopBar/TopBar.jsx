@@ -26,7 +26,7 @@ function badgeOf(group, badges) {
  * still sees where they are. A section's pages open in one panel under it
  * that reshapes itself as the pointer moves between sections.
  */
-export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDrawer, drawerOpen, onShowShortcuts, onStartTour }) {
+export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDrawer, drawerOpen, layerOpen, onShowShortcuts, onStartTour }) {
     const { props, url } = usePage();
     const { appName, auth } = props;
     const user = auth?.user;
@@ -49,7 +49,10 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
     const megaRef = useRef(null);
     const itemRefs = useRef(new Map());
     const panelRef = useRef(null);
-    const timers = useRef({ open: null, close: null });
+    const timers = useRef({ open: null, close: null, leaving: new Set() });
+    const focusedPanel = useRef(null);
+    const panelsRef = useRef([]);
+    panelsRef.current = panels;
     const state = useRef({ openId: null, pinned: false, popover: null, popoverY: 0 });
     state.current = { ...state.current, openId, pinned, popover };
 
@@ -112,24 +115,24 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
 
         setStill(first);
         setGeometry((previous) => ({ ...previous, width, x, top: barRef.current.getBoundingClientRect().bottom + 10 }));
+        // Each panel fades out for 200ms from the moment it starts leaving, then goes.
+        if (!first) {
+            panelsRef.current.filter((panel) => !panel.leaving).forEach((panel) => {
+                const timer = setTimeout(() => {
+                    timers.current.leaving.delete(timer);
+                    setPanels((current) => current.filter((candidate) => candidate.key !== panel.key));
+                }, 200);
+                timers.current.leaving.add(timer);
+            });
+        }
+
         setPanels((previous) => [
-            ...(first ? [] : previous.filter((panel) => !panel.leaving).map((panel) => ({ ...panel, leaving: true, shift }))),
+            ...(first ? [] : previous.map((panel) => (panel.leaving ? panel : { ...panel, leaving: true, shift }))),
             { id, key: `${id}-${Date.now()}`, shift, leaving: false, focus },
         ]);
         setOpenId(id);
         setPinned(pin);
     }, [groups]);
-
-    // A leaving panel fades out for 200ms, then goes.
-    useEffect(() => {
-        if (!panels.some((panel) => panel.leaving)) {
-            return undefined;
-        }
-
-        const timer = setTimeout(() => setPanels((previous) => previous.filter((panel) => !panel.leaving)), 200);
-
-        return () => clearTimeout(timer);
-    }, [panels]);
 
     // The panel takes the height of the section it shows, and focuses its first page when opened from the keyboard.
     useLayoutEffect(() => {
@@ -144,7 +147,8 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
         observer.observe(content);
 
         const newest = panels.at(-1);
-        if (newest?.focus) {
+        if (newest?.focus && focusedPanel.current !== newest.key) {
+            focusedPanel.current = newest.key;
             requestAnimationFrame(() => content.querySelector('.tn-feature, .tn-mega-link')?.focus());
         }
 
@@ -191,6 +195,10 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
 
     useLayoutEffect(() => syncHighlight(), [syncHighlight]);
 
+    // A change of size or font puts the light in place at once; set up once, so it never cuts a slide short.
+    const syncRef = useRef(syncHighlight);
+    syncRef.current = syncHighlight;
+
     useEffect(() => {
         const nav = navRef.current;
 
@@ -198,12 +206,20 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
             return undefined;
         }
 
-        const observer = new ResizeObserver(() => syncHighlight(true));
+        const observer = new ResizeObserver(() => syncRef.current(true));
         observer.observe(nav);
-        document.fonts?.ready.then(() => syncHighlight(true));
+        document.fonts?.ready.then(() => syncRef.current(true));
 
         return () => observer.disconnect();
-    }, [syncHighlight]);
+    }, []);
+
+    // A window over the page (search, keys, tour, the phone menu) closes the bar's menus.
+    useEffect(() => {
+        if (layerOpen) {
+            closeMega();
+            setPopover(null);
+        }
+    }, [layerOpen, closeMega]);
 
     // Opening a page closes the menus.
     useEffect(() => {
@@ -317,7 +333,10 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
         };
     }, [closeMega, openMega, items]);
 
-    useEffect(() => clearTimers, [clearTimers]);
+    useEffect(() => () => {
+        clearTimers();
+        timers.current.leaving.forEach(clearTimeout);
+    }, [clearTimers]);
 
     function hoverItem(item) {
         clearTimeout(timers.current.close);

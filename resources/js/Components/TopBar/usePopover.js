@@ -2,8 +2,9 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 
 /**
  * A small menu hanging under its button in the top bar: placed just below the
- * button and kept on screen, its first item focused when it opens. A click
- * outside closes it; Esc closes it and returns to the button.
+ * button and kept on screen, its first item focused when it opens. The arrow
+ * keys move through its items; a click outside closes it; Esc closes it and
+ * returns to the button.
  */
 export function usePopover(open, onClose) {
     const anchorRef = useRef(null);
@@ -41,6 +42,11 @@ export function usePopover(open, onClose) {
             if (event.key === 'Escape') {
                 onCloseRef.current();
                 anchorRef.current?.focus();
+            } else if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && popoverRef.current?.contains(document.activeElement)) {
+                event.preventDefault();
+                const items = [...popoverRef.current.querySelectorAll('a[href], button')].filter((element) => element.offsetParent && !element.disabled);
+                const index = items.indexOf(document.activeElement);
+                items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
             }
         }
 

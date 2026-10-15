@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import Icon from '@/Components/Icon';
 
 /** The keys that work from any page, in a small window. */
-export default function KeyboardShortcuts({ open, onClose, canRecordPayments }) {
+export default function KeyboardShortcuts({ open, onClose, canRecordPayments, searchesSubscribers }) {
     const closeRef = useRef(null);
 
     useEffect(() => {
@@ -30,9 +30,7 @@ export default function KeyboardShortcuts({ open, onClose, canRecordPayments }) 
             document.removeEventListener('keydown', onKeyDown);
             document.documentElement.classList.remove('tn-locked');
 
-            if (returnTo?.isConnected && returnTo !== document.body) {
-                returnTo.focus({ preventScroll: true });
-            }
+            (returnTo?.isConnected && returnTo !== document.body ? returnTo : document.getElementById('main-content'))?.focus({ preventScroll: true });
         };
     }, [open, onClose]);
 
@@ -41,7 +39,7 @@ export default function KeyboardShortcuts({ open, onClose, canRecordPayments }) 
     }
 
     const keys = [
-        ['Ctrl K أو /', 'بحث في الصفحات والأوامر'],
+        ['Ctrl K أو /', searchesSubscribers ? 'بحث في الصفحات والمشتركين والأوامر' : 'بحث في الصفحات والأوامر'],
         ['Alt + 1…6', 'فتح قسم من الشريط'],
         ['← →', 'التنقل بين الأقسام'],
         ['↓', 'فتح قائمة القسم'],
@@ -51,7 +49,7 @@ export default function KeyboardShortcuts({ open, onClose, canRecordPayments }) 
 
     return (
         <div className="tn-scrim flex items-start justify-center px-4 pt-[12vh]" dir="rtl" onClick={(event) => event.target === event.currentTarget && onClose()}>
-            <div className="tn-palette w-full max-w-[440px] rounded-[24px] bg-surface p-5 text-gray-900 shadow-lift" role="dialog" aria-modal="true" aria-label="اختصارات لوحة المفاتيح">
+            <div className="tn-palette tn-lift w-full max-w-[440px] rounded-[24px] bg-surface p-5 text-gray-900" role="dialog" aria-modal="true" aria-label="اختصارات لوحة المفاتيح">
                 <div className="mb-3 flex items-center gap-3">
                     <span className="grid h-10 w-10 place-items-center rounded-xl bg-graphite-gradient text-white"><Icon name="keyboard" className="h-5 w-5" /></span>
                     <b className="flex-1 text-[17px]">اختصارات لوحة المفاتيح</b>

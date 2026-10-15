@@ -1857,7 +1857,7 @@
 .dark .financial-report .btn.ok2 {
     color: #fff;
 }
-/* The page lays out by its own width, which the sidebar narrows. */
+/* The page lays out by its own width, not the window's. */
 @container closing (max-width: 900px) {
     .financial-report .hero {
         grid-template-columns: minmax(0, 1fr);

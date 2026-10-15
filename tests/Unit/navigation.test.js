@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAIN_LINKS, SETTINGS_LINKS, allowedNavigationGroups, isActiveLink, isInsideAnyLink } from '../../resources/js/lib/navigation.js';
+import { MAIN_LINKS, SETTINGS_LINKS, allowedNavigationGroups, groupSummary, isActiveLink, isInsideAnyLink, pageTrail, topBarItems } from '../../resources/js/lib/navigation.js';
 
 test('the settings group counts as current on any settings page, including its create and edit pages', () => {
     assert.equal(isInsideAnyLink(SETTINGS_LINKS, '/settings/permissions'), true);
@@ -59,4 +59,44 @@ test('closing boxes lives in the financial boxes and entries links, beside the s
 
     assert.deepEqual(links.map((link) => [link.href, link.label]), [['/payments/cash-boxes', 'الصناديق المالية'], ['/payments/entries', 'الحركات'], ['/reconciliation', 'الإغلاقات والكشوفات']]);
     assert.equal(isActiveLink(links[0], '/payments/cash-boxes?branch_id=2&box=7'), true);
+});
+
+test('a section menu describes only the pages the user can open', () => {
+    const everything = Object.fromEntries([...MAIN_LINKS, ...SETTINGS_LINKS].filter((link) => link.can).map((link) => [link.can, true]));
+    const daily = allowedNavigationGroups(everything).find((group) => group.id === 'daily');
+    const finance = allowedNavigationGroups({ recordPayments: true, viewLedger: true, viewDebtAging: true, viewReports: true, viewBranchReconciliation: true }).find((group) => group.id === 'finance');
+
+    assert.equal(groupSummary(daily), 'المشتركون والقراءات والرسائل');
+    assert.equal(groupSummary(finance), 'تسجيل الدفعات والسجل المالي وأعمار الديون وغيرها');
+    assert.equal(groupSummary(allowedNavigationGroups({ viewMessages: true })[0]), 'الرسائل');
+});
+
+test('a collector who sees only their own boxes finds them named as theirs', () => {
+    const own = allowedNavigationGroups({ recordPayments: true, viewOwnCashBoxes: true, viewCashBoxes: true }).flatMap((group) => group.links);
+    const branch = allowedNavigationGroups({ viewOwnCashBoxes: true, viewCashBoxes: true, viewBranchReconciliation: true }).flatMap((group) => group.links);
+
+    assert.deepEqual(own.map((link) => link.label), ['تسجيل الدفعات', 'ملخص التحصيل', 'صناديقي', 'حركاتي']);
+    assert.deepEqual(branch.map((link) => link.label).slice(0, 3), ['ملخص التحصيل', 'الصناديق المالية', 'الحركات']);
+});
+
+test('the top bar shows home and one button per section, or a single section\'s pages directly', () => {
+    const single = topBarItems(allowedNavigationGroups({ recordPayments: true, viewOwnCashBoxes: true, viewCashBoxes: true }));
+    const several = topBarItems(allowedNavigationGroups({ viewSubscriptions: true, viewLedger: true }));
+
+    assert.deepEqual(single.map((item) => item.key), ['home', '/payments', '/payments/summary', '/payments/cash-boxes', '/payments/entries']);
+    assert.equal(single.every((item) => item.link && !item.group), true);
+    assert.deepEqual(several.map((item) => item.key), ['home', 'daily', 'finance']);
+    assert.equal(several[0].link.href, '/dashboard');
+});
+
+test('the page trail names the section and page, also from a page inside it', () => {
+    const groups = allowedNavigationGroups({ viewCashBoxes: true, viewSubscriptions: true });
+    const box = pageTrail(groups, '/payments/cash-boxes/12?tab=entries');
+    const list = pageTrail(groups, '/subscriptions');
+
+    assert.deepEqual([box.group.id, box.link.href, box.exact], ['finance', '/payments/cash-boxes', false]);
+    assert.deepEqual([list.group.id, list.link.href, list.exact], ['daily', '/subscriptions', true]);
+    assert.deepEqual([pageTrail(groups, '/dashboard').group, pageTrail(groups, '/dashboard').link.label], [undefined, 'لوحة التحكم']);
+    assert.equal(pageTrail(groups, '/profile').link.label, 'الملف الشخصي');
+    assert.equal(pageTrail(groups, '/ledger'), null);
 });

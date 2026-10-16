@@ -53,7 +53,7 @@ function seesOwnBoxesOnly(can) {
 }
 
 export const NAVIGATION_GROUPS = [
-    { id: 'daily', label: 'العمل اليومي', shortLabel: 'العمل اليومي', icon: 'users', description: 'المشتركون والقراءات والرسائل', hrefs: ['/subscriptions', '/meter-readings', '/reading-cycles', '/disconnection-lists', '/messages'] },
+    { id: 'daily', label: 'المشتركون', shortLabel: 'المشتركون', icon: 'users', description: 'المشتركون والقراءات والرسائل', hrefs: ['/subscriptions', '/meter-readings', '/reading-cycles', '/disconnection-lists', '/messages'] },
     { id: 'finance', label: 'المالية والتحصيل', shortLabel: 'المالية', icon: 'wallet', description: 'الدفعات والصناديق والإغلاق', hrefs: ['/payments', '/payments/summary', '/payments/cash-boxes', '/payments/entries', '/ledger', '/receivables', '/reconciliation', '/weekly-packages'] },
     { id: 'reports', label: 'التقارير والرقابة', shortLabel: 'التقارير', icon: 'trend', description: 'التقارير والأداء والتدقيق', hrefs: ['/reports', '/branch-performance', '/transaction-audit'] },
     { id: 'infrastructure', label: 'الفروع والشبكة', shortLabel: 'الشبكة', icon: 'bolt', description: 'الفروع والبنية الكهربائية', hrefs: ['/branches', '/governorates', '/meter-boxes', '/circuit-breakers'] },

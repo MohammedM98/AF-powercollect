@@ -297,6 +297,7 @@ class Subscription extends Model
         return DeletionBlocker::describe('المشترك', [
             'القراءات' => $this->meterReadings()->count(),
             'قوائم القطع' => $this->disconnectionItems()->count(),
+            'القراءات الميدانية' => ReadingSubmission::query()->where('subscription_id', $this->id)->count(),
             'الحركات المالية' => $this->transactions()->where(function (Builder $query): void {
                 $query->where('type', '!=', SubscriptionTransaction::TYPE_SUBSCRIPTION_FEE)
                     ->orWhere('source_key', 'like', 'charge:%');

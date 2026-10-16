@@ -11,6 +11,7 @@ use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\Permission;
 use App\Models\PrintTemplate;
+use App\Models\ReadingCycle;
 use App\Models\ReadingEntrySetting;
 use App\Models\SubArea;
 use App\Models\Subscription;
@@ -90,6 +91,7 @@ class HandleInertiaRequests extends Middleware
                 'viewMessages' => $user->can('viewAny', MessageBatch::class),
                 'sendMessages' => $user->can('create', MessageBatch::class),
                 'viewDisconnections' => $user->can('viewAny', DisconnectionList::class),
+                'viewReadingCycles' => $user->can('viewAny', ReadingCycle::class),
                 'viewGovernorates' => $user->can('viewAny', Governorate::class) || $user->can('viewAny', SubArea::class),
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manageAny', ReadingEntrySetting::class),

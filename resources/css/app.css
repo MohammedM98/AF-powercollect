@@ -623,6 +623,29 @@
     display: none;
 }
 
+/* A paper reading sheet prints alone, like the account statement below. */
+@media print {
+    body:has(.paper-sheet) *:not(:has(.paper-sheet)):not(.paper-sheet):not(.paper-sheet *) {
+        display: none !important;
+    }
+
+    body:has(.paper-sheet) :has(.paper-sheet) {
+        display: block !important;
+        position: static !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    html:has(.paper-sheet),
+    body:has(.paper-sheet) {
+        background: #fff !important;
+    }
+}
+
 @page statement {
     size: A4 landscape;
     margin: 10mm;

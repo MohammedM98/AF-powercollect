@@ -19,6 +19,7 @@ export const MAIN_LINKS = [
     { href: '/reports', label: 'التقارير', description: 'تقارير التحصيل والقراءات الجاهزة', icon: 'receipt', can: 'viewReports' },
     { href: '/subscriptions', label: 'المشتركون', description: 'البحث عن مشترك وإضافته وتعديله', icon: 'users', can: 'viewSubscriptions' },
     { href: '/meter-readings', label: 'القراءات', description: 'قراءات العدادات لهذه الدورة', icon: 'chart', can: 'viewMeterReadings' },
+    { href: '/reading-cycles', label: 'توزيع القراءات', description: 'توزيع الطبلونات على القرّاء والكشوف الورقية', icon: 'layers', can: 'viewReadingCycles' },
     { href: '/disconnection-lists', label: 'قوائم القطع', description: 'المدرجون للقطع ومواعيدهم وإنذاراتهم', icon: 'power', can: 'viewDisconnections' },
     { href: '/messages', label: 'الرسائل', description: 'تنبيهات الدفع والقطع للمشتركين', icon: 'messages', can: 'viewMessages' },
     { href: '/users', label: 'المستخدمون', description: 'الحسابات والأدوار والفروع', icon: 'user', can: 'viewUsers' },
@@ -52,7 +53,7 @@ function seesOwnBoxesOnly(can) {
 }
 
 export const NAVIGATION_GROUPS = [
-    { id: 'daily', label: 'العمل اليومي', shortLabel: 'العمل اليومي', icon: 'users', description: 'المشتركون والقراءات والرسائل', hrefs: ['/subscriptions', '/meter-readings', '/disconnection-lists', '/messages'] },
+    { id: 'daily', label: 'العمل اليومي', shortLabel: 'العمل اليومي', icon: 'users', description: 'المشتركون والقراءات والرسائل', hrefs: ['/subscriptions', '/meter-readings', '/reading-cycles', '/disconnection-lists', '/messages'] },
     { id: 'finance', label: 'المالية والتحصيل', shortLabel: 'المالية', icon: 'wallet', description: 'الدفعات والصناديق والإغلاق', hrefs: ['/payments', '/payments/summary', '/payments/cash-boxes', '/payments/entries', '/ledger', '/receivables', '/reconciliation', '/weekly-packages'] },
     { id: 'reports', label: 'التقارير والرقابة', shortLabel: 'التقارير', icon: 'trend', description: 'التقارير والأداء والتدقيق', hrefs: ['/reports', '/branch-performance', '/transaction-audit'] },
     { id: 'infrastructure', label: 'الفروع والشبكة', shortLabel: 'الشبكة', icon: 'bolt', description: 'الفروع والبنية الكهربائية', hrefs: ['/branches', '/governorates', '/meter-boxes', '/circuit-breakers'] },

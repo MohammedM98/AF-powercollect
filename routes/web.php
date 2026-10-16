@@ -16,12 +16,16 @@ use App\Http\Controllers\MeterBoxController;
 use App\Http\Controllers\MeterBoxOptionController;
 use App\Http\Controllers\MeterBoxSubscriptionController;
 use App\Http\Controllers\MeterReadingController;
+use App\Http\Controllers\PaperSheetController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PrintTemplateController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileDeviceController;
+use App\Http\Controllers\ReadingAssignmentController;
+use App\Http\Controllers\ReadingCycleController;
 use App\Http\Controllers\ReadingScheduleController;
+use App\Http\Controllers\ReadingSubmissionController;
 use App\Http\Controllers\ReadNotificationController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\ReportController;
@@ -146,6 +150,19 @@ Route::middleware('auth')->group(function () {
     Route::post('/disconnection-lists/{disconnectionList}/items/remove', [DisconnectionItemController::class, 'remove'])->whereNumber('disconnectionList')->name('disconnection-lists.items.remove');
     Route::post('/disconnection-lists/{disconnectionList}/items/warn', [DisconnectionItemController::class, 'warn'])->whereNumber('disconnectionList')->middleware('throttle:20,1')->name('disconnection-lists.items.warn');
     Route::post('/disconnection-lists/{disconnectionList}/items/confirm', [DisconnectionItemController::class, 'confirm'])->whereNumber('disconnectionList')->middleware('throttle:20,1')->name('disconnection-lists.items.confirm');
+
+    Route::get('/reading-cycles', [ReadingCycleController::class, 'index'])->name('reading-cycles.index');
+    Route::post('/reading-cycles', [ReadingCycleController::class, 'store'])->name('reading-cycles.store');
+    Route::get('/reading-cycles/{readingCycle}', [ReadingCycleController::class, 'show'])->whereNumber('readingCycle')->name('reading-cycles.show');
+    Route::patch('/reading-cycles/{readingCycle}', [ReadingCycleController::class, 'update'])->whereNumber('readingCycle')->name('reading-cycles.update');
+    Route::post('/reading-cycles/{readingCycle}/copy-previous', [ReadingCycleController::class, 'copyPrevious'])->whereNumber('readingCycle')->name('reading-cycles.copy-previous');
+    Route::post('/reading-cycles/{readingCycle}/assignments', [ReadingAssignmentController::class, 'store'])->whereNumber('readingCycle')->name('reading-cycles.assignments.store');
+    Route::post('/reading-cycles/{readingCycle}/assignments/approve', [ReadingAssignmentController::class, 'approve'])->whereNumber('readingCycle')->name('reading-cycles.assignments.approve');
+    Route::post('/reading-cycles/{readingCycle}/paper-sheets', [PaperSheetController::class, 'store'])->whereNumber('readingCycle')->name('reading-cycles.paper-sheets.store');
+    Route::get('/reading-cycles/{readingCycle}/submissions', [ReadingSubmissionController::class, 'index'])->whereNumber('readingCycle')->name('reading-cycles.submissions.index');
+    Route::post('/reading-submissions/{readingSubmission}/review', [ReadingSubmissionController::class, 'review'])->whereNumber('readingSubmission')->name('reading-submissions.review');
+    Route::get('/paper-sheets/{paperSheet}', [PaperSheetController::class, 'show'])->whereNumber('paperSheet')->name('paper-sheets.show');
+    Route::post('/paper-sheets/{paperSheet}/printed', [PaperSheetController::class, 'printed'])->whereNumber('paperSheet')->name('paper-sheets.printed');
 
     Route::post('/notifications/read', [ReadNotificationController::class, 'store'])->name('notifications.read');
 });

@@ -121,6 +121,45 @@ class MeterReading extends Model
     }
 
     /**
+     * Record the subscription's reading for the week, pending approval: from
+     * the reading the week starts from, at their kilo price, minimum payment
+     * and standing discount as they are now, so a later change never alters
+     * it. It does not touch the subscription's balance until approved.
+     * The subscription should come with its tariff, circuit breaker and
+     * standing discount.
+     */
+    public static function recordFor(Subscription $subscription, CarbonInterface $weekStart, float $currentReading, User $recorder, ?string $notes, ?string $mobileOperationId = null): self
+    {
+        $weekStart = Carbon::instance($weekStart);
+        $previousReading = $subscription->previousReadingBefore($weekStart);
+        $consumption = self::consumptionBetween($previousReading, $currentReading);
+        $discount = $subscription->standingDiscount;
+        $unitPrice = $subscription->kilowattPrice();
+        $minimumPayment = $subscription->weeklyMinimumPayment();
+
+        return self::create([
+            'subscription_id' => $subscription->id,
+            'branch_id' => $subscription->branch_id,
+            'week_start' => $weekStart,
+            'week_end' => self::weekEndFor($weekStart, $subscription->branch_id),
+            'previous_reading' => $previousReading,
+            'current_reading' => $currentReading,
+            'consumption' => $consumption,
+            'usual_consumption' => self::usualConsumptionIfUnusual($subscription, $consumption, $weekStart),
+            'unit_price' => $unitPrice,
+            'minimum_payment' => $minimumPayment,
+            'discount_method' => $discount?->method,
+            'discount_value' => $discount?->value,
+            'discount_segment' => $discount?->segment,
+            ...self::chargesFor($consumption, $unitPrice, $minimumPayment, $discount?->method, $discount?->value),
+            'status' => MeterReadingStatus::Pending,
+            'recorded_by' => $recorder->id,
+            'notes' => $notes,
+            'mobile_operation_id' => $mobileOperationId,
+        ]);
+    }
+
+    /**
      * The kWh used between two meter readings, rounded to the two decimal
      * places readings are kept to.
      */

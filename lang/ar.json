@@ -313,5 +313,11 @@
     "Approve Reading Assignments": "اعتماد توزيع القراءات",
     "Print Paper Reading Sheets": "طباعة كشوف القراءة الورقية",
     "Review Field Readings": "مراجعة القراءات الميدانية",
-    "Reading Assignments": "توزيع القراءات"
+    "Reading Assignments": "توزيع القراءات",
+    "Field Reader": "قارئ ميداني",
+    "Paper Sheet": "كشف ورقي",
+    "Not Allocated": "غير موزّع",
+    "Accepted": "مقبولة",
+    "Needs Review": "بحاجة لمراجعة",
+    "Rejected": "مرفوضة"
 }

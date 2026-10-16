@@ -216,6 +216,11 @@ class User extends Authenticatable
             'قوائم القطع' => $named(DisconnectionList::class, 'created_by', 'closed_by')
                 + $named(DisconnectionListItem::class, 'added_by', 'removed_by', 'disconnected_by')
                 + $named(DisconnectionEvent::class, 'user_id'),
+            'توزيع القراءات' => $named(ReadingCycle::class, 'created_by', 'closed_by')
+                + $named(ReadingAssignment::class, 'user_id', 'assigned_by', 'approved_by')
+                + $named(ReadingAssignmentEvent::class, 'actor_id', 'from_user_id', 'to_user_id')
+                + $named(ReadingSubmission::class, 'user_id', 'reviewed_by')
+                + $named(PaperSheet::class, 'created_by', 'last_printed_by'),
         ], 'يمكنك إيقاف حسابه بدلًا من حذفه.');
     }
 

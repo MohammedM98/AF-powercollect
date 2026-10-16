@@ -9,25 +9,39 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
-import { filterSections, individualChanges, levelOf, permissionEntries, samePermissions, sectionIds, sectionModel, withGroupAccess, withSectionLevel, withToggled } from '@/lib/permissions';
+import {
+    RISK_LABELS,
+    filterSections,
+    individualChanges,
+    levelOf,
+    permissionEntries,
+    samePermissions,
+    sectionExtras,
+    sectionIds,
+    sectionModel,
+    sectionSentence,
+    withGroupAccess,
+    withSectionLevel,
+    withToggled,
+} from '@/lib/permissions';
 
-/** The icon and one-line description of each section (keyed like PermissionKey::resourceGroups()). */
+/** The icon, one-line description and page of each section (keyed like PermissionKey::resourceGroups()). */
 const SECTION_DETAILS = {
-    subscriptions: { icon: 'users', description: 'بيانات المشتركين' },
-    meter_boxes: { icon: 'table', description: 'الطبلونات ومواقعها' },
-    circuit_breakers: { icon: 'bolt', description: 'القواطع وأمبيراتها' },
-    tariffs: { icon: 'dollar', description: 'أسعار الكيلو والحد الأدنى' },
-    meter_readings: { icon: 'gauge', description: 'قراءات العدادات الأسبوعية' },
-    collections: { icon: 'card', description: 'السجل المالي والدفعات وحركات الحسابات' },
-    reports: { icon: 'trend', description: 'تقارير المال، كل تقرير بصلاحيته' },
-    messages: { icon: 'messages', description: 'رسائل المشتركين' },
-    print_templates: { icon: 'printer', description: 'قوالب الطباعة المشتركة لكل الشركة' },
-    users: { icon: 'user', description: 'حسابات الموظفين' },
-    user_types: { icon: 'badge', description: 'أنواع المستخدمين' },
-    branches: { icon: 'pin', description: 'فروع الشركة' },
-    governorates: { icon: 'map', description: 'المحافظات' },
-    areas: { icon: 'map', description: 'المناطق' },
-    sub_areas: { icon: 'map', description: 'منطقة 2 داخل منطقة الفرع' },
+    subscriptions: { icon: 'users', description: 'بيانات المشتركين', page: 'المشتركون' },
+    meter_boxes: { icon: 'table', description: 'الطبلونات ومواقعها', page: 'الطبلونات' },
+    circuit_breakers: { icon: 'bolt', description: 'القواطع وأمبيراتها', page: 'القواطع' },
+    tariffs: { icon: 'dollar', description: 'أسعار الكيلو والحد الأدنى', page: 'التعرفات' },
+    meter_readings: { icon: 'gauge', description: 'قراءات العدادات الأسبوعية', page: 'القراءات الأسبوعية' },
+    collections: { icon: 'card', description: 'السجل المالي والدفعات وحركات الحسابات', page: 'تسجيل الدفعات والسجل المالي' },
+    reports: { icon: 'trend', description: 'تقارير المال، كل تقرير بصلاحيته', page: 'التقارير' },
+    messages: { icon: 'messages', description: 'رسائل المشتركين', page: 'الرسائل' },
+    print_templates: { icon: 'printer', description: 'قوالب الطباعة المشتركة لكل الشركة', page: 'قوالب الطباعة' },
+    users: { icon: 'user', description: 'حسابات الموظفين', page: 'المستخدمون' },
+    user_types: { icon: 'badge', description: 'أنواع المستخدمين', page: 'أنواع المستخدمين' },
+    branches: { icon: 'pin', description: 'فروع الشركة', page: 'الفروع' },
+    governorates: { icon: 'map', description: 'المحافظات', page: 'المحافظات' },
+    areas: { icon: 'map', description: 'المناطق', page: 'المناطق' },
+    sub_areas: { icon: 'map', description: 'منطقة 2 داخل منطقة الفرع', page: 'منطقة 2' },
 };
 
 /** The sections in the order the editor groups them; any section not named here goes last. */
@@ -37,15 +51,6 @@ const SECTION_GROUPS = [
     { title: 'التواصل والطباعة', hint: 'الرسائل وقوالب الطباعة', keys: ['messages', 'print_templates'] },
     { title: 'الإدارة والمواقع', hint: 'الموظفون والفروع والتقسيمات الجغرافية', keys: ['users', 'user_types', 'branches', 'governorates', 'areas', 'sub_areas'] },
 ];
-
-/** The dot beside a chosen level: blue to view, amber in between, burgundy at the top. */
-function levelTone(level, top) {
-    if (level === 0) {
-        return null;
-    }
-
-    return level === top ? 'top' : level === 1 ? 'bg-blue-600' : 'bg-amber-600';
-}
 
 function EmployeeAvatar({ name, size = 'md' }) {
     const sizes = { sm: 'h-8 w-8 rounded-[10px] text-xs', md: 'h-10 w-10 rounded-[13px] text-sm', lg: 'h-14 w-14 rounded-[18px] text-lg' };
@@ -241,7 +246,7 @@ function EmployeeList({ users, selectedId, selectedDirty, templates, filters, fi
                                                 </span>
                                                 <span className="flex shrink-0 flex-col items-end gap-1">
                                                     {isSelected && selectedDirty ? (
-                                                        <span title="تغييرات لم تُحفظ" className="h-2.5 w-2.5 rounded-full bg-amber-500 ring-4 ring-amber-500/20" />
+                                                        <span title="تغييرات لم تُحفظ" className="h-2.5 w-2.5 rounded-full bg-brand-500 ring-4 ring-brand-500/20" />
                                                     ) : (
                                                         <span title="عدد الصلاحيات" className="rounded-md bg-gray-100 px-1.5 font-display text-xs font-bold text-gray-700">
                                                             {user.permissionIds.length}
@@ -268,19 +273,29 @@ function EmployeeList({ users, selectedId, selectedDirty, templates, filters, fi
     );
 }
 
-/** A section's level picker: one button per level, each meaning everything up to it. */
-function LevelPicker({ section, level, onChange, disabled }) {
-    const top = section.ladder.levels.length - 1;
+/** «حساس» or «خطير» beside a permission: a small label, never a coloured card. */
+function RiskBadge({ risk }) {
+    if (!risk) {
+        return null;
+    }
 
     return (
-        <div
-            role="radiogroup"
-            aria-label={`مستوى ${section.label}`}
-            className="inline-flex w-full gap-0.5 rounded-control border border-gray-100 bg-gray-50 p-[3px] sm:w-auto"
+        <span
+            className={`inline-flex items-center rounded-md px-1.5 text-[11px] font-bold leading-[18px] ${
+                risk === 'danger' ? 'bg-red-500/10 text-red-700 dark:text-red-400' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+            }`}
         >
+            {RISK_LABELS[risk]}
+        </span>
+    );
+}
+
+/** A section's level picker: one button per level, each meaning everything up to it; the chosen one carries a burgundy dot. */
+function LevelPicker({ section, level, onChange, disabled }) {
+    return (
+        <div role="radiogroup" aria-label={`مستوى ${section.label}`} className="inline-flex w-full gap-0.5 rounded-control border border-gray-100 bg-gray-50 p-[3px] sm:w-auto">
             {section.ladder.levels.map((name, index) => {
                 const checked = level === index;
-                const tone = checked ? levelTone(index, top) : null;
 
                 return (
                     <button
@@ -292,16 +307,10 @@ function LevelPicker({ section, level, onChange, disabled }) {
                         title={section.ladder.long[index]}
                         onClick={() => onChange(index)}
                         className={`inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 py-1.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 disabled:cursor-not-allowed sm:flex-none ${
-                            !checked
-                                ? 'text-gray-500 hover:text-gray-900'
-                                : tone === 'top'
-                                  ? 'bg-brand-gradient text-white shadow-glow'
-                                  : index === 0
-                                    ? 'bg-surface text-gray-500 shadow-sm ring-1 ring-gray-100'
-                                    : 'bg-surface text-gray-900 shadow-sm ring-1 ring-gray-100'
+                            checked ? `bg-surface shadow-sm ring-1 ring-gray-100 ${index === 0 ? 'text-gray-500' : 'text-gray-900'}` : 'text-gray-500 hover:text-gray-900'
                         }`}
                     >
-                        {index > 0 && <i className={`h-2 w-2 rounded-full ${checked ? (tone === 'top' ? 'bg-white' : tone) : 'bg-current opacity-30'}`} />}
+                        {checked && index > 0 && <i className="h-2 w-2 rounded-full bg-brand-500" />}
                         {name}
                     </button>
                 );
@@ -310,29 +319,61 @@ function LevelPicker({ section, level, onChange, disabled }) {
     );
 }
 
+/** One extra option: its name and risk, what it opens, and its switch — off and explained when it needs a level first. */
+function ExtraOption({ section, item, selected, onChange, disabled }) {
+    const on = selected.includes(item.id);
+    const needed = item.needs > 0 && section.ladder ? section.ladder.ids[item.needs - 1] : null;
+    const locked = !on && needed !== null && !selected.includes(needed);
+
+    return (
+        <div className={`flex min-h-[58px] items-center gap-3 border-t border-gray-100 px-3.5 py-2.5 first:border-t-0 ${locked ? 'opacity-60' : ''}`}>
+            <div className="min-w-0 flex-1">
+                <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-900">
+                    {item.label}
+                    <RiskBadge risk={item.risk} />
+                </p>
+                <p className="text-xs leading-5 text-gray-500">
+                    {item.hint}
+                    {locked && <span className="text-blue-700 dark:text-blue-400">{item.hint ? ' · ' : ''}يتطلب مستوى «{section.ladder.levels[item.needs]}»</span>}
+                </p>
+            </div>
+            <Switch
+                checked={on}
+                onChange={(next) => onChange(withToggled(selected, item.id, next))}
+                ariaLabel={`${section.label}: ${item.label}`}
+                disabled={disabled || locked}
+            />
+        </div>
+    );
+}
+
 /**
- * One section: its level (or its own switches), the line saying what that
- * level allows, and its sensitive permissions set apart. A section whose
- * permissions don't sit on a level is "custom" and shows its switches.
+ * One section: its icon and name, a line saying what the chosen level
+ * lets them do, the level picker, and its extra options grouped by kind
+ * under «خيارات إضافية». A section whose permissions don't sit on a level
+ * is "custom": its options open, with the level's own actions as switches.
+ * A changed section carries a burgundy edge and «تغيّر».
  */
-function SectionRow({ section, selected, saved, onChange, onSensitive, disabled }) {
+function SectionRow({ section, selected, saved, onChange, disabled, forceOpen }) {
     const details = SECTION_DETAILS[section.key] ?? { icon: 'shield', description: '' };
     const level = section.ladder ? levelOf(section.ladder, selected) : null;
-    const savedLevel = section.ladder ? levelOf(section.ladder, saved) : null;
     const isCustom = section.ladder && level === null;
-    const [detailed, setDetailed] = useState(false);
+    const extras = sectionExtras(section);
+    const extraItems = extras.flatMap((group) => group.items);
+    const heldExtras = extraItems.filter((item) => selected.includes(item.id)).length;
+    const [open, setOpen] = useState(false);
     const ids = sectionIds(section);
     const changed = ids.some((id) => selected.includes(id) !== saved.includes(id));
     const holdsAny = ids.some((id) => selected.includes(id));
-    const showSwitches = section.ladder && (isCustom || detailed);
-    // A record's delete sits on the level's line, compact; the money section's own deletions keep their tiles.
-    const inlineDelete = section.ladder && section.key !== 'collections' ? section.sensitive.find((item) => item.action === 'delete') : null;
-    const tiles = section.sensitive.filter((item) => item !== inlineDelete);
+    // A section without levels shows its options always; a custom one opens them to fix it.
+    const showExtras = !section.ladder || open || isCustom || forceOpen;
+    const panelId = `extras-${section.key}`;
 
     return (
-        <div
-            className={`rounded-row border p-3.5 transition sm:p-4 ${
-                changed ? 'border-amber-500/40 bg-amber-500/[0.04]' : 'border-gray-100 bg-surface'
+        <section
+            aria-labelledby={`section-${section.key}`}
+            className={`relative rounded-row border bg-surface p-3.5 transition sm:p-4 ${
+                changed ? 'border-brand-200 before:absolute before:inset-y-4 before:-start-px before:w-[3px] before:rounded-full before:bg-brand-500' : 'border-gray-100'
             }`}
         >
             <div className="flex flex-wrap items-center gap-3">
@@ -344,216 +385,233 @@ function SectionRow({ section, selected, saved, onChange, onSensitive, disabled 
                     <Icon name={details.icon} className="h-5 w-5" />
                 </span>
                 <div className="min-w-[11rem] flex-1">
-                    <h4 className="font-bold text-gray-900">{section.label}</h4>
-                    <p className="text-[13px] text-gray-500">
-                        {section.ladder && level !== null ? section.ladder.long[level] : details.description}
-                        {section.ladder && changed && savedLevel !== level && (
-                            <span className="ms-2 whitespace-nowrap text-xs font-bold text-amber-700 dark:text-amber-400">
-                                كان: {savedLevel === null ? 'مخصّص' : section.ladder.levels[savedLevel]}
+                    <h4 id={`section-${section.key}`} className="flex flex-wrap items-center gap-2 font-bold text-gray-900">
+                        {section.label}
+                        {changed && <span className="rounded-full border border-brand-200 bg-brand-50 px-2 text-[11px] font-bold text-brand-700">تغيّر</span>}
+                        {isCustom && (
+                            <span title="صلاحيات هذا القسم لا تطابق مستوى واحدًا: اختر مستوى لتوحيدها، أو عدّلها من الخيارات" className="rounded-full bg-blue-500/10 px-2 text-[11px] font-bold text-blue-700 dark:text-blue-400">
+                                مخصّص
                             </span>
                         )}
+                    </h4>
+                    <p className="text-[13px] text-gray-500">
+                        {sectionSentence(section, selected)}
+                        {section.ladder && heldExtras > 0 && <> · ومعه {heldExtras} {heldExtras === 1 ? 'خيار إضافي' : 'خيارات إضافية'}</>}
                     </p>
                 </div>
 
                 {section.ladder && (
                     <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-                        {isCustom && (
-                            <span
-                                title="صلاحيات هذا القسم لا تطابق مستوى واحدًا — اختر مستوى لتوحيدها، أو عدّلها من المفاتيح أدناه"
-                                className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-700"
-                            >
-                                مخصّص
-                            </span>
-                        )}
                         <LevelPicker section={section} level={level} onChange={(next) => onChange(withSectionLevel(section, selected, next))} disabled={disabled} />
-                        {inlineDelete && (
-                            <span
-                                title={inlineDelete.hint}
-                                className="inline-flex items-center gap-1.5 rounded-control border border-amber-500/30 bg-amber-500/[0.06] py-1 pe-1 ps-2.5"
-                            >
-                                <Icon name="warning" className="h-4 w-4 shrink-0 text-amber-600" strokeWidth={2} />
-                                <Switch
-                                    checked={selected.includes(inlineDelete.id)}
-                                    onChange={(next) =>
-                                        next ? onSensitive(inlineDelete, section) : onChange(withToggled(selected, inlineDelete.id, false))
-                                    }
-                                    label={inlineDelete.label}
-                                    ariaLabel={`${section.label}: ${inlineDelete.label}`}
-                                    disabled={disabled}
-                                />
-                            </span>
-                        )}
-                        {!isCustom && section.ladder.ids.length > 1 && (
+                        {extraItems.length > 0 && !isCustom && (
                             <button
                                 type="button"
-                                onClick={() => setDetailed((current) => !current)}
-                                aria-expanded={detailed}
-                                className="text-xs font-semibold text-gray-500 underline decoration-dotted underline-offset-4 hover:text-gray-900"
+                                onClick={() => setOpen((current) => !current)}
+                                aria-expanded={showExtras}
+                                aria-controls={panelId}
+                                className="inline-flex h-9 items-center gap-1.5 rounded-control border border-gray-200 bg-surface px-3 text-sm font-semibold text-gray-700 transition hover:border-brand-500/40 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
                             >
-                                {detailed ? 'إخفاء الإجراءات' : 'اختيار إجراءات منفصلة'}
+                                خيارات إضافية
+                                {heldExtras > 0 ? (
+                                    <span className="rounded-full bg-brand-50 px-1.5 font-display text-[11px] font-bold text-brand-700">{heldExtras}</span>
+                                ) : (
+                                    <span className="font-display text-xs text-gray-400">({extraItems.length})</span>
+                                )}
+                                <Icon name="chevron-down" className={`h-4 w-4 transition-transform ${showExtras ? 'rotate-180' : ''}`} />
                             </button>
                         )}
                     </div>
                 )}
             </div>
 
-            {(showSwitches || section.switches.some((item) => !item.hint)) && (
-                <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2.5 sm:ps-[52px]">
-                    {showSwitches &&
-                        section.ladder.ids.map((id, index) => (
-                            <Switch
-                                key={id}
-                                checked={selected.includes(id)}
-                                onChange={(on) => onChange(withToggled(selected, id, on))}
-                                label={section.ladder.labels[index]}
-                                ariaLabel={`${section.label}: ${section.ladder.labels[index]}`}
-                                disabled={disabled}
-                            />
-                        ))}
-                    {section.switches
-                        .filter((item) => !item.hint)
-                        .map((item) => (
-                            <Switch
-                                key={item.id}
-                                checked={selected.includes(item.id)}
-                                onChange={(on) => onChange(withToggled(selected, item.id, on))}
-                                label={item.label}
-                                ariaLabel={`${section.label}: ${item.label}`}
-                                disabled={disabled}
-                            />
-                        ))}
-                </div>
-            )}
-
-            {section.switches.some((item) => item.hint) && (
-                <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-2 sm:ps-[52px]">
-                    {section.switches
-                        .filter((item) => item.hint)
-                        .map((item) => (
-                            <div key={item.id} className="flex items-center gap-2.5 rounded-control border border-gray-100 bg-gray-50 px-3 py-2.5">
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-bold text-gray-900">{item.label}</p>
-                                    <p className="text-xs text-gray-500">{item.hint}</p>
-                                </div>
-                                <Switch
-                                    checked={selected.includes(item.id)}
-                                    onChange={(on) => onChange(withToggled(selected, item.id, on))}
-                                    ariaLabel={`${section.label}: ${item.label}`}
+            {showExtras && (extraItems.length > 0 || isCustom) && (
+                <div id={panelId} className="mt-3 overflow-hidden rounded-control border border-gray-100 sm:ms-[52px]">
+                    {isCustom && (
+                        <>
+                            <p className="bg-gray-50 px-3.5 py-1.5 text-xs font-bold text-gray-500">إجراءات القسم</p>
+                            {section.ladder.ids.map((id, index) => (
+                                <ExtraOption
+                                    key={id}
+                                    section={section}
+                                    item={{ id, label: section.ladder.labels[index], hint: '', risk: null, needs: 0 }}
+                                    selected={selected}
+                                    onChange={onChange}
                                     disabled={disabled}
                                 />
-                            </div>
-                        ))}
-                </div>
-            )}
-
-            {tiles.length > 0 && (
-                <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-2 sm:ps-[52px]">
-                    {tiles.map((item) => {
-                        const on = selected.includes(item.id);
-
-                        return (
-                            <div
-                                key={item.id}
-                                className={`flex items-center gap-2.5 rounded-control border px-3 py-2.5 ${
-                                    item.danger ? 'border-amber-500/30 bg-amber-500/[0.06]' : 'border-gray-100 bg-gray-50'
-                                }`}
-                            >
-                                {item.danger && <Icon name="warning" className="h-[18px] w-[18px] shrink-0 text-amber-600" strokeWidth={2} />}
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-bold text-gray-900">{item.label}</p>
-                                    <p className="text-xs text-gray-500">{item.hint}</p>
-                                </div>
-                                <Switch
-                                    checked={on}
-                                    onChange={(next) => (next && item.danger ? onSensitive(item, section) : onChange(withToggled(selected, item.id, next)))}
-                                    ariaLabel={`${section.label}: ${item.label}`}
-                                    disabled={disabled}
-                                />
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
-    );
-}
-
-/** The existing graphite summary, focused on access and exceptions rather than a score. */
-export function PermissionSummary({ employee, sections, selected, template, scopedToOwnBranch }) {
-    const [expanded, setExpanded] = useState(false);
-    const entries = permissionEntries(sections);
-    const enabled = entries.filter((item) => selected.includes(item.id));
-    const sensitive = enabled.filter((item) => item.sensitive);
-    const deviations = template ? individualChanges(sections, template.permissionIds, selected).length : null;
-    const locked = employee.lockedPermissions ?? [];
-
-    return (
-        <div className="relative mx-4 mt-4 overflow-hidden rounded-[20px] bg-graphite-gradient p-4 text-white sm:mx-5 sm:p-5">
-            <div className="flex flex-wrap items-start gap-3">
-                <div className="min-w-0 flex-1">
-                    <h3 className="font-bold">صلاحيات {employee.name.split(' ')[0]}</h3>
-                    <p className="mt-1 text-xs leading-5 text-white/70">
-                        {scopedToOwnBranch ? 'المعروض هو ما يمكنك تعديله لموظفي فرعك.' : 'صلاحيات الموظف ضمن نطاق دوره وفرعه.'}
-                        {' '}القالب ينسخ الصلاحيات ولا يغيّر الدور أو الفرع.
-                    </p>
-                </div>
-                <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}
-                    className="rounded-control border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/10">
-                    {expanded ? 'إخفاء ملخص الإجراءات' : 'عرض ملخص الإجراءات'}
-                </button>
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
-                {[
-                    { count: enabled.length, label: 'صلاحية قابلة للإدارة' },
-                    { count: sensitive.length, label: 'صلاحية خاصة مفعّلة' },
-                    { count: deviations ?? '—', label: 'اختلاف عن قالب الدور' },
-                ].map((stat) => (
-                    <div key={stat.label} className="rounded-control bg-white/10 px-3 py-2.5">
-                        <b className="font-display text-xl">{stat.count}</b>
-                        <p className="mt-0.5 text-xs leading-5 text-white/70">{stat.label}</p>
-                    </div>
-                ))}
-            </div>
-            {template && <p className="mt-3 text-xs text-white/70">{deviations === 0 ? `مطابق لقالب ${template.label}` : `صلاحيات مخصّصة عن قالب ${template.label}`}</p>}
-            {expanded && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                    {enabled.length === 0 && <span className="text-sm text-white/70">لا توجد صلاحيات مفعّلة ضمن ما يمكنك إدارته.</span>}
-                    {enabled.map((item) => (
-                        <span key={item.id} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs ${item.sensitive ? 'bg-amber-400/20 text-amber-200' : 'bg-white/10 text-white/90'}`}>
-                            <Icon name={item.sensitive ? 'warning' : 'check'} className="h-3.5 w-3.5" />
-                            {item.section}: {item.label}
-                        </span>
+                            ))}
+                        </>
+                    )}
+                    {extras.map((group) => (
+                        <div key={group.title}>
+                            <p className="border-t border-gray-100 bg-gray-50 px-3.5 py-1.5 text-xs font-bold text-gray-500 first:border-t-0">{group.title}</p>
+                            {group.items.map((item) => (
+                                <ExtraOption key={item.id} section={section} item={item} selected={selected} onChange={onChange} disabled={disabled} />
+                            ))}
+                        </div>
                     ))}
                 </div>
             )}
-            {locked.length > 0 && (
-                <div className="mt-3 border-t border-white/15 pt-3 text-xs leading-5 text-white/70">
-                    <b className="text-white">{locked.length} صلاحية خارج نطاق إدارتك، تبقى كما هي:</b> {locked.join('، ')}
-                </div>
-            )}
-        </div>
+        </section>
     );
 }
 
+/** The ways to be paid the selected permissions allow, for the summary. */
+function paymentWays(sections, selected) {
+    const payments = sections.find((section) => section.key === 'collections');
+    const record = payments?.ladder?.actions.indexOf('record') ?? -1;
+
+    if (!payments || record === -1 || !selected.includes(payments.ladder.ids[record])) {
+        return null;
+    }
+
+    return payments.switches.filter((item) => ['record_cash', 'record_transfer'].includes(item.action) && selected.includes(item.id)).map((item) => item.label);
+}
+
+/**
+ * What the employee can do, in plain words, as it stands in the editor:
+ * how many permissions (and how many of them sensitive or dangerous), a
+ * line per section they hold something in, the pages they'll see, what
+ * they can't do, how far they are from their role's template, and the
+ * permissions outside what the actor may manage, which stay as they are.
+ */
+export function PermissionSummary({ employee, sections, selected, template, scopedToOwnBranch }) {
+    const entries = permissionEntries(sections);
+    const enabled = entries.filter((item) => selected.includes(item.id));
+    const deviations = template ? individualChanges(sections, template.permissionIds, selected).length : null;
+    const locked = employee.lockedPermissions ?? [];
+    const held = sections.filter((section) => sectionIds(section).some((id) => selected.includes(id)));
+    const notHeld = sections.filter((section) => !held.includes(section));
+    const ways = paymentWays(sections, selected);
+    const dangerous = enabled.filter((item) => item.risk === 'danger');
+    const firstName = employee.name.split(' ')[0];
+
+    return (
+        <aside className="rise-in space-y-4 rounded-card border border-gray-100 bg-surface p-4 shadow-card sm:p-5" aria-label={`ملخص صلاحيات ${employee.name}`}>
+            <div>
+                <h3 className="font-bold text-gray-900">ماذا يستطيع {firstName}؟</h3>
+                <p className="mt-0.5 text-xs text-gray-500">
+                    {scopedToOwnBranch ? 'المعروض هو ما يمكنك تعديله لموظفي فرعك.' : 'يتحدّث مع كل تغيير، قبل الحفظ.'}
+                </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+                {[
+                    { count: enabled.length, label: 'صلاحية', tone: 'text-gray-900' },
+                    { count: enabled.filter((item) => item.risk === 'sensitive').length, label: 'حساسة', tone: 'text-amber-700 dark:text-amber-400' },
+                    { count: dangerous.length, label: 'خطيرة', tone: 'text-red-700 dark:text-red-400' },
+                ].map((stat) => (
+                    <div key={stat.label} className="rounded-control border border-gray-100 bg-gray-50 px-3 py-2">
+                        <b className={`block font-display text-xl leading-tight ${stat.tone}`}>{stat.count}</b>
+                        <span className="text-xs text-gray-500">{stat.label}</span>
+                    </div>
+                ))}
+            </div>
+
+            {template && (
+                <p className="text-xs text-gray-500">
+                    {deviations === 0 ? `مطابق لقالب ${template.label}` : `${deviations} اختلاف عن قالب الدور (${template.label})`}
+                </p>
+            )}
+
+            <ul className="space-y-1.5 text-[13.5px] text-gray-800">
+                {held.length === 0 && <li className="text-gray-500">لا يملك أي صلاحية بعد.</li>}
+                {held.map((section) => (
+                    <li key={section.key} className="flex gap-2">
+                        <i className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                        <span>
+                            <b className="font-semibold">{section.label}:</b> {sectionSentence(section, selected)}
+                        </span>
+                    </li>
+                ))}
+                {ways && (
+                    <li className="flex gap-2">
+                        <i className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                        <span>{ways.length ? `يأخذ الدفعات: ${ways.join(' و')}` : 'لا يأخذ أي دفعة: لم تُختر طريقة دفع'}</span>
+                    </li>
+                )}
+                {dangerous.length > 0 && (
+                    <li className="flex gap-2 text-red-700 dark:text-red-400">
+                        <i className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                        <span>صلاحيات خطيرة: {dangerous.map((item) => item.label).join('، ')}</span>
+                    </li>
+                )}
+            </ul>
+
+            <div className="border-t border-gray-100 pt-3">
+                <h4 className="text-sm font-bold text-gray-900">الصفحات التي سيراها</h4>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                    {['الرئيسية', ...held.map((section) => SECTION_DETAILS[section.key]?.page ?? section.label)].map((page) => (
+                        <span key={page} className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
+                            {page}
+                        </span>
+                    ))}
+                </div>
+            </div>
+
+            {notHeld.length > 0 && (
+                <div className="border-t border-gray-100 pt-3">
+                    <h4 className="text-sm font-bold text-gray-900">لا يصل إلى</h4>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        {notHeld.map((section) => (
+                            <span key={section.key} className="rounded-full border border-dashed border-gray-200 px-2.5 py-0.5 text-xs text-gray-500">
+                                {section.label}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {locked.length > 0 && (
+                <p className="rounded-control bg-gray-50 px-3 py-2 text-xs leading-5 text-gray-600">
+                    <b className="text-gray-900">{locked.length} صلاحية خارج نطاق إدارتك، تبقى كما هي:</b> {locked.join('، ')}
+                </p>
+            )}
+        </aside>
+    );
+}
+
+/**
+ * Every change before it is saved, grouped by section: each permission
+ * that will be granted or taken away, with what it opens and its risk.
+ */
 export function PermissionChangeReview({ employee, changes }) {
+    const bySection = changes.reduce((groups, change) => {
+        (groups[change.section] ??= []).push(change);
+        return groups;
+    }, {});
+
     return (
         <div className="px-5 pb-5 sm:px-7">
-            <div className="mb-4 rounded-control border border-gray-100 bg-gray-50 p-3 text-sm leading-6 text-gray-600">
+            <p className="mb-4 rounded-control border border-gray-100 bg-gray-50 p-3 text-sm leading-6 text-gray-600">
                 <b className="text-gray-900">{employee.name}</b> · {employee.roleLabel} · {employee.branchName ?? 'بلا فرع'}
-                <p>راجع كل إجراء قبل الحفظ. لا تتغيّر الصلاحيات خارج نطاق إدارتك.</p>
-            </div>
-            <div className="max-h-[50vh] space-y-2 overflow-y-auto" tabIndex={0} aria-label="جميع تغييرات الصلاحيات">
-                {changes.map((change) => (
-                    <div key={change.id} className="flex flex-wrap items-start gap-3 rounded-control border border-gray-100 px-3 py-2.5">
-                        <Icon name={change.sensitive ? 'warning' : 'shield'} className={`mt-0.5 h-4 w-4 shrink-0 ${change.sensitive ? 'text-amber-600' : 'text-gray-400'}`} />
-                        <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold text-gray-900">{change.label}</p>
-                            <p className="text-xs text-gray-500">{change.section}{change.hint ? ` · ${change.hint}` : ''}</p>
-                        </div>
-                        <span className={`shrink-0 rounded-lg px-2 py-1 text-xs font-bold ${change.added ? 'bg-brand-500/10 text-brand-600' : 'bg-gray-100 text-gray-700'}`}>
-                            {change.added ? 'غير ممنوح ← سيُمنح' : 'ممنوح ← سيُلغى'}
-                        </span>
-                    </div>
+                <br />
+                لا تتغيّر الصلاحيات خارج نطاق إدارتك.
+            </p>
+            <div className="max-h-[50vh] space-y-3 overflow-y-auto" tabIndex={0} aria-label="جميع تغييرات الصلاحيات">
+                {Object.entries(bySection).map(([section, items]) => (
+                    <section key={section} className="overflow-hidden rounded-control border border-gray-100">
+                        <h4 className="bg-gray-50 px-3 py-1.5 text-sm font-bold text-gray-700">{section}</h4>
+                        <ul className="space-y-1 p-1.5">
+                            {items.map((change) => (
+                                <li
+                                    key={change.id}
+                                    className={`flex items-start gap-2.5 rounded-[10px] px-2.5 py-2 ${change.added ? 'bg-emerald-500/[0.07]' : 'bg-gray-50'}`}
+                                >
+                                    <b className={`mt-px w-3 text-center ${change.added ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400'}`}>{change.added ? '+' : '−'}</b>
+                                    <div className="min-w-0 flex-1">
+                                        <p className={`flex flex-wrap items-center gap-1.5 text-sm font-semibold ${change.added ? 'text-gray-900' : 'text-gray-500 line-through'}`}>
+                                            {change.label}
+                                            {change.added && <RiskBadge risk={change.risk} />}
+                                        </p>
+                                        {change.hint && <p className="text-xs text-gray-500">{change.hint}</p>}
+                                    </div>
+                                    <span className={`shrink-0 text-xs font-bold ${change.added ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500'}`}>
+                                        {change.added ? 'سيُمنح' : 'سيُلغى'}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
                 ))}
             </div>
         </div>
@@ -561,8 +619,12 @@ export function PermissionChangeReview({ employee, changes }) {
 }
 
 /**
- * Keep the employee's scope visible while editing the grouped permission cards.
- * Saving always opens the complete review of individual grants.
+ * One employee's permissions: who they are and how far they are from
+ * their role's template (with a way back to it, another template, or a
+ * colleague's permissions), the sections by group with their levels and
+ * extra options, a live summary beside them, and a bar to review and
+ * save once something changed. Dangerous grants must be acknowledged in
+ * the review before they are saved.
  */
 function PermissionEditor({ employee, sections, templates, copySources, scopedToOwnBranch, onDirtyChange }) {
     const saved = employee.permissionIds;
@@ -571,12 +633,14 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
     const [query, setQuery] = useState('');
     const [mode, setMode] = useState('all');
     const [reviewing, setReviewing] = useState(false);
-    // The sensitive permission waiting on "grant it?".
-    const [pendingSensitive, setPendingSensitive] = useState(null);
+    const [acknowledged, setAcknowledged] = useState(false);
     const changes = useMemo(() => individualChanges(sections, saved, selected), [sections, saved, selected]);
+    const dangerousGrants = changes.filter((change) => change.added && change.risk === 'danger');
     const dirty = !samePermissions(saved, selected);
     const template = templates.find((item) => item.role === employee.role);
+    const deviations = template ? individualChanges(sections, template.permissionIds, selected).length : null;
     const matching = filterSections(sections, selected, saved, query, mode);
+    const searching = query.trim() !== '';
     const groups = [
         ...SECTION_GROUPS.map((group) => ({ ...group, sections: group.keys.map((key) => matching.find((section) => section.key === key)).filter(Boolean) })),
         {
@@ -596,12 +660,13 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
 
     function save() {
         if (dirty && !processing) {
+            setAcknowledged(false);
             setReviewing(true);
         }
     }
 
     function confirmSave() {
-        if (dirty && !processing) {
+        if (dirty && !processing && (dangerousGrants.length === 0 || acknowledged)) {
             put('/settings/permissions', { preserveScroll: true, onSuccess: () => setReviewing(false), onError: () => setReviewing(false) });
         }
     }
@@ -629,7 +694,7 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
         function onKeyDown(event) {
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
                 event.preventDefault();
-                if (!reviewing && !pendingSensitive) {
+                if (!reviewing) {
                     save();
                 }
             }
@@ -640,240 +705,239 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
     });
 
     return (
-        <section className="rise-in rounded-card border border-gray-100 bg-surface shadow-card" aria-label={`صلاحيات ${employee.name}`}>
-            <div className="flex flex-wrap items-center gap-3.5 border-b border-gray-100 p-4 sm:p-5">
-                <EmployeeAvatar name={employee.name} size="lg" />
-                <div className="min-w-0">
-                    <h3 className="break-words text-xl font-bold text-gray-900">{employee.name}</h3>
-                    <p className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-gray-500">
-                        <span className="rounded-lg bg-gray-100 px-2 py-0.5 font-bold text-gray-700">{employee.roleLabel}</span>
-                        <span className="inline-flex items-center gap-1">
-                            <Icon name="office" className="h-4 w-4" />
-                            {employee.branchName ?? 'بلا فرع'}
-                        </span>
-                        <span className="font-display" dir="ltr">
-                            @{employee.username}
-                        </span>
-                    </p>
-                </div>
-                <div className="flex w-full flex-wrap gap-2 sm:ms-auto sm:w-auto">
-                    <MenuButton icon="shield" label="تطبيق قالب صلاحيات">
-                        {(close) =>
-                            templates.map((item) => (
-                                <MenuItem
-                                    key={item.role}
-                                    title={item.label}
-                                    subtitle={`${item.permissionIds.length} صلاحية${item.role === employee.role ? ' · الدور الحالي' : ''}`}
-                                    trailing={item.role === employee.role && <Icon name="check" className="h-4 w-4 text-gray-500" />}
-                                    onSelect={() => {
-                                        setSelected([...item.permissionIds]);
-                                        close();
-                                    }}
-                                />
-                            ))
-                        }
-                    </MenuButton>
-                    <MenuButton icon="users" label="نسخ من موظف">
-                        {(close) =>
-                            copySources.length === 0 ? (
-                                <p className="px-3 py-4 text-center text-sm text-gray-500">لا يوجد موظفون آخرون في هذه الصفحة.</p>
-                            ) : (
-                                copySources.map((user) => (
-                                    <MenuItem
-                                        key={user.id}
-                                        leading={<EmployeeAvatar name={user.name} size="sm" />}
-                                        title={user.name}
-                                        subtitle={`${user.roleLabel} · ${user.branchName ?? 'بلا فرع'}`}
-                                        trailing={<span className="font-display text-xs font-semibold text-gray-500">{user.permissionIds.length}</span>}
-                                        onSelect={() => {
-                                            setSelected([...user.permissionIds]);
-                                            close();
-                                        }}
-                                    />
-                                ))
-                            )
-                        }
-                    </MenuButton>
-                </div>
-            </div>
-
-            <PermissionSummary employee={employee} sections={sections} selected={selected} template={template} scopedToOwnBranch={scopedToOwnBranch} />
-
-            <div className="flex flex-wrap items-center gap-3 px-4 pb-1 pt-4 sm:px-5">
-                <div className="relative w-full sm:max-w-xs">
-                    <Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" />
-                    <input
-                        type="search"
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                        placeholder="ابحث عن صلاحية..."
-                        aria-label="ابحث عن صلاحية"
-                        className="block w-full py-2 ps-10 text-sm"
-                    />
-                </div>
-                <p className="hidden items-center gap-3 text-xs text-gray-500 md:ms-auto md:flex">
-                    <span>كل مستوى يشمل ما قبله</span>
-                    <span className="inline-flex items-center gap-1.5">
-                        <i className="h-2.5 w-2.5 rounded-sm bg-blue-600" />
-                        عرض
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                        <i className="h-2.5 w-2.5 rounded-sm bg-amber-600" />
-                        إضافة
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                        <i className="h-2.5 w-2.5 rounded-sm bg-brand-600" />
-                        أعلى مستوى
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                        <Icon name="warning" className="h-3.5 w-3.5 text-amber-600" />
-                        حساسة
-                    </span>
-                </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 px-4 pb-1 pt-3 sm:px-5" role="group" aria-label="تصفية الصلاحيات">
-                {[
-                    ['all', 'الكل'], ['enabled', 'المفعّلة'], ['sensitive', 'الصلاحيات الخاصة'], ['changed', 'التغييرات'],
-                ].map(([value, label]) => (
-                    <button key={value} type="button" onClick={() => setMode(value)} aria-pressed={mode === value}
-                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${mode === value ? 'border-brand-600 bg-brand-600 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                        {label} <span className="ms-1 font-display">{filterSections(sections, selected, saved, '', value).length}</span>
-                    </button>
-                ))}
-                <span className="text-xs text-gray-500 sm:ms-auto">{matching.length} من {sections.length} أقسام · التصفية لا تغيّر الصلاحيات</span>
-            </div>
-
-            {groups.length === 0 ? (
-                <div className="px-5 py-10 text-center text-sm text-gray-500">
-                    <p>لا توجد صلاحيات تطابق البحث أو التصفية.</p>
-                    <button type="button" onClick={() => { setQuery(''); setMode('all'); }} className="mt-2 font-semibold text-brand-600">عرض كل الصلاحيات</button>
-                </div>
-            ) : (
-                groups.map((group) => (
-                    <div key={group.title} className="px-4 pt-2 sm:px-5">
-                        <div className="mb-2 mt-3 flex items-center gap-2.5">
-                            <h4 className="font-bold text-gray-900">{group.title}</h4>
-                            {group.hint && <span className="hidden text-xs text-gray-500 sm:inline">{group.hint}</span>}
-                            <span className="h-px flex-1 bg-gray-100" />
-                            <button
-                                type="button"
-                                onClick={() => setGroup(group, false)}
-                                className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-                            >
-                                إلغاء المجموعة
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setGroup(group, true)}
-                                className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-                            >
-                                عرض فقط للمجموعة
-                            </button>
+        <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]">
+            <section className="rise-in min-w-0 rounded-card border border-gray-100 bg-surface shadow-card" aria-label={`صلاحيات ${employee.name}`}>
+                <div className="space-y-4 border-b border-gray-100 p-4 sm:p-5">
+                    <div className="flex flex-wrap items-center gap-3.5">
+                        <EmployeeAvatar name={employee.name} size="lg" />
+                        <div className="min-w-0">
+                            <h3 className="break-words text-xl font-bold text-gray-900">{employee.name}</h3>
+                            <p className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-gray-500">
+                                <span className="rounded-lg bg-gray-100 px-2 py-0.5 font-bold text-gray-700">{employee.roleLabel}</span>
+                                <span className="inline-flex items-center gap-1">
+                                    <Icon name="office" className="h-4 w-4" />
+                                    {employee.branchName ?? 'بلا فرع'}
+                                </span>
+                                <span className="font-display" dir="ltr">
+                                    @{employee.username}
+                                </span>
+                            </p>
                         </div>
-                        <div className="space-y-2">
-                            {group.sections.map((section) => (
-                                <SectionRow
-                                    key={section.key}
-                                    section={section}
-                                    selected={selected}
-                                    saved={saved}
-                                    onChange={setSelected}
-                                    onSensitive={(item) => setPendingSensitive(item)}
+                        <div className="flex w-full flex-wrap gap-2 sm:ms-auto sm:w-auto">
+                            <MenuButton icon="shield" label="تطبيق قالب">
+                                {(close) =>
+                                    templates.map((item) => (
+                                        <MenuItem
+                                            key={item.role}
+                                            title={item.label}
+                                            subtitle={`${item.permissionIds.length} صلاحية${item.role === employee.role ? ' · الدور الحالي' : ''}`}
+                                            trailing={item.role === employee.role && <Icon name="check" className="h-4 w-4 text-gray-500" />}
+                                            onSelect={() => {
+                                                setSelected([...item.permissionIds]);
+                                                close();
+                                            }}
+                                        />
+                                    ))
+                                }
+                            </MenuButton>
+                            <MenuButton icon="users" label="نسخ من موظف">
+                                {(close) =>
+                                    copySources.length === 0 ? (
+                                        <p className="px-3 py-4 text-center text-sm text-gray-500">لا يوجد موظفون آخرون في هذه الصفحة.</p>
+                                    ) : (
+                                        copySources.map((user) => (
+                                            <MenuItem
+                                                key={user.id}
+                                                leading={<EmployeeAvatar name={user.name} size="sm" />}
+                                                title={user.name}
+                                                subtitle={`${user.roleLabel} · ${user.branchName ?? 'بلا فرع'}`}
+                                                trailing={<span className="font-display text-xs font-semibold text-gray-500">{user.permissionIds.length}</span>}
+                                                onSelect={() => {
+                                                    setSelected([...user.permissionIds]);
+                                                    close();
+                                                }}
+                                            />
+                                        ))
+                                    )
+                                }
+                            </MenuButton>
+                        </div>
+                    </div>
+
+                    {template && (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-control border border-gray-100 bg-gray-50 px-3.5 py-2.5 text-sm">
+                            <Icon name="shield" className="h-[18px] w-[18px] text-gray-400" />
+                            {deviations === 0 ? (
+                                <span className="text-gray-600">
+                                    مطابق تمامًا لقالب <b className="text-gray-900">«{template.label}»</b>
+                                </span>
+                            ) : (
+                                <span className="text-gray-600">
+                                    مخصّص: <b className="font-display text-blue-700 dark:text-blue-400">{deviations}</b> {deviations === 1 ? 'اختلاف' : 'اختلافات'} عن قالب{' '}
+                                    <b className="text-gray-900">«{template.label}»</b>
+                                </span>
+                            )}
+                            {deviations > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSelected([...template.permissionIds])}
                                     disabled={processing}
-                                />
+                                    className="ms-auto rounded font-semibold text-brand-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
+                                >
+                                    إعادة إلى القالب
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="table-controls flex flex-wrap items-center gap-2">
+                        <div className="relative w-full sm:max-w-xs">
+                            <Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" />
+                            <input
+                                type="search"
+                                value={query}
+                                onChange={(event) => setQuery(event.target.value)}
+                                placeholder="ابحث بكلمة: دفعة، خصم، حذف..."
+                                aria-label="ابحث عن صلاحية"
+                                className="block w-full py-2 ps-10 text-sm"
+                            />
+                        </div>
+                        <div className="flex flex-wrap gap-1.5" role="group" aria-label="تصفية الأقسام">
+                            {[
+                                ['all', 'الكل'], ['enabled', 'المفعّلة'], ['sensitive', 'فيها صلاحيات خاصة'], ['changed', 'المعدّلة'],
+                            ].map(([value, label]) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => setMode(value)}
+                                    aria-pressed={mode === value}
+                                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${
+                                        mode === value ? 'border-gray-900 bg-gray-900 text-surface' : 'border-gray-200 text-gray-600 hover:border-brand-500/40 hover:text-gray-900'
+                                    }`}
+                                >
+                                    {label} <span className="ms-0.5 font-display opacity-70">{filterSections(sections, selected, saved, '', value).length}</span>
+                                </button>
                             ))}
                         </div>
                     </div>
-                ))
-            )}
+                </div>
 
-            <div className="m-4 flex items-start gap-2.5 rounded-control border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600 sm:m-5">
-                <Icon name="info" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-gray-400" />
-                <p>
-                    <b className="text-gray-900">ملاحظة: </b>
-                    {scopedToOwnBranch
-                        ? 'تظهر هنا الصلاحيات التي تملكها فقط، وتمنحها لموظفي فرعك. صلاحيات الفروع والمحافظات والمناطق يمنحها مدير النظام.'
-                        : 'مدير النظام يملك جميع الصلاحيات تلقائيًا. مدير الفرع يدير صلاحيات موظفي فرعه فقط، ويمنحهم مما يملكه هو.'}
-                </p>
+                {groups.length === 0 ? (
+                    <div className="px-5 py-10 text-center text-sm text-gray-500">
+                        <p>لا توجد صلاحيات تطابق البحث أو التصفية.</p>
+                        <button type="button" onClick={() => { setQuery(''); setMode('all'); }} className="mt-2 font-semibold text-brand-600">
+                            عرض كل الصلاحيات
+                        </button>
+                    </div>
+                ) : (
+                    groups.map((group) => (
+                        <div key={group.title} className="px-4 pt-2 sm:px-5">
+                            <div className="mb-2 mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                                <h4 className="font-bold text-gray-900">{group.title}</h4>
+                                {group.hint && <span className="hidden text-xs text-gray-500 sm:inline">{group.hint}</span>}
+                                <span className="h-px flex-1 bg-gray-100" />
+                                <button type="button" onClick={() => setGroup(group, true)} disabled={processing} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
+                                    عرض فقط للمجموعة
+                                </button>
+                                <button type="button" onClick={() => setGroup(group, false)} disabled={processing} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
+                                    إلغاء المجموعة
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {group.sections.map((section) => (
+                                    <SectionRow
+                                        key={section.key}
+                                        section={section}
+                                        selected={selected}
+                                        saved={saved}
+                                        onChange={setSelected}
+                                        disabled={processing}
+                                        forceOpen={searching}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    ))
+                )}
+
+                <div className="m-4 flex items-start gap-2.5 rounded-control border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600 sm:m-5">
+                    <Icon name="info" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-gray-400" />
+                    <p>
+                        كل مستوى يشمل ما قبله، والخيارات الإضافية مستقلة عنه.{' '}
+                        {scopedToOwnBranch
+                            ? 'تظهر هنا الصلاحيات التي تملكها فقط، وتمنحها لموظفي فرعك؛ صلاحيات الفروع والمحافظات والمناطق يمنحها مدير النظام.'
+                            : 'مدير النظام يملك جميع الصلاحيات تلقائيًا، ومدير الفرع يدير صلاحيات موظفي فرعه مما يملكه هو.'}
+                    </p>
+                </div>
+            </section>
+
+            <div className="2xl:sticky 2xl:top-24">
+                <PermissionSummary employee={employee} sections={sections} selected={selected} template={template} scopedToOwnBranch={scopedToOwnBranch} />
             </div>
 
+            {/* Room at the end of the page, so the bar never hides the last section. */}
+            {dirty && <div className="h-20 2xl:col-span-2" aria-hidden="true" />}
+
             <div
-                className={`sticky bottom-0 z-10 flex flex-wrap items-center gap-3 rounded-b-card border-t px-4 py-3 backdrop-blur sm:px-5 ${
-                    dirty ? 'border-amber-500/30 bg-surface/95' : 'border-gray-100 bg-surface/90'
+                role="region"
+                aria-label="تغييرات لم تُحفظ"
+                className={`fixed inset-x-0 bottom-4 z-30 mx-auto flex w-[calc(100%-2rem)] max-w-3xl flex-wrap items-center gap-3 rounded-2xl bg-graphite-gradient px-4 py-3 text-white shadow-lift ring-1 ring-white/10 transition duration-200 ${
+                    dirty ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-6 opacity-0'
                 }`}
+                aria-hidden={!dirty}
             >
-                {Object.keys(errors).length > 0 && <p className="w-full text-sm font-semibold text-brand-600" role="alert">تعذّر حفظ الصلاحيات: {Object.values(errors)[0]}</p>}
-                <span className={`flex items-center gap-2 text-sm ${dirty ? 'font-semibold text-gray-900' : 'text-gray-500'}`} role="status">
-                    {dirty ? (
-                        <>
-                            <b className="rounded-md bg-amber-600 px-2 font-display text-xs text-white">{changes.length}</b>
-                            تغييرات لم تُحفظ
-                        </>
-                    ) : (
-                        <>
-                            <Icon name="check" className="h-4 w-4" strokeWidth={2} />
-                            كل التغييرات محفوظة
-                        </>
-                    )}
-                </span>
-                {dirty && (
-                    <div className="hidden max-w-xl flex-wrap gap-1.5 md:flex">
-                        {changes.slice(0, 4).map((change) => (
-                            <span
-                                key={change.text}
-                                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                    change.added ? 'bg-brand-500/10 text-brand-600' : 'bg-gray-100 text-gray-700'
-                                }`}
-                            >
-                                {change.added ? '+' : '−'} {change.text}
-                            </span>
-                        ))}
-                        {changes.length > 4 && (
-                            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-500">+{changes.length - 4}</span>
-                        )}
-                    </div>
+                {Object.keys(errors).length > 0 && (
+                    <p className="w-full text-sm font-semibold text-red-300" role="alert">
+                        تعذّر حفظ الصلاحيات: {Object.values(errors)[0]}
+                    </p>
                 )}
-                <div className="ms-auto flex items-center gap-2">
-                    <SecondaryButton onClick={() => setSelected([...saved])} disabled={processing || !dirty}>
-                        <Icon name="undo" className="h-4 w-4" />
-                        تراجع
-                    </SecondaryButton>
-                    <PrimaryButton type="button" onClick={save} disabled={processing || !dirty} title="Ctrl + S">
-                        <Icon name="check" className="h-4 w-4" strokeWidth={2} />
-                        {processing ? 'جارٍ الحفظ...' : 'مراجعة وحفظ الصلاحيات'}
-                    </PrimaryButton>
-                </div>
+                <p className="flex flex-1 items-center gap-2 text-sm" role="status">
+                    <span className="flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-white px-2 font-display text-sm font-bold text-gray-900">{changes.length}</span>
+                    {changes.length === 1 ? 'تغيير لم يُحفظ' : 'تغييرات لم تُحفظ'} لـ {employee.name}
+                </p>
+                <button
+                    type="button"
+                    onClick={() => setSelected([...saved])}
+                    disabled={processing || !dirty}
+                    className="inline-flex items-center gap-1.5 rounded-control bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:opacity-40"
+                >
+                    <Icon name="undo" className="h-4 w-4" />
+                    تراجع
+                </button>
+                <PrimaryButton type="button" onClick={save} disabled={processing || !dirty} title="Ctrl + S">
+                    <Icon name="check" className="h-4 w-4" strokeWidth={2} />
+                    {processing ? 'جارٍ الحفظ...' : 'مراجعة وحفظ'}
+                </PrimaryButton>
             </div>
 
             <Modal show={reviewing} onClose={() => { if (!processing) { setReviewing(false); } }} maxWidth="2xl" centered>
                 <div role="dialog" aria-modal="true" aria-labelledby={`permission-review-${employee.id}`} dir="rtl">
                     <div className="px-5 pb-4 pt-6 sm:px-7">
                         <h3 id={`permission-review-${employee.id}`} className="text-lg font-bold text-gray-900">مراجعة تغييرات الصلاحيات</h3>
-                        <p className="mt-1 text-sm text-gray-500">منح {changes.filter((item) => item.added).length} · إلغاء {changes.filter((item) => !item.added).length}</p>
+                        <p className="mt-1 text-sm text-gray-500">
+                            {changes.filter((item) => item.added).length} تُمنح · {changes.filter((item) => !item.added).length} تُلغى
+                        </p>
                     </div>
                     <PermissionChangeReview employee={employee} changes={changes} />
+                    {dangerousGrants.length > 0 && (
+                        <label className="mx-5 mb-5 flex cursor-pointer items-start gap-2.5 rounded-control bg-red-500/[0.07] px-3.5 py-3 text-sm text-red-800 dark:text-red-300 sm:mx-7">
+                            <input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} className="mt-0.5 rounded border-gray-300 text-brand-600" />
+                            <span>
+                                يحصل {employee.name.split(' ')[0]} على صلاحيات خطيرة: <b>{dangerousGrants.map((item) => item.label).join('، ')}</b>. أؤكد أنه يحتاجها لعمله.
+                            </span>
+                        </label>
+                    )}
                     <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:px-7">
-                        <SecondaryButton onClick={() => setReviewing(false)} disabled={processing} autoFocus>العودة للتعديل</SecondaryButton>
-                        <PrimaryButton type="button" onClick={confirmSave} disabled={processing || !dirty}>{processing ? 'جارٍ الحفظ...' : 'تأكيد وحفظ الصلاحيات'}</PrimaryButton>
+                        <SecondaryButton onClick={() => setReviewing(false)} disabled={processing} autoFocus>
+                            العودة للتعديل
+                        </SecondaryButton>
+                        <PrimaryButton type="button" onClick={confirmSave} disabled={processing || !dirty || (dangerousGrants.length > 0 && !acknowledged)}>
+                            {processing ? 'جارٍ الحفظ...' : 'تأكيد وحفظ الصلاحيات'}
+                        </PrimaryButton>
                     </div>
                 </div>
             </Modal>
-
-            <ConfirmDialog
-                show={Boolean(pendingSensitive)}
-                onConfirm={() => {
-                    setSelected(withToggled(selected, pendingSensitive.id, true));
-                    setPendingSensitive(null);
-                }}
-                onCancel={() => setPendingSensitive(null)}
-                title="صلاحية حساسة"
-                message={`«${pendingSensitive?.label ?? ''}»: ${pendingSensitive?.hint ?? ''}. هل تريد منحها لـ ${employee.name}؟ ستراجع التغييرات كاملة قبل حفظها.`}
-                confirmLabel="نعم، فعّلها"
-                cancelLabel="إلغاء"
-                icon="warning"
-            />
-        </section>
+        </div>
     );
 }
 
@@ -962,7 +1026,7 @@ export default function Permissions({ users, selectedUser, permissionGroups, rol
         >
             <Head title="الصلاحيات" />
 
-            <div className="grid items-start gap-5 lg:grid-cols-[330px_minmax(0,1fr)]">
+            <div className="grid items-start gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
                 <EmployeeList
                     users={users}
                     selectedId={selectedUser?.id}

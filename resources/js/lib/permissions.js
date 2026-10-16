@@ -23,33 +23,80 @@ const LADDERS = {
 const NO_LADDER = ['reports'];
 
 /**
- * The permissions set apart as their own switches, keyed by action or by
- * `section.action`. `danger` ones ask before they are turned on.
+ * The permissions set apart from the levels, keyed by action or by
+ * `section.action`, each with how much care it takes: `sensitive` ones
+ * touch balances or people's data, `danger` ones change money or the
+ * service outright and must be acknowledged before they are saved.
  */
 export const SENSITIVE = {
-    delete: { label: 'الحذف', hint: 'يحذف ما لا يرتبط به شيء — تُمنح بحذر', danger: true },
-    minimum_charge: { label: 'تعديل الحد الأدنى للدفع', hint: 'صلاحية خاصة', danger: false },
-    kilowatt_price: { label: 'تعديل سعر الكيلو للمشترك', hint: 'يعطي المشترك سعر كيلو خاصًا به بدل سعر تعرفته، أعلى منه أو أقل', danger: true },
-    approve: { label: 'اعتماد القراءات', hint: 'تُضاف مبالغها إلى حسابات المشتركين', danger: true },
-    confirm: { label: 'تأكيد التحصيل', hint: 'تُمنح بحذر', danger: true },
-    'collections.charge': { label: 'إضافة تحميل', hint: 'غرامة أو رسوم تُضاف على حساب المشترك', danger: true },
-    'collections.discount': { label: 'إضافة خصم', hint: 'خصم مرة واحدة، أو خصم دائم على القراءات الأسبوعية وإيقافه', danger: true },
-    'collections.clearing': { label: 'إضافة مقاصة', hint: 'تسوية رصيد المشترك بقيد مقاصة', danger: true },
-    correct: { label: 'تعديل مبلغ الحركة', hint: 'تصحيح مبلغ تحميل أو دفعة من مسار التصحيح، مع حفظ السبب والأثر المالي', danger: true },
-    'meter_readings.correct': { label: 'تصحيح القراءة الأسبوعية', hint: 'يعدّل قراءة الأسبوع المتاح؛ القراءة المعتمدة تعود للاعتماد', danger: true },
-    'meter_readings.correct_last': { label: 'تعديل القراءة السابقة واعتمادها', hint: 'يعدّل قراءة الأسبوع السابق من خانة «القراءة السابقة» وتُحسب قراءة هذا الأسبوع منها؛ بعد التأكيد تُعتمد المعتمدة منهما مباشرة', danger: true },
-    'subscriptions.bulk_update': { label: 'تعديل المشتركين جماعيًا', hint: 'تعديل الحالة أو الحد الأدنى لمجموعة، مع صلاحية تعديل الحقل نفسه', danger: true },
-    'collections.amend': { label: 'تعديل بيانات الدفعة', hint: 'تعديل البنك والمرسل والملاحظات؛ لا يغيّر المبلغ أو رقم المرجع', danger: true },
-    'collections.close_boxes': { label: 'إغلاق صناديق المحصّلين', hint: 'يغلق صناديق محصّلي الفرع ويعدّها ويستلمها؛ لا يستلم صناديقه بنفسه', danger: true },
-    'collections.refund': { label: 'ردّ الدفعة', hint: 'يردّ المبلغ بقيد مرتبط؛ تبقى الدفعة وسجل الردّ ظاهرين', danger: true },
-    'collections.delete': { label: 'إلغاء الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف', danger: true },
-    'collections.force_delete': { label: 'الحذف النهائي للحركة', hint: 'يحذف الحركة المؤهلة أو سلسلة إلغائها من الكشف، مع الاحتفاظ بسجل تدقيق؛ لا يحذف القراءة', danger: true },
-    'disconnections.warn': { label: 'إرسال إنذارات القطع', hint: 'يرسل رسائل للمشتركين ويرى أرقام هواتفهم', danger: true },
-    'disconnections.execute': { label: 'تأكيد تنفيذ القطع', hint: 'يفصل خدمة المشترك ويحمّل عليه رسوم قطع الخدمة', danger: true },
-    'disconnections.change_fee': { label: 'تغيير رسوم القطع عند التأكيد', hint: 'يغيّر رسوم قطع الخدمة لأي مشترك عند تأكيد قطعه أو يعفيه منها؛ بدونها تُحمَّل الرسوم المعتادة', danger: true },
-    'reading_assignments.approve': { label: 'اعتماد توزيع القراءات', hint: 'يجعل الطبلونات متاحة للقرّاء لتنزيلها', danger: true },
-    'reading_assignments.review': { label: 'مراجعة القراءات الميدانية', hint: 'يقبل أو يرفض القراءات التي وصلت خارج يوم القراءة أو مع تعارض', danger: true },
-    'reports.export': { label: 'تنزيل التقارير المالية', hint: 'تنزيل CSV للتقارير التي يملك عرضها فقط', danger: false },
+    delete: { label: 'الحذف', hint: 'يحذف ما لا يرتبط به شيء', risk: 'danger' },
+    minimum_charge: { label: 'تعديل الحد الأدنى للدفع', hint: 'يغيّر الحد الأدنى الأسبوعي لمشترك', risk: 'sensitive' },
+    kilowatt_price: { label: 'تعديل سعر الكيلو للمشترك', hint: 'يعطي المشترك سعرًا غير سعر تعرفته، أعلى أو أقل', risk: 'danger' },
+    approve: { label: 'اعتماد القراءات', hint: 'تُضاف مبالغها إلى حسابات المشتركين', risk: 'danger' },
+    confirm: { label: 'تأكيد التحصيل', hint: 'يؤكد استلام المبالغ من المحصّلين', risk: 'danger' },
+    'collections.charge': { label: 'إضافة تحميل', hint: 'غرامة أو رسوم تُضاف على حساب المشترك', risk: 'sensitive' },
+    'collections.discount': { label: 'إضافة خصم', hint: 'خصم مرة واحدة، أو خصم دائم على القراءات الأسبوعية وإيقافه', risk: 'sensitive' },
+    'collections.clearing': { label: 'إضافة مقاصة', hint: 'تسوية رصيد المشترك بقيد مقاصة', risk: 'sensitive' },
+    correct: { label: 'تعديل مبلغ الحركة', hint: 'تصحيح مبلغ تحميل أو دفعة، مع حفظ السبب والأثر المالي', risk: 'danger' },
+    'meter_readings.correct': { label: 'تصحيح القراءة الأسبوعية', hint: 'يعدّل قراءة الأسبوع المتاح؛ المعتمدة تعود للاعتماد', risk: 'sensitive' },
+    'meter_readings.correct_last': { label: 'تعديل القراءة السابقة واعتمادها', hint: 'من خانة «القراءة السابقة»؛ بعد التأكيد تُعتمد المعتمدة منهما مباشرة', risk: 'sensitive' },
+    'subscriptions.bulk_update': { label: 'تعديل المشتركين جماعيًا', hint: 'الحالة أو الحد الأدنى لمجموعة، مع صلاحية تعديل الحقل نفسه', risk: 'sensitive' },
+    'collections.amend': { label: 'تعديل بيانات الدفعة', hint: 'البنك والمرسل والملاحظات؛ لا يغيّر المبلغ أو رقم المرجع', risk: 'sensitive' },
+    'collections.close_boxes': { label: 'إغلاق صناديق المحصّلين', hint: 'يغلق صناديق محصّلي الفرع ويعدّها ويستلمها؛ لا صناديقه هو', risk: 'sensitive' },
+    'collections.refund': { label: 'ردّ الدفعة', hint: 'يردّ المبلغ بقيد مرتبط؛ تبقى الدفعة وسجل الردّ ظاهرين', risk: 'danger' },
+    'collections.delete': { label: 'إلغاء الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف', risk: 'danger' },
+    'collections.force_delete': { label: 'الحذف النهائي للحركة', hint: 'يحذفها من الكشف مع الاحتفاظ بسجل تدقيق؛ لا يحذف القراءة', risk: 'danger' },
+    'disconnections.warn': { label: 'إرسال إنذارات القطع', hint: 'يرسل رسائل للمشتركين ويرى أرقام هواتفهم', risk: 'sensitive' },
+    'disconnections.execute': { label: 'تأكيد تنفيذ القطع', hint: 'يفصل خدمة المشترك ويحمّل عليه رسوم قطع الخدمة', risk: 'danger' },
+    'disconnections.change_fee': { label: 'تغيير رسوم القطع عند التأكيد', hint: 'يغيّر رسوم القطع لأي مشترك أو يعفيه منها', risk: 'danger' },
+    'reading_assignments.approve': { label: 'اعتماد توزيع القراءات', hint: 'يجعل الطبلونات متاحة للقرّاء لتنزيلها', risk: 'sensitive' },
+    'reading_assignments.review': { label: 'مراجعة القراءات الميدانية', hint: 'يقبل أو يرفض ما وصل خارج يوم القراءة أو مع تعارض', risk: 'sensitive' },
+    'reports.export': { label: 'تنزيل التقارير المالية', hint: 'تنزيل CSV للتقارير التي يملك عرضها فقط', risk: 'sensitive' },
+};
+
+/** The risk labels the editor shows beside a permission. */
+export const RISK_LABELS = { sensitive: 'حساس', danger: 'خطير' };
+
+/**
+ * A section's extra options (everything off its levels) in small groups
+ * of related work, in order; anything not named falls in a last group.
+ */
+const EXTRA_GROUPS = {
+    subscriptions: [['تعديلات خاصة', ['minimum_charge', 'kilowatt_price', 'bulk_update']], ['الحذف', ['delete']]],
+    meter_readings: [['العمل على القراءات', ['browse_weeks', 'correct', 'correct_last']], ['الاعتماد', ['approve']]],
+    collections: [
+        ['طرق الدفع المسموحة', ['record_cash', 'record_transfer']],
+        ['حركات على الرصيد', ['charge', 'discount', 'clearing']],
+        ['تصحيح الحركات', ['amend', 'correct', 'refund', 'delete', 'force_delete']],
+        ['الصناديق', ['close_boxes', 'confirm']],
+    ],
+    reading_assignments: [['الطباعة', ['print_sheets']], ['الاعتماد والمراجعة', ['approve', 'review']]],
+    disconnections: [['التنفيذ', ['warn', 'execute', 'change_fee']]],
+    reports: [['التقارير', ['view', 'view_all', 'branch_performance', 'debt_aging', 'transaction_audit']], ['التنزيل', ['export']]],
+};
+
+/**
+ * The level an extra option needs first, as the action on its section's
+ * ladder (`section.action`, or any section's `delete`). Without it the
+ * option is offered off; lowering the level below it takes it away.
+ */
+const NEEDS = {
+    'subscriptions.minimum_charge': 'update',
+    'subscriptions.kilowatt_price': 'update',
+    'subscriptions.bulk_update': 'update',
+    'meter_readings.browse_weeks': 'view',
+    'meter_readings.correct': 'record',
+    'meter_readings.correct_last': 'record',
+    'meter_readings.approve': 'view',
+    'collections.record_cash': 'record',
+    'collections.record_transfer': 'record',
+    'disconnections.warn': 'view',
+    'disconnections.execute': 'manage',
+    'disconnections.change_fee': 'manage',
+    'reading_assignments.print_sheets': 'view',
+    'reading_assignments.approve': 'view',
+    'reading_assignments.review': 'view',
+    delete: 'view',
 };
 
 /** The everyday actions shown as switches (a section without a ladder, or one cut short). */
@@ -137,8 +184,63 @@ export function sectionModel(group) {
             })),
         sensitive: offLadder
             .filter((entry) => sensitiveOf(group.key, entry.action))
-            .map((entry) => ({ id: entry.permission.id, action: entry.action, ...sensitiveOf(group.key, entry.action) })),
+            .map((entry) => {
+                const details = sensitiveOf(group.key, entry.action);
+
+                return { id: entry.permission.id, action: entry.action, ...details, danger: details.risk === 'danger' };
+            }),
     };
+}
+
+/**
+ * The level (1, 2…) on the section's ladder an extra option needs first,
+ * or 0 when it needs none (or that level isn't one the actor may grant).
+ */
+export function neededLevel(section, action) {
+    const need = NEEDS[`${section.key}.${action}`] ?? NEEDS[action];
+    const index = need ? (section.ladder?.actions.indexOf(need) ?? -1) : -1;
+
+    return index + 1;
+}
+
+/**
+ * A section's extra options — its switches and special permissions — in
+ * groups of related work: `[{ title, items: [{ id, action, label, hint, risk, needs }] }]`,
+ * `risk` being null, 'sensitive' or 'danger' and `needs` the level they need first.
+ */
+export function sectionExtras(section) {
+    const items = [
+        ...section.switches.map((item) => ({ ...item, risk: null })),
+        ...section.sensitive.map((item) => ({ ...item, risk: item.risk ?? (item.danger ? 'danger' : 'sensitive') })),
+    ].map((item) => ({ ...item, needs: neededLevel(section, item.action) }));
+    const groups = (EXTRA_GROUPS[section.key] ?? [])
+        .map(([title, actions]) => ({ title, items: actions.map((action) => items.find((item) => item.action === action)).filter(Boolean) }))
+        .filter((group) => group.items.length > 0);
+    const placed = new Set(groups.flatMap((group) => group.items.map((item) => item.action)));
+    const rest = items.filter((item) => !placed.has(item.action));
+
+    return rest.length ? [...groups, { title: groups.length ? 'خيارات أخرى' : 'خيارات إضافية', items: rest }] : groups;
+}
+
+/**
+ * What the selected permissions let someone do in a section, as one line:
+ * its level's sentence, or for a section without levels the options held.
+ */
+export function sectionSentence(section, selectedIds) {
+    if (section.ladder) {
+        const level = levelOf(section.ladder, selectedIds);
+
+        if (level !== null) {
+            return section.ladder.long[level];
+        }
+
+        // Off the ladder (say, adding payments without viewing the log): name exactly what is held.
+        return section.ladder.labels.filter((label, index) => selectedIds.includes(section.ladder.ids[index])).join('، ');
+    }
+
+    const held = sectionExtras(section).flatMap((group) => group.items).filter((item) => selectedIds.includes(item.id));
+
+    return held.length ? held.map((item) => item.label).join('، ') : 'لا يملك شيئًا في هذا القسم';
 }
 
 /** Every permission id a section governs. */
@@ -151,8 +253,8 @@ export function permissionEntries(sections) {
     return sections.flatMap((section) => [
         ...(section.ladder?.ids ?? []).map((id, index) => ({ id, action: section.ladder.actions[index], label: section.ladder.labels[index], sensitive: false })),
         ...section.switches.map((item) => ({ ...item, sensitive: false })),
-        ...section.sensitive.map((item) => ({ ...item, sensitive: true })),
-    ].map((item) => ({ ...item, section: section.label, sectionKey: section.key })));
+        ...section.sensitive.map((item) => ({ ...item, sensitive: true, risk: item.risk ?? (item.danger ? 'danger' : 'sensitive') })),
+    ].map((item) => ({ risk: null, ...item, section: section.label, sectionKey: section.key })));
 }
 
 /** Each actual grant added or removed; a swap always produces both changes. */
@@ -220,12 +322,15 @@ export function withLevel(ladder, selectedIds, level) {
 }
 
 /**
- * The selected permissions with a section's ladder set to `level`. The
- * ways to be paid go with «إضافة دفعة»: reaching it turns them all on when
- * none is, and dropping below it turns them off.
+ * The selected permissions with a section's ladder set to `level`. An
+ * option that needs a higher level goes; the ways to be paid go with
+ * «إضافة دفعة»: reaching it turns them all on when none is, and dropping
+ * below it turns them off.
  */
 export function withSectionLevel(section, selectedIds, level) {
-    const next = withLevel(section.ladder, selectedIds, level);
+    // Options that need a level above the new one go with it.
+    const tooHigh = sectionExtras(section).flatMap((group) => group.items).filter((item) => item.needs > level).map((item) => item.id);
+    const next = withLevel(section.ladder, selectedIds, level).filter((id) => !tooHigh.includes(id));
     const recordIndex = section.ladder.actions.indexOf('record');
     const methods = section.switches.filter((item) => PAYMENT_METHOD_ACTIONS.includes(item.action)).map((item) => item.id);
 

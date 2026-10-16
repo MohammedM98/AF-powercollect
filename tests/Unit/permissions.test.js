@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { changesBetween, filterSections, individualChanges, levelOf, samePermissions, sectionIds, sectionModel, withGroupAccess, withLevel, withSectionLevel, withToggled } from '../../resources/js/lib/permissions.js';
+import { changesBetween, filterSections, individualChanges, levelOf, samePermissions, sectionExtras, sectionIds, sectionModel, sectionSentence, withGroupAccess, withLevel, withSectionLevel, withToggled } from '../../resources/js/lib/permissions.js';
 
 const entry = (action, id, label = action) => ({ action, permission: id === null ? null : { id, label } });
 
@@ -107,6 +107,31 @@ test('each way to be paid and each kind of balance line is its own permission, a
     assert.deepEqual(withSectionLevel(payments, [13], 2).sort(), [10, 11, 13]);
     // Dropped below it: the ways go too, and the other permissions stay.
     assert.deepEqual(withSectionLevel(payments, [10, 11, 12, 13, 15], 1).sort(), [10, 15]);
+});
+
+test('extra options come in groups of related work, each with its risk and the level it needs', () => {
+    const payments = sectionModel({ key: 'collections', label: 'الدفعات والحركات المالية', actions: [
+        entry('view', 10), entry('record', 11), entry('record_cash', 12), entry('record_transfer', 13), entry('charge', 14), entry('refund', 15), entry('close_boxes', 16),
+    ] });
+    const extras = sectionExtras(payments);
+
+    assert.deepEqual(extras.map((group) => [group.title, group.items.map((item) => item.id)]), [
+        ['طرق الدفع المسموحة', [12, 13]], ['حركات على الرصيد', [14]], ['تصحيح الحركات', [15]], ['الصناديق', [16]],
+    ]);
+    const item = (id) => extras.flatMap((group) => group.items).find((candidate) => candidate.id === id);
+    assert.deepEqual([item(12).risk, item(12).needs], [null, 2]);
+    assert.deepEqual([item(14).risk, item(14).needs], ['sensitive', 0]);
+    assert.deepEqual([item(15).risk, item(15).needs], ['danger', 0]);
+    assert.equal(sectionSentence(payments, [10, 11]), 'يعرض السجل المالي ويضيف دفعات');
+});
+
+test('lowering a level takes away the options that need a higher one', () => {
+    const readings = sectionModel({ key: 'meter_readings', label: 'القراءات', actions: [entry('view', 10), entry('record', 11), entry('browse_weeks', 12), entry('correct', 13), entry('approve', 14)] });
+
+    // Down to «عرض»: correcting needs «تسجيل» and goes; browsing weeks and approving need only «عرض» and stay.
+    assert.deepEqual(withSectionLevel(readings, [10, 11, 12, 13, 14], 1).sort(), [10, 12, 14]);
+    // Down to nothing: every option that needs a level goes.
+    assert.deepEqual(withSectionLevel(readings, [10, 11, 12, 13, 14], 0), []);
 });
 
 test('search and filters reveal relevant actions without mutating selected grants', () => {

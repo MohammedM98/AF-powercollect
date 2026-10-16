@@ -10,6 +10,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatMoney } from '@/lib/format';
+import { periodLabel, periodRange } from '@/lib/closingPeriods';
 import { boxStatusLabels, entryStatus } from '@/lib/financialBoxes';
 import { printUrl } from '@/lib/print';
 import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from './LedgerColumns';
@@ -338,8 +339,9 @@ export function CollectorAuditNotes({ notes, onSaved }) {
                 <article key={note.id} className="space-y-3 border-t border-amber-500/15 pt-3">
                     <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
                         {note.box && <Link href={note.box.url} prefetch dir="ltr" className="font-display text-brand-600">{note.box.number}</Link>}
-                        <span>أسبوع <bdi dir="ltr">{note.periodStart}</bdi> – <bdi dir="ltr">{note.periodEnd}</bdi></span>
+                        {note.closing?.coverage_from && <span><b className="font-semibold text-gray-700">{periodLabel(note.closing)}</b> · {periodRange(note.closing)}</span>}
                     </div>
+                    {note.entry && <p className="text-xs text-gray-600"><b className="text-gray-900">{note.entry.subscriber}</b> · {note.entry.typeLabel}{note.entry.voucherNumber && <> · سند <bdi dir="ltr" className="font-display">{note.entry.voucherNumber}</bdi></>} · <bdi dir="ltr" className="font-display">{formatMoney(note.entry.amount)}</bdi> {currencies[note.entry.currency]}</p>}
                     <p className="text-sm leading-7 text-gray-800">{note.body}</p>
                     {note.question && <p className="rounded-control bg-surface p-3 text-sm leading-7 text-gray-700"><b className="text-gray-900">سؤال الفرع: </b>{note.question}</p>}
                     {note.differences && (

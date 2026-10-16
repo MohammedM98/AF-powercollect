@@ -8,7 +8,7 @@ import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
 import { boxPersonName, financialBoxesTotals, filterFinancialBoxes, sortFinancialBoxes } from '@/lib/financialBoxes';
 import BoxDetails from '../Closings/BoxDetails';
-import { periodLabel, periodRange } from '../Closings/ClosingComponents';
+import { periodLabel, periodRange } from '@/lib/closingPeriods';
 import BoxTabs from './BoxTabs';
 import StatusGuide from './StatusGuide';
 import FinancialBoxList from './FinancialBoxList';

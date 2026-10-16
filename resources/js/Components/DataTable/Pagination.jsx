@@ -27,9 +27,10 @@ function pageNumbers(current, last) {
 /**
  * "Showing 1–15 of 63" and the page switch. The current page is burgundy.
  * `pageParam` names the page in the address, for a second table on the
- * same page.
+ * same page. A table whose rows are all in the page already pages itself
+ * with `onPageChange` instead of a visit.
  */
-export default function Pagination({ meta, filters, baseUrl, extraParams = {}, pageParam = 'page' }) {
+export default function Pagination({ meta, filters, baseUrl, extraParams = {}, pageParam = 'page', onPageChange }) {
     const { current_page: current, last_page: last, from, to, total } = meta;
 
     if (total === 0) {
@@ -37,6 +38,11 @@ export default function Pagination({ meta, filters, baseUrl, extraParams = {}, p
     }
 
     function goTo(page) {
+        if (onPageChange) {
+            onPageChange(page);
+
+            return;
+        }
         router.get(baseUrl, { ...extraParams, ...filters, [pageParam]: page }, { preserveState: true, preserveScroll: true, replace: true });
     }
 

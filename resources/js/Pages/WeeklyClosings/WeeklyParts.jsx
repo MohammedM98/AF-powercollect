@@ -1,7 +1,7 @@
 import Icon from '@/Components/Icon';
 import { formatMoney } from '@/lib/format';
 import { BankMark } from '../Subscriptions/PaymentModal';
-import { branchClock, branchDate } from '../Closings/ClosingComponents';
+import { branchClock, branchDate } from '@/lib/closingPeriods';
 import { currencies } from '../Payments/CollectorCashBox';
 
 /** Each box type's colour as a bar or a dot, beside the tile colours of `boxTypeStyles`. */

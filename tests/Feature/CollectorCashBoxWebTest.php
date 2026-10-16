@@ -209,6 +209,7 @@ class CollectorCashBoxWebTest extends TestCase
         $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page
             ->has('cashBox.auditNotes', 1)
             ->where('cashBox.auditNotes.0.question', 'أين ذهب الفرق؟')
+            ->has('cashBox.auditNotes.0.closing')
             ->where('cashBox.auditNotes.0.replyUrl', route('payments.audit-notes.reply', $note)));
 
         $this->post(route('payments.audit-notes.reply', $note), ['body' => ''])->assertSessionHasErrors('body');

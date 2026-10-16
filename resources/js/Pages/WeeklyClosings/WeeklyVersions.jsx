@@ -1,6 +1,6 @@
 import Icon from '@/Components/Icon';
 import { formatMoney } from '@/lib/format';
-import { dateTime } from '../Closings/ClosingComponents';
+import { dateTime } from '@/lib/closingPeriods';
 import { amountOf, foreignLine, Shekels } from './WeeklyParts';
 
 function SectionCard({ icon, title, hint, children }) {

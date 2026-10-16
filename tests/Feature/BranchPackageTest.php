@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\CashBoxType;
 use App\Enums\ClosingStatus;
+use App\Models\AuditNote;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\CashBoxPayment;
@@ -216,12 +217,39 @@ class BranchPackageTest extends TestCase
             ->assertRedirect(route('weekly-packages.index', ['branch_id' => $branch->id, 'closing_id' => $closing->id]));
     }
 
-    public function test_the_list_of_weeks_the_closing_page_had_opens_the_weekly_closing_page(): void
+    public function test_closing_page_lists_each_week_with_where_it_stands_and_the_audit_notes_waiting_on_the_branch(): void
     {
-        [$branch, $head] = $this->start();
+        [$branch, $head, $collector, $closing] = $this->start();
+        $this->entry($branch, $collector);
+        $this->travelTo($closing->coverage_until);
+        $this->actingAs($head)->post(route('closings.actions', ['action' => 'submit', 'record' => $closing->id]), ['branch_id' => $branch->id, 'acknowledged' => true]);
+        AuditNote::factory()->create(['closing_id' => $closing->id, 'status' => 'awaiting_reply']);
+        AuditNote::factory()->create(['closing_id' => $closing->id, 'status' => 'awaiting_audit']);
 
-        $this->actingAs($head)->get(route('closings.index', ['tab' => 'history']))
-            ->assertRedirect(route('weekly-packages.index', ['branch_id' => $branch->id]));
+        $this->get(route('closings.index', ['tab' => 'history']))->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Closings/Index')
+            ->where('weeks', fn ($weeks) => ($week = collect($weeks)->firstWhere('id', $closing->id)) !== null
+                && $week['step'] === 'answered' && $week['notes'] === 2 && $week['openNotes'] === 2 && $week['waitingNotes'] === 1 && $week['boxes'] === 1 && $week['entries'] === 1));
+    }
+
+    public function test_an_audit_note_on_an_entry_says_which_entry_where_it_sits_and_who_recorded_it(): void
+    {
+        [$branch, $head, $collector, $closing] = $this->start();
+        $entry = $this->entry($branch, $collector);
+        $this->travelTo($closing->coverage_until);
+        $this->actingAs($head)->post(route('closings.actions', ['action' => 'submit', 'record' => $closing->id]), ['branch_id' => $branch->id, 'acknowledged' => true]);
+        AuditNote::factory()->create(['closing_id' => $closing->id, 'cash_box_id' => $entry->cash_box_id, 'cash_box_payment_id' => $entry->id]);
+        AuditNote::factory()->create(['closing_id' => $closing->id, 'cash_box_id' => $entry->cash_box_id]);
+
+        $this->get(route('closings.index'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('notes.1.entry.subscriber', $entry->transaction->subscription->displayName())
+            ->where('notes.1.entry.ledger.voucherNumber', $entry->transaction->displayVoucherNumber())
+            ->where('notes.1.entry.ledger.recordedByName', $collector->name)
+            ->where('notes.1.box.number', $entry->box->number)
+            ->where('notes.1.box.person', $collector->name)
+            ->where('notes.1.box.url', route('payments.cash-boxes', ['branch_id' => $branch->id, 'box' => $entry->cash_box_id]))
+            ->where('notes.0.entry', null)
+            ->where('notes.0.box.number', $entry->box->number));
     }
 
     public function test_closing_page_says_who_manages_the_branch_among_those_it_may_delegate_to(): void

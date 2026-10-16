@@ -6,12 +6,22 @@ import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
+import SegmentedTabs from '@/Components/SegmentedTabs';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
+import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import Pagination from '@/Components/DataTable/Pagination';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
+import RowIdentity from '@/Components/DataTable/RowIdentity';
+import { useRowClick } from '@/hooks/useRowClick';
 import { formatMoney } from '@/lib/format';
-import { branchClock, branchDate, dateTime, periodLabel, periodRange } from './ClosingComponents';
+import { boxTypeStyles } from '../Payments/CollectorCashBox';
+import { branchClock, branchDate, dateTime, periodLabel, periodRange } from '@/lib/closingPeriods';
 
 const currencies = { ILS: 'شيكل', USD: 'دولار', JOD: 'دينار' };
 const weekdays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-const TABS = [['overview', 'نظرة عامة'], ['notes', 'ملاحظات التدقيق'], ['settings', 'الإعدادات']];
+const TABS = [['overview', 'نظرة عامة'], ['closings', 'الإغلاقات'], ['settings', 'الإعدادات']];
+/** The tabs this page had before, still reached by old links: the weeks and the notes now share one tab. */
+const OLD_TABS = { current: 'overview', history: 'closings', notes: 'closings' };
 const WAITING_ON_BRANCH = ['awaiting_reply', 'rejected', 'collector_replied'];
 const noteStatuses = {
     awaiting_reply: ['بانتظار ردّك', 'amber'],
@@ -44,10 +54,14 @@ function timeLeft(milliseconds) {
 function requestedTab() {
     const requested = new URLSearchParams(window.location.search).get('tab');
 
-    return TABS.some(([key]) => key === requested) ? requested : 'overview';
+    return TABS.some(([key]) => key === requested) ? requested : (OLD_TABS[requested] ?? 'overview');
 }
 
-/** The page's tabs beside its title, as the users page draws its own; the notes tab counts what waits on the branch. */
+function requestedWeek() {
+    return Number(new URLSearchParams(window.location.search).get('week')) || null;
+}
+
+/** The page's tabs beside its title, as the users page draws its own; the closings tab counts the notes waiting on the branch. */
 function ClosingTabs({ tab, onChange, waitingNotes }) {
     return (
         <div role="tablist" aria-label="إدارة الإغلاق" className="inline-flex gap-0.5 rounded-xl border border-gray-100 bg-gray-100 p-[3px]">
@@ -61,7 +75,7 @@ function ClosingTabs({ tab, onChange, waitingNotes }) {
                     className={`inline-flex items-center gap-1.5 rounded-[9px] px-3 py-1.5 text-[13.5px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${tab === key ? 'bg-surface text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
                 >
                     {label}
-                    {key === 'notes' && waitingNotes > 0 && <span className="rounded-full bg-brand-500 px-1.5 font-display text-xs text-white">{waitingNotes}</span>}
+                    {key === 'closings' && waitingNotes > 0 && <span className="rounded-full bg-brand-500 px-1.5 font-display text-xs text-white">{waitingNotes}</span>}
                 </button>
             ))}
         </div>
@@ -184,11 +198,7 @@ function WaitingTasks({ tasks }) {
     );
 }
 
-function PersonAvatar({ name }) {
-    return <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-gray-900 text-xs font-semibold text-surface">{(name ?? '—').trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join('')}</span>;
-}
-
-/** A card of the settings and notes tabs: an icon, a title and what it is for, an action, and what it holds. */
+/** A card of the closings and settings tabs: an icon, a title and what it is for, an action, and what it holds. */
 function Panel({ icon, title, hint, action, children }) {
     return (
         <section className="rounded-panel border border-gray-100 bg-surface p-6 shadow-card">
@@ -214,61 +224,258 @@ function EmptyState({ icon, title, hint }) {
     );
 }
 
+/** Where a week stands, as its status pill says it: running, waiting to be sent, with the audit, or the audit's answer. */
+function weekStatus(week) {
+    if (week.step === 'review') {
+        return ['جارٍ', 'blue'];
+    }
+    if (week.step === 'confirm') {
+        return ['بانتظار الإرسال', 'amber'];
+    }
+    if (week.step === 'audit') {
+        return ['عند التدقيق', 'gray'];
+    }
+    if (week.waitingNotes > 0) {
+        return ['ملاحظات تنتظر ردّك', 'red'];
+    }
+    if (week.openNotes > 0) {
+        return ['ردودك عند التدقيق', 'blue'];
+    }
+
+    return week.status === 'approved' ? ['معتمد', 'green'] : week.status === 'returned' ? ['أُعيد للفرع', 'red'] : ['بملاحظات', 'amber'];
+}
+
+/** One page of rows already in the page, with what Pagination shows of it. */
+function usePagedRows(rows, perPage) {
+    const [page, setPage] = useState(1);
+    const last = Math.max(1, Math.ceil(rows.length / perPage));
+    const current = Math.min(page, last);
+    const from = rows.length ? (current - 1) * perPage + 1 : 0;
+
+    return {
+        rows: rows.slice(from ? from - 1 : 0, from ? from - 1 + perPage : 0),
+        meta: { current_page: current, last_page: last, from, to: Math.min(current * perPage, rows.length), total: rows.length },
+        setPage,
+    };
+}
+
+/** A search box's words found in any of a row's texts. */
+const matches = (search, texts) => search.trim() === '' || search.trim().split(/\s+/).every((word) => texts.some((text) => String(text ?? '').includes(word)));
+
 /**
- * What the audit department sent on the weeks the branch submitted, each
- * with its replies and, while it waits on the branch, a button to answer
- * it; the collectors' debts left from its decisions are listed above them.
+ * The audit's statement on one week, as the site's tables are: only the
+ * entries it has notes on, every other entry of the week being sound, one
+ * per row: the subscriber and voucher, the type and amount (with any
+ * difference), the box it sits in and whose it is, who recorded it, the
+ * auditor's note with the replies, its state, and the button to answer
+ * it while it waits on the branch. A note on a whole box says so.
  */
-function NotesTab({ notes, debts, access, actorId, urls, onAction }) {
+function NotesTable({ notes, access, urls, onAction }) {
+    const [search, setSearch] = useState('');
+    const [perPage, setPerPage] = useState(15);
+    const [state, setState] = useState(() => (notes.some((note) => WAITING_ON_BRANCH.includes(note.status)) ? 'waiting' : 'all'));
+    const states = [['all', 'الكل', () => true], ['waiting', 'تنتظر ردّك', (note) => WAITING_ON_BRANCH.includes(note.status)], ['answered', 'أُجيبت', (note) => !WAITING_ON_BRANCH.includes(note.status)]];
+    const [, , inState] = states.find(([key]) => key === state);
+    const shown = [...notes]
+        .filter((note) => inState(note) && matches(search, [note.body, note.entry?.subscriber, note.entry?.accountNumber, note.entry?.ledger.voucherNumber, note.entry?.ledger.referenceNumber, note.box?.number, note.box?.person, note.entry?.ledger.recordedByName]))
+        .sort((first, second) => WAITING_ON_BRANCH.includes(second.status) - WAITING_ON_BRANCH.includes(first.status) || first.id - second.id);
+    const paged = usePagedRows(shown, perPage);
+
+    return (
+        <section aria-label="كشف ملاحظات التدقيق">
+            <DataTableToolbar
+                search={search}
+                onSearchChange={(value) => { setSearch(value); paged.setPage(1); }}
+                placeholder="ابحث بالمشترك أو السند أو الحوالة أو الصندوق"
+                perPage={perPage}
+                onPerPageChange={(size) => { setPerPage(size); paged.setPage(1); }}
+                total={shown.length}
+                filterMenu={<div className="flex w-full flex-wrap items-center gap-3"><SegmentedTabs label="حالة الملاحظة" value={state} onChange={(value) => { setState(value); paged.setPage(1); }} options={states.map(([key, label, test]) => ({ value: key, label: <>{label} · <span className="font-display">{notes.filter(test).length}</span></> }))} /></div>}
+            />
+            <div className="data-table-container">
+                <table className="data-table w-full text-sm text-start">
+                    <thead><tr><th>الحركة</th><th>النوع</th><th>المبلغ</th><th>المكان</th><th>سجّلها</th><th>ملاحظة التدقيق</th><th>الحالة</th><ActionsTh /></tr></thead>
+                    <tbody>
+                        {paged.rows.length === 0 ? <tr><td colSpan="8" className="text-gray-500">لا توجد ملاحظات مطابقة.</td></tr> : paged.rows.map((note) => {
+                            const [status, tone] = noteStatuses[note.status] ?? [note.status, 'gray'];
+                            const ledger = note.entry?.ledger;
+                            const differences = Object.entries(note.differences ?? {}).filter(([, amount]) => Number(amount) !== 0);
+                            const waiting = access.approve && WAITING_ON_BRANCH.includes(note.status);
+
+                            return (
+                                <tr key={note.id}>
+                                    <td>{note.entry
+                                        ? <RowIdentity name={note.entry.subscriber} subtitle={[ledger.voucherNumber && `سند ${ledger.voucherNumber}`, ledger.date].filter(Boolean).join(' · ')} />
+                                        : <RowIdentity icon={note.box ? 'wallet' : 'layers'} name={note.box ? 'الصندوق كله' : 'الأسبوع كله'} subtitle="ملاحظة على كل حركاته" />}</td>
+                                    <td className="text-gray-600" style={{ whiteSpace: 'normal' }}>
+                                        {ledger ? <><span className="block whitespace-nowrap text-gray-900">{ledger.typeLabel}</span><span className="block text-xs text-gray-400">{[ledger.paymentMethodLabel, ledger.bankName].filter(Boolean).join(' · ')}{ledger.referenceNumber && <> · <bdi dir="ltr">{ledger.referenceNumber}</bdi></>}</span></> : '—'}
+                                    </td>
+                                    <td>
+                                        {note.entry ? <span className="whitespace-nowrap"><b className="font-display text-gray-900">{formatMoney(note.entry.amount)}</b> <span className="text-xs text-gray-500">{currencies[note.entry.currency]}</span></span> : <span className="text-gray-600">—</span>}
+                                        {differences.map(([currency, amount]) => <span key={currency} className="block whitespace-nowrap text-xs font-semibold text-brand-600">فرق <bdi dir="ltr" className="font-display">{formatMoney(amount)}</bdi> {currencies[currency]}</span>)}
+                                    </td>
+                                    <td className="text-gray-600">
+                                        {note.box ? <>
+                                            <Link href={note.box.url} prefetch className="font-semibold text-brand-600 hover:underline">صندوق <bdi dir="ltr" className="font-display">{note.box.number}</bdi></Link>
+                                            <span className="block text-xs text-gray-400">{boxTypeStyles[note.box.type].label}{note.box.person && <> · <bdi>{note.box.person}</bdi></>}</span>
+                                        </> : '—'}
+                                    </td>
+                                    <td className="text-gray-600">{ledger?.recordedByName ? <bdi>{ledger.recordedByName}</bdi> : '—'}</td>
+                                    <td className="md:min-w-[13rem]" style={{ whiteSpace: 'normal' }}>
+                                        <p className="leading-6 text-gray-900">{note.body}</p>
+                                        {note.replies.map((reply) => (
+                                            <p key={reply.id} className="mt-1 text-xs leading-5 text-gray-500">
+                                                <b className="font-semibold text-gray-700"><bdi>{reply.user?.name}</bdi>:</b> {reply.body}
+                                                {reply.document_path && <a href={`${urls.proofs}/reply/${reply.id}`} className="ms-1 font-semibold text-brand-600 hover:underline">المستند</a>}
+                                            </p>
+                                        ))}
+                                    </td>
+                                    <td><StatusPill tone={tone} label={status} /></td>
+                                    <td className="text-end">{waiting && <RowActionsMenu onView={() => onAction('reply', note)} viewLabel="الرد" viewIcon="messages" />}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+            <Pagination meta={paged.meta} onPageChange={paged.setPage} />
+        </section>
+    );
+}
+
+/** The collectors' debts left from the audit's decisions, each repaid in cash by those who receive the branch's boxes. */
+function DebtsPanel({ debts, access, actorId, onAction }) {
+    return (
+        <Panel icon="currency" title="ديون المحصّلين" hint="يبقى الدين ظاهرًا حتى يُسدَّد بالكامل.">
+            <ul className="divide-y divide-gray-100">
+                {debts.map((debt) => (
+                    <li key={debt.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
+                        <div className="min-w-0 flex-1"><RowIdentity name={debt.user?.name ?? '—'} subtitle="محصّل" /></div>
+                        <span><b className="font-display text-gray-900">{formatMoney(debt.remaining)}</b> <span className="text-xs text-gray-500">{currencies[debt.currency]}</span></span>
+                        {access.receive && debt.user_id !== actorId && <SecondaryButton className="px-3 py-2" onClick={() => onAction('repay', debt)}>تسديد نقدًا</SecondaryButton>}
+                    </li>
+                ))}
+            </ul>
+        </Panel>
+    );
+}
+
+const WEEK_FILTERS = [
+    ['all', 'الكل', () => true],
+    ['waiting', 'تنتظر ردّك', (week) => week.waitingNotes > 0],
+    ['confirm', 'بانتظار الإرسال', (week) => week.step === 'confirm'],
+    ['audit', 'عند التدقيق', (week) => week.step === 'audit' || (week.waitingNotes === 0 && week.openNotes > 0)],
+];
+
+/** The tone of a week's dot on its tile: green once approved, amber while it waits on the branch, grey otherwise. */
+const weekDot = (week) => (week.status === 'approved' ? 'green' : week.waitingNotes > 0 || week.step === 'confirm' ? 'amber' : 'gray');
+
+/**
+ * Every week of the branch, newest first, as the site's tables are: its
+ * name and dates, boxes, entries and total, its audit notes and how many
+ * wait on the branch, and where it stands; searched by its number or
+ * dates, narrowed to the weeks waiting on a reply, to be sent or with the
+ * audit. A week opens with the audit's statement on it.
+ */
+function WeeksTable({ weeks, filter, onFilter, onOpen }) {
+    const rowClick = useRowClick();
+    const [search, setSearch] = useState('');
+    const [perPage, setPerPage] = useState(15);
+    const [, , inFilter] = WEEK_FILTERS.find(([key]) => key === filter) ?? WEEK_FILTERS[0];
+    const shown = weeks.filter((week) => inFilter(week) && matches(search, [periodLabel(week), periodRange(week)]));
+    const paged = usePagedRows(shown, perPage);
+    const totals = Object.fromEntries(Object.keys(currencies).map((currency) => [currency, shown.reduce((sum, week) => sum + Number(week.amounts[currency] ?? 0), 0)]));
+
+    return (
+        <section aria-label="الإغلاقات">
+            <DataTableToolbar
+                search={search}
+                onSearchChange={(value) => { setSearch(value); paged.setPage(1); }}
+                placeholder="ابحث برقم الأسبوع أو تاريخه"
+                perPage={perPage}
+                onPerPageChange={(size) => { setPerPage(size); paged.setPage(1); }}
+                total={shown.length}
+                filterMenu={<div className="flex w-full flex-wrap items-center gap-3"><SegmentedTabs label="حالة الأسبوع" value={filter} onChange={(value) => { onFilter(value); paged.setPage(1); }} options={WEEK_FILTERS.map(([key, label, test]) => ({ value: key, label: <>{label} · <span className="font-display">{weeks.filter(test).length}</span></> }))} /></div>}
+            />
+            <div className="data-table-container">
+                <table className="data-table w-full text-sm text-start">
+                    <thead><tr><th>الأسبوع</th><th>الصناديق</th><th>الحركات</th><th>الإجمالي</th><th>ملاحظات التدقيق</th><th>الحالة</th><ActionsTh /></tr></thead>
+                    <tbody>
+                        {paged.rows.length === 0 ? <tr><td colSpan="7" className="text-gray-500">لا توجد أسابيع مطابقة.</td></tr> : paged.rows.map((week) => {
+                            const [status, tone] = weekStatus(week);
+
+                            return (
+                                <tr key={week.id} {...rowClick(() => onOpen(week.id))}>
+                                    <td><RowIdentity icon="layers" name={periodLabel(week)} subtitle={`${periodRange(week)}${week.is_manual ? ' · إغلاق مبكر' : ''}`} status={weekDot(week)} /></td>
+                                    <td className="font-display text-gray-600">{week.boxes}</td>
+                                    <td className="font-display text-gray-600">{week.entries}</td>
+                                    <td><span className="whitespace-nowrap"><b className="font-display text-gray-900">{formatMoney(week.amounts.ILS ?? 0)}</b> <span className="text-xs text-gray-500">شيكل</span></span></td>
+                                    <td className="text-gray-600">{week.notes ? <>{plural(week.notes, 'ملاحظة واحدة', 'ملاحظات')}{week.waitingNotes > 0 && <span className="block text-xs font-semibold text-brand-600">{week.waitingNotes === 1 ? 'واحدة تنتظر ردّك' : `${week.waitingNotes} تنتظر ردّك`}</span>}</> : '—'}</td>
+                                    <td><StatusPill tone={tone} label={status} /></td>
+                                    <td className="text-end"><RowActionsMenu onView={() => onOpen(week.id)} /></td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+            <p className="data-table-totals text-sm text-gray-600"><span>مجموع الأسابيع المطابقة: <b className="font-display text-gray-900">{amountsLine(totals)}</b></span></p>
+            <Pagination meta={paged.meta} onPageChange={paged.setPage} />
+        </section>
+    );
+}
+
+/**
+ * One week opened from the table: where it stands and what it held, a
+ * link to its boxes on the weekly closing page, the audit's statement of
+ * the entries it has notes on, to answer, and the corrections entered for
+ * it in later weeks.
+ */
+function WeekView({ week, notes, adjustments, closings, access, urls, branch, onBack, onAction }) {
+    const [status, tone] = weekStatus(week);
+    const quiet = { review: 'الأسبوع جارٍ؛ تصل ملاحظات قسم التدقيق بعد إرساله.', confirm: 'لم يُرسل الأسبوع إلى التدقيق بعد.', audit: 'الأسبوع عند قسم التدقيق، ولم يكتب ملاحظات عليه بعد.' }[week.step] ?? 'اعتمد قسم التدقيق الأسبوع دون ملاحظات.';
+    const books = { cash: 'النقد', bank: 'الإلكتروني' };
+    const noted = new Set(notes.filter((note) => note.cash_box_payment_id).map((note) => note.cash_box_payment_id)).size;
+
     return (
         <div className="space-y-5">
-            <p className="flex items-center gap-2 text-sm text-gray-500"><Icon name="shield" className="h-4 w-4 shrink-0" /><span>ملاحظات قسم التدقيق على الأسابيع المرسلة. الأسبوع المرسل لا يتغيّر، وكل تصحيح يُقيَّد في الأسبوع المفتوح.</span></p>
-            {debts.length > 0 && (
-                <Panel icon="currency" title="ديون المحصّلين" hint="يبقى الدين ظاهرًا حتى يُسدَّد بالكامل.">
+            <SecondaryButton className="px-3 py-2" onClick={onBack}><Icon name="chevron-right" className="h-4 w-4" />كل الإغلاقات</SecondaryButton>
+            <section className="rounded-panel border border-gray-100 bg-surface p-6 shadow-card">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <div className="flex flex-wrap items-center gap-3"><h3 className="text-2xl font-bold text-gray-900">{periodLabel(week)}</h3><StatusPill tone={tone} label={status} /></div>
+                        <p className="mt-1 text-sm text-gray-500">{periodRange(week)}{week.sentAt && ` · أُرسل ${dateTime(week.sentAt)}`}</p>
+                    </div>
+                    {week.step === 'confirm'
+                        ? <PrimaryButton onClick={() => router.get(urls.weekly, { branch_id: branch.id, closing_id: week.id })}><Icon name="layers" className="h-4 w-4" />مراجعة وإرسال</PrimaryButton>
+                        : <SecondaryButton onClick={() => router.get(urls.weekly, { branch_id: branch.id, closing_id: week.id })}><Icon name="table" className="h-4 w-4" />الصناديق والحركات</SecondaryButton>}
+                </div>
+                <dl className="mt-5 grid gap-3 border-t border-gray-100 pt-4 sm:grid-cols-3">
+                    <div><dt className="text-xs text-gray-500">الصناديق</dt><dd className="font-display text-xl font-bold text-gray-900">{week.boxes}</dd></div>
+                    <div><dt className="text-xs text-gray-500">الحركات</dt><dd className="font-display text-xl font-bold text-gray-900">{week.entries}</dd></div>
+                    <div><dt className="text-xs text-gray-500">الإجمالي</dt><dd className="text-xl font-bold text-gray-900">{amountsLine(week.amounts)}</dd></div>
+                </dl>
+            </section>
+            <section aria-labelledby="week-notes" className="space-y-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 id="week-notes" className="text-lg font-bold text-gray-900">كشف ملاحظات التدقيق</h3>
+                    {notes.length > 0 && <p className="text-xs text-gray-500">{noted > 0 && `${plural(noted, 'حركة واحدة عليها ملاحظة', 'حركات عليها ملاحظات')} من أصل ${week.entries}؛ `}كل حركة لم ترد في الكشف سليمة.</p>}
+                </div>
+                {notes.length === 0 ? <EmptyState icon="messages" title="لا ملاحظات على هذا الأسبوع" hint={quiet} /> : <NotesTable notes={notes} access={access} urls={urls} onAction={onAction} />}
+            </section>
+            {adjustments.length > 0 && (
+                <Panel icon="pencil" title="قيود التصحيح لهذا الأسبوع" hint={`قُيّدت في أسابيع لاحقة، و${periodLabel(week)} باقٍ كما أُرسل.`}>
                     <ul className="divide-y divide-gray-100">
-                        {debts.map((debt) => (
-                            <li key={debt.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
-                                <PersonAvatar name={debt.user?.name} />
-                                <b className="min-w-0 flex-1 font-semibold text-gray-900">{debt.user?.name}</b>
-                                <span><b className="font-display text-gray-900">{formatMoney(debt.remaining)}</b> <span className="text-xs text-gray-500">{currencies[debt.currency]}</span></span>
-                                {access.receive && debt.user_id !== actorId && <SecondaryButton className="px-3 py-2" onClick={() => onAction('repay', debt)}>تسديد نقدًا</SecondaryButton>}
+                        {adjustments.map((adjustment) => (
+                            <li key={adjustment.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-3 text-sm first:pt-0 last:pb-0">
+                                <b className={Number(adjustment.amount) < 0 ? 'text-brand-600' : 'text-emerald-700 dark:text-emerald-400'}><bdi dir="ltr" className="font-display">{formatMoney(adjustment.amount)}</bdi> {currencies[adjustment.currency]}</b>
+                                <span className="text-gray-500">{books[adjustment.book] ?? adjustment.book} · قُيّد في {periodLabel(closings.find((closing) => closing.id === adjustment.closing_id))}</span>
+                                <span className="basis-full text-gray-700">{adjustment.reason}</span>
                             </li>
                         ))}
                     </ul>
                 </Panel>
             )}
-            {notes.length === 0 ? <EmptyState icon="messages" title="لا توجد ملاحظات تدقيق" hint="تظهر هنا ملاحظات قسم التدقيق على أسابيع الفرع، مع ردودك وردود المحصّلين." /> : notes.map((note) => {
-                const [status, tone] = noteStatuses[note.status] ?? [note.status, 'gray'];
-                const differences = Object.entries(note.differences ?? {}).filter(([, amount]) => Number(amount) !== 0);
-
-                return (
-                    <article key={note.id} className="rounded-panel border border-gray-100 bg-surface p-5 shadow-card">
-                        <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                            <b className="font-display text-sm text-gray-500">#{note.id}</b>
-                            <b className="text-gray-900">{note.closing ? periodLabel(note.closing) : '—'}</b>
-                            <StatusPill tone={tone} label={status} />
-                            <span className="ms-auto text-xs text-gray-500">{dateTime(note.created_at)}</span>
-                        </header>
-                        <blockquote className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm leading-7 text-gray-800">
-                            <span className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-500"><Icon name="shield" className="h-4 w-4" />قسم التدقيق</span>
-                            {note.body}
-                        </blockquote>
-                        {differences.length > 0 && <p className="mt-3 flex flex-wrap gap-2 text-sm text-gray-600">الفرق: {differences.map(([currency, amount]) => <b key={currency} className={Number(amount) < 0 ? 'text-brand-600' : 'text-emerald-700 dark:text-emerald-400'}><bdi dir="ltr" className="font-display">{formatMoney(amount)}</bdi> {currencies[currency]}</b>)}</p>}
-                        {note.replies.length > 0 && (
-                            <ol className="mt-4 space-y-2 border-s-2 border-gray-100 ps-4">
-                                {note.replies.map((reply) => (
-                                    <li key={reply.id} className="text-sm leading-6 text-gray-700">
-                                        <span className="block text-xs text-gray-500"><bdi>{reply.user?.name}</bdi> · <bdi>{dateTime(reply.created_at)}</bdi></span>
-                                        {reply.body}
-                                        {reply.document_path && <a href={`${urls.proofs}/reply/${reply.id}`} className="ms-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><Icon name="eye" className="h-4 w-4" />المستند المرفق</a>}
-                                    </li>
-                                ))}
-                            </ol>
-                        )}
-                        {access.approve && WAITING_ON_BRANCH.includes(note.status) && <div className="mt-4 flex justify-end"><PrimaryButton onClick={() => onAction('reply', note)}><Icon name="messages" className="h-4 w-4" />الرد على الملاحظة</PrimaryButton></div>}
-                    </article>
-                );
-            })}
         </div>
     );
 }
@@ -307,14 +514,14 @@ function SettingsTab({ settings, current, pendingChange, staff, receivers, appro
             <Panel icon="bolt" title="الإغلاق المبكر" hint="يُغلق الأسبوع الجاري الآن مع كل صناديقه المفتوحة، وتنضم الأيام الباقية إلى الأسبوع القادم دون تغيير يوم البداية." action={access.approve && current && <SecondaryButton className="px-3 py-2" onClick={() => onAction('early', current)}><Icon name="bolt" className="h-4 w-4" />إغلاق {periodLabel(current)} مبكرًا</SecondaryButton>} />
             <Panel icon="users" title="التفويضات" hint="من يراجع صناديق الآخرين ويؤكد إغلاقها، ومن يعتمد الأسبوع ويرسله. تسري فورًا." action={access.manage && <SecondaryButton className="px-3 py-2" onClick={() => onAction('settings')}><Icon name="cog" className="h-4 w-4" />تعديل التفويضات</SecondaryButton>}>
                 <div className="data-table-container">
-                    <table className="data-table w-full text-start text-sm">
+                    <table className="data-table w-full text-sm text-start">
                         <thead><tr><th>الموظف</th><th>مراجعة الصناديق وتأكيد إغلاقها</th><th>اعتماد الأسبوع وإرساله</th></tr></thead>
                         <tbody>
                             {staff.map((person) => {
                                 const [receiveTone, receiveLabel] = granted(person, receivers);
                                 const [approveTone, approveLabel] = granted(person, approvers);
 
-                                return <tr key={person.id}><td><span className="flex items-center gap-3"><PersonAvatar name={person.name} /><b className="font-semibold text-gray-900">{person.name}</b></span></td><td><StatusPill tone={receiveTone} label={receiveLabel} /></td><td><StatusPill tone={approveTone} label={approveLabel} /></td></tr>;
+                                return <tr key={person.id}><td><RowIdentity name={person.name} subtitle={person.isBranchAdmin ? 'مسؤول الفرع' : 'موظف'} /></td><td><StatusPill tone={receiveTone} label={receiveLabel} /></td><td><StatusPill tone={approveTone} label={approveLabel} /></td></tr>;
                             })}
                         </tbody>
                     </table>
@@ -377,7 +584,10 @@ function ActionModal({ action, onClose, props }) {
                     {action.kind === 'early' && <p className="text-sm leading-7 text-gray-700">يُغلق {periodLabel(record)} الآن وتُغلق صناديقه المفتوحة، وتنضم الأيام الباقية إلى الأسبوع القادم حتى موعد قطعه.</p>}
                     {action.kind === 'repay' && <Field label={`المبلغ نقدًا · المتبقي ${formatMoney(record.remaining)} ${currencies[record.currency]}`}><input required type="number" min="0.01" step="0.01" dir="ltr" className="w-full" value={form.data.amount} onChange={(event) => form.setData('amount', event.target.value)} /></Field>}
                     {action.kind === 'reply' && <>
-                        <p className="rounded-xl bg-gray-50 p-4 text-sm leading-7 text-gray-700">{record.body}</p>
+                        <div className="rounded-xl bg-gray-50 p-4 text-sm leading-7 text-gray-700">
+                            {record.entry && <p className="mb-2 border-b border-gray-200 pb-2 text-xs text-gray-500"><b className="text-gray-900">{record.entry.subscriber}</b> · {record.entry.ledger.typeLabel}{record.entry.ledger.paymentMethodLabel && ` · ${record.entry.ledger.paymentMethodLabel}`} · <bdi dir="ltr" className="font-display">{formatMoney(record.entry.amount)}</bdi> {currencies[record.entry.currency]}{record.box && <> · صندوق <bdi dir="ltr" className="font-display">{record.box.number}</bdi></>}{record.entry.ledger.recordedByName && <> · سجّلها <bdi>{record.entry.ledger.recordedByName}</bdi></>}</p>}
+                            {record.body}
+                        </div>
                         <Field label="نوع الرد">
                             <select className="w-full" value={form.data.kind} onChange={(event) => form.setData('kind', event.target.value)}>
                                 <option value="clarification">اعتراض أو توضيح</option>
@@ -406,6 +616,7 @@ function ActionModal({ action, onClose, props }) {
                                 <Field label="الدفتر"><select className="w-full" value={form.data.book} onChange={(event) => form.setData('book', event.target.value)}><option value="cash">النقد</option><option value="bank">الإلكتروني</option></select></Field>
                                 <Field label="العملة"><select className="w-full" value={form.data.currency} onChange={(event) => form.setData('currency', event.target.value)}>{Object.entries(currencies).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>
                                 <Field label="المبلغ (+ / −)"><input required type="number" step="0.01" dir="ltr" className="w-full" value={form.data.amount} onChange={(event) => form.setData('amount', event.target.value)} /></Field>
+                                <p className="flex items-start gap-2 text-xs leading-5 text-gray-500 sm:col-span-3"><Icon name="info" className="mt-0.5 h-4 w-4 shrink-0" /><span>يُقيَّد في {periodLabel(current)} المفتوح، مرتبطًا بـ{periodLabel(record.closing)}، ويبقى {periodLabel(record.closing)} كما أُرسل.</span></p>
                             </div>
                         )}
                     </>}
@@ -442,13 +653,16 @@ function ActionModal({ action, onClose, props }) {
  * Closing management, for the branch's manager and those they delegate:
  * where the week running stands and what waits on them now (boxes to
  * confirm closed, weeks ready to submit, audit notes, payments not found
- * in the bank, collectors' debts); the audit's notes on the weeks sent and
- * the answers to them; and the weekly schedule with who may close boxes or
- * submit the week. Each past week is looked over on the weekly closing page.
+ * in the bank, collectors' debts); every week in a table, each opened with
+ * the audit's notes on it to answer; and the weekly schedule with who may
+ * close boxes or submit the week. A week's boxes are looked over on the
+ * weekly closing page.
  */
 export default function ClosingsIndex(props) {
-    const { branch, branches, started, current, closings, boxes, debts, notes, access, urls, actorId, errors } = props;
+    const { branch, branches, started, current, closings, weeks, boxes, debts, notes, adjustments, access, urls, actorId, errors } = props;
     const [tab, setTab] = useState(requestedTab);
+    const [weekId, setWeekId] = useState(requestedWeek);
+    const [weekFilter, setWeekFilter] = useState(() => (weeks.some((week) => week.waitingNotes > 0) ? 'waiting' : 'all'));
     const [action, setAction] = useState(null);
     const [now, setNow] = useState(Date.now());
     useEffect(() => {
@@ -467,11 +681,32 @@ export default function ClosingsIndex(props) {
     const owing = debts.filter((debt) => Number(debt.remaining) > 0);
     const boxesUrl = branches.length > 1 ? `${urls.boxes}?branch_id=${branch.id}` : urls.boxes;
 
-    function go(nextTab) {
+    function go(nextTab, nextWeek = null) {
         setTab(nextTab);
+        setWeekId(nextWeek);
         const url = new URL(window.location.href);
         url.searchParams.set('tab', nextTab);
+        if (nextWeek) {
+            url.searchParams.set('week', nextWeek);
+        } else {
+            url.searchParams.delete('week');
+        }
         window.history.replaceState(window.history.state, '', url);
+        window.scrollTo({ top: 0 });
+    }
+
+    const openedWeek = tab === 'closings' && weeks.find((week) => week.id === weekId);
+    const weeksWaiting = weeks.filter((week) => week.waitingNotes > 0);
+
+    /** The week whose notes wait on the branch, or the weeks' table showing only those when there are several. */
+    function openWaitingNotes() {
+        if (weeksWaiting.length === 1) {
+            go('closings', weeksWaiting[0].id);
+
+            return;
+        }
+        setWeekFilter('waiting');
+        go('closings');
     }
 
     function openWeek(closing) {
@@ -481,9 +716,9 @@ export default function ClosingsIndex(props) {
     const tasks = [
         overdue.length > 0 && { key: 'overdue', tone: 'blue', icon: 'layers', label: overdue.length === 1 ? `${periodLabel(overdue[0])} جاهز للإرسال` : `${plural(overdue.length, 'أسبوع', 'أسابيع')} جاهزة للإرسال`, hint: 'أكمل النواقص ثم اعتمد الأسبوع وأرسله إلى التدقيق، الأقدم أولًا.', action: 'مراجعة وإرسال', onClick: () => openWeek(overdue[0]) },
         pendingBoxes.length > 0 && { key: 'pending', tone: 'amber', icon: 'table', label: `${plural(pendingBoxes.length, 'صندوق', 'صناديق')} بانتظار تأكيد الإغلاق`, hint: pendingBoxes.length === 1 ? `فيه ${amountsLine(totals(pendingBoxes[0].payments))} نقدًا. اطّلع على حركاته، واطلب من المحصّل تصحيح ما فيه خطأ، ثم أكّد إغلاقه.` : `فيها ${amountsLine(totals(pendingBoxes.flatMap((box) => box.payments)))} نقدًا. اطّلع على حركاتها، واطلب من المحصّل تصحيح ما فيه خطأ، ثم أكّد إغلاقها.`, action: 'مراجعة', onClick: () => router.visit(boxesUrl) },
-        waitingNotes.length > 0 && { key: 'notes', tone: 'red', icon: 'messages', label: `${plural(waitingNotes.length, 'ملاحظة تدقيق تنتظر', 'ملاحظات تدقيق تنتظر')} ردّك`, hint: 'الأسبوع المرسل لا يتغيّر؛ كل تصحيح يُقيَّد في الأسبوع المفتوح.', action: 'الرد', onClick: () => go('notes') },
+        waitingNotes.length > 0 && { key: 'notes', tone: 'red', icon: 'messages', label: `${plural(waitingNotes.length, 'ملاحظة تدقيق تنتظر', 'ملاحظات تدقيق تنتظر')} ردّك`, hint: `على ${weeksWaiting.map((week) => periodLabel(week)).join(' و')}. الأسبوع المرسل لا يتغيّر؛ كل تصحيح يُقيَّد في الأسبوع المفتوح.`, action: 'الرد', onClick: openWaitingNotes },
         unmatched.length > 0 && { key: 'unmatched', tone: 'amber', icon: 'bank', label: `${plural(unmatched.length, 'حركة إلكترونية لم تُطابق', 'حركات إلكترونية لم تُطابق')}`, hint: 'حوالات غير موجودة في البنك أو مقاصات مرفوضة. تنتقل إلى الأسبوع التالي حتى تُطابق.', action: 'عرض', onClick: () => openWeek(current) },
-        owing.length > 0 && { key: 'debts', tone: 'red', icon: 'currency', label: new Set(owing.map((debt) => debt.user_id)).size === 1 ? 'دين متبقٍّ على محصّل' : `ديون متبقية على ${new Set(owing.map((debt) => debt.user_id)).size} محصّلين`, hint: `المتبقي ${amountsLine(Object.fromEntries(Object.keys(currencies).map((currency) => [currency, owing.filter((debt) => debt.currency === currency).reduce((sum, debt) => sum + Number(debt.remaining), 0)])))}. تُسدَّد نقدًا من تبويب ملاحظات التدقيق.`, action: 'عرض', onClick: () => go('notes') },
+        owing.length > 0 && { key: 'debts', tone: 'red', icon: 'currency', label: new Set(owing.map((debt) => debt.user_id)).size === 1 ? 'دين متبقٍّ على محصّل' : `ديون متبقية على ${new Set(owing.map((debt) => debt.user_id)).size} محصّلين`, hint: `المتبقي ${amountsLine(Object.fromEntries(Object.keys(currencies).map((currency) => [currency, owing.filter((debt) => debt.currency === currency).reduce((sum, debt) => sum + Number(debt.remaining), 0)])))}. تُسدَّد نقدًا من تبويب الإغلاقات.`, action: 'عرض', onClick: () => go('closings') },
     ].filter(Boolean);
 
     return (
@@ -509,7 +744,13 @@ export default function ClosingsIndex(props) {
                     <WeekHero current={current} payments={periodPayments} openBoxes={openBoxes} boxesUrl={boxesUrl} now={now} />
                     <WaitingTasks tasks={tasks} />
                 </div>}
-                {tab === 'notes' && <NotesTab notes={notes} debts={owing} access={access} actorId={actorId} urls={urls} onAction={(kind, record) => setAction({ kind, record })} />}
+                {tab === 'closings' && (openedWeek
+                    ? <WeekView week={openedWeek} notes={notes.filter((note) => note.closing_id === openedWeek.id)} adjustments={adjustments.filter((adjustment) => adjustment.original_closing_id === openedWeek.id)} closings={closings} access={access} urls={urls} branch={branch} onBack={() => go('closings')} onAction={(kind, record) => setAction({ kind, record })} />
+                    : <div className="space-y-5">
+                        <p className="flex items-center gap-2 text-sm text-gray-500"><Icon name="shield" className="h-4 w-4 shrink-0" /><span>افتح أي أسبوع لترى كشف ملاحظات التدقيق عليه وترد عليها. الأسبوع المرسل لا يتغيّر، وكل تصحيح يُقيَّد في الأسبوع المفتوح.</span></p>
+                        {owing.length > 0 && <DebtsPanel debts={owing} access={access} actorId={actorId} onAction={(kind, record) => setAction({ kind, record })} />}
+                        <WeeksTable weeks={weeks} filter={weekFilter} onFilter={setWeekFilter} onOpen={(id) => go('closings', id)} />
+                    </div>)}
                 {tab === 'settings' && <SettingsTab {...props} onAction={(kind, record = null) => setAction({ kind, record })} />}
             </>}
             {action && <ActionModal key={`${action.kind}-${action.record?.id}`} action={action} onClose={() => setAction(null)} props={props} />}

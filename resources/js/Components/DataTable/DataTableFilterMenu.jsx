@@ -106,7 +106,7 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
                         role="group"
                         aria-label={group.label}
                         className={`flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-end ${
-                            value ? '-my-2 rounded-2xl bg-gray-50 px-2.5 py-2 ring-1 ring-inset ring-gray-200/70' : ''
+                            value ? '-my-2 rounded-2xl bg-brand-500/[0.04] px-2.5 py-2 ring-1 ring-inset ring-brand-500/20' : ''
                         }`}
                     >
                         <FilterField

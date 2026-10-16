@@ -100,6 +100,19 @@ class SubscriptionStatementTest extends TestCase
                 ->where('canRecordPayment', true));
     }
 
+    public function test_a_statement_opened_from_a_cash_box_entry_points_out_its_transaction(): void
+    {
+        $transaction = SubscriptionTransaction::factory()->for($this->subscription)->create(['amount' => '50.00']);
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscriptions.statement', [$this->subscription, 'transaction' => $transaction->id]))
+            ->assertInertia(fn ($page) => $page->where('focusLineId', $transaction->id));
+
+        $this->actingAs($this->branchAdmin)
+            ->get(route('subscriptions.statement', $this->subscription))
+            ->assertInertia(fn ($page) => $page->where('focusLineId', null));
+    }
+
     public function test_a_payment_lowers_the_balance_and_gets_the_next_voucher_number(): void
     {
         SubscriptionTransaction::factory()->for($this->subscription)->create(['amount' => '100.00']);

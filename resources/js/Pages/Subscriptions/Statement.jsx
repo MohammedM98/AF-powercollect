@@ -63,6 +63,7 @@ export default function Statement(statement) {
                 paymentMethods={paymentMethods}
                 transactionTypes={transactionTypes}
                 onAction={(action, entry) => setOpenForm({ action, entry })}
+                focusLineId={statement.focusLineId}
             />
 
             <StatementForms statement={statement} openForm={openForm} onClose={() => setOpenForm(null)} onOpen={setOpenForm} />

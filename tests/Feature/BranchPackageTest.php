@@ -268,6 +268,7 @@ class BranchPackageTest extends TestCase
             ->where('notes.1.entry.subscriber', $entry->transaction->subscription->displayName())
             ->where('notes.1.entry.ledger.voucherNumber', $entry->transaction->displayVoucherNumber())
             ->where('notes.1.entry.ledger.recordedByName', $collector->name)
+            ->where('notes.1.entry.statementUrl', route('subscriptions.statement', [$entry->transaction->subscription_id, 'transaction' => $entry->transaction->id]))
             ->where('notes.1.box.number', $entry->box->number)
             ->where('notes.1.box.person', $collector->name)
             ->where('notes.1.box.url', route('weekly-packages.index', ['branch_id' => $branch->id, 'closing_id' => $closing->id, 'box' => $entry->cash_box_id]))

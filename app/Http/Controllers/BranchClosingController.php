@@ -139,7 +139,7 @@ class BranchClosingController extends Controller
             'entry' => $transaction ? [
                 'id' => $entry->id, 'amount' => $entry->amount, 'currency' => $entry->currency, 'status' => $entry->status,
                 'subscriber' => $transaction->subscription->displayName(), 'accountNumber' => $transaction->subscription->account_number,
-                'statementUrl' => route('subscriptions.statement', $transaction->subscription),
+                'statementUrl' => route('subscriptions.statement', [$transaction->subscription, 'transaction' => $transaction->id]),
                 'ledger' => $transaction->ledgerDetails(),
             ] : null,
         ];

@@ -617,6 +617,18 @@
     background: rgb(var(--ledger-chain) / 0.12);
 }
 
+/* The line a statement was opened at (from a cash box's entry): marked as a chosen row is, in the brand's colour, over any chain colour. */
+.data-table tbody tr.ledger-focused td,
+.data-table tbody tr.ledger-focused[data-chain]:not(.ledger-cancelled, .ledger-history) td {
+    background: rgb(var(--brand-50));
+    border-color: rgb(var(--brand-500) / 0.35);
+}
+
+.data-table tbody tr.ledger-focused td:first-child {
+    border-right: 1px solid rgb(var(--brand-500) / 0.35);
+    box-shadow: inset -3px 0 0 rgb(var(--brand-500));
+}
+
 /*
  * The account statement printed (its print button, or the browser's own
  * print while it is open, on its page or in its window over a list): only

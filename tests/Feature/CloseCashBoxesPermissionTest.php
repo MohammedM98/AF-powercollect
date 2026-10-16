@@ -104,6 +104,7 @@ class CloseCashBoxesPermissionTest extends TestCase
             ->where('boxes.0.id', $box->id)
             ->where('boxes.0.canCount', true)
             ->where('boxes.0.payments.0.receipt_url', route('subscriptions.payments.receipt', [$transaction->subscription_id, $transaction->id]))
+            ->where('boxes.0.payments.0.statement_url', route('subscriptions.statement', [$transaction->subscription_id, 'transaction' => $transaction->id]))
             ->where('access.receive', true)
             ->where('urls.reconciliation', route('closings.index')));
     }

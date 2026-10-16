@@ -127,7 +127,8 @@ class BranchBoxes
     }
 
     /**
-     * A box entry with links to its subscriber's statement and, for a
+     * A box entry with links to its subscriber's statement (opened at the
+     * entry's own transaction) and, for a
      * payment or clearing, its voucher, and its transaction as the statement shows it
      * when found among `$ledgers`. Entries of a statement saved before the
      * transaction's type was kept get no receipt link.
@@ -143,7 +144,7 @@ class BranchBoxes
 
         return [
             ...$entry,
-            'statement_url' => $subscriptionId ? route('subscriptions.statement', $subscriptionId) : null,
+            'statement_url' => $subscriptionId ? route('subscriptions.statement', [$subscriptionId, 'transaction' => $entry['subscription_transaction_id'] ?? null]) : null,
             'receipt_url' => $subscriptionId && $vouched ? route('subscriptions.payments.receipt', [$subscriptionId, $entry['transaction']['id']]) : null,
             'ledger' => $ledgers[$entry['subscription_transaction_id'] ?? null] ?? null,
         ];

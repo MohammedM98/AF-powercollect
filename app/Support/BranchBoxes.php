@@ -14,7 +14,7 @@ use Illuminate\Support\Collection;
 
 /**
  * The branch's boxes as the people who close them see them, shared by the
- * financial boxes page (its boxes and open entries tabs) and the safe and statements
+ * financial boxes page (its boxes and open entries tabs) and closing management
  * page: which branch the actor looks at, its weekly closings, and every box
  * still in play with what the actor may do to it.
  */
@@ -60,16 +60,19 @@ class BranchBoxes
     }
 
     /**
-     * The boxes of those closings, and any box still open, waiting to be
-     * confirmed or holding entries under review, each with its entries and
-     * whether the actor may confirm it closed.
+     * The boxes of the week not sent yet: any box still open or waiting to
+     * be confirmed, those confirmed into a weekly package not yet sent to
+     * the audit, and those holding a transfer or clearing not yet matched,
+     * which the next package carries. Once its package is sent, a box is
+     * looked over in that package. `$alsoBoxId` adds one box asked for by
+     * a link, sent or not. Each comes with its entries and whether the
+     * actor may confirm it closed.
      *
-     * @param  array<int, int>  $closingIds
      * @return Collection<int, array<string, mixed>>
      */
-    public function rows(int $branchId, User $actor, array $closingIds): Collection
+    public function rows(int $branchId, User $actor, ?int $alsoBoxId = null): Collection
     {
-        $boxes = $this->inPlay($branchId, $closingIds)->with(BranchClosingWorkflow::BOX_DETAILS)->latest('id')->get();
+        $boxes = $this->inPlay($branchId, $alsoBoxId)->with(BranchClosingWorkflow::BOX_DETAILS)->latest('id')->get();
         $ledgers = $this->ledgers($boxes->flatMap(fn (CashBox $box) => $box->payments->pluck('subscription_transaction_id'))->all());
 
         return $boxes->map(function (CashBox $box) use ($actor, $ledgers): array {
@@ -84,28 +87,29 @@ class BranchBoxes
         });
     }
 
-    /**
-     * How many boxes the financial boxes page lists for the branch: those
-     * of the closings, and any box still in play.
-     *
-     * @param  array<int, int>  $closingIds
-     */
-    public function count(int $branchId, array $closingIds): int
+    /** How many boxes the financial boxes page lists for the branch: those of the week not sent yet. */
+    public function count(int $branchId): int
     {
-        return $this->inPlay($branchId, $closingIds)->count();
+        return $this->inPlay($branchId)->count();
     }
 
     /**
-     * The branch's boxes of those closings, and any box still open, waiting
-     * to be confirmed or holding entries under review.
+     * The branch's boxes of the week not sent yet (see `rows`), and the one
+     * box asked for by a link.
      *
-     * @param  array<int, int>  $closingIds
      * @return Builder<CashBox>
      */
-    private function inPlay(int $branchId, array $closingIds): Builder
+    private function inPlay(int $branchId, ?int $alsoBoxId = null): Builder
     {
-        return CashBox::query()->where('branch_id', $branchId)
-            ->where(fn (Builder $query) => $query->whereIn('closing_id', $closingIds)->orWhere('status', '!=', 'received')->orWhereHas('payments', fn (Builder $payments) => $payments->whereIn('status', ['pending', 'missing', 'rejected'])));
+        $unsent = fn (Builder $closing) => $closing->whereNull('submitted_snapshot');
+
+        return CashBox::query()->where('branch_id', $branchId)->where(fn (Builder $query) => $query
+            ->where('status', '!=', 'received')
+            ->orWhereHas('receivedIn', $unsent)
+            ->orWhere(fn (Builder $legacy) => $legacy->whereNull('received_in_closing_id')->whereHas('closing', $unsent))
+            ->orWhereHas('payments', fn (Builder $payments) => $payments->where('method', '!=', 'cash')->whereIn('status', ['pending', 'missing', 'rejected'])
+                ->whereHas('transaction', fn (Builder $transaction) => $transaction->where('status', SubscriptionTransaction::STATUS_ACTIVE)))
+            ->when($alsoBoxId, fn (Builder $query) => $query->orWhere('id', $alsoBoxId)));
     }
 
     /**

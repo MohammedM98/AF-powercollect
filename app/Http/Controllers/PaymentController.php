@@ -250,7 +250,7 @@ class PaymentController extends Controller
         return Inertia::render('Payments/Entries', [
             'started' => $started,
             'branch' => $branch, 'branches' => $branches, 'people' => $people,
-            'tabs' => $this->boxTabs($branches, $branch, $this->branchBoxes->count($branch->id, $this->branchBoxes->closings($branch->id)->modelKeys())),
+            'tabs' => $this->boxTabs($branches, $branch, $this->branchBoxes->count($branch->id)),
             ...$list,
             'closableBoxes' => $started && BranchClosingAccess::receive($actor, $branch->id) ? $this->closableBoxes($branch->id, $actor, $person?->id) : null,
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
@@ -325,10 +325,12 @@ class PaymentController extends Controller
     }
 
     /**
-     * The financial boxes page for those who close the branch's boxes: every
-     * box of the branch's people in one table, their own among them, to look
-     * over its entries and confirm it closed. Its other tab lists the entries
-     * of the open boxes.
+     * The financial boxes page for those who close the branch's boxes: the
+     * boxes of the week not sent yet, their own among them, in one table,
+     * to look over their entries and confirm them closed. Once the week's
+     * package is sent to the audit its boxes leave the page for that
+     * package; a box asked for with `?box=` still opens. Its other tab
+     * lists the entries of the open boxes.
      */
     private function branchCashBoxes(Request $request): InertiaResponse
     {
@@ -339,17 +341,17 @@ class PaymentController extends Controller
             $this->workflow->refresh($branch->id);
         }
         $closings = $this->branchBoxes->closings($branch->id);
-        $boxes = $this->branchBoxes->rows($branch->id, $actor, $closings->modelKeys());
+        $boxes = $this->branchBoxes->rows($branch->id, $actor, $request->integer('box') ?: null);
 
         return Inertia::render('Payments/BranchCashBoxes', [
             'branch' => $branch, 'branches' => $branches, 'started' => $started,
-            'tabs' => $this->boxTabs($branches, $branch, $boxes->count()),
+            'tabs' => $this->boxTabs($branches, $branch, $this->branchBoxes->count($branch->id)),
             'boxes' => $boxes,
             'closings' => $closings,
             'access' => $this->branchBoxes->access($actor, $branch->id),
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
-            'urls' => ['index' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'reconciliation' => route('closings.index')],
+            'urls' => ['index' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'reconciliation' => route('closings.index'), 'weekly' => route('weekly-packages.index', ['branch_id' => $branch->id])],
         ]);
     }
 

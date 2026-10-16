@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\CashBoxType;
-use App\Enums\ClosingStatus;
 use App\Models\Closing;
 use App\Models\ClosingEvent;
 use App\Models\ClosingSetting;
@@ -97,8 +96,9 @@ class WeeklyClosingController extends Controller
     /**
      * The week in full, narrowed to the collector and type asked for, with
      * the whole week's totals for the confirmation, the versions sent of
-     * it, and what the actor may do with it now: close the week early, send
-     * it or withdraw it.
+     * it, and what the actor may do with it now: close the week early or
+     * send it. A week sent is never taken back; any correction is entered
+     * in the open week.
      *
      * @param  callable(list<array<string, mixed>>): list<array<string, mixed>>  $narrow
      * @return array<string, mixed>
@@ -127,7 +127,6 @@ class WeeklyClosingController extends Controller
             'versions' => $this->versions($closing),
             'can' => [
                 'submit' => $approve && $step === 'confirm',
-                'withdraw' => $approve && $closing->status === ClosingStatus::Submitted && ! $closing->reviewed_at && ! $closing->reviewed_by && $step === 'audit',
                 'closeEarly' => $approve && $running,
             ],
         ];
@@ -135,7 +134,7 @@ class WeeklyClosingController extends Controller
 
     /**
      * Each version of the week the branch sent, newest first: who sent it
-     * and when, its note, whether it was withdrawn, and what it held.
+     * and when, its note, whether it was withdrawn (as weeks once could be), and what it held.
      *
      * @return list<array<string, mixed>>
      */

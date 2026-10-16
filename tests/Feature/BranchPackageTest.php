@@ -87,6 +87,29 @@ class BranchPackageTest extends TestCase
         $this->assertSame('0.00', app(BranchClosingWorkflow::class)->reviewSummary($closing->fresh())['cashWithCollectors']['ILS']);
     }
 
+    public function test_once_its_week_is_sent_a_box_leaves_the_financial_boxes_page_unless_it_still_holds_an_unmatched_entry(): void
+    {
+        [$branch, $head, $collector, $closing] = $this->start();
+        $cash = $this->entry($branch, $collector);
+        $missing = $this->entry($branch, $collector, CashBoxType::BankTransfer);
+        $this->action($head, $branch, 'electronic', $missing->id, ['status' => 'missing'])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $cash->cash_box_id)->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $missing->cash_box_id)->assertSessionHasNoErrors();
+
+        $this->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->has('boxes', 2)->where('tabs.0.count', 2));
+
+        $this->travelTo($closing->coverage_until);
+        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+
+        $this->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('boxes', 1)->where('boxes.0.id', $missing->cash_box_id)->where('tabs.0.count', 1));
+        $this->get(route('payments.cash-boxes', ['box' => $cash->cash_box_id]))->assertInertia(fn (AssertableInertia $page) => $page->has('boxes', 2));
+
+        $this->action($head, $branch, 'electronic', $missing->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
+
+        $this->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->has('boxes', 0)->where('tabs.0.count', 0));
+    }
+
     public function test_missing_and_rejected_entries_are_carried_while_a_closed_box_is_accepted_with_its_week(): void
     {
         [$branch, $head, $collector, $closing] = $this->start();
@@ -247,7 +270,7 @@ class BranchPackageTest extends TestCase
             ->where('notes.1.entry.ledger.recordedByName', $collector->name)
             ->where('notes.1.box.number', $entry->box->number)
             ->where('notes.1.box.person', $collector->name)
-            ->where('notes.1.box.url', route('payments.cash-boxes', ['branch_id' => $branch->id, 'box' => $entry->cash_box_id]))
+            ->where('notes.1.box.url', route('weekly-packages.index', ['branch_id' => $branch->id, 'closing_id' => $closing->id, 'box' => $entry->cash_box_id]))
             ->where('notes.0.entry', null)
             ->where('notes.0.box.number', $entry->box->number));
     }

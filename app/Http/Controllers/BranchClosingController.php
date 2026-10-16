@@ -60,7 +60,7 @@ class BranchClosingController extends Controller
             $setting = ClosingSetting::forBranch($branchId);
         }
         $closings = $this->branchBoxes->closings($branchId);
-        $boxRows = $this->branchBoxes->rows($branchId, $actor, $closings->modelKeys());
+        $boxRows = $this->branchBoxes->rows($branchId, $actor);
         $current = $started ? $this->workflow->current($branchId) : null;
         $pendingChange = ClosingSettingChange::query()->where('branch_id', $branchId)->whereNull('applied_at')->latest('id')->first();
         $notes = AuditNote::query()->whereIn('closing_id', Closing::query()->where('branch_id', $branchId)->select('id'))->with(['closing:id,number,coverage_from,coverage_until,workflow_settings', 'replies.user:id,name', 'box:id,number,type,user_id', 'box.user:id,name', 'entry.transaction.subscription:id,full_name,subscription_name,account_number', 'entry.transaction.recordedBy:id,name'])->latest('id')->get();
@@ -134,7 +134,7 @@ class BranchClosingController extends Controller
             'replies' => $note->replies,
             'box' => $note->box ? [
                 'id' => $note->box->id, 'number' => $note->box->number, 'type' => $note->box->type->value, 'person' => $note->box->user?->name,
-                'url' => route('payments.cash-boxes', ['branch_id' => $branchId, 'box' => $note->box->id]),
+                'url' => route('weekly-packages.index', ['branch_id' => $branchId, 'closing_id' => $note->closing_id, 'box' => $note->box->id]),
             ] : null,
             'entry' => $transaction ? [
                 'id' => $entry->id, 'amount' => $entry->amount, 'currency' => $entry->currency, 'status' => $entry->status,
@@ -154,7 +154,7 @@ class BranchClosingController extends Controller
         $allowed = match ($action) {
             'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
             'receive', 'receive-type', 'electronic', 'repay' => BranchClosingAccess::receive($actor, $branchId),
-            'submit', 'withdraw', 'early', 'reply' => BranchClosingAccess::approve($actor, $branchId),
+            'submit', 'early', 'reply' => BranchClosingAccess::approve($actor, $branchId),
             'start', 'settings' => BranchClosingAccess::manage($actor, $branchId),
             default => false,
         };
@@ -197,7 +197,6 @@ class BranchClosingController extends Controller
                 $closing = Closing::query()->where('branch_id', $branchId)->whereNotNull('workflow_settings')->findOrFail($record);
                 match ($action) {
                     'submit' => $this->workflow->submit($closing, $actor, $data['notes'] ?? null),
-                    'withdraw' => $this->workflow->withdraw($closing, $actor),
                     'early' => $this->workflow->earlyClose($closing),
                 };
             }

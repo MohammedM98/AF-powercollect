@@ -10,7 +10,6 @@ use App\Models\CashBoxPayment;
 use App\Models\CashTransfer;
 use App\Models\Closing;
 use App\Models\ClosingSetting;
-use App\Models\ClosingVersion;
 use App\Models\CollectorDebt;
 use App\Models\MobileAccessToken;
 use App\Models\Subscription;
@@ -191,21 +190,21 @@ class BranchClosingWorkflowTest extends TestCase
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasErrors('action');
     }
 
-    public function test_withdrawal_preserves_versions_and_is_forbidden_after_audit_opens(): void
+    public function test_a_week_sent_to_the_audit_can_never_be_taken_back(): void
     {
         [$branch, $head] = $this->start();
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true]);
-
-        $this->action($head, $branch, 'withdraw', $closing->id)->assertSessionHasNoErrors();
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $snapshot = $closing->fresh()->submitted_snapshot;
 
-        $this->assertDatabaseCount('closing_versions', 2);
-        $this->assertNotNull(ClosingVersion::query()->where('version', 1)->sole()->withdrawn_at);
-        $closing->refresh()->update(['reviewed_at' => now()]);
-        $this->action($head, $branch, 'withdraw', $closing->id)->assertSessionHasErrors('action');
+        $this->action($head, $branch, 'withdraw', $closing->id)->assertForbidden();
+        $this->action(User::factory()->superAdmin()->create(), $branch, 'withdraw', $closing->id)->assertForbidden();
+        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasErrors('action');
+
         $this->assertSame('submitted', $closing->fresh()->status->value);
+        $this->assertSame($snapshot, $closing->fresh()->submitted_snapshot);
+        $this->assertDatabaseCount('closing_versions', 1);
     }
 
     public function test_early_closing_joins_the_remaining_days_to_the_next_week(): void

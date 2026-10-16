@@ -25,7 +25,7 @@ function Change({ value }) {
 export function VersionsSection({ versions }) {
     const figures = [['cash', 'الكاش المستلم'], ['bank', 'الحوالات المؤكدة'], ['clearing', 'المقاصات المقبولة']];
 
-    return <SectionCard icon="history" title="النسخ المرسلة" hint="كل إرسال يحفظ نسخة؛ السحب يُبقي النسخة في السجل، والإرسال التالي ينشئ نسخة جديدة.">
+    return <SectionCard icon="history" title="النسخ المرسلة" hint="الأسبوع كما أُرسل إلى التدقيق وثُبّتت أرقامه. النسخ المسحوبة من قبل تبقى في السجل.">
         <ol className="space-y-3">{versions.map((version, index) => {
             const previous = versions[index + 1];
 

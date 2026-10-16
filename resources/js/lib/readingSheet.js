@@ -13,3 +13,22 @@ export function activeReadingStatus(filters) {
 
     return filters.entry === 'entered' ? null : 'all';
 }
+
+/**
+ * What the sheet is filtered to, as "label: value" pairs in the filters'
+ * order (branch, area, sub-area, meter box…), then the search: what the
+ * pinned bar names while the filters are scrolled away.
+ *
+ * @returns {Array<{ key: string, label: string, value: string }>}
+ */
+export function activeFilterChips(groups, values, search = '') {
+    const chips = (groups ?? [])
+        .filter((group) => values?.[group.key])
+        .map((group) => {
+            const option = group.options.find((candidate) => String(candidate.value) === String(values[group.key]));
+
+            return { key: group.key, label: group.label, value: option?.label ?? String(values[group.key]) };
+        });
+
+    return search?.trim() ? [...chips, { key: 'search', label: 'بحث', value: search.trim() }] : chips;
+}

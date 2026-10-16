@@ -18,6 +18,7 @@ import { formatCurrency } from '@/lib/currency';
 import { formatMonthName } from '@/lib/format';
 import { consumptionBetween, steppedReading, weeklyCharges } from '@/lib/readings';
 import { activeReadingStatus, readingStatusFilters } from '@/lib/readingSheet';
+import ReadingContextBar from './ReadingContextBar';
 import './ReadingEntry.css';
 import { WEEK_DAYS, formatWeekDay } from '@/lib/weekDays';
 
@@ -438,6 +439,9 @@ export default function Index({
     const [confirming, setConfirming] = useState(null);
     const [approving, setApproving] = useState(false);
     const [showHint, setShowHint] = useState(true);
+    // The end of the filters and the sheet: the pinned bar shows what the filters are set to while they are scrolled away.
+    const filtersRef = useRef(null);
+    const sheetRef = useRef(null);
     const activeStatus = activeReadingStatus(filters.filter ?? {});
     const weekIndex = weekOptions.findIndex((option) => option.value === week);
     const entered = statusSummary.pending + statusSummary.approved;
@@ -608,7 +612,8 @@ export default function Index({
                 </div>
             )}
 
-            <section className="re-card">
+            <section className="re-card" ref={sheetRef}>
+            <ReadingContextBar anchorRef={filtersRef} sectionRef={sheetRef} week={week} weekEnd={weekEnd} groups={filterOptions} values={filterValues} search={search} total={rows.total} />
             <div className="re-sort">
                 <label htmlFor="sheet-sort">ترتيب حسب</label>
                 <select id="sheet-sort" value={filters.sort} onChange={(e) => sortBy(e.target.value, filters.direction)} className="py-1.5 text-sm">
@@ -650,6 +655,7 @@ export default function Index({
                     />
                 }
             />
+            <div ref={filtersRef} aria-hidden="true" />
 
             <div className="re-table-wrap">
                 {/* While a last reading can be edited, its column keeps the editor's width, so opening it moves nothing. */}

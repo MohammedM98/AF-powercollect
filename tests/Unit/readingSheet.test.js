@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activeReadingStatus, readingStatusFilters } from '../../resources/js/lib/readingSheet.js';
+import { activeFilterChips, activeReadingStatus, readingStatusFilters } from '../../resources/js/lib/readingSheet.js';
 
 test('switching status clears the previous status while retaining location filters', () => {
     const filters = { meter_box_id: '42', tariff_id: '3', entry: 'missing', approval: '' };
@@ -19,4 +19,19 @@ test('custom legacy filters do not highlight a tab that misrepresents the result
     assert.equal(activeReadingStatus({ entry: 'entered' }), null);
     assert.equal(activeReadingStatus({ entry: 'missing', approval: 'approved' }), null);
     assert.equal(activeReadingStatus({ entry: 'entered', approval: 'pending' }), 'pending');
+});
+
+test('the pinned bar names each active filter by its label and option, then the search', () => {
+    const groups = [
+        { key: 'branch_id', label: 'الفرع', options: [{ value: 3, label: 'فرع العشار' }] },
+        { key: 'sub_area_id', label: 'منطقة 2', options: [{ value: '7', label: 'حي الجزائر' }] },
+        { key: 'meter_box_id', label: 'الطبلون', options: [{ value: 12, label: 'BOX-9597' }] },
+    ];
+
+    assert.deepEqual(activeFilterChips(groups, { branch_id: '3', sub_area_id: '', meter_box_id: '12' }, '  أحمد '), [
+        { key: 'branch_id', label: 'الفرع', value: 'فرع العشار' },
+        { key: 'meter_box_id', label: 'الطبلون', value: 'BOX-9597' },
+        { key: 'search', label: 'بحث', value: 'أحمد' },
+    ]);
+    assert.deepEqual(activeFilterChips(groups, {}, ''), []);
 });

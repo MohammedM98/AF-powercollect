@@ -682,7 +682,7 @@ export default function AccountStatement({ subscription, entries, summary, payme
             <div className="statement-summary mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <SummaryCard
                     label="الرصيد الحالي"
-                    value={<Balance value={summary.balance} colored={false} unit="شيكل" />}
+                    value={<Balance value={summary.balance} colored={false} unit="شيكل" word />}
                     tone={balanceTone(summary.balance)}
                     className="sm:col-span-2 lg:col-span-1"
                 />

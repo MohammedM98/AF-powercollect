@@ -369,10 +369,11 @@ export default function Index({
                                 </td>
                             </tr>
                         ) : (
+                            // The row opens the subscriber's details (a quick look at their name and phone); «عرض» opens the financial statement.
                             subscriptions.data.map((subscription) => (
                                 <tr
                                     key={subscription.id}
-                                    {...rowClick(() => openStatement(subscription))}
+                                    {...rowClick(() => setViewingSubscriptionId(subscription.id))}
                                     {...printRowProps(Object.fromEntries(PRINT_FIELDS.map((field) => [field.key, subscription[field.key]])))}
                                     className={allMatching || selectedIds.has(subscription.id) ? 'bg-brand-50' : undefined}
                                 >

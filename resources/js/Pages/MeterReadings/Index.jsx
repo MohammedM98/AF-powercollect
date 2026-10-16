@@ -176,12 +176,19 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
     const isSaved = Boolean(row.reading) && !isDraft && !error;
     // Approved, but its bill was cancelled from the subscription's statement: it is not charged to them.
     const billCancelled = row.reading?.status === 'approved' && row.reading.billed === false;
+    // What the amount due notes, on one line under it so the row keeps its height.
+    const dueNotes = [
+        billCancelled && !isDraft && { text: 'لم تُحمَّل على المشترك' },
+        charges?.discountAmount > 0 && charges.consumption >= 0 && { text: `بعد خصم ${formatCurrency(charges.discountAmount)}`, className: 'text-emerald-700 dark:text-emerald-400' },
+        belowMinimum && charges.consumption >= 0 && { text: 'الحد الأدنى' },
+    ].filter(Boolean);
     // What hovering the field says: why it was refused, that it was left empty, or what was saved.
     const hoverText = error
         ?? (missed ? 'لم تُدخل قراءة هذا المشترك' : null)
         ?? (isSaved
             ? `تم حفظ القراءة (${row.reading.status === 'pending' ? 'بانتظار الاعتماد' : (row.reading.statusLabel ?? row.reading.status)}) · الاستهلاك ${charges?.consumption ?? '—'} · المستحق ${charges ? formatCurrency(charges.amountDue) : '—'}`
-            : null);
+            : null)
+        ?? (row.hasLaterWeek ? 'توجد قراءة لأسبوع لاحق، فلا تُعدَّل هذه القراءة' : null);
 
     // + and − (the buttons or the keys) move the reading by one kilo; from an empty field they start at the last reading.
     function step(direction) {
@@ -233,17 +240,18 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                             className={row.canApprove ? '' : 'invisible'}
                         />
                     )}
-                    <div>
-                        <b>{row.fullName}</b>
-                        <p className="text-xs text-gray-500">
+                    <div className="min-w-0">
+                        <div className="re-sub-name">
+                            <b>{row.fullName}</b>
+                            {row.discount && (
+                                <span className="re-pill discount" title={`خصم القراءات الأسبوعية: ${row.discount.terms}${row.discount.segment ? ` · ${row.discount.segment}` : ''}`}>
+                                    خصم
+                                </span>
+                            )}
+                        </div>
+                        <p className="re-line text-xs text-gray-500">
                             {[row.accountNumber && `حساب ${row.accountNumber}`, row.meterBoxNumber && `طبلون ${row.meterBoxNumber}`, row.subAreaName].filter(Boolean).join(' · ') || '—'}
                         </p>
-                        {row.discount && (
-                            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                                خصم القراءات الأسبوعية: {row.discount.terms}
-                                {row.discount.segment && ` · ${row.discount.segment}`}
-                            </p>
-                        )}
                     </div>
                 </div>
             </td>
@@ -263,7 +271,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     title={hoverText ?? undefined}
                     disabled={!row.canEdit || saving}
                     value={value}
-                    placeholder={row.canEdit ? 'أدخل القراءة' : '—'}
+                    placeholder={row.canEdit ? 'أدخل القراءة' : row.hasLaterWeek ? 'لها أسبوع لاحق' : '—'}
                     onInput={(e) => {
                         setValue(e.target.value);
                         setMissed(false);
@@ -304,7 +312,6 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     }}
                     className={error ? 'has-error' : missed ? 'is-missed' : isSaved ? 'is-saved' : ''}
                 /><button type="button" tabIndex={-1} className="re-step" aria-label={`زيادة قراءة ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)} disabled={!row.canEdit || saving}>+</button></div>
-                {row.hasLaterWeek && <p className="mt-1 text-xs text-gray-400">توجد قراءة لأسبوع لاحق</p>}
             </td>
             <td className={`re-diff re-number ${charges && charges.consumption < 0 ? 'text-red-600' : 'text-brand-700'}`}>
                 {charges ? charges.consumption : '—'}
@@ -318,11 +325,16 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
             </td>
             <td className={`re-due re-number ${billCancelled && !isDraft ? 'text-gray-400' : ''}`}>
                 {charges && charges.consumption >= 0 ? <span className={billCancelled && !isDraft ? 'line-through' : ''}>{formatCurrency(charges.amountDue)}</span> : '—'}
-                {billCancelled && !isDraft && <p className="text-xs font-normal text-gray-500">لم تُحمَّل على المشترك</p>}
-                {charges?.discountAmount > 0 && charges.consumption >= 0 && (
-                    <p className="text-xs font-normal text-emerald-700 dark:text-emerald-400">بعد خصم {formatCurrency(charges.discountAmount)}</p>
+                {dueNotes.length > 0 && (
+                    <p className="re-line text-xs font-normal text-gray-500" title={dueNotes.map((note) => note.text).join(' · ')}>
+                        {dueNotes.map((note, index) => (
+                            <span key={note.text} className={note.className}>
+                                {index > 0 && ' · '}
+                                {note.text}
+                            </span>
+                        ))}
+                    </p>
                 )}
-                {belowMinimum && charges.consumption >= 0 && <p className="text-xs font-normal text-gray-500">الحد الأدنى</p>}
             </td>
             <td className="re-status">
                 <ConfirmDialog
@@ -344,7 +356,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                 {saving ? (
                     <span className="text-xs text-gray-500">جارٍ الحفظ...</span>
                 ) : row.reading ? (
-                    <>
+                    <div className="re-pills">
                         <span className={`re-pill ${row.reading.status}`}><i />{row.reading.status === 'pending' ? 'بانتظار الاعتماد' : row.reading.statusLabel}</span>
                         {billCancelled && !isDraft && (
                             <span className="re-pill unbilled" title="أُلغيت فاتورة هذه القراءة من كشف حساب المشترك، فلا تُحمَّل عليه.">
@@ -359,16 +371,22 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                                 <i />غير معتادة
                             </span>
                         )}
-                    </>
+                    </div>
                 ) : (
                     <span className="re-pill missing"><i />لم تُدخل</span>
                 )}
             </td>
             <td className="re-by">
                 {row.reading ? <>
-                    <b>{row.reading.recordedByName || '—'}</b>
+                    <span className="re-line">
+                        <b>{row.reading.recordedByName || '—'}</b>
+                        {row.reading.approvedByName && (
+                            <span className="re-approved-by" title={`اعتمدها ${row.reading.approvedByName} · ${row.reading.approvedAt}`}>
+                                · اعتمدها {row.reading.approvedByName}
+                            </span>
+                        )}
+                    </span>
                     <small><Icon name="clock" />{row.reading.recordedAt} · {row.reading.recordedSource === 'app' ? 'التطبيق' : 'الموقع'}</small>
-                    {row.reading.approvedByName && <span className="re-approved-by">اعتمدها {row.reading.approvedByName}<small>{row.reading.approvedAt}</small></span>}
                 </> : <span>—</span>}
             </td>
         </tr>

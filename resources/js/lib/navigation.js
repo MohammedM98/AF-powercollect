@@ -18,7 +18,7 @@ export const MAIN_LINKS = [
     { href: '/branch-performance', label: 'أداء الفروع', description: 'مقارنة نسب التحصيل بين الفروع', icon: 'trend', can: 'viewBranchPerformance' },
     { href: '/reports', label: 'التقارير', description: 'تقارير التحصيل والقراءات الجاهزة', icon: 'receipt', can: 'viewReports' },
     { href: '/subscriptions', label: 'المشتركون', description: 'البحث عن مشترك وإضافته وتعديله', icon: 'users', can: 'viewSubscriptions' },
-    { href: '/meter-readings', label: 'القراءات', description: 'قراءات العدادات لهذه الدورة', icon: 'chart', can: 'viewMeterReadings' },
+    { href: '/meter-readings', label: 'القراءات الأسبوعية', description: 'قراءات العدادات لهذه الدورة', icon: 'chart', can: 'viewMeterReadings' },
     { href: '/reading-cycles', label: 'توزيع القراءات', description: 'توزيع الطبلونات على القرّاء والكشوف الورقية', icon: 'layers', can: 'viewReadingCycles' },
     { href: '/disconnection-lists', label: 'قوائم القطع', description: 'المدرجون للقطع ومواعيدهم وإنذاراتهم', icon: 'power', can: 'viewDisconnections' },
     { href: '/messages', label: 'الرسائل', description: 'تنبيهات الدفع والقطع للمشتركين', icon: 'messages', can: 'viewMessages' },

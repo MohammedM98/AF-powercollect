@@ -59,6 +59,7 @@
 .reading-entry .data-table-toolbar { padding: 14px 16px; border: 0; border-bottom: 1px solid var(--re-line2); border-radius: 0; background: transparent; }
 .reading-entry .data-table-toolbar::before { display: none; }
 .reading-entry .data-table-toolbar input { border: 1px solid var(--re-line); border-radius: 12px; background: var(--re-surface); }
+.re-sort { display: flex; justify-content: flex-end; align-items: flex-end; flex-wrap: wrap; gap: 12px; padding: 14px 16px 0; }
 .re-table-wrap { container-type: inline-size; overflow-x: auto; padding: 4px 10px 8px; }
 .re-table { border-collapse: separate; border-spacing: 0 8px; }
 .re-table th { padding: 10px 9px 4px; font-size: 13.5px; color: var(--re-faint); white-space: nowrap; }

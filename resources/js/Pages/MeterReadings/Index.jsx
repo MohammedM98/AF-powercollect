@@ -615,6 +615,34 @@ export default function Index({
 
             <section className="re-card" ref={sheetRef}>
             <ReadingContextBar anchorRef={filtersRef} sectionRef={sheetRef} week={week} weekEnd={weekEnd} groups={filterOptions} values={filterValues} search={search} total={rows.total} />
+            <div className="re-sort">
+                <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-52">
+                    <span className="text-xs font-semibold text-gray-500">ترتيب حسب</span>
+                    <SearchableSelect
+                        id="sheet-sort"
+                        value={filters.sort}
+                        onChange={(value) => sortBy(value, filters.direction)}
+                        options={SORT_OPTIONS}
+                        searchPlaceholder="بحث في الترتيب..."
+                        clearable={false}
+                    />
+                </div>
+                <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-48">
+                    <span className="text-xs font-semibold text-gray-500">الاتجاه</span>
+                    <SearchableSelect
+                        id="sheet-direction"
+                        value={filters.direction}
+                        onChange={(value) => sortBy(filters.sort, value)}
+                        options={['asc', 'desc'].map((direction) => ({
+                            value: direction,
+                            label: DIRECTION_LABELS[(SORT_OPTIONS.find((option) => option.value === filters.sort) ?? SORT_OPTIONS[0]).type][direction],
+                        }))}
+                        clearable={false}
+                        searchable={false}
+                    />
+                </div>
+            </div>
+
             <DataTableToolbar
                 search={search}
                 onSearchChange={setSearch}
@@ -630,35 +658,6 @@ export default function Index({
                         onChange={setFilter}
                         onChangeMany={setFilters}
                         onClear={clearFilters}
-                        extraFields={
-                            <>
-                                <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-52">
-                                    <span className="text-xs font-semibold text-gray-500">ترتيب حسب</span>
-                                    <SearchableSelect
-                                        id="sheet-sort"
-                                        value={filters.sort}
-                                        onChange={(value) => sortBy(value, filters.direction)}
-                                        options={SORT_OPTIONS}
-                                        searchPlaceholder="بحث في الترتيب..."
-                                        clearable={false}
-                                    />
-                                </div>
-                                <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-48">
-                                    <span className="text-xs font-semibold text-gray-500">الاتجاه</span>
-                                    <SearchableSelect
-                                        id="sheet-direction"
-                                        value={filters.direction}
-                                        onChange={(value) => sortBy(filters.sort, value)}
-                                        options={['asc', 'desc'].map((direction) => ({
-                                            value: direction,
-                                            label: DIRECTION_LABELS[(SORT_OPTIONS.find((option) => option.value === filters.sort) ?? SORT_OPTIONS[0]).type][direction],
-                                        }))}
-                                        clearable={false}
-                                        searchable={false}
-                                    />
-                                </div>
-                            </>
-                        }
                     />
                 }
             />

@@ -489,17 +489,21 @@ class MeterReading extends Model
 
     /**
      * Start the reading from the corrected reading of the week before it —
-     * its last reading, edited after this week was entered — and recalculate
-     * it as correct() does: an approved one goes back to review. Returns
-     * whether that happened; a reading already starting there is left as it is.
+     * its last reading, edited after this week was entered — at
+     * `$currentReading` when this week's reading was entered again with the
+     * edit, and recalculate it as correct() does: an approved one goes back
+     * to review. Returns whether that happened; a reading already starting
+     * there, at the same reading, is left as it is.
      */
-    public function startFrom(float $previousReading, User $editor): bool
+    public function startFrom(float $previousReading, User $editor, ?float $currentReading = null): bool
     {
-        if (round($previousReading, 2) === round($this->previous_reading, 2)) {
+        $currentReading ??= $this->current_reading;
+
+        if (round($previousReading, 2) === round($this->previous_reading, 2) && round($currentReading, 2) === round($this->current_reading, 2)) {
             return false;
         }
 
-        return $this->recalculate($previousReading, $this->current_reading, $this->notes, $editor);
+        return $this->recalculate($previousReading, $currentReading, $this->notes, $editor);
     }
 
     /**

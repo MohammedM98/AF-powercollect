@@ -128,7 +128,7 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                         rows={[
                             ...(receipt.voucherNumber ? [['رقم السند', receipt.voucherNumber]] : []),
                             ['الخدمة', receipt.service],
-                            ['قيمة المقاصة', `−${formatMoney(receipt.amount)} ₪`],
+                            ['قيمة المقاصة', `${formatMoney(receipt.amount)} ₪`],
                             ['الرصيد بعد', balanceText(describeBalance(receipt.balanceAfter))],
                         ]}
                         printUrl={receipt.receiptUrl}
@@ -256,11 +256,11 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                             </div>
 
                             <SummaryPanel title="ملخص المقاصة" tag="خدمة مقابل خدمة">
-                                <SummaryFigure label="قيمة المقاصة" value={`−${formatMoney(amount)}`} tone="green" note={data.notes.trim() || null} />
+                                <SummaryFigure label="قيمة المقاصة" value={`${formatMoney(amount)}`} tone="green" note={data.notes.trim() || null} />
                                 <SummaryLedger
                                     rows={[
                                         [correcting ? 'الرصيد بدون الأصلية' : 'الرصيد الحالي', balanceText(describeBalance(balance))],
-                                        ['مقاصة', `−${formatMoney(amount)} ₪`, 'green'],
+                                        ['مقاصة', `${formatMoney(amount)} ₪`, 'green'],
                                     ]}
                                     result={balanceAfterRow('الرصيد بعد المقاصة', balanceAfter)}
                                 />

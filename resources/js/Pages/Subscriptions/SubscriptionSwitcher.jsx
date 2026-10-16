@@ -1,27 +1,11 @@
 import StatusPill from '@/Components/DataTable/StatusPill';
-import { describeBalance } from '@/lib/accountStatement';
+import Balance from '@/Components/Balance';
 
 const STATUS_TONES = {
     active: 'green',
     suspended: 'amber',
     disconnected: 'gray',
 };
-
-const BALANCE_TONES = {
-    owes: 'text-brand-700',
-    credit: 'text-emerald-700 dark:text-emerald-400',
-    settled: 'text-gray-900',
-};
-
-function Balance({ value, className = '' }) {
-    const balance = describeBalance(value);
-
-    return (
-        <span className={`whitespace-nowrap font-bold tabular-nums ${BALANCE_TONES[balance.tone]} ${className}`}>
-            {balance.tone === 'settled' ? '0 شيكل — مسدّد' : `${balance.amount} شيكل ${balance.label}`}
-        </span>
-    );
-}
 
 /**
  * Every subscription of the same person above their statement, each with

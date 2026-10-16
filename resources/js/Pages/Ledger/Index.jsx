@@ -6,6 +6,7 @@ import Icon from '@/Components/Icon';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
+import { BALANCE_HINTS, balanceTone, signedBalance } from '@/lib/balance';
 import { formatClock, formatDayLabel, formatMoney, formatNumber, formatShortDay } from '@/lib/format';
 import { printUrl } from '@/lib/print';
 import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
@@ -22,11 +23,20 @@ const BANK_LOGOS = {
     'بنك القدس': '/images/banks/quds-bank.webp',
 };
 
-function Money({ amount, signed = false, credit = false, balance = false }) {
-    const balanceInCents = balance ? Math.round(Number(amount) * 100) : 0;
-    const balanceClass = balanceInCents < 0 ? 'balance-subscriber' : balanceInCents > 0 ? 'balance-company' : '';
+/**
+ * An amount, always shown positive (its side is in the line's type), or with
+ * `balance` a balance with its sign: negative is credit in the
+ * subscription's favour. A balance is coloured unless `colored` is false, as
+ * in the column of each line's running balance.
+ */
+function Money({ amount, balance = false, colored = balance }) {
+    if (!balance) {
+        return <bdi className="num" dir="ltr">{formatMoney(Math.abs(Number(amount)))} <span>₪</span></bdi>;
+    }
 
-    return <bdi className={`num ${balanceClass}`} dir="ltr">{balance ? formatMoney(amount) : <>{signed && (credit ? '−' : '+')}{formatMoney(Math.abs(Number(amount)))}</>} <span>₪</span></bdi>;
+    const tone = balanceTone(amount);
+
+    return <bdi className={`num ${colored ? `balance-${tone}` : ''}`} dir="ltr" title={BALANCE_HINTS[tone]}>{signedBalance(amount)} <span>₪</span></bdi>;
 }
 
 function shortDate(value) {
@@ -203,10 +213,10 @@ function TransactionRow({ entry, grouped, onOpen, rowClick }) {
             <td className="mth-c">{payment ? <div className="mth">{BANK_LOGOS[entry.bankName] ? <img src={BANK_LOGOS[entry.bankName]} alt="" /> : <span className="ci"><Icon name={entry.paymentMethod === 'cash' ? 'wallet' : 'bank'} /></span>}<span title={payment}>{payment}</span></div> : '—'}</td>
             <td className="ref" title={entry.referenceNumber ?? undefined}><bdi>{entry.referenceNumber ?? '—'}</bdi>{entry.splitPayment && <div><SplitPaymentBadge split={entry.splitPayment} /></div>}</td>
             <td className="by" title={entry.recordedByName ?? undefined}>{entry.recordedByName ?? '—'}</td>
-            <td className="am-c"><span className={`am ${entry.isCredit ? 'cr' : 'dr'}`}><Money amount={entry.amount} signed credit={entry.isCredit} />
+            <td className="am-c"><span className={`am ${entry.isCredit ? 'cr' : 'dr'}`}><Money amount={entry.amount} />
                 {entry.currency && entry.currency !== 'ILS' && <small><bdi dir="ltr">{formatMoney(entry.currencyAmount)} {entry.currency}{entry.exchangeRate && ` × ${formatMoney(entry.exchangeRate)}`}</bdi></small>}
             </span></td>
-            <td className="bal-c"><span className="blc">{entry.balanceAfter === null ? '—' : <><Money amount={balance} balance /><i>{balance > 0 ? 'للشركة' : balance < 0 ? 'للمشترك' : 'مسدّد'}</i></>}</span></td>
+            <td className="bal-c"><span className="blc">{entry.balanceAfter === null ? '—' : <Money amount={balance} balance colored={false} />}</span></td>
         </tr>
     );
 }

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import StatusPill from '@/Components/DataTable/StatusPill';
+import Balance from '@/Components/Balance';
 import Icon from '@/Components/Icon';
 import { COMPANY_NAME } from '@/Layouts/GuestLayout';
 import {
@@ -16,9 +17,9 @@ import {
     statementCsv,
     withReadingDiscounts,
 } from '@/lib/accountStatement';
+import { balanceTone } from '@/lib/balance';
 import { downloadCsv } from '@/lib/csv';
 import { formatAmount } from '@/lib/currency';
-import { formatMoney } from '@/lib/format';
 import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 
 const COLUMNS = [
@@ -400,8 +401,6 @@ function StatementRow({
     onJump,
     onAction,
 }) {
-    const balanceInCents = Math.round(Number(entry.balance) * 100);
-    const balanceColor = balanceInCents < 0 ? 'text-red-700 dark:text-red-400' : balanceInCents > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900';
     const showsHistory = isCompact && !isHistory && entry.history?.length > 0;
     const color = chainColor(chain);
 
@@ -464,7 +463,7 @@ function StatementRow({
             </td>
             <td
                 data-label="المبلغ"
-                className={`font-display font-semibold tabular-nums ${entry.isCredit ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900'}`}
+                className="font-display font-semibold tabular-nums text-gray-900"
             >
                 {entry.discountLine ? (
                     <span className="grid gap-0.5">
@@ -510,7 +509,7 @@ function StatementRow({
                         <Dash />
                     </span>
                 ) : (
-                    <b className={`font-display tabular-nums ${balanceColor}`}><bdi dir="ltr">{formatMoney(entry.balance)}</bdi></b>
+                    <Balance value={entry.balance} colored={false} unit="" className="font-bold text-gray-900" />
                 )}
             </td>
             <td data-label="اسم المستخدم" className="text-gray-700">
@@ -528,9 +527,9 @@ function StatementRow({
 function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
     const styles = {
         default: ['border-gray-200 bg-surface', 'text-gray-500', 'text-gray-900'],
-        subscriber: ['border-red-500/25 bg-red-500/10', 'text-red-700 dark:text-red-400', 'text-red-700 dark:text-red-400'],
-        company: ['border-emerald-500/25 bg-emerald-500/10', 'text-emerald-700 dark:text-emerald-400', 'text-emerald-700 dark:text-emerald-400'],
-        paid: ['border-gray-200 bg-surface', 'text-gray-500', 'text-emerald-700 dark:text-emerald-400'],
+        owes: ['border-red-500/25 bg-red-500/10', 'text-red-700 dark:text-red-400', 'text-red-700 dark:text-red-400'],
+        credit: ['border-emerald-500/25 bg-emerald-500/10', 'text-emerald-700 dark:text-emerald-400', 'text-emerald-700 dark:text-emerald-400'],
+        settled: ['border-gray-200 bg-surface', 'text-gray-500', 'text-gray-500'],
     }[tone];
 
     return (
@@ -579,7 +578,6 @@ export default function AccountStatement({ subscription, entries, summary, payme
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
     const hasLineMenus = entries.some(hasLineMenu);
-    const balanceInCents = Math.round(Number(summary.balance) * 100);
     const columns = hasLineMenus ? [...COLUMNS, ''] : COLUMNS;
 
     function setFilter(key, value) {
@@ -684,8 +682,8 @@ export default function AccountStatement({ subscription, entries, summary, payme
             <div className="statement-summary mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <SummaryCard
                     label="الرصيد الحالي"
-                    value={<><bdi dir="ltr">{formatMoney(summary.balance)}</bdi> شيكل</>}
-                    tone={balanceInCents < 0 ? 'subscriber' : balanceInCents > 0 ? 'company' : 'default'}
+                    value={<Balance value={summary.balance} colored={false} unit="شيكل" />}
+                    tone={balanceTone(summary.balance)}
                     className="sm:col-span-2 lg:col-span-1"
                 />
                 <SummaryCard
@@ -697,19 +695,16 @@ export default function AccountStatement({ subscription, entries, summary, payme
                     label="مجموع ما دفعه (تسديد)"
                     value={`${formatAmount(summary.paid)} شيكل`}
                     hint={`عدد الدفعات: ${summary.paymentsCount}`}
-                    tone="paid"
                 />
                 <SummaryCard
                     label="مجموع الخصومات"
                     value={`${formatAmount(summary.discounted)} شيكل`}
                     hint={`عدد الخصومات: ${summary.discountsCount}`}
-                    tone="paid"
                 />
                 <SummaryCard
                     label="مجموع المقاصات"
                     value={`${formatAmount(summary.cleared)} شيكل`}
                     hint={`عدد المقاصات: ${summary.clearingsCount}`}
-                    tone="paid"
                 />
             </div>
 

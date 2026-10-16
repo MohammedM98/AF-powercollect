@@ -4,6 +4,7 @@ import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import { describeBalance } from '@/lib/accountStatement';
+import Balance from '@/Components/Balance';
 import { formatAmount } from '@/lib/currency';
 import { BalanceAfter } from './AccountSummary';
 
@@ -60,7 +61,7 @@ export default function AmendTransactionModal({ onClose, subscription, balance, 
                     {formatAmount(entry.amount)} {entry.currencyLabel}
                 </LockedValue>
                 <LockedValue label="طريقة الدفع">{entry.paymentMethodLabel}</LockedValue>
-                <LockedValue label="الرصيد قبل وبعد">{describeBalance(balance).amount} شيكل</LockedValue>
+                <LockedValue label="الرصيد قبل وبعد"><Balance value={balance} /></LockedValue>
             </div>
 
             {throughBank && (

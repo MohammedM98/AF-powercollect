@@ -1,5 +1,6 @@
 import { csvText } from './csv.js';
 import { formatAmount, roundToCents } from './currency.js';
+import { signedBalance } from './balance.js';
 
 /**
  * The statement page's filters, applied in the browser. Every line already
@@ -296,20 +297,22 @@ export function rememberStatementView(view) {
 
 /**
  * How a balance reads: a positive balance is what the subscription owes
- * (عليه), a negative one is credit in their favour (له).
+ * (عليه), a negative one is credit in their favour (له). `signed` is how it
+ * is shown (see lib/balance.js): the number with its minus sign when it is
+ * credit; `amount` is its size without the sign.
  */
 export function describeBalance(balance) {
     const value = Number(balance);
 
     if (value > 0) {
-        return { amount: formatAmount(value), label: 'عليه', tone: 'owes' };
+        return { amount: formatAmount(value), signed: signedBalance(value), label: 'عليه', tone: 'owes' };
     }
 
     if (value < 0) {
-        return { amount: formatAmount(-value), label: 'له', tone: 'credit' };
+        return { amount: formatAmount(-value), signed: signedBalance(value), label: 'له', tone: 'credit' };
     }
 
-    return { amount: '0', label: 'مسدّد', tone: 'settled' };
+    return { amount: '0', signed: '0', label: 'مسدّد', tone: 'settled' };
 }
 
 /** A line's state as the statement marks it: corrected, cancelled, a correction, or nothing. */
@@ -324,7 +327,8 @@ function entryState(entry) {
 /**
  * The statement's lines (the ones shown, oldest first) as a CSV file for
  * Excel: every column of the statement, with each line's side (عليه or
- * له) and the balance it left, in shekels.
+ * له) and the balance it left, in shekels, with its sign (negative is
+ * credit), as the accountant adds it up.
  */
 export function statementCsv(entries) {
     const rows = [
@@ -340,7 +344,7 @@ export function statementCsv(entries) {
                 entry.lineNumber, entry.date, entry.voucherNumber ?? '', entry.description, entry.details ?? '', entry.typeLabel,
                 entry.isCredit ? 'له' : 'عليه', Number(entry.amount), entry.currencyLabel, entry.exchangeRate ?? '',
                 entry.paymentMethodLabel ?? '', entry.senderBankName ?? '', entry.bankName ?? '', entry.referenceNumber ?? '', entry.cashBox ?? '',
-                Number(balance.amount), balance.label, entryState(entry), entry.recordedByName ?? '',
+                Number(entry.balance), balance.label, entryState(entry), entry.recordedByName ?? '',
             ];
         }),
     ];

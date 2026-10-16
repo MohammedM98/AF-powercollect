@@ -90,11 +90,11 @@ test('the date range includes both ends, and a reversed range matches nothing', 
 });
 
 test('a balance reads as owed, in credit or settled', () => {
-    assert.deepEqual(describeBalance('54.10'), { amount: '54.10', label: 'عليه', tone: 'owes' });
-    assert.deepEqual(describeBalance('-9.10'), { amount: '9.10', label: 'له', tone: 'credit' });
-    assert.deepEqual(describeBalance('0.00'), { amount: '0', label: 'مسدّد', tone: 'settled' });
+    assert.deepEqual(describeBalance('54.10'), { amount: '54.10', signed: '54.10', label: 'عليه', tone: 'owes' });
+    assert.deepEqual(describeBalance('-9.10'), { amount: '9.10', signed: '-9.10', label: 'له', tone: 'credit' });
+    assert.deepEqual(describeBalance('0.00'), { amount: '0', signed: '0', label: 'مسدّد', tone: 'settled' });
     // Whole amounts drop the .00.
-    assert.deepEqual(describeBalance('50.00'), { amount: '50', label: 'عليه', tone: 'owes' });
+    assert.deepEqual(describeBalance('50.00'), { amount: '50', signed: '50', label: 'عليه', tone: 'owes' });
 });
 
 test('a payment in shekels ignores the rate; others are converted at it', () => {
@@ -155,7 +155,7 @@ test('the statement exports each shown line with its side, its state and the bal
     assert.ok(lines[1].startsWith('"1","2026-08-20 09:15","","غرامة","\'=HYPERLINK(""x"")","غرامة","عليه","50","شيكل","1"'));
     assert.ok(lines[1].endsWith('"50","عليه","ملغاة","سارة"'));
     assert.ok(lines[2].includes('"4471"'));
-    assert.ok(lines[2].endsWith('"24","له","تصحيح","Mohammed"'));
+    assert.ok(lines[2].endsWith('"-24","له","تصحيح","Mohammed"'));
 });
 
 /** A weekly reading of 60 with a standing discount of 30, corrected to 60 again, then a payment cancelled outright. */

@@ -302,7 +302,7 @@ export default function DiscountModal({
             ]
           : [
                 ['الطريقة', receipt.method],
-                ['قيمة الخصم', `−${formatMoney(receipt.discount)} ₪`],
+                ['قيمة الخصم', `${formatMoney(receipt.discount)} ₪`],
                 ['الرصيد بعد', balanceText(describeBalance(receipt.balanceAfter))],
             ];
 
@@ -572,11 +572,11 @@ export default function DiscountModal({
                                 </SummaryPanel>
                             ) : (
                                 <SummaryPanel title="ملخص الخصم" tag="مرة واحدة">
-                                    <SummaryFigure label="قيمة الخصم" value={`−${formatMoney(discount ?? 0)}`} tone="green" />
+                                    <SummaryFigure label="قيمة الخصم" value={`${formatMoney(discount ?? 0)}`} tone="green" />
                                     <SummaryLedger
                                         rows={[
                                             [correcting ? 'الرصيد بدون الأصلي' : 'الرصيد الحالي', balanceText(describeBalance(balance))],
-                                            ['خصم', `−${formatMoney(discount ?? 0)} ₪`, 'green'],
+                                            ['خصم', `${formatMoney(discount ?? 0)} ₪`, 'green'],
                                         ]}
                                         result={balanceAfterRow('الرصيد بعد الخصم', balanceAfter)}
                                     />

@@ -3,6 +3,7 @@ import FormModal from '@/Components/FormModal';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import { describeBalance } from '@/lib/accountStatement';
+import { balanceInText } from '@/lib/balance';
 import { BalanceAfter } from './AccountSummary';
 import { OriginalLine } from './CorrectionFields';
 
@@ -34,7 +35,7 @@ export default function ForceDeleteTransactionModal({ onClose, subscription, bal
     const eraseForm = { ...form, isEdit: true, save: (options) => form.post(`/subscriptions/${subscription.id}/transactions/${entry.id}/actions`, options) };
     const effect = entry.actionEffects?.[action] ?? entry.eraseEffect;
     const balanceAfter = describeBalance(Number(balance) - Number(effect));
-    const balanceText = balanceAfter.tone === 'settled' ? 'مسدّدًا' : `${balanceAfter.amount} شيكل ${balanceAfter.label}`;
+    const balanceText = balanceInText(balanceAfter.signed);
 
     return (
         <FormModal

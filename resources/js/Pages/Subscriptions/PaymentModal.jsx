@@ -275,14 +275,14 @@ function PaymentSummary({ amount, inShekels, balance, methodText, collector }) {
                 <div className="flex items-baseline justify-between gap-3">
                     <dt>هذه الدفعة</dt>
                     <dd className="font-display text-[15px] font-semibold text-white" dir="ltr">
-                        +{formatMoney(inShekels ?? 0)} ₪
+                        {formatMoney(inShekels ?? 0)} ₪
                     </dd>
                 </div>
                 <div className="h-px bg-white/10" aria-hidden="true" />
                 <div className="flex items-baseline justify-between gap-3">
                     <dt>الرصيد بعد الدفعة</dt>
                     <dd
-                        className={`font-display text-lg font-semibold ${after ? (after.tone === 'owes' ? 'text-red-300' : 'text-emerald-300') : 'text-white/50'}`}
+                        className={`font-display text-lg font-semibold ${after ? { owes: 'text-red-300', credit: 'text-emerald-300', settled: 'text-white' }[after.tone] : 'text-white/50'}`}
                     >
                         {after ? balanceText(after) : '—'}
                     </dd>

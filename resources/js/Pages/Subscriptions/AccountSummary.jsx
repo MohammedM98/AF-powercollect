@@ -1,17 +1,12 @@
 import Icon from '@/Components/Icon';
+import { BALANCE_HINTS, BALANCE_TEXT_CLASSES } from '@/lib/balance';
 
-const BALANCE_TONES = {
-    owes: 'text-brand-700',
-    credit: 'text-emerald-700',
-    settled: 'text-gray-900',
-};
-
-/** A balance as it reads on the account: "50 شيكل عليه", "9.10 شيكل له" or settled. */
+/** A described balance (describeBalance()) as it reads everywhere: "50 ₪", "-9.10 ₪" or "0 ₪", coloured. */
 export function BalanceText({ balance }) {
     return (
-        <span className={`font-bold tabular-nums ${BALANCE_TONES[balance.tone]}`}>
-            {balance.tone === 'settled' ? '0 شيكل — مسدّد' : `${balance.amount} شيكل ${balance.label}`}
-        </span>
+        <bdi dir="ltr" title={BALANCE_HINTS[balance.tone]} className={`inline-block whitespace-nowrap font-display font-bold tabular-nums ${BALANCE_TEXT_CLASSES[balance.tone]}`}>
+            {balance.signed} ₪
+        </bdi>
     );
 }
 

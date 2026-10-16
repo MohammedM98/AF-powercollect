@@ -25,6 +25,24 @@ class PreviewLastReadingRequest extends UpdateMeterReadingRequest
     {
         return [
             'current_reading' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
+            'next_current_reading' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
         ];
+    }
+
+    /**
+     * The preview is first asked for before this week's reading is typed
+     * again, to show last week's side.
+     */
+    protected function entersNextReadingAgain(): bool
+    {
+        return false;
+    }
+
+    /**
+     * This week's reading is typed again, so the number it had bounds nothing.
+     */
+    protected function checksSavedNextReading(): bool
+    {
+        return false;
     }
 }

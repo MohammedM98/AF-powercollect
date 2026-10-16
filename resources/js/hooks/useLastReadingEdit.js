@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router, useHttp } from '@inertiajs/react';
 import { steppedReading } from '@/lib/readings';
 
@@ -6,19 +6,24 @@ import { steppedReading } from '@/lib/readings';
  * Editing a subscription's last reading in place — the reading of the week
  * before the latest — on the readings sheet and in a subscription's reading
  * history. `open()` (the pencil) turns it into a field with − and +, which
- * step it a kilo between where its own week started (`floor`) and the reading
- * of the week after it (`ceiling`, once that week is entered). Enter or
+ * step it a kilo from where its own week started (`floor`) up; the week
+ * after it bounds nothing, since its reading is typed again. Enter or
  * leaving the field saves it, Escape puts it back. The week after it is
- * recalculated from it, so when `needsConfirmation` (either reading is
- * approved) saving first loads what the edit does to both weeks (`preview`,
- * worked out by the server) and waits on "are you sure?" (`confirming`, then
- * `confirm({ confirmUnusual })` or `cancel()`). Confirmed, the edit is saved
- * and the approved week(s) approved again at once (`as_last_reading`).
+ * recalculated from it, so when `needsConfirmation` (the week after it is
+ * entered, or the reading is approved) saving first loads what the edit does
+ * to both weeks (`preview`, worked out by the server) and waits on "are you
+ * sure?" (`confirming`). There the week after it is typed again by hand
+ * (`nextCurrent`, `setNextCurrent`), never kept at the number it had, and
+ * the preview follows it (`nextError` when the server refuses it). Then
+ * `confirm({ confirmUnusual })` saves the edit with that reading and
+ * approves the approved week(s) again at once (`as_last_reading`), or
+ * `cancel()` puts it back.
  *
  * Returns the state (`editing`, `value`, `error`, `saving`, `confirming`,
- * `preview`), the actions, and `inputProps` to spread on the field.
+ * `preview`, `previewing`, `nextCurrent`, `nextError`), the actions, and
+ * `inputProps` to spread on the field.
  */
-export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = null, needsConfirmation = false }) {
+export function useLastReadingEdit({ readingId, savedValue, floor, needsConfirmation = false }) {
     const saved = String(savedValue);
     const [editing, setEditing] = useState(false);
     const [value, setValue] = useState(saved);
@@ -26,6 +31,9 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
     const [saving, setSaving] = useState(false);
     const [confirming, setConfirming] = useState(false);
     const [preview, setPreview] = useState(null);
+    const [previewing, setPreviewing] = useState(false);
+    const [nextCurrent, setNextCurrent] = useState('');
+    const [nextError, setNextError] = useState(null);
     const previewRequest = useHttp({ current_reading: '' });
     // Set while a save is on its way, and once the field is left with Escape: its blur then saves nothing.
     const busy = useRef(false);
@@ -43,19 +51,34 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
         setEditing(false);
         setConfirming(false);
         setPreview(null);
+        setNextCurrent('');
+        setNextError(null);
         setError(null);
         setValue(saved);
+    }
+
+    /** Asks the server what the edit does to both weeks, with this week's reading as typed again so far. */
+    function loadPreview(nextReading) {
+        previewRequest.transform(() => ({ current_reading: value, next_current_reading: nextReading === '' ? null : nextReading }));
+
+        return previewRequest.post(`/meter-readings/${readingId}/last-reading-preview`, {
+            onError: (errors) => {
+                if (errors.next_current_reading) {
+                    setNextError(errors.next_current_reading);
+                } else {
+                    setError(errors.current_reading ?? Object.values(errors)[0] ?? 'تعذّر حساب التعديل.');
+                }
+            },
+        });
     }
 
     /** Loads what the edit would do to both weeks, then asks "are you sure?" with it. */
     function askToConfirm() {
         busy.current = true;
         setSaving(true);
-        previewRequest.transform(() => ({ current_reading: value }));
-        previewRequest
-            .post(`/meter-readings/${readingId}/last-reading-preview`, {
-                onError: (errors) => setError(errors.current_reading ?? Object.values(errors)[0] ?? 'تعذّر حساب التعديل.'),
-            })
+        setNextCurrent('');
+        setNextError(null);
+        loadPreview('')
             .then((loaded) => {
                 if (loaded) {
                     setPreview(loaded);
@@ -69,8 +92,30 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
             });
     }
 
+    // This week's reading typed again in the window: the preview follows it once typing pauses.
+    useEffect(() => {
+        if (!confirming || nextCurrent === '' || Number.isNaN(Number(nextCurrent))) {
+            return undefined;
+        }
+
+        setPreviewing(true);
+        setNextError(null);
+        const timer = setTimeout(() => {
+            loadPreview(nextCurrent)
+                .then((loaded) => loaded && setPreview(loaded))
+                .catch(() => setNextError('تعذّر حساب قراءة هذا الأسبوع؛ حاول مرة أخرى.'))
+                .finally(() => setPreviewing(false));
+        }, 350);
+
+        return () => {
+            clearTimeout(timer);
+            previewRequest.cancel();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [nextCurrent, confirming]);
+
     function step(direction) {
-        setValue((current) => steppedReading(current, floor, direction, ceiling));
+        setValue((current) => steppedReading(current, floor, direction));
         setError(null);
         inputRef.current?.focus();
     }
@@ -91,7 +136,7 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
         }
 
         busy.current = true;
-        router.put(`/meter-readings/${readingId}`, { current_reading: value, as_last_reading: true, confirm_unusual: confirmUnusual }, {
+        router.put(`/meter-readings/${readingId}`, { current_reading: value, next_current_reading: nextCurrent === '' ? null : nextCurrent, as_last_reading: true, confirm_unusual: confirmUnusual }, {
             preserveScroll: true,
             preserveState: true,
             onStart: () => setSaving(true),
@@ -100,10 +145,24 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
                 setEditing(false);
                 setConfirming(false);
                 setPreview(null);
+                setNextCurrent('');
                 setError(null);
             },
             onError: (errors) => {
                 busy.current = false;
+
+                // A refused reading for this week stays in the window to be typed again; asked for without
+                // the window (this week was entered meanwhile), the window opens for it. Anything else closes it.
+                if (errors.next_current_reading && Object.keys(errors).length === 1) {
+                    if (confirmed) {
+                        setNextError(errors.next_current_reading);
+                    } else {
+                        askToConfirm();
+                    }
+
+                    return;
+                }
+
                 setConfirming(false);
                 setError(Object.values(errors)[0] ?? 'تعذّر حفظ القراءة السابقة.');
             },
@@ -116,7 +175,6 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
         inputMode: 'decimal',
         step: '0.01',
         min: floor,
-        max: ceiling ?? undefined,
         dir: 'ltr',
         autoFocus: true,
         value,
@@ -157,13 +215,20 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
         saving,
         confirming,
         preview,
+        previewing,
+        nextCurrent,
+        nextError,
+        setNextCurrent: (reading) => {
+            setNextCurrent(reading);
+            setNextError(null);
+        },
         open,
         close,
         step,
         confirm: ({ confirmUnusual = false } = {}) => save({ confirmed: true, confirmUnusual }),
         cancel: close,
         canStepDown: !saving && value !== '' && Number(value) > Number(floor),
-        canStepUp: !saving && (ceiling === null || value === '' || Number(value) < Number(ceiling)),
+        canStepUp: !saving,
         inputProps,
     };
 }

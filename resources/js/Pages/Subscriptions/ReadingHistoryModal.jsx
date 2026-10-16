@@ -105,20 +105,19 @@ function HistoryChart({ readings, average }) {
  * The subscription's last reading — the one the latest week starts from — with a pencil that
  * opens it with − and + to correct it in place, as on the readings sheet (useLastReadingEdit).
  * `nextReading` is the latest week's reading once entered: it is recalculated from this one,
- * so it bounds it, and an approved one of the two first shows what the edit does and asks
- * "are you sure?"; confirmed, the approved one(s) are approved again at once.
+ * so saving first shows what the edit does, with that week's reading typed again by hand,
+ * and asks "are you sure?"; confirmed, the approved one(s) are approved again at once.
  */
 function LastReadingField({ subscription, lastReading, nextReading }) {
     const editor = useLastReadingEdit({
         readingId: lastReading.id,
         savedValue: lastReading.current_reading,
         floor: lastReading.previous_reading,
-        ceiling: nextReading ? nextReading.current_reading : null,
-        needsConfirmation: lastReading.status === 'approved' || nextReading?.status === 'approved',
+        needsConfirmation: lastReading.status === 'approved' || Boolean(nextReading),
     });
 
     return <>
-        <LastReadingConfirmDialog show={editor.confirming} preview={editor.preview} subscriptionName={subscription.display_name} saving={editor.saving} onConfirm={editor.confirm} onCancel={editor.cancel} />
+        <LastReadingConfirmDialog editor={editor} subscriptionName={subscription.display_name} />
         {editor.editing ? <div className="rh-stepper" dir="ltr">
             <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => editor.step(-1)} disabled={!editor.canStepDown} aria-label="إنقاص القراءة السابقة">−</button>
             <input {...editor.inputProps} aria-label="القراءة السابقة" />

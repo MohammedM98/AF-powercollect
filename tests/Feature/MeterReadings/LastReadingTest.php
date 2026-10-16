@@ -97,7 +97,7 @@ class LastReadingTest extends TestCase
         $thisWeek->approve($this->accountant);
 
         $this->actingAs($this->dataEntry)
-            ->put(route('meter-readings.update', $lastWeek), ['current_reading' => 1240, 'as_last_reading' => true])
+            ->put(route('meter-readings.update', $lastWeek), ['current_reading' => 1240, 'next_current_reading' => 1300, 'as_last_reading' => true])
             ->assertSessionHasNoErrors()
             ->assertSessionHas('status', 'meter-reading-last-corrected-approved');
 
@@ -127,14 +127,14 @@ class LastReadingTest extends TestCase
         $balance = $this->subscription->balance();
 
         $this->actingAs($this->dataEntry)
-            ->put(route('meter-readings.update', $lastWeek), ['current_reading' => 3300, 'as_last_reading' => true])
+            ->put(route('meter-readings.update', $lastWeek), ['current_reading' => 3300, 'next_current_reading' => 3400, 'as_last_reading' => true])
             ->assertSessionHasErrors('confirm_unusual');
 
         $this->assertSame([1250.0, MeterReadingStatus::Approved], [$lastWeek->fresh()->current_reading, $lastWeek->fresh()->status]);
         $this->assertSame([1250.0, MeterReadingStatus::Approved], [$thisWeek->fresh()->previous_reading, $thisWeek->fresh()->status]);
         $this->assertSame($balance, $this->subscription->balance());
 
-        $this->put(route('meter-readings.update', $lastWeek), ['current_reading' => 3300, 'as_last_reading' => true, 'confirm_unusual' => true])
+        $this->put(route('meter-readings.update', $lastWeek), ['current_reading' => 3300, 'next_current_reading' => 3400, 'as_last_reading' => true, 'confirm_unusual' => true])
             ->assertSessionHasNoErrors()
             ->assertSessionHas('status', 'meter-reading-last-corrected-approved');
 
@@ -149,11 +149,36 @@ class LastReadingTest extends TestCase
         $lastWeek->approve($this->accountant);
 
         $this->actingAs($this->dataEntry)
-            ->put(route('meter-readings.update', $lastWeek), ['current_reading' => 1240, 'as_last_reading' => true])
+            ->put(route('meter-readings.update', $lastWeek), ['current_reading' => 1240, 'next_current_reading' => 1300, 'as_last_reading' => true])
             ->assertSessionHas('status', 'meter-reading-last-corrected-approved');
 
         $this->assertSame([MeterReadingStatus::Approved, MeterReadingStatus::Pending], [$lastWeek->fresh()->status, $thisWeek->fresh()->status]);
         $this->assertSame(20.0, $this->subscription->balance());
+    }
+
+    public function test_this_weeks_reading_must_be_typed_again_and_is_recalculated_from_what_was_typed(): void
+    {
+        $lastWeek = $this->reading('2026-09-11', 1200, 1250);
+        $thisWeek = $this->reading('2026-09-18', 1250, 1300);
+        $lastWeek->approve($this->accountant);
+        $thisWeek->approve($this->accountant);
+
+        $this->actingAs($this->dataEntry)
+            ->put(route('meter-readings.update', $lastWeek), ['current_reading' => 1240, 'as_last_reading' => true])
+            ->assertSessionHasErrors(['next_current_reading' => 'أدخل قراءة هذا الأسبوع من جديد بعد تعديل القراءة السابقة.']);
+        $this->put(route('meter-readings.update', $lastWeek), ['current_reading' => 1240, 'next_current_reading' => 1235, 'as_last_reading' => true])
+            ->assertSessionHasErrors(['next_current_reading' => 'القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة (1240).']);
+
+        $this->assertSame(1250.0, $lastWeek->fresh()->current_reading);
+        $this->assertSame([1250.0, 1300.0], [$thisWeek->fresh()->previous_reading, $thisWeek->fresh()->current_reading]);
+
+        $this->put(route('meter-readings.update', $lastWeek), ['current_reading' => 1240, 'next_current_reading' => 1310, 'as_last_reading' => true])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'meter-reading-last-corrected-approved');
+
+        $thisWeek->refresh();
+        $this->assertSame([1240.0, 1310.0, 70.0, '35.00', MeterReadingStatus::Approved], [$thisWeek->previous_reading, $thisWeek->current_reading, $thisWeek->consumption, $thisWeek->amount_due, $thisWeek->status]);
+        $this->assertSame(20.0 + 35.0, $this->subscription->balance());
     }
 
     public function test_the_preview_shows_what_the_edit_does_to_both_weeks_without_saving_it(): void
@@ -172,12 +197,20 @@ class LastReadingTest extends TestCase
             ->assertJsonPath('weeks.0.after.consumption', 40)
             ->assertJsonPath('weeks.1.id', $thisWeek->id)
             ->assertJsonPath('weeks.1.isApproved', false)
-            ->assertJsonPath('weeks.1.after.previousReading', 1240)
-            ->assertJsonPath('weeks.1.after.amountDue', '30.00')
-            ->assertJsonPath('weeks.1.unusual', false);
+            ->assertJsonPath('weeks.1.before.currentReading', 1300)
+            ->assertJsonPath('weeks.1.after', null);
 
-        $this->postJson(route('meter-readings.last-reading-preview', $lastWeek), ['current_reading' => 1301])
-            ->assertJsonValidationErrors(['current_reading']);
+        // This week is worked out from its reading typed again, which may pass the number it had.
+        $this->postJson(route('meter-readings.last-reading-preview', $lastWeek), ['current_reading' => 1240, 'next_current_reading' => 1310])
+            ->assertOk()
+            ->assertJsonPath('weeks.1.after.previousReading', 1240)
+            ->assertJsonPath('weeks.1.after.currentReading', 1310)
+            ->assertJsonPath('weeks.1.after.amountDue', '35.00')
+            ->assertJsonPath('weeks.1.unusual', false);
+        $this->postJson(route('meter-readings.last-reading-preview', $lastWeek), ['current_reading' => 1340])
+            ->assertOk();
+        $this->postJson(route('meter-readings.last-reading-preview', $lastWeek), ['current_reading' => 1240, 'next_current_reading' => 1230])
+            ->assertJsonValidationErrors(['next_current_reading' => 'القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة (1240).']);
         $this->actingAs($this->accountant)
             ->postJson(route('meter-readings.last-reading-preview', $lastWeek), ['current_reading' => 1240])
             ->assertForbidden();

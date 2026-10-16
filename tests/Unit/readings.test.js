@@ -95,6 +95,7 @@ test('an edited last reading changes the balance by what the billed weeks now co
     assert.equal(lastReadingBalanceChange([lastWeek, thisWeek]), 0.1);
     assert.equal(lastReadingBalanceChange([lastWeek, { ...thisWeek, isApproved: false }]), -20);
     assert.equal(lastReadingBalanceChange(undefined), 0);
+    assert.equal(lastReadingBalanceChange([lastWeek, { ...thisWeek, after: null }]), null);
 });
 
 test('only an approved week made unusual asks the editor to confirm it', () => {

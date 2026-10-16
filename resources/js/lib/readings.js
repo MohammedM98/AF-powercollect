@@ -105,12 +105,18 @@ export function hasLatestWeekReading(subscription, weekOptions) {
  * What confirming an edited last reading does to the subscriber's balance,
  * in shekels: the change in amount due of each week already billed
  * (approved), since only those are billed again at once. Weeks still
- * waiting for approval are billed when they are approved, as usual.
+ * waiting for approval are billed when they are approved, as usual. Null
+ * while a billed week is not worked out yet.
  */
 export function lastReadingBalanceChange(weeks) {
-    const cents = (weeks ?? [])
-        .filter((week) => week.isApproved)
-        .reduce((total, week) => total + Math.round(Number(week.after.amountDue) * 100) - Math.round(Number(week.before.amountDue) * 100), 0);
+    const billed = (weeks ?? []).filter((week) => week.isApproved);
+
+    // Not known until every billed week is worked out (this week's reading typed again).
+    if (billed.some((week) => !week.after)) {
+        return null;
+    }
+
+    const cents = billed.reduce((total, week) => total + Math.round(Number(week.after.amountDue) * 100) - Math.round(Number(week.before.amountDue) * 100), 0);
 
     return cents / 100;
 }

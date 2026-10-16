@@ -39,6 +39,8 @@ class UpdateMeterReadingRequest extends FormRequest
             'confirm_unusual' => ['sometimes', 'boolean'],
             // Edited as the last reading (its pencil): what was approved is approved again at once (see MeterReadingController::update).
             'as_last_reading' => ['sometimes', 'boolean'],
+            // This week's reading, entered again by hand when its last reading is edited (see after()).
+            'next_current_reading' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
         ];
     }
 
@@ -95,19 +97,73 @@ class UpdateMeterReadingRequest extends FormRequest
                     return;
                 }
 
-                if ($this->float('current_reading') > $this->nextReading->current_reading) {
-                    $validator->errors()->add('current_reading', "القراءة السابقة لا يمكن أن تكون أكبر من قراءة الأسبوع الذي يليها ({$this->nextReading->current_reading}).");
+                if ($this->filled('next_current_reading')) {
+                    $this->checkNextReading($validator, $this->float('next_current_reading'), 'next_current_reading', 'القراءة الحالية لا يمكن أن تكون أقل من القراءة السابقة');
 
                     return;
                 }
 
-                $nextConsumption = MeterReading::consumptionBetween($this->float('current_reading'), $this->nextReading->current_reading);
+                if ($this->entersNextReadingAgain()) {
+                    $validator->errors()->add('next_current_reading', 'أدخل قراءة هذا الأسبوع من جديد بعد تعديل القراءة السابقة.');
 
-                if (MeterReading::isImpossibleConsumption($nextConsumption)) {
-                    $validator->errors()->add('current_reading', StoreMeterReadingRequest::impossibleConsumptionMessage($nextConsumption));
+                    return;
+                }
+
+                if ($this->checksSavedNextReading()) {
+                    $this->checkNextReading($validator, $this->nextReading->current_reading, 'current_reading', 'القراءة السابقة لا يمكن أن تكون أكبر من قراءة الأسبوع الذي يليها');
                 }
             },
         ];
+    }
+
+    /**
+     * Whether this week's reading must be entered again with the edit: an
+     * edit of the last reading confirmed at once (its pencil) recalculates
+     * this week only from a reading typed again by hand, never from the
+     * number it had.
+     */
+    protected function entersNextReadingAgain(): bool
+    {
+        return $this->boolean('as_last_reading');
+    }
+
+    /**
+     * Whether, with no reading typed again for this week, the edit is
+     * checked against the reading this week has (the week then starts from
+     * the edit and keeps its reading).
+     */
+    protected function checksSavedNextReading(): bool
+    {
+        return true;
+    }
+
+    /**
+     * This week, starting from the edited reading, must not go backwards
+     * nor use more than any subscription could.
+     */
+    private function checkNextReading(Validator $validator, float $nextCurrentReading, string $field, string $belowMessage): void
+    {
+        if ($nextCurrentReading < $this->float('current_reading')) {
+            $validator->errors()->add($field, $field === 'next_current_reading'
+                ? "{$belowMessage} ({$this->float('current_reading')})."
+                : "{$belowMessage} ({$nextCurrentReading}).");
+
+            return;
+        }
+
+        $nextConsumption = MeterReading::consumptionBetween($this->float('current_reading'), $nextCurrentReading);
+
+        if (MeterReading::isImpossibleConsumption($nextConsumption)) {
+            $validator->errors()->add($field, StoreMeterReadingRequest::impossibleConsumptionMessage($nextConsumption));
+        }
+    }
+
+    /**
+     * This week's reading as typed again with the edit, or null when it was not.
+     */
+    public function nextCurrentReading(): ?float
+    {
+        return $this->filled('next_current_reading') ? $this->float('next_current_reading') : null;
     }
 
     /**

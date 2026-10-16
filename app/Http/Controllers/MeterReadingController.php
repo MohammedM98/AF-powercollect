@@ -174,8 +174,10 @@ class MeterReadingController extends Controller
      * may, the edit is confirmed at once: each of the two weeks that was
      * approved is approved again by them, the corrected week before the week
      * after it, so the new charges follow each other on the statement in
-     * week order and nothing waits for a second approval. A week the edit
-     * makes unusual needs `confirm_unusual`; without it nothing is saved.
+     * week order and nothing waits for a second approval. The week after it
+     * is recalculated from its reading typed again with the edit
+     * (`next_current_reading`), never from the number it had. A week the
+     * edit makes unusual needs `confirm_unusual`; without it nothing is saved.
      */
     public function update(UpdateMeterReadingRequest $request, MeterReading $meterReading): RedirectResponse
     {
@@ -188,7 +190,7 @@ class MeterReadingController extends Controller
                 $request->has('notes') ? $request->input('notes') : $meterReading->notes,
                 $actor,
             );
-            $nextWentBackToReview = $nextReading?->startFrom($meterReading->current_reading, $actor) ?? false;
+            $nextWentBackToReview = $nextReading?->startFrom($meterReading->current_reading, $actor, $request->nextCurrentReading()) ?? false;
 
             if ($confirmedAtOnce) {
                 return [
@@ -249,19 +251,22 @@ class MeterReadingController extends Controller
      * before the edit is confirmed: for its week and, once entered, the week
      * after it that starts from it, the readings, consumption and amount due
      * before and after, whether the week is approved (and so approved again
-     * at once on confirming) and whether the edit makes it unusual.
+     * at once on confirming) and whether the edit makes it unusual. The week
+     * after it is worked out once its reading is typed again
+     * (`next_current_reading`); until then its `after` is null.
      */
     public function previewLastReading(PreviewLastReadingRequest $request, MeterReading $meterReading): JsonResponse
     {
         $newReading = $request->float('current_reading');
         $nextReading = $request->nextReading();
+        $nextCurrentReading = $request->nextCurrentReading();
         $corrected = $meterReading->recalculatedBetween($meterReading->previous_reading, $newReading);
         $weeks = [$this->previewedWeek($meterReading, $meterReading->previous_reading, $newReading, $corrected)];
 
         if ($nextReading !== null) {
-            $weeks[] = $this->previewedWeek($nextReading, $newReading, $nextReading->current_reading, $nextReading->recalculatedBetween(
+            $weeks[] = $this->previewedWeek($nextReading, $newReading, $nextCurrentReading, $nextCurrentReading === null ? null : $nextReading->recalculatedBetween(
                 $newReading,
-                $nextReading->current_reading,
+                $nextCurrentReading,
                 [$meterReading->id => $corrected['consumption']],
             ));
         }
@@ -272,24 +277,24 @@ class MeterReadingController extends Controller
     /**
      * One week of the last reading's preview.
      *
-     * @param  array{consumption: float, amount_due: string, unusual: bool}  $after
-     * @return array{id: int, weekStart: string, weekEnd: ?string, isApproved: bool, unusual: bool, before: array<string, float|string>, after: array<string, float|string>}
+     * @param  array{consumption: float, amount_due: string, unusual: bool}|null  $after  null until its reading is typed again
+     * @return array{id: int, weekStart: string, weekEnd: ?string, isApproved: bool, unusual: bool, before: array<string, float|string>, after: array<string, float|string>|null}
      */
-    private function previewedWeek(MeterReading $reading, float $previousReading, float $currentReading, array $after): array
+    private function previewedWeek(MeterReading $reading, float $previousReading, ?float $currentReading, ?array $after): array
     {
         return [
             'id' => $reading->id,
             'weekStart' => $reading->week_start->toDateString(),
             'weekEnd' => $reading->week_end?->toDateString(),
             'isApproved' => ! $reading->isPending(),
-            'unusual' => $after['unusual'],
+            'unusual' => $after['unusual'] ?? false,
             'before' => [
                 'previousReading' => $reading->previous_reading,
                 'currentReading' => $reading->current_reading,
                 'consumption' => (float) $reading->consumption,
                 'amountDue' => $reading->amount_due,
             ],
-            'after' => [
+            'after' => $after === null ? null : [
                 'previousReading' => $previousReading,
                 'currentReading' => $currentReading,
                 'consumption' => $after['consumption'],

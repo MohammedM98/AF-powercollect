@@ -94,9 +94,10 @@ function focusReadingInput(currentInput, step = 1) {
  * The reading the week starts from. When the actor may edit it (the last
  * week's reading, while no later week is entered), its pencil opens it in
  * place with − and + like the week's own reading (useLastReadingEdit). The
- * week's own reading, if entered, is recalculated from it, so an approved
- * one of the two first shows what the edit does to both and asks "are you
- * sure?"; confirmed, the approved one(s) are approved again at once.
+ * week's own reading, if entered, is recalculated from it: saving first shows
+ * what the edit does to both, with this week's reading typed again by hand,
+ * and asks "are you sure?"; confirmed, the approved one(s) are approved
+ * again at once.
  */
 function LastReadingCell({ row }) {
     const lastReading = row.lastReading;
@@ -104,13 +105,12 @@ function LastReadingCell({ row }) {
         readingId: lastReading?.id,
         savedValue: row.previousReading,
         floor: lastReading?.previousReading ?? 0,
-        ceiling: row.reading ? row.reading.currentReading : null,
-        needsConfirmation: lastReading?.status === 'approved' || row.reading?.status === 'approved',
+        needsConfirmation: lastReading?.status === 'approved' || Boolean(row.reading),
     });
 
     return (
         <td className="re-last re-number">
-            <LastReadingConfirmDialog show={editor.confirming} preview={editor.preview} subscriptionName={row.fullName} saving={editor.saving} onConfirm={editor.confirm} onCancel={editor.cancel} />
+            <LastReadingConfirmDialog editor={editor} subscriptionName={row.fullName} />
             {editor.editing ? (
                 <div className="re-input" dir="ltr">
                     <button type="button" tabIndex={-1} className="re-step" aria-label={`إنقاص القراءة السابقة لـ ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => editor.step(-1)} disabled={!editor.canStepDown}>−</button>

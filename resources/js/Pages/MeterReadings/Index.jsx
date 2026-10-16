@@ -526,7 +526,7 @@ export default function Index({
             <Head title="القراءات الأسبوعية" />
             <div className="reading-entry" dir="rtl">
                 <div className="re-heading">
-                    <div><h1>القراءات</h1><p>أدخل القراءة الجديدة بجانب القراءة السابقة، واضغط Enter أو السهم لأسفل للحفظ والانتقال للمشترك التالي، والسهم لأعلى للرجوع.</p></div>
+                    <div><h1>القراءات الأسبوعية</h1><p>أدخل القراءة الجديدة بجانب القراءة السابقة، واضغط Enter أو السهم لأسفل للحفظ والانتقال للمشترك التالي، والسهم لأعلى للرجوع.</p></div>
                     <div className="re-actions">
                         <span className={`re-open ${entryWindow.isOpen ? 'is-open' : ''}`}><i />الإدخال {entryWindow.isOpen ? 'مفتوح' : 'مغلق'}</span>
                         <div className="re-week">

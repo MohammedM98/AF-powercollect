@@ -28,7 +28,7 @@ class PrintTemplate extends Model
      * @var array<string, array{label: string, icon: string}>
      */
     public const PAGES = [
-        '/meter-readings' => ['label' => 'القراءات', 'icon' => 'chart'],
+        '/meter-readings' => ['label' => 'القراءات الأسبوعية', 'icon' => 'chart'],
         '/subscriptions' => ['label' => 'المشتركون', 'icon' => 'users'],
         '/meter-boxes' => ['label' => 'الطبلونات', 'icon' => 'table'],
         '/ledger' => ['label' => 'السجل المالي', 'icon' => 'ledger'],

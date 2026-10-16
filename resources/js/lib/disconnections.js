@@ -57,6 +57,13 @@ export function totalFees(items) {
     return Math.round(items.reduce((total, item) => total + Number(item.fee || 0), 0) * 100) / 100;
 }
 
+/** The first error the server gave for any subscriber's fee (`fees.{id}`), if any. */
+export function feeError(errors) {
+    const key = Object.keys(errors ?? {}).find((name) => name.startsWith('fees'));
+
+    return key ? errors[key] : undefined;
+}
+
 /** The tone a list item's status is shown in. */
 export function itemTone(item) {
     if (item.status === 'disconnected') {

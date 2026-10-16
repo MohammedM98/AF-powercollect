@@ -244,9 +244,9 @@ class DisconnectionItemController extends Controller
 
     /**
      * Confirm that the chosen subscriptions have really been disconnected:
-     * each is disconnected and charged its fee on its own, after checking
-     * again under lock that it still waits, its service is still on and its
-     * fee is the one shown. Each one's result is reported.
+     * each is disconnected and charged the fee chosen for it on its own,
+     * after checking again under lock that it still waits and its service is
+     * still on. Each one's result is reported.
      */
     public function confirm(ConfirmDisconnectionItemsRequest $request, DisconnectionList $disconnectionList): RedirectResponse
     {
@@ -256,7 +256,7 @@ class DisconnectionItemController extends Controller
         $feesTotal = 0.0;
 
         foreach ($request->items() as $item) {
-            $outcome = $item->confirmDisconnection($actor, $request->expectedFee($item->id));
+            $outcome = $item->confirmDisconnection($actor, $request->feeFor($item->id));
 
             if ($outcome === 'disconnected') {
                 $succeeded++;

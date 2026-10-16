@@ -82,8 +82,6 @@ export default function Index({
     currentBranchAreaName,
     canEditMinimumCharge,
     canEditKilowattPrice,
-    canEditDisconnectionFee,
-    usualDisconnectionFee,
     filters,
     filterOptions,
     readingWeekOptions,
@@ -277,8 +275,6 @@ export default function Index({
         currentBranchAreaName,
         canEditMinimumCharge,
     canEditKilowattPrice,
-    canEditDisconnectionFee,
-    usualDisconnectionFee,
     };
 
     return (

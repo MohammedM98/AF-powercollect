@@ -44,8 +44,7 @@ trait PresentsDisconnectionItems
             // Owed when put on the list and has paid it all since: still on the list, shown as paid.
             'isPaid' => $balance <= 0 && (float) $item->balance_when_added > 0,
             'balanceReduced' => $balance < (float) $item->balance_when_added,
-            'fee' => $item->isScheduled() ? $subscription->disconnectionFee() : $item->fee_amount,
-            'hasOwnFee' => $subscription->hasOwnDisconnectionFee(),
+            'fee' => $item->isScheduled() ? DisconnectionListItem::usualFee() : $item->fee_amount,
             'extensionsCount' => $item->extensions_count,
             'warningsCount' => $item->warnings_count,
             'lastWarnedAt' => $item->last_warned_at?->timezone($timezone)->format('Y-m-d H:i'),

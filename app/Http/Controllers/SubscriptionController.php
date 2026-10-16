@@ -106,7 +106,6 @@ class SubscriptionController extends Controller
         $data['registered_by'] = $actor->id;
         $data = $this->enforceMinimumChargePermission($actor, $data);
         $data = $this->enforceKilowattPricePermission($actor, $data);
-        $data = $this->normalizeDisconnectionFee($data);
 
         $subscription = DB::transaction(function () use ($data, $actor, $chargeSubscriptionFee, $sourceSubscription): Subscription {
             $subscription = new Subscription($data);
@@ -173,7 +172,6 @@ class SubscriptionController extends Controller
         $data = $request->safe()->except(['charge_subscription_fee']);
         $data = $this->enforceMinimumChargePermission(auth()->user(), $data, $subscription);
         $data = $this->enforceKilowattPricePermission(auth()->user(), $data, $subscription);
-        $data = $this->normalizeDisconnectionFee($data);
         // Only a subscription without the fee on the account is validated for charging it.
         $chargeSubscriptionFee = (bool) $request->validated('charge_subscription_fee', false);
 
@@ -367,23 +365,6 @@ class SubscriptionController extends Controller
     }
 
     /**
-     * A blank disconnection fee means the company's usual one. It reaches
-     * the data only from someone holding its permission (see
-     * StoreSubscriptionRequest); otherwise the subscriber keeps their fee.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function normalizeDisconnectionFee(array $data): array
-    {
-        if (array_key_exists('disconnection_fee', $data) && ! filled($data['disconnection_fee'])) {
-            $data['disconnection_fee'] = null;
-        }
-
-        return $data;
-    }
-
-    /**
      * The full set of a subscription's editable fields — used both for the
      * dedicated edit page and for the edit modal's initial form data on
      * the index page, so both stay backed by the same shape.
@@ -419,7 +400,6 @@ class SubscriptionController extends Controller
             'circuit_breaker_id' => $subscription->circuit_breaker_id,
             'minimum_charge' => $subscription->minimum_charge,
             'kilowatt_price' => $subscription->kilowatt_price,
-            'disconnection_fee' => $subscription->disconnection_fee,
             'initial_reading' => $subscription->initial_reading,
             'subscription_fee' => $subscription->subscription_fee,
             // Whether the fee is already on the account: if not, the edit form can still charge it.
@@ -439,7 +419,7 @@ class SubscriptionController extends Controller
      * narrowed by branch and sub-area ("منطقة 2"), so the page does not
      * grow with the number of boxes.
      *
-     * @return array{branches: Collection, tariffs: Collection, segments: Collection, subAreas: Collection, circuitBreakers: Collection, canChooseBranch: bool, currentBranchAreaId: ?int, currentBranchAreaName: ?string, canEditMinimumCharge: bool, canEditKilowattPrice: bool, canEditDisconnectionFee: bool, usualDisconnectionFee: string}
+     * @return array{branches: Collection, tariffs: Collection, segments: Collection, subAreas: Collection, circuitBreakers: Collection, canChooseBranch: bool, currentBranchAreaId: ?int, currentBranchAreaName: ?string, canEditMinimumCharge: bool, canEditKilowattPrice: bool}
      */
     private function formOptions(): array
     {
@@ -466,8 +446,6 @@ class SubscriptionController extends Controller
             'currentBranchAreaName' => $canChooseBranch ? null : $actor->branch?->area?->name,
             'canEditMinimumCharge' => $this->canEditMinimumCharge($actor),
             'canEditKilowattPrice' => $actor->hasPermission(PermissionKey::UpdateSubscriptionKilowattPrice),
-            'canEditDisconnectionFee' => $actor->hasPermission(PermissionKey::UpdateSubscriptionDisconnectionFee),
-            'usualDisconnectionFee' => number_format((float) config('powercollect.disconnection.fee'), 2, '.', ''),
         ];
     }
 

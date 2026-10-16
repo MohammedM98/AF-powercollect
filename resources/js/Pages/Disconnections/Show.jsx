@@ -70,7 +70,7 @@ function exportRows(items) {
  * confirmed as disconnected, each action listing exactly whom it reaches
  * first and reporting how it went for each.
  */
-export default function Show({ list, items, summary, abilities, reasonOptions, channelOptions, smsDeliversMessages, warningTemplates, defaultWarning, placeholders, today, filters, filterOptions, history }) {
+export default function Show({ list, items, summary, abilities, reasonOptions, channelOptions, smsDeliversMessages, warningTemplates, defaultWarning, placeholders, today, usualFee, filters, filterOptions, history }) {
     const { flash } = usePage();
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable(`/disconnection-lists/${list.id}`, filters);
     const [selectedIds, setSelectedIds] = useState(() => new Set());
@@ -357,6 +357,8 @@ export default function Show({ list, items, summary, abilities, reasonOptions, c
                     defaultWarning={defaultWarning}
                     placeholders={placeholders}
                     today={today}
+                    usualFee={usualFee}
+                    canChangeFee={abilities.changeFee}
                     onClose={() => setAction(null)}
                     onDone={() => {
                         setAction(null);

@@ -35,8 +35,10 @@ function FilterField({ group, value, onChange, placeholder = 'الكل', classNa
  * options that belong with the other filters picked (an option's `scope`):
  * pick a branch and the areas, sub-areas, meter boxes and staff narrow to
  * that branch's; changing it clears whichever of them no longer fit.
+ * `extraFields` (a page's own fields, such as its sort order) sit in the
+ * same row after the filters.
  */
-export default function DataTableFilterMenu({ tableKey, groups, values, onChange, onChangeMany, onClear }) {
+export default function DataTableFilterMenu({ tableKey, groups, values, onChange, onChangeMany, onClear, extraFields = null }) {
     const activeCount = Object.values(values ?? {}).filter(Boolean).length;
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
@@ -126,6 +128,8 @@ export default function DataTableFilterMenu({ tableKey, groups, values, onChange
                     </div>
                 );
             })}
+
+            {extraFields}
 
             <div className="relative" ref={menuRef}>
                 <button

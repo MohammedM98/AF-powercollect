@@ -36,11 +36,14 @@ class StarterPermissionsTest extends TestCase
         ])->assertCreated()->assertJsonPath('status', 'recorded');
     }
 
-    public function test_a_new_collector_holds_only_the_permission_to_take_payments(): void
+    public function test_a_new_collector_holds_only_the_permissions_to_take_payments(): void
     {
         $collector = User::factory()->collector()->create();
 
-        $this->assertSame([PermissionKey::RecordCollections->value], $collector->permissions()->pluck('key')->all());
+        $this->assertEqualsCanonicalizing(
+            [PermissionKey::RecordCollections->value, PermissionKey::RecordCashPayments->value, PermissionKey::RecordTransferPayments->value],
+            $collector->permissions()->pluck('key')->all(),
+        );
         $this->assertFalse($collector->hasPermission(PermissionKey::ViewCollections));
         $this->actingAs($collector)->get(route('ledger.index'))->assertForbidden();
     }

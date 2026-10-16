@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Enums\PermissionKey;
+use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\CircuitBreaker;
@@ -30,7 +30,7 @@ class CampTwoDemoDataSeederTest extends TestCase
         $branch = Branch::factory()->create(['name' => 'مخيم 2']);
         $head = User::factory()->branchAdmin()->for($branch)->create();
         $collector = User::factory()->collector()->for($branch)->create(['username' => CampTwoCollectorSeeder::USERNAME]);
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(UserRole::Collector->starterPermissions()));
         MeterBox::factory()->create(['branch_id' => $branch->id]);
         CircuitBreaker::factory()->create();
         Tariff::factory()->residential()->create();

@@ -44,7 +44,9 @@ class TransactionHistoryInvariantsTest extends TestCase
             PermissionKey::CorrectTransactions,
             PermissionKey::AmendTransactionDetails,
             PermissionKey::RefundPayments,
-            PermissionKey::AdjustBalances,
+            PermissionKey::AddCharges,
+            PermissionKey::AddDiscounts,
+            PermissionKey::AddClearings,
         ])->create(['branch_id' => $branch->id]);
         $this->subscription = Subscription::factory()->create(['branch_id' => $branch->id]);
     }

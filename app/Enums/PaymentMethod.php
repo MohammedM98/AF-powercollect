@@ -36,6 +36,15 @@ enum PaymentMethod: string
     }
 
     /**
+     * The permission that lets a user take a payment this way: cash, or
+     * through a bank or e-wallet.
+     */
+    public function permission(): PermissionKey
+    {
+        return $this === self::Cash ? PermissionKey::RecordCashPayments : PermissionKey::RecordTransferPayments;
+    }
+
+    /**
      * Whether a payment this way goes through a bank, so the bank and the
      * transfer or cheque number are recorded with it.
      */

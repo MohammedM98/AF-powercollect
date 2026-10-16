@@ -27,7 +27,10 @@ class CampTwoCollectorSeederTest extends TestCase
 
         $user = User::query()->sole();
         $this->assertDatabaseHas('users', ['username' => CampTwoCollectorSeeder::USERNAME, 'branch_id' => $branch->id, 'role' => 'collector', 'is_active' => true]);
-        $this->assertSame([PermissionKey::RecordCollections->value], $user->permissions()->pluck('key')->all());
+        $this->assertEqualsCanonicalizing(
+            [PermissionKey::RecordCollections->value, PermissionKey::RecordCashPayments->value, PermissionKey::RecordTransferPayments->value],
+            $user->permissions()->pluck('key')->all(),
+        );
         $this->assertDatabaseCount('branches', 1);
         $this->assertDatabaseCount('subscriptions', 0);
         $this->assertDatabaseCount('subscription_transactions', 0);

@@ -182,17 +182,25 @@ class PaymentsPageTest extends TestCase
         return $subscription;
     }
 
-    public function test_the_charge_discount_and_clearing_actions_follow_the_adjust_balances_permission(): void
+    public function test_the_charge_discount_and_clearing_actions_each_follow_their_own_permission(): void
     {
         Subscription::factory()->create(['branch_id' => $this->branch->id]);
-        $adjuster = $this->userAllowedTo(PermissionKey::RecordCollections);
-        $adjuster->permissions()->syncWithoutDetaching(Permission::firstOrCreate(['key' => PermissionKey::AdjustBalances->value], ['label' => PermissionKey::AdjustBalances->label()]));
+        $charger = $this->userAllowedTo(PermissionKey::RecordCollections);
+        $charger->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::RecordCashPayments, PermissionKey::AddCharges]));
 
         $this->actingAs($this->collector)->get(route('payments.index'))
-            ->assertInertia(fn (AssertableInertia $page) => $page->where('subscriptions.data.0.canAdjustBalance', false)->where('discountSegments', []));
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('subscriptions.data.0.canAddCharge', false)
+                ->where('subscriptions.data.0.canAddDiscount', false)
+                ->where('subscriptions.data.0.canAddClearing', false)
+                ->where('discountSegments', []));
 
-        $this->actingAs($adjuster)->get(route('payments.index'))
-            ->assertInertia(fn (AssertableInertia $page) => $page->where('subscriptions.data.0.canAdjustBalance', true)->has('chargeTypes.0.value'));
+        $this->actingAs($charger)->get(route('payments.index'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('subscriptions.data.0.canAddCharge', true)
+                ->where('subscriptions.data.0.canAddDiscount', false)
+                ->where('subscriptions.data.0.canAddClearing', false)
+                ->has('chargeTypes.0.value'));
     }
 
     private function userAllowedTo(PermissionKey $key): User

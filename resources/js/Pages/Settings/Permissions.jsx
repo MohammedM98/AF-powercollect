@@ -9,7 +9,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
-import { filterSections, individualChanges, levelOf, permissionEntries, samePermissions, sectionIds, sectionModel, withGroupAccess, withLevel, withToggled } from '@/lib/permissions';
+import { filterSections, individualChanges, levelOf, permissionEntries, samePermissions, sectionIds, sectionModel, withGroupAccess, withSectionLevel, withToggled } from '@/lib/permissions';
 
 /** The icon and one-line description of each section (keyed like PermissionKey::resourceGroups()). */
 const SECTION_DETAILS = {
@@ -365,7 +365,7 @@ function SectionRow({ section, selected, saved, onChange, onSensitive, disabled 
                                 مخصّص
                             </span>
                         )}
-                        <LevelPicker section={section} level={level} onChange={(next) => onChange(withLevel(section.ladder, selected, next))} disabled={disabled} />
+                        <LevelPicker section={section} level={level} onChange={(next) => onChange(withSectionLevel(section, selected, next))} disabled={disabled} />
                         {inlineDelete && (
                             <span
                                 title={inlineDelete.hint}

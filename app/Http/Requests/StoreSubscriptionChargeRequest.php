@@ -14,7 +14,7 @@ class StoreSubscriptionChargeRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('adjustBalance', $this->route('subscription'));
+        return $this->user()->can('addCharge', $this->route('subscription'));
     }
 
     /**

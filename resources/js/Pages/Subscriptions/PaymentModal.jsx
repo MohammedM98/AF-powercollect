@@ -427,7 +427,8 @@ export default function PaymentModal({
             : {
                   amount: '',
                   currency: 'ILS',
-                  payment_method: 'bank_transfer',
+                  // A bank transfer when the user may take one, else the way they may.
+                  payment_method: paymentMethods.some((method) => method.value === 'bank_transfer') ? 'bank_transfer' : (paymentMethods[0]?.value ?? 'bank_transfer'),
                   bank_name: '',
                   sender_bank_name: '',
                   // Who the transfer came from: the subscription unless someone else paid.

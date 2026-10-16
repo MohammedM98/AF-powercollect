@@ -79,38 +79,81 @@ class SubscriptionPolicy
 
     /**
      * The quick payments page (/payments) is for anyone who may record
-     * payments at all; which subscriptions they find there is limited to
-     * their branch by the query, and each payment by recordPayment().
+     * payments at all — "Add Payments" and at least one way to be paid;
+     * which subscriptions they find there is limited to their branch by
+     * the query, and each payment by recordPayment().
      */
     public function recordAnyPayment(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::RecordCollections);
+        return $user->hasPermission(PermissionKey::RecordCollections) && $user->allowedPaymentMethods() !== [];
+    }
+
+    /**
+     * A split payment is one bank transfer shared between subscriptions,
+     * so it takes the bank transfer permission too.
+     */
+    public function recordSplitPayment(User $user): bool
+    {
+        return $this->recordAnyPayment($user) && $user->hasPermission(PermissionKey::RecordTransferPayments);
     }
 
     public function viewOwnCashBoxes(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::RecordCollections) || $user->hasPermission(PermissionKey::AdjustBalances);
+        return $user->hasAnyPermission(PermissionKey::RecordCollections, PermissionKey::AddCharges, PermissionKey::AddDiscounts, PermissionKey::AddClearings);
     }
 
     /**
-     * Recording a payment takes the "Record Collections" permission, for a
+     * Recording a payment takes "Add Payments" and at least one way to be
+     * paid (each way is its own permission, checked on the payment itself:
+     * StoreSubscriptionPaymentRequest::allowedMethodRule()), for a
      * subscription of the user's own branch (any branch for the Super Admin).
      */
     public function recordPayment(User $user, Subscription $subscription): bool
     {
-        return $user->hasPermission(PermissionKey::RecordCollections)
-            && ($user->isSuperAdmin() || $subscription->branch_id === $user->branch_id);
+        return $this->recordAnyPayment($user) && $this->inBranch($user, $subscription);
     }
 
     /**
-     * Adding a charge (a penalty or disconnection fee), a discount or a
-     * clearing by hand takes its own permission, for a subscription of the
-     * user's own branch (any branch for the Super Admin).
+     * Whether the user may add any of a charge, a discount or a clearing to
+     * the subscription, so the account's "add" menu shows; each one is
+     * checked by its own ability below.
      */
     public function adjustBalance(User $user, Subscription $subscription): bool
     {
-        return $user->hasPermission(PermissionKey::AdjustBalances)
-            && ($user->isSuperAdmin() || $subscription->branch_id === $user->branch_id);
+        return $this->addCharge($user, $subscription) || $this->addDiscount($user, $subscription) || $this->addClearing($user, $subscription);
+    }
+
+    /**
+     * Adding a charge (a penalty or a fee) by hand takes its own permission,
+     * for a subscription of the user's own branch (any branch for the Super Admin).
+     */
+    public function addCharge(User $user, Subscription $subscription): bool
+    {
+        return $user->hasPermission(PermissionKey::AddCharges) && $this->inBranch($user, $subscription);
+    }
+
+    /**
+     * Adding a discount — once, or a standing one on every weekly reading —
+     * or stopping a standing one takes its own permission, for a
+     * subscription of the user's own branch (any branch for the Super Admin).
+     */
+    public function addDiscount(User $user, Subscription $subscription): bool
+    {
+        return $user->hasPermission(PermissionKey::AddDiscounts) && $this->inBranch($user, $subscription);
+    }
+
+    /**
+     * Adding a clearing takes its own permission, for a subscription of the
+     * user's own branch (any branch for the Super Admin).
+     */
+    public function addClearing(User $user, Subscription $subscription): bool
+    {
+        return $user->hasPermission(PermissionKey::AddClearings) && $this->inBranch($user, $subscription);
+    }
+
+    private function inBranch(User $user, Subscription $subscription): bool
+    {
+        return $user->isSuperAdmin() || $subscription->branch_id === $user->branch_id;
     }
 
     /**

@@ -71,10 +71,14 @@ enum PermissionKey: string
     case ReviewReadingSubmissions = 'reading_assignments.review';
 
     case RecordCollections = 'collections.record';
+    case RecordCashPayments = 'collections.record_cash';
+    case RecordTransferPayments = 'collections.record_transfer';
     case CloseCashBoxes = 'collections.close_boxes';
     case ConfirmCollections = 'collections.confirm';
     case ViewCollections = 'collections.view';
-    case AdjustBalances = 'collections.adjust';
+    case AddCharges = 'collections.charge';
+    case AddDiscounts = 'collections.discount';
+    case AddClearings = 'collections.clearing';
     case CorrectTransactions = 'collections.correct';
     case AmendTransactionDetails = 'collections.amend';
     case RefundPayments = 'collections.refund';
@@ -161,10 +165,14 @@ enum PermissionKey: string
             self::PrintReadingSheets => 'Print Paper Reading Sheets',
             self::ReviewReadingSubmissions => 'Review Field Readings',
             self::RecordCollections => 'Add Payments',
+            self::RecordCashPayments => 'Take Cash Payments',
+            self::RecordTransferPayments => 'Take Bank Transfer Payments',
             self::CloseCashBoxes => 'Close Cash Boxes',
             self::ConfirmCollections => 'Confirm Collections',
             self::ViewCollections => 'View Collections',
-            self::AdjustBalances => 'Add Charges and Discounts',
+            self::AddCharges => 'Add Charges',
+            self::AddDiscounts => 'Add Discounts',
+            self::AddClearings => 'Add Clearings',
             self::CorrectTransactions => 'Edit Transactions',
             self::AmendTransactionDetails => 'Edit Payment Details',
             self::RefundPayments => 'Refund Payments',
@@ -281,9 +289,13 @@ enum PermissionKey: string
                 'actions' => [
                     'view' => self::ViewCollections,
                     'record' => self::RecordCollections,
+                    'record_cash' => self::RecordCashPayments,
+                    'record_transfer' => self::RecordTransferPayments,
                     'close_boxes' => self::CloseCashBoxes,
                     'confirm' => self::ConfirmCollections,
-                    'adjust' => self::AdjustBalances,
+                    'charge' => self::AddCharges,
+                    'discount' => self::AddDiscounts,
+                    'clearing' => self::AddClearings,
                     'correct' => self::CorrectTransactions,
                     'amend' => self::AmendTransactionDetails,
                     'refund' => self::RefundPayments,

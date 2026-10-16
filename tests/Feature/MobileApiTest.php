@@ -22,6 +22,9 @@ class MobileApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** Taking payments in the app, both ways: cash and bank transfers. */
+    private const TAKES_PAYMENTS = [PermissionKey::RecordCollections, PermissionKey::RecordCashPayments, PermissionKey::RecordTransferPayments];
+
     public function test_mobile_login_issues_a_hashed_token_and_logout_revokes_it(): void
     {
         $user = User::factory()->branchAdmin()->create();
@@ -47,7 +50,7 @@ class MobileApiTest extends TestCase
     {
         $this->getJson(route('mobile.readings.index'))->assertUnauthorized();
         $collector = User::factory()->collector()->create();
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
         $this->getJson(route('mobile.me'))->assertJsonPath('user.can_view_readings', false);
         $this->getJson(route('mobile.readings.index'))->assertForbidden();
@@ -184,7 +187,7 @@ class MobileApiTest extends TestCase
     public function test_collector_cannot_download_the_offline_reading_roster(): void
     {
         $collector = User::factory()->collector()->create();
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
 
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
             ->getJson(route('mobile.subscriptions.index'))
@@ -260,10 +263,32 @@ class MobileApiTest extends TestCase
         $this->assertDatabaseCount('meter_readings', 0);
     }
 
+    public function test_a_collector_who_may_take_only_bank_transfers_is_refused_cash_in_the_app(): void
+    {
+        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections, PermissionKey::RecordTransferPayments);
+        $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id]);
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
+
+        $this->getJson(route('mobile.me'))
+            ->assertJsonPath('user.can_record_collections', true)
+            ->assertJsonPath('user.payment_methods', ['bank_transfer']);
+
+        $this->postJson(route('mobile.collections.store'), [
+            'mobile_operation_id' => Str::uuid()->toString(),
+            'subscription_id' => $subscription->id,
+            'amount' => '100.00',
+            'currency' => 'ILS',
+            'payment_method' => 'cash',
+            'collector_confirmed' => true,
+        ])->assertUnprocessable()->assertJsonValidationErrors(['payment_method' => 'لا تملك صلاحية الدفع نقدًا؛ اطلبها من مدير الفرع.']);
+
+        $this->assertDatabaseCount('subscription_transactions', 0);
+    }
+
     public function test_mobile_payment_requires_collector_confirmation_and_records_directly_once(): void
     {
         $collector = User::factory()->collector()->create();
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
         $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id]);
         $startingBalance = $subscription->balance();
         $payload = [
@@ -310,7 +335,7 @@ class MobileApiTest extends TestCase
     public function test_the_collectors_payments_today_follow_the_business_day_not_the_utc_date(): void
     {
         $collector = User::factory()->collector()->create();
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
         $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id]);
         $paymentAt = function (string $utc) use ($collector, $subscription): int {
             $this->travelTo($utc);
@@ -341,7 +366,7 @@ class MobileApiTest extends TestCase
     public function test_a_suspended_or_disconnected_subscription_can_pay_in_the_app_as_on_the_website(string $status, string $label): void
     {
         $collector = User::factory()->collector()->create();
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
         $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id, 'status' => $status]);
         SubscriptionTransaction::factory()->for($subscription)->create(['amount' => '80.00']);
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
@@ -366,7 +391,7 @@ class MobileApiTest extends TestCase
 
     public function test_collection_search_ignores_arabic_spelling_and_word_order(): void
     {
-        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections);
+        $collector = $this->collectorWithPermission(...self::TAKES_PAYMENTS);
         $ahmad = Subscription::factory()->create(['branch_id' => $collector->branch_id, 'full_name' => 'أحمد علي عبد الله']);
         $fatima = Subscription::factory()->create(['branch_id' => $collector->branch_id, 'full_name' => 'فاطمة مصطفى']);
         Subscription::factory()->create(['branch_id' => $collector->branch_id, 'full_name' => 'خالد يوسف']);
@@ -382,7 +407,7 @@ class MobileApiTest extends TestCase
 
     public function test_collection_search_reads_arabic_digits_and_lists_the_exact_account_first(): void
     {
-        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections);
+        $collector = $this->collectorWithPermission(...self::TAKES_PAYMENTS);
         $longer = Subscription::factory()->create(['branch_id' => $collector->branch_id, 'account_number' => '91042']);
         SubscriptionTransaction::factory()->for($longer)->create(['amount' => '500.00']);
         $exact = Subscription::factory()->create(['branch_id' => $collector->branch_id, 'account_number' => '1042']);
@@ -397,7 +422,7 @@ class MobileApiTest extends TestCase
 
     public function test_collection_search_treats_like_wildcards_as_plain_text(): void
     {
-        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections);
+        $collector = $this->collectorWithPermission(...self::TAKES_PAYMENTS);
         Subscription::factory()->create(['branch_id' => $collector->branch_id, 'full_name' => 'Plain Name']);
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
 
@@ -422,7 +447,7 @@ class MobileApiTest extends TestCase
 
     public function test_subscription_page_shows_balance_last_payment_and_latest_lines_newest_first(): void
     {
-        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections);
+        $collector = $this->collectorWithPermission(...self::TAKES_PAYMENTS);
         $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id, 'full_name' => 'أحمد', 'phone' => '0599000111']);
         $charge = SubscriptionTransaction::factory()->for($subscription)->create(['amount' => '120.00', 'created_at' => now()->subDays(2)]);
         $payment = SubscriptionTransaction::recordPayment($subscription, $collector, ['amount' => '30', 'currency' => 'ILS', 'payment_method' => 'cash']);
@@ -448,7 +473,7 @@ class MobileApiTest extends TestCase
 
     public function test_subscription_page_needs_the_collection_permission_and_the_same_branch(): void
     {
-        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections);
+        $collector = $this->collectorWithPermission(...self::TAKES_PAYMENTS);
         $otherBranch = Subscription::factory()->create();
         $reader = $this->collectorWithPermission(PermissionKey::ViewMeterReadings);
         $ownBranch = Subscription::factory()->create(['branch_id' => $reader->branch_id]);
@@ -464,7 +489,7 @@ class MobileApiTest extends TestCase
     public function test_mobile_bank_transfers_keep_both_source_and_destination_banks(): void
     {
         $collector = User::factory()->collector()->create();
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
         $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id]);
 
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
@@ -492,7 +517,7 @@ class MobileApiTest extends TestCase
     public function test_mobile_bank_transfer_rejects_a_reference_already_used_on_the_web(): void
     {
         $collector = User::factory()->collector()->create();
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
         $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id]);
         SubscriptionTransaction::recordPayment($subscription, $collector, [
             'amount' => '10',
@@ -524,7 +549,7 @@ class MobileApiTest extends TestCase
     public function test_the_app_is_told_whether_a_transfer_reference_is_available_or_repeated(): void
     {
         $collector = User::factory()->collector()->create();
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
 
         $this->getJson(route('mobile.collections.reference-status', ['reference_number' => 'WEB-100']))
@@ -542,7 +567,7 @@ class MobileApiTest extends TestCase
     public function test_mobile_payments_are_taken_in_shekels_only_and_offer_the_website_banks(): void
     {
         $collector = User::factory()->collector()->create();
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
         $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id]);
         $startingBalance = $subscription->balance();
         $payment = [
@@ -584,7 +609,7 @@ class MobileApiTest extends TestCase
     public function test_receipts_are_no_longer_read_or_stored_on_the_server(): void
     {
         $collector = User::factory()->collector()->create();
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
 
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
             ->postJson('/api/mobile/payment-receipts/analyze')->assertNotFound();
@@ -599,7 +624,7 @@ class MobileApiTest extends TestCase
         $branch = Branch::factory()->create();
         $otherBranch = Branch::factory()->create();
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
-        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
         $otherSubscription = Subscription::factory()->create(['branch_id' => $otherBranch->id]);
         $payload = [
             'mobile_operation_id' => Str::uuid()->toString(),
@@ -619,7 +644,7 @@ class MobileApiTest extends TestCase
         $this->postJson(route('mobile.collections.store'), $payload)->assertCreated();
 
         $otherCollector = User::factory()->collector()->create(['branch_id' => $branch->id]);
-        $otherCollector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $otherCollector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($otherCollector))
             ->postJson(route('mobile.collections.store'), $payload)->assertForbidden();
 
@@ -627,10 +652,10 @@ class MobileApiTest extends TestCase
             ->get('/pending-collections')->assertNotFound();
     }
 
-    private function collectorWithPermission(PermissionKey $permission): User
+    private function collectorWithPermission(PermissionKey ...$permissions): User
     {
         $user = User::factory()->collector()->create();
-        $user->permissions()->sync(Permission::idsFor([$permission]));
+        $user->permissions()->sync(Permission::idsFor($permissions));
 
         return $user;
     }

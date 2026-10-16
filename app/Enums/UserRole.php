@@ -72,8 +72,9 @@ enum UserRole: string
                 PermissionKey::ViewMeterReadings, PermissionKey::RecordMeterReadings, PermissionKey::ApproveMeterReadings,
                 PermissionKey::CorrectMeterReadings, PermissionKey::CorrectLastMeterReadings, PermissionKey::BrowseMeterReadingWeeks,
                 PermissionKey::ViewCollections, PermissionKey::RecordCollections, PermissionKey::CloseCashBoxes, PermissionKey::ConfirmCollections,
+                PermissionKey::RecordCashPayments, PermissionKey::RecordTransferPayments,
                 PermissionKey::ViewBranchPerformance, PermissionKey::ViewDebtAging, PermissionKey::ViewTransactionAudit,
-                PermissionKey::AdjustBalances, PermissionKey::CorrectTransactions, PermissionKey::DeleteTransactions,
+                PermissionKey::AddCharges, PermissionKey::AddDiscounts, PermissionKey::AddClearings, PermissionKey::CorrectTransactions, PermissionKey::DeleteTransactions,
                 PermissionKey::AmendTransactionDetails, PermissionKey::RefundPayments, PermissionKey::ExportFinancialReports,
                 PermissionKey::ViewTariffs,
                 PermissionKey::ViewCircuitBreakers,
@@ -95,12 +96,12 @@ enum UserRole: string
             self::Accountant => [
                 PermissionKey::ViewSubscriptions,
                 PermissionKey::ViewMeterReadings, PermissionKey::ApproveMeterReadings, PermissionKey::BrowseMeterReadingWeeks,
-                PermissionKey::AdjustBalances,
+                PermissionKey::AddCharges, PermissionKey::AddDiscounts, PermissionKey::AddClearings,
                 PermissionKey::ViewFinancialReports,
                 PermissionKey::ExportFinancialReports,
             ],
             // Takes payments in the field app, and nothing else: the financial log stays with the branch's staff.
-            self::Collector => [PermissionKey::RecordCollections],
+            self::Collector => [PermissionKey::RecordCollections, PermissionKey::RecordCashPayments, PermissionKey::RecordTransferPayments],
             // Legacy grants preserve split-payment visibility without changing its existing policy or controller.
             self::FinancialAuditor => [PermissionKey::AuditClosings, PermissionKey::ViewAllClosings, PermissionKey::ViewAllFinancialReports, PermissionKey::ExportFinancialReports],
             self::SuperAdmin => [],

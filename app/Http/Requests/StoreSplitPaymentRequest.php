@@ -37,7 +37,7 @@ class StoreSplitPaymentRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('recordAnyPayment', Subscription::class);
+        return $this->user()->can('recordSplitPayment', Subscription::class);
     }
 
     /**

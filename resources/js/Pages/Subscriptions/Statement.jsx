@@ -12,7 +12,7 @@ import SubscriptionSwitcher from './SubscriptionSwitcher';
  * discount (له), oldest first, with the balance after each line.
  */
 export default function Statement(statement) {
-    const { subscription, subscriptions, entries, summary, canRecordPayment, canAdjustBalance, paymentMethods, transactionTypes } = statement;
+    const { subscription, subscriptions, entries, summary, canRecordPayment, canAddCharge, canAddDiscount, canAddClearing, paymentMethods, transactionTypes } = statement;
     // The form open over the statement: 'payment', 'charge' or 'discount', or a line to correct or delete.
     const [openForm, setOpenForm] = useState(null);
 
@@ -33,7 +33,7 @@ export default function Statement(statement) {
                         {subscription.standingDiscount && (
                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                 <StandingDiscountBadge discount={subscription.standingDiscount} />
-                                {canAdjustBalance && (
+                                {canAddDiscount && (
                                     <StopStandingDiscountButton
                                         subscriptionId={subscription.id}
                                         subscriptionName={subscription.fullName}
@@ -43,7 +43,13 @@ export default function Statement(statement) {
                             </div>
                         )}
                     </div>
-                    <StatementActions canRecordPayment={canRecordPayment} canAdjustBalance={canAdjustBalance} onOpen={setOpenForm} />
+                    <StatementActions
+                        canRecordPayment={canRecordPayment}
+                        canAddCharge={canAddCharge}
+                        canAddDiscount={canAddDiscount}
+                        canAddClearing={canAddClearing}
+                        onOpen={setOpenForm}
+                    />
                 </>
             }
         >

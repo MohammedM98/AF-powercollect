@@ -201,7 +201,7 @@ class UserTypeTest extends TestCase
         $firstType = UserType::factory()->create(['name' => 'كهربائي']);
         $secondType = UserType::factory()->create(['name' => 'فني']);
         $employee = User::factory()->dataEntry()->for($firstType, 'userType')->create(['branch_id' => $actor->branch_id]);
-        $employee->permissions()->attach(Permission::idsFor([PermissionKey::AdjustBalances]));
+        $employee->permissions()->attach(Permission::idsFor([PermissionKey::AddCharges]));
         $permissions = $employee->permissions()->orderBy('id')->pluck('id')->all();
 
         $this->actingAs($actor)->put(route('users.update', $employee), [...$this->userPayload(), 'user_type_id' => $secondType->id])
@@ -250,7 +250,7 @@ class UserTypeTest extends TestCase
         $this->assertSame('collector', $employee->role->value);
         $this->assertSame($type->id, $employee->user_type_id);
         $this->assertSame($branch->id, $employee->branch_id);
-        $this->assertSame(['collections.record'], $employee->permissions()->pluck('key')->all());
+        $this->assertEqualsCanonicalizing(['collections.record', 'collections.record_cash', 'collections.record_transfer'], $employee->permissions()->pluck('key')->all());
     }
 
     #[TestWith(['branch_admin'])]

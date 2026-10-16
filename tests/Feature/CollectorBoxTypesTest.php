@@ -379,7 +379,7 @@ class CollectorBoxTypesTest extends TestCase
     public function test_staff_with_only_adjustment_permission_see_their_clearings_but_cannot_close_them(): void
     {
         [$branch] = $this->start();
-        $user = User::factory()->dataEntry()->for($branch)->withPermissions([PermissionKey::AdjustBalances])->create();
+        $user = User::factory()->dataEntry()->for($branch)->withPermissions([PermissionKey::AddClearings])->create();
         $entry = $this->entry($branch, $user, CashBoxType::Clearing);
 
         $this->actingAs($user)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.clearing.id', $entry->cash_box_id));

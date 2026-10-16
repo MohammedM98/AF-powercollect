@@ -63,7 +63,7 @@ export default function StatementModal({ subscription, statement, initialForm = 
                                     </h3>
                                     <StatusPill tone={STATUS_TONES[header.status]} label={header.statusLabel} />
                                     {header.standingDiscount && <StandingDiscountBadge discount={header.standingDiscount} />}
-                                    {header.standingDiscount && statement?.canAdjustBalance && (
+                                    {header.standingDiscount && statement?.canAddDiscount && (
                                         <StopStandingDiscountButton
                                             subscriptionId={header.id}
                                             subscriptionName={header.fullName}
@@ -98,7 +98,9 @@ export default function StatementModal({ subscription, statement, initialForm = 
                             {statement && (
                                 <StatementActions
                                     canRecordPayment={statement.canRecordPayment}
-                                    canAdjustBalance={statement.canAdjustBalance}
+                                    canAddCharge={statement.canAddCharge}
+                                    canAddDiscount={statement.canAddDiscount}
+                                    canAddClearing={statement.canAddClearing}
                                     onOpen={setOpenForm}
                                 />
                             )}

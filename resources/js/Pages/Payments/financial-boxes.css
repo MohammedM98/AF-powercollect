@@ -18,7 +18,7 @@
 .financial-box-list-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(100px, auto);
-    grid-template-areas: 'identity amount' 'person entries' 'dates status' 'actions actions';
+    grid-template-areas: 'number amount' 'type entries' 'person status' 'dates dates' 'actions actions';
     align-items: center;
     gap: 10px 16px;
     padding: 14px;
@@ -30,7 +30,8 @@
 .financial-box-list-row:hover,
 .financial-box-list-row:focus-within { border-color: rgb(var(--gray-300)); box-shadow: 0 1px 2px rgb(16 24 40 / .04), 0 14px 34px -18px rgb(16 24 40 / .18); }
 .financial-box-list-row > td { min-width: 0; padding: 0; border: 0; text-align: start; overflow-wrap: anywhere; }
-.financial-box-list-identity { grid-area: identity; }
+.financial-box-list-number { grid-area: number; }
+.financial-box-list-type { grid-area: type; display: flex; align-items: center; gap: 10px; }
 .financial-box-list-person { grid-area: person; display: flex; align-items: center; gap: 8px; }
 .financial-box-list-entries { grid-area: entries; }
 .financial-box-list-amount { grid-area: amount; }
@@ -42,8 +43,7 @@
 .financial-box-list-entries { text-align: end !important; }
 .financial-box-list-entries p { justify-content: flex-end; }
 .financial-box-list-status { justify-self: end; }
-.financial-box-list-identity button { max-width: 100%; }
-.financial-box-list-identity .truncate { white-space: normal; overflow: visible; }
+.financial-box-list-number button { max-width: 100%; }
 .financial-surface .data-table-toolbar { padding: 16px 24px; }
 .financial-surface .data-table-toolbar > div,
 .financial-surface .data-table-toolbar [role='group'] { max-width: 100%; flex-wrap: wrap; }
@@ -74,8 +74,8 @@
 
 @container (min-width: 820px) {
     .financial-box-list-heading,
-    .financial-box-list-row { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.1fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) 145px 145px; grid-template-areas: none; gap: 12px; }
-    .financial-box-list-heading { position: static; display: grid; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; padding: 6px 14px 10px; color: rgb(var(--gray-400)); font-size: 14px; text-align: start; }
+    .financial-box-list-row { grid-template-columns: minmax(0, .8fr) minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) 130px 145px; grid-template-areas: none; gap: 12px; }
+    .financial-box-list-heading { position: static; display: grid; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; padding: 6px 14px 10px; color: rgb(var(--gray-600)); font-size: 14px; text-align: start; }
     .financial-box-list-heading th { text-align: start; font-weight: 600; }
     .financial-box-list-row > td { grid-area: auto; }
     .financial-box-list-entries { text-align: start !important; }
@@ -97,7 +97,7 @@
     .financial-surface .data-table-toolbar { padding: 16px; }
     .financial-surface .data-table-totals { padding-inline: 16px; font-size: 14px; }
     .financial-box-list-row { gap: 10px; padding: 12px; }
-    .financial-box-list-identity .h-10 { width: 34px; height: 34px; }
+    .financial-box-list-type .h-10 { width: 34px; height: 34px; }
 }
 @media (prefers-reduced-motion: reduce) {
     .financial-box-card { transition: none; }

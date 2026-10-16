@@ -29,6 +29,14 @@ export function FinancialBoxIdentity({ box, period, card = false }) {
     </div>;
 }
 
+/** A box's type, its icon carrying the box's state as a dot: نقدي, حوالات بنكية or مقاصة. */
+export function FinancialBoxType({ box }) {
+    return <>
+        <span className="relative shrink-0"><BoxTypeIcon type={box.type} className="h-10 w-10" /><span className={`absolute -bottom-0.5 -start-0.5 h-3 w-3 rounded-full border-[2.5px] border-surface ${dots[box.status]}`} /></span>
+        <span className="text-[15px] font-semibold text-gray-900">{boxTypeStyles[box.type].label}</span>
+    </>;
+}
+
 export function FinancialBoxStatus({ box }) {
     const [label, tone] = boxStatusLabels[box.status];
     return <><StatusPill tone={tone} label={label} />{box.status === 'received' && !box.confirmed_at && <span className="mt-1 block text-xs text-amber-700 dark:text-amber-400">ينتظر تأكيد المحصّل</span>}</>;
@@ -37,7 +45,7 @@ export function FinancialBoxStatus({ box }) {
 export function FinancialBoxAmount({ box, large = false }) {
     const totals = financialBoxTotals(box);
     const others = foreignAmounts(totals);
-    return <><p className="flex flex-wrap items-baseline gap-x-1.5"><b dir="ltr" className={`font-display text-gray-900 ${large ? 'text-[1.75rem] leading-tight' : 'text-[1.0625rem]'}`}>{formatMoney(totals.ILS)}</b><span className={`${large ? 'text-sm' : 'text-xs'} text-gray-500`}>شيكل</span></p><p className={`${large ? 'min-h-[1.4rem]' : ''} font-display text-xs text-gray-500`}>{others ? `و${others}` : ''}</p></>;
+    return <><p className="flex flex-wrap items-baseline gap-x-1.5"><b dir="ltr" className={`font-display text-gray-900 ${large ? 'text-[1.75rem] leading-tight' : 'text-[1.0625rem]'}`}>{formatMoney(totals.ILS)}</b><span className={`${large ? 'text-sm' : 'text-[13px]'} text-gray-600`}>شيكل</span></p><p className={`${large ? 'min-h-[1.4rem]' : ''} font-display text-[13px] text-gray-600`}>{others ? `و${others}` : ''}</p></>;
 }
 
 export function FinancialBoxEntries({ box, card = false }) {
@@ -46,18 +54,18 @@ export function FinancialBoxEntries({ box, card = false }) {
     const cancelled = box.payments ? box.payments.length - entries.length : 0;
     if (box.type === 'cash') {
         const foreign = entries.filter((entry) => entry.currency !== 'ILS').length;
-        return <>{!card && <p><b className="font-display text-gray-900">{count}</b> <span className="text-xs text-gray-500">حركة{cancelled > 0 ? ` · ${cancelled} ملغاة` : ''}</span></p>}<p className="mt-1 flex items-center gap-2 text-xs text-gray-500"><Icon name="banknotes" className="h-4 w-4" />{card ? (box.status === 'pending' ? 'يُعدّ النقد عند تأكيد الإغلاق' : box.status === 'open' ? 'يجمع المحصّل النقد' : 'عُدّ النقد وطابق الإجمالي') : foreign ? `${foreign} بعملة أجنبية` : 'نقد بالشيكل'}</p></>;
+        return <>{!card && <p><b className="font-display text-gray-900">{count}</b> <span className="text-[13px] text-gray-600">حركة{cancelled > 0 ? ` · ${cancelled} ملغاة` : ''}</span></p>}<p className="mt-1 flex items-center gap-2 text-[13px] text-gray-600"><Icon name="banknotes" className="h-4 w-4" />{card ? (box.status === 'pending' ? 'يُعدّ النقد عند تأكيد الإغلاق' : box.status === 'open' ? 'يجمع المحصّل النقد' : 'عُدّ النقد وطابق الإجمالي') : foreign ? `${foreign} بعملة أجنبية` : 'نقد بالشيكل'}</p></>;
     }
     if (!box.payments) {
-        return <p className="text-xs text-gray-500"><b className="font-display text-gray-900">{count}</b> حركة{box.rejectedCount ? ` · ${box.rejectedCount} مرفوضة` : ''}</p>;
+        return <p className="text-[13px] text-gray-600"><b className="font-display text-gray-900">{count}</b> حركة{box.rejectedCount ? ` · ${box.rejectedCount} مرفوضة` : ''}</p>;
     }
     const flagged = entries.filter(isFlaggedEntry).length;
-    const note = <p className="mt-1 flex items-center gap-2 text-xs text-gray-500"><Icon name={box.type === 'clearing' ? 'scale' : 'bank'} className="h-4 w-4" />{flagged ? <b className="font-semibold text-brand-600">{flagged} {box.type === 'clearing' ? 'مرفوضة' : 'غير موجودة في البنك'}</b> : 'يدقّقها قسم التدقيق بعد الإغلاق'}</p>;
-    return card ? note : <><p><b className="font-display text-gray-900">{count}</b> <span className="text-xs text-gray-500">حركة{cancelled ? ` · ${cancelled} ملغاة` : ''}</span></p>{note}</>;
+    const note = <p className="mt-1 flex items-center gap-2 text-[13px] text-gray-600"><Icon name={box.type === 'clearing' ? 'scale' : 'bank'} className="h-4 w-4" />{flagged ? <b className="font-semibold text-brand-600">{flagged} {box.type === 'clearing' ? 'مرفوضة' : 'غير موجودة في البنك'}</b> : 'يدقّقها قسم التدقيق بعد الإغلاق'}</p>;
+    return card ? note : <><p><b className="font-display text-gray-900">{count}</b> <span className="text-[13px] text-gray-600">حركة{cancelled ? ` · ${cancelled} ملغاة` : ''}</span></p>{note}</>;
 }
 
 export function FinancialBoxDates({ box }) {
-    return <span className="text-xs text-gray-600">{date(box.opened_at)} ← {box.closed_at ? date(box.closed_at) : <span className="text-gray-400">مفتوح</span>}</span>;
+    return <span className="text-sm text-gray-800">{date(box.opened_at)} ← {box.closed_at ? date(box.closed_at) : <span className="text-gray-600">مفتوح</span>}</span>;
 }
 
 /**
@@ -77,7 +85,7 @@ export function FinancialBoxCard({ box, period, onOpen }) {
     const count = box.paymentCount ?? activeBoxEntries(box).length;
     return <article className="financial-box-card flex flex-col gap-4 rounded-card border border-gray-100 bg-surface p-5 shadow-card" data-status={box.status}>
         <header><FinancialBoxIdentity box={box} period={period} card /></header>
-        <div className="flex items-center gap-2.5 rounded-control bg-gray-50 px-3 py-2"><BoxPersonAvatar name={box.user?.name} /><span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-700">{boxPersonName(box)}</span><span className="shrink-0 text-xs text-gray-500"><b className="font-display text-gray-900">{count}</b> حركة</span></div>
+        <div className="flex items-center gap-2.5 rounded-control bg-gray-50 px-3 py-2"><span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-gray-900">{boxPersonName(box)}</span><span className="shrink-0 text-[13px] text-gray-600"><b className="font-display text-gray-900">{count}</b> حركة</span></div>
         <div><p className="text-xs font-semibold text-gray-500">إجمالي الحركات السارية</p><div className="mt-0.5"><FinancialBoxAmount box={box} large /></div></div>
         <FinancialBoxEntries box={box} card />
         <footer className="mt-auto space-y-3 border-t border-gray-100 pt-3"><div className="flex flex-wrap items-center justify-between gap-2"><FinancialBoxStatus box={box} /><span className="inline-flex items-center gap-1.5"><Icon name="clock" className="h-3.5 w-3.5 text-gray-500" /><FinancialBoxDates box={box} /></span></div><FinancialBoxButton box={box} onOpen={onOpen} className="w-full" /></footer>

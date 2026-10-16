@@ -732,15 +732,6 @@ class BranchClosingWorkflow
         }
     }
 
-    public function withdraw(Closing $closing, User $actor): void
-    {
-        $this->require($closing->status === ClosingStatus::Submitted && ! $closing->reviewed_at && ! $closing->reviewed_by && ! AuditNote::query()->where('closing_id', $closing->id)->exists(), 'لا يمكن السحب بعد فتح التدقيق للإغلاق.');
-        ClosingVersion::query()->where('closing_id', $closing->id)->whereNull('withdrawn_at')->update(['withdrawn_at' => now()]);
-        $closing->lines()->delete();
-        $closing->update(['status' => ClosingStatus::Draft, 'submitted_snapshot' => null, 'submitted_at' => null, 'branch_approved_at' => null, 'branch_approved_by' => null]);
-        $closing->events()->create(['user_id' => $actor->id, 'action' => 'branch_withdrawn', 'description' => 'سُحب الإغلاق قبل فتحه للتدقيق.']);
-    }
-
     public function earlyClose(Closing $closing): void
     {
         $this->require(! $closing->submitted_snapshot && $closing->coverage_until->greaterThan(now()) && $closing->coverage_from->lessThan(now()), 'الإغلاق المبكر متاح للفترة المفتوحة فقط.');

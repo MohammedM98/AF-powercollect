@@ -99,7 +99,7 @@ class WeeklyClosingTest extends TestCase
 
         $this->assertSame('submitted', $closing->fresh()->status->value);
         $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('selected.step', 'audit')->where('selected.frozen', true)->where('selected.can.submit', false)->where('selected.can.withdraw', true)
+            ->where('selected.step', 'audit')->where('selected.frozen', true)->where('selected.can.submit', false)->missing('selected.can.withdraw')
             ->where('selected.boxes.0.payments.0.amount', '100.00')->where('selected.boxes.0.payments.0.transactionStatus', 'active'));
 
         AuditNote::query()->create(['closing_id' => $closing->id, 'body' => 'راجعوا الصندوق']);
@@ -156,17 +156,15 @@ class WeeklyClosingTest extends TestCase
             ->where('selected.step', 'confirm')->where('selected.can.closeEarly', false));
     }
 
-    public function test_each_version_sent_is_listed_with_what_it_held(): void
+    public function test_the_version_sent_is_listed_with_what_it_held(): void
     {
         [$branch, $head, , $closing] = $this->endedWeek();
         $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true, 'notes' => 'الأولى'])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'withdraw', $closing->id)->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
 
         $this->page($head, ['closing_id' => $closing->id])->assertInertia(fn (AssertableInertia $page) => $page
-            ->has('selected.versions', 2)
-            ->where('selected.versions.0.version', 2)->where('selected.versions.0.withdrawnAt', null)->where('selected.versions.0.cash.ILS', '100.00')->where('selected.versions.0.by', $head->name)
-            ->where('selected.versions.1.version', 1)->whereNot('selected.versions.1.withdrawnAt', null)->where('selected.versions.1.notes', 'الأولى'));
+            ->has('selected.versions', 1)
+            ->where('selected.versions.0.version', 1)->where('selected.versions.0.withdrawnAt', null)->where('selected.versions.0.cash.ILS', '100.00')
+            ->where('selected.versions.0.by', $head->name)->where('selected.versions.0.notes', 'الأولى'));
     }
 
     public function test_only_branch_closers_open_the_page(): void

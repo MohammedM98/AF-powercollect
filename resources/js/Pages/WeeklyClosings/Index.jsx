@@ -198,7 +198,7 @@ function CollectorGroup({ person, boxes, allBoxes, open, onToggle, reviewed, can
 }
 
 /** The approval panel: the week's total, by type and by bank, the branch's review, and confirming the week. */
-function ApprovalPanel({ week, reviewed, canReview, notes, onNotes, onMarkAll, onSubmit, onWithdraw, onCloseEarly }) {
+function ApprovalPanel({ week, reviewed, canReview, notes, onNotes, onMarkAll, onSubmit, onCloseEarly }) {
     const totals = week.weekTotals;
     const reviewedCount = week.boxes.filter((box) => reviewed.has(box.id)).length;
     const transferGroups = byReceivingBank(week.boxes.filter((box) => box.type === 'bank_transfer').flatMap(activeEntries));
@@ -219,9 +219,9 @@ function ApprovalPanel({ week, reviewed, canReview, notes, onNotes, onMarkAll, o
     } else if (week.frozen) {
         action = <div className="space-y-3 rounded-control border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
             <p className="flex items-center gap-2 font-bold"><Icon name="check" className="h-4 w-4" />{WEEKLY_STATUSES[week.step][0]}</p>
-            {week.branchApprovedAt && <p className="text-xs leading-6">اعتمدها {week.branchApprovedBy ?? '—'} · {dateTime(week.branchApprovedAt)}<br />الأرقام كما ثُبّتت لحظة الإرسال.</p>}
+            {week.branchApprovedAt && <p className="text-xs leading-6">اعتمدها <bdi>{week.branchApprovedBy ?? '—'}</bdi> · <bdi>{dateTime(week.branchApprovedAt)}</bdi><br />الأرقام كما ثُبّتت لحظة الإرسال.</p>}
             {week.branchNotes && <p className="border-t border-emerald-500/20 pt-2 text-xs leading-6">ملاحظة الفرع: {week.branchNotes}</p>}
-            {week.can.withdraw && <SecondaryButton type="button" onClick={onWithdraw} className="w-full"><Icon name="undo" className="h-4 w-4" />سحب من التدقيق</SecondaryButton>}
+            <p className="flex items-start gap-2 border-t border-emerald-500/20 pt-2 text-xs leading-6"><Icon name="lock" className="mt-1 h-3.5 w-3.5 shrink-0" />الأسبوع المرسل مقفل: لا يُسحب ولا يُعدَّل، وأي تصحيح يُقيَّد في الأسبوع المفتوح.</p>
         </div>;
     } else if (week.step === 'review') {
         action = <>
@@ -304,7 +304,7 @@ function SubmitModal({ week, branchId, url, notes, reviewedCount, onClose }) {
                 {notes.trim() && <div className="col-span-2 bg-surface px-4 py-3"><dt className="text-xs text-gray-500">ملاحظة الفرع</dt><dd className="text-sm text-gray-700">{notes}</dd></div>}
             </dl>
             <Notice items={week.warnings} />
-            <p className="flex gap-2 rounded-control bg-sky-500/10 p-3.5 text-sm leading-7 text-sky-700 dark:text-sky-400"><Icon name="lock" className="mt-1.5 h-4 w-4 shrink-0" />تتجمّد أرقام الأسبوع لحظة الإرسال، وتصل الصناديق كما أُغلقت مع محصّليها وجميع حركاتها. أي تصحيح بعدها يُسجّل في الأسبوع المفتوح.</p>
+            <p className="flex gap-2 rounded-control bg-sky-500/10 p-3.5 text-sm leading-7 text-sky-700 dark:text-sky-400"><Icon name="lock" className="mt-1.5 h-4 w-4 shrink-0" />تتجمّد أرقام الأسبوع لحظة الإرسال، وتصل الصناديق كما أُغلقت مع محصّليها وجميع حركاتها. لا يمكن سحب الأسبوع أو تعديله بعد إرساله؛ أي تصحيح بعدها يُسجّل في الأسبوع المفتوح.</p>
             <label className="flex items-start gap-3 rounded-control border border-gray-200 p-3.5 text-sm font-semibold text-gray-900"><input type="checkbox" required checked={form.data.acknowledged} onChange={(event) => form.setData('acknowledged', event.target.checked)} className="mt-1" />راجعت حزمة الأسبوع وأقرّ بأن الصناديق والمبالغ صحيحة كما أُغلقت في الفرع.</label>
             {Object.values(form.errors).length > 0 && <div role="alert" className="rounded-control bg-brand-500/10 p-4 text-sm text-brand-600">{Object.values(form.errors).map((error) => <p key={error}>{error}</p>)}</div>}
         </div>
@@ -329,11 +329,10 @@ function WeekPackage({ week, branch, urls }) {
     const [view, setView] = useState('collectors');
     const [sort, setSort] = useState({ key: 'number', direction: 'asc' });
     const [reviewed, setReviewed] = useReviewedBoxes(week.id);
-    const [boxId, setBoxId] = useState(null);
+    const [boxId, setBoxId] = useState(() => Number(new URLSearchParams(window.location.search).get('box')) || null);
     const [expandedBox, setExpandedBox] = useState(false);
     const [notes, setNotes] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [withdrawing, setWithdrawing] = useState(false);
     const [closingEarly, setClosingEarly] = useState(false);
     const canReview = !week.frozen;
     const people = useMemo(() => [...new Map(week.boxes.map((box) => [personKey(box), box.userName ?? '—'])).entries()].map(([key, name]) => ({ key, name })).sort((a, b) => a.name.localeCompare(b.name, 'ar')), [week.boxes]);
@@ -437,7 +436,7 @@ function WeekPackage({ week, branch, urls }) {
                 {week.versions.length > 0 && <VersionsSection versions={week.versions} />}
             </div>
 
-            <ApprovalPanel week={week} reviewed={reviewed} canReview={canReview} notes={notes} onNotes={setNotes} onMarkAll={(done) => mark(week.boxes, done)} onSubmit={() => setSubmitting(true)} onWithdraw={() => setWithdrawing(true)} onCloseEarly={() => setClosingEarly(true)} />
+            <ApprovalPanel week={week} reviewed={reviewed} canReview={canReview} notes={notes} onNotes={setNotes} onMarkAll={(done) => mark(week.boxes, done)} onSubmit={() => setSubmitting(true)} onCloseEarly={() => setClosingEarly(true)} />
         </div>
 
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-surface/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden">
@@ -450,7 +449,6 @@ function WeekPackage({ week, branch, urls }) {
         {selectedBox && <WeeklyBoxModal box={selectedBox} list={shown.some((box) => box.id === selectedBox.id) ? shown : week.boxes} reviewed={reviewed.has(selectedBox.id)} canReview={canReview} expanded={expandedBox} onExpand={() => setExpandedBox(!expandedBox)} onReview={reviewAndNext} onUnreview={() => mark([selectedBox], false)} onOpen={setBoxId} onClose={() => setBoxId(null)} hasNextPending={Boolean(nextPending(selectedBox))} />}
         {submitting && <SubmitModal week={week} branchId={branch.id} url={urls.actions} notes={notes} reviewedCount={week.boxes.filter((box) => reviewed.has(box.id)).length} onClose={() => setSubmitting(false)} />}
         <ConfirmDialog show={closingEarly} onCancel={() => setClosingEarly(false)} onConfirm={() => router.post(`${urls.actions}/early/${week.id}`, { branch_id: branch.id }, { preserveScroll: true, onFinish: () => setClosingEarly(false) })} title={`إغلاق ${periodLabel(week)} مبكرًا`} message="يغطي الأسبوع الفترة حتى الآن، وتُغلق الصناديق المفتوحة. تنضم الأيام المتبقية إلى الأسبوع القادم حتى موعد قطعه." confirmLabel="إغلاق مبكر" icon="bolt" />
-        <ConfirmDialog show={withdrawing} onCancel={() => setWithdrawing(false)} onConfirm={() => router.post(`${urls.actions}/withdraw/${week.id}`, { branch_id: branch.id }, { preserveScroll: true, onFinish: () => setWithdrawing(false) })} title="سحب الأسبوع من التدقيق" message="يعود الأسبوع للمراجعة قبل أن يفتحه قسم التدقيق. تبقى النسخة المرسلة في السجل، والإرسال التالي ينشئ نسخة جديدة." confirmLabel="سحب" icon="undo" tone="danger" />
     </div>;
 }
 

@@ -63,7 +63,6 @@ function Stat({ icon, label, value, hint }) {
  */
 export default function BoxDetails({ box, onClose, perform, period }) {
     const [search, setSearch] = useState('');
-    const [maximized, setMaximized] = useState(false);
     const [filter, setFilter] = useState('all');
     const [cashCounted, setCashCounted] = useState(false);
     const [confirmingClose, setConfirmingClose] = useState(false);
@@ -89,7 +88,7 @@ export default function BoxDetails({ box, onClose, perform, period }) {
     const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', 150], ...ledgerColumns.after, ['الحالة', 140], ['', 110]];
     const widths = columns.map(([, width]) => width);
 
-    return <Modal show onClose={onClose} maxWidth="full" centered panelClassName={`financial-box-detail financial-surface flex flex-col ${maximized ? 'financial-box-detail-maximized' : ''}`}>
+    return <Modal show onClose={onClose} maxWidth="full" centered panelClassName="financial-box-detail financial-surface flex flex-col">
         <header className="flex shrink-0 flex-wrap items-start justify-between gap-4 border-b border-gray-100 p-6">
             <div className="flex items-center gap-3">
                 <BoxTypeIcon type={type} className="h-12 w-12" />
@@ -99,7 +98,7 @@ export default function BoxDetails({ box, onClose, perform, period }) {
                 </div>
             </div>
             <div className="flex items-center gap-3">
-                <StatusPill tone={boxStatusLabels[box.status][1]} label={boxStatusLabels[box.status][0]} /><SecondaryButton type="button" className="hidden gap-2 px-3 py-2 sm:inline-flex" onClick={() => setMaximized((value) => !value)} aria-pressed={maximized}><Icon name="expand" className="h-4 w-4" />{maximized ? 'تصغير' : 'ملء الشاشة'}</SecondaryButton>
+                <StatusPill tone={boxStatusLabels[box.status][1]} label={boxStatusLabels[box.status][0]} />
                 <button type="button" onClick={onClose} aria-label="إغلاق النافذة" className="rounded-control p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"><Icon name="close" className="h-5 w-5" /></button>
             </div>
         </header>

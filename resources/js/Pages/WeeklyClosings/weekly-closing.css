@@ -1,9 +1,8 @@
-/* The week's box window: wide in the middle of the screen, or the whole screen when opened out. */
-.weekly-box-window { height: min(860px, calc(100dvh - 48px)); margin-block: 0; }
-.modal-scroll:has(.weekly-box-window.is-expanded) { padding: 0; }
-.weekly-box-window.is-expanded { height: 100dvh; max-width: none; margin: 0; border-radius: 0; }
+/* The week's box window: wide in the middle of the screen, with the page in sight around it; a click outside or Escape closes it. */
+.modal-scroll:has(.weekly-box-window) { padding: 48px; }
+.weekly-box-window { width: min(1180px, calc(100vw - 96px)); height: min(820px, calc(100dvh - 96px)); margin-block: 0; }
 
 @media (max-width: 639px) {
-    .modal-scroll:has(.weekly-box-window) { padding: 0; }
-    .weekly-box-window { height: 100dvh; margin: 0; border-radius: 0; }
+    .modal-scroll:has(.weekly-box-window) { padding: 12px; }
+    .weekly-box-window { width: 100%; height: calc(100dvh - 24px); margin: 0; }
 }

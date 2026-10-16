@@ -18,17 +18,20 @@ function urlWithoutStatement() {
  * or discount is saved in it, and Back closes it.
  *
  * Returns `subscription` (the header to show, or null when closed), `form`
- * (the form to open at once, if any), `open(header, form?)` and `close()`.
+ * (the form to open at once, if any), `focusLineId` (the line to go to and
+ * mark, if any), `open(header, form?, focusLineId?)` and `close()`.
  * `header` is { id, fullName, … } as StatementModal reads it.
  */
 export function useStatementWindow(statement) {
     const [loading, setLoading] = useState(null);
     const [form, setForm] = useState(null);
+    const [focusLineId, setFocusLineId] = useState(null);
     const request = useRef(null);
 
-    function open(header, initialForm = null) {
+    function open(header, initialForm = null, lineId = null) {
         setLoading(header);
         setForm(initialForm);
+        setFocusLineId(lineId);
         router.reload({
             data: { statement: header.id },
             only: ['statement'],
@@ -44,6 +47,7 @@ export function useStatementWindow(statement) {
         request.current?.cancel();
         setLoading(null);
         setForm(null);
+        setFocusLineId(null);
         router.replace({
             url: urlWithoutStatement(),
             props: (props) => ({ ...props, statement: null }),
@@ -59,6 +63,7 @@ export function useStatementWindow(statement) {
         // The loaded statement, once it is the one asked for.
         statement: subscription && statement?.subscription.id === subscription.id ? statement : null,
         form,
+        focusLineId,
         open,
         close,
     };

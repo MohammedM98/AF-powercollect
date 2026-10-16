@@ -306,6 +306,7 @@ class PaymentController extends Controller
         $search = trim((string) $request->query('search'));
         $perPage = $this->dataTablePerPage($request);
         $ofType = fn (Builder $entries, string $type) => $entries->whereHas('box', fn (Builder $box) => $box->where('type', $type));
+        $linksStatement = $request->user()->can('viewAny', Subscription::class);
         $searched = (clone $query)->when($search !== '', fn (Builder $entries) => $entries->where(fn (Builder $matching) => $matching
             ->whereHas('transaction.subscription', fn (Builder $subscription) => $subscription->matchingSearch($search))
             ->orWhereHas('transaction', fn (Builder $transaction) => $transaction->where(fn (Builder $numbers) => $numbers->where('voucher_number', $search)->orWhere('manual_voucher_number', $search)->orWhere('reference_number', 'like', "%{$search}%")))
@@ -316,7 +317,7 @@ class PaymentController extends Controller
             ->orderByDesc('occurred_at')->orderByDesc('id')
             ->paginate($perPage)->withQueryString()
             ->through(fn (CashBoxPayment $entry): array => [
-                ...$this->cashBoxEntry($entry),
+                ...$this->cashBoxEntry($entry, $linksStatement),
                 'box' => ['id' => $entry->box->id, 'number' => $entry->box->number, 'type' => $entry->box->type->value, 'url' => $boxUrl($entry->box)],
                 'collector' => $entry->box->user?->name,
             ]);
@@ -378,7 +379,7 @@ class PaymentController extends Controller
             return $this->exportCashBox($cashBox, $entryQuery->get());
         }
 
-        $entries = $entryQuery->paginate($this->dataTablePerPage($request, 25))->withQueryString()->through(fn (CashBoxPayment $entry): array => $this->cashBoxEntry($entry));
+        $entries = $entryQuery->paginate($this->dataTablePerPage($request, 25))->withQueryString()->through(fn (CashBoxPayment $entry): array => $this->cashBoxEntry($entry, $actor->can('viewAny', Subscription::class)));
 
         return Inertia::render('Payments/CashBoxShow', [
             'box' => $this->cashBoxRow($cashBox), 'entries' => $entries,
@@ -389,12 +390,13 @@ class PaymentController extends Controller
 
     /**
      * One entry of a box: the payment or clearing, who it was for, where
-     * its check stands, the payment's receipt, and the transaction as the
-     * subscriber's statement shows it.
+     * its check stands, the payment's receipt, the transaction as the
+     * subscriber's statement shows it, and (for who may open subscribers,
+     * `$linksStatement`) the statement opened at that transaction.
      *
      * @return array<string, mixed>
      */
-    private function cashBoxEntry(CashBoxPayment $entry): array
+    private function cashBoxEntry(CashBoxPayment $entry, bool $linksStatement = false): array
     {
         return [
             'id' => $entry->id, 'occurredAt' => $entry->occurred_at, 'currency' => $entry->currency,
@@ -407,6 +409,7 @@ class PaymentController extends Controller
             'referenceNumber' => $entry->transaction->reference_number, 'service' => $entry->transaction->notes,
             'receiptUrl' => $entry->transaction->isPayment() || $entry->transaction->isClearing() ? route('subscriptions.payments.receipt', [$entry->transaction->subscription, $entry->transaction]) : null,
             'ledger' => $entry->transaction->ledgerDetails(),
+            'statementUrl' => $linksStatement ? route('subscriptions.statement', [$entry->transaction->subscription_id, 'transaction' => $entry->transaction->id]) : null,
         ];
     }
 

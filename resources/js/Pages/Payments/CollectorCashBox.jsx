@@ -253,14 +253,19 @@ export function BoxEntriesTable({ type, boxNumber, entries, pagination }) {
                                     <BoxNumberCell number={boxNumber} position={entries.from + index} />
                                     <LedgerLeadCells ledger={ledger} />
                                     <td title={entry.subscriber} style={{ whiteSpace: 'normal' }}>
-                                        <span className="block font-semibold text-gray-900">{entry.subscriber}</span>
+                                        {entry.statementUrl ? (
+                                            <Link href={entry.statementUrl} prefetch title="فتح كشف الحساب عند هذه الحركة" className="block font-semibold text-gray-900 hover:text-brand-600 hover:underline">{entry.subscriber}</Link>
+                                        ) : (
+                                            <span className="block font-semibold text-gray-900">{entry.subscriber}</span>
+                                        )}
                                         <span className="block font-display text-xs text-gray-400"><bdi dir="ltr">{entry.accountNumber}</bdi></span>
                                     </td>
                                     <LedgerTrailCells ledger={ledger} amount={entry.amount} currency={entry.currency} cancelled={cancelled} />
                                     <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} />{entry.isLate && <div className="mt-1"><StatusPill tone="amber" label="متأخرة" /></div>}</td>
-                                    <td className="text-end">{entry.receiptUrl && (
+                                    <td className="text-end">{(entry.receiptUrl || entry.statementUrl) && (
                                         <RowActionsMenu>
-                                            <button onClick={() => window.open(entry.receiptUrl, '_blank', 'noopener')}>طباعة السند</button>
+                                            {entry.statementUrl && <button onClick={() => router.visit(entry.statementUrl)}>كشف الحساب</button>}
+                                            {entry.receiptUrl && <button onClick={() => window.open(entry.receiptUrl, '_blank', 'noopener')}>طباعة السند</button>}
                                         </RowActionsMenu>
                                     )}</td>
                                 </tr>

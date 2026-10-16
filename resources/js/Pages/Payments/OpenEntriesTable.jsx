@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
 import ColumnWidths, { fixedTableStyle } from '@/Components/DataTable/ColumnWidths';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
@@ -59,14 +59,19 @@ export default function OpenEntriesTable({ table, entries, filters, counts, url,
                             </td>
                             <LedgerLeadCells ledger={ledger} />
                             <td title={entry.subscriber} style={{ whiteSpace: 'normal' }}>
-                                <span className="font-semibold text-gray-900">{entry.subscriber}</span>
+                                {entry.statementUrl ? (
+                                    <Link href={entry.statementUrl} prefetch title="فتح كشف الحساب عند هذه الحركة" className="font-semibold text-gray-900 hover:text-brand-600 hover:underline">{entry.subscriber}</Link>
+                                ) : (
+                                    <span className="font-semibold text-gray-900">{entry.subscriber}</span>
+                                )}
                                 <span className="block font-display text-xs text-gray-400"><bdi dir="ltr">{entry.accountNumber}</bdi></span>
                             </td>
                             <LedgerTrailCells ledger={ledger} amount={entry.amount} currency={entry.currency} cancelled={cancelled} />
                             <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={status} />{entry.isLate && <span className="mt-1 block"><StatusPill tone="amber" label="متأخرة" /></span>}</td>
-                            <td className="text-end">{entry.receiptUrl && (
+                            <td className="text-end">{(entry.receiptUrl || entry.statementUrl) && (
                                 <RowActionsMenu>
-                                    <button onClick={() => window.open(entry.receiptUrl, '_blank', 'noopener')}>طباعة السند</button>
+                                    {entry.statementUrl && <button onClick={() => router.visit(entry.statementUrl)}>كشف الحساب</button>}
+                                    {entry.receiptUrl && <button onClick={() => window.open(entry.receiptUrl, '_blank', 'noopener')}>طباعة السند</button>}
                                 </RowActionsMenu>
                             )}</td>
                         </tr>;

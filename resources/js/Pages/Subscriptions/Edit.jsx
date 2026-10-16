@@ -14,6 +14,8 @@ export default function Edit({
     currentBranchAreaName,
     canEditMinimumCharge,
     canEditKilowattPrice,
+    canEditDisconnectionFee,
+    usualDisconnectionFee,
 }) {
     const form = useResourceForm('/subscriptions', subscription, subscriptionFormData(subscription));
 
@@ -35,6 +37,8 @@ export default function Edit({
                 currentBranchAreaName={currentBranchAreaName}
                 canEditMinimumCharge={canEditMinimumCharge}
                 canEditKilowattPrice={canEditKilowattPrice}
+                canEditDisconnectionFee={canEditDisconnectionFee}
+                usualDisconnectionFee={usualDisconnectionFee}
                 subscriptionCount={subscription.subscriptionCount}
                 isEdit
             />

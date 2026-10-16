@@ -26,6 +26,7 @@ enum PermissionKey: string
     case UpdateSubscriptionMinimumCharge = 'subscriptions.update_minimum_charge';
     case UpdateSubscriptionKilowattPrice = 'subscriptions.update_kilowatt_price';
     case BulkUpdateSubscriptions = 'subscriptions.bulk_update';
+    case UpdateSubscriptionDisconnectionFee = 'subscriptions.update_disconnection_fee';
 
     case ViewTariffs = 'tariffs.view';
     case CreateTariffs = 'tariffs.create';
@@ -63,6 +64,13 @@ enum PermissionKey: string
     case CorrectLastMeterReadings = 'meter_readings.correct_last';
     case BrowseMeterReadingWeeks = 'meter_readings.browse_weeks';
     case ApproveMeterReadings = 'meter_readings.approve';
+
+    case ViewReadingAssignments = 'reading_assignments.view';
+    case ManageReadingAssignments = 'reading_assignments.manage';
+    case ApproveReadingAssignments = 'reading_assignments.approve';
+    case PrintReadingSheets = 'reading_assignments.print_sheets';
+    case ReviewReadingSubmissions = 'reading_assignments.review';
+
     case RecordCollections = 'collections.record';
     case CloseCashBoxes = 'collections.close_boxes';
     case ConfirmCollections = 'collections.confirm';
@@ -84,6 +92,11 @@ enum PermissionKey: string
     case ViewDebtAging = 'reports.debt_aging';
     case ViewTransactionAudit = 'reports.transaction_audit';
     case ExportFinancialReports = 'reports.export';
+
+    case ViewDisconnections = 'disconnections.view';
+    case ManageDisconnections = 'disconnections.manage';
+    case WarnDisconnections = 'disconnections.warn';
+    case ExecuteDisconnections = 'disconnections.execute';
 
     case ViewMessages = 'messages.view';
     case SendMessages = 'messages.send';
@@ -112,6 +125,7 @@ enum PermissionKey: string
             self::UpdateSubscriptionMinimumCharge => 'Edit Subscription Minimum Charge',
             self::UpdateSubscriptionKilowattPrice => 'Edit Subscription Kilo Price',
             self::BulkUpdateSubscriptions => 'Bulk Edit Subscriptions',
+            self::UpdateSubscriptionDisconnectionFee => 'Edit Subscription Disconnection Fee',
             self::ViewTariffs => 'View Tariffs',
             self::CreateTariffs => 'Add Tariffs',
             self::UpdateTariffs => 'Edit Tariffs',
@@ -142,6 +156,11 @@ enum PermissionKey: string
             self::CorrectLastMeterReadings => 'Edit Last Readings',
             self::BrowseMeterReadingWeeks => 'Browse Earlier Reading Weeks',
             self::ApproveMeterReadings => 'Approve Meter Readings',
+            self::ViewReadingAssignments => 'View Reading Assignments',
+            self::ManageReadingAssignments => 'Assign Meter Boxes to Readers',
+            self::ApproveReadingAssignments => 'Approve Reading Assignments',
+            self::PrintReadingSheets => 'Print Paper Reading Sheets',
+            self::ReviewReadingSubmissions => 'Review Field Readings',
             self::RecordCollections => 'Add Payments',
             self::CloseCashBoxes => 'Close Cash Boxes',
             self::ConfirmCollections => 'Confirm Collections',
@@ -162,6 +181,10 @@ enum PermissionKey: string
             self::ViewDebtAging => 'View Debt Aging',
             self::ViewTransactionAudit => 'View Audit Log',
             self::ExportFinancialReports => 'Export Financial Reports',
+            self::ViewDisconnections => 'View Disconnection Lists',
+            self::ManageDisconnections => 'Manage Disconnection Lists',
+            self::WarnDisconnections => 'Send Disconnection Warnings',
+            self::ExecuteDisconnections => 'Confirm Service Disconnections',
             self::ViewMessages => 'View Messages',
             self::SendMessages => 'Send Messages',
             self::ManagePrintTemplates => 'Manage Print Templates',
@@ -218,6 +241,7 @@ enum PermissionKey: string
                     'minimum_charge' => self::UpdateSubscriptionMinimumCharge,
                     'kilowatt_price' => self::UpdateSubscriptionKilowattPrice,
                     'bulk_update' => self::BulkUpdateSubscriptions,
+                    'disconnection_fee' => self::UpdateSubscriptionDisconnectionFee,
                 ],
             ],
             'meter_boxes' => [
@@ -241,6 +265,16 @@ enum PermissionKey: string
                     'correct' => self::CorrectMeterReadings,
                     'correct_last' => self::CorrectLastMeterReadings,
                     'approve' => self::ApproveMeterReadings,
+                ],
+            ],
+            'reading_assignments' => [
+                'label' => 'Reading Assignments',
+                'actions' => [
+                    'view' => self::ViewReadingAssignments,
+                    'manage' => self::ManageReadingAssignments,
+                    'print_sheets' => self::PrintReadingSheets,
+                    'approve' => self::ApproveReadingAssignments,
+                    'review' => self::ReviewReadingSubmissions,
                 ],
             ],
             'collections' => [
@@ -267,6 +301,15 @@ enum PermissionKey: string
                     'debt_aging' => self::ViewDebtAging,
                     'transaction_audit' => self::ViewTransactionAudit,
                     'export' => self::ExportFinancialReports,
+                ],
+            ],
+            'disconnections' => [
+                'label' => 'Disconnection Lists',
+                'actions' => [
+                    'view' => self::ViewDisconnections,
+                    'manage' => self::ManageDisconnections,
+                    'warn' => self::WarnDisconnections,
+                    'execute' => self::ExecuteDisconnections,
                 ],
             ],
             'messages' => [

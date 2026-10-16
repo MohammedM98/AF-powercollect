@@ -30,7 +30,7 @@ class StoreMessageBatchRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kind' => ['required', Rule::enum(MessageKind::class)],
+            'kind' => ['required', Rule::enum(MessageKind::class)->only(MessageKind::composable())],
             'channel' => ['required', Rule::enum(MessageChannel::class)],
             'body' => ['required', 'string', 'max:1000'],
             'week_start' => [Rule::requiredIf($this->input('kind') === MessageKind::WeeklyReading->value), 'nullable', 'date_format:Y-m-d'],

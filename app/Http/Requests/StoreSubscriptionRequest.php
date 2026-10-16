@@ -66,6 +66,8 @@ class StoreSubscriptionRequest extends FormRequest
             'minimum_charge' => ['required', 'numeric', 'min:0', 'max:10000'],
             // Their own kilo price, whether above or below their tariff's; empty means they pay the tariff's.
             'kilowatt_price' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:10000'],
+            // Their own disconnection fee (0 for none); empty means the company's usual fee.
+            'disconnection_fee' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:10000'],
             // The meter's reading when the subscription is connected: it may wait while they are not
             // active yet, but billing counts from it, so an active subscription must have it.
             'initial_reading' => [Rule::requiredIf($this->input('status') === SubscriptionStatus::Active->value), 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999.99'],
@@ -87,6 +89,11 @@ class StoreSubscriptionRequest extends FormRequest
         // Without the permission the price is never taken from the request (see SubscriptionController).
         if (! $this->user()->hasPermission(PermissionKey::UpdateSubscriptionKilowattPrice)) {
             $rules['kilowatt_price'] = ['exclude'];
+        }
+
+        // Without the permission the fee is never taken from the request: a subscriber keeps the fee they have.
+        if (! $this->user()->hasPermission(PermissionKey::UpdateSubscriptionDisconnectionFee)) {
+            $rules['disconnection_fee'] = ['exclude'];
         }
 
         $subscription = $this->route('subscription');
@@ -161,6 +168,7 @@ class StoreSubscriptionRequest extends FormRequest
             'subscription_date.before_or_equal' => 'تاريخ الاشتراك لا يمكن أن يكون في المستقبل.',
             'subscription_fee.max' => 'رسوم الاشتراك لا تزيد عن :max شيكل.',
             'kilowatt_price.max' => 'سعر الكيلو لا يزيد عن :max شيكل.',
+            'disconnection_fee.max' => 'رسوم القطع لا تزيد عن :max شيكل.',
             'subscription_phone.regex' => 'رقم الجوال يجب أن يتكون من 10 أرقام ويبدأ بـ 059 أو 056.',
             'status.not_in' => 'لا يمكن إعادة مشترك سبق تفعيله إلى «قيد الانتظار»؛ غيّر حالته إلى «مفصول».',
             'initial_reading.required' => 'أدخل القراءة السابقة قبل تفعيل المشترك؛ منها يبدأ حساب استهلاكه.',

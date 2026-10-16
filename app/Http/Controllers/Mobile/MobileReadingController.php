@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Mobile;
 
-use App\Enums\MeterReadingStatus;
 use App\Enums\SubscriptionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMobileMeterReadingRequest;
@@ -76,33 +75,14 @@ class MobileReadingController extends Controller
 
         $subscription = Subscription::with(['tariff', 'circuitBreaker', 'standingDiscount'])
             ->findOrFail($request->integer('subscription_id'));
-        $weekStart = $request->weekStart();
-        $previousReading = $subscription->previousReadingBefore($weekStart);
-        $currentReading = $request->float('current_reading');
-        $consumption = MeterReading::consumptionBetween($previousReading, $currentReading);
-        $discount = $subscription->standingDiscount;
-        $unitPrice = $subscription->kilowattPrice();
-
-        $reading = MeterReading::create([
-            'subscription_id' => $subscription->id,
-            'branch_id' => $subscription->branch_id,
-            'week_start' => $weekStart,
-            'week_end' => MeterReading::weekEndFor($weekStart, $subscription->branch_id),
-            'previous_reading' => $previousReading,
-            'current_reading' => $currentReading,
-            'consumption' => $consumption,
-            'usual_consumption' => MeterReading::usualConsumptionIfUnusual($subscription, $consumption, $weekStart),
-            'unit_price' => $unitPrice,
-            'minimum_payment' => $subscription->weeklyMinimumPayment(),
-            'discount_method' => $discount?->method,
-            'discount_value' => $discount?->value,
-            'discount_segment' => $discount?->segment,
-            ...MeterReading::chargesFor($consumption, $unitPrice, $subscription->weeklyMinimumPayment(), $discount?->method, $discount?->value),
-            'status' => MeterReadingStatus::Pending,
-            'recorded_by' => $request->user()->id,
-            'notes' => $request->input('notes'),
-            'mobile_operation_id' => $request->validated('mobile_operation_id'),
-        ]);
+        $reading = MeterReading::recordFor(
+            $subscription,
+            $request->weekStart(),
+            $request->float('current_reading'),
+            $request->user(),
+            $request->input('notes'),
+            $request->validated('mobile_operation_id'),
+        );
 
         return $this->responseFor($reading);
     }

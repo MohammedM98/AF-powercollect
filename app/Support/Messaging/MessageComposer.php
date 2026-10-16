@@ -39,6 +39,7 @@ class MessageComposer
         'القراءة_الحالية' => [MessageKind::WeeklyReading],
         'الاستهلاك' => [MessageKind::WeeklyReading],
         'قيمة_القراءة' => [MessageKind::WeeklyReading],
+        'موعد_القطع' => [MessageKind::DisconnectionWarning],
     ];
 
     /**

@@ -90,11 +90,11 @@ class MessageController extends Controller
         $meterBoxes = MeterBox::query()->visibleTo($actor)->with(['branch', 'subArea'])->orderBy('box_number')->get();
 
         return Inertia::render('Messages/Create', [
-            'kinds' => MessageKind::options(),
+            'kinds' => MessageKind::options(MessageKind::composable()),
             'channels' => MessageChannel::options(),
             'smsDeliversMessages' => app(SmsGateway::class)->deliversMessages(),
             'templates' => MessageTemplate::query()->orderBy('name')->get(['id', 'name', 'kind', 'body']),
-            'placeholders' => collect(MessageKind::cases())
+            'placeholders' => collect(MessageKind::composable())
                 ->mapWithKeys(fn (MessageKind $kind) => [$kind->value => MessageComposer::placeholdersFor($kind)]),
             // Each branch reads on its own weeks, so the weeks are listed per branch; the page starts on this branch's.
             'weekOptions' => MeterReading::recentWeekOptionsFor($actor),

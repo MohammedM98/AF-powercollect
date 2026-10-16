@@ -21,12 +21,27 @@ enum MessageKind: string
     /** Any other news, e.g. an outage or a new schedule. */
     case Custom = 'custom';
 
+    /** A warning to a subscription on a disconnection list, sent from the list. */
+    case DisconnectionWarning = 'disconnection_warning';
+
     public function label(): string
     {
         return match ($this) {
             self::WeeklyReading => 'Weekly Reading',
             self::BalanceReminder => 'Balance Reminder',
             self::Custom => 'Custom Message',
+            self::DisconnectionWarning => 'Disconnection Warning',
         };
+    }
+
+    /**
+     * The kinds written on the messages page; a disconnection warning is
+     * sent from its disconnection list instead.
+     *
+     * @return array<int, self>
+     */
+    public static function composable(): array
+    {
+        return [self::WeeklyReading, self::BalanceReminder, self::Custom];
     }
 }

@@ -13,6 +13,8 @@ export default function Create({
     currentBranchAreaName,
     canEditMinimumCharge,
     canEditKilowattPrice,
+    canEditDisconnectionFee,
+    usualDisconnectionFee,
 }) {
     const form = useResourceForm('/subscriptions', null, subscriptionFormData(null));
 
@@ -33,6 +35,8 @@ export default function Create({
                 currentBranchAreaName={currentBranchAreaName}
                 canEditMinimumCharge={canEditMinimumCharge}
                 canEditKilowattPrice={canEditKilowattPrice}
+                canEditDisconnectionFee={canEditDisconnectionFee}
+                usualDisconnectionFee={usualDisconnectionFee}
             />
         </FormPage>
     );

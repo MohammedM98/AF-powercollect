@@ -13,6 +13,7 @@ use App\Models\Permission;
 use App\Models\PrintTemplate;
 use App\Models\ReadingCycle;
 use App\Models\ReadingEntrySetting;
+use App\Models\SmsSetting;
 use App\Models\SubArea;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
@@ -96,6 +97,7 @@ class HandleInertiaRequests extends Middleware
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manageAny', ReadingEntrySetting::class),
                 'managePrintTemplates' => $user->can('viewAny', PrintTemplate::class),
+                'manageSmsSettings' => $user->can('manage', SmsSetting::class),
             ] : null,
             // A list opened for printing gets the company's print templates for it.
             'printTemplates' => fn () => $user && $request->boolean('print') ? $this->printTemplates($request) : null,

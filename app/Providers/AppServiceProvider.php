@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\SmsSetting;
 use App\Models\SubscriptionTransaction;
 use App\Support\BranchClosingWorkflow;
 use App\Support\BranchSettings;
@@ -21,10 +22,19 @@ class AppServiceProvider extends ServiceProvider
         // The reading and closing schedules are read by every week and period calculation, so loaded once per request or job.
         $this->app->scoped(BranchSettings::class);
 
-        // SMS go out through the gateway named in services.sms.driver; until one is set up they're only logged.
-        $this->app->bind(SmsGateway::class, fn (): SmsGateway => match (config('services.sms.driver')) {
-            'http' => new HttpSmsGateway(config('services.sms.http'), (string) config('services.sms.country_code')),
-            default => new LogSmsGateway,
+        // SMS go out through the provider set up in the dashboard while it is on, else the gateway named in
+        // services.sms.driver; until one is set up they're only logged.
+        $this->app->bind(SmsGateway::class, function (): SmsGateway {
+            $setting = SmsSetting::active();
+
+            if ($setting !== null) {
+                return new HttpSmsGateway($setting->gatewayConfig(), $setting->country_code);
+            }
+
+            return match (config('services.sms.driver')) {
+                'http' => new HttpSmsGateway(config('services.sms.http'), (string) config('services.sms.country_code')),
+                default => new LogSmsGateway,
+            };
         });
     }
 

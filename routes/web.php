@@ -29,6 +29,7 @@ use App\Http\Controllers\ReadingSubmissionController;
 use App\Http\Controllers\ReadNotificationController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SmsSettingController;
 use App\Http\Controllers\SplitPaymentController;
 use App\Http\Controllers\SubAreaController;
 use App\Http\Controllers\SubscriberProfileHistoryController;
@@ -130,6 +131,9 @@ Route::middleware('auth')->group(function () {
     Route::put('/print-templates/{print_template}', [PrintTemplateController::class, 'update'])->name('print-templates.update');
     Route::post('/print-templates/{print_template}/duplicate', [PrintTemplateController::class, 'duplicate'])->name('print-templates.duplicate');
     Route::delete('/print-templates/{print_template}', [PrintTemplateController::class, 'destroy'])->name('print-templates.destroy');
+    Route::get('/settings/sms', [SmsSettingController::class, 'edit'])->name('settings.sms.edit');
+    Route::put('/settings/sms', [SmsSettingController::class, 'update'])->name('settings.sms.update');
+    Route::post('/settings/sms/test', [SmsSettingController::class, 'test'])->middleware('throttle:6,1')->name('settings.sms.test');
     Route::get('/settings/reading-schedule', [ReadingScheduleController::class, 'edit'])->name('settings.reading-schedule.edit');
     Route::put('/settings/reading-schedule', [ReadingScheduleController::class, 'update'])->name('settings.reading-schedule.update');
 

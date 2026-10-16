@@ -1,4 +1,5 @@
-.reading-schedule {
+/* The settings pages' shared look (reading schedule, SMS settings): tokens, panels, status hero and save bar. */
+.reading-schedule, .sms-settings {
     --rs-surface: #fff;
     --rs-raised: #f7f8fa;
     --rs-sunken: #f2f3f5;
@@ -22,7 +23,7 @@
     color: var(--rs-ink);
     font: 16px/1.6 'IBM Plex Sans Arabic', system-ui, sans-serif;
 }
-.dark .reading-schedule {
+.dark .reading-schedule, .dark .sms-settings {
     --rs-surface: #14171c;
     --rs-raised: #1b1f25;
     --rs-sunken: #101317;
@@ -40,9 +41,9 @@
     --rs-shadow: 0 20px 40px -24px #000;
     --rs-hero: linear-gradient(135deg, #1c2127, #161a1f 55%, #0b0d10);
 }
-.reading-schedule button, .reading-schedule input { font: inherit; }
-.reading-schedule button:disabled { opacity: .5; cursor: default; }
-.reading-schedule :focus-visible { outline: 2px solid var(--rs-ink); outline-offset: 3px; }
+.reading-schedule button, .reading-schedule input, .sms-settings button, .sms-settings input, .sms-settings textarea { font: inherit; }
+.reading-schedule button:disabled, .sms-settings button:disabled { opacity: .5; cursor: default; }
+.reading-schedule :focus-visible, .sms-settings :focus-visible { outline: 2px solid var(--rs-ink); outline-offset: 3px; }
 .rs-heading h1 { margin: 0; font: 700 34px/1.2 'El Messiri', serif; }
 .rs-heading p { margin: 4px 0 0; color: var(--rs-faint); font-size: 14.5px; }
 .rs-scope { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 18px; padding: 12px 16px; background: var(--rs-surface); border: 1px solid var(--rs-line2); border-radius: 18px; box-shadow: var(--rs-shadow); }

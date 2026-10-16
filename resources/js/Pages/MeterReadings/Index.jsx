@@ -143,7 +143,7 @@ function LastReadingCell({ row }) {
  * One subscription's line for the week. `approvable` (the actor may approve
  * readings) adds a tick box, enabled when this row's reading can be approved.
  */
-function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
+function SheetRow({ row, week, approvable, showRecorder, selected, onToggleSelected }) {
     const savedValue = row.reading ? String(row.reading.currentReading) : '';
     const [value, setValue] = useState(savedValue);
     const [error, setError] = useState(null);
@@ -376,7 +376,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     <span className="re-pill missing"><i />لم تُدخل</span>
                 )}
             </td>
-            <td className="re-by">
+            {showRecorder && <td className="re-by">
                 {row.reading ? <>
                     <span className="re-line">
                         <b>{row.reading.recordedByName || '—'}</b>
@@ -388,7 +388,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                     </span>
                     <small><Icon name="clock" />{row.reading.recordedAt} · {row.reading.recordedSource === 'app' ? 'التطبيق' : 'الموقع'}</small>
                 </> : <span>—</span>}
-            </td>
+            </td>}
         </tr>
     );
 }
@@ -446,6 +446,7 @@ export default function Index({
     statusSummary,
     canRecord,
     canApprove,
+    seesWhoRecorded,
     pendingApproval,
     weekIsViewOnly,
     entryWindow,
@@ -694,13 +695,14 @@ export default function Index({
                             <th className="re-fee">قيمة القراءة</th>
                             <th className="re-min">الحد الأدنى</th>
                             <SortableTh column="amount_due" label="المطلوب دفعه" sortState={filters} onSort={sort} className="re-due" />
-                            <th className="re-status">الحالة</th><th className="re-by">سجّلها</th>
+                            <th className="re-status">الحالة</th>
+                            {seesWhoRecorded && <th className="re-by">سجّلها</th>}
                         </tr>
                     </thead>
                     <tbody>
                         {rows.data.length === 0 ? (
                             <tr>
-                                <td className="text-gray-500" colSpan={10}>
+                                <td className="text-gray-500" colSpan={seesWhoRecorded ? 10 : 9}>
                                     لا يوجد مشتركون مطابقون.
                                 </td>
                             </tr>
@@ -711,6 +713,7 @@ export default function Index({
                                     row={row}
                                     week={week}
                                     approvable={canApprove}
+                                    showRecorder={seesWhoRecorded}
                                     selected={row.canApprove && selectedIds.has(row.reading.id)}
                                     onToggleSelected={() => toggleSelected(row.reading.id)}
                                 />

@@ -22,6 +22,7 @@ Route::prefix('mobile')->name('mobile.')->group(function (): void {
         Route::get('/collections/subscriptions', [MobileCollectionController::class, 'subscriptions'])->name('collections.subscriptions');
         Route::get('/collections/subscriptions/{subscription}', [MobileCollectionController::class, 'show'])->whereNumber('subscription')->name('collections.subscriptions.show');
         Route::get('/collections', [MobileCollectionController::class, 'index'])->name('collections.index');
+        Route::get('/collections/reference-status', [MobileCollectionController::class, 'referenceStatus'])->name('collections.reference-status');
         Route::get('/cash-boxes', [MobileCashBoxController::class, 'index'])->name('cash-boxes.index');
         Route::post('/cash-boxes/sync', [MobileCashBoxController::class, 'sync'])->name('cash-boxes.sync');
         Route::post('/cash-boxes/{action}/{record}', [MobileCashBoxController::class, 'action'])->whereNumber('record')->name('cash-boxes.actions');

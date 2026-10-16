@@ -856,7 +856,7 @@ export default function PaymentModal({
                                                     {referenceStatus?.conflict && (
                                                         <div className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-800">
                                                             <p>
-                                                                هذا الرقم المرجعي مسجَّل مسبقًا في{' '}
+                                                                الرقم المرجعي مكرر: مسجَّل مسبقًا في{' '}
                                                                 <a href={referenceStatus.conflict.url} className="underline">
                                                                     {referenceStatus.conflict.voucherNumber
                                                                         ? `السند ${referenceStatus.conflict.voucherNumber} — `

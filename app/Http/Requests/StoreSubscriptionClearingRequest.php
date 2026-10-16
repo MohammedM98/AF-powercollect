@@ -40,12 +40,14 @@ class StoreSubscriptionClearingRequest extends FormRequest
             'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'],
             'notes' => ['required', 'string', 'max:1000'],
             'manual_voucher_number' => ['nullable', 'string', 'max:50'],
+            'confirm_over_balance' => ['sometimes', 'boolean'],
         ];
     }
 
     /**
-     * A clearing, like a discount, cannot be worth more than what the
-     * subscription owes.
+     * A clearing worth more than what the subscription owes — even one for a
+     * new subscription who owes nothing — leaves them in credit. It is never
+     * refused, but it is saved only once the user confirms it.
      *
      * @return array<int, callable>
      */
@@ -60,27 +62,30 @@ class StoreSubscriptionClearingRequest extends FormRequest
                 /** @var Subscription $subscription */
                 $subscription = $this->route('subscription');
 
-                self::checkAgainstBalance($validator, $subscription->balance(), $this->input('amount'));
+                self::checkAgainstBalance($validator, $subscription->balance(), $this->input('amount'), $this->boolean('confirm_over_balance'));
             },
         ];
     }
 
     /**
-     * Add an error when the clearing is worth more than `$owed`, or nothing
-     * is owed; shared with correcting a clearing, where `$owed` leaves out
-     * the clearing being corrected.
+     * Ask for confirmation (`confirm_over_balance`) of a clearing worth more
+     * than `$owed`, saying the credit it leaves; shared with correcting a
+     * clearing, where `$owed` leaves out the clearing being corrected.
      */
-    public static function checkAgainstBalance(Validator $validator, float $owed, float|string $amount): void
+    public static function checkAgainstBalance(Validator $validator, float $owed, float|string $amount, bool $confirmed): void
     {
-        if ($owed <= 0) {
-            $validator->errors()->add('amount', 'لا يوجد رصيد مستحق على المشترك لتُقاصّ منه.');
-        } elseif ((float) $amount > $owed) {
-            $validator->errors()->add('amount', sprintf(
-                'لا يمكن أن تزيد المقاصة (%s شيكل) عن الرصيد المستحق (%s شيكل).',
-                SubscriptionTransaction::formatAmount($amount),
-                SubscriptionTransaction::formatAmount($owed),
-            ));
+        $owing = max($owed, 0.0);
+
+        if ($confirmed || (float) $amount <= $owing) {
+            return;
         }
+
+        $validator->errors()->add('confirm_over_balance', sprintf(
+            'قيمة المقاصة (%s شيكل) أكبر من الرصيد المستحق (%s شيكل)، فيصبح للمشترك رصيد لصالحه قدره %s شيكل. أكّد إذا كنت تريد فعلًا إضافة المقاصة لهذا المشترك.',
+            SubscriptionTransaction::formatAmount($amount),
+            SubscriptionTransaction::formatAmount($owing),
+            SubscriptionTransaction::formatAmount(round((float) $amount - $owed, 2)),
+        ));
     }
 
     /**

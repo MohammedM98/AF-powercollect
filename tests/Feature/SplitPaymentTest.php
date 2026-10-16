@@ -145,6 +145,28 @@ class SplitPaymentTest extends TestCase
         $this->assertSame(3, SplitPayment::sole()->payments()->count());
     }
 
+    public function test_the_form_says_whether_the_reference_is_available_or_repeated(): void
+    {
+        $this->actingAs($this->cashier)
+            ->getJson(route('payments.split.reference-status', ['reference_number' => 'BOP-558201']))
+            ->assertOk()
+            ->assertJson(['available' => true, 'conflict' => null]);
+
+        $other = $this->subscriptionOwing(100);
+        $payment = SubscriptionTransaction::recordPayment($other, $this->cashier, [
+            'amount' => '10', 'currency' => 'ILS', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Someone', 'reference_number' => 'bop 558201',
+        ]);
+
+        $this->getJson(route('payments.split.reference-status', ['reference_number' => 'BOP-558201']))
+            ->assertJsonPath('available', false)
+            ->assertJsonPath('conflict.id', $payment->id)
+            ->assertJsonPath('conflict.subscriptionName', $other->displayName());
+
+        $this->actingAs(User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]))
+            ->getJson(route('payments.split.reference-status', ['reference_number' => 'BOP-558201']))
+            ->assertForbidden();
+    }
+
     public function test_a_part_far_above_what_its_subscription_owes_needs_confirming(): void
     {
         $payload = $this->payload();

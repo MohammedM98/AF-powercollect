@@ -120,18 +120,20 @@ class SubscriptionChargesAndDiscountsTest extends TestCase
                 ->where('receipt.systemVoucherNumber', $clearing->printedVoucherNumber()));
     }
 
-    public function test_a_clearing_worth_more_than_the_subscription_owes_is_refused(): void
+    public function test_a_clearing_worth_more_than_the_subscription_owes_is_saved_only_once_confirmed(): void
     {
         $this->subscriptionOwes('30.00');
 
         $this->postAs($this->branchAdmin, route('subscriptions.clearings.store', $this->subscription), ['amount' => '50', 'notes' => 'تأجير السطح'])
-            ->assertSessionHasErrors(['amount' => 'لا يمكن أن تزيد المقاصة (50 شيكل) عن الرصيد المستحق (30 شيكل).']);
-
-        $this->assertSame(30.0, $this->subscription->balance());
+            ->assertSessionHasErrors(['confirm_over_balance' => 'قيمة المقاصة (50 شيكل) أكبر من الرصيد المستحق (30 شيكل)، فيصبح للمشترك رصيد لصالحه قدره 20 شيكل. أكّد إذا كنت تريد فعلًا إضافة المقاصة لهذا المشترك.']);
         $this->assertDatabaseMissing('subscription_transactions', ['type' => 'clearing']);
+
+        $this->postAs($this->branchAdmin, route('subscriptions.clearings.store', $this->subscription), ['amount' => '50', 'notes' => 'تأجير السطح', 'confirm_over_balance' => true])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(-20.0, $this->subscription->balance());
     }
 
-    public function test_a_clearing_for_the_whole_debt_is_accepted_but_not_when_nothing_is_owed(): void
+    public function test_a_large_clearing_for_a_subscription_who_owes_nothing_is_allowed_once_confirmed(): void
     {
         $this->subscriptionOwes('30.00');
 
@@ -139,8 +141,11 @@ class SubscriptionChargesAndDiscountsTest extends TestCase
             ->assertSessionHasNoErrors();
         $this->assertSame(0.0, $this->subscription->balance());
 
-        $this->postAs($this->branchAdmin, route('subscriptions.clearings.store', $this->subscription), ['amount' => '1', 'notes' => 'تأجير السطح'])
-            ->assertSessionHasErrors(['amount' => 'لا يوجد رصيد مستحق على المشترك لتُقاصّ منه.']);
+        $this->postAs($this->branchAdmin, route('subscriptions.clearings.store', $this->subscription), ['amount' => '2000', 'notes' => 'تأجير السطح لسنة'])
+            ->assertSessionHasErrors('confirm_over_balance');
+        $this->postAs($this->branchAdmin, route('subscriptions.clearings.store', $this->subscription), ['amount' => '2000', 'notes' => 'تأجير السطح لسنة', 'confirm_over_balance' => true])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(-2000.0, $this->subscription->balance());
     }
 
     public function test_a_clearing_must_name_the_service_and_its_value(): void

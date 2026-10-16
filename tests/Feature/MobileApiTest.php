@@ -521,6 +521,24 @@ class MobileApiTest extends TestCase
         $this->assertDatabaseCount('subscription_transactions', 1);
     }
 
+    public function test_the_app_is_told_whether_a_transfer_reference_is_available_or_repeated(): void
+    {
+        $collector = User::factory()->collector()->create();
+        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections]));
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
+
+        $this->getJson(route('mobile.collections.reference-status', ['reference_number' => 'WEB-100']))
+            ->assertOk()
+            ->assertJson(['available' => true, 'message' => 'الرقم المرجعي متاح.']);
+
+        SubscriptionTransaction::recordPayment(Subscription::factory()->create(['branch_id' => $collector->branch_id]), $collector, [
+            'amount' => '10', 'currency' => 'ILS', 'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Ahmad', 'reference_number' => 'WEB-100',
+        ]);
+
+        $this->getJson(route('mobile.collections.reference-status', ['reference_number' => 'web 100']))
+            ->assertJson(['available' => false, 'message' => 'الرقم المرجعي مكرر: مسجَّل مسبقًا على دفعة أخرى.']);
+    }
+
     public function test_mobile_payments_are_taken_in_shekels_only_and_offer_the_website_banks(): void
     {
         $collector = User::factory()->collector()->create();

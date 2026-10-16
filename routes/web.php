@@ -75,6 +75,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/reconciliation/proofs/{kind}/{record}', [BranchClosingController::class, 'proof'])->whereNumber('record')->name('closings.proofs');
     Route::get('/payments/search', [PaymentController::class, 'search'])->name('payments.search');
     Route::post('/payments/split', [SplitPaymentController::class, 'store'])->name('payments.split.store');
+    Route::get('/payments/split/reference-status', [SplitPaymentController::class, 'referenceStatus'])->name('payments.split.reference-status');
     Route::get('/split-payments/{splitPayment}', [SplitPaymentController::class, 'show'])->name('split-payments.show');
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
     Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');

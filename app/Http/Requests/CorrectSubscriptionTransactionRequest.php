@@ -80,7 +80,7 @@ class CorrectSubscriptionTransactionRequest extends FormRequest
                 if ($this->line()->isDiscount()) {
                     StoreSubscriptionDiscountRequest::checkAgainstBalance($validator, $subscription, $owed, $this->input('method'), $this->input('value'));
                 } else {
-                    StoreSubscriptionClearingRequest::checkAgainstBalance($validator, $owed, $this->input('amount'));
+                    StoreSubscriptionClearingRequest::checkAgainstBalance($validator, $owed, $this->input('amount'), $this->boolean('confirm_over_balance'));
                 }
             },
         ];

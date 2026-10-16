@@ -172,7 +172,7 @@ export default function SubscriptionDetailsModal({ subscription, onClose, onEdit
                             <div className="sp-meta"><span>ملف المشترك</span><span className="sp-number">#{subscription.subscriber_number ?? subscription.account_number}</span><span><Icon name="pin" />{subscription.branchName}</span><span><Icon name="bolt" />{subscription.tariffCategoryLabel}{subscription.circuitBreakerAmpere && ` · ${subscription.circuitBreakerAmpere} أمبير`}</span></div>
                             <div className="sp-facts">{lastPayment && <span>آخر دفعة <b>{number(lastPayment.amount)} {lastPayment.currencyLabel}</b></span>}<span>القراءة السابقة <b>{number(subscription.lastReading)}</b></span>{lastReading && <span>استهلاك آخر أسبوع <b>{number(lastReading.consumption)}</b> كيلوواط ساعة</span>}</div>
                         </div>
-                        <div className={`sp-balance sp-${balance.tone}`} title={BALANCE_HINTS[balance.tone]}><small>الرصيد الحالي</small><b><bdi dir="ltr">{balance.signed} ₪</bdi></b></div>
+                        <div className={`sp-balance sp-${balance.tone}`} title={BALANCE_HINTS[balance.tone]}><small>الرصيد الحالي</small><b><bdi dir="ltr">{balance.signed} ₪</bdi><em>{balance.label}</em></b></div>
                         <div className="sp-tools">
                             <button type="button" onClick={onPrevious} disabled={!onPrevious} aria-label="المشترك السابق" title="المشترك السابق"><ProfileIcon name="previous" /></button>
                             <button type="button" onClick={onNext} disabled={!onNext} aria-label="المشترك التالي" title="المشترك التالي"><ProfileIcon name="next" /></button>

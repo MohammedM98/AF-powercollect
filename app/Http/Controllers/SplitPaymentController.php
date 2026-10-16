@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\PermissionKey;
 use App\Http\Requests\StoreSplitPaymentRequest;
 use App\Models\SplitPayment;
+use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Notifications\ActionCompleted;
 use App\Support\DailySeries;
@@ -15,6 +16,29 @@ use Inertia\Inertia;
 
 class SplitPaymentController extends Controller
 {
+    /**
+     * Whether the split transfer's reference is free, or which payment holds
+     * it already, for the form to say as it is typed. A reference already
+     * used is allowed, once the user confirms it.
+     */
+    public function referenceStatus(Request $request): JsonResponse
+    {
+        $this->authorize('recordAnyPayment', Subscription::class);
+
+        $validated = $request->validate(['reference_number' => ['required', 'string', 'max:100']]);
+        $conflict = SubscriptionTransaction::activeReferenceConflict($validated['reference_number']);
+
+        return response()->json([
+            'available' => $conflict === null,
+            'conflict' => $conflict ? [
+                'id' => $conflict->id,
+                'voucherNumber' => $conflict->displayVoucherNumber(),
+                'subscriptionName' => $conflict->subscription->displayName(),
+                'url' => route('subscriptions.statement', $conflict->subscription).'#statement-line-'.$conflict->id,
+            ] : null,
+        ]);
+    }
+
     /**
      * Record one bank transfer divided between several subscriptions: a
      * payment on each, all together or none. The payments page shows what was

@@ -3,7 +3,8 @@ import Icon from '@/Components/Icon';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import { describeBalance } from '@/lib/accountStatement';
-import { formatMoney, initials } from '@/lib/format';
+import { BALANCE_CHIP_CLASSES, BALANCE_HINTS, balanceInText } from '@/lib/balance';
+import { initials } from '@/lib/format';
 
 /**
  * The pieces the payment, charge and discount windows share: the
@@ -13,11 +14,8 @@ import { formatMoney, initials } from '@/lib/format';
 
 const STATUS_DOTS = { active: 'bg-emerald-500', suspended: 'bg-amber-500', disconnected: 'bg-gray-400' };
 
-export const BALANCE_CHIPS = {
-    owes: 'bg-brand-500/10 text-brand-600',
-    credit: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-    settled: 'bg-gray-100 text-gray-700',
-};
+/** A balance's chip, by its tone (see lib/balance.js). */
+export const BALANCE_CHIPS = BALANCE_CHIP_CLASSES;
 
 /** Each tone's selected tile and header icon: red for a charge (عليه), green for a discount (له), graphite otherwise. */
 const TONES = {
@@ -43,9 +41,9 @@ const TONES = {
     },
 };
 
-/** "377 ₪ عليه", "9.10 ₪ له" or "0 ₪ مسدّد". */
+/** A described balance (describeBalance()) as text: "377 ₪", "-9.10 ₪" or "0 ₪", its minus kept before the number. */
 export function balanceText(balance) {
-    return `${formatMoney(balance.tone === 'settled' ? 0 : balance.amount)} ₪ ${balance.label}`;
+    return balanceInText(balance.signed);
 }
 
 export function FieldLabel({ htmlFor, required = false, hint, children }) {
@@ -89,6 +87,7 @@ export function SubscriptionStrip({ subscription, balance, balanceLabel = 'ال�
             <div className="ms-auto flex shrink-0 flex-col items-end gap-0.5">
                 <span className="text-[12.5px] text-gray-500">{balanceLabel}</span>
                 <span
+                    title={BALANCE_HINTS[described.tone]}
                     className={`whitespace-nowrap rounded-[10px] px-2.5 py-0.5 font-display text-[17px] font-bold ${BALANCE_CHIPS[described.tone]}`}
                 >
                     {balanceText(described)}
@@ -303,14 +302,17 @@ export function SummaryLedger({ rows, result }) {
     );
 }
 
-/** The balance a save leaves, colored: red while the subscription owes, green otherwise. */
+/** On the dark summary panel: red while owed, green in credit, plain when settled. */
+const PANEL_BALANCE_CLASSES = { owes: 'text-red-300', credit: 'text-emerald-300', settled: 'text-white' };
+
+/** The balance a save leaves, coloured as balances are everywhere (see lib/balance.js). */
 export function balanceAfterRow(label, balance) {
     const after = balance === null ? null : describeBalance(balance);
 
     return {
         label,
         value: after ? balanceText(after) : '—',
-        className: after ? (after.tone === 'owes' ? 'text-red-300' : 'text-emerald-300') : 'text-white/50',
+        className: after ? PANEL_BALANCE_CLASSES[after.tone] : 'text-white/50',
     };
 }
 

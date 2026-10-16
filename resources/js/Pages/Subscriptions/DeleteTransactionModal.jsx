@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import FormModal from '@/Components/FormModal';
 import { describeBalance } from '@/lib/accountStatement';
+import { balanceInText } from '@/lib/balance';
 import { BalanceAfter } from './AccountSummary';
 import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './CorrectionFields';
 
@@ -55,7 +56,7 @@ export default function DeleteTransactionModal({ onClose, subscription, balance,
     const balanceAfter = describeBalance(
         isRefund ? Number(balance) + refundAmount : Number(balance) - Number(entry.recorded.effect) + discountReturned,
     );
-    const balanceText = balanceAfter.tone === 'settled' ? 'مسدّدًا' : `${balanceAfter.amount} شيكل ${balanceAfter.label}`;
+    const balanceText = balanceInText(balanceAfter.signed);
 
     return (
         <FormModal

@@ -150,6 +150,28 @@ class MobileCollectionController extends Controller
         ]);
     }
 
+    /**
+     * Whether a transfer's reference is free or already on a payment, for the
+     * app to say as it is typed. A repeated one is still recorded once the
+     * collector confirms it (`confirm_duplicate_reference`).
+     */
+    public function referenceStatus(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
+
+        $validated = $request->validate(['reference_number' => ['required', 'string', 'max:100']]);
+        $conflict = SubscriptionTransaction::activeReferenceConflict($validated['reference_number']);
+
+        return response()->json([
+            'available' => $conflict === null,
+            'message' => $conflict === null ? 'الرقم المرجعي متاح.' : 'الرقم المرجعي مكرر: مسجَّل مسبقًا على دفعة أخرى.',
+            'conflict' => $conflict ? [
+                'voucher_number' => $conflict->displayVoucherNumber(),
+                'subscription_name' => $conflict->subscription->displayName(),
+            ] : null,
+        ]);
+    }
+
     public function store(StoreMobileCollectionRequest $request): JsonResponse
     {
         if ($existingTransaction = $request->existingTransaction()) {

@@ -377,9 +377,9 @@ class SubscriptionTransactionCorrectionTest extends TestCase
     {
         $clearing = SubscriptionTransaction::recordClearing($this->subscription, $this->branchAdmin, '60', 'صيانة المولد');
 
-        // Without it the subscription owes 200: a clearing of 201 is too much, 200 is the whole debt.
+        // Without it the subscription owes 200: a clearing of 201 needs confirming, 200 is the whole debt.
         $this->correct($clearing, ['amount' => '201', 'notes' => 'صيانة', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'اختبار'])
-            ->assertSessionHasErrors(['amount' => 'لا يمكن أن تزيد المقاصة (201 شيكل) عن الرصيد المستحق (200 شيكل).']);
+            ->assertSessionHasErrors('confirm_over_balance');
         $this->assertFalse($clearing->fresh()->isCancelled());
 
         $this->correct($clearing, ['amount' => '200', 'notes' => 'صيانة', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'اختبار'])

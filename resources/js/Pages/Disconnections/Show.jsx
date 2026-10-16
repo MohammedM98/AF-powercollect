@@ -11,6 +11,7 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import Pagination from '@/Components/DataTable/Pagination';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
 import Icon from '@/Components/Icon';
+import Balance from '@/Components/Balance';
 import { useDataTable } from '@/hooks/useDataTable';
 import { csvText, downloadCsv } from '@/lib/csv';
 import { printFieldsProps, printRowProps } from '@/lib/print';
@@ -287,11 +288,11 @@ export default function Show({ list, items, summary, abilities, reasonOptions, c
                                         {item.extensionsCount > 0 && <span className="block text-xs text-gray-500">مُدّد {formatNumber(item.extensionsCount)} مرة</span>}
                                     </td>
                                     <td data-label="الرصيد" className="whitespace-nowrap">
-                                        <b className={`font-display ${Number(item.balance) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatMoney(item.balance)} ₪</b>
+                                        <Balance value={item.balance} className="font-bold" />
                                         {item.isPaid && item.status === 'scheduled' ? (
                                             <span className="block"><StatusPill tone="green" label="سدّد — تحديث الرصيد" /></span>
                                         ) : item.balanceReduced ? (
-                                            <span className="block text-xs text-gray-500">كان {formatMoney(item.balanceWhenAdded)} ₪</span>
+                                            <span className="block text-xs text-gray-500">كان <Balance value={item.balanceWhenAdded} colored={false} /></span>
                                         ) : null}
                                     </td>
                                     <td data-label="الإنذارات" className="text-gray-700">

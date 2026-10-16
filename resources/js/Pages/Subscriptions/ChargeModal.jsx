@@ -145,7 +145,7 @@ export default function ChargeModal({ show, onClose, subscription, balance, char
                         text={`${formatMoney(receipt.amount)} ₪ ${receipt.typeLabel} على حساب ${subscription.fullName}.`}
                         rows={[
                             ['النوع', receipt.typeLabel],
-                            ['المبلغ', `+${formatMoney(receipt.amount)} ₪`],
+                            ['المبلغ', `${formatMoney(receipt.amount)} ₪`],
                             ['الرصيد بعد', balanceText(describeBalance(receipt.balanceAfter))],
                             ['ملاحظات', receipt.notes || '—'],
                         ]}
@@ -268,11 +268,11 @@ export default function ChargeModal({ show, onClose, subscription, balance, char
                             </div>
 
                             <SummaryPanel title="ملخص التحميل" tag={type?.label}>
-                                <SummaryFigure label="مبلغ التحميل" value={`+${formatMoney(amount)}`} tone="red" />
+                                <SummaryFigure label="مبلغ التحميل" value={`${formatMoney(amount)}`} tone="red" />
                                 <SummaryLedger
                                     rows={[
                                         [correcting ? 'الرصيد بدون الأصلي' : 'الرصيد الحالي', balanceText(describeBalance(balance))],
-                                        [type?.label ?? 'تحميل', `+${formatMoney(amount)} ₪`, 'red'],
+                                        [type?.label ?? 'تحميل', `${formatMoney(amount)} ₪`, 'red'],
                                     ]}
                                     result={balanceAfterRow('الرصيد بعد التحميل', balanceAfter)}
                                 />

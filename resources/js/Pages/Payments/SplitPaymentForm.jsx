@@ -174,6 +174,33 @@ export default function SplitPaymentForm({ transferBanks, senderBanks, bare = fa
     const http = useHttp();
     const httpRef = useRef(http);
     httpRef.current = http;
+    const referenceCheck = useHttp();
+    const referenceCheckRef = useRef(referenceCheck);
+    referenceCheckRef.current = referenceCheck;
+    const [referenceStatus, setReferenceStatus] = useState(null);
+
+    // Whether the reference is free or already on a payment, said as it is typed; a repeated one is allowed once confirmed.
+    useEffect(() => {
+        const reference = data.reference_number.trim();
+
+        if (reference === '') {
+            setReferenceStatus(null);
+
+            return undefined;
+        }
+
+        const timer = setTimeout(() => {
+            referenceCheckRef.current
+                .get(`/payments/split/reference-status?${new URLSearchParams({ reference_number: reference })}`)
+                .then((status) => setReferenceStatus(status ? { ...status, reference } : null))
+                .catch(() => setReferenceStatus(null));
+        }, SEARCH_DELAY);
+
+        return () => {
+            clearTimeout(timer);
+            referenceCheckRef.current.cancel();
+        };
+    }, [data.reference_number]);
 
     // The subscriptions matching what was typed, offered to add to the split.
     useEffect(() => {
@@ -199,8 +226,9 @@ export default function SplitPaymentForm({ transferBanks, senderBanks, bare = fa
     const everyPartHasAmount = parts.every((part) => toCents(part.amount) > 0);
     const detailsFilled = [data.bank_name, data.sender_name.trim(), data.reference_number.trim()].every(Boolean);
     const distributed = totalCents > 0 && remainingCents === 0 && parts.length >= 2 && everyPartHasAmount;
-    const canSave = distributed && detailsFilled && !processing;
-    const duplicateReference = Boolean(errors.reference_number) && errors.reference_number.includes('مسجَّل مسبقًا');
+    const currentStatus = referenceStatus?.reference === data.reference_number.trim() ? referenceStatus : null;
+    const duplicateReference = Boolean(currentStatus?.conflict) || (Boolean(errors.reference_number) && errors.reference_number.includes('مسجَّل مسبقًا'));
+    const canSave = distributed && detailsFilled && !processing && (!duplicateReference || data.confirm_duplicate_reference);
 
     function addSubscription(subscription) {
         setParts((current) =>
@@ -378,12 +406,29 @@ export default function SplitPaymentForm({ transferBanks, senderBanks, bare = fa
                             }}
                             className={`${inputClass} text-end font-display placeholder:font-sans placeholder:font-normal`}
                         />
-                        <InputError message={errors.reference_number} className="mt-2" />
+                        <InputError message={currentStatus?.conflict ? null : errors.reference_number} className="mt-2" />
+                        {referenceCheck.processing && <p className="mt-2 text-xs text-gray-500">جارٍ التحقق من الرقم المرجعي...</p>}
+                        {currentStatus?.available && !referenceCheck.processing && <p className="mt-2 text-xs font-medium text-emerald-600">الرقم المرجعي متاح.</p>}
                     </div>
                 </div>
 
                 {duplicateReference && (
-                    <div role="alert" className="rounded-xl border border-brand-500/40 bg-brand-500/[0.07] px-4 py-3 text-sm text-gray-900">
+                    <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-gray-900">
+                        <p className="mb-2 font-medium text-amber-900 dark:text-amber-200">
+                            الرقم المرجعي مكرر: مسجَّل مسبقًا
+                            {currentStatus?.conflict ? (
+                                <>
+                                    {' في '}
+                                    <a href={currentStatus.conflict.url} className="underline">
+                                        {currentStatus.conflict.voucherNumber ? `السند ${currentStatus.conflict.voucherNumber} — ` : 'دفعة '}
+                                        {currentStatus.conflict.subscriptionName}
+                                    </a>
+                                </>
+                            ) : (
+                                ' على دفعة أخرى'
+                            )}
+                            . يمكنك المتابعة بعد التأكيد.
+                        </p>
                         <label className="flex cursor-pointer items-center gap-2 font-semibold">
                             <input
                                 type="checkbox"

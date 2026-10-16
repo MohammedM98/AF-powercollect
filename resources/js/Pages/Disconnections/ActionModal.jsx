@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { router, useHttp } from '@inertiajs/react';
 import Modal from '@/Components/Modal';
 import Icon from '@/Components/Icon';
+import Balance from '@/Components/Balance';
 import ChoiceChips from '@/Components/ChoiceChips';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -186,7 +187,7 @@ export default function ActionModal({ action, list, selection, count, reasonOpti
                                                     <td className="px-3 py-2"><StatusPill tone={itemTone(item)} label={item.isOverdue ? 'متأخر' : item.statusLabel} /></td>
                                                     {action === 'warn' && <td className="px-3 py-2 font-display text-xs" dir="ltr">{item.phone ?? '—'}</td>}
                                                     {action === 'confirm' && <td className="px-3 py-2 text-xs">{item.serviceStatusLabel}</td>}
-                                                    <td className={`whitespace-nowrap px-3 py-2 ${Number(item.balance) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatMoney(item.balance)} ₪</td>
+                                                    <td className="whitespace-nowrap px-3 py-2"><Balance value={item.balance} /></td>
                                                     {action === 'confirm' && <td className="whitespace-nowrap px-3 py-2 font-semibold">{formatMoney(item.fee)} ₪{item.hasOwnFee && <span className="ms-1 text-xs text-gray-500">(خاصة)</span>}</td>}
                                                     {action !== 'confirm' && <td className="whitespace-nowrap px-3 py-2 text-xs" dir="ltr">{item.scheduledFor}</td>}
                                                 </tr>

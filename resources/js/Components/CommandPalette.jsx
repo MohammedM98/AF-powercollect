@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { router, useHttp } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import { formatMoney } from '@/lib/format';
+import { balanceInText, balanceTone } from '@/lib/balance';
 import { pageWindowOpen } from '@/Components/TopBar/shortcuts';
 
 const SEARCH_DELAY = 200;
@@ -135,7 +136,7 @@ export default function CommandPalette({ open, onOpenChange, sections, commands,
                 kind: 'subscriber',
                 id: subscriber.id,
                 label: subscriber.fullName,
-                description: `حساب ${subscriber.accountNumber}${Number(subscriber.balance) > 0 ? ` · عليه ${formatMoney(subscriber.balance)} ₪` : ''}`,
+                description: `حساب ${subscriber.accountNumber}${balanceTone(subscriber.balance) !== 'settled' ? ` · الرصيد ${balanceInText(subscriber.balance)}` : ''}`,
                 icon: 'user',
             }))]);
         }

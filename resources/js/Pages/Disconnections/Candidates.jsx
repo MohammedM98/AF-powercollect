@@ -13,6 +13,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import InputError from '@/Components/InputError';
 import Icon from '@/Components/Icon';
+import Balance from '@/Components/Balance';
 import { useDataTable } from '@/hooks/useDataTable';
 import { formatMoney } from '@/lib/format';
 import ResultReport from './ResultReport';
@@ -192,7 +193,7 @@ export default function Candidates({ list, subscriptions, reasonOptions, today, 
                                     <td data-label="المشترك"><RowIdentity name={row.name} subtitle={row.accountNumber} subtitleDir="ltr" /></td>
                                     <td data-label="الطبلون" className="text-gray-600">{row.meterBoxNumber ? <span className="data-chip">{row.meterBoxNumber}</span> : '—'}</td>
                                     <td data-label="منطقة 2" className="text-gray-600">{row.subAreaName ?? '—'}</td>
-                                    <td data-label="الرصيد" className={`whitespace-nowrap font-semibold ${Number(row.balance) > 0 ? 'text-red-600' : 'text-gray-600'}`}>{formatMoney(row.balance)} ₪</td>
+                                    <td data-label="الرصيد" className="whitespace-nowrap font-semibold"><Balance value={row.balance} /></td>
                                     <td data-label="رسوم القطع" className="whitespace-nowrap text-gray-600">{formatMoney(row.fee)} ₪</td>
                                     <td data-label="قوائم القطع">
                                         {row.waitingOn ? <StatusPill tone="amber" label={row.waitingOn.isThisList ? 'في هذه القائمة' : `في «${row.waitingOn.title}»`} /> : <span className="text-gray-400">—</span>}

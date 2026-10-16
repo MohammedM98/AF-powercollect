@@ -103,7 +103,7 @@
 .ledger-page .ref{font:500 12px Alexandria;color:var(--ledger-muted);direction:ltr;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ledger-page .by{color:var(--ledger-muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ledger-page .am{font:800 15px Alexandria;white-space:nowrap}
-.ledger-page .am.dr{color:var(--ledger-ink)}.ledger-page .am.cr{color:var(--ledger-success)}
+.ledger-page .am.dr,.ledger-page .am.cr{color:var(--ledger-ink)}
 .ledger-page .am small{display:block;font:500 11.5px Alexandria;color:var(--ledger-faint);direction:ltr;text-align:left}
 .ledger-page .blc{font:700 13px Alexandria;color:var(--ledger-ink2);white-space:nowrap;display:inline-flex;align-items:baseline;gap:3px}
 .ledger-page .blc i{white-space:nowrap;font-style:normal;font-family:'IBM Plex Sans Arabic';font-weight:600;font-size:11.5px;color:var(--ledger-faint);margin-inline-start:3px}
@@ -201,7 +201,7 @@
 
 .ledger-page .ledger-table, .ledger-page .ledger-table thead, .ledger-page .ledger-table tbody { display: block; }
 .ledger-page .name-btn { min-height: 24px; }
-.ledger-page .num.balance-subscriber,
-.ledger-page .num.balance-subscriber > span { color: var(--ledger-danger); }
-.ledger-page .num.balance-company,
-.ledger-page .num.balance-company > span { color: var(--ledger-success); }
+.ledger-page .num.balance-owes,
+.ledger-page .num.balance-owes > span { color: var(--ledger-danger); }
+.ledger-page .num.balance-credit,
+.ledger-page .num.balance-credit > span { color: var(--ledger-success); }

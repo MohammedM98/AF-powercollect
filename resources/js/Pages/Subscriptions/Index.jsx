@@ -24,6 +24,7 @@ import BulkActionBar from './BulkActionBar';
 import BulkChangeModal from './BulkChangeModal';
 import PhoneQuickEdit from './PhoneQuickEdit';
 import Icon from '@/Components/Icon';
+import Balance from '@/Components/Balance';
 import SubscriptionDetailsModal from './SubscriptionDetailsModal';
 import ReadingHistoryModal from './ReadingHistoryModal';
 import StatementModal from './StatementModal';
@@ -415,8 +416,8 @@ export default function Index({
                                     </td>
                                     <td className="text-gray-600">{subscription.subAreaName || '—'}</td>
                                     <td className="whitespace-nowrap text-gray-600">{formatCurrency(subscription.weeklyMinimumPayment)}</td>
-                                    <td className={`whitespace-nowrap font-semibold ${Number(subscription.outstandingBalance) > 0 ? 'text-red-600' : Number(subscription.outstandingBalance) < 0 ? 'text-emerald-600' : 'text-gray-600'}`}>
-                                        {formatCurrency(subscription.outstandingBalance)}
+                                    <td className="whitespace-nowrap font-semibold">
+                                        <Balance value={subscription.outstandingBalance} />
                                     </td>
                                     <td>
                                         <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />

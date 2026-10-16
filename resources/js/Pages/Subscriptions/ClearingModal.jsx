@@ -36,7 +36,8 @@ const notesClass =
  * Record a clearing (مقاصة): a service for a service. The subscription gets
  * electricity and gives the company a service in return — the service's
  * value comes off what they owe, like a payment made in work instead of
- * money, and can be at most what they owe. The service must be named; it shows
+ * money; more than they owe leaves them in credit and is saved only once
+ * confirmed. The service must be named; it shows
  * on the statement. A dark panel beside the form shows the balance it
  * leaves; once saved, the window shows what was recorded. Keys: Ctrl +
  * Enter saves.
@@ -52,8 +53,8 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
         correcting ? `/subscriptions/${subscription.id}/transactions` : `/subscriptions/${subscription.id}/clearings`,
         correcting,
         correcting
-            ? { amount: correcting.recorded.amount, notes: correcting.recorded.notes, manual_voucher_number: correcting.recorded.manual_voucher_number ?? '', ...EMPTY_CORRECTION }
-            : { amount: '', notes: '', manual_voucher_number: '' },
+            ? { amount: correcting.recorded.amount, notes: correcting.recorded.notes, manual_voucher_number: correcting.recorded.manual_voucher_number ?? '', confirm_over_balance: false, ...EMPTY_CORRECTION }
+            : { amount: '', notes: '', manual_voucher_number: '', confirm_over_balance: false },
     );
     const { data, setData, errors } = form;
     const [discarding, setDiscarding] = useState(false);
@@ -64,18 +65,10 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
     const amount = Number(data.amount) > 0 ? Number(data.amount) : 0;
     const missingService = !data.notes.trim();
 
-    // Like a discount, a clearing cannot be worth more than what is owed.
-    let invalid = null;
-
-    if (amount > 0) {
-        if (owed <= 0) {
-            invalid = 'لا يوجد رصيد مستحق على المشترك لتُقاصّ منه.';
-        } else if (amount > owed) {
-            invalid = `لا يمكن أن تزيد المقاصة (${formatMoney(amount)} ₪) عن الرصيد المستحق (${formatMoney(owed)} ₪).`;
-        }
-    }
-
-    const balanceAfter = amount > 0 && !invalid ? Number(balance) - amount : null;
+    // Worth more than what is owed (even when nothing is owed), it leaves the subscription in credit: allowed once confirmed.
+    const overBalance = amount > owed;
+    const creditLeft = overBalance ? Math.round((amount - Number(balance)) * 100) / 100 : 0;
+    const balanceAfter = amount > 0 ? Number(balance) - amount : null;
 
     function close() {
         setDiscarding(false);
@@ -101,7 +94,7 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
     function submit(event) {
         event.preventDefault();
 
-        if (!validateFormFields(event.currentTarget, form) || invalid) {
+        if (!validateFormFields(event.currentTarget, form) || (overBalance && !data.confirm_over_balance)) {
             return;
         }
 
@@ -135,7 +128,7 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                         rows={[
                             ...(receipt.voucherNumber ? [['رقم السند', receipt.voucherNumber]] : []),
                             ['الخدمة', receipt.service],
-                            ['قيمة المقاصة', `−${formatMoney(receipt.amount)} ₪`],
+                            ['قيمة المقاصة', `${formatMoney(receipt.amount)} ₪`],
                             ['الرصيد بعد', balanceText(describeBalance(receipt.balanceAfter))],
                         ]}
                         printUrl={receipt.receiptUrl}
@@ -205,11 +198,11 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                                         id="amount"
                                         inputRef={amountInput}
                                         value={data.amount}
-                                        onChange={(e) => setData('amount', normalizeDecimalInput(e.target.value))}
+                                        onChange={(e) => setData((current) => ({ ...current, amount: normalizeDecimalInput(e.target.value), confirm_over_balance: false }))}
                                         unit="₪"
                                         placeholder="0.00"
                                         label="قيمة المقاصة"
-                                        error={Boolean(errors.amount || invalid)}
+                                        error={Boolean(errors.amount)}
                                     >
                                         {QUICK_AMOUNTS.map((quick) => (
                                             <QuickPick key={quick} onClick={() => setAmount(String(quick))}>
@@ -222,8 +215,21 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                                             </QuickPick>
                                         )}
                                     </AmountBox>
-                                    <InputError message={errors.amount ?? invalid} className="mt-2" />
-                                    {amount > LARGE_CLEARING && (
+                                    <InputError message={errors.amount} className="mt-2" />
+                                    {overBalance && (
+                                        <div role="alert" className="mt-2.5 rounded-[14px] border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-[13.5px] leading-relaxed text-amber-900 dark:text-amber-200">
+                                            <p>
+                                                {owed > 0 ? `قيمة المقاصة أكبر من الرصيد المستحق (${formatMoney(owed)} ₪)` : 'لا يوجد رصيد مستحق على هذا المشترك'}، فيصبح له رصيد لصالحه قدره{' '}
+                                                <b className="font-display">{formatMoney(creditLeft)} ₪</b>.
+                                            </p>
+                                            <label className="mt-2 flex cursor-pointer items-center gap-2 font-semibold">
+                                                <input type="checkbox" checked={Boolean(data.confirm_over_balance)} onChange={(e) => setData('confirm_over_balance', e.target.checked)} className="rounded border-gray-300 text-emerald-600" />
+                                                نعم، أريد فعلًا إضافة هذه المقاصة لهذا المشترك
+                                            </label>
+                                            <InputError message={errors.confirm_over_balance} className="mt-1" />
+                                        </div>
+                                    )}
+                                    {amount > LARGE_CLEARING && !overBalance && (
                                         <FieldWarning>مبلغ كبير. تأكد أنه صحيح قبل الحفظ، فهو يظهر في كشف حساب المشترك.</FieldWarning>
                                     )}
                                 </div>
@@ -250,11 +256,11 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                             </div>
 
                             <SummaryPanel title="ملخص المقاصة" tag="خدمة مقابل خدمة">
-                                <SummaryFigure label="قيمة المقاصة" value={`−${formatMoney(amount)}`} tone="green" note={data.notes.trim() || null} />
+                                <SummaryFigure label="قيمة المقاصة" value={`${formatMoney(amount)}`} tone="green" note={data.notes.trim() || null} />
                                 <SummaryLedger
                                     rows={[
                                         [correcting ? 'الرصيد بدون الأصلية' : 'الرصيد الحالي', balanceText(describeBalance(balance))],
-                                        ['مقاصة', `−${formatMoney(amount)} ₪`, 'green'],
+                                        ['مقاصة', `${formatMoney(amount)} ₪`, 'green'],
                                     ]}
                                     result={balanceAfterRow('الرصيد بعد المقاصة', balanceAfter)}
                                 />
@@ -264,7 +270,7 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                         <FormFooter
                             onCancel={requestClose}
                             tone={correcting ? 'amber' : 'green'}
-                            disabled={amount <= 0 || missingService || Boolean(invalid)}
+                            disabled={amount <= 0 || missingService || (overBalance && !data.confirm_over_balance)}
                             processing={form.processing}
                             submitLabel={correcting ? 'حفظ التصحيح' : amount > 0 ? `مقاصة ${formatMoney(amount)} ₪ من الحساب` : 'تسجيل المقاصة'}
                         />

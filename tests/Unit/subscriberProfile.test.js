@@ -100,8 +100,9 @@ test('profile offers permitted actions but disables a reading already recorded t
 test('profile shows actual credit and status without inventing disconnection reasons', () => {
     const html = renderProfile({ status: 'disconnected', statusLabel: 'مفصول', outstandingBalance: '-25.50' });
 
-    assert.match(html, /25\.50 ₪/);
-    assert.match(html, /<em>له<\/em>/);
+    // Credit is the balance with its minus sign, in the subscription's favour.
+    assert.match(html, /-25\.50 ₪/);
+    assert.match(html, /title="له — لصالح المشترك"/);
     assert.match(html, /الاشتراك مفصول/);
     assert.doesNotMatch(html, /تأخر بالدفع|14 يوم|377/);
 });
@@ -125,9 +126,10 @@ test('account shows foreign currency amounts and server-provided running balance
         },
     }));
 
-    assert.match(html, /\+10 دولار/);
-    assert.match(html, /60\.00 ₪/);
-    assert.match(html, /100\.00 ₪/);
+    // An amount is always positive; only the balance after it carries a sign.
+    assert.match(html, /<b class="sp-number">10 دولار<\/b>/);
+    assert.match(html, />60 ₪</);
+    assert.match(html, />100 ₪</);
     assert.ok(html.indexOf('دفعة بالدولار') < html.indexOf('رسوم الاشتراك'));
 });
 

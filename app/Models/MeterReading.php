@@ -180,15 +180,20 @@ class MeterReading extends Model
     /**
      * What the subscription usually uses in a week: the average of its last
      * readings before the given week, or null while it has too few to say.
+     * `$consumptionOverrides` ([reading id => kWh]) counts readings at the
+     * consumption they would have after a correction not saved yet.
+     *
+     * @param  array<int, float>  $consumptionOverrides
      */
-    public static function usualConsumptionOf(Subscription $subscription, CarbonInterface $weekStart): ?float
+    public static function usualConsumptionOf(Subscription $subscription, CarbonInterface $weekStart, array $consumptionOverrides = []): ?float
     {
         $consumptions = self::query()
             ->where('subscription_id', $subscription->id)
             ->whereDate('week_start', '<', $weekStart->toDateString())
             ->orderByDesc('week_start')
             ->limit((int) config('powercollect.readings.usual_readings'))
-            ->pluck('consumption');
+            ->pluck('consumption', 'id')
+            ->map(fn (mixed $consumption, int $id): float => $consumptionOverrides[$id] ?? (float) $consumption);
 
         return $consumptions->count() < (int) config('powercollect.readings.usual_minimum_readings')
             ? null
@@ -201,10 +206,12 @@ class MeterReading extends Model
      * is flagged for review; null when it is nothing unusual. A subscription
      * with no usual yet has none to compare with (kept as 0), so only a
      * very large week is flagged.
+     *
+     * @param  array<int, float>  $consumptionOverrides  see usualConsumptionOf()
      */
-    public static function usualConsumptionIfUnusual(Subscription $subscription, float $consumption, CarbonInterface $weekStart): ?float
+    public static function usualConsumptionIfUnusual(Subscription $subscription, float $consumption, CarbonInterface $weekStart, array $consumptionOverrides = []): ?float
     {
-        $usual = self::usualConsumptionOf($subscription, $weekStart);
+        $usual = self::usualConsumptionOf($subscription, $weekStart, $consumptionOverrides);
 
         if ($usual === null) {
             return $consumption >= (float) config('powercollect.readings.unusual_without_history_kwh') ? 0.0 : null;
@@ -397,6 +404,7 @@ class MeterReading extends Model
             'source_key' => $this->chargeSourceKey(),
             'amount' => $this->amountBeforeDiscount(),
             'currency_amount' => $this->amountBeforeDiscount(),
+            'billed_consumption' => $this->consumption,
         ]);
     }
 
@@ -492,6 +500,26 @@ class MeterReading extends Model
         }
 
         return $this->recalculate($previousReading, $this->current_reading, $this->notes, $editor);
+    }
+
+    /**
+     * What the reading would come to between the given readings, at the
+     * prices and standing discount captured when it was recorded, without
+     * changing it: its consumption, its amount due and whether it would be
+     * flagged as unusual. `$consumptionOverrides` is as usualConsumptionOf().
+     *
+     * @param  array<int, float>  $consumptionOverrides
+     * @return array{consumption: float, amount_due: string, unusual: bool}
+     */
+    public function recalculatedBetween(float $previousReading, float $currentReading, array $consumptionOverrides = []): array
+    {
+        $consumption = self::consumptionBetween($previousReading, $currentReading);
+
+        return [
+            'consumption' => $consumption,
+            'amount_due' => self::chargesFor($consumption, $this->unit_price, $this->minimum_payment, $this->discount_method, $this->discount_value)['amount_due'],
+            'unusual' => self::usualConsumptionIfUnusual($this->subscription, $consumption, $this->week_start, $consumptionOverrides) !== null,
+        ];
     }
 
     /**

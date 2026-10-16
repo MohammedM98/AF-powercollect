@@ -37,6 +37,8 @@ class UpdateMeterReadingRequest extends FormRequest
             'approve' => ['sometimes', 'boolean'],
             // Approving an unusual reading again takes the corrector's say-so that it is right.
             'confirm_unusual' => ['sometimes', 'boolean'],
+            // Edited as the last reading (its pencil): what was approved is approved again at once (see MeterReadingController::update).
+            'as_last_reading' => ['sometimes', 'boolean'],
         ];
     }
 

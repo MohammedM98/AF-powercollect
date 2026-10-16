@@ -89,6 +89,103 @@ class LastReadingTest extends TestCase
         $this->assertSame(50.0, $this->subscription->balance());
     }
 
+    public function test_confirming_an_edited_last_reading_approves_both_weeks_again_at_once_in_week_order(): void
+    {
+        $lastWeek = $this->reading('2026-09-11', 1200, 1250);
+        $thisWeek = $this->reading('2026-09-18', 1250, 1300);
+        $lastWeek->approve($this->accountant);
+        $thisWeek->approve($this->accountant);
+
+        $this->actingAs($this->dataEntry)
+            ->put(route('meter-readings.update', $lastWeek), ['current_reading' => 1240, 'as_last_reading' => true])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'meter-reading-last-corrected-approved');
+
+        foreach ([$lastWeek->refresh(), $thisWeek->refresh()] as $reading) {
+            $this->assertSame([MeterReadingStatus::Approved, $this->dataEntry->id], [$reading->status, $reading->approved_by]);
+        }
+        $this->assertSame(['20.00', '30.00'], [$lastWeek->amount_due, $thisWeek->amount_due]);
+        $this->assertSame(50.0, $this->subscription->balance());
+        $this->assertSame(0, $this->accountant->notifications()->count());
+
+        // Recorded in order: both originals cancelled where they were, then their reversals, then last week's new charge before this week's.
+        $lines = SubscriptionTransaction::query()->orderBy('id')->get();
+        $this->assertSame(
+            [['meter_reading', $lastWeek->id, true], ['meter_reading', $thisWeek->id, true], ['reversal', null, false], ['reversal', null, false], ['meter_reading', $lastWeek->id, false], ['meter_reading', $thisWeek->id, false]],
+            $lines->map(fn (SubscriptionTransaction $line): array => [$line->type, $line->meter_reading_id, $line->isCancelled()])->all(),
+        );
+        // A cancelled charge still says the consumption it was billed for, not the corrected one.
+        $this->assertSame(['50 كيلو', '40 كيلو'], [str($lines[0]->description())->afterLast('· ')->value(), str($lines[4]->description())->afterLast('· ')->value()]);
+    }
+
+    public function test_an_edit_that_makes_an_approved_week_unusual_saves_nothing_until_it_is_confirmed(): void
+    {
+        $lastWeek = $this->reading('2026-09-11', 1200, 1250);
+        $thisWeek = $this->reading('2026-09-18', 1250, 3400);
+        $lastWeek->approve($this->accountant);
+        $thisWeek->approve($this->accountant, confirmUnusual: true);
+        $balance = $this->subscription->balance();
+
+        $this->actingAs($this->dataEntry)
+            ->put(route('meter-readings.update', $lastWeek), ['current_reading' => 3300, 'as_last_reading' => true])
+            ->assertSessionHasErrors('confirm_unusual');
+
+        $this->assertSame([1250.0, MeterReadingStatus::Approved], [$lastWeek->fresh()->current_reading, $lastWeek->fresh()->status]);
+        $this->assertSame([1250.0, MeterReadingStatus::Approved], [$thisWeek->fresh()->previous_reading, $thisWeek->fresh()->status]);
+        $this->assertSame($balance, $this->subscription->balance());
+
+        $this->put(route('meter-readings.update', $lastWeek), ['current_reading' => 3300, 'as_last_reading' => true, 'confirm_unusual' => true])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'meter-reading-last-corrected-approved');
+
+        $this->assertSame([MeterReadingStatus::Approved, MeterReadingStatus::Approved], [$lastWeek->fresh()->status, $thisWeek->fresh()->status]);
+        $this->assertSame(1050.0 + 50.0, $this->subscription->balance());
+    }
+
+    public function test_a_week_still_waiting_for_approval_keeps_waiting_after_the_edit(): void
+    {
+        $lastWeek = $this->reading('2026-09-11', 1200, 1250);
+        $thisWeek = $this->reading('2026-09-18', 1250, 1300);
+        $lastWeek->approve($this->accountant);
+
+        $this->actingAs($this->dataEntry)
+            ->put(route('meter-readings.update', $lastWeek), ['current_reading' => 1240, 'as_last_reading' => true])
+            ->assertSessionHas('status', 'meter-reading-last-corrected-approved');
+
+        $this->assertSame([MeterReadingStatus::Approved, MeterReadingStatus::Pending], [$lastWeek->fresh()->status, $thisWeek->fresh()->status]);
+        $this->assertSame(20.0, $this->subscription->balance());
+    }
+
+    public function test_the_preview_shows_what_the_edit_does_to_both_weeks_without_saving_it(): void
+    {
+        $lastWeek = $this->reading('2026-09-11', 1200, 1250);
+        $thisWeek = $this->reading('2026-09-18', 1250, 1300);
+        $lastWeek->approve($this->accountant);
+
+        $this->actingAs($this->dataEntry)
+            ->postJson(route('meter-readings.last-reading-preview', $lastWeek), ['current_reading' => 1240])
+            ->assertOk()
+            ->assertJsonPath('weeks.0.id', $lastWeek->id)
+            ->assertJsonPath('weeks.0.isApproved', true)
+            ->assertJsonPath('weeks.0.before.amountDue', '25.00')
+            ->assertJsonPath('weeks.0.after.amountDue', '20.00')
+            ->assertJsonPath('weeks.0.after.consumption', 40)
+            ->assertJsonPath('weeks.1.id', $thisWeek->id)
+            ->assertJsonPath('weeks.1.isApproved', false)
+            ->assertJsonPath('weeks.1.after.previousReading', 1240)
+            ->assertJsonPath('weeks.1.after.amountDue', '30.00')
+            ->assertJsonPath('weeks.1.unusual', false);
+
+        $this->postJson(route('meter-readings.last-reading-preview', $lastWeek), ['current_reading' => 1301])
+            ->assertJsonValidationErrors(['current_reading']);
+        $this->actingAs($this->accountant)
+            ->postJson(route('meter-readings.last-reading-preview', $lastWeek), ['current_reading' => 1240])
+            ->assertForbidden();
+
+        $this->assertSame(1250.0, $lastWeek->fresh()->current_reading);
+        $this->assertSame(1250.0, $thisWeek->fresh()->previous_reading);
+    }
+
     public function test_the_last_reading_cannot_pass_this_weeks_reading_or_go_below_its_own_start(): void
     {
         $lastWeek = $this->reading('2026-09-11', 1200, 1250);

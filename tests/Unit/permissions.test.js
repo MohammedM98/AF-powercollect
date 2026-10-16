@@ -119,6 +119,6 @@ test('browsing earlier reading weeks is a viewing switch, and editing the last r
         actions: [entry('view', 10), entry('record', 11), entry('browse_weeks', 12), entry('correct', 13), entry('correct_last', 14)],
     });
     assert.deepEqual(readings.switches.map((item) => [item.id, item.label]), [[12, 'الأسابيع السابقة']]);
-    assert.deepEqual(readings.sensitive.map((item) => [item.id, item.label]), [[13, 'تصحيح القراءة الأسبوعية'], [14, 'تعديل القراءة السابقة']]);
+    assert.deepEqual(readings.sensitive.map((item) => [item.id, item.label]), [[13, 'تصحيح القراءة الأسبوعية'], [14, 'تعديل القراءة السابقة واعتمادها']]);
     assert.deepEqual(withGroupAccess([readings], [10, 11, 13, 14], true), [10, 12]);
 });

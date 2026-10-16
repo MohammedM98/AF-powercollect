@@ -131,11 +131,11 @@
 .reading-entry .re-bulk p, .reading-entry .re-bulk b { color: #fff; }
 .re-bulk button:first-child { color: #fff; border-color: #ffffff33; background: #ffffff14; }
 :root[data-density=compact] .re-table td { padding-block: 6px; height: 64px; }
-/* Narrower sheets keep every column in view: tighter cells first, then the kilo price and minimum, then who recorded it, then the reading's value (all reflected in the amount due). */
-@container (max-width: 1520px) { .re-table th, .re-table td { padding-inline: 8px; } }
-@container (max-width: 1440px) { .re-table .re-rate, .re-table .re-min { display: none; } }
-@container (max-width: 1150px) { .re-table .re-by { display: none; } }
-@container (max-width: 1060px) { .re-table .re-fee { display: none; } }
+/* Narrower sheets tighten their cells, so the last column stays in view. */
+@container (max-width: 1520px) { .re-table th, .re-table td { padding-inline: 7px; } }
+@container (max-width: 1400px) { .re-table th, .re-table td { padding-inline: 5px; } }
+@media (max-width: 1250px) { .re-rate, .re-min { display: none; } }
+@container (max-width: 1250px) { .re-table .re-rate, .re-table .re-min { display: none; } }
 @media (max-width: 760px) {
     .re-heading { gap: 14px; }
     .re-heading h1 { font-size: 30px; }

@@ -688,6 +688,31 @@ class MeterReadingTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('subscriptions.data.0.canRecordReading', false));
     }
 
+    public function test_staff_who_only_enter_readings_do_not_see_who_recorded_them(): void
+    {
+        $this->recordedReading('2026-09-18', 1200, 1250);
+
+        $this->actingAs($this->dataEntry)
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('seesWhoRecorded', false)
+                ->where('rows.data.0.reading.consumption', 50)
+                ->missing('rows.data.0.reading.recordedByName')
+                ->missing('rows.data.0.reading.approvedByName'));
+    }
+
+    public function test_whoever_may_read_the_audit_log_sees_who_recorded_each_reading(): void
+    {
+        $reading = $this->recordedReading('2026-09-18', 1200, 1250);
+        $auditor = User::factory()->dataEntry()->withPermissions([PermissionKey::ViewTransactionAudit])->create(['branch_id' => $this->branch->id]);
+
+        $this->actingAs($auditor)
+            ->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('seesWhoRecorded', true)
+                ->where('rows.data.0.reading.recordedByName', $reading->recordedBy->name));
+    }
+
     public function test_a_pending_reading_can_be_corrected(): void
     {
         $reading = $this->recordedReading('2026-09-18', 1200, 1250);

@@ -298,6 +298,7 @@ class MeterReadingApprovalTest extends TestCase
             'created_at' => '2026-09-24 10:00:00',
         ]);
         $reading->approve($this->accountant);
+        $this->accountant->permissions()->attach(Permission::idsFor([PermissionKey::ViewTransactionAudit]));
 
         $this->actingAs($this->accountant)
             ->get(route('meter-readings.index', ['week' => '2026-09-18']))

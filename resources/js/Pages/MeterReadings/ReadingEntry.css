@@ -67,8 +67,10 @@
 .re-table td { padding: 14px 14px; font-size: 16px; vertical-align: middle; border-top: 1px solid rgb(var(--gray-100)); border-bottom: 1px solid rgb(var(--gray-100)); background: var(--re-surface); transition: border-color 160ms ease, box-shadow 160ms ease; }
 .re-table td:first-child { border-inline-start: 1px solid rgb(var(--gray-100)); border-start-start-radius: 18px; border-end-start-radius: 18px; }
 .re-table td:last-child { border-inline-end: 1px solid rgb(var(--gray-100)); border-start-end-radius: 18px; border-end-end-radius: 18px; }
-.re-row:hover td, .re-row:focus-within td { border-color: rgb(var(--gray-200)); box-shadow: 0 12px 20px -16px rgb(16 24 40 / 0.45); }
-.re-row:hover td:first-child, .re-row:focus-within td:first-child { box-shadow: inset -3px 0 0 rgb(var(--brand-500)), 0 12px 20px -16px rgb(16 24 40 / 0.45); }
+.re-row:hover td, .re-row:focus-within td { border-color: rgb(var(--gray-200)); }
+/* One shadow around the whole row, not one under each cell (which left seams between them). */
+.re-row:hover, .re-row:focus-within { filter: drop-shadow(0 6px 6px rgb(16 24 40 / 0.1)); }
+.re-row:hover td:first-child, .re-row:focus-within td:first-child { box-shadow: inset -3px 0 0 rgb(var(--brand-500)); }
 .re-row.is-selected td { background: color-mix(in srgb, var(--re-brand) 4%, var(--re-surface)); border-color: color-mix(in srgb, var(--re-brand) 45%, var(--re-line)); }
 .re-row.is-selected td:first-child { box-shadow: inset -3px 0 0 var(--re-brand); }
 .re-row.has-error td { border-color: #dc2626; }
@@ -150,8 +152,10 @@
     .re-table-wrap { overflow: visible; padding: 8px; }
     .re-table, .re-table tbody { display: block; }
     .re-table thead { display: none; }
-    .re-table tr { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; border: 1px solid var(--re-line2); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
-    .re-table td { display: block; height: auto; padding: 0; border: 0 !important; border-radius: 0 !important; background: transparent !important; white-space: normal; min-width: 0; }
+    .re-table tr { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; background: var(--re-surface); border: 1px solid var(--re-line2); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+    .re-table td { display: block; height: auto; padding: 0; border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; white-space: normal; min-width: 0; }
+    .re-row:hover, .re-row:focus-within { border-color: rgb(var(--gray-200)); }
+    .re-row.is-selected { border-color: var(--re-brand); background: color-mix(in srgb, var(--re-brand) 4%, var(--re-surface)); }
     .re-sub { grid-column: 1; grid-row: 1; }
     .re-status { grid-column: 2; grid-row: 1; justify-self: end; }
     .re-last { grid-column: 1; grid-row: 2; align-self: center; }

@@ -107,6 +107,7 @@ class MeterReadingController extends Controller
             ],
             'canRecord' => $actor->can('create', MeterReading::class),
             'canApprove' => $canApprove,
+            'seesWhoRecorded' => $this->seesWhoRecorded($actor),
             'statusSummary' => $statusSummary,
             'pendingApproval' => $canApprove ? $this->pendingApprovalSummary($request, $actor, $week) : null,
             // The actor could record now, just not in this earlier week.
@@ -609,6 +610,16 @@ class MeterReadingController extends Controller
     }
 
     /**
+     * Whether the actor sees who recorded and approved each reading on the
+     * sheet: those who may read the audit log (the Super Admin, and Branch
+     * Admins by default), not the staff who only enter the readings.
+     */
+    private function seesWhoRecorded(User $actor): bool
+    {
+        return $actor->hasPermission(PermissionKey::ViewTransactionAudit);
+    }
+
+    /**
      * One sheet row. A reading already entered for the week shows the
      * prices and standing discount captured with it; otherwise the
      * subscription's current price, minimum and discount are shown for the
@@ -654,12 +665,13 @@ class MeterReadingController extends Controller
                 'billed' => $reading->chargeLine !== null,
                 // Far above what the subscription usually uses: it is approved only after being looked at and confirmed.
                 'unusual' => $reading->isUnusual() ? ['usual' => $reading->usual_consumption] : null,
+            ] + ($this->seesWhoRecorded($actor) ? [
                 'recordedByName' => $reading->recordedBy?->name,
                 'recordedAt' => $reading->created_at?->timezone(config('app.business_timezone'))->format('d/m H:i'),
                 'recordedSource' => $reading->mobile_operation_id !== null ? 'app' : 'web',
                 'approvedByName' => $reading->approvedBy?->name,
                 'approvedAt' => $reading->approved_at?->timezone(config('app.business_timezone'))->format('d/m H:i'),
-            ] : null,
+            ] : []) : null,
             // The reading the week starts from, when one was entered: editable as the last reading while no week after this one has been.
             'lastReading' => $lastBefore ? [
                 'id' => $lastBefore->id,

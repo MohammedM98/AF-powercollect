@@ -431,15 +431,19 @@
 .data-table tbody tr:hover td,
 .data-table tbody tr:focus-within td {
     border-color: rgb(var(--gray-200));
-    box-shadow: 0 12px 20px -16px rgb(16 24 40 / 0.45);
+}
+
+/* The row lifts as one card: its shadow is drawn once around the whole
+   row, not under each cell (which left light seams between the cells). */
+.data-table tbody tr:hover,
+.data-table tbody tr:focus-within {
+    filter: drop-shadow(0 6px 6px rgb(16 24 40 / 0.1));
 }
 
 .data-table tbody tr:hover td:first-child,
 .data-table tbody tr:focus-within td:first-child,
 .data-table tbody tr.bg-brand-50 td:first-child {
-    box-shadow:
-        inset -3px 0 0 rgb(var(--brand-500)),
-        0 12px 20px -16px rgb(16 24 40 / 0.45);
+    box-shadow: inset -3px 0 0 rgb(var(--brand-500));
 }
 
 .data-table tbody tr.bg-brand-50 td {

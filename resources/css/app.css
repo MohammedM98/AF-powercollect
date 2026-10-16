@@ -307,6 +307,41 @@
     background: linear-gradient(90deg, transparent, rgb(var(--brand-500) / 0.55));
 }
 
+/*
+ * A table's search and filters answer in the brand's burgundy: the border
+ * on hover, the border and a soft ring once in them (or a drop-down open),
+ * the search icon with them. A filter holding a choice keeps a burgundy
+ * border and tint, so what narrows the table stands out. `.table-controls`
+ * gives the same to a table's own search row outside a toolbar.
+ */
+:is(.data-table-toolbar, .table-controls) :is(input:not([type='checkbox'], [type='radio']), select, button[aria-expanded]) {
+    transition:
+        border-color 150ms ease,
+        box-shadow 150ms ease,
+        background-color 150ms ease;
+}
+
+:is(.data-table-toolbar, .table-controls) :is(input:not([type='checkbox'], [type='radio']), select, button[aria-expanded]):hover:not(:disabled) {
+    border-color: rgb(var(--brand-500) / 0.45);
+}
+
+:is(.data-table-toolbar, .table-controls) :is(input:not([type='checkbox'], [type='radio']), select):focus,
+:is(.data-table-toolbar, .table-controls) button[aria-expanded]:focus-visible,
+:is(.data-table-toolbar, .table-controls) button[aria-expanded='true'] {
+    border-color: rgb(var(--brand-500));
+    --tw-ring-color: rgb(var(--brand-500) / 0.15);
+}
+
+:is(.data-table-toolbar, .table-controls) button[data-active],
+:is(.data-table-toolbar, .table-controls) select:has(option[value='']):has(option:checked:not([value=''])) {
+    border-color: rgb(var(--brand-500) / 0.6);
+    background-color: rgb(var(--brand-50));
+}
+
+:is(.data-table-toolbar, .table-controls) :has(> input:focus) > svg {
+    color: rgb(var(--brand-500));
+}
+
 /* Relative so what is placed absolutely inside a wide table (the actions
    column's hidden title) scrolls with it instead of widening the page. */
 .data-table-container {

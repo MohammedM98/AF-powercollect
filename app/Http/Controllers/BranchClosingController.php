@@ -19,6 +19,8 @@ use App\Models\User;
 use App\Support\BranchBoxes;
 use App\Support\BranchClosingAccess;
 use App\Support\BranchClosingWorkflow;
+use App\Support\WeeklyClosingSummary;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -28,15 +30,19 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BranchClosingController extends Controller
 {
-    public function __construct(private BranchClosingWorkflow $workflow, private BranchBoxes $branchBoxes) {}
+    public function __construct(private BranchClosingWorkflow $workflow, private BranchBoxes $branchBoxes, private WeeklyClosingSummary $summary) {}
+
+    /** The states of an audit note that wait on the branch's answer. */
+    private const WAITING_ON_BRANCH = ['awaiting_reply', 'rejected', 'collector_replied'];
 
     /**
      * Closing management for the branch: the week running and what waits
-     * on the branch, the audit's notes with the collectors' debts, and the
-     * weekly schedule with who may close boxes or submit the week. Each
-     * week is reviewed and sent from the weekly closing page, so a link to
-     * one week here (`?closing_id=`), or to the list of weeks this page had
-     * (`?tab=history`), opens that page.
+     * on the branch; every week in a table, each with its totals, where it
+     * stands and the audit's notes on it to answer, with the collectors'
+     * debts; and the weekly schedule with who may close boxes or submit the
+     * week. A week's boxes are reviewed and it is sent from the weekly
+     * closing page, so a link to one week here (`?closing_id=`) opens it
+     * there.
      */
     public function index(Request $request): Response|RedirectResponse
     {
@@ -46,9 +52,6 @@ class BranchClosingController extends Controller
         $branchId = $branch->id;
         if ($request->integer('closing_id')) {
             return redirect()->route('weekly-packages.index', ['branch_id' => $branchId, 'closing_id' => $request->integer('closing_id')]);
-        }
-        if ($request->query('tab') === 'history') {
-            return redirect()->route('weekly-packages.index', ['branch_id' => $branchId]);
         }
         $setting = ClosingSetting::forBranch($branchId);
         $started = $setting->workflow_started_at !== null;
@@ -67,15 +70,49 @@ class BranchClosingController extends Controller
             'settings' => $this->workflow->settings($setting), 'receivers' => $setting->receivers ?? [], 'approvers' => $setting->approvers ?? [],
             'pendingChange' => $pendingChange, 'transitionUntil' => $current ? $this->workflow->nextEnd($current->scheduled_until, $pendingChange?->settings ?? $this->workflow->settings($setting))->toIso8601String() : null,
             'current' => $current, 'closings' => $closings->map(fn (Closing $closing): array => [...$closing->toArray(), 'submitted_snapshot' => $closing->submitted_snapshot ? true : null]),
+            'weeks' => $this->weeks($closings, $notes),
             'boxes' => $boxRows,
             'debts' => CollectorDebt::query()->where('branch_id', $branchId)->with('user:id,name')->where('remaining', '>', 0)->get(),
-            'adjustments' => ClosingAdjustment::query()->whereIn('closing_id', $closings->modelKeys())->get(),
+            'adjustments' => ClosingAdjustment::query()->where(fn ($query) => $query->whereIn('closing_id', $closings->modelKeys())->orWhereIn('original_closing_id', $closings->modelKeys()))->get(),
             'safeCounts' => SafeCount::query()->whereIn('closing_id', $closings->modelKeys())->get(), 'notes' => $notes,
             'staff' => User::query()->where('branch_id', $branchId)->where('is_active', true)->get(['id', 'name', 'role'])
                 ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name, 'isBranchAdmin' => $user->isBranchAdmin()]),
             'access' => $this->branchBoxes->access($actor, $branchId),
             'urls' => ['index' => route('closings.index'), 'weekly' => route('weekly-packages.index'), 'boxes' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'proofs' => url('/reconciliation/proofs')],
         ]);
+    }
+
+    /**
+     * The branch's weeks, newest first, each with where it stands, its
+     * boxes, entries and totals as the weekly closing page counts them, when
+     * the branch sent it, and how many audit notes it has, how many of
+     * them are still open and how many of those wait on the branch.
+     *
+     * @param  EloquentCollection<int, Closing>  $closings
+     * @param  EloquentCollection<int, AuditNote>  $notes
+     * @return list<array<string, mixed>>
+     */
+    private function weeks(EloquentCollection $closings, EloquentCollection $notes): array
+    {
+        $closings->loadCount('auditNotes');
+
+        return $closings->map(function (Closing $closing) use ($notes): array {
+            $totals = $this->summary->totals($this->summary->boxes($closing));
+            $own = $notes->where('closing_id', $closing->id);
+
+            return [
+                ...$closing->only(['id', 'coverage_from', 'coverage_until', 'is_manual', 'workflow_settings']),
+                'status' => $closing->status->value,
+                'step' => $this->summary->step($closing),
+                'sentAt' => $closing->branch_approved_at ?? $closing->submitted_at,
+                'boxes' => $totals['boxes'],
+                'entries' => $totals['entries'],
+                'amounts' => $totals['amounts'],
+                'notes' => $own->count(),
+                'waitingNotes' => $own->whereIn('status', self::WAITING_ON_BRANCH)->count(),
+                'openNotes' => $own->where('status', '!=', 'closed')->count(),
+            ];
+        })->values()->all();
     }
 
     public function action(BranchClosingActionRequest $request, string $action, ?int $record = null): RedirectResponse

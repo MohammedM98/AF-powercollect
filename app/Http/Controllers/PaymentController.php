@@ -536,14 +536,13 @@ class PaymentController extends Controller
             'boxes' => $rows->values()->all(),
             'current' => collect(CashBoxType::cases())->mapWithKeys(fn (CashBoxType $type): array => [$type->value => $rows->first(fn (array $box): bool => $box['type'] === $type->value && $box['status'] === 'open')])->all(),
             'needsAction' => $rows->filter(fn (array $box): bool => $box['stage'] === 'awaiting_confirmation')->values()->all(),
-            'auditNotes' => $this->waitingAuditNotes($actor)->with(['box:id,number', 'closing:id,period_start,period_end', 'replies' => fn ($query) => $query->where('kind', 'collector')->latest('id')])
+            'auditNotes' => $this->waitingAuditNotes($actor)->with(['box:id,number', 'closing:id,coverage_from,coverage_until,workflow_settings', 'replies' => fn ($query) => $query->where('kind', 'collector')->latest('id')])
                 ->latest('id')->get()->map(fn (AuditNote $note): array => [
                     'id' => $note->id,
                     'body' => $note->body,
                     'question' => $note->replies->first()?->body,
                     'differences' => $note->differences,
-                    'periodStart' => $note->closing->period_start->toDateString(),
-                    'periodEnd' => $note->closing->period_end->toDateString(),
+                    'closing' => $note->closing->only(['coverage_from', 'coverage_until', 'workflow_settings']),
                     'box' => $note->box ? ['number' => $note->box->number, 'url' => route('payments.cash-boxes.show', $note->box)] : null,
                     'replyUrl' => route('payments.audit-notes.reply', $note),
                 ])->all(),

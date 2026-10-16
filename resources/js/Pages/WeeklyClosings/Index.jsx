@@ -11,7 +11,7 @@ import { WEEKLY_STATUSES, weeklyStepStates } from '@/lib/weeklyClosings';
 import { BankMark } from '../Subscriptions/PaymentModal';
 import { boxTypeStyles, BoxTypeIcon } from '../Payments/CollectorCashBox';
 import { BoxPersonAvatar } from '../Payments/FinancialBoxComponents';
-import { branchClock, branchDate, dateTime, periodLabel, periodRange } from '../Closings/ClosingComponents';
+import { branchClock, branchDate, dateTime, periodLabel, periodRange } from '@/lib/closingPeriods';
 import WeeklyBoxModal from './WeeklyBoxModal';
 import { VersionsSection } from './WeeklyVersions';
 import { activeEntries, addAmounts, amountOf, BankStack, BigShekels, boxesWord, byReceivingBank, collectorsWord, entriesWord, foreignLine, ReviewMeter, ReviewPill, Shekels, typeBars } from './WeeklyParts';

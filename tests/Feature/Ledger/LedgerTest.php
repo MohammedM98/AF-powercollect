@@ -358,6 +358,8 @@ class LedgerTest extends TestCase
         $this->assertCount(27, $rows);
         $this->assertSame("'=HYPERLINK(\"unsafe\")", $rows[1][2]);
         $this->assertSame('20', $rows[1][12]);
+        $this->assertSame(['الرصيد بعده', 'حالة الرصيد'], [$rows[0][13], $rows[0][14]]);
+        $this->assertSame(['-520', 'له'], [$rows[1][13], $rows[1][14]]);
         $this->assertStringNotContainsString('Other branch', $csv);
     }
 

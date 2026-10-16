@@ -6,7 +6,7 @@ import Icon from '@/Components/Icon';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
-import { BALANCE_HINTS, balanceTone, signedBalance } from '@/lib/balance';
+import { BALANCE_HINTS, BALANCE_WORDS, balanceTone, signedBalance } from '@/lib/balance';
 import { formatClock, formatDayLabel, formatMoney, formatNumber, formatShortDay } from '@/lib/format';
 import { printUrl } from '@/lib/print';
 import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
@@ -29,14 +29,19 @@ const BANK_LOGOS = {
  * subscription's favour. A balance is coloured unless `colored` is false, as
  * in the column of each line's running balance.
  */
-function Money({ amount, balance = false, colored = balance }) {
+function Money({ amount, balance = false, colored = balance, paperWord = false }) {
     if (!balance) {
         return <bdi className="num" dir="ltr">{formatMoney(Math.abs(Number(amount)))} <span>₪</span></bdi>;
     }
 
     const tone = balanceTone(amount);
 
-    return <bdi className={`num ${colored ? `balance-${tone}` : ''}`} dir="ltr" title={BALANCE_HINTS[tone]}>{signedBalance(amount)} <span>₪</span></bdi>;
+    return (
+        <>
+            <bdi className={`num ${colored ? `balance-${tone}` : ''}`} dir="ltr" title={BALANCE_HINTS[tone]}>{signedBalance(amount)} <span>₪</span></bdi>
+            {paperWord && <span className="balance-paper-word"> {BALANCE_WORDS[tone]}</span>}
+        </>
+    );
 }
 
 function shortDate(value) {
@@ -216,7 +221,7 @@ function TransactionRow({ entry, grouped, onOpen, rowClick }) {
             <td className="am-c"><span className={`am ${entry.isCredit ? 'cr' : 'dr'}`}><Money amount={entry.amount} />
                 {entry.currency && entry.currency !== 'ILS' && <small><bdi dir="ltr">{formatMoney(entry.currencyAmount)} {entry.currency}{entry.exchangeRate && ` × ${formatMoney(entry.exchangeRate)}`}</bdi></small>}
             </span></td>
-            <td className="bal-c"><span className="blc">{entry.balanceAfter === null ? '—' : <Money amount={balance} balance colored={false} />}</span></td>
+            <td className="bal-c"><span className="blc">{entry.balanceAfter === null ? '—' : <Money amount={balance} balance colored={false} paperWord />}</span></td>
         </tr>
     );
 }

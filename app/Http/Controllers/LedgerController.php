@@ -437,16 +437,31 @@ class LedgerController extends Controller
         return response()->streamDownload(function () use ($lines): void {
             $file = fopen('php://output', 'w');
             fwrite($file, "\xEF\xBB\xBF");
-            fputcsv($file, ['التاريخ', 'الوقت', 'المشترك', 'الحساب', 'الفرع', 'النوع', 'السند', 'الطريقة', 'البنك', 'المرجع', 'سجّله', 'عليه', 'له', 'الرصيد بعده', 'ملغاة']);
+            fputcsv($file, ['التاريخ', 'الوقت', 'المشترك', 'الحساب', 'الفرع', 'النوع', 'السند', 'الطريقة', 'البنك', 'المرجع', 'سجّله', 'عليه', 'له', 'الرصيد بعده', 'حالة الرصيد', 'ملغاة']);
 
             foreach ($lines->lazy(500) as $transaction) {
                 $row = $this->row($transaction);
-                $cells = [$row['day'], $row['time'], $row['subscriptionName'], $row['subscriptionAccountNumber'], $row['branchName'], $row['typeLabel'], $row['voucherNumber'], $row['paymentMethodLabel'], $row['bankName'], $row['referenceNumber'], $row['recordedByName'], $row['isCredit'] ? '' : (float) $row['amount'], $row['isCredit'] ? (float) $row['amount'] : '', $row['balanceAfter'] === null ? '' : (float) $row['balanceAfter'], $row['isCancelled'] ? 'نعم' : 'لا'];
+                $cells = [$row['day'], $row['time'], $row['subscriptionName'], $row['subscriptionAccountNumber'], $row['branchName'], $row['typeLabel'], $row['voucherNumber'], $row['paymentMethodLabel'], $row['bankName'], $row['referenceNumber'], $row['recordedByName'], $row['isCredit'] ? '' : (float) $row['amount'], $row['isCredit'] ? (float) $row['amount'] : '', $row['balanceAfter'] === null ? '' : (float) $row['balanceAfter'], $this->balanceWord($row['balanceAfter']), $row['isCancelled'] ? 'نعم' : 'لا'];
                 fputcsv($file, array_map(fn ($cell) => is_string($cell) && preg_match('/^[=+@\-\t\r]/u', $cell) ? "'".$cell : $cell, $cells));
             }
 
             fclose($file);
         }, 'ledger-'.DailySeries::today()->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * What a balance is called on paper beside its signed number: owed
+     * (عليه), credit (له) or settled (مسدّد); nothing when there is none.
+     */
+    private function balanceWord(int|float|string|null $balance): string
+    {
+        if ($balance === null) {
+            return '';
+        }
+
+        $cents = (int) round((float) $balance * 100);
+
+        return $cents > 0 ? 'عليه' : ($cents < 0 ? 'له' : 'مسدّد');
     }
 
     /**

@@ -12,6 +12,9 @@ import Icon from '@/Components/Icon';
  * box opens and as the user types, instead of filtered here. `options`
  * is what shows before any search, such as the option already chosen.
  * `onChange` also gets the option picked, so a caller can read its extras.
+ * `clearable={false}` leaves out the empty choice, for a field that always
+ * holds one (a sort order, say); `searchable={false}` leaves out the search
+ * box, for a list of a few choices.
  */
 export default function SearchableSelect({
     id,
@@ -27,6 +30,8 @@ export default function SearchableSelect({
     active = false,
     className = '',
     loadOptions = null,
+    clearable = true,
+    searchable = true,
 }) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
@@ -168,26 +173,30 @@ export default function SearchableSelect({
 
             {open && (
                 <div className="animate-modal-panel absolute z-20 mt-2 w-full min-w-[12rem] overflow-hidden rounded-2xl border border-gray-100 bg-surface shadow-lift">
-                    <div className="border-b border-gray-100 p-2">
-                        <input
-                            ref={searchRef}
-                            type="text"
-                            value={query}
-                            onChange={(event) => setQuery(event.target.value)}
-                            placeholder={searchPlaceholder}
-                            className="block w-full py-2 text-sm"
-                        />
-                    </div>
+                    {searchable && (
+                        <div className="border-b border-gray-100 p-2">
+                            <input
+                                ref={searchRef}
+                                type="text"
+                                value={query}
+                                onChange={(event) => setQuery(event.target.value)}
+                                placeholder={searchPlaceholder}
+                                className="block w-full py-2 text-sm"
+                            />
+                        </div>
+                    )}
                     <ul className="max-h-56 overflow-y-auto p-1.5 text-sm">
-                        <li>
-                            <button
-                                type="button"
-                                onClick={() => select(null)}
-                                className="block w-full rounded-lg px-3 py-2 text-start text-gray-500 hover:bg-gray-50"
-                            >
-                                {placeholder}
-                            </button>
-                        </li>
+                        {clearable && (
+                            <li>
+                                <button
+                                    type="button"
+                                    onClick={() => select(null)}
+                                    className="block w-full rounded-lg px-3 py-2 text-start text-gray-500 hover:bg-gray-50"
+                                >
+                                    {placeholder}
+                                </button>
+                            </li>
+                        )}
                         {failed ? (
                             <li className="px-3 py-2 text-red-600">تعذّر تحميل الخيارات، حاول مرة أخرى.</li>
                         ) : loading && found === null ? (

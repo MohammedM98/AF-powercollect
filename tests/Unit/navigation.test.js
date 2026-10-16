@@ -49,7 +49,7 @@ test('retired closing destinations stay absent even with old permission flags', 
 test('staff with box access can reach their boxes without payment access and only the box link is active', () => {
     const groups = allowedNavigationGroups({ viewOwnCashBoxes: true, viewCashBoxes: true });
     const boxes = groups[0].links.find((link) => link.href === '/payments/cash-boxes');
-    assert.deepEqual(groups.flatMap((group) => group.links.map((link) => link.href)), ['/payments/summary', '/payments/cash-boxes', '/payments/entries']);
+    assert.deepEqual(groups.flatMap((group) => group.links.map((link) => link.href)), ['/payments/entries', '/payments/summary', '/payments/cash-boxes']);
     assert.equal(isActiveLink(MAIN_LINKS.find((link) => link.href === '/payments'), '/payments/cash-boxes/12'), false);
     assert.equal(isActiveLink(boxes, '/payments/cash-boxes/12'), true);
 });
@@ -57,8 +57,8 @@ test('staff with box access can reach their boxes without payment access and onl
 test('closing boxes lives in the financial boxes and entries links, beside the safe and statements page', () => {
     const links = allowedNavigationGroups({ viewCashBoxes: true, viewBranchReconciliation: true }).flatMap((group) => group.links);
 
-    assert.deepEqual(links.map((link) => [link.href, link.label]), [['/payments/cash-boxes', 'الصناديق المالية'], ['/payments/entries', 'الحركات'], ['/reconciliation', 'الإغلاقات والكشوفات']]);
-    assert.equal(isActiveLink(links[0], '/payments/cash-boxes?branch_id=2&box=7'), true);
+    assert.deepEqual(links.map((link) => [link.href, link.label]), [['/payments/entries', 'الحركات'], ['/payments/cash-boxes', 'الصناديق المالية'], ['/reconciliation', 'الإغلاقات والكشوفات']]);
+    assert.equal(isActiveLink(links[1], '/payments/cash-boxes?branch_id=2&box=7'), true);
 });
 
 test('a section menu describes only the pages the user can open', () => {
@@ -67,7 +67,7 @@ test('a section menu describes only the pages the user can open', () => {
     const finance = allowedNavigationGroups({ recordPayments: true, viewLedger: true, viewDebtAging: true, viewReports: true, viewBranchReconciliation: true }).find((group) => group.id === 'finance');
 
     assert.equal(groupSummary(daily), 'المشتركون والقراءات والرسائل');
-    assert.equal(groupSummary(finance), 'تسجيل الدفعات والسجل المالي وأعمار الديون وغيرها');
+    assert.equal(groupSummary(finance), 'تسجيل الدفعات والإغلاقات والكشوفات والسجل المالي وغيرها');
     assert.equal(groupSummary(allowedNavigationGroups({ viewMessages: true })[0]), 'الرسائل');
 });
 
@@ -75,15 +75,15 @@ test('a collector who sees only their own boxes finds them named as theirs', () 
     const own = allowedNavigationGroups({ recordPayments: true, viewOwnCashBoxes: true, viewCashBoxes: true }).flatMap((group) => group.links);
     const branch = allowedNavigationGroups({ viewOwnCashBoxes: true, viewCashBoxes: true, viewBranchReconciliation: true }).flatMap((group) => group.links);
 
-    assert.deepEqual(own.map((link) => link.label), ['تسجيل الدفعات', 'ملخص التحصيل', 'صناديقي', 'حركاتي']);
-    assert.deepEqual(branch.map((link) => link.label).slice(0, 3), ['ملخص التحصيل', 'الصناديق المالية', 'الحركات']);
+    assert.deepEqual(own.map((link) => link.label), ['تسجيل الدفعات', 'حركاتي', 'ملخص التحصيل', 'صناديقي']);
+    assert.deepEqual(branch.map((link) => link.label).slice(0, 3), ['الحركات', 'ملخص التحصيل', 'الصناديق المالية']);
 });
 
 test('the top bar shows home and one button per section, or a single section\'s pages directly', () => {
     const single = topBarItems(allowedNavigationGroups({ recordPayments: true, viewOwnCashBoxes: true, viewCashBoxes: true }));
     const several = topBarItems(allowedNavigationGroups({ viewSubscriptions: true, viewLedger: true }));
 
-    assert.deepEqual(single.map((item) => item.key), ['home', '/payments', '/payments/summary', '/payments/cash-boxes', '/payments/entries']);
+    assert.deepEqual(single.map((item) => item.key), ['home', '/payments', '/payments/entries', '/payments/summary', '/payments/cash-boxes']);
     assert.equal(single.every((item) => item.link && !item.group), true);
     assert.deepEqual(several.map((item) => item.key), ['home', 'daily', 'finance']);
     assert.equal(several[0].link.href, '/dashboard');

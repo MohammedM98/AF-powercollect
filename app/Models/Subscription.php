@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'full_name', 'national_id', 'phone', 'address', 'meter_box_id', 'tariff_id', 'tariff_segment_id', 'branch_id',
-    'registered_by', 'status', 'accounting_type', 'circuit_breaker_id', 'minimum_charge', 'kilowatt_price', 'initial_reading', 'subscription_fee',
+    'registered_by', 'status', 'accounting_type', 'circuit_breaker_id', 'minimum_charge', 'kilowatt_price', 'disconnection_fee', 'initial_reading', 'subscription_fee',
     'subscription_date', 'reconnected_at', 'activated_at', 'subscription_name', 'subscription_phone', 'legacy_number', 'notes',
 ])]
 class Subscription extends Model
@@ -137,6 +137,7 @@ class Subscription extends Model
             'activated_at' => 'datetime',
             'subscription_fee' => 'decimal:2',
             'kilowatt_price' => 'decimal:2',
+            'disconnection_fee' => 'decimal:2',
             'initial_reading' => 'float',
         ];
     }
@@ -195,6 +196,32 @@ class Subscription extends Model
     public function hasOwnKilowattPrice(): bool
     {
         return $this->kilowatt_price !== null;
+    }
+
+    /**
+     * What confirming the subscriber's disconnection charges, in shekels:
+     * their own fee if they were given one, otherwise the company's usual
+     * disconnection fee.
+     */
+    public function disconnectionFee(): string
+    {
+        return number_format((float) ($this->disconnection_fee ?? config('powercollect.disconnection.fee')), 2, '.', '');
+    }
+
+    /**
+     * Whether the subscriber pays a disconnection fee of their own.
+     */
+    public function hasOwnDisconnectionFee(): bool
+    {
+        return $this->disconnection_fee !== null;
+    }
+
+    /**
+     * Every time the subscription was put on a disconnection list.
+     */
+    public function disconnectionItems(): HasMany
+    {
+        return $this->hasMany(DisconnectionListItem::class);
     }
 
     /**
@@ -269,6 +296,7 @@ class Subscription extends Model
     {
         return DeletionBlocker::describe('المشترك', [
             'القراءات' => $this->meterReadings()->count(),
+            'قوائم القطع' => $this->disconnectionItems()->count(),
             'الحركات المالية' => $this->transactions()->where(function (Builder $query): void {
                 $query->where('type', '!=', SubscriptionTransaction::TYPE_SUBSCRIPTION_FEE)
                     ->orWhere('source_key', 'like', 'charge:%');

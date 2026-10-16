@@ -13,6 +13,8 @@ const LADDERS = {
     crud: { actions: ['view', 'create', 'update'], levels: ['بدون', 'عرض', 'إضافة', 'تعديل'], long: ['لا يرى القسم', 'يرى فقط', 'يرى ويضيف', 'يرى ويضيف ويعدّل'] },
     meter_readings: { actions: ['view', 'record'], levels: ['بدون', 'عرض', 'تسجيل'], long: ['لا يرى القراءات', 'يرى القراءات', 'يرى ويسجّل القراءات'] },
     collections: { actions: ['view', 'record'], levels: ['بدون', 'عرض السجل', 'إضافة دفعة'], long: ['لا يملك عرض السجل أو إضافة دفعة', 'يعرض السجل المالي', 'يعرض السجل المالي ويضيف دفعات'] },
+    disconnections: { actions: ['view', 'manage'], levels: ['بدون', 'عرض', 'إدارة'], long: ['لا يرى قوائم القطع', 'يرى قوائم القطع', 'يرى القوائم ويضيف ويزيل ويمدد المواعيد'] },
+    reading_assignments: { actions: ['view', 'manage'], levels: ['بدون', 'عرض', 'توزيع'], long: ['لا يرى توزيع القراءات', 'يرى توزيع القراءات', 'يرى ويوزّع الطبلونات على القرّاء والورق'] },
     messages: { actions: ['view', 'send'], levels: ['بدون', 'عرض', 'إرسال'], long: ['لا يرى الرسائل', 'يرى الرسائل', 'يرى ويرسل الرسائل'] },
     print_templates: { actions: ['manage'], levels: ['بدون', 'إدارة'], long: ['لا يدير القوالب', 'يدير قوالب الطباعة'] },
 };
@@ -40,6 +42,11 @@ export const SENSITIVE = {
     'collections.refund': { label: 'ردّ الدفعة', hint: 'يردّ المبلغ بقيد مرتبط؛ تبقى الدفعة وسجل الردّ ظاهرين', danger: true },
     'collections.delete': { label: 'إلغاء الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف', danger: true },
     'collections.force_delete': { label: 'الحذف النهائي للحركة', hint: 'يحذف الحركة المؤهلة أو سلسلة إلغائها من الكشف، مع الاحتفاظ بسجل تدقيق؛ لا يحذف القراءة', danger: true },
+    'subscriptions.disconnection_fee': { label: 'تعديل رسوم القطع للمشترك', hint: 'يعطي المشترك رسوم قطع خاصة به بدل الرسوم المعتادة، أو يعفيه منها', danger: true },
+    'disconnections.warn': { label: 'إرسال إنذارات القطع', hint: 'يرسل رسائل للمشتركين ويرى أرقام هواتفهم', danger: true },
+    'disconnections.execute': { label: 'تأكيد تنفيذ القطع', hint: 'يفصل خدمة المشترك ويحمّل عليه رسوم قطع الخدمة', danger: true },
+    'reading_assignments.approve': { label: 'اعتماد توزيع القراءات', hint: 'يجعل الطبلونات متاحة للقرّاء لتنزيلها', danger: true },
+    'reading_assignments.review': { label: 'مراجعة القراءات الميدانية', hint: 'يقبل أو يرفض القراءات التي وصلت خارج يوم القراءة أو مع تعارض', danger: true },
     'reports.export': { label: 'تنزيل التقارير المالية', hint: 'تنزيل CSV للتقارير التي يملك عرضها فقط', danger: false },
 };
 
@@ -56,6 +63,7 @@ export const ACTION_LABELS = {
     branch_performance: 'أداء الفروع',
     debt_aging: 'أعمار الديون',
     transaction_audit: 'سجل التدقيق',
+    print_sheets: 'طباعة الكشوف الورقية',
 };
 
 /** What an everyday switch opens, in a line under its name. */
@@ -65,6 +73,7 @@ const ACTION_HINTS = {
     branch_performance: 'أرقام الفرع ومقارنته بالفروع الأخرى',
     debt_aging: 'المشتركون المدينون وكم مضى على ديونهم',
     transaction_audit: 'من عدّل أو ألغى أو حذف أي حركة، ومتى ولماذا',
+    print_sheets: 'يطبع كشوف القراءة الورقية للطبلونات المخصصة للورق',
 };
 
 function sensitiveOf(sectionKey, action) {

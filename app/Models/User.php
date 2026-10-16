@@ -213,6 +213,9 @@ class User extends Authenticatable
             'التعديلات الجماعية' => $named(SubscriptionBulkChange::class, 'user_id', 'undone_by'),
             'تغييرات الأسعار' => $named(TariffRateChange::class, 'changed_by'),
             'الرسائل' => $named(MessageBatch::class, 'created_by') + $named(SubscriptionMessage::class, 'sent_by'),
+            'قوائم القطع' => $named(DisconnectionList::class, 'created_by', 'closed_by')
+                + $named(DisconnectionListItem::class, 'added_by', 'removed_by', 'disconnected_by')
+                + $named(DisconnectionEvent::class, 'user_id'),
         ], 'يمكنك إيقاف حسابه بدلًا من حذفه.');
     }
 

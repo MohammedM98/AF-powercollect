@@ -6,6 +6,8 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchPerformanceController;
 use App\Http\Controllers\CircuitBreakerController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DisconnectionItemController;
+use App\Http\Controllers\DisconnectionListController;
 use App\Http\Controllers\GovernorateController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MessageController;
@@ -132,6 +134,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/messages/{batch}/retry', [MessageController::class, 'retry'])->name('messages.retry');
     Route::put('/messages/{batch}/messages/{message}/sent', [MessageController::class, 'markSent'])->scopeBindings()->name('messages.sent');
     Route::resource('message-templates', MessageTemplateController::class)->only(['store', 'update', 'destroy']);
+
+    Route::get('/disconnection-lists', [DisconnectionListController::class, 'index'])->name('disconnection-lists.index');
+    Route::post('/disconnection-lists', [DisconnectionListController::class, 'store'])->name('disconnection-lists.store');
+    Route::get('/disconnection-lists/{disconnectionList}', [DisconnectionListController::class, 'show'])->whereNumber('disconnectionList')->name('disconnection-lists.show');
+    Route::patch('/disconnection-lists/{disconnectionList}', [DisconnectionListController::class, 'update'])->whereNumber('disconnectionList')->name('disconnection-lists.update');
+    Route::get('/disconnection-lists/{disconnectionList}/candidates', [DisconnectionListController::class, 'candidates'])->whereNumber('disconnectionList')->name('disconnection-lists.candidates');
+    Route::post('/disconnection-lists/{disconnectionList}/items', [DisconnectionItemController::class, 'store'])->whereNumber('disconnectionList')->name('disconnection-lists.items.store');
+    Route::post('/disconnection-lists/{disconnectionList}/items/preview', [DisconnectionItemController::class, 'preview'])->whereNumber('disconnectionList')->name('disconnection-lists.items.preview');
+    Route::post('/disconnection-lists/{disconnectionList}/items/reschedule', [DisconnectionItemController::class, 'reschedule'])->whereNumber('disconnectionList')->name('disconnection-lists.items.reschedule');
+    Route::post('/disconnection-lists/{disconnectionList}/items/remove', [DisconnectionItemController::class, 'remove'])->whereNumber('disconnectionList')->name('disconnection-lists.items.remove');
+    Route::post('/disconnection-lists/{disconnectionList}/items/warn', [DisconnectionItemController::class, 'warn'])->whereNumber('disconnectionList')->middleware('throttle:20,1')->name('disconnection-lists.items.warn');
+    Route::post('/disconnection-lists/{disconnectionList}/items/confirm', [DisconnectionItemController::class, 'confirm'])->whereNumber('disconnectionList')->middleware('throttle:20,1')->name('disconnection-lists.items.confirm');
 
     Route::post('/notifications/read', [ReadNotificationController::class, 'store'])->name('notifications.read');
 });

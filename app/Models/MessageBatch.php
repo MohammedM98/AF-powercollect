@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * One send to a group of subscriptions, with a message for each of them.
  * `branch_id` is empty when a Super Admin wrote to several branches at once.
  */
-#[Fillable(['branch_id', 'kind', 'channel', 'body', 'week_start', 'created_by'])]
+#[Fillable(['branch_id', 'kind', 'channel', 'body', 'week_start', 'created_by', 'operation_id'])]
 class MessageBatch extends Model
 {
     /** @use HasFactory<MessageBatchFactory> */

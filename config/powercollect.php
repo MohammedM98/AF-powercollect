@@ -67,7 +67,22 @@ return [
     */
 
     'usual_charges' => [
-        'disconnection_fee' => (float) env('USUAL_DISCONNECTION_FEE', 50),
+        'disconnection_fee' => (float) env('USUAL_DISCONNECTION_FEE', env('DISCONNECTION_FEE', 20)),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Service Disconnection
+    |--------------------------------------------------------------------------
+    |
+    | The fee charged, as a "Service Disconnection Fee" line, when a
+    | disconnection from a disconnection list is confirmed as carried out.
+    | A subscriber given a fee of their own pays that instead (0 for none).
+    |
+    */
+
+    'disconnection' => [
+        'fee' => (float) env('DISCONNECTION_FEE', 20),
     ],
 
     /*

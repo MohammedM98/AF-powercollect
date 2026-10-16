@@ -107,6 +107,8 @@ export function subscriptionFormData(subscription, sourceSubscription = null) {
         minimum_charge: subscription?.minimum_charge != null ? Number(subscription.minimum_charge) : '',
         // Empty means the subscriber pays their tariff's price.
         kilowatt_price: subscription?.kilowatt_price != null ? Number(subscription.kilowatt_price) : '',
+        // Empty means the company's usual disconnection fee.
+        disconnection_fee: subscription?.disconnection_fee != null ? Number(subscription.disconnection_fee) : '',
         initial_reading: subscription?.initial_reading ?? '',
         subscription_fee: subscription?.subscription_fee ?? '',
         // New subscriptions, and existing ones whose fee is not on the account yet, can be charged it.
@@ -149,6 +151,8 @@ export default function SubscriptionForm({
     currentBranchAreaId,
     canEditMinimumCharge,
     canEditKilowattPrice = false,
+    canEditDisconnectionFee = false,
+    usualDisconnectionFee = null,
     sharedPersonalDetails = false,
     isEdit = false,
     subscriptionCount = 1,
@@ -471,6 +475,27 @@ export default function SubscriptionForm({
                         icon="alert"
                     />
                 </div>
+
+                {canEditDisconnectionFee && (
+                    <FormField
+                        id="disconnection_fee"
+                        label="رسوم القطع"
+                        error={errors.disconnection_fee}
+                        hint={data.disconnection_fee === '' ? `فارغ = الرسوم المعتادة (${formatAmount(usualDisconnectionFee)} شيكل). تُحمَّل عند تأكيد القطع فقط.` : 'رسوم خاصة بهذا المشترك؛ 0 يعفيه منها. تُحمَّل عند تأكيد القطع فقط.'}
+                    >
+                        <Affix unit="شيكل">
+                            <TextInput
+                                type="number"
+                                step="0.01"
+                                min={0}
+                                placeholder={usualDisconnectionFee ? formatAmount(usualDisconnectionFee) : undefined}
+                                value={data.disconnection_fee}
+                                onChange={(e) => setData('disconnection_fee', e.target.value)}
+                                className="block w-full"
+                            />
+                        </Affix>
+                    </FormField>
+                )}
 
                 <FormField id="circuit_breaker_id" label="القاطع" error={errors.circuit_breaker_id} span="sm:col-span-2">
                     <SearchableSelect

@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
+use App\Models\DisconnectionList;
 use App\Models\Governorate;
 use App\Models\MessageBatch;
 use App\Models\MeterBox;
@@ -88,6 +89,7 @@ class HandleInertiaRequests extends Middleware
                 'viewMeterReadings' => $user->can('viewAny', MeterReading::class),
                 'viewMessages' => $user->can('viewAny', MessageBatch::class),
                 'sendMessages' => $user->can('create', MessageBatch::class),
+                'viewDisconnections' => $user->can('viewAny', DisconnectionList::class),
                 'viewGovernorates' => $user->can('viewAny', Governorate::class) || $user->can('viewAny', SubArea::class),
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manageAny', ReadingEntrySetting::class),

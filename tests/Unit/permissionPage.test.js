@@ -47,13 +47,15 @@ test('summary clearly limits its count to editable grants and identifies preserv
     assert.doesNotMatch(html, /%/);
 });
 
-test('full review names every removed and added action, including its deletion consequences', () => {
+test('full review names every removed and added action by section, with its consequences and risk', () => {
     const changes = individualChanges([payments], [1, 2], [1, 3]);
     const html = renderToStaticMarkup(createElement(PermissionChangeReview, { employee, changes }));
     assert.match(html, /إضافة دفعة/);
     assert.match(html, /الحذف النهائي للحركة/);
-    assert.match(html, /ممنوح ← سيُلغى/);
-    assert.match(html, /غير ممنوح ← سيُمنح/);
+    assert.match(html, /الدفعات والحركات المالية/);
+    assert.match(html, /سيُلغى/);
+    assert.match(html, /سيُمنح/);
+    assert.match(html, /خطير/);
     assert.match(html, /لا يحذف القراءة/);
     assert.match(html, /جميع تغييرات الصلاحيات/);
 });

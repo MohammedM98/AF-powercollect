@@ -48,9 +48,8 @@ class CashBoxEntriesTest extends TestCase
         $transfer = $this->entry($branch, $collector, '250', 'bank_transfer');
         $this->entry($branch, User::factory()->collector()->for($branch)->create(), '999');
 
-        $this->actingAs($collector)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('Payments/Entries')
-            ->where('scope', 'own')
+        $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Payments/Summary')
             ->where('entries.total', 2)
             ->where('counts', ['all' => 2, 'cash' => 1, 'bank_transfer' => 1, 'clearing' => 0])
             ->where('entries.data.1.id', $cash->id)
@@ -60,7 +59,7 @@ class CashBoxEntriesTest extends TestCase
             ->where('entries.data.1.ledger.description', 'دفعة نقدية')
             ->where('entries.data.1.ledger.recordedByName', 'سامي'));
 
-        $this->get(route('payments.entries', ['filter' => ['type' => 'bank_transfer']]))->assertInertia(fn (AssertableInertia $page) => $page
+        $this->get(route('payments.summary', ['filter' => ['type' => 'bank_transfer']]))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('entries.total', 1)
             ->where('entries.data.0.id', $transfer->id)
             ->where('entries.data.0.box.number', $transfer->box->number)
@@ -76,9 +75,8 @@ class CashBoxEntriesTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector);
 
-        $this->actingAs($head)->get(route('payments.entries', ['search' => $entry->box->number]))->assertInertia(fn (AssertableInertia $page) => $page
+        $this->actingAs($head)->get(route('payments.cash-boxes.entries', ['search' => $entry->box->number]))->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Payments/Entries')
-            ->where('scope', 'branch')
             ->where('entries.total', 1)
             ->where('entries.data.0.collector', 'سامي')
             ->where('entries.data.0.ledger.recordedByName', 'سامي')
@@ -92,12 +90,11 @@ class CashBoxEntriesTest extends TestCase
         $staffEntry = $this->entry($branch, $collector);
         $ownEntry = $this->entry($branch, $head, '40');
 
-        $this->actingAs($head)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('scope', 'branch')
+        $this->actingAs($head)->get(route('payments.cash-boxes.entries'))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('entries.total', 2)
             ->where('people', [['id' => $head->id, 'name' => $head->name], ['id' => $collector->id, 'name' => 'سامي']]));
 
-        $this->get(route('payments.entries', ['filter' => ['user' => $head->id]]))->assertInertia(fn (AssertableInertia $page) => $page
+        $this->get(route('payments.cash-boxes.entries', ['filter' => ['user' => $head->id]]))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('entries.total', 1)
             ->where('entries.data.0.id', $ownEntry->id)
             ->where('filters.filter.user', (string) $head->id));
@@ -116,14 +113,34 @@ class CashBoxEntriesTest extends TestCase
             ->where('boxes.0.payments.0.ledger.recordedByName', 'سامي'));
     }
 
-    public function test_each_entries_page_stays_closed_to_those_without_its_access(): void
+    public function test_the_old_entries_page_sends_each_person_to_where_their_open_entries_now_are(): void
     {
         [$branch, $head, $collector] = $this->start();
         $staff = User::factory()->accountant()->for($branch)->create();
+        $asked = ['search' => '12', 'filter' => ['type' => 'cash']];
 
-        $this->actingAs($collector)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page->where('scope', 'own'));
-        $this->actingAs($staff)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page->where('scope', 'own'));
-        $this->actingAs(User::factory()->dataEntry()->for($branch)->create())->get(route('payments.entries'))->assertForbidden();
+        $this->actingAs($collector)->get(route('payments.entries', $asked))->assertRedirect(route('payments.summary', $asked));
+        $this->actingAs($collector)->get(route('payments.cash-boxes.entries', $asked))->assertRedirect(route('payments.summary', $asked));
+        $this->actingAs($staff)->get(route('payments.entries'))->assertRedirect(route('payments.summary'));
+        $this->actingAs($head)->get(route('payments.entries', ['branch_id' => $branch->id, ...$asked]))->assertRedirect(route('payments.cash-boxes.entries', ['branch_id' => $branch->id, ...$asked]));
+        $this->actingAs(User::factory()->dataEntry()->for($branch)->create())->followingRedirects()->get(route('payments.entries'))->assertForbidden();
+    }
+
+    public function test_the_financial_boxes_page_and_its_open_entries_tab_count_each_other(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $this->entry($branch, $collector, '100');
+        $this->entry($branch, $collector, '250', 'bank_transfer');
+        $this->entry($branch, $collector, '40');
+        $tabs = [
+            ['key' => 'boxes', 'label' => 'الصناديق', 'count' => 2, 'url' => route('payments.cash-boxes')],
+            ['key' => 'entries', 'label' => 'الحركات المفتوحة', 'count' => 3, 'url' => route('payments.cash-boxes.entries')],
+        ];
+
+        $this->actingAs($head)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->component('Payments/BranchCashBoxes')->where('tabs', $tabs));
+        $this->get(route('payments.cash-boxes.entries', ['filter' => ['type' => 'bank_transfer']]))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('tabs', $tabs)
+            ->where('entries.total', 1));
     }
 
     public function test_entries_of_closed_boxes_are_left_to_their_box_for_the_collector_and_the_branch(): void
@@ -133,11 +150,11 @@ class CashBoxEntriesTest extends TestCase
         $this->actingAs($head)->post(route('closings.actions', ['action' => 'receive', 'record' => $closed->cash_box_id]), ['branch_id' => $branch->id, 'cash_counted' => true])->assertSessionHasNoErrors();
         $open = $this->entry($branch, $collector, '40');
 
-        $this->actingAs($collector)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page
+        $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('entries.total', 1)
             ->where('entries.data.0.id', $open->id)
             ->where('counts.all', 1));
-        $this->actingAs($head)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page
+        $this->actingAs($head)->get(route('payments.cash-boxes.entries'))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('entries.total', 1)
             ->where('entries.data.0.id', $open->id));
     }
@@ -150,7 +167,7 @@ class CashBoxEntriesTest extends TestCase
         $second = $this->entry($branch, $other, '60');
         $transfer = $this->entry($branch, $collector, '250', 'bank_transfer');
 
-        $this->actingAs($head)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page
+        $this->actingAs($head)->get(route('payments.cash-boxes.entries'))->assertInertia(fn (AssertableInertia $page) => $page
             ->has('closableBoxes', 3)
             ->where('closableBoxes.0.id', $first->cash_box_id)
             ->where('closableBoxes.0.person', 'سامي')
@@ -198,11 +215,11 @@ class CashBoxEntriesTest extends TestCase
         $data = ['branch_id' => $branch->id, 'type' => 'cash', 'box_ids' => [$entry->cash_box_id], 'cash_counted' => true];
         $this->actingAs($collector)->post(route('closings.actions', ['action' => 'receive-type']), $data)->assertForbidden();
         $this->actingAs($staff)->post(route('closings.actions', ['action' => 'receive-type']), $data)->assertForbidden();
-        $this->actingAs($collector)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page->missing('closableBoxes'));
+        $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page->missing('closableBoxes'));
 
         $closer = User::factory()->collector()->for($branch)->create();
         $closer->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::CloseCashBoxes]));
-        $this->actingAs($closer)->get(route('payments.entries'))->assertInertia(fn (AssertableInertia $page) => $page->has('closableBoxes', 1));
+        $this->actingAs($closer)->get(route('payments.cash-boxes.entries'))->assertInertia(fn (AssertableInertia $page) => $page->has('closableBoxes', 1));
         $this->post(route('closings.actions', ['action' => 'receive-type']), $data)->assertSessionHasNoErrors();
 
         $this->assertSame('received', CashBox::query()->findOrFail($entry->cash_box_id)->status);

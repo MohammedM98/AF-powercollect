@@ -9,6 +9,7 @@ import { formatMoney } from '@/lib/format';
 import { boxPersonName, financialBoxesTotals, filterFinancialBoxes, sortFinancialBoxes } from '@/lib/financialBoxes';
 import BoxDetails from '../Closings/BoxDetails';
 import { periodLabel, periodRange } from '../Closings/ClosingComponents';
+import BoxTabs from './BoxTabs';
 import StatusGuide from './StatusGuide';
 import FinancialBoxList from './FinancialBoxList';
 import { boxTypes, boxTypeStyles, currencies } from './CollectorCashBox';
@@ -23,8 +24,8 @@ function savedPreference(key, fallback, allowed) {
     }
 }
 
-/** The branch's financial boxes, in the site's table (whose box each is in its own column) or as cards. */
-export default function BranchCashBoxes({ branch, branches, started, boxes, closings, access, pendingCount, urls }) {
+/** The branch's financial boxes, in the site's table (whose box each is in its own column) or as cards; a tab beside the title opens the entries of its open boxes. */
+export default function BranchCashBoxes({ branch, branches, started, tabs, boxes, closings, access, pendingCount, urls }) {
     const { errors } = usePage().props;
     const pending = boxes.filter((box) => box.status === 'pending');
     const [chosenStatus, setStatus] = useState(pending.length ? 'pending' : 'all');
@@ -74,7 +75,7 @@ export default function BranchCashBoxes({ branch, branches, started, boxes, clos
         { key: 'rejected', icon: 'alert', label: 'الحركات المرفوضة', count: rejected.length, hint: rejected.length ? `في ${new Set(rejected.map((entry) => entry.box.id)).size} صناديق` : 'لا حركات مرفوضة', tone: 'bg-brand-500/10 text-brand-600' },
     ];
 
-    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-gray-500">{branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : branch.name}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">الصناديق المالية</h2></div>{currentClosing && <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-surface px-3 py-1.5 text-sm text-gray-600"><Icon name="calendar" className="h-4 w-4" />{periodRange(currentClosing)}</span>}</div>}>
+    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-gray-500">{branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : branch.name}</p><div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2"><h2 className="text-3xl font-bold text-gray-900">الصناديق المالية</h2><BoxTabs tabs={tabs} current="boxes" /></div></div>{currentClosing && <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-surface px-3 py-1.5 text-sm text-gray-600"><Icon name="calendar" className="h-4 w-4" />{periodRange(currentClosing)}</span>}</div>}>
         <Head title="الصناديق المالية" />
         {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. {access.manage ? <>ابدأه من <Link href={urls.reconciliation} className="font-semibold text-brand-600">صفحة الإغلاقات والكشوفات</Link>.</> : 'يُفعّله مسؤول الفرع من صفحة الإغلاقات والكشوفات.'}</p> : <div className="financial-boxes financial-surface space-y-5">
             {errors?.action && <p role="alert" className="rounded-control bg-red-500/10 p-4 text-sm text-red-700">{errors.action}</p>}

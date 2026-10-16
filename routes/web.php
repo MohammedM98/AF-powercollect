@@ -67,7 +67,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/summary', [PaymentController::class, 'summary'])->name('payments.summary');
     Route::get('/payments/cash-boxes', [PaymentController::class, 'cashBoxes'])->name('payments.cash-boxes');
-    Route::get('/payments/entries', [PaymentController::class, 'entries'])->name('payments.entries');
+    Route::get('/payments/cash-boxes/entries', [PaymentController::class, 'entries'])->name('payments.cash-boxes.entries');
+    Route::get('/payments/entries', [PaymentController::class, 'movedEntries'])->name('payments.entries');
     Route::get('/payments/cash-boxes/{cashBox}', [PaymentController::class, 'showCashBox'])->whereNumber('cashBox')->name('payments.cash-boxes.show');
     Route::post('/payments/audit-notes/{auditNote}/reply', [PaymentController::class, 'replyToAuditNote'])->whereNumber('auditNote')->name('payments.audit-notes.reply');
     Route::get('/reconciliation', [BranchClosingController::class, 'index'])->name('closings.index');

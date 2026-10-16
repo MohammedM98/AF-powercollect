@@ -1,16 +1,14 @@
 import { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import KpiTile from '@/Components/KpiTile';
 import PrimaryButton from '@/Components/PrimaryButton';
-import SegmentedTabs from '@/Components/SegmentedTabs';
+import { useDataTable } from '@/hooks/useDataTable';
 import { formatMoney } from '@/lib/format';
 import {
     boxTypes,
-    boxTypeStyles,
     BoxCard,
-    BoxEntriesTable,
     BoxStage,
     BoxTypeIcon,
     CashBoxAction,
@@ -19,6 +17,7 @@ import {
     boxAction,
     actionLabel,
 } from './CollectorCashBox';
+import OpenEntriesTable from './OpenEntriesTable';
 
 /** What the user collected today, in one wide card at the top of the page: the total, and how much in cash and by transfer. */
 function TodaysSummary({ today }) {
@@ -95,53 +94,28 @@ function TodaysPayments({ today }) {
 }
 
 /**
- * The entries of the open box picked on the cards or the tabs, newest
- * first, so the collector sees every payment, transfer and clearing they
- * recorded since it opened.
- */
-function OpenBoxEntries({ current, openBox, onSelect, pagination }) {
-    const box = current[openBox.type];
-
-    return (
-        <section aria-labelledby="open-box-entries" className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                    <BoxTypeIcon type={openBox.type} className="h-10 w-10" />
-                    <div>
-                        <h3 id="open-box-entries" className="text-lg font-bold text-gray-900">حركات {boxTypes[openBox.type]} المفتوح</h3>
-                        <p className="text-xs text-gray-500">
-                            {box ? <>صندوق رقم <bdi dir="ltr" className="font-display">{box.number}</bdi> · {box.paymentCount} حركات · الإجمالي <bdi dir="ltr" className="font-display">{formatMoney(box.totals?.ILS ?? 0)}</bdi> شيكل</> : 'لا يوجد صندوق مفتوح من هذا النوع الآن.'}
-                        </p>
-                    </div>
-                </div>
-                <SegmentedTabs
-                    label="نوع الصندوق المفتوح"
-                    value={openBox.type}
-                    onChange={onSelect}
-                    options={Object.entries(boxTypeStyles).map(([value, style]) => ({ value, label: `${style.label}${current[value] ? ` (${current[value].paymentCount})` : ''}` }))}
-                />
-            </div>
-            {openBox.entries ? (
-                <BoxEntriesTable type={openBox.type} boxNumber={box?.number} entries={openBox.entries} pagination={pagination} />
-            ) : (
-                <p className="rounded-panel border border-dashed border-gray-200 bg-surface px-5 py-8 text-center text-sm text-gray-500">يُفتح الصندوق تلقائيًا عند تسجيل أول حركة من هذا النوع، وتظهر حركاته هنا.</p>
-            )}
-        </section>
-    );
-}
-
-/**
  * The collector's summary: what they collected today, what waits on them
  * (entries the branch sent back, a handover to confirm, audit notes,
- * debts), the boxes open now with every entry in them, and their latest
- * payments today with receipts.
+ * debts), the boxes open now, every entry in them in one table, searched
+ * and narrowed to one type of box (a box's card picks its type), and their
+ * latest payments today with receipts.
  */
-export default function Summary({ today, cashBox, current, openBox, needsAction, pendingCount, collectionUrls }) {
+export default function Summary({ today, cashBox, current, entries, filters, counts, needsAction, pendingCount, collectionUrls }) {
     const [selected, setSelected] = useState(null);
     const [saved, setSaved] = useState(null);
+    const table = useDataTable(collectionUrls.summary, filters);
+    const shownType = table.filterValues.type ?? '';
 
-    function showOpenBox(type) {
-        router.get(collectionUrls.summary, { open: type }, { preserveState: true, preserveScroll: true, replace: true, only: ['openBox'] });
+    /** Shows only the entries of one type of box in the table below, or every entry again when that type is already shown. */
+    function showBoxType(type) {
+        if (shownType === type) {
+            table.setFilter('type', '');
+            return;
+        }
+
+        table.setFilter('type', type);
+        const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        document.getElementById('open-entries')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
     }
 
     return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<div><p className="text-sm font-semibold text-gray-500">{cashBox.branchName ?? 'حسابك الحالي'}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">ملخص التحصيل</h2></div>}>
@@ -162,16 +136,17 @@ export default function Summary({ today, cashBox, current, openBox, needsAction,
                     <p className="text-xs text-gray-500">لكل نوع صندوق خاص به؛ يراجعه الفرع ويؤكد إغلاقه، أو يُغلق عند القطع الأسبوعي.</p>
                 </div>
                 <div className="grid gap-4 lg:grid-cols-3">
-                    {Object.keys(boxTypes).map((type) => <BoxCard key={type} type={type} box={current[type]} selected={openBox.type === type && Boolean(current[type])} onSelect={() => showOpenBox(type)} />)}
+                    {Object.keys(boxTypes).map((type) => <BoxCard key={type} type={type} box={current[type]} selected={shownType === type && Boolean(current[type])} onSelect={() => showBoxType(type)} />)}
                 </div>
             </section>
 
-            <OpenBoxEntries
-                current={current}
-                openBox={openBox}
-                onSelect={showOpenBox}
-                pagination={{ filters: { open: openBox.type }, baseUrl: collectionUrls.summary, pageParam: 'entries_page' }}
-            />
+            <section id="open-entries" aria-labelledby="open-entries-title" className="scroll-mt-24 space-y-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 id="open-entries-title" className="text-lg font-bold text-gray-900">حركاتي المفتوحة</h3>
+                    <p className="text-xs text-gray-500">كل ما سجّلته في صناديقك المفتوحة؛ حركات الصناديق المغلقة تجدها داخل <Link href={collectionUrls.cashBoxes} className="font-semibold text-brand-600 hover:underline">كل صندوق</Link>.</p>
+                </div>
+                <OpenEntriesTable table={table} entries={entries} filters={filters} counts={counts} url={collectionUrls.summary} label="حركاتي المفتوحة" />
+            </section>
         </div> : <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">{cashBox.branchName ? 'لم يُفعّل نظام الصناديق في فرعك بعد. يُفعّله مسؤول الفرع من صفحة الإغلاقات والكشوفات.' : 'حسابك غير مرتبط بفرع، لذلك لا يوجد سجل صناديق شخصي.'}</p>}
         <TodaysPayments today={today} />
         {selected && <CashBoxAction key={`${selected.box.id}-${selected.action}`} {...selected} onClose={() => setSelected(null)} onSuccess={() => setSaved('تم تأكيد التسليم.')} />}

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import { router } from '@inertiajs/react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
+import LastReadingConfirmDialog from '@/Components/LastReadingConfirmDialog';
 import Icon from '@/Components/Icon';
 import Modal from '@/Components/Modal';
 import { downloadCsv } from '@/lib/csv';
@@ -104,7 +105,8 @@ function HistoryChart({ readings, average }) {
  * The subscription's last reading — the one the latest week starts from — with a pencil that
  * opens it with − and + to correct it in place, as on the readings sheet (useLastReadingEdit).
  * `nextReading` is the latest week's reading once entered: it is recalculated from this one,
- * so it bounds it, and an approved one of the two first asks "are you sure?".
+ * so it bounds it, and an approved one of the two first shows what the edit does and asks
+ * "are you sure?"; confirmed, the approved one(s) are approved again at once.
  */
 function LastReadingField({ subscription, lastReading, nextReading }) {
     const editor = useLastReadingEdit({
@@ -116,7 +118,7 @@ function LastReadingField({ subscription, lastReading, nextReading }) {
     });
 
     return <>
-        <ConfirmDialog show={editor.confirming} onConfirm={editor.confirm} onCancel={editor.cancel} title="تعديل القراءة السابقة؟" message={`تعديل القراءة السابقة لـ ${subscription.display_name} يعيد حساب قراءة الأسبوع الذي يليها منها. القراءة المعتمدة منهما تعود إلى قيد المراجعة ويُزال مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`} confirmLabel="نعم، عدّل" cancelLabel="تراجع عن التعديل" icon="alert" />
+        <LastReadingConfirmDialog show={editor.confirming} preview={editor.preview} subscriptionName={subscription.display_name} saving={editor.saving} onConfirm={editor.confirm} onCancel={editor.cancel} />
         {editor.editing ? <div className="rh-stepper" dir="ltr">
             <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => editor.step(-1)} disabled={!editor.canStepDown} aria-label="إنقاص القراءة السابقة">−</button>
             <input {...editor.inputProps} aria-label="القراءة السابقة" />

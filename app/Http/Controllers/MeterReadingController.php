@@ -8,6 +8,7 @@ use App\Enums\ReadingEntryMode;
 use App\Enums\SubscriptionStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\ApproveMeterReadingsRequest;
+use App\Http\Requests\PreviewLastReadingRequest;
 use App\Http\Requests\StoreMeterReadingRequest;
 use App\Http\Requests\UpdateMeterReadingRequest;
 use App\Models\Area;
@@ -24,11 +25,13 @@ use App\Notifications\ActionCompleted;
 use App\Notifications\ReadingNeedsReapproval;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -166,30 +169,48 @@ class MeterReadingController extends Controller
      * the week following it was entered carries that week along: it starts
      * from the corrected reading and is recalculated, going back to review
      * if it was approved.
+     *
+     * Edited as the last reading (`as_last_reading`, its pencil) by whoever
+     * may, the edit is confirmed at once: each of the two weeks that was
+     * approved is approved again by them, the corrected week before the week
+     * after it, so the new charges follow each other on the statement in
+     * week order and nothing waits for a second approval. A week the edit
+     * makes unusual needs `confirm_unusual`; without it nothing is saved.
      */
     public function update(UpdateMeterReadingRequest $request, MeterReading $meterReading): RedirectResponse
     {
         $actor = $request->user();
         $nextReading = $request->nextReading();
-        [$wentBackToReview, $approvedAgain, $nextWentBackToReview] = DB::transaction(function () use ($request, $meterReading, $nextReading, $actor): array {
+        $confirmedAtOnce = $request->boolean('as_last_reading') && $actor->can('updateAsLastReading', $meterReading);
+        [$wentBackToReview, $approvedAgain, $nextWentBackToReview, $nextApprovedAgain] = DB::transaction(function () use ($request, $meterReading, $nextReading, $actor, $confirmedAtOnce): array {
             $wentBackToReview = $meterReading->correct(
                 $request->float('current_reading'),
                 $request->has('notes') ? $request->input('notes') : $meterReading->notes,
                 $actor,
             );
             $nextWentBackToReview = $nextReading?->startFrom($meterReading->current_reading, $actor) ?? false;
+
+            if ($confirmedAtOnce) {
+                return [
+                    $wentBackToReview,
+                    $wentBackToReview && $this->approveCorrectedLastReading($meterReading, $actor, $request->boolean('confirm_unusual')),
+                    $nextWentBackToReview,
+                    $nextWentBackToReview && $this->approveCorrectedLastReading($nextReading, $actor, $request->boolean('confirm_unusual')),
+                ];
+            }
+
             // A corrected reading that is now unusual waits for review unless the corrector confirms it.
             $approvedAgain = $wentBackToReview
                 && $request->boolean('approve')
                 && $actor->can('approve', $meterReading)
                 && $meterReading->approve($actor, $request->boolean('confirm_unusual'));
 
-            return [$wentBackToReview, $approvedAgain, $nextWentBackToReview];
+            return [$wentBackToReview, $approvedAgain, $nextWentBackToReview, false];
         });
 
         $actor->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscription->displayName()));
 
-        if (($wentBackToReview && ! $approvedAgain) || $nextWentBackToReview) {
+        if (($wentBackToReview && ! $approvedAgain) || ($nextWentBackToReview && ! $nextApprovedAgain)) {
             Notification::send(
                 $meterReading->approvers()->reject(fn (User $approver) => $approver->is($actor)),
                 new ReadingNeedsReapproval($meterReading->subscription->displayName(), $actor->name),
@@ -197,11 +218,84 @@ class MeterReadingController extends Controller
         }
 
         return back()->with('status', match (true) {
+            $confirmedAtOnce && ($approvedAgain || $nextApprovedAgain) => 'meter-reading-last-corrected-approved',
             $approvedAgain && ! $nextWentBackToReview => 'meter-reading-corrected-approved',
             $wentBackToReview || $nextWentBackToReview => 'meter-reading-reopened',
             $nextReading !== null => 'meter-reading-last-updated',
             default => 'meter-reading-updated',
         });
+    }
+
+    /**
+     * Approve again a week sent back to review by editing the last reading,
+     * as part of confirming that edit. A week the edit made unusual is held
+     * until the editor confirms it, and then nothing of the edit is saved.
+     *
+     * @throws ValidationException when the week is unusual and not confirmed
+     */
+    private function approveCorrectedLastReading(MeterReading $reading, User $actor, bool $confirmUnusual): bool
+    {
+        if (! $reading->approve($actor, $confirmUnusual)) {
+            throw ValidationException::withMessages([
+                'confirm_unusual' => 'استهلاك أسبوع '.$reading->week_start->format('d/m').' بعد التعديل ('.rtrim(rtrim(number_format((float) $reading->consumption, 2, '.', ''), '0'), '.').' كيلو) أعلى بكثير من المعتاد؛ أكّد أنه صحيح ليُعتمد.',
+            ]);
+        }
+
+        return true;
+    }
+
+    /**
+     * What editing a last reading to `current_reading` would do, shown
+     * before the edit is confirmed: for its week and, once entered, the week
+     * after it that starts from it, the readings, consumption and amount due
+     * before and after, whether the week is approved (and so approved again
+     * at once on confirming) and whether the edit makes it unusual.
+     */
+    public function previewLastReading(PreviewLastReadingRequest $request, MeterReading $meterReading): JsonResponse
+    {
+        $newReading = $request->float('current_reading');
+        $nextReading = $request->nextReading();
+        $corrected = $meterReading->recalculatedBetween($meterReading->previous_reading, $newReading);
+        $weeks = [$this->previewedWeek($meterReading, $meterReading->previous_reading, $newReading, $corrected)];
+
+        if ($nextReading !== null) {
+            $weeks[] = $this->previewedWeek($nextReading, $newReading, $nextReading->current_reading, $nextReading->recalculatedBetween(
+                $newReading,
+                $nextReading->current_reading,
+                [$meterReading->id => $corrected['consumption']],
+            ));
+        }
+
+        return response()->json(['weeks' => $weeks]);
+    }
+
+    /**
+     * One week of the last reading's preview.
+     *
+     * @param  array{consumption: float, amount_due: string, unusual: bool}  $after
+     * @return array{id: int, weekStart: string, weekEnd: ?string, isApproved: bool, unusual: bool, before: array<string, float|string>, after: array<string, float|string>}
+     */
+    private function previewedWeek(MeterReading $reading, float $previousReading, float $currentReading, array $after): array
+    {
+        return [
+            'id' => $reading->id,
+            'weekStart' => $reading->week_start->toDateString(),
+            'weekEnd' => $reading->week_end?->toDateString(),
+            'isApproved' => ! $reading->isPending(),
+            'unusual' => $after['unusual'],
+            'before' => [
+                'previousReading' => $reading->previous_reading,
+                'currentReading' => $reading->current_reading,
+                'consumption' => (float) $reading->consumption,
+                'amountDue' => $reading->amount_due,
+            ],
+            'after' => [
+                'previousReading' => $previousReading,
+                'currentReading' => $currentReading,
+                'consumption' => $after['consumption'],
+                'amountDue' => $after['amount_due'],
+            ],
+        ];
     }
 
     /**

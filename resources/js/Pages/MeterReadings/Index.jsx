@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import { notify } from '@/lib/notify';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import ConfirmDialog from '@/Components/ConfirmDialog';
+import LastReadingConfirmDialog from '@/Components/LastReadingConfirmDialog';
 import Icon from '@/Components/Icon';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
@@ -94,7 +95,8 @@ function focusReadingInput(currentInput, step = 1) {
  * week's reading, while no later week is entered), its pencil opens it in
  * place with − and + like the week's own reading (useLastReadingEdit). The
  * week's own reading, if entered, is recalculated from it, so an approved
- * one of the two first asks "are you sure?".
+ * one of the two first shows what the edit does to both and asks "are you
+ * sure?"; confirmed, the approved one(s) are approved again at once.
  */
 function LastReadingCell({ row }) {
     const lastReading = row.lastReading;
@@ -108,16 +110,7 @@ function LastReadingCell({ row }) {
 
     return (
         <td className="re-last re-number">
-            <ConfirmDialog
-                show={editor.confirming}
-                onConfirm={editor.confirm}
-                onCancel={editor.cancel}
-                title="تعديل القراءة السابقة؟"
-                message={`تعديل القراءة السابقة لـ ${row.fullName} يعيد حساب قراءة هذا الأسبوع منها. القراءة المعتمدة منهما تعود إلى قيد المراجعة ويُزال مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`}
-                confirmLabel="نعم، عدّل"
-                cancelLabel="تراجع عن التعديل"
-                icon="alert"
-            />
+            <LastReadingConfirmDialog show={editor.confirming} preview={editor.preview} subscriptionName={row.fullName} saving={editor.saving} onConfirm={editor.confirm} onCancel={editor.cancel} />
             {editor.editing ? (
                 <div className="re-input" dir="ltr">
                     <button type="button" tabIndex={-1} className="re-step" aria-label={`إنقاص القراءة السابقة لـ ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => editor.step(-1)} disabled={!editor.canStepDown}>−</button>

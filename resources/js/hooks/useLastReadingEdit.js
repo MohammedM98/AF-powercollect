@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { router } from '@inertiajs/react';
+import { router, useHttp } from '@inertiajs/react';
 import { steppedReading } from '@/lib/readings';
 
 /**
@@ -10,11 +10,13 @@ import { steppedReading } from '@/lib/readings';
  * of the week after it (`ceiling`, once that week is entered). Enter or
  * leaving the field saves it, Escape puts it back. The week after it is
  * recalculated from it, so when `needsConfirmation` (either reading is
- * approved) saving waits on "are you sure?" (`confirming`, then `confirm()`
- * or `cancel()`).
+ * approved) saving first loads what the edit does to both weeks (`preview`,
+ * worked out by the server) and waits on "are you sure?" (`confirming`, then
+ * `confirm({ confirmUnusual })` or `cancel()`). Confirmed, the edit is saved
+ * and the approved week(s) approved again at once (`as_last_reading`).
  *
- * Returns the state (`editing`, `value`, `error`, `saving`, `confirming`),
- * the actions, and `inputProps` to spread on the field.
+ * Returns the state (`editing`, `value`, `error`, `saving`, `confirming`,
+ * `preview`), the actions, and `inputProps` to spread on the field.
  */
 export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = null, needsConfirmation = false }) {
     const saved = String(savedValue);
@@ -23,6 +25,8 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const [confirming, setConfirming] = useState(false);
+    const [preview, setPreview] = useState(null);
+    const previewRequest = useHttp({ current_reading: '' });
     // Set while a save is on its way, and once the field is left with Escape: its blur then saves nothing.
     const busy = useRef(false);
     const inputRef = useRef(null);
@@ -38,8 +42,31 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
         busy.current = true;
         setEditing(false);
         setConfirming(false);
+        setPreview(null);
         setError(null);
         setValue(saved);
+    }
+
+    /** Loads what the edit would do to both weeks, then asks "are you sure?" with it. */
+    function askToConfirm() {
+        busy.current = true;
+        setSaving(true);
+        previewRequest.transform(() => ({ current_reading: value }));
+        previewRequest
+            .post(`/meter-readings/${readingId}/last-reading-preview`, {
+                onError: (errors) => setError(errors.current_reading ?? Object.values(errors)[0] ?? 'تعذّر حساب التعديل.'),
+            })
+            .then((loaded) => {
+                if (loaded) {
+                    setPreview(loaded);
+                    setConfirming(true);
+                }
+            })
+            .catch(() => setError('تعذّر حساب التعديل؛ حاول مرة أخرى.'))
+            .finally(() => {
+                busy.current = false;
+                setSaving(false);
+            });
     }
 
     function step(direction) {
@@ -48,7 +75,7 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
         inputRef.current?.focus();
     }
 
-    function save({ confirmed = false } = {}) {
+    function save({ confirmed = false, confirmUnusual = false } = {}) {
         if (busy.current) {
             return;
         }
@@ -59,22 +86,25 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
         }
 
         if (needsConfirmation && !confirmed) {
-            setConfirming(true);
+            askToConfirm();
             return;
         }
 
         busy.current = true;
-        router.put(`/meter-readings/${readingId}`, { current_reading: value }, {
+        router.put(`/meter-readings/${readingId}`, { current_reading: value, as_last_reading: true, confirm_unusual: confirmUnusual }, {
             preserveScroll: true,
             preserveState: true,
             onStart: () => setSaving(true),
             onFinish: () => setSaving(false),
             onSuccess: () => {
                 setEditing(false);
+                setConfirming(false);
+                setPreview(null);
                 setError(null);
             },
             onError: (errors) => {
                 busy.current = false;
+                setConfirming(false);
                 setError(Object.values(errors)[0] ?? 'تعذّر حفظ القراءة السابقة.');
             },
         });
@@ -126,13 +156,11 @@ export function useLastReadingEdit({ readingId, savedValue, floor, ceiling = nul
         error,
         saving,
         confirming,
+        preview,
         open,
         close,
         step,
-        confirm: () => {
-            setConfirming(false);
-            save({ confirmed: true });
-        },
+        confirm: ({ confirmUnusual = false } = {}) => save({ confirmed: true, confirmUnusual }),
         cancel: close,
         canStepDown: !saving && value !== '' && Number(value) > Number(floor),
         canStepUp: !saving && (ceiling === null || value === '' || Number(value) < Number(ceiling)),

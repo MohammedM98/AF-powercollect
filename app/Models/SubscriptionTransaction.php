@@ -69,6 +69,7 @@ use Illuminate\Validation\ValidationException;
     'discount_method',
     'discount_value',
     'discount_base',
+    'billed_consumption',
     'notes',
     'cancelled_at',
     'cancelled_by',
@@ -167,6 +168,7 @@ class SubscriptionTransaction extends Model
             'discount_method' => DiscountMethod::class,
             'discount_value' => 'decimal:2',
             'discount_base' => 'decimal:2',
+            'billed_consumption' => 'decimal:2',
             'cancelled_at' => 'datetime',
             'cancellation_reason' => CorrectionReason::class,
         ];
@@ -1394,12 +1396,10 @@ class SubscriptionTransaction extends Model
         return match ($this->type) {
             self::TYPE_SUBSCRIPTION_FEE => 'رسوم اشتراك جديد',
             self::TYPE_METER_READING => $this->meterReading
-                ? sprintf(
-                    'قراءة أسبوعية من %s إلى %s · %s كيلو',
-                    $this->meterReading->week_start->format('Y-m-d'),
-                    $this->meterReading->week_end->format('Y-m-d'),
-                    $this->meterReading->consumption,
-                )
+                ? implode(' · ', array_filter([
+                    sprintf('قراءة أسبوعية من %s إلى %s', $this->meterReading->week_start->format('Y-m-d'), $this->meterReading->week_end->format('Y-m-d')),
+                    $this->billedConsumption() === null ? null : $this->billedConsumption().' كيلو',
+                ]))
                 : 'قراءة أسبوعية',
             self::TYPE_PAYMENT => match ($this->payment_method) {
                 PaymentMethod::Cash => 'دفعة نقدية',
@@ -1433,6 +1433,21 @@ class SubscriptionTransaction extends Model
                 : 'إرجاع دفعة',
             default => $this->typeLabel(),
         };
+    }
+
+    /**
+     * The kWh a weekly reading's charge was billed for: kept on the line
+     * when it was billed, else its reading's while the line stands. A line
+     * cancelled before that was kept no longer knows it (its reading may
+     * have been corrected since), so it says nothing rather than the new one.
+     */
+    public function billedConsumption(): ?string
+    {
+        if ($this->billed_consumption !== null) {
+            return self::formatAmount($this->billed_consumption);
+        }
+
+        return $this->isCancelled() || $this->meterReading === null ? null : self::formatAmount($this->meterReading->consumption);
     }
 
     /**

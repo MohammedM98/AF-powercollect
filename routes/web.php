@@ -118,6 +118,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/meter-boxes/{meter_box}/subscriptions', [MeterBoxSubscriptionController::class, 'index'])->name('meter-boxes.subscriptions.index');
     Route::resource('meter-readings', MeterReadingController::class)->only(['index', 'store', 'update']);
     Route::post('/meter-readings/approve', [MeterReadingController::class, 'approve'])->name('meter-readings.approve');
+    Route::post('/meter-readings/{meter_reading}/last-reading-preview', [MeterReadingController::class, 'previewLastReading'])->name('meter-readings.last-reading-preview');
     Route::resource('areas', AreaController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('sub-areas', SubAreaController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('governorates', GovernorateController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);

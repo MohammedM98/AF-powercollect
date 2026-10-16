@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hasLatestWeekReading, readingDiscount, steppedReading, weekOptionsFor, weeklyCharges } from '../../resources/js/lib/readings.js';
+import { hasLatestWeekReading, lastReadingBalanceChange, lastReadingNeedsUnusualConfirmation, readingDiscount, steppedReading, weekOptionsFor, weeklyCharges } from '../../resources/js/lib/readings.js';
 
 // The example week: 5 kilos at 30 shekels a kilo is a 150 shekel bill; the minimum is 20 a week.
 test('a week is billed consumption × kilo price, less its standing discount', () => {
@@ -86,4 +86,18 @@ test("a subscription's weeks are the ones listed for its branch", () => {
     assert.deepEqual(weekOptionsFor(null, byBranch), []);
     assert.equal(hasLatestWeekReading(subscription, weekOptionsFor(subscription, byBranch)), true);
     assert.equal(hasLatestWeekReading({ ...subscription, branch_id: 3 }, weekOptionsFor({ branch_id: 3 }, byBranch)), false);
+});
+
+test('an edited last reading changes the balance by what the billed weeks now come to', () => {
+    const lastWeek = { isApproved: true, unusual: false, before: { amountDue: '100.00' }, after: { amountDue: '80.00' } };
+    const thisWeek = { isApproved: true, unusual: false, before: { amountDue: '60.00' }, after: { amountDue: '80.10' } };
+
+    assert.equal(lastReadingBalanceChange([lastWeek, thisWeek]), 0.1);
+    assert.equal(lastReadingBalanceChange([lastWeek, { ...thisWeek, isApproved: false }]), -20);
+    assert.equal(lastReadingBalanceChange(undefined), 0);
+});
+
+test('only an approved week made unusual asks the editor to confirm it', () => {
+    assert.equal(lastReadingNeedsUnusualConfirmation([{ isApproved: true, unusual: false }, { isApproved: false, unusual: true }]), false);
+    assert.equal(lastReadingNeedsUnusualConfirmation([{ isApproved: true, unusual: false }, { isApproved: true, unusual: true }]), true);
 });

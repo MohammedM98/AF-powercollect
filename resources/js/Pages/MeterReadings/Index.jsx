@@ -250,7 +250,7 @@ function SheetRow({ row, week, approvable, selected, onToggleSelected }) {
                             )}
                         </div>
                         <p className="re-line text-xs text-gray-500">
-                            {[row.accountNumber && `حساب ${row.accountNumber}`, row.meterBoxNumber && `طبلون ${row.meterBoxNumber}`, row.subAreaName].filter(Boolean).join(' · ') || '—'}
+                            {row.accountNumber ? `حساب ${row.accountNumber}` : '—'}
                         </p>
                     </div>
                 </div>

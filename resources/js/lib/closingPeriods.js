@@ -39,30 +39,24 @@ function branchWeekStart(clock, startsOn, cutoff) {
 }
 
 /**
- * A closing period's name, by the branch weeks it covers: «الأسبوع 42»
- * for a week, «تكملة الأسبوع 42» for what was left of a week closed early,
- * and both weeks' numbers when it runs into the next, as after an early
- * close: «تكملة الأسبوع 42 والأسبوع 43».
+ * A closing period's name: the number of the branch week it closes in.
+ * A week closed early keeps its number, and the period that follows runs
+ * to the next cutoff under that next week's number, however many days it
+ * holds; its dates tell the rest. Without its weekly settings, a period is
+ * named by the week it began in.
  */
 export function periodLabel(period) {
     if (!period) {
         return '—';
     }
     const settings = period.workflow_settings ?? {};
-    if (settings.continuation) {
-        return 'تكملة الأسبوع';
-    }
     if (settings.frequency === 'daily') {
         return branchDate(period.coverage_from);
     }
-    const from = wallClock(period.coverage_from);
     if (settings.week_starts_on === undefined || !settings.cutoff_time || !period.coverage_until) {
-        return `الأسبوع ${isoWeek(from)}`;
+        return `الأسبوع ${isoWeek(wallClock(period.coverage_from))}`;
     }
-    const first = branchWeekStart(from, Number(settings.week_starts_on), settings.cutoff_time);
-    const last = branchWeekStart(wallClock(new Date(period.coverage_until).getTime() - 1000), Number(settings.week_starts_on), settings.cutoff_time);
-    const [start, end] = [isoWeek(first), isoWeek(last)];
-    const weeks = start === end ? `الأسبوع ${start}` : end === start + 1 ? `الأسبوع ${start} والأسبوع ${end}` : `الأسبوع ${start} حتى الأسبوع ${end}`;
+    const lastMoment = wallClock(new Date(period.coverage_until).getTime() - 1000);
 
-    return `${first.getTime() === from.getTime() ? '' : 'تكملة '}${weeks}`;
+    return `الأسبوع ${isoWeek(branchWeekStart(lastMoment, Number(settings.week_starts_on), settings.cutoff_time))}`;
 }

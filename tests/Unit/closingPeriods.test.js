@@ -10,14 +10,15 @@ test('a full week is named by its number', () => {
     assert.equal(periodLabel(period('2026-10-09T21:00:00Z', '2026-10-16T21:00:00Z')), 'الأسبوع 41');
 });
 
-test('a week closed early keeps its number, and what was left of it joins the next week under both numbers', () => {
-    assert.equal(periodLabel(period('2026-10-09T21:00:00Z', '2026-10-14T09:00:00Z')), 'الأسبوع 41');
-    assert.equal(periodLabel(period('2026-10-14T09:00:00Z', '2026-10-23T21:00:00Z')), 'تكملة الأسبوع 41 والأسبوع 42');
+test('a week closed early keeps its number, and the period after it runs to the next cutoff under the next number', () => {
+    // Cutoff Friday midnight, closed the same Friday at 17:00: the next period holds a little over a week.
+    assert.equal(periodLabel(period('2026-10-09T21:00:00Z', '2026-10-16T14:00:00Z')), 'الأسبوع 41');
+    assert.equal(periodLabel(period('2026-10-16T14:00:00Z', '2026-10-23T21:00:00Z')), 'الأسبوع 42');
 });
 
-test('the rest of a week closed early within the same week, and a period running over several weeks, say so', () => {
-    assert.equal(periodLabel(period('2026-10-16T15:03:32Z', '2026-10-16T15:06:26Z')), 'تكملة الأسبوع 41');
-    assert.equal(periodLabel(period('2026-10-16T15:06:26Z', '2026-10-30T21:00:00Z')), 'تكملة الأسبوع 41 حتى الأسبوع 43');
+test('a week closed days early still keeps its number, and the next period is named by where it closes', () => {
+    assert.equal(periodLabel(period('2026-10-09T21:00:00Z', '2026-10-14T09:00:00Z')), 'الأسبوع 41');
+    assert.equal(periodLabel(period('2026-10-14T09:00:00Z', '2026-10-23T21:00:00Z')), 'الأسبوع 42');
 });
 
 test('a week ending at a cutoff in the evening counts up to that time', () => {
@@ -25,8 +26,7 @@ test('a week ending at a cutoff in the evening counts up to that time', () => {
     assert.equal(periodLabel({ coverage_from: '2026-10-10T15:00:00Z', coverage_until: '2026-10-17T15:00:00Z', workflow_settings: evening }), 'الأسبوع 41');
 });
 
-test('a period without its weekly settings, a continuation and a daily period keep their names', () => {
+test('a period without its weekly settings is named by the week it began in', () => {
     assert.equal(periodLabel({ coverage_from: '2026-10-09T21:00:00Z' }), 'الأسبوع 41');
-    assert.equal(periodLabel({ coverage_from: '2026-10-09T21:00:00Z', workflow_settings: { continuation: true } }), 'تكملة الأسبوع');
     assert.equal(periodLabel(null), '—');
 });

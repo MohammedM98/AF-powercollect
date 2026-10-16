@@ -536,13 +536,19 @@ class PaymentController extends Controller
             'boxes' => $rows->values()->all(),
             'current' => collect(CashBoxType::cases())->mapWithKeys(fn (CashBoxType $type): array => [$type->value => $rows->first(fn (array $box): bool => $box['type'] === $type->value && $box['status'] === 'open')])->all(),
             'needsAction' => $rows->filter(fn (array $box): bool => $box['stage'] === 'awaiting_confirmation')->values()->all(),
-            'auditNotes' => $this->waitingAuditNotes($actor)->with(['box:id,number', 'closing:id,coverage_from,coverage_until,workflow_settings', 'replies' => fn ($query) => $query->where('kind', 'collector')->latest('id')])
+            'auditNotes' => $this->waitingAuditNotes($actor)->with(['box:id,number', 'closing:id,coverage_from,coverage_until,workflow_settings', 'entry.transaction.subscription:id,full_name,subscription_name,account_number', 'replies' => fn ($query) => $query->where('kind', 'collector')->latest('id')])
                 ->latest('id')->get()->map(fn (AuditNote $note): array => [
                     'id' => $note->id,
                     'body' => $note->body,
                     'question' => $note->replies->first()?->body,
                     'differences' => $note->differences,
                     'closing' => $note->closing->only(['coverage_from', 'coverage_until', 'workflow_settings']),
+                    'entry' => $note->entry?->transaction ? [
+                        'subscriber' => $note->entry->transaction->subscription->displayName(),
+                        'voucherNumber' => $note->entry->transaction->displayVoucherNumber(),
+                        'typeLabel' => $note->entry->transaction->typeLabel(),
+                        'amount' => $note->entry->amount, 'currency' => $note->entry->currency,
+                    ] : null,
                     'box' => $note->box ? ['number' => $note->box->number, 'url' => route('payments.cash-boxes.show', $note->box)] : null,
                     'replyUrl' => route('payments.audit-notes.reply', $note),
                 ])->all(),

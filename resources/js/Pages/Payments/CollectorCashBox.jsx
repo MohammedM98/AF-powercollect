@@ -341,6 +341,7 @@ export function CollectorAuditNotes({ notes, onSaved }) {
                         {note.box && <Link href={note.box.url} prefetch dir="ltr" className="font-display text-brand-600">{note.box.number}</Link>}
                         {note.closing?.coverage_from && <span><b className="font-semibold text-gray-700">{periodLabel(note.closing)}</b> · {periodRange(note.closing)}</span>}
                     </div>
+                    {note.entry && <p className="text-xs text-gray-600"><b className="text-gray-900">{note.entry.subscriber}</b> · {note.entry.typeLabel}{note.entry.voucherNumber && <> · سند <bdi dir="ltr" className="font-display">{note.entry.voucherNumber}</bdi></>} · <bdi dir="ltr" className="font-display">{formatMoney(note.entry.amount)}</bdi> {currencies[note.entry.currency]}</p>}
                     <p className="text-sm leading-7 text-gray-800">{note.body}</p>
                     {note.question && <p className="rounded-control bg-surface p-3 text-sm leading-7 text-gray-700"><b className="text-gray-900">سؤال الفرع: </b>{note.question}</p>}
                     {note.differences && (

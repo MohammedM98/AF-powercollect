@@ -232,6 +232,26 @@ class BranchPackageTest extends TestCase
                 && $week['step'] === 'answered' && $week['notes'] === 2 && $week['openNotes'] === 2 && $week['waitingNotes'] === 1 && $week['boxes'] === 1 && $week['entries'] === 1));
     }
 
+    public function test_an_audit_note_on_an_entry_says_which_entry_where_it_sits_and_who_recorded_it(): void
+    {
+        [$branch, $head, $collector, $closing] = $this->start();
+        $entry = $this->entry($branch, $collector);
+        $this->travelTo($closing->coverage_until);
+        $this->actingAs($head)->post(route('closings.actions', ['action' => 'submit', 'record' => $closing->id]), ['branch_id' => $branch->id, 'acknowledged' => true]);
+        AuditNote::factory()->create(['closing_id' => $closing->id, 'cash_box_id' => $entry->cash_box_id, 'cash_box_payment_id' => $entry->id]);
+        AuditNote::factory()->create(['closing_id' => $closing->id, 'cash_box_id' => $entry->cash_box_id]);
+
+        $this->get(route('closings.index'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('notes.1.entry.subscriber', $entry->transaction->subscription->displayName())
+            ->where('notes.1.entry.ledger.voucherNumber', $entry->transaction->displayVoucherNumber())
+            ->where('notes.1.entry.ledger.recordedByName', $collector->name)
+            ->where('notes.1.box.number', $entry->box->number)
+            ->where('notes.1.box.person', $collector->name)
+            ->where('notes.1.box.url', route('payments.cash-boxes', ['branch_id' => $branch->id, 'box' => $entry->cash_box_id]))
+            ->where('notes.0.entry', null)
+            ->where('notes.0.box.number', $entry->box->number));
+    }
+
     public function test_closing_page_says_who_manages_the_branch_among_those_it_may_delegate_to(): void
     {
         [, $head, $collector] = $this->start();

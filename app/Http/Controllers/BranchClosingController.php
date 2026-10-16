@@ -63,7 +63,7 @@ class BranchClosingController extends Controller
         $boxRows = $this->branchBoxes->rows($branchId, $actor, $closings->modelKeys());
         $current = $started ? $this->workflow->current($branchId) : null;
         $pendingChange = ClosingSettingChange::query()->where('branch_id', $branchId)->whereNull('applied_at')->latest('id')->first();
-        $notes = AuditNote::query()->whereIn('closing_id', Closing::query()->where('branch_id', $branchId)->select('id'))->with(['closing:id,number,coverage_from,coverage_until,workflow_settings', 'replies.user:id,name'])->latest('id')->get();
+        $notes = AuditNote::query()->whereIn('closing_id', Closing::query()->where('branch_id', $branchId)->select('id'))->with(['closing:id,number,coverage_from,coverage_until,workflow_settings', 'replies.user:id,name', 'box:id,number,type,user_id', 'box.user:id,name', 'entry.transaction.subscription:id,full_name,subscription_name,account_number', 'entry.transaction.recordedBy:id,name'])->latest('id')->get();
 
         return Inertia::render('Closings/Index', [
             'branch' => $branch, 'branches' => $branches, 'started' => $started, 'actorId' => $actor->id,
@@ -74,7 +74,8 @@ class BranchClosingController extends Controller
             'boxes' => $boxRows,
             'debts' => CollectorDebt::query()->where('branch_id', $branchId)->with('user:id,name')->where('remaining', '>', 0)->get(),
             'adjustments' => ClosingAdjustment::query()->where(fn ($query) => $query->whereIn('closing_id', $closings->modelKeys())->orWhereIn('original_closing_id', $closings->modelKeys()))->get(),
-            'safeCounts' => SafeCount::query()->whereIn('closing_id', $closings->modelKeys())->get(), 'notes' => $notes,
+            'safeCounts' => SafeCount::query()->whereIn('closing_id', $closings->modelKeys())->get(),
+            'notes' => $notes->map(fn (AuditNote $note): array => $this->presentNote($note, $branchId))->values(),
             'staff' => User::query()->where('branch_id', $branchId)->where('is_active', true)->get(['id', 'name', 'role'])
                 ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name, 'isBranchAdmin' => $user->isBranchAdmin()]),
             'access' => $this->branchBoxes->access($actor, $branchId),
@@ -113,6 +114,35 @@ class BranchClosingController extends Controller
                 'openNotes' => $own->where('status', '!=', 'closed')->count(),
             ];
         })->values()->all();
+    }
+
+    /**
+     * An audit note as the weeks table lists it: the entry it is about, as
+     * the subscriber's statement shows it, with its box, whose box it is and
+     * who recorded it, or the box it is about when it is about a whole box.
+     *
+     * @return array<string, mixed>
+     */
+    private function presentNote(AuditNote $note, int $branchId): array
+    {
+        $entry = $note->entry;
+        $transaction = $entry?->transaction;
+
+        return [
+            ...$note->only(['id', 'closing_id', 'cash_box_id', 'cash_box_payment_id', 'body', 'status', 'differences', 'difference_decisions', 'created_at']),
+            'closing' => $note->closing,
+            'replies' => $note->replies,
+            'box' => $note->box ? [
+                'id' => $note->box->id, 'number' => $note->box->number, 'type' => $note->box->type->value, 'person' => $note->box->user?->name,
+                'url' => route('payments.cash-boxes', ['branch_id' => $branchId, 'box' => $note->box->id]),
+            ] : null,
+            'entry' => $transaction ? [
+                'id' => $entry->id, 'amount' => $entry->amount, 'currency' => $entry->currency, 'status' => $entry->status,
+                'subscriber' => $transaction->subscription->displayName(), 'accountNumber' => $transaction->subscription->account_number,
+                'statementUrl' => route('subscriptions.statement', $transaction->subscription),
+                'ledger' => $transaction->ledgerDetails(),
+            ] : null,
+        ];
     }
 
     public function action(BranchClosingActionRequest $request, string $action, ?int $record = null): RedirectResponse

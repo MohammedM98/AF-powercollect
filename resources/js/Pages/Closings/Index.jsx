@@ -8,6 +8,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
+import { boxTypeStyles } from '../Payments/CollectorCashBox';
 import { branchClock, branchDate, dateTime, periodLabel, periodRange } from '@/lib/closingPeriods';
 
 const currencies = { ILS: 'شيكل', USD: 'دولار', JOD: 'دينار' };
@@ -242,36 +243,77 @@ function weekStatus(week) {
     return week.status === 'approved' ? ['معتمد', 'green'] : week.status === 'returned' ? ['أُعيد للفرع', 'red'] : ['بملاحظات', 'amber'];
 }
 
-/** One of the audit's notes: its state, the auditor's words, any difference, the replies so far, and the button to answer it while it waits on the branch. */
-function NoteCard({ note, access, urls, onAction }) {
-    const [status, tone] = noteStatuses[note.status] ?? [note.status, 'gray'];
-    const differences = Object.entries(note.differences ?? {}).filter(([, amount]) => Number(amount) !== 0);
+/** What an audit note is about, when it names no entry: its box, else the whole week. */
+function NoteSubject({ note }) {
+    return <span className="text-gray-500">{note.box ? 'الصندوق كله' : 'الأسبوع كله'}</span>;
+}
 
+/**
+ * The audit's statement on one week: only the entries it has notes on,
+ * every other entry of the week being sound, in the site's table, one per row:
+ * the entry (subscriber, voucher, date), its type and amount, the box it
+ * sits in and whose it is, who recorded it, the auditor's note with the
+ * replies so far, its state, and the button to answer it while it waits
+ * on the branch.
+ */
+function NotesTable({ notes, access, urls, onAction }) {
     return (
-        <article className="rounded-panel border border-gray-100 bg-surface p-5 shadow-card">
-            <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <b className="font-display text-sm text-gray-500">#{note.id}</b>
-                <StatusPill tone={tone} label={status} />
-                <span className="ms-auto text-xs text-gray-500">{dateTime(note.created_at)}</span>
-            </header>
-            <blockquote className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm leading-7 text-gray-800">
-                <span className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-500"><Icon name="shield" className="h-4 w-4" />قسم التدقيق</span>
-                {note.body}
-            </blockquote>
-            {differences.length > 0 && <p className="mt-3 flex flex-wrap gap-2 text-sm text-gray-600">الفرق: {differences.map(([currency, amount]) => <b key={currency} className={Number(amount) < 0 ? 'text-brand-600' : 'text-emerald-700 dark:text-emerald-400'}><bdi dir="ltr" className="font-display">{formatMoney(amount)}</bdi> {currencies[currency]}</b>)}</p>}
-            {note.replies.length > 0 && (
-                <ol className="mt-4 space-y-2 border-s-2 border-gray-100 ps-4">
-                    {note.replies.map((reply) => (
-                        <li key={reply.id} className="text-sm leading-6 text-gray-700">
-                            <span className="block text-xs text-gray-500"><bdi>{reply.user?.name}</bdi> · <bdi>{dateTime(reply.created_at)}</bdi></span>
-                            {reply.body}
-                            {reply.document_path && <a href={`${urls.proofs}/reply/${reply.id}`} className="ms-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><Icon name="eye" className="h-4 w-4" />المستند المرفق</a>}
-                        </li>
-                    ))}
-                </ol>
-            )}
-            {access.approve && WAITING_ON_BRANCH.includes(note.status) && <div className="mt-4 flex justify-end"><PrimaryButton onClick={() => onAction('reply', note)}><Icon name="messages" className="h-4 w-4" />الرد على الملاحظة</PrimaryButton></div>}
-        </article>
+        <div className="data-table-container">
+            <table className="data-table w-full text-start text-sm">
+                <thead><tr><th>الحركة</th><th>النوع</th><th>المبلغ</th><th>المكان</th><th>سجّلها</th><th>ملاحظة التدقيق</th><th>الحالة</th><th /></tr></thead>
+                <tbody>
+                    {[...notes].sort((first, second) => WAITING_ON_BRANCH.includes(second.status) - WAITING_ON_BRANCH.includes(first.status) || first.id - second.id).map((note) => {
+                        const [status, tone] = noteStatuses[note.status] ?? [note.status, 'gray'];
+                        const ledger = note.entry?.ledger;
+                        const differences = Object.entries(note.differences ?? {}).filter(([, amount]) => Number(amount) !== 0);
+
+                        return (
+                            <tr key={note.id}>
+                                <td style={{ whiteSpace: 'normal' }}>
+                                    {note.entry ? <>
+                                        <Link href={note.entry.statementUrl} prefetch className="font-semibold text-gray-900 hover:text-brand-600">{note.entry.subscriber}</Link>
+                                        {ledger.voucherNumber && <span className="block text-xs text-gray-500">سند <bdi dir="ltr" className="font-display">{ledger.voucherNumber}</bdi></span>}
+                                        <span className="block whitespace-nowrap text-xs text-gray-500"><bdi dir="ltr" className="font-display">{ledger.date}</bdi></span>
+                                    </> : <NoteSubject note={note} />}
+                                </td>
+                                <td style={{ whiteSpace: 'normal' }}>
+                                    {ledger ? <>
+                                        <span className="block text-gray-900">{ledger.typeLabel}{ledger.paymentMethodLabel && ` · ${ledger.paymentMethodLabel}`}</span>
+                                        {(ledger.referenceNumber || ledger.bankName) && <span className="block text-xs text-gray-500">{ledger.referenceNumber && <bdi dir="ltr" className="font-display">{ledger.referenceNumber}</bdi>}{ledger.referenceNumber && ledger.bankName && ' · '}{ledger.bankName}</span>}
+                                    </> : <span className="text-gray-400">—</span>}
+                                </td>
+                                <td>
+                                    {note.entry ? <span className="whitespace-nowrap"><b className="font-display text-gray-900">{formatMoney(note.entry.amount)}</b> <span className="text-xs text-gray-500">{currencies[note.entry.currency]}</span></span> : <span className="text-gray-400">—</span>}
+                                    {differences.map(([currency, amount]) => <span key={currency} className="block whitespace-nowrap text-xs font-semibold text-brand-600">فرق <bdi dir="ltr" className="font-display">{formatMoney(amount)}</bdi> {currencies[currency]}</span>)}
+                                </td>
+                                <td style={{ whiteSpace: 'normal' }}>
+                                    {note.box ? <>
+                                        <Link href={note.box.url} prefetch className="font-semibold text-brand-600 hover:underline">صندوق <bdi dir="ltr" className="font-display">{note.box.number}</bdi></Link>
+                                        <span className="block text-xs text-gray-500">{boxTypeStyles[note.box.type].label}{note.box.person && <> · <bdi>{note.box.person}</bdi></>}</span>
+                                    </> : <span className="text-gray-400">—</span>}
+                                </td>
+                                <td>{ledger?.recordedByName ? <bdi>{ledger.recordedByName}</bdi> : <span className="text-gray-400">—</span>}</td>
+                                <td style={{ whiteSpace: 'normal', minWidth: '16rem' }}>
+                                    <p className="leading-6 text-gray-800">{note.body}</p>
+                                    {note.replies.length > 0 && (
+                                        <ol className="mt-2 space-y-1.5 border-s-2 border-gray-100 ps-3">
+                                            {note.replies.map((reply) => (
+                                                <li key={reply.id} className="text-xs leading-5 text-gray-600">
+                                                    <b className="font-semibold text-gray-700"><bdi>{reply.user?.name}</bdi>:</b> {reply.body}
+                                                    {reply.document_path && <a href={`${urls.proofs}/reply/${reply.id}`} className="ms-1 inline-flex items-center gap-1 font-semibold text-brand-600 hover:underline"><Icon name="eye" className="h-3.5 w-3.5" />المستند</a>}
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    )}
+                                </td>
+                                <td><StatusPill tone={tone} label={status} /></td>
+                                <td className="text-end">{access.approve && WAITING_ON_BRANCH.includes(note.status) && <PrimaryButton className="px-3 py-2" onClick={() => onAction('reply', note)}>الرد</PrimaryButton>}</td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
     );
 }
 
@@ -345,13 +387,15 @@ function WeeksTable({ weeks, filter, onFilter, onOpen, debts, access, actorId, o
 
 /**
  * One week opened from the table: where it stands and what it held, a
- * link to its boxes on the weekly closing page, the audit's notes on it to
- * answer, and the corrections entered for it in later weeks.
+ * link to its boxes on the weekly closing page, the audit's statement of
+ * the entries it has notes on, to answer, and the corrections entered for
+ * it in later weeks.
  */
 function WeekView({ week, notes, adjustments, closings, access, urls, branch, onBack, onAction }) {
     const [status, tone] = weekStatus(week);
     const quiet = { review: 'الأسبوع جارٍ؛ تصل ملاحظات قسم التدقيق بعد إرساله.', confirm: 'لم يُرسل الأسبوع إلى التدقيق بعد.', audit: 'الأسبوع عند قسم التدقيق، ولم يكتب ملاحظات عليه بعد.' }[week.step] ?? 'اعتمد قسم التدقيق الأسبوع دون ملاحظات.';
     const books = { cash: 'النقد', bank: 'الإلكتروني' };
+    const noted = new Set(notes.filter((note) => note.cash_box_payment_id).map((note) => note.cash_box_payment_id)).size;
 
     return (
         <div className="space-y-5">
@@ -373,8 +417,11 @@ function WeekView({ week, notes, adjustments, closings, access, urls, branch, on
                 </dl>
             </section>
             <section aria-labelledby="week-notes" className="space-y-3">
-                <h3 id="week-notes" className="text-lg font-bold text-gray-900">ملاحظات قسم التدقيق على هذا الأسبوع</h3>
-                {notes.length === 0 ? <EmptyState icon="messages" title="لا ملاحظات على هذا الأسبوع" hint={quiet} /> : notes.map((note) => <NoteCard key={note.id} note={note} access={access} urls={urls} onAction={onAction} />)}
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 id="week-notes" className="text-lg font-bold text-gray-900">كشف ملاحظات التدقيق</h3>
+                    {notes.length > 0 && <p className="text-xs text-gray-500">{noted > 0 && `${plural(noted, 'حركة واحدة عليها ملاحظة', 'حركات عليها ملاحظات')} من أصل ${week.entries}؛ `}كل حركة لم ترد في الكشف سليمة.</p>}
+                </div>
+                {notes.length === 0 ? <EmptyState icon="messages" title="لا ملاحظات على هذا الأسبوع" hint={quiet} /> : <NotesTable notes={notes} access={access} urls={urls} onAction={onAction} />}
             </section>
             {adjustments.length > 0 && (
                 <Panel icon="pencil" title="قيود التصحيح لهذا الأسبوع" hint={`قُيّدت في أسابيع لاحقة، و${periodLabel(week)} باقٍ كما أُرسل.`}>
@@ -497,7 +544,10 @@ function ActionModal({ action, onClose, props }) {
                     {action.kind === 'early' && <p className="text-sm leading-7 text-gray-700">يُغلق {periodLabel(record)} الآن وتُغلق صناديقه المفتوحة، وتنضم الأيام الباقية إلى الأسبوع القادم حتى موعد قطعه.</p>}
                     {action.kind === 'repay' && <Field label={`المبلغ نقدًا · المتبقي ${formatMoney(record.remaining)} ${currencies[record.currency]}`}><input required type="number" min="0.01" step="0.01" dir="ltr" className="w-full" value={form.data.amount} onChange={(event) => form.setData('amount', event.target.value)} /></Field>}
                     {action.kind === 'reply' && <>
-                        <p className="rounded-xl bg-gray-50 p-4 text-sm leading-7 text-gray-700">{record.body}</p>
+                        <div className="rounded-xl bg-gray-50 p-4 text-sm leading-7 text-gray-700">
+                            {record.entry && <p className="mb-2 border-b border-gray-200 pb-2 text-xs text-gray-500"><b className="text-gray-900">{record.entry.subscriber}</b> · {record.entry.ledger.typeLabel}{record.entry.ledger.paymentMethodLabel && ` · ${record.entry.ledger.paymentMethodLabel}`} · <bdi dir="ltr" className="font-display">{formatMoney(record.entry.amount)}</bdi> {currencies[record.entry.currency]}{record.box && <> · صندوق <bdi dir="ltr" className="font-display">{record.box.number}</bdi></>}{record.entry.ledger.recordedByName && <> · سجّلها <bdi>{record.entry.ledger.recordedByName}</bdi></>}</p>}
+                            {record.body}
+                        </div>
                         <Field label="نوع الرد">
                             <select className="w-full" value={form.data.kind} onChange={(event) => form.setData('kind', event.target.value)}>
                                 <option value="clarification">اعتراض أو توضيح</option>
@@ -638,7 +688,7 @@ export default function ClosingsIndex(props) {
                     <p className="text-sm font-semibold text-gray-500">{branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : branch.name}</p>
                     <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2"><h2 className="text-3xl font-bold text-gray-900">إدارة الإغلاق</h2>{started && <ClosingTabs tab={tab} onChange={go} waitingNotes={waitingNotes.length} />}</div>
                 </div>
-                {started && current && <div className="shrink-0"><PrimaryButton onClick={() => openWeek(current)}><Icon name="layers" className="h-4 w-4" />{/^الأسبوع \d+$/.test(periodLabel(current)) ? `إغلاق ${periodLabel(current)}` : 'إغلاق الفترة الجارية'}</PrimaryButton></div>}
+                {started && current && <div className="shrink-0"><PrimaryButton onClick={() => openWeek(current)}><Icon name="layers" className="h-4 w-4" />إغلاق {periodLabel(current)}</PrimaryButton></div>}
             </>}
         >
             <Head title="إدارة الإغلاق" />

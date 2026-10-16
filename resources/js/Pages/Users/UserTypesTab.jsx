@@ -71,7 +71,7 @@ export default function UserTypesTab({ userTypes, canCreate, addRequested, onAdd
 
     return (
         <section className="data-table-container">
-            <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-4 py-3.5">
+            <div className="table-controls flex flex-wrap items-center gap-3 border-b border-gray-100 px-4 py-3.5">
                 <label className="relative min-w-[220px] max-w-[420px] flex-1">
                     <Icon name="search" className="pointer-events-none absolute start-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-400" />
                     <input

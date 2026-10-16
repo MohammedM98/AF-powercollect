@@ -1,96 +1,339 @@
 import { useEffect, useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import Icon from './ClosingIcon';
-import BaseModal from '@/Components/Modal';
+import Icon from '@/Components/Icon';
+import Modal from '@/Components/Modal';
+import PrimaryButton from '@/Components/PrimaryButton';
+import SecondaryButton from '@/Components/SecondaryButton';
+import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatMoney } from '@/lib/format';
-import { PrimaryButton, SecondaryButton, StatusPill, dateTime, branchClock, branchDate, periodRange, periodLabel, MoneyStack, Money, Panel } from './ClosingComponents';
-import BoxDetails from './BoxDetails';
-import './closing.css';
+import { branchClock, branchDate, dateTime, periodLabel, periodRange } from './ClosingComponents';
 
 const currencies = { ILS: 'شيكل', USD: 'دولار', JOD: 'دينار' };
-const symbols = { ILS: '₪', USD: '$', JOD: 'د.أ' };
 const weekdays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-const tabs = [['current', 'الأسبوع الحالي', 'home'], ['history', 'الإغلاقات', 'layers'], ['notes', 'ملاحظات التدقيق', 'messages'], ['settings', 'الإعدادات', 'cog']];
-const noteStatuses = { awaiting_reply: 'بانتظار الرد', rejected: 'مرفوضة · تحتاج ردًا', with_collector: 'عند المحصّل', collector_replied: 'ردّ المحصّل', awaiting_audit: 'بانتظار قرار التدقيق', closed: 'مغلقة' };
-const inputClass = 'inp';
-const cardClass = 'card';
+const TABS = [['overview', 'نظرة عامة'], ['notes', 'ملاحظات التدقيق'], ['settings', 'الإعدادات']];
+const WAITING_ON_BRANCH = ['awaiting_reply', 'rejected', 'collector_replied'];
+const noteStatuses = {
+    awaiting_reply: ['بانتظار ردّك', 'amber'],
+    rejected: ['مرفوضة · تحتاج قيد تصحيح', 'red'],
+    with_collector: ['عند المحصّل', 'blue'],
+    collector_replied: ['ردّ المحصّل · بانتظار ردّك', 'amber'],
+    awaiting_audit: ['عند التدقيق', 'blue'],
+    closed: ['مغلقة', 'green'],
+};
+const ACTION_TITLES = { start: 'بدء الإغلاق الأسبوعي للفرع', early: 'إغلاق الأسبوع مبكرًا', repay: 'تسديد دين المحصّل', reply: 'الرد على ملاحظة التدقيق', settings: 'إعدادات الإغلاق' };
 
-function Modal({ panelClassName = '', ...props }) {
-    return <BaseModal {...props} centered panelClassName={`closing-ui closing-dialog ${panelClassName}`} />;
-}
-const money = (value, currency = 'ILS') => `${formatMoney(value ?? 0)} ${symbols[currency]}`;
+/** Each currency's sum of the entries still in effect: cash, electronic (transfers and clearings) or all. */
 const totals = (payments, method = 'cash') => Object.fromEntries(Object.keys(currencies).map((currency) => [currency, payments.filter((payment) => payment.currency === currency && (method === 'all' || (method === 'electronic' ? payment.method !== 'cash' : payment.method === method)) && (!payment.transaction || payment.transaction.status === 'active')).reduce((sum, payment) => sum + Number(payment.amount), 0)]));
 
-function Metric({ icon, label, amounts, value, hint, tone, onClick }) {
-    return <button type="button" className={`kpi ${tone}`} onClick={onClick}>
-        <span className="ki"><Icon name={icon} /></span>
-        <div className="kv"><span>{label}</span><b>{amounts ? <Money amount={amounts.ILS} /> : value}</b>
-            {amounts && (Number(amounts.USD) !== 0 || Number(amounts.JOD) !== 0) && <div className="s3"><Money amount={amounts.USD} currency="USD" /><span className="sep3" /><Money amount={amounts.JOD} currency="JOD" /></div>}
-            <small>{hint}</small>
-        </div><span className="go"><Icon name="chevron-left" /></span>
-    </button>;
+/** Amounts in shekels, then any other currency that is not zero: «600 شيكل · 5 دولار». */
+const amountsLine = (amounts) => Object.keys(currencies).filter((currency) => currency === 'ILS' || Number(amounts[currency] ?? 0) !== 0).map((currency) => `${formatMoney(amounts[currency] ?? 0)} ${currencies[currency]}`).join(' · ');
+
+/** «صندوق» for one, else the number and the plural: «3 صناديق». */
+const plural = (count, one, many) => (count === 1 ? one : `${count.toLocaleString('en')} ${many}`);
+
+/** How long is left until the week's cutoff, in days and hours, or hours and minutes on its last day. */
+function timeLeft(milliseconds) {
+    const minutes = Math.floor(milliseconds / 60000);
+    const days = Math.floor(minutes / 1440);
+    const hours = Math.floor(minutes / 60) % 24;
+
+    return days > 0 ? [days, `يوم و${hours} ساعة`] : [hours, `ساعة و${minutes % 60} دقيقة`];
 }
 
-function Section({ title, hint, action, children }) {
-    return <section className="closing-section"><div className="h2"><div><h2>{title}</h2>{hint && <p className="section-hint">{hint}</p>}</div><div className="r">{action}</div></div>{children}</section>;
+function requestedTab() {
+    const requested = new URLSearchParams(window.location.search).get('tab');
+
+    return TABS.some(([key]) => key === requested) ? requested : 'overview';
 }
 
-function Empty({ children }) {
-    return <div className="card"><div className="empty"><Icon name="table" />{children}</div></div>;
+/** The page's tabs beside its title, as the users page draws its own; the notes tab counts what waits on the branch. */
+function ClosingTabs({ tab, onChange, waitingNotes }) {
+    return (
+        <div role="tablist" aria-label="إدارة الإغلاق" className="inline-flex gap-0.5 rounded-xl border border-gray-100 bg-gray-100 p-[3px]">
+            {TABS.map(([key, label]) => (
+                <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === key}
+                    onClick={() => onChange(key)}
+                    className={`inline-flex items-center gap-1.5 rounded-[9px] px-3 py-1.5 text-[13.5px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${tab === key ? 'bg-surface text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                >
+                    {label}
+                    {key === 'notes' && waitingNotes > 0 && <span className="rounded-full bg-brand-500 px-1.5 font-display text-xs text-white">{waitingNotes}</span>}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+/** The cash collected each day of the week, today's bar in the brand's colour and days still to come left empty. */
+function DailyBars({ payments, current, now }) {
+    const civilDate = (value) => new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Gaza' }).format(new Date(value));
+    const start = new Date(`${civilDate(current.coverage_from)}T00:00:00Z`);
+    const end = new Date(`${civilDate(current.coverage_until)}T00:00:00Z`);
+    const count = Math.min(15, Math.max(1, Math.round((end - start) / 86400000) + 1));
+    const today = civilDate(now);
+    const days = Array.from({ length: count }, (_, index) => {
+        const from = start.getTime() + index * 86400000;
+        const key = new Date(from).toISOString().slice(0, 10);
+
+        return { from, key, amount: totals(payments.filter((payment) => civilDate(payment.occurred_at) === key)).ILS };
+    });
+    const max = Math.max(1, ...days.map((day) => day.amount));
+
+    return (
+        <div className="flex items-end gap-1.5" role="img" aria-label="التحصيل النقدي بالشيكل حسب اليوم">
+            {days.map((day) => {
+                const future = day.key > today;
+                const label = new Intl.DateTimeFormat('ar', { weekday: 'short', timeZone: 'UTC' }).format(new Date(day.from)).replace('ال', '');
+
+                return (
+                    <div key={day.from} className="flex flex-col items-center gap-1.5" title={`${branchDate(day.from)} · ${future ? 'لم يأتِ بعد' : `${formatMoney(day.amount)} شيكل`}`}>
+                        <div className="flex h-16 w-6 items-end border-b border-white/10">
+                            {!future && <i className={`block w-full rounded-t-[5px] ${day.key === today ? 'bg-brand-500' : 'bg-white/30'}`} style={{ height: day.amount > 0 ? `${Math.max(8, (day.amount / max) * 100)}%` : '3px' }} />}
+                        </div>
+                        <small className={`text-[11px] ${day.key === today ? 'font-bold text-white' : 'text-white/50'}`}>{label}</small>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+/**
+ * The week running, on the graphite card a page leads with: the cash
+ * collected so far and each day's share, the electronic payments, the time
+ * left until the cutoff, and the boxes open now with a link to them.
+ */
+function WeekHero({ current, payments, openBoxes, boxesUrl, now }) {
+    const cash = totals(payments);
+    const electronic = totals(payments, 'electronic');
+    const entries = payments.filter((payment) => !payment.transaction || payment.transaction.status === 'active').length;
+    const [left, leftUnit] = timeLeft(Math.max(0, new Date(current.coverage_until).getTime() - now));
+    const collectors = new Set(openBoxes.map((box) => box.user_id)).size;
+    const foreignCash = amountsLine(cash).split(' · ').slice(1).join(' · ');
+
+    return (
+        <section aria-label="الأسبوع الجاري" className="rise-in relative overflow-hidden rounded-panel bg-graphite-gradient p-6 text-white shadow-lift">
+            <div className="pointer-events-none absolute -end-12 -top-20 h-60 w-60 rounded-full bg-brand-500/25 blur-3xl" aria-hidden="true" />
+            <div className="relative flex flex-wrap items-start justify-between gap-6">
+                <div>
+                    <p className="text-sm font-semibold text-white/75">{periodLabel(current)} · {periodRange(current)}</p>
+                    <p className="mt-4 flex flex-wrap items-baseline gap-x-2">
+                        <span className="font-display text-5xl font-bold">{formatMoney(cash.ILS)}</span>
+                        <span className="text-base text-white/70">شيكل</span>
+                    </p>
+                    <p className="mt-3 text-xs text-white/60">حُصّل نقدًا هذا الأسبوع · {plural(entries, 'حركة', 'حركات')}{foreignCash && ` · و${foreignCash}`}</p>
+                </div>
+                <DailyBars payments={payments} current={current} now={now} />
+            </div>
+            <dl className="relative mt-5 grid gap-4 border-t border-white/10 pt-4 sm:grid-cols-3">
+                <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/80"><Icon name="wallet" className="h-[18px] w-[18px]" /></span>
+                    <div><dt className="text-xs text-white/60">إلكتروني</dt><dd className="flex items-baseline gap-1.5"><span className="font-display text-xl font-bold">{formatMoney(electronic.ILS)}</span><span className="text-xs text-white/60">شيكل</span></dd></div>
+                </div>
+                <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/80"><Icon name="clock" className="h-[18px] w-[18px]" /></span>
+                    <div><dt className="text-xs text-white/60">يُقطع بعد · {branchDate(current.coverage_until)} {branchClock(current.coverage_until)}</dt><dd className="flex items-baseline gap-1.5"><span className="font-display text-xl font-bold">{left}</span><span className="text-xs text-white/60">{leftUnit}</span></dd></div>
+                </div>
+                <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/80"><Icon name="lock" className="h-[18px] w-[18px]" /></span>
+                    <div>
+                        <dt className="text-xs text-white/60">الصناديق المفتوحة · تُغلق تلقائيًا عند القطع</dt>
+                        <dd><Link href={boxesUrl} prefetch className="text-sm font-semibold text-white underline decoration-white/30 underline-offset-4 hover:decoration-white">{openBoxes.length ? `${plural(openBoxes.length, 'صندوق', 'صناديق')} مع ${plural(collectors, 'محصّل', 'محصّلين')}` : 'لا صناديق مفتوحة'}</Link></dd>
+                    </div>
+                </div>
+            </dl>
+            <div className="brand-spectrum absolute inset-x-6 bottom-0" aria-hidden="true" />
+        </section>
+    );
+}
+
+const TASK_TONES = {
+    amber: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+    blue: 'bg-sky-500/10 text-sky-700 dark:text-sky-400',
+    red: 'bg-brand-500/10 text-brand-600',
+    green: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+};
+
+/** What waits on the branch now, each with the button that takes care of it; one quiet line when nothing does. */
+function WaitingTasks({ tasks }) {
+    const rows = tasks.length ? tasks : [{ key: 'none', tone: 'green', icon: 'check', label: 'لا شيء ينتظرك الآن', hint: 'كل الصناديق والأسابيع وملاحظات التدقيق في وضعها الصحيح.' }];
+
+    return (
+        <section aria-labelledby="waiting-tasks" className="space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 id="waiting-tasks" className="text-lg font-bold text-gray-900">ما ينتظرك الآن</h3>
+                <p className="text-xs text-gray-500">الصناديق بانتظار تأكيد إغلاقها، والأسابيع الجاهزة للإرسال، وملاحظات التدقيق.</p>
+            </div>
+            <ul className="divide-y divide-gray-100 overflow-hidden rounded-panel border border-gray-100 bg-surface shadow-card">
+                {rows.map((task) => (
+                    <li key={task.key} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4">
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${TASK_TONES[task.tone]}`}><Icon name={task.icon} className="h-5 w-5" /></span>
+                        <div className="min-w-0 flex-1 basis-56">
+                            <p className="font-semibold text-gray-900">{task.label}</p>
+                            <p className="mt-0.5 text-xs leading-5 text-gray-500">{task.hint}</p>
+                        </div>
+                        {task.onClick && <SecondaryButton onClick={task.onClick} className="px-3 py-2">{task.action}<Icon name="chevron-left" className="h-4 w-4" /></SecondaryButton>}
+                    </li>
+                ))}
+            </ul>
+        </section>
+    );
+}
+
+function PersonAvatar({ name }) {
+    return <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-gray-900 text-xs font-semibold text-surface">{(name ?? '—').trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join('')}</span>;
+}
+
+/** A card of the settings and notes tabs: an icon, a title and what it is for, an action, and what it holds. */
+function Panel({ icon, title, hint, action, children }) {
+    return (
+        <section className="rounded-panel border border-gray-100 bg-surface p-6 shadow-card">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-gray-500"><Icon name={icon} className="h-5 w-5" /></span>
+                    <div><h3 className="text-lg font-bold text-gray-900">{title}</h3>{hint && <p className="mt-0.5 text-sm text-gray-500">{hint}</p>}</div>
+                </div>
+                {action}
+            </div>
+            {children && <div className="mt-5">{children}</div>}
+        </section>
+    );
+}
+
+function EmptyState({ icon, title, hint }) {
+    return (
+        <div className="rounded-panel border border-dashed border-gray-200 bg-surface px-5 py-12 text-center">
+            <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gray-50 text-gray-400"><Icon name={icon} className="h-5 w-5" /></span>
+            <p className="mt-3 font-semibold text-gray-900">{title}</p>
+            {hint && <p className="mt-1 text-sm text-gray-500">{hint}</p>}
+        </div>
+    );
+}
+
+/**
+ * What the audit department sent on the weeks the branch submitted, each
+ * with its replies and, while it waits on the branch, a button to answer
+ * it; the collectors' debts left from its decisions are listed above them.
+ */
+function NotesTab({ notes, debts, access, actorId, urls, onAction }) {
+    return (
+        <div className="space-y-5">
+            <p className="flex items-center gap-2 text-sm text-gray-500"><Icon name="shield" className="h-4 w-4 shrink-0" /><span>ملاحظات قسم التدقيق على الأسابيع المرسلة. الأسبوع المرسل لا يتغيّر، وكل تصحيح يُقيَّد في الأسبوع المفتوح.</span></p>
+            {debts.length > 0 && (
+                <Panel icon="currency" title="ديون المحصّلين" hint="يبقى الدين ظاهرًا حتى يُسدَّد بالكامل.">
+                    <ul className="divide-y divide-gray-100">
+                        {debts.map((debt) => (
+                            <li key={debt.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
+                                <PersonAvatar name={debt.user?.name} />
+                                <b className="min-w-0 flex-1 font-semibold text-gray-900">{debt.user?.name}</b>
+                                <span><b className="font-display text-gray-900">{formatMoney(debt.remaining)}</b> <span className="text-xs text-gray-500">{currencies[debt.currency]}</span></span>
+                                {access.receive && debt.user_id !== actorId && <SecondaryButton className="px-3 py-2" onClick={() => onAction('repay', debt)}>تسديد نقدًا</SecondaryButton>}
+                            </li>
+                        ))}
+                    </ul>
+                </Panel>
+            )}
+            {notes.length === 0 ? <EmptyState icon="messages" title="لا توجد ملاحظات تدقيق" hint="تظهر هنا ملاحظات قسم التدقيق على أسابيع الفرع، مع ردودك وردود المحصّلين." /> : notes.map((note) => {
+                const [status, tone] = noteStatuses[note.status] ?? [note.status, 'gray'];
+                const differences = Object.entries(note.differences ?? {}).filter(([, amount]) => Number(amount) !== 0);
+
+                return (
+                    <article key={note.id} className="rounded-panel border border-gray-100 bg-surface p-5 shadow-card">
+                        <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <b className="font-display text-sm text-gray-500">#{note.id}</b>
+                            <b className="text-gray-900">{note.closing ? periodLabel(note.closing) : '—'}</b>
+                            <StatusPill tone={tone} label={status} />
+                            <span className="ms-auto text-xs text-gray-500">{dateTime(note.created_at)}</span>
+                        </header>
+                        <blockquote className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm leading-7 text-gray-800">
+                            <span className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-500"><Icon name="shield" className="h-4 w-4" />قسم التدقيق</span>
+                            {note.body}
+                        </blockquote>
+                        {differences.length > 0 && <p className="mt-3 flex flex-wrap gap-2 text-sm text-gray-600">الفرق: {differences.map(([currency, amount]) => <b key={currency} className={Number(amount) < 0 ? 'text-brand-600' : 'text-emerald-700 dark:text-emerald-400'}><bdi dir="ltr" className="font-display">{formatMoney(amount)}</bdi> {currencies[currency]}</b>)}</p>}
+                        {note.replies.length > 0 && (
+                            <ol className="mt-4 space-y-2 border-s-2 border-gray-100 ps-4">
+                                {note.replies.map((reply) => (
+                                    <li key={reply.id} className="text-sm leading-6 text-gray-700">
+                                        <span className="block text-xs text-gray-500"><bdi>{reply.user?.name}</bdi> · <bdi>{dateTime(reply.created_at)}</bdi></span>
+                                        {reply.body}
+                                        {reply.document_path && <a href={`${urls.proofs}/reply/${reply.id}`} className="ms-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><Icon name="eye" className="h-4 w-4" />المستند المرفق</a>}
+                                    </li>
+                                ))}
+                            </ol>
+                        )}
+                        {access.approve && WAITING_ON_BRANCH.includes(note.status) && <div className="mt-4 flex justify-end"><PrimaryButton onClick={() => onAction('reply', note)}><Icon name="messages" className="h-4 w-4" />الرد على الملاحظة</PrimaryButton></div>}
+                    </article>
+                );
+            })}
+        </div>
+    );
+}
+
+/** The week's schedule, an early close and who may close boxes or submit the week, each in its own panel. */
+function SettingsTab({ settings, current, pendingChange, staff, receivers, approvers, access, onAction }) {
+    const granted = (person, list) => person.isBranchAdmin ? ['green', 'مسؤول الفرع'] : list.includes(person.id) ? ['green', 'مفوّض'] : ['gray', 'غير مفوّض'];
+
+    return (
+        <div className="space-y-5">
+            {pendingChange && (
+                <p role="status" className="flex items-start gap-2 rounded-panel border border-sky-500/25 bg-sky-500/10 p-4 text-sm leading-7 text-sky-700 dark:text-sky-400">
+                    <Icon name="clock" className="mt-1 h-4 w-4 shrink-0" />
+                    <span>موعد جديد يبدأ من {dateTime(pendingChange.effective_from)}: يبدأ الأسبوع يوم {weekdays[pendingChange.settings.week_starts_on]}، والقطع الساعة <bdi dir="ltr" className="font-display">{pendingChange.settings.cutoff_time}</bdi>.</span>
+                </p>
+            )}
+            <Panel icon="calendar" title="موعد القطع الأسبوعي" hint="يبدأ أي تغيير من الأسبوع القادم، ويُحفظ في السجل." action={access.manage && <SecondaryButton className="px-3 py-2" onClick={() => onAction('settings')}><Icon name="cog" className="h-4 w-4" />تعديل الموعد</SecondaryButton>}>
+                <div className="grid gap-5 lg:grid-cols-2">
+                    <div className="space-y-2">
+                        <p className="text-sm font-semibold text-gray-700">يبدأ الأسبوع يوم</p>
+                        <ul className="inline-flex flex-wrap gap-0.5 rounded-control border border-gray-100 bg-surface p-[3px] shadow-sm">
+                            {[6, 0, 1, 2, 3, 4, 5].map((index) => {
+                                const chosen = Number(settings.week_starts_on) === index;
+
+                                return <li key={index} aria-current={chosen ? 'true' : undefined} className={`rounded-lg px-3.5 py-1.5 text-sm font-semibold ${chosen ? 'bg-gray-900 text-surface shadow-sm' : 'text-gray-500'}`}>{weekdays[index]}</li>;
+                            })}
+                        </ul>
+                    </div>
+                    <div className="space-y-2">
+                        <p className="text-sm font-semibold text-gray-700">وقت القطع</p>
+                        <p className="flex items-baseline gap-2"><b dir="ltr" className="font-display text-3xl text-gray-900">{settings.cutoff_time}</b><span className="text-sm text-gray-500">بتوقيت الفرع</span></p>
+                    </div>
+                </div>
+                <p className="mt-4 flex items-start gap-2 text-sm leading-6 text-gray-500"><Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0" /><span>كل دفعة بعد القطع تدخل في الأسبوع التالي، وتُغلق الصناديق المفتوحة تلقائيًا. يضم الإغلاق الأسبوعي النقد والحوالات والمقاصات معًا.</span></p>
+            </Panel>
+            <Panel icon="bolt" title="الإغلاق المبكر" hint="يُغلق الأسبوع الجاري الآن مع كل صناديقه المفتوحة، وتنضم الأيام الباقية إلى الأسبوع القادم دون تغيير يوم البداية." action={access.approve && current && <SecondaryButton className="px-3 py-2" onClick={() => onAction('early', current)}><Icon name="bolt" className="h-4 w-4" />إغلاق {periodLabel(current)} مبكرًا</SecondaryButton>} />
+            <Panel icon="users" title="التفويضات" hint="من يراجع صناديق الآخرين ويؤكد إغلاقها، ومن يعتمد الأسبوع ويرسله. تسري فورًا." action={access.manage && <SecondaryButton className="px-3 py-2" onClick={() => onAction('settings')}><Icon name="cog" className="h-4 w-4" />تعديل التفويضات</SecondaryButton>}>
+                <div className="data-table-container">
+                    <table className="data-table w-full text-start text-sm">
+                        <thead><tr><th>الموظف</th><th>مراجعة الصناديق وتأكيد إغلاقها</th><th>اعتماد الأسبوع وإرساله</th></tr></thead>
+                        <tbody>
+                            {staff.map((person) => {
+                                const [receiveTone, receiveLabel] = granted(person, receivers);
+                                const [approveTone, approveLabel] = granted(person, approvers);
+
+                                return <tr key={person.id}><td><span className="flex items-center gap-3"><PersonAvatar name={person.name} /><b className="font-semibold text-gray-900">{person.name}</b></span></td><td><StatusPill tone={receiveTone} label={receiveLabel} /></td><td><StatusPill tone={approveTone} label={approveLabel} /></td></tr>;
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-gray-500">مسؤول الفرع والمفوّض بالاعتماد يؤكدان إغلاق صناديقهما. المفوّض بالمراجعة وحده يؤكد إغلاق صناديق الآخرين.</p>
+            </Panel>
+        </div>
+    );
 }
 
 function Field({ label, children }) {
     return <label className="grid gap-2 text-sm font-semibold text-gray-700">{label}{children}</label>;
 }
 
-function PageHeading({ title, hint, action }) {
-    return <div className="ph"><div><h2>{title}</h2><p>{hint}</p></div><div className="acts">{action}</div></div>;
-}
-
-function ClosingPill({ closing }) {
-    const open = new Date(closing.coverage_until) > new Date();
-    const state = closing.open_notes_count > 0 ? ['بملاحظات', 'amber'] : closing.status === 'approved' ? ['مقبول', 'green'] : closing.submitted_snapshot ? (closing.reviewed_at ? ['قيد التدقيق', 'blue'] : ['مُرسل', 'purple']) : open ? ['مفتوح', 'blue'] : ['جاهز للمراجعة', 'amber'];
-    return <StatusPill tone={state[1]}>{state[0]}</StatusPill>;
-}
-
-function CollectorCard({ name, boxes, debts, onOpen, color = 0 }) {
-    const open = boxes.find((box) => box.status === 'open');
-    const pending = boxes.filter((box) => box.status === 'pending');
-    return <article className="cc"><header><span className={`av hu${color % 5 + 1}`}>{name.slice(0, 1)}</span><div><b>{name}</b><small>صندوق الموظف</small></div>{open && <button className="ib sm" aria-label={`عرض صندوق ${name}`} onClick={() => onOpen(open)}><Icon name="eye" /></button>}</header>
-        <div className="cc-o"><span className="lbl">{open ? <>صندوق مفتوح <b className="num">{open.number.slice(-8)}</b></> : 'لا يوجد صندوق مفتوح'}</span>
-            <div className="v"><MoneyStack amounts={totals(open?.payments ?? [], 'cash')} /><small>{open?.payments.length ? `${open.payments.length} دفعات · من ${dateTime(open.opened_at)}` : 'لسا فاضي'}</small></div>
-        </div>
-        <div className={`cc-p ${pending.length ? '' : 'ok'}`}><div>{pending.length ? <><span>{pending.length} صندوق بانتظار تأكيد الإغلاق</span><small><MoneyStack amounts={totals(pending.flatMap((box) => box.payments), 'cash')} /></small></> : <span><Icon name="check" /> ما معه صناديق بانتظار تأكيد الإغلاق</span>}</div>{pending.length > 0 && <SecondaryButton className="sm" onClick={() => onOpen(pending[0])}>مراجعة</SecondaryButton>}</div>
-        {debts.map((debt) => <div key={debt.id} className="cc-d"><span><Icon name="currency" /> دين متبقٍ: <Money amount={debt.remaining} currency={debt.currency} /></span></div>)}
-    </article>;
-}
-
-function ActionModal({ action, onClose, props }) {
-    const { branch, urls, staff, settings, receivers, approvers, current, transitionUntil } = props;
-    const form = useForm({ branch_id: branch.id, decisions: { ILS: 'accepted', USD: 'accepted', JOD: 'accepted' }, amount: '', currency: 'ILS', kind: 'clarification', body: '', document: null, book: 'cash', settings: { week_starts_on: settings.week_starts_on, cutoff_time: settings.cutoff_time }, receivers: [...receivers], approvers: [...approvers] });
-    const names = { start: 'بدء الإغلاق الأسبوعي للفرع', early: 'إغلاق الفترة مبكرًا', repay: 'تسديد دين المحصّل', reply: 'الرد على ملاحظة التدقيق', settings: 'إعدادات الإغلاق' };
-    const box = action.record;
-    function submit(event) {
-        event.preventDefault();
-        form.post(`${urls.actions}/${action.kind}${box?.id ? `/${box.id}` : ''}`, { preserveScroll: true, onSuccess: onClose });
-    }
-    function toggleGrant(key, id) {
-        form.setData(key, form.data[key].includes(id) ? form.data[key].filter((value) => value !== id) : [...form.data[key], id]);
-    }
-    return <Modal show onClose={onClose} maxWidth="2xl"><form onSubmit={submit} className="flex max-h-[90vh] flex-col"><header className="flex items-center justify-between gap-3 border-b border-gray-100 px-6 py-5"><div><h2 className="text-xl font-bold text-gray-900">{names[action.kind]}</h2><p className="mt-1 text-sm text-gray-500">{box?.number ?? branch.name}</p></div><button type="button" onClick={onClose} aria-label="إغلاق النافذة" className="rounded-lg p-2 text-gray-500 hover:bg-gray-50"><Icon name="close" className="h-5 w-5" /></button></header><div className="space-y-5 overflow-y-auto p-6">
-        {action.kind === 'start' && <p className="text-sm leading-7 text-gray-700">يبدأ مسار الإغلاق الأسبوعي من هذه اللحظة، وتدخل فيه الدفعات الجديدة. تبقى الإغلاقات التاريخية محفوظة. حدّد لاحقًا يوم البداية ووقت القطع من تبويب الإعدادات.</p>}
-        {action.kind === 'early' && <p className="text-sm leading-7 text-gray-700">يغطي الطرد الفترة حتى الآن، وتُغلق الصناديق المفتوحة. تنضم الأيام المتبقية إلى الأسبوع القادم حتى موعد قطعه.</p>}
-        {action.kind === 'repay' && <><Field label={`المبلغ نقدًا · المتبقي ${money(box.remaining, box.currency)}`}><input required type="number" min="0.01" step="0.01" dir="ltr" className={inputClass} value={form.data.amount} onChange={(event) => form.setData('amount', event.target.value)} /></Field></>}
-        {action.kind === 'reply' && <><p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-700">{box.body}</p><Field label="نوع الرد"><select className={inputClass} value={form.data.kind} onChange={(event) => form.setData('kind', event.target.value)}><option value="clarification">اعتراض / توضيح</option><option value="adjustment">صحّحت بقيد في الأسبوع المفتوح</option><option value="document">إرفاق مستند</option>{box.cash_box_id && <option value="collector">تحويل للمحصّل</option>}</select></Field><Field label="الرد / سبب التصحيح"><textarea required rows="3" className={inputClass} value={form.data.body} onChange={(event) => form.setData('body', event.target.value)} /></Field>{box.differences && !box.difference_decisions && form.data.kind !== 'collector' && <div className="space-y-3 rounded-xl border border-gray-200 p-4"><h3 className="text-sm font-bold text-gray-900">قرار فروقات التدقيق</h3>{Object.entries(box.differences).filter(([, amount]) => Number(amount) !== 0).map(([currency, amount]) => <Field key={currency} label={`${currencies[currency]} · فرق ${money(amount, currency)}`}><select className={inputClass} value={form.data.decisions[currency]} onChange={(event) => form.setData('decisions', { ...form.data.decisions, [currency]: event.target.value })}><option value="accepted">قبول السبب / الزيادة للشركة</option>{Number(amount) < 0 && <option value="debt">رفض السبب · دين على المحصّل</option>}</select></Field>)}</div>}{form.data.kind === 'document' && <Field label="المستند"><input required type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => form.setData('document', event.target.files[0])} /></Field>}{form.data.kind === 'adjustment' && <div className={`grid gap-3 ${shown.length > 1 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}><Field label="الدفتر"><select className={inputClass} value={form.data.book} onChange={(event) => form.setData('book', event.target.value)}><option value="cash">كاش</option><option value="bank">إلكتروني</option></select></Field>{shown.length > 1 && <Field label="العملة"><select className={inputClass} value={form.data.currency} onChange={(event) => form.setData('currency', event.target.value)}>{shown.map((key) => <option key={key} value={key}>{currencies[key]}</option>)}</select></Field>}<Field label="المبلغ (+ / −)"><input required type="number" step="0.01" dir="ltr" className={inputClass} value={form.data.amount} onChange={(event) => form.setData('amount', event.target.value)} /></Field></div>}</>}
-        {action.kind === 'settings' && <><div className="grid gap-4 sm:grid-cols-2"><Field label="يوم بداية الأسبوع"><select className={inputClass} value={form.data.settings.week_starts_on} onChange={(event) => form.setData('settings', { ...form.data.settings, week_starts_on: Number(event.target.value) })}>{weekdays.map((day, index) => <option key={day} value={index}>{day}</option>)}</select></Field><Field label="وقت القطع"><input required type="time" className={inputClass} value={form.data.settings.cutoff_time} onChange={(event) => form.setData('settings', { ...form.data.settings, cutoff_time: event.target.value })} /></Field></div><p className="rounded-xl bg-blue-500/10 p-4 text-sm leading-7 text-blue-600">يسري تغيير الموعد والترتيب بعد {dateTime(current?.scheduled_until)}. الفترة الانتقالية تُعرض قبل الحفظ. الصلاحيات تُفعّل فورًا.</p><TransitionPreview from={current?.scheduled_until} settings={form.data.settings} /><fieldset className="space-y-3"><legend className="font-bold text-gray-900">صلاحيات الفرع</legend>{staff.map((person) => <div key={person.id} className="flex flex-wrap items-center gap-4 text-sm text-gray-700"><b className="min-w-28 flex-1">{person.name}</b>{[['receivers', 'مراجعة الصناديق وإغلاقها'], ['approvers', 'الاعتماد والإرسال']].map(([key, label]) => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={form.data[key].includes(person.id)} onChange={() => toggleGrant(key, person.id)} />{label}</label>)}</div>)}</fieldset></>}
-        {Object.keys(form.errors).length > 0 && <div role="alert" className="rounded-xl bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-400">{Object.entries(form.errors).map(([key, error]) => <p key={key}>{error}</p>)}</div>}
-        {form.progress && <progress className="w-full" value={form.progress.percentage} max="100" />}
-    </div><footer className="flex justify-end gap-3 border-t border-gray-100 p-5"><SecondaryButton type="button" onClick={onClose}>إلغاء</SecondaryButton><PrimaryButton type="submit" disabled={form.processing}>{form.processing ? 'جارٍ الحفظ…' : 'تأكيد وحفظ'}</PrimaryButton></footer></form></Modal>;
-}
-
+/** The length of the week after a change of schedule, from the end of the week running, in the branch's time. */
 function TransitionPreview({ from, settings }) {
-    if (!from) return null;
+    if (!from) {
+        return null;
+    }
     // Use the branch's civil date; UTC arithmetic here avoids the browser's local timezone.
     const local = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Gaza', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(from));
     const parts = Object.fromEntries(local.map((part) => [part.type, part.value]));
@@ -99,142 +342,177 @@ function TransitionPreview({ from, settings }) {
     const end = new Date(start);
     end.setUTCHours(hours, minutes, 0, 0);
     end.setUTCDate(end.getUTCDate() + (Number(settings.week_starts_on) - end.getUTCDay() + 7) % 7);
-    if (end <= start) end.setUTCDate(end.getUTCDate() + 7);
+    if (end <= start) {
+        end.setUTCDate(end.getUTCDate() + 7);
+    }
     const days = (end - start) / 86400000;
-    return <div className="rounded-xl border border-gray-200 p-4 text-sm text-gray-700">طول الفترة القادمة: <b className="font-display">{days.toFixed(2)}</b> يوم. تنتهي بتاريخ <b dir="ltr">{end.toISOString().slice(0, 10)} {settings.cutoff_time}</b> بتوقيت الفرع.</div>;
+
+    return <p className="rounded-xl border border-gray-200 p-4 text-sm text-gray-700">طول الفترة القادمة: <b className="font-display">{days.toFixed(2)}</b> يوم، وتنتهي <b dir="ltr" className="font-display">{end.toISOString().slice(0, 10)} {settings.cutoff_time}</b> بتوقيت الفرع.</p>;
 }
 
-export default function ClosingsIndex(props) {
-    const { branch, branches, started, current, closings, boxes, debts, notes, settings, pendingChange, safeCounts, adjustments, access, urls, actorId } = props;
-    const [tab, setTab] = useState(() => { const requested = new URLSearchParams(window.location.search).get('tab'); return tabs.some(([key]) => key === requested) ? requested : 'current'; });
-    const [action, setAction] = useState(null);
-    const [boxId, setBoxId] = useState(null);
-    const [now, setNow] = useState(Date.now());
-    useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(timer); }, []);
-    const allPayments = boxes.flatMap((box) => box.payments);
-    const periodBoxes = boxes.filter((box) => closings.find((closing) => closing.id === box.closing_id)?.coverage_from === current?.coverage_from);
-    const cashTotals = totals(periodBoxes.flatMap((box) => box.payments));
-    const electronicTotals = totals(periodBoxes.flatMap((box) => box.payments), 'electronic');
-    const pendingBoxes = boxes.filter((box) => box.status === 'pending');
-    const missing = allPayments.filter((payment) => payment.method !== 'cash' && payment.status === 'missing');
-    const overdue = closings.filter((closing) => !closing.submitted_snapshot && new Date(closing.coverage_until).getTime() <= now);
-    const openNotes = notes.filter((note) => ['awaiting_reply', 'rejected', 'collector_replied'].includes(note.status));
-    const selectedBox = boxes.find((box) => box.id === boxId);
-    function openAction(kind, record = null) { setBoxId(null); setAction({ kind, record }); }
-    function perform(kind, record, extra = {}) { router.post(`${urls.actions}/${kind}/${record.id}`, { branch_id: branch.id, ...extra }, { preserveScroll: true }); }
-    function selectClosing(closing) { router.get(urls.weekly, { branch_id: branch.id, closing_id: closing.id }); }
-    function openBoxes() { router.visit(urls.boxes); }
-    function go(nextTab) { setTab(nextTab); const url = new URL(window.location.href); url.searchParams.set('tab', nextTab); window.history.replaceState({}, '', url); }
-    const grouped = [...new Set(boxes.map((box) => box.user_id))].map((userId) => ({ id: userId, boxes: boxes.filter((box) => box.user_id === userId) }));
-    const remaining = current ? Math.max(0, new Date(current.coverage_until).getTime() - now) : 0;
-    const progress = current ? Math.max(0, Math.min(100, (now - new Date(current.coverage_from).getTime()) / (new Date(current.coverage_until) - new Date(current.coverage_from)) * 100)) : 0;
-    const collectorCash = totals(pendingBoxes.flatMap((box) => box.payments));
-    const people = [...props.staff];
-    grouped.filter((group) => group.id !== null && !people.some((person) => person.id === group.id)).forEach((group) => people.push({ id: group.id, name: group.boxes[0].user?.name ?? 'موظف' }));
-    return <AuthenticatedLayout><Head title="الإغلاقات والكشوفات" /><div dir="rtl" className="closing-ui closing-page">
-        {props.errors?.action && <div role="alert" className="bn r">{props.errors.action}</div>}
-        <header className="clt">
-            <div><h1>الإغلاقات والكشوفات</h1><p>{branches.length > 1 && <select aria-label="الفرع" className="inp branch-select" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}{branches.length <= 1 && branch.name}{current && <> · {periodLabel(current)} شغّال · القطع {branchDate(current.coverage_until)} {branchClock(current.coverage_until)}</>}</p></div>
-            <div className="acts">
-                {started && <PrimaryButton onClick={() => selectClosing(current)}><Icon name="layers" />إغلاق {periodLabel(current)}</PrimaryButton>}
-            </div>
-        </header>
-        <nav aria-label="أقسام الإغلاقات والكشوفات" className="ctabs">
-            {tabs.map(([key, label, icon]) => {
-                const count = key === 'notes' ? openNotes.length : key === 'history' ? overdue.length : 0;
-                return <button key={key} onClick={() => go(key)} aria-current={tab === key ? 'page' : undefined}><Icon name={icon} /><span>{label}</span>{count > 0 && <em>{count}</em>}</button>;
-            })}
-        </nav>
-        {!started ? <Empty><b>ابدأ الإغلاق الأسبوعي لهذا الفرع</b><p>تُجمع الدفعات الجديدة في صناديق عمل بالشيكل.</p>{access.manage && <PrimaryButton onClick={() => openAction('start')}>بدء الإغلاق الأسبوعي</PrimaryButton>}</Empty> : <>
-        {tab === 'current' && <>
-            <section className="whero">
-                <div className="wh-a">
-                    <span className="wk"><Icon name="calendar" />الأسبوع الحالي · طرد الفرع</span>
-                    <h2>{periodLabel(current)}</h2><p>{periodRange(current)} · القطع {branchClock(current.coverage_until)}</p>
-                    <div className="cd"><div className="rw"><svg className="ring" viewBox="0 0 64 64" aria-hidden="true"><circle className="tr" cx="32" cy="32" r="26" /><circle className="pg" cx="32" cy="32" r="26" strokeDasharray="163.36" strokeDashoffset={163.36 * (1 - progress / 100)} /></svg><span className="rp num">{Math.round(progress)}%</span></div>
-                        <div><b>{Math.floor(remaining / 86400000)} يوم و{Math.floor(remaining / 3600000) % 24} ساعة</b><small>على القطع · {dateTime(current.coverage_until)}</small><small className="dim">بوقت القطع الصناديق المفتوحة بتنسكّر لحالها</small></div>
-                    </div>
+/** The page's forms in one dialog: starting the weekly closing, an early close, a debt repaid, an answer to the audit, and the settings. */
+function ActionModal({ action, onClose, props }) {
+    const { branch, urls, staff, settings, receivers, approvers, current } = props;
+    const form = useForm({ branch_id: branch.id, decisions: { ILS: 'accepted', USD: 'accepted', JOD: 'accepted' }, amount: '', currency: 'ILS', kind: 'clarification', body: '', document: null, book: 'cash', settings: { week_starts_on: settings.week_starts_on, cutoff_time: settings.cutoff_time }, receivers: [...receivers], approvers: [...approvers] });
+    const record = action.record;
+
+    function submit(event) {
+        event.preventDefault();
+        form.post(`${urls.actions}/${action.kind}${record?.id ? `/${record.id}` : ''}`, { preserveScroll: true, onSuccess: onClose });
+    }
+
+    function toggleGrant(key, id) {
+        form.setData(key, form.data[key].includes(id) ? form.data[key].filter((value) => value !== id) : [...form.data[key], id]);
+    }
+
+    return (
+        <Modal show onClose={onClose} maxWidth="2xl" centered>
+            <form onSubmit={submit} className="flex max-h-[90vh] flex-col">
+                <header className="flex items-center justify-between gap-3 border-b border-gray-100 px-6 py-5">
+                    <div><h2 className="text-xl font-bold text-gray-900">{ACTION_TITLES[action.kind]}</h2><p className="mt-1 text-sm text-gray-500">{action.kind === 'reply' ? `ملاحظة #${record.id}` : action.kind === 'repay' ? record.user?.name : branch.name}</p></div>
+                    <button type="button" onClick={onClose} aria-label="إغلاق النافذة" className="rounded-lg p-2 text-gray-500 hover:bg-gray-50"><Icon name="close" className="h-5 w-5" /></button>
+                </header>
+                <div className="space-y-5 overflow-y-auto p-6">
+                    {action.kind === 'start' && <p className="text-sm leading-7 text-gray-700">يبدأ مسار الإغلاق الأسبوعي من هذه اللحظة، وتدخل فيه الدفعات الجديدة. تبقى الإغلاقات السابقة محفوظة. حدّد يوم البداية ووقت القطع لاحقًا من تبويب الإعدادات.</p>}
+                    {action.kind === 'early' && <p className="text-sm leading-7 text-gray-700">يُغلق {periodLabel(record)} الآن وتُغلق صناديقه المفتوحة، وتنضم الأيام الباقية إلى الأسبوع القادم حتى موعد قطعه.</p>}
+                    {action.kind === 'repay' && <Field label={`المبلغ نقدًا · المتبقي ${formatMoney(record.remaining)} ${currencies[record.currency]}`}><input required type="number" min="0.01" step="0.01" dir="ltr" className="w-full" value={form.data.amount} onChange={(event) => form.setData('amount', event.target.value)} /></Field>}
+                    {action.kind === 'reply' && <>
+                        <p className="rounded-xl bg-gray-50 p-4 text-sm leading-7 text-gray-700">{record.body}</p>
+                        <Field label="نوع الرد">
+                            <select className="w-full" value={form.data.kind} onChange={(event) => form.setData('kind', event.target.value)}>
+                                <option value="clarification">اعتراض أو توضيح</option>
+                                <option value="adjustment">صحّحت بقيد في الأسبوع المفتوح</option>
+                                <option value="document">إرفاق مستند</option>
+                                {record.cash_box_id && <option value="collector">تحويلها للمحصّل</option>}
+                            </select>
+                        </Field>
+                        <Field label="الرد أو سبب التصحيح"><textarea required rows="3" className="w-full" value={form.data.body} onChange={(event) => form.setData('body', event.target.value)} /></Field>
+                        {record.differences && !record.difference_decisions && form.data.kind !== 'collector' && (
+                            <div className="space-y-3 rounded-xl border border-gray-200 p-4">
+                                <h3 className="text-sm font-bold text-gray-900">قرار فروقات التدقيق</h3>
+                                {Object.entries(record.differences).filter(([, amount]) => Number(amount) !== 0).map(([currency, amount]) => (
+                                    <Field key={currency} label={<span>{currencies[currency]} · فرق <bdi dir="ltr" className="font-display">{formatMoney(amount)}</bdi></span>}>
+                                        <select className="w-full" value={form.data.decisions[currency]} onChange={(event) => form.setData('decisions', { ...form.data.decisions, [currency]: event.target.value })}>
+                                            <option value="accepted">قبول السبب أو الزيادة للشركة</option>
+                                            {Number(amount) < 0 && <option value="debt">رفض السبب · دين على المحصّل</option>}
+                                        </select>
+                                    </Field>
+                                ))}
+                            </div>
+                        )}
+                        {form.data.kind === 'document' && <Field label="المستند"><input required type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => form.setData('document', event.target.files[0])} /></Field>}
+                        {form.data.kind === 'adjustment' && (
+                            <div className="grid gap-3 sm:grid-cols-3">
+                                <Field label="الدفتر"><select className="w-full" value={form.data.book} onChange={(event) => form.setData('book', event.target.value)}><option value="cash">النقد</option><option value="bank">الإلكتروني</option></select></Field>
+                                <Field label="العملة"><select className="w-full" value={form.data.currency} onChange={(event) => form.setData('currency', event.target.value)}>{Object.entries(currencies).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>
+                                <Field label="المبلغ (+ / −)"><input required type="number" step="0.01" dir="ltr" className="w-full" value={form.data.amount} onChange={(event) => form.setData('amount', event.target.value)} /></Field>
+                            </div>
+                        )}
+                    </>}
+                    {action.kind === 'settings' && <>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <Field label="يوم بداية الأسبوع"><select className="w-full" value={form.data.settings.week_starts_on} onChange={(event) => form.setData('settings', { ...form.data.settings, week_starts_on: Number(event.target.value) })}>{weekdays.map((day, index) => <option key={day} value={index}>{day}</option>)}</select></Field>
+                            <Field label="وقت القطع"><input required type="time" className="w-full" value={form.data.settings.cutoff_time} onChange={(event) => form.setData('settings', { ...form.data.settings, cutoff_time: event.target.value })} /></Field>
+                        </div>
+                        <p className="rounded-xl bg-sky-500/10 p-4 text-sm leading-7 text-sky-700 dark:text-sky-400">يسري تغيير الموعد بعد {dateTime(current?.scheduled_until)}، وتسري التفويضات فورًا.</p>
+                        <TransitionPreview from={current?.scheduled_until} settings={form.data.settings} />
+                        <fieldset className="space-y-3">
+                            <legend className="font-bold text-gray-900">التفويضات</legend>
+                            {staff.filter((person) => !person.isBranchAdmin).map((person) => (
+                                <div key={person.id} className="flex flex-wrap items-center gap-4 text-sm text-gray-700">
+                                    <b className="min-w-28 flex-1">{person.name}</b>
+                                    {[['receivers', 'مراجعة الصناديق وتأكيد إغلاقها'], ['approvers', 'اعتماد الأسبوع وإرساله']].map(([key, label]) => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={form.data[key].includes(person.id)} onChange={() => toggleGrant(key, person.id)} />{label}</label>)}
+                                </div>
+                            ))}
+                        </fieldset>
+                    </>}
+                    {Object.keys(form.errors).length > 0 && <div role="alert" className="rounded-xl bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-400">{Object.entries(form.errors).map(([key, error]) => <p key={key}>{error}</p>)}</div>}
+                    {form.progress && <progress className="w-full" value={form.progress.percentage} max="100" />}
                 </div>
-                <div className="wh-b"><span className="lb">المحصّل هالأسبوع (كاش)</span><div className="big"><Money amount={cashTotals.ILS} /></div>{(cashTotals.USD > 0 || cashTotals.JOD > 0) && <div className="sm"><Money amount={cashTotals.USD} currency="USD" /><Money amount={cashTotals.JOD} currency="JOD" /></div>}<div className="eln"><Icon name="wallet" />إلكتروني <Money amount={electronicTotals.ILS} /></div>{(electronicTotals.USD > 0 || electronicTotals.JOD > 0) && <div className="sm"><Money amount={electronicTotals.USD} currency="USD" /><Money amount={electronicTotals.JOD} currency="JOD" /></div>}</div>
-                <div className="wh-c"><span className="lb">المحصّل بالشيكل كل يوم</span><DailyBars payments={periodBoxes.flatMap((box) => box.payments)} current={current} now={now} /></div>
-            </section>
-            <Section title="شو لازم تعمل هلأ"><div className="todo">
-                {overdue.length > 0 && <Task tone="b" icon="shield" label={`${overdue.length} طرد جاهز للإرسال`} hint="كمّل النواقص ثم أرسل الإغلاقات بالترتيب." onClick={() => go('history')} action="راجع وابعت" />}
-                {pendingBoxes.length > 0 && <Task tone="a" icon="table" label={`${pendingBoxes.length} صناديق بانتظار تأكيد الإغلاق (تُعتمد مع إرسال الأسبوع)`} hint="اطّلع على الحركات، واطلب من المحصّل تعديل ما فيه خطأ، ثم أكّد إغلاق الصندوق." onClick={openBoxes} action="مراجعة" />}
-                {openNotes.length > 0 && <Task tone="r" icon="messages" label={`${openNotes.length} ملاحظة تدقيق بانتظار ردّك`} hint="كل تصحيح بينزل بالأسبوع المفتوح." onClick={() => go('notes')} action="ردّ" />}
-                {!pendingBoxes.length && !overdue.length && !openNotes.length && <Task tone="g" icon="check" label="كل اشي تمام" hint="ما في اشي بانتظارك هلأ" />}
-            </div></Section>
-            <div className="kpis k2 overview-kpis">
-                <Metric icon="hand" tone="warn" label="الكاش مع المحصّلين" amounts={collectorCash} hint={`${pendingBoxes.length} صندوق مسكّر بانتظار تأكيد الإغلاق`} onClick={openBoxes} />
-                <Metric icon="wallet" tone="pur" label="دفعات إلكترونية معلّقة" value={missing.length} hint={missing.length ? 'بتنتقل لحد ما تنلقى' : 'ولا وحدة'} onClick={() => selectClosing(current)} />
-            </div>
-            <Section title="المحصّلين والصناديق" action={<Link href={urls.boxes} prefetch className="lnk">الصناديق المالية</Link>}><div className="cgrid">
-                {people.map((person, index) => <CollectorCard key={person.id} name={person.name} color={index} boxes={boxes.filter((box) => box.user_id === person.id)} debts={debts.filter((debt) => debt.user_id === person.id)} onOpen={(box) => setBoxId(box.id)} />)}
-            </div></Section>
-            <Section title="آخر الحركات"><ClosingFeed boxes={boxes} notes={notes} /></Section>
-        </>}
-        {tab === 'history' && <>
-            <PageHeading title="الإغلاقات" hint="طرد أسبوعي واحد يضم صناديق الفرع والحركات المرحّلة، ويُرسل للتدقيق بالترتيب." />
-            <div className="cnts big"><span><Icon name="table" />ما انبعتت: <b>{overdue.length}</b></span><span><Icon name="messages" />ملاحظات مفتوحة: <b>{openNotes.length}</b></span><span><Icon name="clock" />بدون مهلة إرسال · العدّاد بس للتذكير</span></div>
-            <div className="tw"><table className="dt"><thead><tr>{['الفترة', 'التواريخ', 'الترتيب', 'الصناديق', 'الحالة', ''].map((title, index) => <th key={index}>{title}</th>)}</tr></thead><tbody>{closings.map((closing) => <tr key={closing.id} className={new Date(closing.coverage_until).getTime() > now ? 'cur' : ''}><td className="nw"><b>{periodLabel(closing)}</b>{closing.is_manual && <small className="muted"> · مبكر</small>}</td><td className="nw">{periodRange(closing)}</td><td>{closing.book === 'combined' ? 'مدمج' : closing.book === 'cash' ? 'الكاش · منفصل' : 'البنك · منفصل'}</td><td className="num">{boxes.filter((box) => box.closing_id === closing.id).length}</td><td><ClosingPill closing={closing} /></td><td><SecondaryButton className={`sm ${!closing.submitted_snapshot && new Date(closing.coverage_until).getTime() <= now ? 'pr' : ''}`} onClick={() => selectClosing(closing)}>{!closing.submitted_snapshot && new Date(closing.coverage_until).getTime() <= now ? 'راجع وابعت' : 'مراجعة التفاصيل'}</SecondaryButton></td></tr>)}</tbody></table></div>
-        </>}
-        {tab === 'notes' && <>
-            <PageHeading title="ملاحظات التدقيق" hint="التدقيق قسم منفصل. الإغلاق اللي انبعت ما بيتغيّر، وكل تصحيح بينزل كقيد بالأسبوع المفتوح." />
-            {debts.length > 0 && <Panel title="ديون المحصّلين" icon="currency" hint="بيضل الدين ظاهر لحد ما ينسدّ"><div className="dlist">{debts.map((debt) => <div className="dl" key={debt.id}><span className="av s">{debt.user?.name?.slice(0, 1)}</span><b>{debt.user?.name}</b><Money amount={debt.remaining} currency={debt.currency} />{access.receive && debt.user_id !== actorId && <SecondaryButton className="sm" onClick={() => openAction('repay', debt)}>تسديد نقدًا</SecondaryButton>}</div>)}</div></Panel>}
-            {notes.length ? notes.map((note) => <article className="nt" key={note.id}><header><span className="nid num">#{note.id}</span><span className="tg">{note.closing?.number.slice(-8)}</span><StatusPill tone={note.status === 'closed' ? 'green' : 'amber'}>{noteStatuses[note.status]}</StatusPill><small>{dateTime(note.created_at)}</small></header><blockquote className="aq"><small><Icon name="shield" />قسم التدقيق</small>{note.body}</blockquote>{note.replies.length > 0 && <div className="thr">{note.replies.map((reply) => <div className="bub h" key={reply.id}><small>{reply.user?.name} · {dateTime(reply.created_at)}</small>{reply.body}{reply.document_path && <a href={`${urls.proofs}/reply/${reply.id}`} className="file"><Icon name="eye" />المستند المرفق</a>}</div>)}</div>}{access.approve && ['awaiting_reply', 'rejected', 'collector_replied'].includes(note.status) && <div className="nacts"><PrimaryButton className="sm" onClick={() => openAction('reply', note)}><Icon name="messages" />الرد على الملاحظة</PrimaryButton></div>}</article>) : <Empty><b>ما في ملاحظات هون</b></Empty>}
-        </>}
-        {tab === 'settings' && <SettingsOverview {...props} onAction={openAction} />}
-        </>}
-    </div>{action && <ActionModal key={`${action.kind}-${action.record?.id}`} action={action} onClose={() => setAction(null)} props={props} />}
-    {selectedBox && <BoxDetails box={selectedBox} onClose={() => setBoxId(null)} perform={perform} period={periodLabel(closings.find((closing) => closing.id === selectedBox.closing_id))} />}
-    </AuthenticatedLayout>;
+                <footer className="flex justify-end gap-3 border-t border-gray-100 p-5">
+                    <SecondaryButton onClick={onClose}>إلغاء</SecondaryButton>
+                    <PrimaryButton type="submit" disabled={form.processing}>{form.processing ? 'جارٍ الحفظ…' : 'تأكيد وحفظ'}</PrimaryButton>
+                </footer>
+            </form>
+        </Modal>
+    );
 }
 
-function Task({ tone, icon, label, hint, onClick, action }) {
-    return <div className={`td ${tone}`}><span className="ti"><Icon name={icon} /></span><div><b>{label}</b><small>{hint}</small></div>{onClick && <SecondaryButton className="sm" onClick={onClick}>{action}<Icon name="chevron-left" /></SecondaryButton>}</div>;
-}
+/**
+ * Closing management, for the branch's manager and those they delegate:
+ * where the week running stands and what waits on them now (boxes to
+ * confirm closed, weeks ready to submit, audit notes, payments not found
+ * in the bank, collectors' debts); the audit's notes on the weeks sent and
+ * the answers to them; and the weekly schedule with who may close boxes or
+ * submit the week. Each past week is looked over on the weekly closing page.
+ */
+export default function ClosingsIndex(props) {
+    const { branch, branches, started, current, closings, boxes, debts, notes, access, urls, actorId, errors } = props;
+    const [tab, setTab] = useState(requestedTab);
+    const [action, setAction] = useState(null);
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+        const timer = setInterval(() => setNow(Date.now()), 60000);
 
-function DailyBars({ payments, current, now }) {
-    const civilDate = (value) => new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Gaza' }).format(new Date(value));
-    const start = new Date(`${civilDate(current.coverage_from)}T00:00:00Z`);
-    const end = new Date(`${civilDate(current.coverage_until)}T00:00:00Z`);
-    const count = Math.min(15, Math.max(1, Math.round((end - start) / 86400000) + 1));
-    const days = Array.from({ length: count }, (_, index) => {
-        const from = start.getTime() + index * 86400000;
-        const key = new Date(from).toISOString().slice(0, 10);
-        const amount = totals(payments.filter((payment) => civilDate(payment.occurred_at) === key)).ILS;
-        return { from, key, amount };
-    });
-    const max = Math.max(1, ...days.map((day) => day.amount));
-    return <div className="dbars" role="img" aria-label="التحصيل النقدي بالشيكل حسب اليوم">{days.map((day) => {
-        const future = day.key > civilDate(now);
-        const today = day.key === civilDate(now);
-        const label = new Intl.DateTimeFormat('ar-SY', { weekday: 'short', timeZone: 'UTC' }).format(new Date(day.from));
-        return <div key={day.from} tabIndex="0" className={`db ${future ? 'fut' : ''} ${today ? 'now' : ''}`} data-tip={`${branchDate(day.from)} · ${future ? 'لسا ما إجا' : money(day.amount)}`}><div className="col">{!future && <i style={{ height: `${Math.max(3, day.amount / max * 100)}%` }} />}{today && day.amount > 0 && <em className="num" style={{ bottom: `calc(${Math.max(3, day.amount / max * 100)}% + 4px)` }}>{formatMoney(day.amount)}</em>}</div><small>{label.replace('ال', '').slice(0, 3)}</small></div>;
-    })}</div>;
-}
+        return () => clearInterval(timer);
+    }, []);
 
-function ClosingFeed({ boxes, notes }) {
-    const movements = [
-        ...boxes.filter((box) => box.closed_at).map((box) => ({ id: `box-${box.id}`, at: box.closed_at, icon: 'table', tone: box.status === 'received' ? 'g' : 'a', text: `${box.user?.name ?? '—'} · ${box.status === 'received' ? 'استلام صندوق' : 'إغلاق صندوق'} ${box.number.slice(-8)}` })),
-        ...notes.map((note) => ({ id: `note-${note.id}`, at: note.created_at, icon: 'messages', tone: 'p', text: `ملاحظة تدقيق #${note.id} · ${noteStatuses[note.status]}` })),
-    ].sort((left, right) => new Date(right.at) - new Date(left.at)).slice(0, 8);
-    return <div className="card feed">{movements.length ? <ul className="fl">{movements.map((item) => <li key={item.id} className={item.tone}><span className="fi"><Icon name={item.icon} /></span><div><b>{item.text}</b><small>{dateTime(item.at)}</small></div></li>)}</ul> : <div className="empty"><Icon name="history" /><b>ما في حركات</b></div>}</div>;
-}
+    const active = (payment) => !payment.transaction || payment.transaction.status === 'active';
+    const periodPayments = boxes.filter((box) => closings.find((closing) => closing.id === box.closing_id)?.coverage_from === current?.coverage_from).flatMap((box) => box.payments);
+    const openBoxes = boxes.filter((box) => box.status === 'open');
+    const pendingBoxes = boxes.filter((box) => box.status === 'pending');
+    const unmatched = boxes.flatMap((box) => box.payments).filter((payment) => payment.method !== 'cash' && ['missing', 'rejected'].includes(payment.status) && active(payment));
+    const overdue = closings.filter((closing) => !closing.submitted_snapshot && new Date(closing.coverage_until).getTime() <= now).sort((first, second) => new Date(first.coverage_from) - new Date(second.coverage_from));
+    const waitingNotes = notes.filter((note) => WAITING_ON_BRANCH.includes(note.status));
+    const owing = debts.filter((debt) => Number(debt.remaining) > 0);
+    const boxesUrl = branches.length > 1 ? `${urls.boxes}?branch_id=${branch.id}` : urls.boxes;
 
-function SettingsOverview({ settings, current, pendingChange, staff, receivers, approvers, access, onAction }) {
-    const edit = () => onAction('settings');
-    return <>
-        <PageHeading title="إعدادات الإغلاق" hint="رئيس الفرع بيتحكّم فيها من هون. أي تغيير بيبدأ من الفترة الجاية، وبينحفظ بالسجل." action={access.manage && <PrimaryButton onClick={edit}><Icon name="cog" />تعديل الإعدادات</PrimaryButton>} />
-        {pendingChange && <div className="bn p"><Icon name="clock" /><div><b>تغيير مجدول يبدأ من {dateTime(pendingChange.effective_from)}</b><TransitionPreview from={pendingChange.effective_from} settings={pendingChange.settings} /></div></div>}
-        <div className="setg">
-            <section className="sc"><h3><Icon name="calendar" />يوم بداية الأسبوع</h3><div className="chips">{[6, 0, 1, 2, 3, 4, 5].map((index) => <button key={index} disabled={!access.manage} aria-pressed={Number(settings.week_starts_on) === index} onClick={edit}>{weekdays[index]}</button>)}</div></section>
-            <section className="sc"><h3><Icon name="clock" />وقت القطع</h3><div className="chips">{[...new Set(['14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '22:00', settings.cutoff_time])].sort().map((time) => <button key={time} disabled={!access.manage} aria-pressed={settings.cutoff_time === time} onClick={edit}><b className="num">{time}</b></button>)}</div></section>
-            <p className="sline"><Icon name="shield" />أي دفعة بعد القطع بتروح للفترة اللي بعدها، والصناديق المفتوحة بتنسكّر لحالها.</p>
-            <p className="sline">الإغلاق أسبوعي في طرد واحد يضم الكاش والحوالات والمقاصات.</p>
+    function go(nextTab) {
+        setTab(nextTab);
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', nextTab);
+        window.history.replaceState(window.history.state, '', url);
+    }
 
-        </div>
-        <Section title="إغلاق مبكر"><div className="card pad"><p>بيسكّر الفترة هلأ، وكل الصناديق المفتوحة بتنسكّر وبتحتاج تأكيد إغلاقها. باقي الأيام تنضم إلى الأسبوع القادم، ويوم البداية ما بيتغيّر.</p>{access.approve && <SecondaryButton onClick={() => onAction('early', current)}><Icon name="bolt" />إغلاق مبكر لـ{periodLabel(current)}</SecondaryButton>}</div></Section>
-        <Section title="الصلاحيات" hint="التفويضات الإضافية بتشتغل على طول؛ يدير رئيس الفرع الصلاحيات من تعديل الإعدادات."><div className="tw"><table className="dt perm"><thead><tr><th>الموظف</th><th>تفويض مراجعة الصناديق وإغلاقها</th><th>تفويض الاعتماد والإرسال</th></tr></thead><tbody>{staff.map((person) => <tr key={person.id}><td><span className="who"><span className="av s">{person.name.slice(0, 1)}</span>{person.name}</span></td><td><StatusPill tone={receivers.includes(person.id) ? 'green' : undefined}>{receivers.includes(person.id) ? 'مفعّل' : '—'}</StatusPill></td><td><StatusPill tone={approvers.includes(person.id) ? 'green' : undefined}>{approvers.includes(person.id) ? 'مفعّل' : '—'}</StatusPill></td></tr>)}</tbody></table></div><p className="pn muted"><Icon name="shield" />مسؤول الفرع والمفوّض بالاعتماد يمكنهم تأكيد إغلاق صناديقهم. المفوّض بالمراجعة فقط يؤكد إغلاق صناديق الآخرين.</p></Section>
-    </>;
+    function openWeek(closing) {
+        router.get(urls.weekly, { branch_id: branch.id, closing_id: closing.id });
+    }
+
+    const tasks = [
+        overdue.length > 0 && { key: 'overdue', tone: 'blue', icon: 'layers', label: overdue.length === 1 ? `${periodLabel(overdue[0])} جاهز للإرسال` : `${plural(overdue.length, 'أسبوع', 'أسابيع')} جاهزة للإرسال`, hint: 'أكمل النواقص ثم اعتمد الأسبوع وأرسله إلى التدقيق، الأقدم أولًا.', action: 'مراجعة وإرسال', onClick: () => openWeek(overdue[0]) },
+        pendingBoxes.length > 0 && { key: 'pending', tone: 'amber', icon: 'table', label: `${plural(pendingBoxes.length, 'صندوق', 'صناديق')} بانتظار تأكيد الإغلاق`, hint: pendingBoxes.length === 1 ? `فيه ${amountsLine(totals(pendingBoxes[0].payments))} نقدًا. اطّلع على حركاته، واطلب من المحصّل تصحيح ما فيه خطأ، ثم أكّد إغلاقه.` : `فيها ${amountsLine(totals(pendingBoxes.flatMap((box) => box.payments)))} نقدًا. اطّلع على حركاتها، واطلب من المحصّل تصحيح ما فيه خطأ، ثم أكّد إغلاقها.`, action: 'مراجعة', onClick: () => router.visit(boxesUrl) },
+        waitingNotes.length > 0 && { key: 'notes', tone: 'red', icon: 'messages', label: `${plural(waitingNotes.length, 'ملاحظة تدقيق تنتظر', 'ملاحظات تدقيق تنتظر')} ردّك`, hint: 'الأسبوع المرسل لا يتغيّر؛ كل تصحيح يُقيَّد في الأسبوع المفتوح.', action: 'الرد', onClick: () => go('notes') },
+        unmatched.length > 0 && { key: 'unmatched', tone: 'amber', icon: 'bank', label: `${plural(unmatched.length, 'حركة إلكترونية لم تُطابق', 'حركات إلكترونية لم تُطابق')}`, hint: 'حوالات غير موجودة في البنك أو مقاصات مرفوضة. تنتقل إلى الأسبوع التالي حتى تُطابق.', action: 'عرض', onClick: () => openWeek(current) },
+        owing.length > 0 && { key: 'debts', tone: 'red', icon: 'currency', label: new Set(owing.map((debt) => debt.user_id)).size === 1 ? 'دين متبقٍّ على محصّل' : `ديون متبقية على ${new Set(owing.map((debt) => debt.user_id)).size} محصّلين`, hint: `المتبقي ${amountsLine(Object.fromEntries(Object.keys(currencies).map((currency) => [currency, owing.filter((debt) => debt.currency === currency).reduce((sum, debt) => sum + Number(debt.remaining), 0)])))}. تُسدَّد نقدًا من تبويب ملاحظات التدقيق.`, action: 'عرض', onClick: () => go('notes') },
+    ].filter(Boolean);
+
+    return (
+        <AuthenticatedLayout
+            header={<>
+                <div>
+                    <p className="text-sm font-semibold text-gray-500">{branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : branch.name}</p>
+                    <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2"><h2 className="text-3xl font-bold text-gray-900">إدارة الإغلاق</h2>{started && <ClosingTabs tab={tab} onChange={go} waitingNotes={waitingNotes.length} />}</div>
+                </div>
+                {started && current && <div className="shrink-0"><PrimaryButton onClick={() => openWeek(current)}><Icon name="layers" className="h-4 w-4" />إغلاق {periodLabel(current)}</PrimaryButton></div>}
+            </>}
+        >
+            <Head title="إدارة الإغلاق" />
+            {errors?.action && <p role="alert" className="mb-5 rounded-control bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-400">{errors.action}</p>}
+            {!started ? (
+                <div className="rounded-panel border border-dashed border-gray-200 bg-surface px-5 py-12 text-center">
+                    <p className="font-semibold text-gray-900">ابدأ الإغلاق الأسبوعي لهذا الفرع</p>
+                    <p className="mt-1 text-sm text-gray-500">تُجمع الدفعات الجديدة في صناديق المحصّلين، ويُغلق الفرع كل أسبوع ويرسله إلى التدقيق.</p>
+                    {access.manage && <PrimaryButton className="mt-5" onClick={() => setAction({ kind: 'start' })}>بدء الإغلاق الأسبوعي</PrimaryButton>}
+                </div>
+            ) : <>
+                {tab === 'overview' && current && <div className="space-y-8">
+                    <WeekHero current={current} payments={periodPayments} openBoxes={openBoxes} boxesUrl={boxesUrl} now={now} />
+                    <WaitingTasks tasks={tasks} />
+                </div>}
+                {tab === 'notes' && <NotesTab notes={notes} debts={owing} access={access} actorId={actorId} urls={urls} onAction={(kind, record) => setAction({ kind, record })} />}
+                {tab === 'settings' && <SettingsTab {...props} onAction={(kind, record = null) => setAction({ kind, record })} />}
+            </>}
+            {action && <ActionModal key={`${action.kind}-${action.record?.id}`} action={action} onClose={() => setAction(null)} props={props} />}
+        </AuthenticatedLayout>
+    );
 }

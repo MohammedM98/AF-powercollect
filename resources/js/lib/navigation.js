@@ -10,7 +10,7 @@ export const MAIN_LINKS = [
     { href: '/payments/summary', label: 'ملخص التحصيل', description: 'ما حُصّل اليوم وهذا الشهر', icon: 'gauge', can: 'viewOwnCashBoxes' },
     { href: '/payments/cash-boxes', label: 'الصناديق المالية', description: 'صناديق المحصّلين وحركاتها المفتوحة وتأكيد إغلاقها', icon: 'wallet', can: 'viewCashBoxes' },
     { href: '/ledger', label: 'السجل المالي', description: 'القيود حسب التاريخ والفرع', icon: 'ledger', can: 'viewLedger' },
-    { href: '/reconciliation', label: 'الإغلاقات والكشوفات', description: 'الإغلاقات وكشوف البنك', icon: 'bank', can: 'viewBranchReconciliation' },
+    { href: '/reconciliation', label: 'إدارة الإغلاق', description: 'ما ينتظر الفرع، وملاحظات التدقيق، وموعد القطع', icon: 'bank', can: 'viewBranchReconciliation' },
     { href: '/weekly-packages', label: 'الإغلاق الأسبوعي', description: 'حزمة الأسبوع: راجعها وأرسلها للتدقيق', icon: 'layers', can: 'viewWeeklyClosings' },
     { href: '/receivables', label: 'أعمار الديون', description: 'الذمم المتأخرة حسب مدتها', icon: 'clock', can: 'viewDebtAging' },
     { href: '/transaction-audit', label: 'سجل التدقيق', description: 'من غيّر ماذا ومتى', icon: 'history', can: 'viewTransactionAudit' },

@@ -47,7 +47,7 @@ class BranchClosingActionRequest extends FormRequest
         }
         if ($action === 'reply') {
             $rules += ['decisions' => ['sometimes', 'array:ILS,USD,JOD'], 'decisions.*' => ['in:accepted,debt']];
-            $rules += ['kind' => ['required', 'in:adjustment,document,clarification,collector'], 'body' => ['required', 'string', 'max:3000'], 'document' => ['required_if:kind,document', 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'], 'book' => ['required_if:kind,adjustment', 'in:cash,bank'], 'currency' => ['required_if:kind,adjustment', 'in:ILS,USD,JOD'], 'amount' => ['required_if:kind,adjustment', 'numeric', 'not_in:0', 'between:-9999999999,9999999999']];
+            $rules += ['kind' => ['required', 'in:adjustment,document,clarification,collector'], 'body' => ['required', 'string', 'max:3000'], 'document' => ['required_if:kind,document', 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'], 'book' => ['required_if:kind,adjustment', 'nullable', 'in:cash,bank'], 'currency' => ['required_if:kind,adjustment', 'nullable', 'in:ILS,USD,JOD'], 'amount' => ['required_if:kind,adjustment', 'nullable', 'numeric', 'not_in:0', 'between:-9999999999,9999999999']];
         }
 
         return $rules;

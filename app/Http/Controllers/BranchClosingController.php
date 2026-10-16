@@ -31,10 +31,12 @@ class BranchClosingController extends Controller
     public function __construct(private BranchClosingWorkflow $workflow, private BranchBoxes $branchBoxes) {}
 
     /**
-     * The branch's safe and statements: the week running, the safe and its
-     * deliveries, the list of weeks, audit's notes and the settings. A week
-     * itself is reviewed and sent from the weekly closing page, so a link
-     * to one week here (`?closing_id=`) opens it there.
+     * Closing management for the branch: the week running and what waits
+     * on the branch, the audit's notes with the collectors' debts, and the
+     * weekly schedule with who may close boxes or submit the week. Each
+     * week is reviewed and sent from the weekly closing page, so a link to
+     * one week here (`?closing_id=`), or to the list of weeks this page had
+     * (`?tab=history`), opens that page.
      */
     public function index(Request $request): Response|RedirectResponse
     {
@@ -44,6 +46,9 @@ class BranchClosingController extends Controller
         $branchId = $branch->id;
         if ($request->integer('closing_id')) {
             return redirect()->route('weekly-packages.index', ['branch_id' => $branchId, 'closing_id' => $request->integer('closing_id')]);
+        }
+        if ($request->query('tab') === 'history') {
+            return redirect()->route('weekly-packages.index', ['branch_id' => $branchId]);
         }
         $setting = ClosingSetting::forBranch($branchId);
         $started = $setting->workflow_started_at !== null;
@@ -55,7 +60,7 @@ class BranchClosingController extends Controller
         $boxRows = $this->branchBoxes->rows($branchId, $actor, $closings->modelKeys());
         $current = $started ? $this->workflow->current($branchId) : null;
         $pendingChange = ClosingSettingChange::query()->where('branch_id', $branchId)->whereNull('applied_at')->latest('id')->first();
-        $notes = AuditNote::query()->whereIn('closing_id', Closing::query()->where('branch_id', $branchId)->select('id'))->with(['closing:id,number', 'replies.user:id,name'])->latest('id')->get();
+        $notes = AuditNote::query()->whereIn('closing_id', Closing::query()->where('branch_id', $branchId)->select('id'))->with(['closing:id,number,coverage_from,coverage_until,workflow_settings', 'replies.user:id,name'])->latest('id')->get();
 
         return Inertia::render('Closings/Index', [
             'branch' => $branch, 'branches' => $branches, 'started' => $started, 'actorId' => $actor->id,
@@ -66,7 +71,8 @@ class BranchClosingController extends Controller
             'debts' => CollectorDebt::query()->where('branch_id', $branchId)->with('user:id,name')->where('remaining', '>', 0)->get(),
             'adjustments' => ClosingAdjustment::query()->whereIn('closing_id', $closings->modelKeys())->get(),
             'safeCounts' => SafeCount::query()->whereIn('closing_id', $closings->modelKeys())->get(), 'notes' => $notes,
-            'staff' => User::query()->where('branch_id', $branchId)->where('is_active', true)->get(['id', 'name']),
+            'staff' => User::query()->where('branch_id', $branchId)->where('is_active', true)->get(['id', 'name', 'role'])
+                ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name, 'isBranchAdmin' => $user->isBranchAdmin()]),
             'access' => $this->branchBoxes->access($actor, $branchId),
             'urls' => ['index' => route('closings.index'), 'weekly' => route('weekly-packages.index'), 'boxes' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'proofs' => url('/reconciliation/proofs')],
         ]);

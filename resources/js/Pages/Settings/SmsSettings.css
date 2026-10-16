@@ -9,11 +9,13 @@
 .sm-field.is-wide { grid-column: 1 / -1; }
 .sm-field > label, .sm-field > .sm-label { color: var(--rs-ink2); font-size: 14px; font-weight: 600; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .sm-field small { color: var(--rs-faint); font-size: 12.5px; font-weight: 500; }
-.sm-input { width: 100%; min-width: 0; border: 1px solid var(--rs-line); border-radius: 12px; padding: 10px 12px; background: var(--rs-raised); color: var(--rs-ink); font-size: 15px; }
-.sm-input::placeholder { color: color-mix(in srgb, var(--rs-faint) 75%, transparent); }
-.sm-input:focus { border-color: var(--rs-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rs-brand) 12%, transparent); outline: none; }
-.sm-input[aria-invalid=true] { border-color: #dc2626; }
-.sm-input:disabled { opacity: .5; }
+/* Fields as everywhere in the app (app.css): a white field, a quiet border, an ink focus ring; grey and dashed only when disabled. */
+.sm-input { width: 100%; min-width: 0; border: 1px solid var(--rs-line); border-radius: 12px; padding: 10px 12px; background: var(--rs-surface); color: var(--rs-ink); font-size: 15px; box-shadow: 0 1px 2px #1018280a; transition: border-color .15s, box-shadow .15s; }
+.sm-input::placeholder { color: color-mix(in srgb, var(--rs-faint) 70%, transparent); }
+.sm-input:hover:not(:disabled):not(:focus) { border-color: color-mix(in srgb, var(--rs-ink) 22%, var(--rs-line)); }
+.sm-input:focus, .sms-settings .sm-input:focus-visible { border-color: var(--rs-ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--rs-ink) 10%, transparent); outline: none; }
+.sm-input[aria-invalid=true] { border-color: var(--rs-brand); }
+.sm-input:disabled { border-style: dashed; background: var(--rs-raised); color: var(--rs-faint); }
 .sm-input.is-code { direction: ltr; text-align: left; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 14px; }
 textarea.sm-input { resize: vertical; min-height: 84px; line-height: 1.7; }
 .sm-pair { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 8px; }
@@ -24,7 +26,7 @@ textarea.sm-input { resize: vertical; min-height: 84px; line-height: 1.7; }
 .sm-secret-state.is-cleared { color: var(--rs-warn); }
 .sm-link { border: 0; background: transparent; padding: 0; color: var(--rs-brand); font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .sm-link:hover { text-decoration: underline; }
-.sm-icon-button { width: 42px; flex: none; border: 1px solid var(--rs-line); border-radius: 12px; background: var(--rs-surface); color: var(--rs-faint); display: grid; place-items: center; cursor: pointer; }
+.sm-icon-button { width: 42px; flex: none; border: 1px solid var(--rs-line); border-radius: 12px; background: var(--rs-surface); color: var(--rs-faint); display: grid; place-items: center; cursor: pointer; box-shadow: 0 1px 2px #1018280a; }
 .sm-icon-button:hover { color: var(--rs-ink); }
 .sm-icon-button svg { width: 18px; height: 18px; }
 
@@ -83,4 +85,4 @@ textarea.sm-input { resize: vertical; min-height: 84px; line-height: 1.7; }
     .sm-segments { width: 100%; }
     .sm-segments button { flex: 1; justify-content: center; padding: 4px 8px; }
 }
-@media (prefers-reduced-motion: reduce) { .sm-advanced > summary svg { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sm-advanced > summary svg, .sm-input { transition: none; } }

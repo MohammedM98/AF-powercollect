@@ -216,6 +216,24 @@ class BranchPackageTest extends TestCase
             ->assertRedirect(route('weekly-packages.index', ['branch_id' => $branch->id, 'closing_id' => $closing->id]));
     }
 
+    public function test_the_list_of_weeks_the_closing_page_had_opens_the_weekly_closing_page(): void
+    {
+        [$branch, $head] = $this->start();
+
+        $this->actingAs($head)->get(route('closings.index', ['tab' => 'history']))
+            ->assertRedirect(route('weekly-packages.index', ['branch_id' => $branch->id]));
+    }
+
+    public function test_closing_page_says_who_manages_the_branch_among_those_it_may_delegate_to(): void
+    {
+        [, $head, $collector] = $this->start();
+
+        $this->actingAs($head)->get(route('closings.index'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Closings/Index')
+            ->where('staff', fn ($staff) => collect($staff)->firstWhere('id', $head->id)['isBranchAdmin'] === true
+                && collect($staff)->firstWhere('id', $collector->id) === ['id' => $collector->id, 'name' => $collector->name, 'isBranchAdmin' => false]));
+    }
+
     public function test_accepted_entries_are_locked_and_removed_from_carry_over_after_submission(): void
     {
         [$branch, $head, $collector, $closing] = $this->start();

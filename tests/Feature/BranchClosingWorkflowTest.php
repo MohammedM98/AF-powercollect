@@ -280,6 +280,21 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertSame($snapshot, $closing->fresh()->submitted_snapshot);
     }
 
+    public function test_a_reply_sent_with_the_page_s_empty_adjustment_fields_goes_to_the_audit(): void
+    {
+        [$branch, $head] = $this->start();
+        $closing = app(BranchClosingWorkflow::class)->current($branch->id);
+        $this->travelTo($closing->coverage_until);
+        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true]);
+        $note = AuditNote::factory()->create(['closing_id' => $closing->id]);
+
+        $this->action($head, $branch, 'reply', $note->id, ['kind' => 'clarification', 'body' => 'وصلت الحوالة في اليوم التالي', 'book' => 'cash', 'currency' => 'ILS', 'amount' => ''])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'reply', AuditNote::factory()->create(['closing_id' => $closing->id])->id, ['kind' => 'adjustment', 'body' => 'تصحيح', 'book' => 'cash', 'currency' => 'ILS', 'amount' => ''])->assertSessionHasErrors('amount');
+
+        $this->assertSame('awaiting_audit', $note->fresh()->status);
+        $this->assertDatabaseCount('closing_adjustments', 0);
+    }
+
     public function test_an_unconfirmed_legacy_receipt_is_a_warning(): void
     {
         [$branch, $head, $collector] = $this->start();

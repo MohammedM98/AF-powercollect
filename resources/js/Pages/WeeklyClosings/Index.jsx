@@ -484,7 +484,7 @@ export default function WeeklyClosingsIndex({ branch, branches, started, weeks, 
 
     return <AuthenticatedLayout header={header}>
         <Head title="الإغلاق الأسبوعي" />
-        {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. يُفعّله مسؤول الفرع من صفحة الإغلاقات والكشوفات.</p> : <div className="space-y-5">
+        {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. يُفعّله مسؤول الفرع من صفحة إدارة الإغلاق.</p> : <div className="space-y-5">
             {errors?.action && <p role="alert" className="rounded-control bg-brand-500/10 p-4 text-sm text-brand-600">{errors.action}</p>}
             {selected ? <WeekPackage key={selected.id} week={selected} branch={branch} urls={urls} />
                 : <div className="flex flex-col items-center gap-2 rounded-panel border border-dashed border-gray-200 bg-surface px-4 py-14 text-center text-gray-500"><Icon name="calendar" className="h-8 w-8 text-gray-400" /><p>لا أسابيع إغلاق في <span className="font-display">{filters.year}</span> بعد.</p></div>}

@@ -57,7 +57,7 @@ test('staff with box access can reach their boxes without payment access and onl
 test('closing boxes lives in the financial boxes link, whose open entries tab lights it too, beside the safe and statements page', () => {
     const links = allowedNavigationGroups({ viewCashBoxes: true, viewBranchReconciliation: true }).flatMap((group) => group.links);
 
-    assert.deepEqual(links.map((link) => [link.href, link.label]), [['/payments/cash-boxes', 'الصناديق المالية'], ['/reconciliation', 'الإغلاقات والكشوفات']]);
+    assert.deepEqual(links.map((link) => [link.href, link.label]), [['/payments/cash-boxes', 'الصناديق المالية'], ['/reconciliation', 'إدارة الإغلاق']]);
     assert.equal(isActiveLink(links[0], '/payments/cash-boxes?branch_id=2&box=7'), true);
     assert.equal(isActiveLink(links[0], '/payments/cash-boxes/entries?branch_id=2'), true);
 });
@@ -68,7 +68,7 @@ test('a section menu describes only the pages the user can open', () => {
     const finance = allowedNavigationGroups({ recordPayments: true, viewLedger: true, viewDebtAging: true, viewReports: true, viewBranchReconciliation: true }).find((group) => group.id === 'finance');
 
     assert.equal(groupSummary(daily), 'المشتركون والقراءات والرسائل');
-    assert.equal(groupSummary(finance), 'تسجيل الدفعات والإغلاقات والكشوفات والسجل المالي وغيرها');
+    assert.equal(groupSummary(finance), 'تسجيل الدفعات وإدارة الإغلاق والسجل المالي وغيرها');
     assert.equal(groupSummary(allowedNavigationGroups({ viewMessages: true })[0]), 'الرسائل');
 });
 

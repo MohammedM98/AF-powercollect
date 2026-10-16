@@ -1,18 +1,4 @@
-import Icon from './ClosingIcon';
-import { formatMoney } from '@/lib/format';
-const currencies = { ILS: 'شيكل', USD: 'دولار', JOD: 'دينار' };
-const symbols = { ILS: '₪', USD: '$', JOD: 'د.أ' };
-const money = (value, currency = 'ILS') => `${formatMoney(value ?? 0)} ${symbols[currency]}`;
-export function PrimaryButton({ className = '', children, ...props }) {
-    return <button type="button" {...props} className={`btn pr ${className}`}>{children}</button>;
-}
-export function SecondaryButton({ className = '', children, ...props }) {
-    return <button type="button" {...props} className={`btn ${className}`}>{children}</button>;
-}
-export function StatusPill({ tone, children }) {
-    const colors = { green: 'g', amber: 'a', red: 'r', blue: 'b', purple: 'p' };
-    return <span className={`pl ${colors[tone] ?? ''}`}><i />{children}</span>;
-}
+/** The branch's dates and times and the name of each week, shared by the closing pages. */
 export const dateTime = (value) => value ? new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Gaza' }).format(new Date(value)) : '—';
 export const branchClock = (value) => new Intl.DateTimeFormat('en-GB', { timeStyle: 'short', timeZone: 'Asia/Gaza' }).format(new Date(value));
 export const branchDate = (value) => new Intl.DateTimeFormat('ar-SY-u-nu-latn', { day: 'numeric', month: 'long', timeZone: 'Asia/Gaza' }).format(new Date(value));
@@ -26,16 +12,3 @@ export function periodLabel(period) {
     const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
     return `الأسبوع ${Math.ceil((((date - yearStart) / 86400000) + 1) / 7)}`;
 }
-
-export function MoneyStack({ amounts, className = '' }) {
-    return <div className={`money-stack ${className}`}>{Object.keys(currencies).map((currency) => <Money key={currency} amount={amounts?.[currency]} currency={currency} />)}</div>;
-}
-
-export function Money({ amount, currency = 'ILS' }) {
-    return <span className={`mny ${Number(amount ?? 0) === 0 ? 'zero' : ''}`}><b className="num" dir="ltr">{formatMoney(amount ?? 0)}</b><i>{symbols[currency]}</i></span>;
-}
-
-export function Panel({ title, hint, icon, children }) {
-    return <section className="sec"><header><span className="si"><Icon name={icon} /></span><div><h3>{title}</h3><small>{hint}</small></div></header><div className="bd">{children}</div></section>;
-}
-

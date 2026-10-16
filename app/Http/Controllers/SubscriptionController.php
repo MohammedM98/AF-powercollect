@@ -244,7 +244,9 @@ class SubscriptionController extends Controller
             'canUpdate' => $actor->can('update', $subscription),
             'canDelete' => $actor->can('delete', $subscription),
             'canRecordPayment' => $actor->can('recordPayment', $subscription),
-            'canAdjustBalance' => $actor->can('adjustBalance', $subscription),
+            'canAddCharge' => $actor->can('addCharge', $subscription),
+            'canAddDiscount' => $actor->can('addDiscount', $subscription),
+            'canAddClearing' => $actor->can('addClearing', $subscription),
         ];
     }
 

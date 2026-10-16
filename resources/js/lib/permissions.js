@@ -2,7 +2,7 @@
  * The permissions editor's model (Pages/Settings/Permissions.jsx). Each
  * section's everyday permissions climb a ladder — view, then add, then edit
  * — so one level stands for all the permissions up to it. Sensitive ones
- * (delete, approve, adjust balances…) are never part of a level: each is
+ * (delete, approve, charges and discounts…) are never part of a level: each is
  * its own switch. Every level is just a set of the real permissions, so
  * an employee whose permissions don't sit on the ladder (say, edit
  * without add) shows as "custom" with the exact switches, never rounded.
@@ -32,7 +32,9 @@ export const SENSITIVE = {
     kilowatt_price: { label: 'تعديل سعر الكيلو للمشترك', hint: 'يعطي المشترك سعر كيلو خاصًا به بدل سعر تعرفته، أعلى منه أو أقل', danger: true },
     approve: { label: 'اعتماد القراءات', hint: 'تُضاف مبالغها إلى حسابات المشتركين', danger: true },
     confirm: { label: 'تأكيد التحصيل', hint: 'تُمنح بحذر', danger: true },
-    adjust: { label: 'إضافة تحميل أو خصم أو تسوية', hint: 'يشمل الخصم الدائم وتسوية الرصيد — لا يمنح تعديل الحركات أو حذفها', danger: true },
+    'collections.charge': { label: 'إضافة تحميل', hint: 'غرامة أو رسوم تُضاف على حساب المشترك', danger: true },
+    'collections.discount': { label: 'إضافة خصم', hint: 'خصم مرة واحدة، أو خصم دائم على القراءات الأسبوعية وإيقافه', danger: true },
+    'collections.clearing': { label: 'إضافة مقاصة', hint: 'تسوية رصيد المشترك بقيد مقاصة', danger: true },
     correct: { label: 'تعديل مبلغ الحركة', hint: 'تصحيح مبلغ تحميل أو دفعة من مسار التصحيح، مع حفظ السبب والأثر المالي', danger: true },
     'meter_readings.correct': { label: 'تصحيح القراءة الأسبوعية', hint: 'يعدّل قراءة الأسبوع المتاح؛ القراءة المعتمدة تعود للاعتماد', danger: true },
     'meter_readings.correct_last': { label: 'تعديل القراءة السابقة واعتمادها', hint: 'يعدّل قراءة الأسبوع السابق من خانة «القراءة السابقة» وتُحسب قراءة هذا الأسبوع منها؛ بعد التأكيد تُعتمد المعتمدة منهما مباشرة', danger: true },
@@ -64,6 +66,8 @@ export const ACTION_LABELS = {
     debt_aging: 'أعمار الديون',
     transaction_audit: 'سجل التدقيق',
     print_sheets: 'طباعة الكشوف الورقية',
+    record_cash: 'الدفع نقدًا',
+    record_transfer: 'الدفع بتحويل بنكي',
 };
 
 /** What an everyday switch opens, in a line under its name. */
@@ -74,7 +78,12 @@ const ACTION_HINTS = {
     debt_aging: 'المشتركون المدينون وكم مضى على ديونهم',
     transaction_audit: 'من عدّل أو ألغى أو حذف أي حركة، ومتى ولماذا',
     print_sheets: 'يطبع كشوف القراءة الورقية للطبلونات المخصصة للورق',
+    record_cash: 'يظهر له «نقدًا» في نافذة الدفع، وتدخل الدفعة صندوقه',
+    record_transfer: 'يظهر له «تحويل بنكي» في نافذة الدفع، ومعه الدفعة المقسّمة على عدة اشتراكات',
 };
+
+/** The ways to be paid, each its own switch beside «إضافة دفعة» (see withSectionLevel). */
+const PAYMENT_METHOD_ACTIONS = ['record_cash', 'record_transfer'];
 
 function sensitiveOf(sectionKey, action) {
     return SENSITIVE[`${sectionKey}.${action}`] ?? SENSITIVE[action] ?? null;
@@ -208,6 +217,27 @@ export function withLevel(ladder, selectedIds, level) {
     const others = selectedIds.filter((id) => !ladder.ids.includes(id));
 
     return [...others, ...ladder.ids.slice(0, level)];
+}
+
+/**
+ * The selected permissions with a section's ladder set to `level`. The
+ * ways to be paid go with «إضافة دفعة»: reaching it turns them all on when
+ * none is, and dropping below it turns them off.
+ */
+export function withSectionLevel(section, selectedIds, level) {
+    const next = withLevel(section.ladder, selectedIds, level);
+    const recordIndex = section.ladder.actions.indexOf('record');
+    const methods = section.switches.filter((item) => PAYMENT_METHOD_ACTIONS.includes(item.action)).map((item) => item.id);
+
+    if (section.key !== 'collections' || recordIndex === -1 || methods.length === 0) {
+        return next;
+    }
+
+    if (level <= recordIndex) {
+        return next.filter((id) => !methods.includes(id));
+    }
+
+    return methods.some((id) => next.includes(id)) ? next : [...next, ...methods];
 }
 
 /** The selected permissions with one turned on or off. */

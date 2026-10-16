@@ -32,6 +32,9 @@ class StoreMobileCollectionRequest extends FormRequest
      */
     public function rules(): array
     {
+        $paymentRules = StoreSubscriptionPaymentRequest::paymentRules($this->input('payment_method'));
+        $paymentRules['payment_method'][] = StoreSubscriptionPaymentRequest::allowedMethodRule($this->user());
+
         return [
             'mobile_operation_id' => ['required', 'uuid'],
             'collector_confirmed' => ['required', 'accepted'],
@@ -39,7 +42,7 @@ class StoreMobileCollectionRequest extends FormRequest
                 'collected_at' => ['nullable', 'date', 'before_or_equal:now'],
                 'subscription_id' => ['required', Rule::exists('subscriptions', 'id')
                     ->when(! $this->user()->isSuperAdmin(), fn ($rule) => $rule->where('branch_id', $this->user()->branch_id))],
-                ...StoreSubscriptionPaymentRequest::paymentRules($this->input('payment_method')),
+                ...$paymentRules,
             ]),
         ];
     }

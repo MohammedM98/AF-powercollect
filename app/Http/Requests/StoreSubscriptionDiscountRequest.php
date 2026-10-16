@@ -17,7 +17,7 @@ class StoreSubscriptionDiscountRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('adjustBalance', $this->route('subscription'));
+        return $this->user()->can('addDiscount', $this->route('subscription'));
     }
 
     /**

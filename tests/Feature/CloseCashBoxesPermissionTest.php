@@ -92,7 +92,7 @@ class CloseCashBoxesPermissionTest extends TestCase
     {
         [$branch, $head, $collector] = $this->start();
         $closer = User::factory()->accountant()->for($branch)->withPermissions([PermissionKey::CloseCashBoxes])->create();
-        $closer->permissions()->detach(Permission::idsFor([PermissionKey::RecordCollections, PermissionKey::AdjustBalances]));
+        $closer->permissions()->detach(Permission::idsFor([PermissionKey::RecordCollections, PermissionKey::AddCharges, PermissionKey::AddDiscounts, PermissionKey::AddClearings]));
         $box = $this->cashBox($branch, $collector);
         $this->assertTrue($closer->refresh()->cannot('viewOwnCashBoxes', Subscription::class));
         $transaction = $box->payments()->sole()->transaction;

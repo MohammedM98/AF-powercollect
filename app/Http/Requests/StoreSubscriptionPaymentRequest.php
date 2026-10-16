@@ -6,6 +6,8 @@ use App\Enums\Currency;
 use App\Enums\PaymentMethod;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
+use App\Models\User;
+use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -37,7 +39,27 @@ class StoreSubscriptionPaymentRequest extends FormRequest
      */
     public function rules(): array
     {
-        return self::paymentRules($this->input('payment_method'));
+        $rules = self::paymentRules($this->input('payment_method'));
+        $rules['payment_method'][] = self::allowedMethodRule($this->user());
+
+        return $rules;
+    }
+
+    /**
+     * Each way to be paid is its own permission (cash, or a bank transfer):
+     * a payment taken another way is refused, with why.
+     */
+    public static function allowedMethodRule(User $user): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) use ($user): void {
+            $method = PaymentMethod::tryFrom((string) $value);
+
+            if ($method !== null && ! in_array($method, $user->allowedPaymentMethods(), true)) {
+                $fail($method === PaymentMethod::Cash
+                    ? 'لا تملك صلاحية الدفع نقدًا؛ اطلبها من مدير الفرع.'
+                    : 'لا تملك صلاحية الدفع بالتحويل البنكي؛ اطلبها من مدير الفرع.');
+            }
+        };
     }
 
     /**

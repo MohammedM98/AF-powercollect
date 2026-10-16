@@ -37,7 +37,7 @@ class SubscriptionStandingDiscountController extends Controller
      */
     public function destroy(Request $request, Subscription $subscription): RedirectResponse
     {
-        $this->authorize('adjustBalance', $subscription);
+        $this->authorize('addDiscount', $subscription);
 
         if ($subscription->standingDiscount()->delete()) {
             $request->user()->notify(new ActionCompleted('standing-discount-stopped', $subscription->displayName()));

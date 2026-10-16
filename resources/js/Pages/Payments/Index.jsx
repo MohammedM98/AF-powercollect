@@ -41,6 +41,7 @@ export default function Index({
     filterOptions,
     pendingCount,
     paymentMethods,
+    canSplitPayments,
     transferBanks,
     senderBanks,
     chargeTypes,
@@ -56,7 +57,7 @@ export default function Index({
 
     /** The row's ⋯ menu: the account's other lines, besides the payment button beside it. */
     function rowMenu(subscription) {
-        const adjustLock = subscription.canAdjustBalance ? null : needsPermission('إضافة تحميل وخصم');
+        const splitLock = canSplitPayments ? null : needsPermission('الدفع بتحويل بنكي');
 
         return {
             title: subscription.fullName,
@@ -66,10 +67,10 @@ export default function Index({
                     label: 'الحساب المالي',
                     items: [
                         { label: 'تسجيل دفعة', icon: 'banknotes', tone: 'emerald', shortcut: 'P', onSelect: () => setPaying(subscription) },
-                        { label: 'دفعة مقسّمة', icon: 'layers', tone: 'brand', hint: 'تحويل واحد لعدة مشتركين', onSelect: () => setSplitting({ subscription }) },
-                        { label: 'تحميل حركة', icon: 'document-plus', tone: 'amber', hint: 'غرامة أو رسوم', onSelect: () => setAdjusting({ form: 'charge', subscription }), lockedReason: adjustLock },
-                        { label: 'إضافة خصم', icon: 'discount', tone: 'violet', onSelect: () => setAdjusting({ form: 'discount', subscription }), lockedReason: adjustLock },
-                        { label: 'مقاصة', icon: 'scale', tone: 'teal', onSelect: () => setAdjusting({ form: 'clearing', subscription }), lockedReason: adjustLock },
+                        { label: 'دفعة مقسّمة', icon: 'layers', tone: 'brand', hint: 'تحويل واحد لعدة مشتركين', onSelect: () => setSplitting({ subscription }), lockedReason: splitLock },
+                        { label: 'تحميل حركة', icon: 'document-plus', tone: 'amber', hint: 'غرامة أو رسوم', onSelect: () => setAdjusting({ form: 'charge', subscription }), lockedReason: subscription.canAddCharge ? null : needsPermission('إضافة تحميل') },
+                        { label: 'إضافة خصم', icon: 'discount', tone: 'violet', onSelect: () => setAdjusting({ form: 'discount', subscription }), lockedReason: subscription.canAddDiscount ? null : needsPermission('إضافة خصم') },
+                        { label: 'مقاصة', icon: 'scale', tone: 'teal', onSelect: () => setAdjusting({ form: 'clearing', subscription }), lockedReason: subscription.canAddClearing ? null : needsPermission('إضافة مقاصة') },
                     ],
                 },
             ],
@@ -85,12 +86,14 @@ export default function Index({
                         <p className="text-sm font-semibold text-gray-500">{scopeLabel}</p>
                         <h2 className="mt-1 text-3xl font-bold text-gray-900">تسجيل الدفعات</h2>
                     </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <PrimaryButton type="button" onClick={() => setSplitting({})} className="h-11 px-5">
-                            <Icon name="layers" className="h-[18px] w-[18px]" />
-                            دفعة مقسّمة على عدة مشتركين
-                        </PrimaryButton>
-                    </div>
+                    {canSplitPayments && (
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                            <PrimaryButton type="button" onClick={() => setSplitting({})} className="h-11 px-5">
+                                <Icon name="layers" className="h-[18px] w-[18px]" />
+                                دفعة مقسّمة على عدة مشتركين
+                            </PrimaryButton>
+                        </div>
+                    )}
                 </>
             }
         >

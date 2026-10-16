@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToBranch;
@@ -181,6 +182,20 @@ class User extends Authenticatable
         }
 
         return false;
+    }
+
+    /**
+     * The ways the user may take a payment: those offered now whose own
+     * permission they hold (cash, or a bank transfer).
+     *
+     * @return array<int, PaymentMethod>
+     */
+    public function allowedPaymentMethods(): array
+    {
+        return array_values(array_filter(
+            PaymentMethod::offered(),
+            fn (PaymentMethod $method): bool => $this->hasPermission($method->permission()),
+        ));
     }
 
     /**

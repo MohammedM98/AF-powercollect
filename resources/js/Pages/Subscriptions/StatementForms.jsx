@@ -19,10 +19,10 @@ const ACTION_ICON_TONES = {
 
 /**
  * The statement's actions, grouped into one coloured menu. Each action is
- * shown only to users allowed to use it. `onOpen` gets 'charge', 'discount',
- * 'clearing' or 'payment'.
+ * shown only to users allowed to use it (each is its own permission).
+ * `onOpen` gets 'charge', 'discount', 'clearing' or 'payment'.
  */
-export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen }) {
+export function StatementActions({ canRecordPayment, canAddCharge, canAddDiscount, canAddClearing, onOpen }) {
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
     const triggerRef = useRef(null);
@@ -56,20 +56,16 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
         };
     }, [open]);
 
-    if (!canRecordPayment && !canAdjustBalance) {
+    const actions = [
+        canRecordPayment && { action: 'payment', label: 'تسجيل دفعة', icon: 'banknotes' },
+        canAddCharge && { action: 'charge', label: 'تحميل حركة', icon: 'document-plus' },
+        canAddDiscount && { action: 'discount', label: 'إضافة خصم', icon: 'discount' },
+        canAddClearing && { action: 'clearing', label: 'مقاصة', icon: 'scale' },
+    ].filter(Boolean);
+
+    if (actions.length === 0) {
         return null;
     }
-
-    const actions = [
-        ...(canRecordPayment ? [{ action: 'payment', label: 'تسجيل دفعة', icon: 'banknotes' }] : []),
-        ...(canAdjustBalance
-            ? [
-                  { action: 'charge', label: 'تحميل حركة', icon: 'document-plus' },
-                  { action: 'discount', label: 'إضافة خصم', icon: 'discount' },
-                  { action: 'clearing', label: 'مقاصة', icon: 'scale' },
-              ]
-            : []),
-    ];
 
     function choose(action) {
         setOpen(false);
@@ -123,7 +119,7 @@ export function StatementActions({ canRecordPayment, canAdjustBalance, onOpen })
  * weekly reading a line was billed from, in the readings page's own form. `statement` is the statement's page props.
  */
 export function StatementForms({ statement, openForm, onClose, onOpen = null }) {
-    const { subscription, summary, canRecordPayment, canAdjustBalance } = statement;
+    const { subscription, summary, canRecordPayment, canAddCharge, canAddDiscount, canAddClearing } = statement;
     const amending = openForm?.action === 'edit_metadata' ? openForm.entry : null;
     const editing = openForm?.action === 'edit' ? openForm.entry : null;
     const deleting = ['delete', 'delete_reversal', 'delete_tree'].includes(openForm?.action) ? openForm.entry : null;
@@ -202,32 +198,32 @@ export function StatementForms({ statement, openForm, onClose, onOpen = null }) 
                     onClose={onClose}
                     subscription={subscription}
                     balance={summary.balance}
-                    paymentMethods={statement.paymentMethods}
+                    paymentMethods={statement.payableMethods}
                     transferBanks={statement.transferBanks}
                     senderBanks={statement.senderBanks}
                 />
             )}
 
-            {canAdjustBalance && (
-                <>
-                    <ChargeModal
-                        show={openForm === 'charge'}
-                        onClose={onClose}
-                        subscription={subscription}
-                        balance={summary.balance}
-                        chargeTypes={statement.chargeTypes}
-                    />
-                    <DiscountModal
-                        show={openForm === 'discount'}
-                        onClose={onClose}
-                        subscription={subscription}
-                        balance={summary.balance}
-                        discountMethods={statement.discountMethods}
-                        discountSegments={statement.discountSegments}
-                    />
-                    <ClearingModal show={openForm === 'clearing'} onClose={onClose} subscription={subscription} balance={summary.balance} />
-                </>
+            {canAddCharge && (
+                <ChargeModal
+                    show={openForm === 'charge'}
+                    onClose={onClose}
+                    subscription={subscription}
+                    balance={summary.balance}
+                    chargeTypes={statement.chargeTypes}
+                />
             )}
+            {canAddDiscount && (
+                <DiscountModal
+                    show={openForm === 'discount'}
+                    onClose={onClose}
+                    subscription={subscription}
+                    balance={summary.balance}
+                    discountMethods={statement.discountMethods}
+                    discountSegments={statement.discountSegments}
+                />
+            )}
+            {canAddClearing && <ClearingModal show={openForm === 'clearing'} onClose={onClose} subscription={subscription} balance={summary.balance} />}
         </>
     );
 }

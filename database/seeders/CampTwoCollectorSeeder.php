@@ -36,9 +36,10 @@ class CampTwoCollectorSeeder extends Seeder
             return;
         }
 
-        $permission = Permission::query()->where('key', PermissionKey::RecordCollections->value)->sole();
+        // Taking payments, both cash and bank transfers: a collector's starter set.
+        $permissions = Permission::query()->whereIn('key', array_map(fn (PermissionKey $key): string => $key->value, UserRole::Collector->starterPermissions()))->pluck('id');
         $password = Str::password(20);
-        DB::transaction(function () use ($branch, $permission, $password): void {
+        DB::transaction(function () use ($branch, $permissions, $password): void {
             $user = User::withoutEvents(fn (): User => User::query()->create([
                 'name' => 'محصّل مخيم 2',
                 'username' => self::USERNAME,
@@ -47,7 +48,7 @@ class CampTwoCollectorSeeder extends Seeder
                 'branch_id' => $branch->id,
                 'is_active' => true,
             ]));
-            $user->permissions()->attach($permission);
+            $user->permissions()->attach($permissions);
             Storage::disk('local')->put(self::CREDENTIALS_PATH, 'Username: '.self::USERNAME."\nPassword: {$password}\nBranch: مخيم 2\n");
         });
 

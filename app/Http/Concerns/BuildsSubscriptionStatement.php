@@ -125,7 +125,7 @@ trait BuildsSubscriptionStatement
         $discounts = $counted->filter(fn (SubscriptionTransaction $transaction): bool => $transaction->isDiscount());
         $clearings = $counted->filter(fn (SubscriptionTransaction $transaction): bool => $transaction->isClearing());
         $sumOf = fn ($lines): int => $lines->sum(fn (SubscriptionTransaction $transaction): int => $this->cents($transaction->amount));
-        $canAdjustBalance = $actor->can('adjustBalance', $subscription);
+        $canAddDiscount = $actor->can('addDiscount', $subscription);
 
         return [
             'subscription' => [
@@ -160,15 +160,20 @@ trait BuildsSubscriptionStatement
                 'clearingsCount' => $clearings->count(),
             ],
             'canRecordPayment' => $actor->can('recordPayment', $subscription),
-            'canAdjustBalance' => $canAdjustBalance,
+            'canAdjustBalance' => $actor->can('adjustBalance', $subscription),
+            'canAddCharge' => $actor->can('addCharge', $subscription),
+            'canAddDiscount' => $canAddDiscount,
+            'canAddClearing' => $actor->can('addClearing', $subscription),
             'currencies' => Currency::options(),
             'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
+            // The ways this user may take a payment: what the payment form offers.
+            'payableMethods' => PaymentMethod::options($actor->allowedPaymentMethods()),
             'transferBanks' => config('powercollect.transfer_banks'),
             'senderBanks' => config('powercollect.sender_banks'),
             'chargeTypes' => ChargeType::formOptions(),
             'discountMethods' => DiscountMethod::options(),
             // Offered while typing a standing discount's customer segment.
-            'discountSegments' => $canAdjustBalance ? StandingDiscount::segmentSuggestions() : [],
+            'discountSegments' => $canAddDiscount ? StandingDiscount::segmentSuggestions() : [],
             'transactionTypes' => collect(SubscriptionTransaction::typeLabels())
                 ->map(fn (string $label, string $type): array => ['value' => $type, 'label' => $label])
                 ->values(),

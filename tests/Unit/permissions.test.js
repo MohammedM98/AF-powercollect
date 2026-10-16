@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { changesBetween, filterSections, individualChanges, levelOf, samePermissions, sectionIds, sectionModel, withGroupAccess, withLevel, withToggled } from '../../resources/js/lib/permissions.js';
+import { changesBetween, filterSections, individualChanges, levelOf, samePermissions, sectionIds, sectionModel, withGroupAccess, withLevel, withSectionLevel, withToggled } from '../../resources/js/lib/permissions.js';
 
 const entry = (action, id, label = action) => ({ action, permission: id === null ? null : { id, label } });
 
@@ -93,6 +93,20 @@ test('payment permissions use action names and keep edit, refund, cancel and per
     assert.equal(payments.sensitive.find((item) => item.id === 14).label, 'ردّ الدفعة');
     assert.equal(payments.sensitive.find((item) => item.id === 15).label, 'إلغاء الحركات المالية');
     assert.equal(payments.sensitive.find((item) => item.id === 16).label, 'الحذف النهائي للحركة');
+});
+
+test('each way to be paid and each kind of balance line is its own permission, and the ways follow «إضافة دفعة»', () => {
+    const payments = sectionModel({ key: 'collections', label: 'الدفعات والحركات المالية', actions: [
+        entry('view', 10), entry('record', 11), entry('record_cash', 12), entry('record_transfer', 13), entry('charge', 14), entry('discount', 15), entry('clearing', 16),
+    ] });
+    assert.deepEqual(payments.switches.map((item) => [item.id, item.label]), [[12, 'الدفع نقدًا'], [13, 'الدفع بتحويل بنكي']]);
+    assert.deepEqual(payments.sensitive.map((item) => [item.id, item.label]), [[14, 'إضافة تحميل'], [15, 'إضافة خصم'], [16, 'إضافة مقاصة']]);
+
+    // Raised to «إضافة دفعة» with no way to be paid: both ways come on; with one already, it is kept as it is.
+    assert.deepEqual(withSectionLevel(payments, [14], 2).sort(), [10, 11, 12, 13, 14]);
+    assert.deepEqual(withSectionLevel(payments, [13], 2).sort(), [10, 11, 13]);
+    // Dropped below it: the ways go too, and the other permissions stay.
+    assert.deepEqual(withSectionLevel(payments, [10, 11, 12, 13, 15], 1).sort(), [10, 15]);
 });
 
 test('search and filters reveal relevant actions without mutating selected grants', () => {

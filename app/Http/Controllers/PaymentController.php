@@ -79,12 +79,12 @@ class PaymentController extends Controller
         $this->authorize('recordAnyPayment', Subscription::class);
 
         $actor = $request->user();
-        $canAdjustBalances = $actor->hasPermission(PermissionKey::AdjustBalances);
+        $canAddDiscounts = $actor->hasPermission(PermissionKey::AddDiscounts);
         $query = Subscription::query()
             ->select('subscriptions.*')
             ->selectRaw("COALESCE(NULLIF(subscription_name, ''), full_name) as display_name")
             ->visibleTo($actor)
-            ->with(['branch', 'meterBox.subArea', 'circuitBreaker', 'profile', ...($canAdjustBalances ? ['standingDiscount.grantedBy'] : [])])
+            ->with(['branch', 'meterBox.subArea', 'circuitBreaker', 'profile', ...($canAddDiscounts ? ['standingDiscount.grantedBy'] : [])])
             ->withSum('transactions as outstanding_balance', 'amount');
         $this->applyTableFilters($query, $request);
 
@@ -93,20 +93,24 @@ class PaymentController extends Controller
                 ->withQueryString()
                 ->through(fn (Subscription $subscription): array => [
                     ...$this->row($subscription),
-                    'canAdjustBalance' => $actor->can('adjustBalance', $subscription),
-                    'standingDiscount' => $canAdjustBalances ? $this->statementStandingDiscount($subscription->standingDiscount) : null,
+                    'canAddCharge' => $actor->can('addCharge', $subscription),
+                    'canAddDiscount' => $actor->can('addDiscount', $subscription),
+                    'canAddClearing' => $actor->can('addClearing', $subscription),
+                    'standingDiscount' => $canAddDiscounts ? $this->statementStandingDiscount($subscription->standingDiscount) : null,
                 ]),
             'scopeLabel' => $actor->isSuperAdmin() ? 'كل الفروع' : ($actor->branch?->name ?? '—'),
             'filters' => $this->dataTableState($request, 'display_name'),
             'filterOptions' => $this->filterOptions($actor, $request),
             ...$this->collectionCounts($actor),
             'collectionUrls' => $this->collectionUrls(),
-            'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
+            // The ways this user may take a payment: what the payment form offers.
+            'paymentMethods' => PaymentMethod::options($actor->allowedPaymentMethods()),
+            'canSplitPayments' => $actor->can('recordSplitPayment', Subscription::class),
             'transferBanks' => config('powercollect.transfer_banks'),
             'senderBanks' => config('powercollect.sender_banks'),
             'chargeTypes' => ChargeType::formOptions(),
             'discountMethods' => DiscountMethod::options(),
-            'discountSegments' => $canAdjustBalances ? StandingDiscount::segmentSuggestions() : [],
+            'discountSegments' => $canAddDiscounts ? StandingDiscount::segmentSuggestions() : [],
         ]);
     }
 

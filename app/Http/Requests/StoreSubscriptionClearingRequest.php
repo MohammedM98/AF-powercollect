@@ -15,7 +15,7 @@ class StoreSubscriptionClearingRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('adjustBalance', $this->route('subscription'));
+        return $this->user()->can('addClearing', $this->route('subscription'));
     }
 
     /**

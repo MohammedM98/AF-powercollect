@@ -165,7 +165,7 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect(collect($groups)->firstWhere('key', 'collections')['actions'])->pluck('action')->all() === [
-                'view', 'record', 'close_boxes', 'confirm', 'adjust', 'correct', 'amend', 'refund', 'delete', 'force_delete',
+                'view', 'record', 'record_cash', 'record_transfer', 'close_boxes', 'confirm', 'charge', 'discount', 'clearing', 'correct', 'amend', 'refund', 'delete', 'force_delete',
             ],
         ));
     }

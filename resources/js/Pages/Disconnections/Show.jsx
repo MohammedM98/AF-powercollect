@@ -16,6 +16,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { csvText, downloadCsv } from '@/lib/csv';
 import { printFieldsProps, printRowProps } from '@/lib/print';
 import { formatMoney, formatNumber } from '@/lib/format';
+import { balanceWord } from '@/lib/balance';
 import { itemTone } from '@/lib/disconnections';
 import ActionModal from './ActionModal';
 import HistoryModal from './HistoryModal';
@@ -56,8 +57,8 @@ function Stat({ label, value, tone = 'text-gray-900', hint }) {
 function exportRows(items) {
     downloadCsv(
         csvText([
-            ['المشترك', 'رقم الاشتراك', 'الطبلون', 'منطقة 2', 'السبب', 'ملاحظة', 'موعد القطع', 'الحالة', 'الرصيد الآن', 'الرصيد عند الإدراج', 'الإنذارات', 'التمديدات', 'رسوم القطع'],
-            ...items.map((item) => [item.name, item.accountNumber, item.meterBoxNumber ?? '', item.subAreaName ?? '', item.reasonLabel, item.note ?? '', item.scheduledFor, item.isOverdue ? 'متأخر' : item.statusLabel, item.balance, item.balanceWhenAdded, item.warningsCount, item.extensionsCount, item.fee ?? '']),
+            ['المشترك', 'رقم الاشتراك', 'الطبلون', 'منطقة 2', 'السبب', 'ملاحظة', 'موعد القطع', 'الحالة', 'الرصيد الآن', 'حالة الرصيد', 'الرصيد عند الإدراج', 'الإنذارات', 'التمديدات', 'رسوم القطع'],
+            ...items.map((item) => [item.name, item.accountNumber, item.meterBoxNumber ?? '', item.subAreaName ?? '', item.reasonLabel, item.note ?? '', item.scheduledFor, item.isOverdue ? 'متأخر' : item.statusLabel, item.balance, balanceWord(item.balance), item.balanceWhenAdded, item.warningsCount, item.extensionsCount, item.fee ?? '']),
         ]),
         'disconnection-list.csv',
     );

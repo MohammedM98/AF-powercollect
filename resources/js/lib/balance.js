@@ -14,6 +14,16 @@ export const BALANCE_HINTS = {
     settled: 'مسدّد',
 };
 
+/**
+ * What each kind of balance is called on paper, where neither colour nor
+ * hover can say it: printed beside the signed balance ("-30.50 ₪ له").
+ */
+export const BALANCE_WORDS = {
+    owes: 'عليه',
+    credit: 'له',
+    settled: 'مسدّد',
+};
+
 /** The colour of a balance where it is coloured: red owed, green credit, grey settled. */
 export const BALANCE_TEXT_CLASSES = {
     owes: 'text-red-600 dark:text-red-400',
@@ -46,11 +56,27 @@ export function signedBalance(value) {
     return `${amount < 0 ? '-' : ''}${formatMoney(Math.abs(amount) / 100)}`;
 }
 
+/** Whether a unit is a word ("شيكل"), read after the number, rather than a symbol ("₪") kept beside it. */
+export function isWordUnit(unit) {
+    return /[\u0600-\u06FF]/.test(unit ?? '');
+}
+
 /**
  * The balance with its unit for running text ("الرصيد بعد: ‎-30 ₪"),
  * isolated left to right so the minus stays before the number inside
- * Arabic text.
+ * Arabic text. A word unit stays outside the isolate so it reads after
+ * the number.
  */
 export function balanceInText(value, unit = '₪') {
-    return `⁦${signedBalance(value)} ${unit}⁩`;
+    return isWordUnit(unit) ? `\u2066${signedBalance(value)}\u2069 ${unit}` : `\u2066${signedBalance(value)} ${unit}\u2069`;
+}
+
+/** "عليه", "له" or "مسدّد" for the balance. */
+export function balanceWord(value) {
+    return BALANCE_WORDS[balanceTone(value)];
+}
+
+/** The balance as printed: signed, with its unit and its word ("-30.50 ₪ له"). */
+export function balanceOnPaper(value, unit = '₪') {
+    return `${balanceInText(value, unit)} ${balanceWord(value)}`;
 }

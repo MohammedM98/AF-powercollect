@@ -623,6 +623,21 @@
     display: none;
 }
 
+/* A balance's word (عليه / له / مسدّد) shows only on paper, where colour and hover are lost. */
+.balance-paper-word {
+    display: none;
+}
+
+.print-mode .balance-paper-word {
+    display: inline;
+}
+
+@media print {
+    .balance-paper-word {
+        display: inline;
+    }
+}
+
 /* A paper reading sheet prints alone, like the account statement below. */
 @media print {
     body:has(.paper-sheet) *:not(:has(.paper-sheet)):not(.paper-sheet):not(.paper-sheet *) {

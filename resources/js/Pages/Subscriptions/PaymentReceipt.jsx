@@ -4,9 +4,8 @@ import Icon from '@/Components/Icon';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import { COMPANY_NAME } from '@/Layouts/GuestLayout';
-import { describeBalance } from '@/lib/accountStatement';
 import { formatMoney } from '@/lib/format';
-import { balanceText } from './AccountFormParts';
+import { balanceOnPaper } from '@/lib/balance';
 
 // The time printed at the foot of the receipt, in the app's Arabic with Western digits.
 const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
@@ -36,7 +35,6 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
     const { appName } = usePage().props;
     const [logoReady, setLogoReady] = useState(false);
     const printed = useRef(false);
-    const balance = receipt.balanceAfter === null ? null : describeBalance(receipt.balanceAfter);
     const transferredFrom = [receipt.senderName, receipt.senderBankName].filter(Boolean).join(' · ');
     const title = receipt.isClearing ? 'سند مقاصة' : 'سند قبض';
 
@@ -186,7 +184,7 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
                         </ReceiptLine>
                     )}
                     <ReceiptLine label={receipt.isClearing ? 'مقابل خدمة' : 'ملاحظات'}>{receipt.notes}</ReceiptLine>
-                    {balance && <ReceiptLine label={receipt.isClearing ? 'الرصيد بعد المقاصة' : 'الرصيد بعد الدفعة'}>{balanceText(balance)}</ReceiptLine>}
+                    {receipt.balanceAfter != null && <ReceiptLine label={receipt.isClearing ? 'الرصيد بعد المقاصة' : 'الرصيد بعد الدفعة'}>{balanceOnPaper(receipt.balanceAfter)}</ReceiptLine>}
                 </dl>
 
                 <div className="pd-signatures mt-10 grid grid-cols-2 gap-8 text-center">

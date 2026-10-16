@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { balanceInText, balanceTone, signedBalance } from '../../resources/js/lib/balance.js';
+import { balanceInText, balanceOnPaper, balanceTone, balanceWord, signedBalance } from '../../resources/js/lib/balance.js';
 
 test('a positive balance is owed, a negative one is credit, zero is settled', () => {
     assert.equal(balanceTone(120), 'owes');
@@ -18,4 +18,12 @@ test('only a negative balance carries a sign', () => {
 
 test('in running text the signed balance is isolated left to right', () => {
     assert.equal(balanceInText(-30), '⁦-30 ₪⁩');
+});
+
+test('on paper the balance carries its word', () => {
+    assert.equal(balanceWord(120), 'عليه');
+    assert.equal(balanceWord('-30.5'), 'له');
+    assert.equal(balanceWord('0.004'), 'مسدّد');
+    assert.equal(balanceOnPaper('-30.5'), '\u2066-30.50 ₪\u2069 له');
+    assert.equal(balanceOnPaper(120, 'شيكل'), '\u2066120\u2069 شيكل عليه');
 });

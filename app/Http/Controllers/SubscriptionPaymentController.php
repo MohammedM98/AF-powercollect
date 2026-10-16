@@ -153,7 +153,7 @@ class SubscriptionPaymentController extends Controller
             'id' => $transaction->id,
             'voucherNumber' => $transaction->displayVoucherNumber(),
             'subscriptionName' => $transaction->subscription->displayName(),
-            'url' => route('subscriptions.statement', $transaction->subscription).'#statement-line-'.$transaction->id,
+            'url' => route('subscriptions.statement', [$transaction->subscription, 'transaction' => $transaction->id]),
         ];
     }
 }

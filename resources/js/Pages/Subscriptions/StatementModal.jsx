@@ -41,7 +41,7 @@ function StatementSkeleton() {
  * soon as the statement is there. `onSwitch(header)` opens another of the
  * same person's subscriptions in its place.
  */
-export default function StatementModal({ subscription, statement, initialForm = null, onSwitch, onClose }) {
+export default function StatementModal({ subscription, statement, initialForm = null, focusLineId = null, onSwitch, onClose }) {
     const titleId = useId();
     // The form open over the statement: 'payment', 'charge' or 'discount', or a line to correct or delete.
     const [openForm, setOpenForm] = useState(initialForm);
@@ -105,7 +105,7 @@ export default function StatementModal({ subscription, statement, initialForm = 
                                 />
                             )}
                             <Link
-                                href={`/subscriptions/${header.id}/statement`}
+                                href={`/subscriptions/${header.id}/statement${focusLineId ? `?transaction=${focusLineId}` : ''}`}
                                 title="فتح الكشف في صفحة مستقلة"
                                 aria-label="فتح الكشف في صفحة مستقلة"
                                 className="flex h-10 w-10 items-center justify-center rounded-control border border-gray-200 bg-surface text-gray-600 transition hover:border-gray-300 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
@@ -142,6 +142,7 @@ export default function StatementModal({ subscription, statement, initialForm = 
                                     paymentMethods={statement.paymentMethods}
                                     transactionTypes={statement.transactionTypes}
                                     onAction={(action, entry) => setOpenForm({ action, entry })}
+                                    focusLineId={focusLineId}
                                 />
                             </>
                         ) : (

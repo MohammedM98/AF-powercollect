@@ -57,7 +57,9 @@ class CashBoxEntriesTest extends TestCase
             ->where('entries.data.1.box.url', route('payments.cash-boxes.show', $cash->box))
             ->where('entries.data.1.ledger.voucherNumber', $cash->transaction->displayVoucherNumber())
             ->where('entries.data.1.ledger.description', 'دفعة نقدية')
-            ->where('entries.data.1.ledger.recordedByName', 'سامي'));
+            ->where('entries.data.1.ledger.recordedByName', 'سامي')
+            // A collector who may not open subscribers gets no link to the statement.
+            ->where('entries.data.1.statementUrl', null));
 
         $this->get(route('payments.summary', ['filter' => ['type' => 'bank_transfer']]))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('entries.total', 1)
@@ -80,7 +82,8 @@ class CashBoxEntriesTest extends TestCase
             ->where('entries.total', 1)
             ->where('entries.data.0.collector', 'سامي')
             ->where('entries.data.0.ledger.recordedByName', 'سامي')
-            ->where('entries.data.0.box.url', route('payments.cash-boxes', ['branch_id' => $branch->id, 'box' => $entry->cash_box_id])));
+            ->where('entries.data.0.box.url', route('payments.cash-boxes', ['branch_id' => $branch->id, 'box' => $entry->cash_box_id]))
+            ->where('entries.data.0.statementUrl', route('subscriptions.statement', [$entry->transaction->subscription_id, 'transaction' => $entry->subscription_transaction_id])));
     }
 
     public function test_closer_sees_every_entry_of_the_branch_their_own_among_them_and_narrows_them_to_one_person(): void

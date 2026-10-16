@@ -34,7 +34,7 @@ class SplitPaymentController extends Controller
                 'id' => $conflict->id,
                 'voucherNumber' => $conflict->displayVoucherNumber(),
                 'subscriptionName' => $conflict->subscription->displayName(),
-                'url' => route('subscriptions.statement', $conflict->subscription).'#statement-line-'.$conflict->id,
+                'url' => route('subscriptions.statement', [$conflict->subscription, 'transaction' => $conflict->id]),
             ] : null,
         ]);
     }

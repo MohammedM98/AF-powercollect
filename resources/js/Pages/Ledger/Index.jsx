@@ -251,8 +251,9 @@ export default function Index({ entries, period, side, summary, ledgerTotals, da
         window.location.assign(url.toString());
     }
 
+    /** The subscriber's statement over the page, opened at this transaction. */
     function openStatement(entry) {
-        statementWindow.open({ id: entry.subscriptionId, fullName: entry.subscriptionName, accountNumber: entry.subscriptionAccountNumber, status: entry.subscriptionStatus, statusLabel: entry.subscriptionStatusLabel, branchName: entry.branchName });
+        statementWindow.open({ id: entry.subscriptionId, fullName: entry.subscriptionName, accountNumber: entry.subscriptionAccountNumber, status: entry.subscriptionStatus, statusLabel: entry.subscriptionStatusLabel, branchName: entry.branchName }, null, entry.id);
     }
 
     function sortHeading(column, label) {
@@ -301,7 +302,7 @@ export default function Index({ entries, period, side, summary, ledgerTotals, da
                     <div className="ledger-pagination"><label className="sel"><span className="sr-only">عدد القيود في الصفحة</span><select aria-label="عدد القيود في الصفحة" value={filters.per_page} onChange={(event) => setPerPage(event.target.value)}>{[15, 25, 50, 100].map((count) => <option key={count} value={count}>{count} قيد / صفحة</option>)}</select></label><Pagination meta={entries} filters={filters} baseUrl="/ledger" extraParams={extraParams} /></div>
                 </section>
             </div>
-            {statementWindow.subscription && <StatementModal key={statementWindow.subscription.id} subscription={statementWindow.subscription} statement={statementWindow.statement} initialForm={statementWindow.form} onSwitch={(header) => statementWindow.open(header)} onClose={statementWindow.close} />}
+            {statementWindow.subscription && <StatementModal key={statementWindow.subscription.id} subscription={statementWindow.subscription} statement={statementWindow.statement} initialForm={statementWindow.form} focusLineId={statementWindow.focusLineId} onSwitch={(header) => statementWindow.open(header)} onClose={statementWindow.close} />}
         </AuthenticatedLayout>
     );
 }

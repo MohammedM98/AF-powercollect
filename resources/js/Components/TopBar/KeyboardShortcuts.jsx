@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import Icon from '@/Components/Icon';
 
 /** The keys that work from any page, in a small window. */
-export default function KeyboardShortcuts({ open, onClose, canRecordPayments, searchesSubscribers }) {
+export default function KeyboardShortcuts({ open, onClose, canRecordPayments, canSendMessages, searchesSubscribers }) {
     const closeRef = useRef(null);
 
     useEffect(() => {
@@ -44,6 +44,7 @@ export default function KeyboardShortcuts({ open, onClose, canRecordPayments, se
         ['← →', 'التنقل بين الأقسام'],
         ['↓', 'فتح قائمة القسم'],
         ...(canRecordPayments ? [['N', 'تسجيل دفعة من أي صفحة']] : []),
+        ...(canSendMessages ? [['M', 'رسالة سريعة لمشترك أو أكثر']] : []),
         ['Esc', 'إغلاق أي قائمة أو نافذة'],
     ];
 

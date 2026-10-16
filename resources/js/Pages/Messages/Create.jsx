@@ -8,7 +8,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import InputError from '@/Components/InputError';
-import { CHANNEL_ICONS, KIND_ICONS, MessageText, renderMessage, withIcons } from './MessageParts';
+import { CHANNEL_ICONS, KIND_HINTS, KIND_ICONS, MessageText, renderMessage, withIcons } from './MessageParts';
 import { scopedOptions, withStaleCleared } from '@/lib/filterGroups';
 
 /** Arabic text goes out as Unicode SMS: 70 letters in one message, 67 in each part of a longer one. */
@@ -19,12 +19,6 @@ function smsParts(length) {
 
     return length <= 70 ? 1 : Math.ceil(length / 67);
 }
-
-const KIND_HINTS = {
-    weekly_reading: 'يصل لكل مشترك قراءته في الأسبوع المختار: السابقة والحالية والاستهلاك والمبلغ.',
-    balance_reminder: 'يصل لمن عليه رصيد أكبر من الحد الذي تحدده، مع رصيده.',
-    custom: 'أي إعلان أو تحديث: انقطاع، مواعيد جديدة، تغيير تعرفة...',
-};
 
 function Field({ label, htmlFor, children, className = '' }) {
     return (

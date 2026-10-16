@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import { printUrl } from '@/lib/print';
+import { openQuickMessage } from '@/lib/quickMessage';
 
 /** The most ticked subscriptions a message or printout carries in its address. */
 export const MAX_LINKED_IDS = 400;
@@ -60,8 +61,9 @@ function BarButton({ icon, label, onClick, disabled = false, hint, className = '
 /**
  * The bar shown while subscriptions are chosen: how many, the actions —
  * change the minimum charge or the status (kept in the bulk changes log),
- * write them a message, print them — and clearing the choice. Actions the
- * user may not take don't show.
+ * write them a message (in the quick message window for the ticked ones,
+ * on the messages page for every match of the filters), print them — and
+ * clearing the choice. Actions the user may not take don't show.
  */
 export default function BulkActionBar({ count, selection, filters, abilities, onAction, onClear }) {
     const ids = selection.ids ?? [];
@@ -93,7 +95,7 @@ export default function BulkActionBar({ count, selection, filters, abilities, on
                     <BarButton
                         icon="messages"
                         label="رسالة"
-                        onClick={() => router.visit(toMessages)}
+                        onClick={() => (selection.all ? router.visit(toMessages) : openQuickMessage(ids))}
                         disabled={!toMessages || tooManyToLink}
                         hint={!toMessages ? 'فلتر نوع الاشتراك لا ينتقل إلى صفحة الرسائل؛ حدّد المشتركين بدلًا منه' : linkHint}
                     />

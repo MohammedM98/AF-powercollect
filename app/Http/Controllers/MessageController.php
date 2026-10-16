@@ -22,6 +22,7 @@ use App\Notifications\ActionCompleted;
 use App\Support\Messaging\MessageComposer;
 use App\Support\Messaging\PhoneNumber;
 use App\Support\Messaging\SmsGateway;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,17 @@ use Inertia\Response as InertiaResponse;
 class MessageController extends Controller
 {
     use FiltersDataTable;
+
+    /**
+     * The most subscriptions a search in the quick message window lists.
+     */
+    private const SEARCH_RESULTS = 8;
+
+    /**
+     * The most subscriptions one quick message reaches; more are written
+     * from the messages page.
+     */
+    private const QUICK_MAX_RECIPIENTS = 400;
 
     public function __construct(private MessageComposer $composer) {}
 
@@ -91,14 +103,7 @@ class MessageController extends Controller
         $meterBoxes = MeterBox::query()->visibleTo($actor)->with(['branch', 'subArea'])->orderBy('box_number')->get();
 
         return Inertia::render('Messages/Create', [
-            'kinds' => MessageKind::options(MessageKind::composable()),
-            'channels' => MessageChannel::options(),
-            'smsDeliversMessages' => app(SmsGateway::class)->deliversMessages(),
-            'templates' => MessageTemplate::query()->orderBy('name')->get(['id', 'name', 'kind', 'body']),
-            'placeholders' => collect(MessageKind::composable())
-                ->mapWithKeys(fn (MessageKind $kind) => [$kind->value => MessageComposer::placeholdersFor($kind)]),
-            // Each branch reads on its own weeks, so the weeks are listed per branch; the page starts on this branch's.
-            'weekOptions' => MeterReading::recentWeekOptionsFor($actor),
+            ...$this->writingOptions($actor),
             'weekBranchId' => $this->readingBranchId($request),
             'statusOptions' => SubscriptionStatus::options(),
             'branchOptions' => $actor->isSuperAdmin() ? $this->branchFilterGroup()['options'] : [],
@@ -114,7 +119,50 @@ class MessageController extends Controller
     }
 
     /**
-     * Send the message to the picked subscriptions who have a phone number.
+     * What the quick message window needs to write a message from any page,
+     * as JSON: the same choices as the messages page, the week a weekly
+     * reading starts on, and how many subscriptions it may reach.
+     */
+    public function quick(Request $request): JsonResponse
+    {
+        $this->authorize('create', MessageBatch::class);
+
+        $weekBranchId = $this->readingBranchId($request);
+
+        return response()->json([
+            ...$this->writingOptions($request->user()),
+            'weekBranchId' => $weekBranchId,
+            'weekStart' => MeterReading::latestEndedWeekStart($weekBranchId)->toDateString(),
+            'maxRecipients' => self::QUICK_MAX_RECIPIENTS,
+        ]);
+    }
+
+    /**
+     * Subscriptions for the quick message window, as JSON: a few whose name,
+     * phone or account matches `search`, to pick from, or of the picked
+     * `subscription_ids` those the kind of message reaches (for a weekly
+     * reading, who has a reading that week), each with the values for the
+     * placeholders. Nothing without either.
+     */
+    public function recipients(Request $request): JsonResponse
+    {
+        $this->authorize('create', MessageBatch::class);
+
+        $searching = $request->filled('search');
+
+        if (! $searching && ! $request->filled('subscription_ids')) {
+            return response()->json(['recipients' => []]);
+        }
+
+        return response()->json([
+            'recipients' => $this->recipientRows($request, $request->user(), $searching ? self::SEARCH_RESULTS : self::QUICK_MAX_RECIPIENTS),
+        ]);
+    }
+
+    /**
+     * Send the message to the picked subscriptions who have a phone number,
+     * then open the send — or, for SMS sent from the quick message window
+     * (`stay_on_page`), stay on the page it was written on.
      */
     public function store(StoreMessageBatchRequest $request): RedirectResponse
     {
@@ -161,6 +209,10 @@ class MessageController extends Controller
         }
 
         $actor->notify(new ActionCompleted('messages-created', __($kind->label()).' — '.$recipients->count()));
+
+        if ($channel === MessageChannel::Sms && $request->boolean('stay_on_page')) {
+            return back()->with('status', 'messages-queued');
+        }
 
         return redirect()
             ->route('messages.show', $batch)
@@ -241,6 +293,26 @@ class MessageController extends Controller
         $message->markSent($request->user());
 
         return back();
+    }
+
+    /**
+     * The choices for writing a message: its kinds, the ways of sending, the
+     * saved templates, the placeholders of each kind, and each branch's
+     * recent reading weeks (each branch reads on its own weeks).
+     *
+     * @return array<string, mixed>
+     */
+    private function writingOptions(User $actor): array
+    {
+        return [
+            'kinds' => MessageKind::options(MessageKind::composable()),
+            'channels' => MessageChannel::options(),
+            'smsDeliversMessages' => app(SmsGateway::class)->deliversMessages(),
+            'templates' => MessageTemplate::query()->orderBy('name')->get(['id', 'name', 'kind', 'body']),
+            'placeholders' => collect(MessageKind::composable())
+                ->mapWithKeys(fn (MessageKind $kind) => [$kind->value => MessageComposer::placeholdersFor($kind)]),
+            'weekOptions' => MeterReading::recentWeekOptionsFor($actor),
+        ];
     }
 
     /**
@@ -327,20 +399,21 @@ class MessageController extends Controller
     }
 
     /**
-     * The recipients for the compose page's preview.
+     * The recipients for the compose page's preview, at most `$limit` of them.
      *
-     * @return array<int, array{id: int, name: string, accountNumber: ?string, phone: ?string, branchName: ?string, variables: array<string, string>}>
+     * @return array<int, array{id: int, name: string, accountNumber: ?string, phone: ?string, branchId: int, branchName: ?string, variables: array<string, string>}>
      */
-    private function recipientRows(Request $request, User $actor): array
+    private function recipientRows(Request $request, User $actor, int $limit = MessageComposer::MAX_RECIPIENTS): array
     {
         $kind = $this->requestedKind($request);
 
-        return $this->composer->recipients($kind, $actor, $this->criteria($request))
+        return $this->composer->recipients($kind, $actor, $this->criteria($request), $limit)
             ->map(fn (Subscription $subscription) => [
                 'id' => $subscription->id,
                 'name' => $subscription->displayName(),
                 'accountNumber' => $subscription->account_number,
                 'phone' => $subscription->contactPhone(),
+                'branchId' => $subscription->branch_id,
                 'branchName' => $subscription->branch?->name,
                 'variables' => $this->composer->variables($subscription, $kind),
             ])

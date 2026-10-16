@@ -9,7 +9,9 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
+import Icon from '@/Components/Icon';
 import { timeAgo } from '@/lib/format';
+import { openQuickMessage } from '@/lib/quickMessage';
 import { ChannelLabel, DeliveryCounts, KindPill, MessageText } from './MessageParts';
 
 /**
@@ -33,7 +35,16 @@ export default function Index({ batches, canSend, filters, filterOptions }) {
                         <p className="mt-1 text-sm text-gray-500">القراءات الأسبوعية وتذكير الدفع والإعلانات للمشتركين.</p>
                     </div>
                     {canSend && (
-                        <div className="shrink-0">
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => openQuickMessage()}
+                                aria-keyshortcuts="M"
+                                className="inline-flex items-center gap-2 rounded-control border border-gray-200 bg-surface px-4 py-2.5 text-sm font-semibold text-gray-900 transition hover:border-gray-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+                            >
+                                <Icon name="send" className="h-4 w-4" />
+                                رسالة سريعة
+                            </button>
                             <AddButton href="/messages/create">رسالة جديدة</AddButton>
                         </div>
                     )}

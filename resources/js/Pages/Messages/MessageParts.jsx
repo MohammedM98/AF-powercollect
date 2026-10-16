@@ -6,6 +6,13 @@ export const KIND_ICONS = { weekly_reading: 'gauge', balance_reminder: 'wallet',
 
 export const CHANNEL_ICONS = { sms: 'phone', whatsapp: 'chat' };
 
+/** Who each kind of message reaches and what it says, shown under the kinds. */
+export const KIND_HINTS = {
+    weekly_reading: 'يصل لكل مشترك قراءته في الأسبوع المختار: السابقة والحالية والاستهلاك والمبلغ.',
+    balance_reminder: 'يصل لمن عليه رصيد أكبر من الحد الذي تحدده، مع رصيده.',
+    custom: 'أي إعلان أو تحديث: انقطاع، مواعيد جديدة، تغيير تعرفة...',
+};
+
 /** Select options with their icon added, for ChoiceChips. */
 export function withIcons(options, icons) {
     return options.map((option) => ({ ...option, icon: icons[option.value] }));

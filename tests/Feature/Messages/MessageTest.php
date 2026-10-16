@@ -6,6 +6,7 @@ use App\Enums\MessageChannel;
 use App\Enums\MessageKind;
 use App\Enums\MessageStatus;
 use App\Enums\PermissionKey;
+use App\Enums\SubscriptionStatus;
 use App\Jobs\SendSubscriptionMessage;
 use App\Models\MessageBatch;
 use App\Models\MeterReading;
@@ -41,6 +42,8 @@ class MessageTest extends TestCase
         $this->actingAs($collector)->get(route('messages.index'))->assertForbidden();
         $this->actingAs($collector)->get(route('messages.create'))->assertForbidden();
         $this->actingAs($collector)->post(route('messages.store'), [])->assertForbidden();
+        $this->actingAs($collector)->getJson(route('messages.quick'))->assertForbidden();
+        $this->actingAs($collector)->getJson(route('messages.recipients', ['search' => 'Ali']))->assertForbidden();
     }
 
     public function test_a_user_who_may_only_view_messages_sees_the_list_but_cannot_write_one(): void
@@ -170,6 +173,109 @@ class MessageTest extends TestCase
                 'body' => 'اكتب نص الرسالة.',
                 'subscription_ids' => 'اختر مستلمًا واحدًا على الأقل.',
             ]);
+    }
+
+    public function test_the_quick_message_window_gets_the_choices_and_the_latest_ended_week(): void
+    {
+        $this->freezeTime();
+        $branchAdmin = User::factory()->branchAdmin()->create();
+
+        $this->actingAs($branchAdmin)->getJson(route('messages.quick'))
+            ->assertOk()
+            ->assertJsonPath('weekStart', $this->weekStart())
+            ->assertJsonPath('weekBranchId', $branchAdmin->branch_id)
+            ->assertJsonPath('maxRecipients', 400)
+            ->assertJsonCount(3, 'kinds');
+    }
+
+    public function test_the_quick_message_search_finds_the_branchs_subscriptions_of_any_status(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $disconnected = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id, 'full_name' => 'Ali Hasan', 'status' => SubscriptionStatus::Disconnected]);
+        Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id, 'full_name' => 'Sara Omar']);
+        Subscription::factory()->create(['full_name' => 'Ali Foreign']);
+
+        $this->actingAs($branchAdmin)
+            ->getJson(route('messages.recipients', ['kind' => 'custom', 'status' => '', 'search' => 'Ali']))
+            ->assertOk()
+            ->assertJsonCount(1, 'recipients')
+            ->assertJsonPath('recipients.0.id', $disconnected->id);
+    }
+
+    public function test_the_quick_message_lists_only_the_picked_subscriptions_the_kind_reaches(): void
+    {
+        $this->freezeTime();
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $withReading = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        $withoutReading = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+        MeterReading::factory()->approved()->for($withReading)->create(['week_start' => $this->weekStart(), 'consumption' => 12]);
+
+        $this->actingAs($branchAdmin)
+            ->getJson(route('messages.recipients', [
+                'kind' => 'weekly_reading',
+                'status' => '',
+                'week_start' => $this->weekStart(),
+                'approved_only' => 1,
+                'subscription_ids' => [$withReading->id, $withoutReading->id],
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'recipients')
+            ->assertJsonPath('recipients.0.id', $withReading->id)
+            ->assertJsonPath('recipients.0.variables.الاستهلاك', '12');
+    }
+
+    public function test_the_quick_message_lists_nobody_without_a_search_or_picked_subscriptions(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id]);
+
+        $this->actingAs($branchAdmin)
+            ->getJson(route('messages.recipients', ['kind' => 'custom', 'status' => '']))
+            ->assertOk()
+            ->assertExactJson(['recipients' => []]);
+    }
+
+    public function test_an_sms_from_the_quick_message_window_stays_on_the_page(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $subscription = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id, 'phone' => '0599000001']);
+        Queue::fake([SendSubscriptionMessage::class]);
+
+        $this->actingAs($branchAdmin)
+            ->from(route('subscriptions.index'))
+            ->post(route('messages.store'), [
+                'kind' => MessageKind::Custom->value,
+                'channel' => MessageChannel::Sms->value,
+                'body' => 'تحديث',
+                'status' => '',
+                'subscription_ids' => [$subscription->id],
+                'stay_on_page' => true,
+            ])
+            ->assertRedirect(route('subscriptions.index'))
+            ->assertSessionHas('status', 'messages-queued');
+
+        $this->assertDatabaseHas('subscription_messages', ['subscription_id' => $subscription->id]);
+        Queue::assertPushed(SendSubscriptionMessage::class, 1);
+    }
+
+    public function test_a_whatsapp_send_from_the_quick_message_window_opens_its_page(): void
+    {
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $subscription = Subscription::factory()->create(['branch_id' => $branchAdmin->branch_id, 'phone' => '0599000001']);
+
+        $response = $this->actingAs($branchAdmin)
+            ->from(route('subscriptions.index'))
+            ->post(route('messages.store'), [
+                'kind' => MessageKind::Custom->value,
+                'channel' => MessageChannel::WhatsApp->value,
+                'body' => 'تحديث',
+                'status' => '',
+                'subscription_ids' => [$subscription->id],
+                'stay_on_page' => true,
+            ]);
+
+        $response->assertRedirect(route('messages.show', MessageBatch::sole()))->assertSessionHas('status', 'messages-ready');
     }
 
     public function test_the_sms_gateway_marks_a_message_sent_when_the_provider_accepts_it(): void

@@ -30,7 +30,8 @@ const TONES = {
  * A row's actions, at the end of the row, always showing:
  *
  * - `onView`: the graphite "عرض" button, the row's main action. With a
- *   `menu`, it is split and its arrow opens the menu.
+ *   `menu`, it is split and its arrow opens the menu. `viewLabel` and
+ *   `viewIcon` name another main action the same way, e.g. "الرد".
  * - `onEdit`: a blue pencil button ("تعديل").
  * - `onDelete`: a burgundy trash button ("حذف").
  * - `menu`: more actions in groups (see RowMenu); opened from "عرض"'s
@@ -39,7 +40,7 @@ const TONES = {
  *   each becomes a same-size icon button with its word as the tooltip
  *   (and its color, for تعديل, حذف, طباعة and Excel).
  */
-export default function RowActionsMenu({ onView, onEdit, onDelete, menu, children }) {
+export default function RowActionsMenu({ onView, viewLabel = 'عرض', viewIcon = 'eye', onEdit, onDelete, menu, children }) {
     const [menuAnchor, setMenuAnchor] = useState(null);
 
     const toggleMenu = useCallback((event) => {
@@ -107,8 +108,8 @@ export default function RowActionsMenu({ onView, onEdit, onDelete, menu, childre
                 {onView && (
                     <span className="row-action-view">
                         <button type="button" onClick={onView}>
-                            <Icon name="eye" className="h-4 w-4" />
-                            عرض
+                            <Icon name={viewIcon} className="h-4 w-4" />
+                            {viewLabel}
                         </button>
                         {menu && (
                             <button type="button" {...menuProps('إجراءات أخرى')}>

@@ -7,6 +7,12 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import SegmentedTabs from '@/Components/SegmentedTabs';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
+import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import Pagination from '@/Components/DataTable/Pagination';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
+import RowIdentity from '@/Components/DataTable/RowIdentity';
+import { useRowClick } from '@/hooks/useRowClick';
 import { formatMoney } from '@/lib/format';
 import { boxTypeStyles } from '../Payments/CollectorCashBox';
 import { branchClock, branchDate, dateTime, periodLabel, periodRange } from '@/lib/closingPeriods';
@@ -192,10 +198,6 @@ function WaitingTasks({ tasks }) {
     );
 }
 
-function PersonAvatar({ name }) {
-    return <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-gray-900 text-xs font-semibold text-surface">{(name ?? '—').trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join('')}</span>;
-}
-
 /** A card of the closings and settings tabs: an icon, a title and what it is for, an action, and what it holds. */
 function Panel({ icon, title, hint, action, children }) {
     return (
@@ -243,77 +245,101 @@ function weekStatus(week) {
     return week.status === 'approved' ? ['معتمد', 'green'] : week.status === 'returned' ? ['أُعيد للفرع', 'red'] : ['بملاحظات', 'amber'];
 }
 
-/** What an audit note is about, when it names no entry: its box, else the whole week. */
-function NoteSubject({ note }) {
-    return <span className="text-gray-500">{note.box ? 'الصندوق كله' : 'الأسبوع كله'}</span>;
+/** One page of rows already in the page, with what Pagination shows of it. */
+function usePagedRows(rows, perPage) {
+    const [page, setPage] = useState(1);
+    const last = Math.max(1, Math.ceil(rows.length / perPage));
+    const current = Math.min(page, last);
+    const from = rows.length ? (current - 1) * perPage + 1 : 0;
+
+    return {
+        rows: rows.slice(from ? from - 1 : 0, from ? from - 1 + perPage : 0),
+        meta: { current_page: current, last_page: last, from, to: Math.min(current * perPage, rows.length), total: rows.length },
+        setPage,
+    };
 }
 
+/** A search box's words found in any of a row's texts. */
+const matches = (search, texts) => search.trim() === '' || search.trim().split(/\s+/).every((word) => texts.some((text) => String(text ?? '').includes(word)));
+
 /**
- * The audit's statement on one week: only the entries it has notes on,
- * every other entry of the week being sound, in the site's table, one per row:
- * the entry (subscriber, voucher, date), its type and amount, the box it
- * sits in and whose it is, who recorded it, the auditor's note with the
- * replies so far, its state, and the button to answer it while it waits
- * on the branch.
+ * The audit's statement on one week, as the site's tables are: only the
+ * entries it has notes on, every other entry of the week being sound, one
+ * per row: the subscriber and voucher, the type and amount (with any
+ * difference), the box it sits in and whose it is, who recorded it, the
+ * auditor's note with the replies, its state, and the button to answer
+ * it while it waits on the branch. A note on a whole box says so.
  */
 function NotesTable({ notes, access, urls, onAction }) {
-    return (
-        <div className="data-table-container">
-            <table className="data-table w-full text-start text-sm">
-                <thead><tr><th>الحركة</th><th>النوع</th><th>المبلغ</th><th>المكان</th><th>سجّلها</th><th>ملاحظة التدقيق</th><th>الحالة</th><th /></tr></thead>
-                <tbody>
-                    {[...notes].sort((first, second) => WAITING_ON_BRANCH.includes(second.status) - WAITING_ON_BRANCH.includes(first.status) || first.id - second.id).map((note) => {
-                        const [status, tone] = noteStatuses[note.status] ?? [note.status, 'gray'];
-                        const ledger = note.entry?.ledger;
-                        const differences = Object.entries(note.differences ?? {}).filter(([, amount]) => Number(amount) !== 0);
+    const [search, setSearch] = useState('');
+    const [perPage, setPerPage] = useState(15);
+    const [state, setState] = useState(() => (notes.some((note) => WAITING_ON_BRANCH.includes(note.status)) ? 'waiting' : 'all'));
+    const states = [['all', 'الكل', () => true], ['waiting', 'تنتظر ردّك', (note) => WAITING_ON_BRANCH.includes(note.status)], ['answered', 'أُجيبت', (note) => !WAITING_ON_BRANCH.includes(note.status)]];
+    const [, , inState] = states.find(([key]) => key === state);
+    const shown = [...notes]
+        .filter((note) => inState(note) && matches(search, [note.body, note.entry?.subscriber, note.entry?.accountNumber, note.entry?.ledger.voucherNumber, note.entry?.ledger.referenceNumber, note.box?.number, note.box?.person, note.entry?.ledger.recordedByName]))
+        .sort((first, second) => WAITING_ON_BRANCH.includes(second.status) - WAITING_ON_BRANCH.includes(first.status) || first.id - second.id);
+    const paged = usePagedRows(shown, perPage);
 
-                        return (
-                            <tr key={note.id}>
-                                <td style={{ whiteSpace: 'normal' }}>
-                                    {note.entry ? <>
-                                        <Link href={note.entry.statementUrl} prefetch className="font-semibold text-gray-900 hover:text-brand-600">{note.entry.subscriber}</Link>
-                                        {ledger.voucherNumber && <span className="block text-xs text-gray-500">سند <bdi dir="ltr" className="font-display">{ledger.voucherNumber}</bdi></span>}
-                                        <span className="block whitespace-nowrap text-xs text-gray-500"><bdi dir="ltr" className="font-display">{ledger.date}</bdi></span>
-                                    </> : <NoteSubject note={note} />}
-                                </td>
-                                <td style={{ whiteSpace: 'normal' }}>
-                                    {ledger ? <>
-                                        <span className="block text-gray-900">{ledger.typeLabel}{ledger.paymentMethodLabel && ` · ${ledger.paymentMethodLabel}`}</span>
-                                        {(ledger.referenceNumber || ledger.bankName) && <span className="block text-xs text-gray-500">{ledger.referenceNumber && <bdi dir="ltr" className="font-display">{ledger.referenceNumber}</bdi>}{ledger.referenceNumber && ledger.bankName && ' · '}{ledger.bankName}</span>}
-                                    </> : <span className="text-gray-400">—</span>}
-                                </td>
-                                <td>
-                                    {note.entry ? <span className="whitespace-nowrap"><b className="font-display text-gray-900">{formatMoney(note.entry.amount)}</b> <span className="text-xs text-gray-500">{currencies[note.entry.currency]}</span></span> : <span className="text-gray-400">—</span>}
-                                    {differences.map(([currency, amount]) => <span key={currency} className="block whitespace-nowrap text-xs font-semibold text-brand-600">فرق <bdi dir="ltr" className="font-display">{formatMoney(amount)}</bdi> {currencies[currency]}</span>)}
-                                </td>
-                                <td style={{ whiteSpace: 'normal' }}>
-                                    {note.box ? <>
-                                        <Link href={note.box.url} prefetch className="font-semibold text-brand-600 hover:underline">صندوق <bdi dir="ltr" className="font-display">{note.box.number}</bdi></Link>
-                                        <span className="block text-xs text-gray-500">{boxTypeStyles[note.box.type].label}{note.box.person && <> · <bdi>{note.box.person}</bdi></>}</span>
-                                    </> : <span className="text-gray-400">—</span>}
-                                </td>
-                                <td>{ledger?.recordedByName ? <bdi>{ledger.recordedByName}</bdi> : <span className="text-gray-400">—</span>}</td>
-                                <td style={{ whiteSpace: 'normal', minWidth: '16rem' }}>
-                                    <p className="leading-6 text-gray-800">{note.body}</p>
-                                    {note.replies.length > 0 && (
-                                        <ol className="mt-2 space-y-1.5 border-s-2 border-gray-100 ps-3">
-                                            {note.replies.map((reply) => (
-                                                <li key={reply.id} className="text-xs leading-5 text-gray-600">
-                                                    <b className="font-semibold text-gray-700"><bdi>{reply.user?.name}</bdi>:</b> {reply.body}
-                                                    {reply.document_path && <a href={`${urls.proofs}/reply/${reply.id}`} className="ms-1 inline-flex items-center gap-1 font-semibold text-brand-600 hover:underline"><Icon name="eye" className="h-3.5 w-3.5" />المستند</a>}
-                                                </li>
-                                            ))}
-                                        </ol>
-                                    )}
-                                </td>
-                                <td><StatusPill tone={tone} label={status} /></td>
-                                <td className="text-end">{access.approve && WAITING_ON_BRANCH.includes(note.status) && <PrimaryButton className="px-3 py-2" onClick={() => onAction('reply', note)}>الرد</PrimaryButton>}</td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-        </div>
+    return (
+        <section aria-label="كشف ملاحظات التدقيق">
+            <DataTableToolbar
+                search={search}
+                onSearchChange={(value) => { setSearch(value); paged.setPage(1); }}
+                placeholder="ابحث بالمشترك أو السند أو الحوالة أو الصندوق"
+                perPage={perPage}
+                onPerPageChange={(size) => { setPerPage(size); paged.setPage(1); }}
+                total={shown.length}
+                filterMenu={<div className="flex w-full flex-wrap items-center gap-3"><SegmentedTabs label="حالة الملاحظة" value={state} onChange={(value) => { setState(value); paged.setPage(1); }} options={states.map(([key, label, test]) => ({ value: key, label: <>{label} · <span className="font-display">{notes.filter(test).length}</span></> }))} /></div>}
+            />
+            <div className="data-table-container">
+                <table className="data-table w-full text-sm text-start">
+                    <thead><tr><th>الحركة</th><th>النوع</th><th>المبلغ</th><th>المكان</th><th>سجّلها</th><th>ملاحظة التدقيق</th><th>الحالة</th><ActionsTh /></tr></thead>
+                    <tbody>
+                        {paged.rows.length === 0 ? <tr><td colSpan="8" className="text-gray-500">لا توجد ملاحظات مطابقة.</td></tr> : paged.rows.map((note) => {
+                            const [status, tone] = noteStatuses[note.status] ?? [note.status, 'gray'];
+                            const ledger = note.entry?.ledger;
+                            const differences = Object.entries(note.differences ?? {}).filter(([, amount]) => Number(amount) !== 0);
+                            const waiting = access.approve && WAITING_ON_BRANCH.includes(note.status);
+
+                            return (
+                                <tr key={note.id}>
+                                    <td>{note.entry
+                                        ? <RowIdentity name={note.entry.subscriber} subtitle={[ledger.voucherNumber && `سند ${ledger.voucherNumber}`, ledger.date].filter(Boolean).join(' · ')} />
+                                        : <RowIdentity icon={note.box ? 'wallet' : 'layers'} name={note.box ? 'الصندوق كله' : 'الأسبوع كله'} subtitle="ملاحظة على كل حركاته" />}</td>
+                                    <td className="text-gray-600" style={{ whiteSpace: 'normal' }}>
+                                        {ledger ? <><span className="block whitespace-nowrap text-gray-900">{ledger.typeLabel}</span><span className="block text-xs text-gray-400">{[ledger.paymentMethodLabel, ledger.bankName].filter(Boolean).join(' · ')}{ledger.referenceNumber && <> · <bdi dir="ltr">{ledger.referenceNumber}</bdi></>}</span></> : '—'}
+                                    </td>
+                                    <td>
+                                        {note.entry ? <span className="whitespace-nowrap"><b className="font-display text-gray-900">{formatMoney(note.entry.amount)}</b> <span className="text-xs text-gray-500">{currencies[note.entry.currency]}</span></span> : <span className="text-gray-600">—</span>}
+                                        {differences.map(([currency, amount]) => <span key={currency} className="block whitespace-nowrap text-xs font-semibold text-brand-600">فرق <bdi dir="ltr" className="font-display">{formatMoney(amount)}</bdi> {currencies[currency]}</span>)}
+                                    </td>
+                                    <td className="text-gray-600">
+                                        {note.box ? <>
+                                            <Link href={note.box.url} prefetch className="font-semibold text-brand-600 hover:underline">صندوق <bdi dir="ltr" className="font-display">{note.box.number}</bdi></Link>
+                                            <span className="block text-xs text-gray-400">{boxTypeStyles[note.box.type].label}{note.box.person && <> · <bdi>{note.box.person}</bdi></>}</span>
+                                        </> : '—'}
+                                    </td>
+                                    <td className="text-gray-600">{ledger?.recordedByName ? <bdi>{ledger.recordedByName}</bdi> : '—'}</td>
+                                    <td className="md:min-w-[13rem]" style={{ whiteSpace: 'normal' }}>
+                                        <p className="leading-6 text-gray-900">{note.body}</p>
+                                        {note.replies.map((reply) => (
+                                            <p key={reply.id} className="mt-1 text-xs leading-5 text-gray-500">
+                                                <b className="font-semibold text-gray-700"><bdi>{reply.user?.name}</bdi>:</b> {reply.body}
+                                                {reply.document_path && <a href={`${urls.proofs}/reply/${reply.id}`} className="ms-1 font-semibold text-brand-600 hover:underline">المستند</a>}
+                                            </p>
+                                        ))}
+                                    </td>
+                                    <td><StatusPill tone={tone} label={status} /></td>
+                                    <td className="text-end">{waiting && <RowActionsMenu onView={() => onAction('reply', note)} viewLabel="الرد" viewIcon="messages" />}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+            <Pagination meta={paged.meta} onPageChange={paged.setPage} />
+        </section>
     );
 }
 
@@ -324,8 +350,7 @@ function DebtsPanel({ debts, access, actorId, onAction }) {
             <ul className="divide-y divide-gray-100">
                 {debts.map((debt) => (
                     <li key={debt.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
-                        <PersonAvatar name={debt.user?.name} />
-                        <b className="min-w-0 flex-1 font-semibold text-gray-900">{debt.user?.name}</b>
+                        <div className="min-w-0 flex-1"><RowIdentity name={debt.user?.name ?? '—'} subtitle="محصّل" /></div>
                         <span><b className="font-display text-gray-900">{formatMoney(debt.remaining)}</b> <span className="text-xs text-gray-500">{currencies[debt.currency]}</span></span>
                         {access.receive && debt.user_id !== actorId && <SecondaryButton className="px-3 py-2" onClick={() => onAction('repay', debt)}>تسديد نقدًا</SecondaryButton>}
                     </li>
@@ -342,46 +367,61 @@ const WEEK_FILTERS = [
     ['audit', 'عند التدقيق', (week) => week.step === 'audit' || (week.waitingNotes === 0 && week.openNotes > 0)],
 ];
 
+/** The tone of a week's dot on its tile: green once approved, amber while it waits on the branch, grey otherwise. */
+const weekDot = (week) => (week.status === 'approved' ? 'green' : week.waitingNotes > 0 || week.step === 'confirm' ? 'amber' : 'gray');
+
 /**
- * Every week of the branch, newest first, in the site's table: its dates,
- * boxes, entries and totals, where it stands and its audit notes, how
- * many of them wait on the branch. A week opens with its notes to answer.
+ * Every week of the branch, newest first, as the site's tables are: its
+ * name and dates, boxes, entries and total, its audit notes and how many
+ * wait on the branch, and where it stands; searched by its number or
+ * dates, narrowed to the weeks waiting on a reply, to be sent or with the
+ * audit. A week opens with the audit's statement on it.
  */
-function WeeksTable({ weeks, filter, onFilter, onOpen, debts, access, actorId, onAction }) {
-    const [, , matches] = WEEK_FILTERS.find(([key]) => key === filter) ?? WEEK_FILTERS[0];
-    const shown = weeks.filter(matches);
+function WeeksTable({ weeks, filter, onFilter, onOpen }) {
+    const rowClick = useRowClick();
+    const [search, setSearch] = useState('');
+    const [perPage, setPerPage] = useState(15);
+    const [, , inFilter] = WEEK_FILTERS.find(([key]) => key === filter) ?? WEEK_FILTERS[0];
+    const shown = weeks.filter((week) => inFilter(week) && matches(search, [periodLabel(week), periodRange(week)]));
+    const paged = usePagedRows(shown, perPage);
+    const totals = Object.fromEntries(Object.keys(currencies).map((currency) => [currency, shown.reduce((sum, week) => sum + Number(week.amounts[currency] ?? 0), 0)]));
 
     return (
-        <div className="space-y-5">
-            <p className="flex items-center gap-2 text-sm text-gray-500"><Icon name="shield" className="h-4 w-4 shrink-0" /><span>افتح أي أسبوع لترى ملاحظات قسم التدقيق عليه وترد عليها. الأسبوع المرسل لا يتغيّر، وكل تصحيح يُقيَّد في الأسبوع المفتوح.</span></p>
-            {debts.length > 0 && <DebtsPanel debts={debts} access={access} actorId={actorId} onAction={onAction} />}
-            <section aria-label="الإغلاقات" className="space-y-3">
-                <SegmentedTabs label="حالة الأسبوع" value={filter} onChange={onFilter} options={WEEK_FILTERS.map(([key, label, test]) => ({ value: key, label: <>{label} · <span className="font-display">{weeks.filter(test).length}</span></> }))} />
-                <div className="data-table-container">
-                    <table className="data-table w-full text-start text-sm">
-                        <thead><tr><th>الأسبوع</th><th>الفترة</th><th>الصناديق</th><th>الحركات</th><th>الإجمالي</th><th>الحالة</th><th>ملاحظات التدقيق</th><th /></tr></thead>
-                        <tbody>
-                            {shown.length === 0 ? <tr><td colSpan="8" className="text-center text-gray-500">لا أسابيع بهذه الحالة.</td></tr> : shown.map((week) => {
-                                const [status, tone] = weekStatus(week);
+        <section aria-label="الإغلاقات">
+            <DataTableToolbar
+                search={search}
+                onSearchChange={(value) => { setSearch(value); paged.setPage(1); }}
+                placeholder="ابحث برقم الأسبوع أو تاريخه"
+                perPage={perPage}
+                onPerPageChange={(size) => { setPerPage(size); paged.setPage(1); }}
+                total={shown.length}
+                filterMenu={<div className="flex w-full flex-wrap items-center gap-3"><SegmentedTabs label="حالة الأسبوع" value={filter} onChange={(value) => { onFilter(value); paged.setPage(1); }} options={WEEK_FILTERS.map(([key, label, test]) => ({ value: key, label: <>{label} · <span className="font-display">{weeks.filter(test).length}</span></> }))} /></div>}
+            />
+            <div className="data-table-container">
+                <table className="data-table w-full text-sm text-start">
+                    <thead><tr><th>الأسبوع</th><th>الصناديق</th><th>الحركات</th><th>الإجمالي</th><th>ملاحظات التدقيق</th><th>الحالة</th><ActionsTh /></tr></thead>
+                    <tbody>
+                        {paged.rows.length === 0 ? <tr><td colSpan="7" className="text-gray-500">لا توجد أسابيع مطابقة.</td></tr> : paged.rows.map((week) => {
+                            const [status, tone] = weekStatus(week);
 
-                                return (
-                                    <tr key={week.id} className="cursor-pointer" onClick={() => onOpen(week.id)}>
-                                        <td><b className="font-semibold text-gray-900">{periodLabel(week)}</b>{week.is_manual && <span className="block text-xs text-gray-400">إغلاق مبكر</span>}</td>
-                                        <td className="whitespace-nowrap text-gray-600">{periodRange(week)}</td>
-                                        <td className="font-display text-gray-900">{week.boxes}</td>
-                                        <td className="font-display text-gray-900">{week.entries}</td>
-                                        <td><b className="font-display text-gray-900">{formatMoney(week.amounts.ILS ?? 0)}</b> <span className="text-xs text-gray-500">شيكل</span></td>
-                                        <td><StatusPill tone={tone} label={status} /></td>
-                                        <td>{week.notes ? <><span className="block text-gray-700">{plural(week.notes, 'ملاحظة واحدة', 'ملاحظات')}</span>{week.waitingNotes > 0 && <span className="block text-xs font-semibold text-brand-600">{week.waitingNotes === 1 ? 'واحدة تنتظر ردّك' : `${week.waitingNotes} تنتظر ردّك`}</span>}</> : <span className="text-gray-400">—</span>}</td>
-                                        <td className="text-end"><SecondaryButton className="px-3 py-2" onClick={(event) => { event.stopPropagation(); onOpen(week.id); }}>فتح<Icon name="chevron-left" className="h-4 w-4" /></SecondaryButton></td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </div>
+                            return (
+                                <tr key={week.id} {...rowClick(() => onOpen(week.id))}>
+                                    <td><RowIdentity icon="layers" name={periodLabel(week)} subtitle={`${periodRange(week)}${week.is_manual ? ' · إغلاق مبكر' : ''}`} status={weekDot(week)} /></td>
+                                    <td className="font-display text-gray-600">{week.boxes}</td>
+                                    <td className="font-display text-gray-600">{week.entries}</td>
+                                    <td><span className="whitespace-nowrap"><b className="font-display text-gray-900">{formatMoney(week.amounts.ILS ?? 0)}</b> <span className="text-xs text-gray-500">شيكل</span></span></td>
+                                    <td className="text-gray-600">{week.notes ? <>{plural(week.notes, 'ملاحظة واحدة', 'ملاحظات')}{week.waitingNotes > 0 && <span className="block text-xs font-semibold text-brand-600">{week.waitingNotes === 1 ? 'واحدة تنتظر ردّك' : `${week.waitingNotes} تنتظر ردّك`}</span>}</> : '—'}</td>
+                                    <td><StatusPill tone={tone} label={status} /></td>
+                                    <td className="text-end"><RowActionsMenu onView={() => onOpen(week.id)} /></td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+            <p className="data-table-totals text-sm text-gray-600"><span>مجموع الأسابيع المطابقة: <b className="font-display text-gray-900">{amountsLine(totals)}</b></span></p>
+            <Pagination meta={paged.meta} onPageChange={paged.setPage} />
+        </section>
     );
 }
 
@@ -474,14 +514,14 @@ function SettingsTab({ settings, current, pendingChange, staff, receivers, appro
             <Panel icon="bolt" title="الإغلاق المبكر" hint="يُغلق الأسبوع الجاري الآن مع كل صناديقه المفتوحة، وتنضم الأيام الباقية إلى الأسبوع القادم دون تغيير يوم البداية." action={access.approve && current && <SecondaryButton className="px-3 py-2" onClick={() => onAction('early', current)}><Icon name="bolt" className="h-4 w-4" />إغلاق {periodLabel(current)} مبكرًا</SecondaryButton>} />
             <Panel icon="users" title="التفويضات" hint="من يراجع صناديق الآخرين ويؤكد إغلاقها، ومن يعتمد الأسبوع ويرسله. تسري فورًا." action={access.manage && <SecondaryButton className="px-3 py-2" onClick={() => onAction('settings')}><Icon name="cog" className="h-4 w-4" />تعديل التفويضات</SecondaryButton>}>
                 <div className="data-table-container">
-                    <table className="data-table w-full text-start text-sm">
+                    <table className="data-table w-full text-sm text-start">
                         <thead><tr><th>الموظف</th><th>مراجعة الصناديق وتأكيد إغلاقها</th><th>اعتماد الأسبوع وإرساله</th></tr></thead>
                         <tbody>
                             {staff.map((person) => {
                                 const [receiveTone, receiveLabel] = granted(person, receivers);
                                 const [approveTone, approveLabel] = granted(person, approvers);
 
-                                return <tr key={person.id}><td><span className="flex items-center gap-3"><PersonAvatar name={person.name} /><b className="font-semibold text-gray-900">{person.name}</b></span></td><td><StatusPill tone={receiveTone} label={receiveLabel} /></td><td><StatusPill tone={approveTone} label={approveLabel} /></td></tr>;
+                                return <tr key={person.id}><td><RowIdentity name={person.name} subtitle={person.isBranchAdmin ? 'مسؤول الفرع' : 'موظف'} /></td><td><StatusPill tone={receiveTone} label={receiveLabel} /></td><td><StatusPill tone={approveTone} label={approveLabel} /></td></tr>;
                             })}
                         </tbody>
                     </table>
@@ -706,7 +746,11 @@ export default function ClosingsIndex(props) {
                 </div>}
                 {tab === 'closings' && (openedWeek
                     ? <WeekView week={openedWeek} notes={notes.filter((note) => note.closing_id === openedWeek.id)} adjustments={adjustments.filter((adjustment) => adjustment.original_closing_id === openedWeek.id)} closings={closings} access={access} urls={urls} branch={branch} onBack={() => go('closings')} onAction={(kind, record) => setAction({ kind, record })} />
-                    : <WeeksTable weeks={weeks} filter={weekFilter} onFilter={setWeekFilter} onOpen={(id) => go('closings', id)} debts={owing} access={access} actorId={actorId} onAction={(kind, record) => setAction({ kind, record })} />)}
+                    : <div className="space-y-5">
+                        <p className="flex items-center gap-2 text-sm text-gray-500"><Icon name="shield" className="h-4 w-4 shrink-0" /><span>افتح أي أسبوع لترى كشف ملاحظات التدقيق عليه وترد عليها. الأسبوع المرسل لا يتغيّر، وكل تصحيح يُقيَّد في الأسبوع المفتوح.</span></p>
+                        {owing.length > 0 && <DebtsPanel debts={owing} access={access} actorId={actorId} onAction={(kind, record) => setAction({ kind, record })} />}
+                        <WeeksTable weeks={weeks} filter={weekFilter} onFilter={setWeekFilter} onOpen={(id) => go('closings', id)} />
+                    </div>)}
                 {tab === 'settings' && <SettingsTab {...props} onAction={(kind, record = null) => setAction({ kind, record })} />}
             </>}
             {action && <ActionModal key={`${action.kind}-${action.record?.id}`} action={action} onClose={() => setAction(null)} props={props} />}

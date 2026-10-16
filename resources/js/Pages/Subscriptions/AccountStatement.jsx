@@ -20,6 +20,7 @@ import {
 import { balanceTone } from '@/lib/balance';
 import { downloadCsv } from '@/lib/csv';
 import { formatAmount } from '@/lib/currency';
+import { notify } from '@/lib/notify';
 import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 
 const COLUMNS = [
@@ -369,9 +370,10 @@ function followsLineAbove(entry) {
 }
 
 /** The row's look: a cancelled line greyed, a reversal or replacement marked as following the line above, a folded one faded. */
-function rowClass(entry, highlighted, isHistory, isRelated) {
+function rowClass(entry, highlighted, isHistory, isRelated, focused) {
     return [
         entry.cancellation && 'ledger-cancelled',
+        focused && 'ledger-focused',
         isRelated && 'ledger-related',
         isHistory ? 'ledger-history' : followsLineAbove(entry) && 'ledger-follow-up',
         highlighted && 'outline outline-2 outline-offset-[-2px] outline-amber-400',
@@ -395,6 +397,7 @@ function StatementRow({
     isCompact,
     isHistory = false,
     highlighted,
+    focused = false,
     hasLineMenus,
     historyOpen = false,
     onToggleHistory,
@@ -407,7 +410,7 @@ function StatementRow({
     return (
         <tr
             id={`statement-line-${entry.id}`}
-            className={rowClass(entry, highlighted, isHistory, chain !== null && chain === hoveredChain)}
+            className={rowClass(entry, highlighted && !focused, isHistory, chain !== null && chain === hoveredChain, focused)}
             style={color ? { '--ledger-chain': color } : undefined}
             data-chain={chain ?? undefined}
             onMouseEnter={chain ? () => onHoverChain(chain) : undefined}
@@ -442,6 +445,12 @@ function StatementRow({
                 <span dir="ltr">{entry.date}</span>
             </td>
             <td data-label="البيان" className="font-medium text-gray-900">
+                {focused && (
+                    <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-brand-500/10 px-2 py-0.5 text-xs font-bold text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:text-brand-300">
+                        <Icon name="flag" className="h-3.5 w-3.5" />
+                        الحركة التي فتحتها
+                    </span>
+                )}
                 <div className="ledger-description">
                     {(isHistory || followsLineAbove(entry)) && <span className="me-1 text-blue-600">↲</span>}
                     <span className="ledger-struck">{withLtrDates(entry.description)}</span>
@@ -560,7 +569,7 @@ function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
  * with the company and `subscription` (the statement's header) above them
  * and only the statement on the page, light whatever the app's theme.
  */
-export default function AccountStatement({ subscription, entries, summary, paymentMethods, transactionTypes, onAction }) {
+export default function AccountStatement({ subscription, entries, summary, paymentMethods, transactionTypes, onAction, focusLineId = null }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
     const [view, setView] = useState(rememberedStatementView);
     const [openHistories, setOpenHistories] = useState(() => new Set());
@@ -568,6 +577,8 @@ export default function AccountStatement({ subscription, entries, summary, payme
     const [pendingJump, setPendingJump] = useState(null);
     const [hoveredChain, setHoveredChain] = useState(null);
     const highlightTimer = useRef(null);
+    // The line the statement was opened at (a cash box's entry): marked for as long as the statement is open.
+    const [focusedLineId] = useState(() => (entries.some((entry) => entry.id === focusLineId) ? focusLineId : null));
     const isCompact = view === 'compact';
     const compact = useMemo(() => compactStatementEntries(entries), [entries]);
     const shownEntries = isCompact ? compact.entries : entries;
@@ -633,6 +644,30 @@ export default function AccountStatement({ subscription, entries, summary, payme
     }, [pendingJump]);
 
     useEffect(() => () => clearTimeout(highlightTimer.current), []);
+
+    // Opened at a line: go to it and say which it is, or that it is no longer on the statement.
+    useEffect(() => {
+        if (!focusLineId) {
+            return undefined;
+        }
+
+        const entry = entriesById.get(focusLineId);
+
+        // After the page has drawn: the line is laid out, and the notifications are listening.
+        const timer = setTimeout(() => {
+            if (!entry) {
+                notify('هذه الحركة لم تعد في كشف الحساب.', 'warning');
+
+                return;
+            }
+
+            jumpToLine(focusLineId);
+            notify(`الحركة هي السطر رقم ${entry.lineNumber} في كشف الحساب، ومُعلَّمة فيه.`, 'success');
+        }, 250);
+
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // The printout is light whatever the app's theme, from the print button or the browser's own print.
     useEffect(() => {
@@ -851,6 +886,7 @@ export default function AccountStatement({ subscription, entries, summary, payme
                                             entry={entry}
                                             chain={chains.get(entry.id) ?? null}
                                             highlighted={highlightedLineId === entry.id}
+                                            focused={focusedLineId === entry.id || entry.discountLine?.id === focusedLineId}
                                             historyOpen={historyOpen}
                                             onToggleHistory={() => toggleHistory(entry.id)}
                                         />
@@ -863,6 +899,7 @@ export default function AccountStatement({ subscription, entries, summary, payme
                                                     chain={chains.get(folded.id) ?? null}
                                                     isHistory
                                                     highlighted={highlightedLineId === folded.id}
+                                                    focused={focusedLineId === folded.id}
                                                 />
                                             ))}
                                     </Fragment>

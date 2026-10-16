@@ -13,6 +13,7 @@ use App\Http\Concerns\FiltersDataTable;
 use App\Http\Concerns\FiltersSubscriptionList;
 use App\Http\Requests\StoreSplitPaymentRequest;
 use App\Models\AuditNote;
+use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\CashBoxPayment;
 use App\Models\Closing;
@@ -33,6 +34,7 @@ use App\Support\DailySeries;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,9 +63,6 @@ class PaymentController extends Controller
 
     /** The payments listed under the day's totals. */
     private const RECENT_PAYMENTS = 8;
-
-    /** How many of an open box's entries the boxes page lists at a time. */
-    private const OPEN_BOX_ENTRIES = 25;
 
     /**
      * The quick payments page: the subscribers of the user's branch in a table
@@ -114,8 +113,9 @@ class PaymentController extends Controller
     /**
      * The collector's summary: what they collected today and their latest
      * payments, what waits on them (a handover to confirm, audit notes,
-     * debts), and the boxes open now with
-     * their entries (`?open=` picks the type, `?entries_page=` the page).
+     * debts), and the boxes open now with every entry in them, filtered by
+     * `?filter[type]=` to one type of box and searched as the branch's
+     * entries are. The entries of a closed box are looked over inside it.
      */
     public function summary(Request $request): InertiaResponse
     {
@@ -128,7 +128,7 @@ class PaymentController extends Controller
             'today' => $this->todaysPayments($actor),
             'cashBox' => $cashBox,
             'current' => $cashBox['current'],
-            'openBox' => $this->openBoxEntries($request, $cashBox['current']),
+            ...$this->entryList($request, $this->ownOpenEntries($actor), fn (CashBox $box): string => route('payments.cash-boxes.show', $box)),
             'needsAction' => $cashBox['needsAction'],
             ...$this->collectionCounts($actor),
             'collectionUrls' => $this->collectionUrls(),
@@ -173,38 +173,67 @@ class PaymentController extends Controller
     }
 
     /**
-     * Every entry of the open boxes in one table, each as the subscriber's
-     * statement shows it and with the box it sits in, filtered by
-     * `?filter[type]=` to one type of box (cash, bank transfers or
-     * clearings), and searched by subscriber, voucher, transfer reference or
-     * box number: every entry of the branch for those who close its boxes,
-     * else the collector's own. The entries of a closed box are looked over
-     * inside that box.
+     * The open entries tab of the financial boxes page, for those who close
+     * the branch's boxes. A collector's open entries are on their summary,
+     * where they are sent with their search and filters.
      */
-    public function entries(Request $request): InertiaResponse
+    public function entries(Request $request): InertiaResponse|RedirectResponse
     {
-        $actor = $request->user();
-        if (BranchClosingAccess::view($actor)) {
+        if (BranchClosingAccess::view($request->user())) {
             return $this->branchEntries($request);
         }
-        $this->authorize('viewOwnCashBoxes', Subscription::class);
-        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('status', 'open'));
 
-        return Inertia::render('Payments/Entries', [
-            'scope' => 'own',
-            'started' => $this->boxesStarted($actor),
-            'branchName' => $actor->branch?->name,
-            ...$this->entryList($request, $query, fn (CashBox $box): string => route('payments.cash-boxes.show', $box)),
-            ...$this->collectionCounts($actor),
-            'collectionUrls' => $this->collectionUrls(),
-        ]);
+        return redirect()->route('payments.summary', $request->only(['search', 'filter', 'per_page']));
+    }
+
+    /**
+     * The entries page that was: its tab on the financial boxes page for
+     * those who close the branch's boxes, else the collector's summary,
+     * with the search and filters asked for.
+     */
+    public function movedEntries(Request $request): RedirectResponse
+    {
+        $query = $request->only(['branch_id', 'search', 'filter', 'per_page']);
+
+        return BranchClosingAccess::view($request->user())
+            ? redirect()->route('payments.cash-boxes.entries', $query)
+            : redirect()->route('payments.summary', array_diff_key($query, ['branch_id' => true]));
+    }
+
+    /**
+     * The entries of the actor's own open boxes in their branch.
+     *
+     * @return Builder<CashBoxPayment>
+     */
+    private function ownOpenEntries(User $actor): Builder
+    {
+        return CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('status', 'open'));
+    }
+
+    /**
+     * The two tabs of the financial boxes page for those who close the
+     * branch's boxes: its boxes, and every entry of its open boxes, each
+     * with how many there are.
+     *
+     * @param  EloquentCollection<int, Branch>  $branches
+     * @return list<array{key: string, label: string, count: int, url: string}>
+     */
+    private function boxTabs(EloquentCollection $branches, Branch $branch, int $boxes): array
+    {
+        $query = $branches->count() > 1 ? ['branch_id' => $branch->id] : [];
+
+        return [
+            ['key' => 'boxes', 'label' => 'الصناديق', 'count' => $boxes, 'url' => route('payments.cash-boxes', $query)],
+            ['key' => 'entries', 'label' => 'الحركات المفتوحة', 'count' => CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->where('status', 'open'))->count(), 'url' => route('payments.cash-boxes.entries', $query)],
+        ];
     }
 
     /**
      * Every entry of the branch's open boxes, for those who close them,
      * theirs among them: whose box each sits in, narrowed to one person's
-     * boxes by `?filter[user]=`, filtered and searched as the collector's
-     * entries are, with a link that opens its box on the financial boxes
+     * boxes by `?filter[user]=` and to one type of box by
+     * `?filter[type]=`, searched by subscriber, voucher, transfer reference
+     * or box number, with a link that opens its box on the financial boxes
      * page, and the open boxes of each type the actor may close at once.
      */
     private function branchEntries(Request $request): InertiaResponse
@@ -219,15 +248,14 @@ class PaymentController extends Controller
         $started = ClosingSetting::forBranch($branch->id)->workflow_started_at !== null;
 
         return Inertia::render('Payments/Entries', [
-            'scope' => 'branch',
             'started' => $started,
-            'branchName' => $branch->name,
             'branch' => $branch, 'branches' => $branches, 'people' => $people,
+            'tabs' => $this->boxTabs($branches, $branch, $this->branchBoxes->count($branch->id, $this->branchBoxes->closings($branch->id)->modelKeys())),
             ...$list,
             'closableBoxes' => $started && BranchClosingAccess::receive($actor, $branch->id) ? $this->closableBoxes($branch->id, $actor, $person?->id) : null,
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
-            'urls' => ['actions' => url('/reconciliation/actions')],
+            'urls' => ['index' => route('payments.cash-boxes.entries'), 'actions' => url('/reconciliation/actions')],
         ]);
     }
 
@@ -299,7 +327,8 @@ class PaymentController extends Controller
     /**
      * The financial boxes page for those who close the branch's boxes: every
      * box of the branch's people in one table, their own among them, to look
-     * over its entries and confirm it closed.
+     * over its entries and confirm it closed. Its other tab lists the entries
+     * of the open boxes.
      */
     private function branchCashBoxes(Request $request): InertiaResponse
     {
@@ -310,40 +339,18 @@ class PaymentController extends Controller
             $this->workflow->refresh($branch->id);
         }
         $closings = $this->branchBoxes->closings($branch->id);
+        $boxes = $this->branchBoxes->rows($branch->id, $actor, $closings->modelKeys());
 
         return Inertia::render('Payments/BranchCashBoxes', [
             'branch' => $branch, 'branches' => $branches, 'started' => $started,
-            'boxes' => $this->branchBoxes->rows($branch->id, $actor, $closings->modelKeys()),
+            'tabs' => $this->boxTabs($branches, $branch, $boxes->count()),
+            'boxes' => $boxes,
             'closings' => $closings,
             'access' => $this->branchBoxes->access($actor, $branch->id),
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
             'urls' => ['index' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'reconciliation' => route('closings.index')],
         ]);
-    }
-
-    /**
-     * The entries of one of the actor's open boxes, newest first: the type
-     * picked with `?open=`, else the first type with an open box. Null
-     * entries when no box of that type is open.
-     *
-     * @param  array<string, array<string, mixed>|null>  $current
-     * @return array{type: string, entries: LengthAwarePaginator<int, array<string, mixed>>|null}
-     */
-    private function openBoxEntries(Request $request, array $current): array
-    {
-        $open = array_filter($current);
-        $type = array_key_exists((string) $request->query('open'), $current) ? (string) $request->query('open') : (array_key_first($open) ?? CashBoxType::Cash->value);
-        $box = $current[$type] ?? null;
-
-        return [
-            'type' => $type,
-            'entries' => $box === null ? null : CashBoxPayment::query()->where('cash_box_id', $box['id'])
-                ->with(['transaction.subscription:id,full_name,subscription_name,account_number', 'transaction.recordedBy:id,name'])
-                ->orderByDesc('occurred_at')->orderByDesc('id')
-                ->paginate(self::OPEN_BOX_ENTRIES, ['*'], 'entries_page')->withQueryString()
-                ->through(fn (CashBoxPayment $entry): array => $this->cashBoxEntry($entry)),
-        ];
     }
 
     /**
@@ -476,10 +483,10 @@ class PaymentController extends Controller
             ->withCount('payments')->with(['payments.transaction:id,status', 'receivedBy:id,name', 'receivedIn:id,period_start,period_end'])->latest('id');
     }
 
-    /** @return array{payments: string, summary: string, cashBoxes: string, entries: string} */
+    /** @return array{payments: string, summary: string, cashBoxes: string} */
     private function collectionUrls(): array
     {
-        return ['payments' => route('payments.index'), 'summary' => route('payments.summary'), 'cashBoxes' => route('payments.cash-boxes'), 'entries' => route('payments.entries')];
+        return ['payments' => route('payments.index'), 'summary' => route('payments.summary'), 'cashBoxes' => route('payments.cash-boxes')];
     }
 
     /** Whether the actor's branch keeps collector boxes yet. */

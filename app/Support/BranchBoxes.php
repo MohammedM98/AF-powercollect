@@ -7,13 +7,14 @@ use App\Models\CashBox;
 use App\Models\Closing;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 /**
  * The branch's boxes as the people who close them see them, shared by the
- * financial boxes page (its staff boxes tab) and the safe and statements
+ * financial boxes page (its boxes and open entries tabs) and the safe and statements
  * page: which branch the actor looks at, its weekly closings, and every box
  * still in play with what the actor may do to it.
  */
@@ -68,9 +69,7 @@ class BranchBoxes
      */
     public function rows(int $branchId, User $actor, array $closingIds): Collection
     {
-        $boxes = CashBox::query()->where('branch_id', $branchId)
-            ->where(fn ($query) => $query->whereIn('closing_id', $closingIds)->orWhere('status', '!=', 'received')->orWhereHas('payments', fn ($payments) => $payments->whereIn('status', ['pending', 'missing', 'rejected'])))
-            ->with(BranchClosingWorkflow::BOX_DETAILS)->latest('id')->get();
+        $boxes = $this->inPlay($branchId, $closingIds)->with(BranchClosingWorkflow::BOX_DETAILS)->latest('id')->get();
         $ledgers = $this->ledgers($boxes->flatMap(fn (CashBox $box) => $box->payments->pluck('subscription_transaction_id'))->all());
 
         return $boxes->map(function (CashBox $box) use ($actor, $ledgers): array {
@@ -83,6 +82,30 @@ class BranchBoxes
 
             return $row;
         });
+    }
+
+    /**
+     * How many boxes the financial boxes page lists for the branch: those
+     * of the closings, and any box still in play.
+     *
+     * @param  array<int, int>  $closingIds
+     */
+    public function count(int $branchId, array $closingIds): int
+    {
+        return $this->inPlay($branchId, $closingIds)->count();
+    }
+
+    /**
+     * The branch's boxes of those closings, and any box still open, waiting
+     * to be confirmed or holding entries under review.
+     *
+     * @param  array<int, int>  $closingIds
+     * @return Builder<CashBox>
+     */
+    private function inPlay(int $branchId, array $closingIds): Builder
+    {
+        return CashBox::query()->where('branch_id', $branchId)
+            ->where(fn (Builder $query) => $query->whereIn('closing_id', $closingIds)->orWhere('status', '!=', 'received')->orWhereHas('payments', fn (Builder $payments) => $payments->whereIn('status', ['pending', 'missing', 'rejected'])));
     }
 
     /**

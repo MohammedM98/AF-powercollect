@@ -8,8 +8,7 @@ export const MAIN_LINKS = [
     { href: '/dashboard', label: 'لوحة التحكم', description: 'نظرة اليوم: التحصيل والمهام', icon: 'grid' },
     { href: '/payments', label: 'تسجيل الدفعات', description: 'استلام دفعة من مشترك وطباعة الوصل', icon: 'banknotes', can: 'recordPayments', exact: true },
     { href: '/payments/summary', label: 'ملخص التحصيل', description: 'ما حُصّل اليوم وهذا الشهر', icon: 'gauge', can: 'viewOwnCashBoxes' },
-    { href: '/payments/cash-boxes', label: 'الصناديق المالية', description: 'صناديق المحصّلين وتأكيد إغلاقها', icon: 'wallet', can: 'viewCashBoxes' },
-    { href: '/payments/entries', label: 'الحركات', description: 'حركات الصناديق المفتوحة', icon: 'list', can: 'viewCashBoxes' },
+    { href: '/payments/cash-boxes', label: 'الصناديق المالية', description: 'صناديق المحصّلين وحركاتها المفتوحة وتأكيد إغلاقها', icon: 'wallet', can: 'viewCashBoxes' },
     { href: '/ledger', label: 'السجل المالي', description: 'القيود حسب التاريخ والفرع', icon: 'ledger', can: 'viewLedger' },
     { href: '/reconciliation', label: 'الإغلاقات والكشوفات', description: 'الإغلاقات وكشوف البنك', icon: 'bank', can: 'viewBranchReconciliation' },
     { href: '/weekly-packages', label: 'الإغلاق الأسبوعي', description: 'حزمة الأسبوع: راجعها وأرسلها للتدقيق', icon: 'layers', can: 'viewWeeklyClosings' },
@@ -45,8 +44,8 @@ export const HOME_LINK = { href: '/dashboard', label: 'الرئيسية', icon: 
 /** A page outside the sections, named in the page trail when it is open. */
 export const PROFILE_LINK = { href: '/profile', label: 'الملف الشخصي', description: 'بياناتك وكلمة المرور', icon: 'user' };
 
-/** A collector's own boxes and entries, named as theirs. */
-const OWN_LABELS = { '/payments/cash-boxes': 'صناديقي', '/payments/entries': 'حركاتي' };
+/** A collector's own boxes, named as theirs. */
+const OWN_LABELS = { '/payments/cash-boxes': 'صناديقي' };
 
 /** Whether the user sees only their own boxes, not the branch's. */
 function seesOwnBoxesOnly(can) {
@@ -55,7 +54,7 @@ function seesOwnBoxesOnly(can) {
 
 export const NAVIGATION_GROUPS = [
     { id: 'daily', label: 'المشتركون', shortLabel: 'المشتركون', icon: 'users', description: 'المشتركون والقراءات والرسائل', hrefs: ['/subscriptions', '/meter-readings', '/reading-cycles', '/disconnection-lists', '/messages'] },
-    { id: 'finance', label: 'المالية والتحصيل', shortLabel: 'المالية', icon: 'wallet', description: 'الدفعات والصناديق والإغلاق', hrefs: ['/payments', '/payments/entries', '/payments/summary', '/payments/cash-boxes', '/reconciliation', '/weekly-packages', '/ledger', '/receivables'] },
+    { id: 'finance', label: 'المالية والتحصيل', shortLabel: 'المالية', icon: 'wallet', description: 'الدفعات والصناديق والإغلاق', hrefs: ['/payments', '/payments/summary', '/payments/cash-boxes', '/reconciliation', '/weekly-packages', '/ledger', '/receivables'] },
     { id: 'reports', label: 'التقارير والرقابة', shortLabel: 'التقارير', icon: 'trend', description: 'التقارير والأداء والتدقيق', hrefs: ['/reports', '/branch-performance', '/transaction-audit'] },
     { id: 'infrastructure', label: 'الفروع والشبكة', shortLabel: 'الشبكة', icon: 'bolt', description: 'الفروع والبنية الكهربائية', hrefs: ['/branches', '/governorates', '/meter-boxes', '/circuit-breakers'] },
     { id: 'administration', label: 'الإدارة والإعدادات', shortLabel: 'الإدارة', icon: 'cog', description: 'المستخدمون والصلاحيات والإعدادات', hrefs: ['/users', '/settings/permissions', '/tariffs', '/settings/reading-schedule', '/settings/print-templates', '/settings/sms'], featured: ['/users', '/settings/permissions'] },

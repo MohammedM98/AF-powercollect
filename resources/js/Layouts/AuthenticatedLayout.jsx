@@ -12,6 +12,8 @@ import { useTheme } from '@/hooks/useTheme';
 import { currentPrintSettings } from '@/lib/print';
 import { HOME_LINK, MAIN_LINKS, allowedNavigationGroups, pageTrail } from '@/lib/navigation';
 import { useResponsiveTables } from '@/hooks/useResponsiveTables';
+import { QUICK_MESSAGE_EVENT, openQuickMessage } from '@/lib/quickMessage';
+import QuickMessageModal from '@/Pages/Messages/QuickMessageModal';
 
 const NO_BADGES = {};
 
@@ -40,6 +42,8 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
     const [paletteOpen, setPaletteOpen] = useState(false);
     const [shortcutsOpen, setShortcutsOpen] = useState(false);
     const [tourOpen, setTourOpen] = useState(false);
+    // The quick message window, with the subscriptions it was opened for (see lib/quickMessage.js); null when closed.
+    const [quickMessage, setQuickMessage] = useState(null);
     const [printSettings] = useState(currentPrintSettings);
     const menuButtonRef = useRef(null);
     const titleEndRef = useRef(null);
@@ -54,6 +58,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
     const paletteSections = [[HOME_LINK.label, [MAIN_LINKS[0]]], ...groups.map((group) => [group.label, group.links])];
     const commands = [
         ...(can?.recordPayments ? [{ id: 'pay', label: 'تسجيل دفعة', icon: 'banknotes', key: 'N' }] : []),
+        ...(can?.sendMessages ? [{ id: 'message', label: 'رسالة سريعة لمشترك أو أكثر', icon: 'send', key: 'M' }] : []),
         { id: 'theme', label: 'تبديل الوضع الفاتح والداكن', icon: dark ? 'sun' : 'moon' },
         { id: 'tour', label: 'جولة سريعة في الشريط', icon: 'sparkles' },
         { id: 'keys', label: 'اختصارات لوحة المفاتيح', icon: 'keyboard', key: '?' },
@@ -77,6 +82,8 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
     function runCommand(id) {
         if (id === 'pay') {
             router.visit('/payments');
+        } else if (id === 'message') {
+            openQuickMessage();
         } else if (id === 'theme') {
             changePreference(dark ? 'light' : 'dark');
         } else if (id === 'tour') {
@@ -103,13 +110,32 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
             } else if (can?.recordPayments && (event.key === 'n' || event.key === 'N' || event.code === 'KeyN')) {
                 event.preventDefault();
                 router.visit('/payments');
+            } else if (can?.sendMessages && (event.key === 'm' || event.key === 'M' || event.code === 'KeyM')) {
+                event.preventDefault();
+                openQuickMessage();
             }
         }
 
         window.addEventListener('keydown', onKeyDown);
 
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [anyLayerOpen, can?.recordPayments]);
+    }, [anyLayerOpen, can?.recordPayments, can?.sendMessages]);
+
+    // Any page opens the quick message window through openQuickMessage().
+    useEffect(() => {
+        if (!can?.sendMessages) {
+            return undefined;
+        }
+
+        function onOpen(event) {
+            setPaletteOpen(false);
+            setQuickMessage({ subscriptionIds: event.detail?.subscriptionIds ?? [], openedAt: Date.now() });
+        }
+
+        window.addEventListener(QUICK_MESSAGE_EVENT, onOpen);
+
+        return () => window.removeEventListener(QUICK_MESSAGE_EVENT, onOpen);
+    }, [can?.sendMessages]);
 
     // After opening a page from the bar, the search or a link, focus lands on its content, not at the top of the document.
     useEffect(() => {
@@ -197,7 +223,16 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
                 onCommand={runCommand}
                 searchSubscribers={searchesSubscribers}
             />
-            <KeyboardShortcuts open={shortcutsOpen} onClose={closeShortcuts} canRecordPayments={Boolean(can?.recordPayments)} searchesSubscribers={searchesSubscribers} />
+            <KeyboardShortcuts
+                open={shortcutsOpen}
+                onClose={closeShortcuts}
+                canRecordPayments={Boolean(can?.recordPayments)}
+                canSendMessages={Boolean(can?.sendMessages)}
+                searchesSubscribers={searchesSubscribers}
+            />
+            {quickMessage && (
+                <QuickMessageModal key={quickMessage.openedAt} subscriptionIds={quickMessage.subscriptionIds} onClose={() => setQuickMessage(null)} />
+            )}
             <QuickTour open={tourOpen} onClose={closeTour} searchesSubscribers={searchesSubscribers} />
         </div>
     );

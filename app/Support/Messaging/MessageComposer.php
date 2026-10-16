@@ -45,12 +45,13 @@ class MessageComposer
     /**
      * The subscriptions the actor may write to that match the criteria, by
      * name: for a weekly reading those with a reading for the week, for a
-     * balance reminder those who owe more than the minimum balance.
+     * balance reminder those who owe more than the minimum balance. At most
+     * `$limit` of them (MAX_RECIPIENTS by default).
      *
      * @param  array{week_start?: ?string, approved_only?: bool, min_balance?: float|string|null, branch_id?: int|string|null, status?: ?string, meter_box_name?: ?string, meter_box_id?: int|string|null, circuit_breaker_id?: int|string|null, search?: ?string, subscription_ids?: array<int, int|string>|null}  $criteria
      * @return Collection<int, Subscription>
      */
-    public function recipients(MessageKind $kind, User $actor, array $criteria): Collection
+    public function recipients(MessageKind $kind, User $actor, array $criteria, int $limit = self::MAX_RECIPIENTS): Collection
     {
         $query = Subscription::query()
             ->visibleTo($actor)
@@ -77,7 +78,7 @@ class MessageComposer
             );
         }
 
-        return $query->limit(self::MAX_RECIPIENTS)->get();
+        return $query->limit($limit)->get();
     }
 
     /**

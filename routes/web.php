@@ -140,6 +140,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::get('/messages/create', [MessageController::class, 'create'])->name('messages.create');
+    Route::get('/messages/quick', [MessageController::class, 'quick'])->name('messages.quick');
+    Route::get('/messages/recipients', [MessageController::class, 'recipients'])->name('messages.recipients');
     Route::post('/messages', [MessageController::class, 'store'])->middleware('throttle:20,1')->name('messages.store');
     Route::get('/messages/{batch}', [MessageController::class, 'show'])->name('messages.show');
     Route::post('/messages/{batch}/retry', [MessageController::class, 'retry'])->name('messages.retry');

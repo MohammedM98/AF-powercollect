@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
@@ -17,6 +17,7 @@ import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { printFieldsProps, printRowProps } from '@/lib/print';
 import { formatCurrency } from '@/lib/currency';
 import { hasLatestWeekReading, readingOptionFor, weekOptionsFor } from '@/lib/readings';
+import { openQuickMessage } from '@/lib/quickMessage';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import SubscriptionModal from './SubscriptionModal';
 import PersonalDetailsModal from './PersonalDetailsModal';
@@ -207,7 +208,8 @@ export default function Index({
                             label: 'إرسال رسالة',
                             icon: 'send',
                             tone: 'sky',
-                            onSelect: () => router.visit(`/messages/create?${new URLSearchParams({ kind: 'custom', status: '', 'subscription_ids[]': subscription.id })}`),
+                            shortcut: 'M',
+                            onSelect: () => openQuickMessage([subscription.id]),
                             lockedReason: can?.sendMessages ? null : needsPermission('إرسال الرسائل'),
                         },
                     ],
@@ -524,7 +526,7 @@ export default function Index({
                     setHistorySubscriptionId(viewingSubscriptionId);
                     closeProfile();
                 }}
-                onSendMessage={can?.sendMessages ? () => router.visit(`/messages/create?${new URLSearchParams({ kind: 'custom', status: '', 'subscription_ids[]': viewingSubscriptionId })}`) : undefined}
+                onSendMessage={can?.sendMessages ? () => openQuickMessage([viewingSubscriptionId]) : undefined}
                 onEdit={() => {
                     setModalSubscription(viewingSubscription);
                     closeProfile();

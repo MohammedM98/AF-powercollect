@@ -43,6 +43,7 @@ class StoreMessageBatchRequest extends FormRequest
             'circuit_breaker_id' => ['nullable', 'regex:/^(none|\d+)$/'],
             'subscription_ids' => ['required', 'array', 'min:1'],
             'subscription_ids.*' => ['integer'],
+            'stay_on_page' => ['boolean'],
         ];
     }
 

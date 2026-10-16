@@ -26,7 +26,6 @@ enum PermissionKey: string
     case UpdateSubscriptionMinimumCharge = 'subscriptions.update_minimum_charge';
     case UpdateSubscriptionKilowattPrice = 'subscriptions.update_kilowatt_price';
     case BulkUpdateSubscriptions = 'subscriptions.bulk_update';
-    case UpdateSubscriptionDisconnectionFee = 'subscriptions.update_disconnection_fee';
 
     case ViewTariffs = 'tariffs.view';
     case CreateTariffs = 'tariffs.create';
@@ -97,6 +96,7 @@ enum PermissionKey: string
     case ManageDisconnections = 'disconnections.manage';
     case WarnDisconnections = 'disconnections.warn';
     case ExecuteDisconnections = 'disconnections.execute';
+    case ChangeDisconnectionFee = 'disconnections.change_fee';
 
     case ViewMessages = 'messages.view';
     case SendMessages = 'messages.send';
@@ -125,7 +125,6 @@ enum PermissionKey: string
             self::UpdateSubscriptionMinimumCharge => 'Edit Subscription Minimum Charge',
             self::UpdateSubscriptionKilowattPrice => 'Edit Subscription Kilo Price',
             self::BulkUpdateSubscriptions => 'Bulk Edit Subscriptions',
-            self::UpdateSubscriptionDisconnectionFee => 'Edit Subscription Disconnection Fee',
             self::ViewTariffs => 'View Tariffs',
             self::CreateTariffs => 'Add Tariffs',
             self::UpdateTariffs => 'Edit Tariffs',
@@ -185,6 +184,7 @@ enum PermissionKey: string
             self::ManageDisconnections => 'Manage Disconnection Lists',
             self::WarnDisconnections => 'Send Disconnection Warnings',
             self::ExecuteDisconnections => 'Confirm Service Disconnections',
+            self::ChangeDisconnectionFee => 'Change Disconnection Fees',
             self::ViewMessages => 'View Messages',
             self::SendMessages => 'Send Messages',
             self::ManagePrintTemplates => 'Manage Print Templates',
@@ -241,7 +241,6 @@ enum PermissionKey: string
                     'minimum_charge' => self::UpdateSubscriptionMinimumCharge,
                     'kilowatt_price' => self::UpdateSubscriptionKilowattPrice,
                     'bulk_update' => self::BulkUpdateSubscriptions,
-                    'disconnection_fee' => self::UpdateSubscriptionDisconnectionFee,
                 ],
             ],
             'meter_boxes' => [
@@ -310,6 +309,7 @@ enum PermissionKey: string
                     'manage' => self::ManageDisconnections,
                     'warn' => self::WarnDisconnections,
                     'execute' => self::ExecuteDisconnections,
+                    'change_fee' => self::ChangeDisconnectionFee,
                 ],
             ],
             'messages' => [

@@ -17,8 +17,6 @@ export default function SubscriptionModal({
     currentBranchAreaName,
     canEditMinimumCharge,
     canEditKilowattPrice,
-    canEditDisconnectionFee,
-    usualDisconnectionFee,
 }) {
     const form = useResourceForm('/subscriptions', subscription, subscriptionFormData(subscription, sourceSubscription));
 
@@ -48,8 +46,6 @@ export default function SubscriptionModal({
                 currentBranchAreaName={currentBranchAreaName}
                 canEditMinimumCharge={canEditMinimumCharge}
                 canEditKilowattPrice={canEditKilowattPrice}
-                canEditDisconnectionFee={canEditDisconnectionFee}
-                usualDisconnectionFee={usualDisconnectionFee}
                 sharedPersonalDetails={Boolean(sourceSubscription)}
                 isEdit={form.isEdit}
                 subscriptionCount={subscription?.subscriptionCount ?? 1}

@@ -10,7 +10,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import DangerButton from '@/Components/DangerButton';
 import InputError from '@/Components/InputError';
 import { formatMoney } from '@/lib/format';
-import { fillPlaceholders, itemTone, operationId, smsParts, totalFees } from '@/lib/disconnections';
+import { feeError, fillPlaceholders, itemTone, operationId, smsParts, totalFees } from '@/lib/disconnections';
 import HoldToConfirm from './HoldToConfirm';
 
 const ACTIONS = {
@@ -56,7 +56,7 @@ function placeholderValues(item, list) {
  * and why, then asks for what the action needs and sends it once for the
  * subscribers listed.
  */
-export default function ActionModal({ action, list, selection, count, reasonOptions, channelOptions, smsDeliversMessages, warningTemplates, defaultWarning, placeholders, today, onClose, onDone }) {
+export default function ActionModal({ action, list, selection, count, reasonOptions, channelOptions, smsDeliversMessages, warningTemplates, defaultWarning, placeholders, today, usualFee, canChangeFee = false, onClose, onDone }) {
     const id = useId();
     const http = useHttp({});
     const [preview, setPreview] = useState(null);
@@ -68,6 +68,8 @@ export default function ActionModal({ action, list, selection, count, reasonOpti
     const [channel, setChannel] = useState('sms');
     const [body, setBody] = useState(defaultWarning);
     const [confirmed, setConfirmed] = useState(false);
+    const [fees, setFees] = useState({});
+    const [feeForAll, setFeeForAll] = useState(String(Number(usualFee)));
     const [sendId] = useState(operationId);
     const meta = ACTIONS[action];
 
@@ -75,7 +77,14 @@ export default function ActionModal({ action, list, selection, count, reasonOpti
         let current = true;
         http.transform(() => selection);
         http.post(`/disconnection-lists/${list.id}/items/preview`)
-            .then((loaded) => current && setPreview(loaded))
+            .then((loaded) => {
+                if (!current) {
+                    return;
+                }
+
+                setPreview(loaded);
+                setFees(Object.fromEntries(loaded.items.map((item) => [item.id, item.fee == null ? '' : String(Number(item.fee))])));
+            })
             .catch(() => current && setFailed(true));
 
         return () => {
@@ -86,6 +95,8 @@ export default function ActionModal({ action, list, selection, count, reasonOpti
 
     const reached = useMemo(() => (preview?.items ?? []).filter((item) => !exclusion(action, item)), [preview, action]);
     const excluded = useMemo(() => (preview?.items ?? []).filter((item) => exclusion(action, item)), [preview, action]);
+    const chosenFees = useMemo(() => reached.map((item) => ({ fee: fees[item.id] })), [reached, fees]);
+    const feesAreValid = chosenFees.every(({ fee }) => fee !== '' && Number(fee) >= 0);
 
     function submit() {
         if (reached.length === 0) {
@@ -97,7 +108,7 @@ export default function ActionModal({ action, list, selection, count, reasonOpti
             reschedule: { ids, scheduled_for: date, reason },
             remove: { ids, reason },
             warn: { ids, channel, body, operation_id: sendId },
-            confirm: { ids, fees: Object.fromEntries(reached.map((item) => [item.id, item.fee])), confirmed },
+            confirm: { ids, fees: Object.fromEntries(reached.map((item) => [item.id, fees[item.id]])), confirmed },
         }[action];
 
         setSaving(true);
@@ -188,7 +199,26 @@ export default function ActionModal({ action, list, selection, count, reasonOpti
                                                     {action === 'warn' && <td className="px-3 py-2 font-display text-xs" dir="ltr">{item.phone ?? '—'}</td>}
                                                     {action === 'confirm' && <td className="px-3 py-2 text-xs">{item.serviceStatusLabel}</td>}
                                                     <td className="whitespace-nowrap px-3 py-2"><Balance value={item.balance} /></td>
-                                                    {action === 'confirm' && <td className="whitespace-nowrap px-3 py-2 font-semibold">{formatMoney(item.fee)} ₪{item.hasOwnFee && <span className="ms-1 text-xs text-gray-500">(خاصة)</span>}</td>}
+                                                    {action === 'confirm' && (
+                                                        <td className="whitespace-nowrap px-3 py-2 font-semibold">
+                                                            {canChangeFee && !why ? (
+                                                                <span className="flex items-center gap-1.5">
+                                                                    <input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        step="0.01"
+                                                                        value={fees[item.id] ?? ''}
+                                                                        onChange={(event) => setFees((current) => ({ ...current, [item.id]: event.target.value }))}
+                                                                        aria-label={`رسوم قطع ${item.name}`}
+                                                                        className="w-24 py-1 text-sm"
+                                                                    />
+                                                                    ₪
+                                                                </span>
+                                                            ) : (
+                                                                <>{formatMoney(fees[item.id] ?? item.fee)} ₪</>
+                                                            )}
+                                                        </td>
+                                                    )}
                                                     {action !== 'confirm' && <td className="whitespace-nowrap px-3 py-2 text-xs" dir="ltr">{item.scheduledFor}</td>}
                                                 </tr>
                                             );
@@ -267,21 +297,38 @@ export default function ActionModal({ action, list, selection, count, reasonOpti
 
                     {preview && action === 'confirm' && (
                         <div className="space-y-4">
+                            {canChangeFee && reached.length > 0 && (
+                                <div className="flex flex-wrap items-end gap-3 rounded-control border border-gray-200 p-3">
+                                    <div>
+                                        <label htmlFor={`${id}-fee`} className="mb-1.5 block text-sm font-semibold text-gray-700">رسوم قطع الخدمة</label>
+                                        <span className="flex items-center gap-1.5">
+                                            <input id={`${id}-fee`} type="number" min={0} step="0.01" value={feeForAll} onChange={(event) => setFeeForAll(event.target.value)} className="w-28 text-sm" />
+                                            ₪
+                                        </span>
+                                    </div>
+                                    <SecondaryButton onClick={() => setFees((current) => ({ ...current, ...Object.fromEntries(reached.map((item) => [item.id, feeForAll])) }))} disabled={feeForAll === '' || Number(feeForAll) < 0}>
+                                        تطبيق على الجميع ({reached.length.toLocaleString('en')})
+                                    </SecondaryButton>
+                                    <p className="basis-full text-xs text-gray-500">الرسوم المعتادة {formatMoney(usualFee)} ₪. يمكنك تغييرها لكل مشترك في الجدول، و0 يعفيه منها.</p>
+                                </div>
+                            )}
                             <div className="flex flex-wrap items-center justify-between gap-3 rounded-control border border-red-500/20 bg-red-500/5 px-4 py-3">
                                 <p className="text-sm text-gray-700">
                                     <b className="font-display text-gray-900">{reached.length.toLocaleString('en')}</b> مشترك · إجمالي رسوم القطع المقدّرة
                                 </p>
-                                <p className="font-display text-2xl font-bold text-gray-900">{formatMoney(totalFees(reached))} ₪</p>
+                                <p className="font-display text-2xl font-bold text-gray-900">{formatMoney(totalFees(chosenFees))} ₪</p>
                             </div>
                             <p className="text-xs leading-5 text-gray-600">
-                                عند التأكيد تتحول خدمة كل مشترك إلى «مفصول» وتُحمَّل عليه رسوم قطع الخدمة مرة واحدة. إن تغيّرت الرسوم أو حالة الخدمة بعد هذه المعاينة يُستثنى المشترك ويظهر في التقرير.
+                                عند التأكيد تتحول خدمة كل مشترك إلى «مفصول» وتُحمَّل عليه رسوم قطع الخدمة المبيّنة مرة واحدة. إن تغيّرت حالة الخدمة بعد هذه المعاينة يُستثنى المشترك ويظهر في التقرير.
                             </p>
                             <label className="flex items-start gap-3 rounded-control border border-gray-200 p-3 text-sm font-semibold text-gray-800">
                                 <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-0.5 rounded border-gray-300 text-red-700" />
                                 أؤكد أن قطع الخدمة قد نُفّذ فعليًا للمشتركين المحددين.
                             </label>
                             <InputError message={errors.confirmed} />
-                            <HoldToConfirm count={reached.length} disabled={!confirmed || reached.length === 0} busy={saving} onConfirm={() => submit()} label={`اضغط مع الاستمرار لتأكيد قطع ${reached.length.toLocaleString('en')} مشترك`} />
+                            <InputError message={feeError(errors)} />
+                            {!feesAreValid && <p className="text-sm text-brand-600">أدخل رسوم القطع لكل مشترك (0 للإعفاء).</p>}
+                            <HoldToConfirm count={reached.length} disabled={!confirmed || reached.length === 0 || !feesAreValid} busy={saving} onConfirm={() => submit()} label={`اضغط مع الاستمرار لتأكيد قطع ${reached.length.toLocaleString('en')} مشترك`} />
                         </div>
                     )}
 

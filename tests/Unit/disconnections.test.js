@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fillPlaceholders, holdProgress, itemTone, smsParts, totalFees, typedCountMatches } from '../../resources/js/lib/disconnections.js';
+import { feeError, fillPlaceholders, holdProgress, itemTone, smsParts, totalFees, typedCountMatches } from '../../resources/js/lib/disconnections.js';
 
 test('the hold reaches 100% only after the full three seconds', () => {
     assert.equal(holdProgress(0), 0);
@@ -36,4 +36,11 @@ test('fees add up to two decimals and overdue items stand out', () => {
     assert.equal(itemTone({ status: 'scheduled', isOverdue: true }), 'red');
     assert.equal(itemTone({ status: 'scheduled', isOverdue: false }), 'amber');
     assert.equal(itemTone({ status: 'disconnected' }), 'gray');
+});
+
+test('the first fee error is found whichever subscriber it belongs to', () => {
+    assert.equal(feeError({ confirmed: 'x', 'fees.12': 'رسوم القطع لا تقل عن 0.' }), 'رسوم القطع لا تقل عن 0.');
+    assert.equal(feeError({ fees: 'افتح المعاينة قبل التأكيد.' }), 'افتح المعاينة قبل التأكيد.');
+    assert.equal(feeError({ confirmed: 'x' }), undefined);
+    assert.equal(feeError(undefined), undefined);
 });

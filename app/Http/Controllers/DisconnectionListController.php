@@ -7,6 +7,7 @@ use App\Enums\DisconnectionItemStatus;
 use App\Enums\DisconnectionReason;
 use App\Enums\MessageChannel;
 use App\Enums\MessageKind;
+use App\Enums\PermissionKey;
 use App\Enums\SubscriptionStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Concerns\FiltersDisconnectionItems;
@@ -171,6 +172,7 @@ class DisconnectionListController extends Controller
                 'manageList' => $actor->can('manage', $list),
                 'warn' => $canWarn && ! $list->isClosed(),
                 'execute' => $actor->can('execute', $list) && ! $list->isClosed(),
+                'changeFee' => $actor->hasPermission(PermissionKey::ChangeDisconnectionFee),
             ],
             'reasonOptions' => DisconnectionReason::options(),
             'channelOptions' => MessageChannel::options(),
@@ -179,6 +181,7 @@ class DisconnectionListController extends Controller
             'defaultWarning' => self::DEFAULT_WARNING,
             'placeholders' => MessageComposer::placeholdersFor(MessageKind::DisconnectionWarning),
             'today' => DailySeries::today()->toDateString(),
+            'usualFee' => DisconnectionListItem::usualFee(),
             'filters' => $this->dataTableState($request, 'scheduled_for', 'asc', 25),
             'filterOptions' => $this->itemFilterOptions($actor, $request),
             'history' => Inertia::optional(fn () => $this->history($list, $request->integer('history'))),
@@ -238,7 +241,6 @@ class DisconnectionListController extends Controller
                     'meterBoxName' => $subscription->meterBox?->displayName(),
                     'subAreaName' => $subscription->meterBox?->subArea?->name,
                     'balance' => number_format((float) $subscription->balance, 2, '.', ''),
-                    'fee' => $subscription->disconnectionFee(),
                     'waitingOn' => $waiting ? ['id' => $waiting->list->id, 'title' => $waiting->list->title, 'isThisList' => $waiting->list->id === $list->id] : null,
                 ];
             });

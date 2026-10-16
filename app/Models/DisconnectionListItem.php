@@ -44,7 +44,6 @@ class DisconnectionListItem extends Model
         'already_disconnected' => 'سبق تأكيد قطعه؛ لم يُحمَّل مرة أخرى',
         'removed' => 'أُزيل من القائمة',
         'service_not_active' => 'خدمته ليست فعّالة الآن؛ راجع حالته قبل التأكيد',
-        'fee_changed' => 'تغيّرت رسوم القطع منذ المعاينة؛ راجعها وأكّد من جديد',
         'list_closed' => 'القائمة مغلقة',
     ];
 
@@ -195,18 +194,29 @@ class DisconnectionListItem extends Model
     }
 
     /**
+     * The company's usual disconnection fee, in shekels: what a confirmation
+     * charges unless the person confirming changes it.
+     */
+    public static function usualFee(): string
+    {
+        return number_format((float) config('powercollect.disconnection.fee'), 2, '.', '');
+    }
+
+    /**
      * Record that the subscription has really been disconnected: its service
-     * becomes disconnected and its disconnection fee is charged as a
-     * "Service Disconnection Fee" line, both or neither. The item and the
-     * subscription are locked first, so a second request — from the same
-     * person or another — finds it done and charges nothing. `$expectedFee`
-     * is the fee the person was shown; a different fee now is not applied.
+     * becomes disconnected and `$fee`, chosen when confirming, is charged as
+     * a "Service Disconnection Fee" line, both or neither (a fee of 0
+     * charges nothing). The item and the subscription are locked first, so a
+     * second request — from the same person or another — finds it done and
+     * charges nothing.
      *
      * @return string one of the keys of OUTCOMES
      */
-    public function confirmDisconnection(User $actor, ?string $expectedFee = null): string
+    public function confirmDisconnection(User $actor, string $fee): string
     {
-        return DB::transaction(function () use ($actor, $expectedFee): string {
+        $fee = number_format((float) $fee, 2, '.', '');
+
+        return DB::transaction(function () use ($actor, $fee): string {
             $item = self::query()->with('list')->lockForUpdate()->findOrFail($this->id);
 
             if ($item->status === DisconnectionItemStatus::Disconnected) {
@@ -225,12 +235,6 @@ class DisconnectionListItem extends Model
 
             if ($subscription->status !== SubscriptionStatus::Active) {
                 return 'service_not_active';
-            }
-
-            $fee = $subscription->disconnectionFee();
-
-            if ($expectedFee !== null && round((float) $expectedFee, 2) !== round((float) $fee, 2)) {
-                return 'fee_changed';
             }
 
             $feeLine = (float) $fee > 0

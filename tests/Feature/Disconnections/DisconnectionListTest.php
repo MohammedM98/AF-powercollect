@@ -196,7 +196,10 @@ class DisconnectionListTest extends TestCase
                 ->where('items.data.0.status', 'scheduled')
                 ->where('items.data.0.balance', '0.00')
                 ->where('items.data.0.balanceWhenAdded', '100.00')
-                ->where('items.data.0.isPaid', true));
+                ->where('items.data.0.isPaid', true)
+                ->where('items.data.0.fee', '20.00')
+                ->where('usualFee', '20.00')
+                ->where('abilities.changeFee', true));
     }
 
     public function test_an_overdue_item_waits_for_a_manual_action(): void
@@ -318,27 +321,51 @@ class DisconnectionListTest extends TestCase
         $this->assertSame(0, SubscriptionTransaction::query()->count());
     }
 
-    public function test_the_subscribers_own_fee_is_charged_and_a_fee_changed_since_the_preview_is_not_applied(): void
+    public function test_the_fee_chosen_when_confirming_is_charged_for_each_subscriber(): void
     {
-        $ownFee = $this->subscription(['disconnection_fee' => '35.00']);
-        $exempt = $this->subscription(['disconnection_fee' => '0.00']);
         $changed = $this->subscription();
-        $items = [$this->item($ownFee), $this->item($exempt), $this->item($changed)];
+        $exempt = $this->subscription();
+        $items = [$this->item($changed), $this->item($exempt)];
 
         $this->actingAs($this->branchAdmin)
             ->post(route('disconnection-lists.items.confirm', $this->list), [
-                'ids' => array_map(fn ($item) => $item->id, $items),
-                'fees' => [$items[0]->id => '35.00', $items[1]->id => '0', $items[2]->id => '15.00'],
+                'ids' => [$items[0]->id, $items[1]->id],
+                'fees' => [$items[0]->id => '35.50', $items[1]->id => '0'],
                 'confirmed' => true,
             ])
-            ->assertSessionHas('status', 'disconnections-confirmed-partly')
-            ->assertSessionHas('inertia.flash_data.disconnectionResult', fn (array $result): bool => $result['succeeded'] === 2
-                && $result['feesTotal'] === '35.00'
-                && $result['failed'] === [['id' => $items[2]->id, 'name' => $changed->displayName(), 'accountNumber' => $changed->account_number, 'reason' => DisconnectionListItem::OUTCOMES['fee_changed']]]);
+            ->assertSessionHas('status', 'disconnections-confirmed')
+            ->assertSessionHas('inertia.flash_data.disconnectionResult', fn (array $result): bool => $result['succeeded'] === 2 && $result['feesTotal'] === '35.50');
 
-        $this->assertSame(['35.00'], SubscriptionTransaction::query()->pluck('amount')->all());
+        $this->assertSame(['35.50'], SubscriptionTransaction::query()->pluck('amount')->all());
+        $this->assertSame(['35.50', '0.00'], [$items[0]->fresh()->fee_amount, $items[1]->fresh()->fee_amount]);
         $this->assertSame(SubscriptionStatus::Disconnected, $exempt->fresh()->status);
-        $this->assertSame(SubscriptionStatus::Active, $changed->fresh()->status);
+    }
+
+    public function test_without_its_permission_the_usual_fee_is_charged_whatever_is_sent(): void
+    {
+        $item = $this->item($this->subscription());
+        $executor = User::factory()->dataEntry()->withPermissions([PermissionKey::ViewDisconnections, PermissionKey::ExecuteDisconnections])->create(['branch_id' => $this->branch->id]);
+
+        $this->actingAs($executor)
+            ->post(route('disconnection-lists.items.confirm', $this->list), ['ids' => [$item->id], 'fees' => [$item->id => '0'], 'confirmed' => true])
+            ->assertSessionHas('status', 'disconnections-confirmed');
+
+        $this->assertSame('20.00', SubscriptionTransaction::query()->sole()->amount);
+    }
+
+    public function test_a_fee_that_is_missing_or_negative_confirms_nothing(): void
+    {
+        $item = $this->item($this->subscription());
+
+        $this->actingAs($this->branchAdmin)
+            ->post(route('disconnection-lists.items.confirm', $this->list), ['ids' => [$item->id], 'fees' => [$item->id => '-5'], 'confirmed' => true])
+            ->assertSessionHasErrors('fees.'.$item->id);
+        $this->actingAs($this->branchAdmin)
+            ->post(route('disconnection-lists.items.confirm', $this->list), ['ids' => [$item->id], 'fees' => [$item->id => ''], 'confirmed' => true])
+            ->assertSessionHasErrors('fees.'.$item->id);
+
+        $this->assertSame(DisconnectionItemStatus::Scheduled, $item->fresh()->status);
+        $this->assertSame(0, SubscriptionTransaction::query()->count());
     }
 
     public function test_a_subscriber_whose_service_is_no_longer_on_is_not_charged(): void
@@ -446,31 +473,5 @@ class DisconnectionListTest extends TestCase
         $this->expectException(LogicException::class);
 
         $event->delete();
-    }
-
-    public function test_the_subscriber_disconnection_fee_is_set_only_with_its_permission(): void
-    {
-        $subscription = $this->subscription(['disconnection_fee' => '30.00']);
-        $editor = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
-        $form = fn (string $fee): array => [
-            'full_name' => $subscription->full_name,
-            'national_id' => $subscription->national_id,
-            'phone' => $subscription->phone,
-            'tariff_id' => $subscription->tariff_id,
-            'status' => 'active',
-            'minimum_charge' => $subscription->minimum_charge,
-            'initial_reading' => $subscription->initial_reading,
-            'disconnection_fee' => $fee,
-        ];
-
-        $this->actingAs($editor)->put(route('subscriptions.update', $subscription), $form('5'))->assertSessionHasNoErrors();
-        $this->assertSame('30.00', $subscription->fresh()->disconnection_fee);
-
-        $this->actingAs($this->branchAdmin)->put(route('subscriptions.update', $subscription), $form('12.5'))->assertSessionHasNoErrors();
-        $this->assertSame('12.50', $subscription->fresh()->disconnection_fee);
-
-        $this->actingAs($this->branchAdmin)->put(route('subscriptions.update', $subscription), $form(''))->assertSessionHasNoErrors();
-        $this->assertNull($subscription->fresh()->disconnection_fee);
-        $this->assertSame('20.00', $subscription->fresh()->disconnectionFee());
     }
 }

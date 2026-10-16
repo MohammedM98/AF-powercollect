@@ -1,10 +1,10 @@
 import Icon from '@/Components/Icon';
 import { useRowClick } from '@/hooks/useRowClick';
 import { BoxStage } from './CollectorCashBox';
-import { FinancialBoxAmount, FinancialBoxButton, FinancialBoxDates, FinancialBoxEntries, FinancialBoxIdentity, FinancialBoxStatus, BoxPersonAvatar, financialAmountsLine } from './FinancialBoxComponents';
+import { FinancialBoxAmount, FinancialBoxButton, FinancialBoxDates, FinancialBoxEntries, FinancialBoxStatus, FinancialBoxType, financialAmountsLine } from './FinancialBoxComponents';
 import './financial-boxes.css';
 
-/** The same aligned box rows for the branch and the collector's history. */
+/** The same aligned box rows for the branch and the collector's history: the box's number and week, its type, then whose it is, its entries, total, dates and state. */
 export default function FinancialBoxList({ boxes, onOpen, periodFor, sortState, onSort, collector = false, renderActions }) {
     const rowClick = useRowClick();
 
@@ -26,13 +26,14 @@ export default function FinancialBoxList({ boxes, onOpen, periodFor, sortState, 
 
     return <div className="financial-box-list">
         <table className="financial-box-list-table"><caption className="sr-only">الصناديق المالية</caption><thead><tr className="financial-box-list-heading">
-            <th>{heading('number', 'الصندوق')}</th><th>{collector ? 'أغلقه / المستلم' : 'الموظف'}</th><th>الحركات</th><th>{heading('total', 'الإجمالي')}</th><th>{heading('dates', 'فُتح ← أُغلق')}</th><th>{heading('status', 'الحالة')}</th><th data-actions=""><span className="sr-only">الإجراءات</span></th>
+            <th>{heading('number', 'رقم الصندوق')}</th><th>النوع</th><th>{collector ? 'أغلقه / المستلم' : 'الموظف'}</th><th>الحركات</th><th>{heading('total', 'الإجمالي')}</th><th>{heading('dates', 'فُتح ← أُغلق')}</th><th>{heading('status', 'الحالة')}</th><th data-actions=""><span className="sr-only">الإجراءات</span></th>
         </tr></thead>
         <tbody className="financial-box-list-rows">
             {boxes.map((box) => <tr key={box.id} className="financial-box-list-row" {...rowClick(() => onOpen(box))}>
-                <td className="financial-box-list-identity"><button type="button" className="min-w-0 text-start" onClick={() => onOpen(box)} aria-label={`عرض صندوق ${box.number}`}><FinancialBoxIdentity box={box} period={periodFor?.(box)} /></button></td>
+                <td className="financial-box-list-number"><button type="button" className="min-w-0 text-start" onClick={() => onOpen(box)} aria-label={`عرض صندوق ${box.number}`}><b dir="ltr" className="block font-display text-lg text-gray-900">{box.number}</b>{periodFor && periodFor(box) !== '—' && <span className="block text-[13px] text-gray-600">{periodFor(box)}</span>}</button></td>
+                <td className="financial-box-list-type"><FinancialBoxType box={box} /></td>
                 <td className="financial-box-list-person">
-                    {collector ? <div><span className="block text-sm text-gray-700">{box.closedBy ?? '—'}</span>{box.receivedAt && <small className="block text-xs text-gray-500">المستلم: {financialAmountsLine(box.receivedAmounts ?? {})}</small>}</div> : <><BoxPersonAvatar name={box.user?.name} small /><span className="min-w-0 break-words text-sm text-gray-700">{box.user?.name ?? '—'}{box.isOwn && <span className="text-xs text-gray-400"> (أنت)</span>}</span></>}
+                    {collector ? <div><span className="block text-[15px] font-semibold text-gray-900">{box.closedBy ?? '—'}</span>{box.receivedAt && <small className="block text-[13px] text-gray-600">المستلم: {financialAmountsLine(box.receivedAmounts ?? {})}</small>}</div> : <span className="min-w-0 break-words text-[15px] font-semibold text-gray-900">{box.user?.name ?? '—'}{box.isOwn && <span className="text-sm font-normal text-gray-600"> (أنت)</span>}</span>}
                 </td>
                 <td className="financial-box-list-entries"><FinancialBoxEntries box={box} /></td>
                 <td className="financial-box-list-amount"><FinancialBoxAmount box={box} /></td>

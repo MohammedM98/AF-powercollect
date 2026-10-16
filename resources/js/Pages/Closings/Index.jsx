@@ -12,6 +12,7 @@ import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import Pagination from '@/Components/DataTable/Pagination';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
+import { usePagedRows } from '@/hooks/usePagedRows';
 import { useRowClick } from '@/hooks/useRowClick';
 import { formatMoney } from '@/lib/format';
 import { boxTypeStyles } from '../Payments/CollectorCashBox';
@@ -243,20 +244,6 @@ function weekStatus(week) {
     }
 
     return week.status === 'approved' ? ['معتمد', 'green'] : week.status === 'returned' ? ['أُعيد للفرع', 'red'] : ['بملاحظات', 'amber'];
-}
-
-/** One page of rows already in the page, with what Pagination shows of it. */
-function usePagedRows(rows, perPage) {
-    const [page, setPage] = useState(1);
-    const last = Math.max(1, Math.ceil(rows.length / perPage));
-    const current = Math.min(page, last);
-    const from = rows.length ? (current - 1) * perPage + 1 : 0;
-
-    return {
-        rows: rows.slice(from ? from - 1 : 0, from ? from - 1 + perPage : 0),
-        meta: { current_page: current, last_page: last, from, to: Math.min(current * perPage, rows.length), total: rows.length },
-        setPage,
-    };
 }
 
 /** A search box's words found in any of a row's texts. */

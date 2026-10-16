@@ -7,10 +7,16 @@ import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
+import ActionsTh from '@/Components/DataTable/ActionsTh';
+import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import Pagination from '@/Components/DataTable/Pagination';
+import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
+import SortableTh from '@/Components/DataTable/SortableTh';
+import { usePagedRows } from '@/hooks/usePagedRows';
+import { useRowClick } from '@/hooks/useRowClick';
 import { WEEKLY_STATUSES, weeklyStepStates } from '@/lib/weeklyClosings';
 import { BankMark } from '../Subscriptions/PaymentModal';
 import { boxTypeStyles, BoxTypeIcon } from '../Payments/CollectorCashBox';
-import { BoxPersonAvatar } from '../Payments/FinancialBoxComponents';
 import { branchClock, branchDate, dateTime, periodLabel, periodRange } from '@/lib/closingPeriods';
 import WeeklyBoxModal from './WeeklyBoxModal';
 import { VersionsSection } from './WeeklyVersions';
@@ -22,8 +28,6 @@ const VIEWS = [
     { value: 'collectors', label: <span className="inline-flex items-center gap-1.5"><Icon name="users" className="h-4 w-4" />حسب المحصّل</span> },
     { value: 'boxes', label: <span className="inline-flex items-center gap-1.5"><Icon name="list" className="h-4 w-4" />كل الصناديق</span> },
 ];
-const BOX_GRID = 'md:grid-cols-[2.5rem_minmax(0,1.5fr)_minmax(0,1fr)_4.5rem_minmax(0,1.1fr)_7.5rem_1rem]';
-const BOX_GRID_ALL = 'md:grid-cols-[2.5rem_minmax(0,1.2fr)_minmax(0,1.4fr)_4rem_minmax(0,1.1fr)_7.5rem_1rem]';
 const SORT_VALUES = {
     number: (box) => box.number,
     person: (box) => box.userName ?? '',
@@ -136,65 +140,77 @@ function TypeCards({ boxes, type, onType }) {
     })}</section>;
 }
 
-/** The labels over a list of boxes; in the list of every box they sort it. */
-function BoxHeader({ withPerson, sort, onSort }) {
-    const columns = [['number', 'الصندوق', 'col-span-2'], withPerson ? ['person', 'المحصّل · الإغلاق'] : ['closed', 'أُغلق'], ['entries', 'الحركات'], ['total', 'الإجمالي'], [null, 'المراجعة'], [null, '']];
-
-    return <div className={`hidden gap-x-4 px-[13px] pb-1 text-xs font-semibold text-gray-400 md:grid ${withPerson ? BOX_GRID_ALL : BOX_GRID}`}>{columns.map(([key, label, span = '']) => onSort && key
-        ? <button key={key} type="button" onClick={() => onSort(key)} aria-sort={sort.key === key ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className={`inline-flex items-center gap-1 justify-self-start rounded-md transition hover:text-gray-800 ${sort.key === key ? 'text-gray-800' : ''} ${span}`}>
-            {label}
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M8 10l4-4 4 4" className={sort.key === key && sort.direction === 'asc' ? 'text-brand-500' : 'opacity-40'} /><path strokeLinecap="round" strokeLinejoin="round" d="M8 14l4 4 4-4" className={sort.key === key && sort.direction === 'desc' ? 'text-brand-500' : 'opacity-40'} /></svg>
-        </button>
-        : <span key={label || 'open'} className={span}>{label}</span>)}</div>;
-}
-
-function BoxRow({ box, reviewed, withPerson, onOpen }) {
+/** A box's type as the financial boxes table shows it: its icon, carrying the review as a dot, and its name, with the banks a transfer box received at. */
+function BoxTypeCell({ box, reviewed }) {
     const banks = box.type === 'bank_transfer' ? byReceivingBank(activeEntries(box)).map((group) => group.bank) : [];
 
-    return <li><button type="button" onClick={() => onOpen(box.id)} className={`group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 rounded-row border border-gray-100 bg-surface px-3 py-3 text-start transition hover:border-gray-300 hover:shadow-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 md:gap-x-4 ${withPerson ? BOX_GRID_ALL : BOX_GRID}`}>
-        <BoxTypeIcon type={box.type} className="row-span-2 h-10 w-10 md:row-span-1" />
-        <span className="min-w-0">
-            <b className="block truncate text-sm text-gray-900">صندوق <bdi dir="ltr" className="font-display">{box.number}</bdi></b>
-            <small className="flex flex-wrap items-center gap-x-2 text-xs text-gray-500">{boxTypeStyles[box.type].label}{banks.length > 0 && <BankStack banks={banks} />}{box.carried === 'out' && <span className="text-amber-700 dark:text-amber-400">يُرحّل للأسبوع القادم</span>}{box.carried === 'in' && <span>من أسبوع سابق</span>}</small>
-        </span>
-        {withPerson ? <span className="hidden min-w-0 items-center gap-2 md:flex"><BoxPersonAvatar name={box.userName} small /><span className="min-w-0"><span className="block truncate text-sm text-gray-700">{box.userName ?? '—'}</span><span className="block truncate text-xs text-gray-500">{box.closedAt ? `${branchDate(box.closedAt)} · ${branchClock(box.closedAt)}` : 'لم يُغلق بعد'}</span></span></span>
-        : <span className="hidden text-xs leading-5 text-gray-500 md:block">{box.closedAt ? <><span className="text-gray-700">{branchDate(box.closedAt)}</span><br /><span className="font-display">{branchClock(box.closedAt)}</span></> : <span className="text-amber-700 dark:text-amber-400">لم يُغلق بعد</span>}</span>}
-        <span className="hidden font-display text-sm font-semibold text-gray-700 md:block">{box.entries}</span>
-        <span className="text-end md:text-start"><b className="block text-sm text-gray-900"><Shekels value={box.amounts?.ILS} /></b>{foreignLine(box.amounts) && <small className="block text-xs text-gray-500">{foreignLine(box.amounts)}</small>}</span>
-        <span className="col-start-2 col-end-4 flex items-center justify-between gap-2 md:col-auto md:block"><span className="text-xs text-gray-500 md:hidden">{withPerson && <>{box.userName ?? '—'} · </>}{entriesWord(box.entries)}</span><ReviewPill reviewed={reviewed} /></span>
-        <Icon name="chevron-left" className="hidden h-4 w-4 text-gray-300 transition group-hover:-translate-x-0.5 group-hover:text-gray-600 md:block" />
-    </button></li>;
+    return <span className="flex items-center gap-2.5">
+        <span className="relative shrink-0"><BoxTypeIcon type={box.type} className="h-10 w-10" /><span className={`absolute -bottom-0.5 -start-0.5 h-3 w-3 rounded-full border-[2.5px] border-surface ${reviewed ? 'bg-emerald-500' : 'bg-gray-400'}`} /></span>
+        <span className="min-w-0"><span className="block text-[15px] font-semibold text-gray-900">{boxTypeStyles[box.type].label}</span>{banks.length > 0 && <span className="mt-0.5 block"><BankStack banks={banks} /></span>}</span>
+    </span>;
 }
 
-/** A collector's row: what they hold by type, how much of it was reviewed, and their boxes when opened. */
-function CollectorGroup({ person, boxes, allBoxes, open, onToggle, reviewed, canReview, onMark, onOpen }) {
-    const totals = addAmounts(boxes.map((box) => box.amounts));
-    const done = allBoxes.filter((box) => reviewed.has(box.id)).length;
+/**
+ * Every box of the week in the site's table: its number (and whether it
+ * came from an earlier week or goes to the next), its type, its collector
+ * and when they closed it, its entries and total, and whether the branch
+ * reviewed it; a row opens the box.
+ */
+function BoxesTable({ boxes, reviewed, sort, onSort, onOpen }) {
+    const rowClick = useRowClick();
+    const sortState = { sort: sort.key, direction: sort.direction };
 
-    return <article>
-        <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={`collector-${person.key}`} className={`flex w-full items-center gap-3 rounded-row px-3 py-4 text-start transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 sm:gap-5 ${open ? 'bg-gray-50' : ''}`}>
-            <span className="relative shrink-0"><span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-gray-900 text-sm font-bold text-surface">{person.name.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join('')}</span>{done === allBoxes.length && <span className="absolute -bottom-1 -end-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-surface"><Icon name="check" className="h-3 w-3" /></span>}</span>
-            <span className="min-w-0 flex-1"><b className="block truncate text-base text-gray-900">{person.name}</b><span className="block truncate text-xs text-gray-500">{boxesWord(boxes.length)} · {entriesWord(boxes.reduce((count, box) => count + box.entries, 0))}</span></span>
-            <span className="hidden items-start gap-6 2xl:flex">{TYPES.map((key) => {
-                const ofType = boxes.filter((box) => box.type === key);
+    return <table className="data-table w-full text-sm text-start">
+        <thead><tr>
+            <SortableTh column="number" label="رقم الصندوق" sortState={sortState} onSort={onSort} />
+            <th>النوع</th>
+            <SortableTh column="person" label="المحصّل" sortState={sortState} onSort={onSort} />
+            <SortableTh column="entries" label="الحركات" sortState={sortState} onSort={onSort} />
+            <SortableTh column="total" label="الإجمالي" sortState={sortState} onSort={onSort} />
+            <th>المراجعة</th>
+            <ActionsTh />
+        </tr></thead>
+        <tbody>{boxes.map((box) => <tr key={box.id} {...rowClick(() => onOpen(box.id))}>
+            <td><b dir="ltr" className="block font-display text-lg text-gray-900">{box.number}</b>{box.carried === 'out' && <span className="block text-[13px] text-amber-700 dark:text-amber-400">يُرحّل للأسبوع القادم</span>}{box.carried === 'in' && <span className="block text-[13px] text-gray-600">من أسبوع سابق</span>}</td>
+            <td><BoxTypeCell box={box} reviewed={reviewed.has(box.id)} /></td>
+            <td><span className="block text-[15px] font-semibold text-gray-900">{box.userName ?? '—'}</span><span className="block text-[13px] text-gray-600">{box.closedAt ? `أُغلق ${branchDate(box.closedAt)} · ${branchClock(box.closedAt)}` : 'لم يُغلق بعد'}</span></td>
+            <td><b className="font-display text-gray-900">{box.entries}</b> <span className="text-[13px] text-gray-600">{box.entries === 1 ? 'حركة' : 'حركات'}{box.cancelled ? ` · ${box.cancelled} ملغاة` : ''}</span></td>
+            <td><b className="text-gray-900"><Shekels value={box.amounts?.ILS} /></b>{foreignLine(box.amounts) && <span className="block text-[13px] text-gray-600">{foreignLine(box.amounts)}</span>}</td>
+            <td><ReviewPill reviewed={reviewed.has(box.id)} /></td>
+            <td className="text-end"><RowActionsMenu onView={() => onOpen(box.id)} /></td>
+        </tr>)}</tbody>
+    </table>;
+}
 
-                return <span key={key} className="flex min-w-[96px] flex-col"><small className="flex items-center gap-1.5 text-xs text-gray-400"><span className={`h-1.5 w-1.5 rounded-full ${typeBars[key]}`} />{boxTypeStyles[key].label}</small><b className={`text-sm font-semibold ${ofType.length ? 'text-gray-800' : 'text-gray-300'}`}>{ofType.length ? <Shekels value={addAmounts(ofType.map((box) => box.amounts)).ILS} /> : '—'}</b></span>;
-            })}</span>
-            <span className="hidden min-w-[96px] flex-col items-start gap-1 sm:flex"><small className="text-xs text-gray-400">المراجعة</small><ReviewMeter done={done} total={allBoxes.length} /></span>
-            <span className="flex flex-col items-end text-end sm:min-w-[140px]"><small className="text-xs text-gray-400">الإجمالي</small><b className="text-lg text-gray-900"><BigShekels value={totals.ILS} /></b>{foreignLine(totals) && <small className="text-xs text-gray-500">{foreignLine(totals)}</small>}</span>
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition ${open ? 'rotate-180 bg-gray-100 text-gray-700' : ''}`}><Icon name="chevron-down" className="h-4 w-4" /></span>
-        </button>
-        {open && <div id={`collector-${person.key}`} className="mb-2 space-y-2 rounded-card bg-gray-50 px-2 pb-4 pt-2 sm:px-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 px-2">
-                <span className="flex items-center gap-2 sm:hidden"><small className="text-xs text-gray-400">المراجعة</small><ReviewMeter done={done} total={allBoxes.length} /></span>
-                {canReview && (done === allBoxes.length
-                    ? <button type="button" onClick={() => onMark(allBoxes, false)} className="ms-auto inline-flex items-center gap-1.5 rounded-control px-2.5 py-1 text-xs font-semibold text-gray-500 transition hover:bg-gray-100"><Icon name="undo" className="h-3.5 w-3.5" />إلغاء مراجعة صناديق {person.name}</button>
-                    : <button type="button" onClick={() => onMark(allBoxes, true)} className="ms-auto inline-flex items-center gap-1.5 rounded-control border border-gray-200 bg-surface px-3 py-1.5 text-xs font-semibold text-gray-800 transition hover:bg-gray-100"><Icon name="check" className="h-3.5 w-3.5" />تمت مراجعة كل صناديق {person.name} (<span className="font-display">{allBoxes.length - done}</span>)</button>)}
-            </div>
-            <BoxHeader />
-            <ul className="space-y-1.5">{boxes.map((box) => <BoxRow key={box.id} box={box} reviewed={reviewed.has(box.id)} onOpen={onOpen} />)}</ul>
-        </div>}
-    </article>;
+/**
+ * The week's collectors in the site's table: what each holds by type, how
+ * many of their boxes were reviewed, and their total; a row lists their
+ * boxes.
+ */
+function CollectorsTable({ people, boxes, allBoxes, reviewed, onOpen }) {
+    const rowClick = useRowClick();
+
+    return <table className="data-table w-full text-sm text-start">
+        <thead><tr><th>المحصّل</th>{TYPES.map((key) => <th key={key}>{boxTypeStyles[key].label}</th>)}<th>المراجعة</th><th>الإجمالي</th><ActionsTh /></tr></thead>
+        <tbody>{people.map((person) => {
+            const own = boxes.filter((box) => personKey(box) === person.key);
+            const every = allBoxes.filter((box) => personKey(box) === person.key);
+            const totals = addAmounts(own.map((box) => box.amounts));
+            const done = every.filter((box) => reviewed.has(box.id)).length;
+
+            return <tr key={person.key} {...rowClick(() => onOpen(person.key))}>
+                <td><span className="block text-[15px] font-semibold text-gray-900">{person.name}</span><span className="block text-[13px] text-gray-600">{boxesWord(own.length)} · {entriesWord(own.reduce((count, box) => count + box.entries, 0))}</span></td>
+                {TYPES.map((key) => {
+                    const ofType = own.filter((box) => box.type === key);
+
+                    return <td key={key}>{ofType.length ? <b className="text-gray-900"><Shekels value={addAmounts(ofType.map((box) => box.amounts)).ILS} /></b> : <span className="text-gray-600">—</span>}</td>;
+                })}
+                <td><ReviewMeter done={done} total={every.length} /></td>
+                <td><b className="text-base text-gray-900"><Shekels value={totals.ILS} /></b>{foreignLine(totals) && <span className="block text-[13px] text-gray-600">{foreignLine(totals)}</span>}</td>
+                <td className="text-end"><RowActionsMenu onView={() => onOpen(person.key)} viewLabel="الصناديق" viewIcon="list" /></td>
+            </tr>;
+        })}</tbody>
+    </table>;
 }
 
 /** The approval panel: the week's total, by type and by bank, the branch's review, and confirming the week. */
@@ -327,16 +343,15 @@ function WeekPackage({ week, branch, urls }) {
     const [review, setReview] = useState('all');
     const [search, setSearch] = useState('');
     const [view, setView] = useState('collectors');
+    const [perPage, setPerPage] = useState(15);
     const [sort, setSort] = useState({ key: 'number', direction: 'asc' });
     const [reviewed, setReviewed] = useReviewedBoxes(week.id);
     const [boxId, setBoxId] = useState(() => Number(new URLSearchParams(window.location.search).get('box')) || null);
-    const [expandedBox, setExpandedBox] = useState(false);
     const [notes, setNotes] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [closingEarly, setClosingEarly] = useState(false);
     const canReview = !week.frozen;
     const people = useMemo(() => [...new Map(week.boxes.map((box) => [personKey(box), box.userName ?? '—'])).entries()].map(([key, name]) => ({ key, name })).sort((a, b) => a.name.localeCompare(b.name, 'ar')), [week.boxes]);
-    const [open, setOpen] = useState(() => new Set(people.slice(0, 1).map((person) => person.key)));
     const query = search.trim();
     const filtering = type !== 'all' || collector !== '' || review !== 'all' || query !== '';
 
@@ -347,6 +362,10 @@ function WeekPackage({ week, branch, urls }) {
     const matching = week.boxes.filter(matches);
     const shown = view === 'boxes' ? sortBoxes(matching, sort) : people.flatMap((person) => matching.filter((box) => personKey(box) === person.key));
     const shownTotals = addAmounts(shown.map((box) => box.amounts));
+    const shownPeople = people.filter((person) => shown.some((box) => personKey(box) === person.key));
+    const pagedBoxes = usePagedRows(view === 'boxes' ? shown : [], perPage);
+    const pagedPeople = usePagedRows(view === 'boxes' ? [] : shownPeople, perPage);
+    const paged = view === 'boxes' ? pagedBoxes : pagedPeople;
     const selectedBox = week.boxes.find((box) => box.id === boxId);
     const nextPending = (box) => {
         const start = shown.findIndex((item) => item.id === box.id);
@@ -380,13 +399,11 @@ function WeekPackage({ week, branch, urls }) {
         setSort((current) => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }));
     }
 
-    function toggle(key) {
-        setOpen((current) => {
-            const next = new Set(current);
-            next.has(key) ? next.delete(key) : next.add(key);
-
-            return next;
-        });
+    /** Lists one collector's boxes. */
+    function showCollector(key) {
+        setCollector(key);
+        setView('boxes');
+        pagedBoxes.setPage(1);
     }
 
     return <div className="space-y-5 pb-24 lg:pb-0">
@@ -396,41 +413,38 @@ function WeekPackage({ week, branch, urls }) {
             <div className="min-w-0 space-y-5">
                 <TypeCards boxes={week.boxes} type={type} onType={setType} />
 
-                <section aria-labelledby="package-title">
-                    <div className="data-table-toolbar space-y-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                                <h3 id="package-title" className="text-lg font-bold text-gray-900">{view === 'boxes' ? 'كل صناديق الأسبوع' : 'المحصّلون وصناديقهم'}</h3>
-                                <p className="text-xs text-gray-500">{view === 'boxes' ? 'كل الصناديق في قائمة واحدة. افتح أي صندوق لمراجعة حركاته.' : 'افتح المحصّل لعرض صناديقه، ثم افتح الصندوق لمراجعة حركاته.'}</p>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                                {view === 'collectors' && people.length > 1 && <button type="button" onClick={() => setOpen(open.size === people.length ? new Set() : new Set(people.map((person) => person.key)))} className="inline-flex items-center gap-2 rounded-control px-3 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-100"><Icon name="layers" className="h-4 w-4" />{open.size === people.length ? 'طيّ الكل' : 'توسيع الكل'}</button>}
-                                <SegmentedTabs label="طريقة العرض" value={view} onChange={setView} options={VIEWS} />
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-                                <div className="relative w-full sm:w-72"><Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" /><input type="text" aria-label="ابحث في الحزمة" placeholder="محصّل، رقم صندوق، مشترك، أو مرجع" value={search} onChange={(event) => setSearch(event.target.value)} className="block w-full py-2.5 pe-4 ps-10 text-sm" /></div>
-                                <select aria-label="المحصّل" value={collector} onChange={(event) => setCollector(event.target.value)} className="w-full py-2.5 text-sm sm:w-56"><option value="">كل المحصّلين</option>{people.map((person) => <option key={person.key} value={person.key}>{person.name}</option>)}</select>
-                            </div>
-                            <SegmentedTabs label="حالة المراجعة" value={review} onChange={setReview} options={REVIEW_FILTERS} />
-                        </div>
-                        {filtering && <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                            {type !== 'all' && <button type="button" onClick={() => setType('all')} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 font-semibold text-gray-700 hover:bg-gray-100">{boxTypeStyles[type].label}<Icon name="close" className="h-3.5 w-3.5" /></button>}
-                            <button type="button" onClick={clearFilters} className="font-semibold text-brand-600 hover:underline">مسح الفلاتر</button>
-                            {canReview && shown.some((box) => !reviewed.has(box.id)) && <button type="button" onClick={() => mark(shown, true)} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-surface px-2.5 py-0.5 font-semibold text-gray-800 hover:bg-gray-100"><Icon name="check" className="h-3.5 w-3.5" />مراجعة المعروض (<span className="font-display">{shown.filter((box) => !reviewed.has(box.id)).length}</span>)</button>}
-                        </div>}
+                <section aria-labelledby="package-title" className="space-y-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 id="package-title" className="text-lg font-bold text-gray-900">{view === 'boxes' ? 'كل صناديق الأسبوع' : 'المحصّلون وصناديقهم'}</h3>
+                        <p className="text-[13px] text-gray-600">{view === 'boxes' ? 'افتح أي صندوق لمراجعة حركاته.' : 'افتح المحصّل لعرض صناديقه، ثم افتح الصندوق لمراجعة حركاته.'}</p>
                     </div>
-                    <div className="data-table-container">
-                        {!shown.length ? <div className="flex flex-col items-center gap-2 px-4 py-14 text-center text-gray-500"><Icon name="wallet" className="h-8 w-8 text-gray-400" /><p>{week.boxes.length ? 'لا توجد صناديق بهذه الفلاتر.' : 'لا صناديق فيها حركات في هذا الأسبوع.'}</p>{filtering && <button type="button" onClick={clearFilters} className="text-sm font-semibold text-brand-600 hover:underline">مسح الفلاتر</button>}</div>
-                            : view === 'boxes' ? <div className="space-y-2 py-3"><BoxHeader withPerson sort={sort} onSort={sortBy} /><ul className="space-y-1.5">{shown.map((box) => <BoxRow key={box.id} box={box} withPerson reviewed={reviewed.has(box.id)} onOpen={setBoxId} />)}</ul></div>
-                                : <div className="divide-y divide-gray-100 py-1">{people.map((person) => {
-                                    const boxes = shown.filter((box) => personKey(box) === person.key);
-
-                                    return boxes.length > 0 && <CollectorGroup key={person.key} person={person} boxes={boxes} allBoxes={week.boxes.filter((box) => personKey(box) === person.key)} open={open.has(person.key) || query !== ''} onToggle={() => toggle(person.key)} reviewed={reviewed} canReview={canReview} onMark={mark} onOpen={setBoxId} />;
-                                })}</div>}
+                    <div>
+                        <DataTableToolbar
+                            search={search}
+                            onSearchChange={(value) => { setSearch(value); paged.setPage(1); }}
+                            placeholder="محصّل، رقم صندوق، مشترك، أو مرجع"
+                            perPage={perPage}
+                            onPerPageChange={(size) => { setPerPage(size); paged.setPage(1); }}
+                            total={view === 'boxes' ? shown.length : shownPeople.length}
+                            filterMenu={<div className="flex w-full flex-wrap items-center gap-3">
+                                <SegmentedTabs label="طريقة العرض" value={view} onChange={(value) => { setView(value); paged.setPage(1); }} options={VIEWS} />
+                                <select aria-label="المحصّل" value={collector} onChange={(event) => { setCollector(event.target.value); paged.setPage(1); }} className="w-full py-2 text-sm sm:w-56"><option value="">كل المحصّلين</option>{people.map((person) => <option key={person.key} value={person.key}>{person.name}</option>)}</select>
+                                <SegmentedTabs label="حالة المراجعة" value={review} onChange={(value) => { setReview(value); paged.setPage(1); }} options={REVIEW_FILTERS} />
+                                {filtering && <span className="flex flex-wrap items-center gap-2 text-sm">
+                                    {type !== 'all' && <button type="button" onClick={() => setType('all')} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 font-semibold text-gray-700 hover:bg-gray-100">{boxTypeStyles[type].label}<Icon name="close" className="h-3.5 w-3.5" /></button>}
+                                    <button type="button" onClick={clearFilters} className="font-semibold text-brand-600 hover:underline">مسح الفلاتر</button>
+                                    {canReview && shown.some((box) => !reviewed.has(box.id)) && <button type="button" onClick={() => mark(shown, true)} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-surface px-2.5 py-0.5 font-semibold text-gray-800 hover:bg-gray-100"><Icon name="check" className="h-3.5 w-3.5" />مراجعة المعروض (<span className="font-display">{shown.filter((box) => !reviewed.has(box.id)).length}</span>)</button>}
+                                </span>}
+                            </div>}
+                        />
+                        <div className="data-table-container">
+                            {!shown.length ? <div className="flex flex-col items-center gap-2 px-4 py-14 text-center text-gray-600"><Icon name="wallet" className="h-8 w-8 text-gray-400" /><p>{week.boxes.length ? 'لا توجد صناديق بهذه الفلاتر.' : 'لا صناديق فيها حركات في هذا الأسبوع.'}</p>{filtering && <button type="button" onClick={clearFilters} className="text-sm font-semibold text-brand-600 hover:underline">مسح الفلاتر</button>}</div>
+                                : view === 'boxes' ? <BoxesTable boxes={pagedBoxes.rows} reviewed={reviewed} sort={sort} onSort={sortBy} onOpen={setBoxId} />
+                                    : <CollectorsTable people={pagedPeople.rows} boxes={shown} allBoxes={week.boxes} reviewed={reviewed} onOpen={showCollector} />}
+                        </div>
+                        <p className="data-table-totals text-sm text-gray-600"><span>المعروض <b className="font-display text-gray-900">{shown.length}</b> من <b className="font-display text-gray-900">{week.boxes.length}</b> صندوقًا · الفلترة للعرض فقط، تُرسل الحزمة بكل صناديقها</span><span>مجموع الصناديق المعروضة: <b className="text-gray-900"><Shekels value={shownTotals.ILS} /></b>{foreignLine(shownTotals) && <span className="text-gray-600"> · {foreignLine(shownTotals)}</span>}</span></p>
+                        <Pagination meta={paged.meta} onPageChange={paged.setPage} />
                     </div>
-                    <p className="data-table-totals text-sm text-gray-600"><span>المعروض <b className="font-display text-gray-900">{shown.length}</b> من <b className="font-display text-gray-900">{week.boxes.length}</b> صندوقًا · الفلترة للعرض فقط، تُرسل الحزمة بكل صناديقها</span><span>مجموع الصناديق المعروضة: <b className="text-gray-900"><Shekels value={shownTotals.ILS} /></b>{foreignLine(shownTotals) && <span className="text-gray-500"> · {foreignLine(shownTotals)}</span>}</span></p>
                 </section>
 
                 {week.versions.length > 0 && <VersionsSection versions={week.versions} />}
@@ -446,7 +460,7 @@ function WeekPackage({ week, branch, urls }) {
             </div>
         </div>
 
-        {selectedBox && <WeeklyBoxModal box={selectedBox} list={shown.some((box) => box.id === selectedBox.id) ? shown : week.boxes} reviewed={reviewed.has(selectedBox.id)} canReview={canReview} expanded={expandedBox} onExpand={() => setExpandedBox(!expandedBox)} onReview={reviewAndNext} onUnreview={() => mark([selectedBox], false)} onOpen={setBoxId} onClose={() => setBoxId(null)} hasNextPending={Boolean(nextPending(selectedBox))} />}
+        {selectedBox && <WeeklyBoxModal box={selectedBox} list={shown.some((box) => box.id === selectedBox.id) ? shown : week.boxes} reviewed={reviewed.has(selectedBox.id)} canReview={canReview} onReview={reviewAndNext} onUnreview={() => mark([selectedBox], false)} onOpen={setBoxId} onClose={() => setBoxId(null)} hasNextPending={Boolean(nextPending(selectedBox))} />}
         {submitting && <SubmitModal week={week} branchId={branch.id} url={urls.actions} notes={notes} reviewedCount={week.boxes.filter((box) => reviewed.has(box.id)).length} onClose={() => setSubmitting(false)} />}
         <ConfirmDialog show={closingEarly} onCancel={() => setClosingEarly(false)} onConfirm={() => router.post(`${urls.actions}/early/${week.id}`, { branch_id: branch.id }, { preserveScroll: true, onFinish: () => setClosingEarly(false) })} title={`إغلاق ${periodLabel(week)} مبكرًا`} message="يغطي الأسبوع الفترة حتى الآن، وتُغلق الصناديق المفتوحة. تنضم الأيام المتبقية إلى الأسبوع القادم حتى موعد قطعه." confirmLabel="إغلاق مبكر" icon="bolt" />
     </div>;

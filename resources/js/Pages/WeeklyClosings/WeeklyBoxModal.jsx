@@ -59,11 +59,12 @@ function BankHeading({ group }) {
 
 /**
  * One box of the week, wide: who it belongs to, its totals, and every entry
- * in it as it was closed, transfers grouped by the bank they arrived at. It
- * opens to the full screen and back, steps to the previous and next box of
- * the list on the page, and marks the box reviewed on the way.
+ * in it as it was closed, transfers grouped by the bank they arrived at. A
+ * wide window that leaves the page around it in sight (a click outside or
+ * Escape closes it), it steps to the previous and next box of the list on
+ * the page and marks the box reviewed on the way.
  */
-export default function WeeklyBoxModal({ box, list, reviewed, canReview, expanded, onExpand, onReview, onUnreview, onOpen, onClose, hasNextPending }) {
+export default function WeeklyBoxModal({ box, list, reviewed, canReview, onReview, onUnreview, onOpen, onClose, hasNextPending }) {
     const style = boxTypeStyles[box.type];
     const layout = ENTRY_COLUMNS[box.type] ?? ENTRY_COLUMNS.cash;
     const entries = box.payments ?? [];
@@ -76,7 +77,7 @@ export default function WeeklyBoxModal({ box, list, reviewed, canReview, expande
     const cell = (label, value, hint, className = '') => <div className={`bg-surface px-3 py-3 sm:px-4 ${className}`}><dt className="text-xs text-gray-500">{label}</dt><dd className="font-bold text-gray-900">{value}</dd>{hint && <dd className="text-xs text-gray-500">{hint}</dd>}</div>;
     let number = 0;
 
-    return <Modal show onClose={onClose} maxWidth={expanded ? 'full' : '6xl'} centered panelClassName={`weekly-box-window flex flex-col ${expanded ? 'is-expanded' : ''}`}>
+    return <Modal show onClose={onClose} maxWidth="full" centered panelClassName="weekly-box-window flex flex-col">
         <header className="border-b border-gray-100 px-5 pb-4 pt-5 sm:px-6">
             <div className="flex items-start gap-3">
                 <BoxTypeIcon type={box.type} className="h-12 w-12" />
@@ -84,7 +85,6 @@ export default function WeeklyBoxModal({ box, list, reviewed, canReview, expande
                     <h2 className="text-lg font-bold text-gray-900 sm:text-xl">صندوق <bdi dir="ltr" className="font-display">{box.number}</bdi> · {style.label}</h2>
                     <p className="text-xs text-gray-500">{box.userName ?? '—'} · {box.closedAt ? `أُغلق ${branchMoment(box.closedAt)}` : 'لم يُغلق بعد'}</p>
                 </div>
-                <button type="button" onClick={onExpand} aria-pressed={expanded} className="hidden items-center gap-2 rounded-control border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 sm:inline-flex"><Icon name={expanded ? 'collapse' : 'expand'} className="h-4 w-4" />{expanded ? 'تصغير' : 'ملء الشاشة'}</button>
                 <button type="button" onClick={onClose} aria-label="إغلاق" className="rounded-control p-2 text-gray-500 transition hover:bg-gray-100"><Icon name="close" className="h-5 w-5" /></button>
             </div>
             <dl className="mt-4 grid grid-cols-3 gap-px overflow-hidden rounded-control border border-gray-100 bg-gray-100 md:grid-cols-5">

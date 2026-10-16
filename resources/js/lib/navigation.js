@@ -34,6 +34,7 @@ export const SETTINGS_LINKS = [
     { href: '/settings/permissions', label: 'الصلاحيات', description: 'ما يراه كل دور وما يعدّله', icon: 'shield', can: 'manageSettings' },
     { href: '/settings/reading-schedule', label: 'مواعيد القراءات', description: 'أيام فتح وإغلاق دورة القراءة', icon: 'calendar', can: 'manageReadingSchedule' },
     { href: '/settings/print-templates', label: 'قوالب الطباعة', description: 'شكل الوصل والكشوفات المطبوعة', icon: 'printer', can: 'managePrintTemplates' },
+    { href: '/settings/sms', label: 'إعدادات الرسائل', description: 'ربط مزوّد الرسائل القصيرة SMS', icon: 'send', can: 'manageSmsSettings' },
 ];
 
 const linksByHref = new Map([...MAIN_LINKS, ...SETTINGS_LINKS].map((link) => [link.href, link]));
@@ -57,7 +58,7 @@ export const NAVIGATION_GROUPS = [
     { id: 'finance', label: 'المالية والتحصيل', shortLabel: 'المالية', icon: 'wallet', description: 'الدفعات والصناديق والإغلاق', hrefs: ['/payments', '/payments/summary', '/payments/cash-boxes', '/payments/entries', '/ledger', '/receivables', '/reconciliation', '/weekly-packages'] },
     { id: 'reports', label: 'التقارير والرقابة', shortLabel: 'التقارير', icon: 'trend', description: 'التقارير والأداء والتدقيق', hrefs: ['/reports', '/branch-performance', '/transaction-audit'] },
     { id: 'infrastructure', label: 'الفروع والشبكة', shortLabel: 'الشبكة', icon: 'bolt', description: 'الفروع والبنية الكهربائية', hrefs: ['/branches', '/governorates', '/meter-boxes', '/circuit-breakers'] },
-    { id: 'administration', label: 'الإدارة والإعدادات', shortLabel: 'الإدارة', icon: 'cog', description: 'المستخدمون والصلاحيات والإعدادات', hrefs: ['/users', '/settings/permissions', '/tariffs', '/settings/reading-schedule', '/settings/print-templates'], featured: ['/users', '/settings/permissions'] },
+    { id: 'administration', label: 'الإدارة والإعدادات', shortLabel: 'الإدارة', icon: 'cog', description: 'المستخدمون والصلاحيات والإعدادات', hrefs: ['/users', '/settings/permissions', '/tariffs', '/settings/reading-schedule', '/settings/print-templates', '/settings/sms'], featured: ['/users', '/settings/permissions'] },
 ];
 
 /** Task groups containing only the pages the current user may open. */

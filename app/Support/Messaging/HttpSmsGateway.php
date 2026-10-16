@@ -9,21 +9,23 @@ use Illuminate\Support\Str;
 /**
  * Sends messages through any SMS provider with a plain HTTP API: the
  * address, the method, and the names of its "to", "message" and "sender"
- * fields come from `services.sms.http`, plus any fixed fields it needs
- * (an API key, a message type). A reply that isn't 2xx — or, when
+ * fields come from the dashboard's SMS settings (SmsSetting) or
+ * `services.sms.http`, with the account's user name and password under the
+ * provider's own field names, a bearer token, and any fixed fields it
+ * needs (an API key, a message type). A reply that isn't 2xx — or, when
  * `success_match` is set, doesn't contain that text — counts as refused.
  */
 class HttpSmsGateway implements SmsGateway
 {
     /**
-     * @param  array{url: ?string, method: string, token: ?string, to_param: string, message_param: string, sender_param: string, sender: ?string, extra_params: ?string, success_match: ?string, phone_format: string}  $config
+     * @param  array{url: ?string, method: string, token: ?string, username_param?: ?string, username?: ?string, password_param?: ?string, password?: ?string, to_param: string, message_param: string, sender_param: ?string, sender: ?string, extra_params: ?string, success_match: ?string, phone_format: string}  $config
      */
     public function __construct(private array $config, private string $countryCode) {}
 
     public function send(string $phone, string $body): void
     {
         if (blank($this->config['url'])) {
-            throw new SmsDeliveryFailed('لم يُضبط عنوان بوابة الرسائل (SMS_HTTP_URL).');
+            throw new SmsDeliveryFailed('لم يُضبط رابط إرسال بوابة الرسائل.');
         }
 
         parse_str((string) $this->config['extra_params'], $extra);
@@ -36,8 +38,14 @@ class HttpSmsGateway implements SmsGateway
             $this->config['message_param'] => $body,
         ];
 
-        if (filled($this->config['sender'])) {
+        if (filled($this->config['sender']) && filled($this->config['sender_param'])) {
             $fields[$this->config['sender_param']] = $this->config['sender'];
+        }
+
+        foreach (['username', 'password'] as $credential) {
+            if (filled($this->config[$credential.'_param'] ?? null) && filled($this->config[$credential] ?? null)) {
+                $fields[$this->config[$credential.'_param']] = $this->config[$credential];
+            }
         }
 
         $request = Http::timeout(20)->acceptJson();

@@ -14,6 +14,7 @@ use App\Models\MessageBatch;
 use App\Models\MessageTemplate;
 use App\Models\MeterBox;
 use App\Models\MeterReading;
+use App\Models\SmsSetting;
 use App\Models\Subscription;
 use App\Models\SubscriptionMessage;
 use App\Models\User;
@@ -180,7 +181,7 @@ class MessageController extends Controller
         $this->applyDataTableFilters($query, $request, ['phone', 'body'], ['id', 'status', 'sent_at'], 'id');
         $this->applyDataTableFilterSelects($query, $request, ['status']);
 
-        $countryCode = (string) config('services.sms.country_code');
+        $countryCode = SmsSetting::countryCode();
 
         $messages = $query->paginate($this->dataTablePerPage($request, 25))
             ->withQueryString()

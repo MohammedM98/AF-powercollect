@@ -3,8 +3,9 @@
 namespace App\Support\Messaging;
 
 /**
- * Sends a text message to a phone. Which gateway is used is set by
- * `services.sms.driver` (see AppServiceProvider).
+ * Sends a text message to a phone. Which gateway is used is set in the
+ * dashboard's SMS settings, else by `services.sms.driver` (see
+ * AppServiceProvider).
  */
 interface SmsGateway
 {

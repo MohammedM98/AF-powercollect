@@ -11,8 +11,9 @@ const TAB_ICONS = { open: 'unlock', closed: 'lock', sent: 'send', entries: 'list
  * there are. The tab shown stands out as the top bar's current section
  * does (dark, with a red line under it), so whoever closes and sends the
  * boxes always sees where they are; closed boxes waiting to be sent are
- * counted in red. `tabs` come from the server with their links; `current`
- * is the key of the one shown.
+ * counted in red. The others are white cards, clear against the bar
+ * behind them, that lift on hover. `tabs` come from the server with their
+ * links; `current` is the key of the one shown.
  */
 export default function BoxTabs({ tabs, current }) {
     return (
@@ -30,15 +31,15 @@ export default function BoxTabs({ tabs, current }) {
                         aria-current={active ? 'page' : undefined}
                         className={`group relative inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-semibold transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 motion-reduce:transition-none ${
                             active
-                                ? 'bg-graphite-gradient text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.12),0_12px_24px_-12px_rgb(16_24_40/0.7)] dark:ring-1 dark:ring-white/10'
-                                : 'text-gray-600 hover:-translate-y-px hover:bg-surface hover:text-gray-900 hover:shadow-card motion-reduce:hover:translate-y-0'
+                                ? 'bg-graphite-gradient text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.12),0_12px_24px_-12px_rgb(16_24_40/0.7)] dark:bg-[linear-gradient(135deg,#3a434e,#2a3039_60%,#20252c)] dark:ring-1 dark:ring-white/10'
+                                : 'bg-surface text-gray-800 shadow-sm ring-1 ring-gray-200/80 hover:-translate-y-px hover:text-gray-900 hover:shadow-card hover:ring-gray-300 motion-reduce:hover:translate-y-0'
                         }`}
                     >
-                        <Icon name={TAB_ICONS[tab.key] ?? 'wallet'} className={`h-4 w-4 transition-colors ${active ? 'text-white' : 'text-gray-400 group-hover:text-gray-700'}`} />
+                        <Icon name={TAB_ICONS[tab.key] ?? 'wallet'} className={`h-4 w-4 transition-colors ${active ? 'text-white' : 'text-gray-600 group-hover:text-gray-900'}`} />
                         {tab.label}
                         <span
                             className={`min-w-6 rounded-full px-1.5 text-center font-display text-xs leading-5 ${
-                                active ? 'bg-white/15 text-white' : waiting ? 'bg-brand-600 text-white' : 'bg-surface text-gray-600 group-hover:bg-gray-100'
+                                active ? 'bg-white/15 text-white' : waiting ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-700'
                             }`}
                         >
                             {tab.count.toLocaleString('en')}

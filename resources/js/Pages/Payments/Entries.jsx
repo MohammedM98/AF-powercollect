@@ -29,7 +29,7 @@ export default function Entries({ started, branch, branches, people, tabs, entri
         </div>
         {started && closableBoxes && <div className="shrink-0"><PrimaryButton type="button" onClick={() => setClosingByType(true)} disabled={!closableBoxes.length}><Icon name="lock" className="h-4 w-4" />إغلاق الصناديق حسب النوع{closableBoxes.length > 0 && <span className="rounded-full bg-white/20 px-2 py-0.5 font-display text-xs">{closableBoxes.length}</span>}</PrimaryButton></div>}
     </>}>
-        <Head title="الحركات المفتوحة" />
+        <Head title="الحركات" />
         {started && <p className="mb-4 flex items-center gap-2 text-sm text-gray-500"><Icon name="unlock" className="h-4 w-4 shrink-0" /><span>تعرض هذه الصفحة حركات الصناديق المفتوحة فقط؛ حركات الصناديق المغلقة تجدها داخل كل صندوق في تبويب <b className="font-semibold text-gray-900">الصناديق</b>.</span></p>}
         {started && <StatusGuide className="mb-4" />}
         {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. يُفعّله مسؤول الفرع من صفحة إدارة الإغلاق.</p> : (

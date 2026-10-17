@@ -7,6 +7,8 @@
 :root {
     --tn-gutter: clamp(16px, 2.6vw, 44px);
     --tn-bar-height: 68px;
+    /* The bar's height before it slims: the room it keeps in the page whatever its own height. */
+    --tn-bar-rest-height: 68px;
     --tn-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
     --tn-graphite: linear-gradient(135deg, #262c33, #1b2026 60%, #111519);
     --tn-graphite-dark: linear-gradient(135deg, #3a434e, #2a3039 60%, #20252c);
@@ -97,12 +99,16 @@ html.tn-locked {
     100% { width: 100%; opacity: 0; }
 }
 
-/* ═════ The floating glass bar ═════ */
+/* ═════ The floating glass bar ═════
+   The header keeps the same height in the page when the bar slims: were it
+   to shrink, the page would move up under the reader, scroll back above the
+   point where the bar slims, and the bar would grow and shrink in turn. */
 .tn-header {
     pointer-events: none;
     position: sticky;
     top: 0;
     z-index: 40;
+    height: calc(12px + var(--tn-bar-rest-height));
     padding: 12px var(--tn-gutter) 0;
     transition: padding 0.3s var(--tn-ease);
 }
@@ -602,6 +608,7 @@ html.tn-locked {
 @media (max-width: 1023px) {
     :root {
         --tn-bar-height: 60px;
+        --tn-bar-rest-height: 60px;
     }
 
     .tn-sections,

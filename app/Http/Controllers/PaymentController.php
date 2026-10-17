@@ -216,9 +216,9 @@ class PaymentController extends Controller
 
     /**
      * The tabs of the financial boxes page for those who close the branch's
-     * boxes, each a place of its own: its open boxes, its closed boxes not
-     * sent yet, those sent to audit, and every entry of its open boxes, each
-     * with how many there are.
+     * boxes, in the order work goes through them, each a place of its own:
+     * every entry of its open boxes, its open boxes, its closed boxes not
+     * sent yet, and those sent to audit, each with how many there are.
      *
      * @param  EloquentCollection<int, Branch>  $branches
      * @return list<array{key: string, label: string, count: int, url: string}>
@@ -229,10 +229,10 @@ class PaymentController extends Controller
         $counts = $this->branchBoxes->counts($branch->id);
 
         return [
+            ['key' => 'entries', 'label' => 'الحركات', 'count' => CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->where('status', 'open'))->count(), 'url' => route('payments.cash-boxes.entries', $query)],
             ['key' => 'open', 'label' => 'الصناديق المفتوحة', 'count' => $counts['open'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'open'])],
             ['key' => 'closed', 'label' => 'المغلقة · جاهزة للإرسال', 'count' => $counts['closed'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'closed'])],
             ['key' => 'sent', 'label' => 'المرسلة إلى التدقيق', 'count' => $counts['sent'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'sent'])],
-            ['key' => 'entries', 'label' => 'الحركات المفتوحة', 'count' => CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->where('status', 'open'))->count(), 'url' => route('payments.cash-boxes.entries', $query)],
         ];
     }
 

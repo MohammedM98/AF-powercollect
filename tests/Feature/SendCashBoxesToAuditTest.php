@@ -116,7 +116,7 @@ class SendCashBoxesToAuditTest extends TestCase
 
         $this->actingAs($head)->get(route('payments.cash-boxes', ['place' => 'open']))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('place', 'open')->has('boxes', 1)->where('boxes.0.id', $open->id)->where('boxes.0.place', 'open')
-            ->where('tabs.0.count', 1)->where('tabs.1.count', 1)->where('tabs.2.count', 1));
+            ->where('tabs.0.key', 'entries')->where('tabs.1.count', 1)->where('tabs.2.count', 1)->where('tabs.3.count', 1));
         $this->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('place', 'closed')->has('boxes', 1)->where('boxes.0.id', $closed->id)
             ->where('boxes.0.closedBy', $head->name)->where('boxes.0.sent_at', null)->where('boxes.0.canSend', true));

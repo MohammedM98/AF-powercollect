@@ -234,7 +234,8 @@ export default function TopBar({ groups, badges, where, onOpenPalette, onOpenDra
     useEffect(() => {
         function onScroll() {
             const y = window.scrollY;
-            setScrolled(y > 12);
+            // Two edges, so a page resting near one cannot flip the bar back and forth.
+            setScrolled((wasScrolled) => (wasScrolled ? y > 4 : y > 24));
 
             if (state.current.openId && barRef.current) {
                 setGeometry((previous) => ({ ...previous, top: barRef.current.getBoundingClientRect().bottom + 10 }));

@@ -5,14 +5,14 @@ import Icon from '@/Components/Icon';
 const TAB_ICONS = { open: 'unlock', closed: 'lock', sent: 'send', entries: 'list' };
 
 /**
- * The financial boxes page's tabs beside its title: the branch's open
- * boxes, its closed boxes not sent yet, those sent to audit, and the
- * entries of its open boxes, each with how many there are. The tab shown
- * stands out as the top bar's current section does (dark, with a red
- * line under it), so whoever closes and sends the boxes always sees where
- * they are; closed boxes waiting to be sent are counted in red. `tabs`
- * come from the server with their links; `current` is the key of the one
- * shown.
+ * The financial boxes page's tabs beside its title, in the order work goes
+ * through them: the entries of the branch's open boxes, its open boxes, its
+ * closed boxes not sent yet, and those sent to audit, each with how many
+ * there are. The tab shown stands out as the top bar's current section
+ * does (dark, with a red line under it), so whoever closes and sends the
+ * boxes always sees where they are; closed boxes waiting to be sent are
+ * counted in red. `tabs` come from the server with their links; `current`
+ * is the key of the one shown.
  */
 export default function BoxTabs({ tabs, current }) {
     return (

@@ -235,6 +235,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
   }
 
   void _openBox(String key, {int? focusId}) {
+    FocusScope.of(context).unfocus();
     final subscribers = _inBox(key);
     final first = focusId ??
         subscribers
@@ -251,7 +252,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
     setState(() {
       boxKey = key;
       selectedId = first;
-      keypadOpen = focus != null && _editable(focus);
+      keypadOpen = focusId != null && focus != null && _editable(focus);
       saveError = null;
     });
     _setView('box');
@@ -259,6 +260,11 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
   }
 
   void _back() {
+    if (saving) return;
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+      FocusScope.of(context).unfocus();
+      return;
+    }
     if (view == 'boxes') {
       widget.onExit();
     } else if (view == 'box' && keypadOpen) {
@@ -351,7 +357,8 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
         .where((item) => item['id'] == reading['subscription_id'])
         .firstOrNull;
     setState(() {
-      drafts[reading['subscription_id'] as int] = '${reading['current_reading']}';
+      drafts[reading['subscription_id'] as int] =
+          '${reading['current_reading']}';
       if (subscriber != null) {
         boxKey = _boxKey(subscriber);
         selectedId = subscriber['id'] as int;
@@ -615,6 +622,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
             _resumeCard(draftBox.key, draftBox.value),
           const SizedBox(height: 12),
           AppSearchField(
+              key: const ValueKey('reading-box-search'),
               controller: search,
               hint: 'رقم الطبلون أو اسم المشترك',
               onChanged: (_) => setState(() {}),

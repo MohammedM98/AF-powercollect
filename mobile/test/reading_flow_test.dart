@@ -57,7 +57,8 @@ MemoryStore readerStore({List<Map<String, dynamic>> queued = const []}) =>
         'queued_readings': queued,
       };
 
-Future<void> openBox(WidgetTester tester, MemoryStore store) async {
+Future<void> openBox(WidgetTester tester, MemoryStore store,
+    {bool startEditing = true}) async {
   await tester.binding.setSurfaceSize(const Size(390, 844));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester
@@ -67,6 +68,11 @@ Future<void> openBox(WidgetTester tester, MemoryStore store) async {
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const ValueKey('box-B1')));
   await tester.pumpAndSettle();
+  expect(find.byKey(const ValueKey('reading-key-1')), findsNothing);
+  if (startEditing) {
+    await tester.tap(find.text('Subscriber One'));
+    await tester.pumpAndSettle();
+  }
 }
 
 Future<void> typeReading(WidgetTester tester, String digits) async {
@@ -77,6 +83,27 @@ Future<void> typeReading(WidgetTester tester, String digits) async {
 }
 
 void main() {
+  testWidgets(
+      'phone back and a downward swipe hide the keypad without losing a reading',
+      (tester) async {
+    final store = readerStore();
+    await openBox(tester, store, startEditing: false);
+    await tester.tap(find.text('Subscriber One'));
+    await tester.pumpAndSettle();
+    await typeReading(tester, '1245');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('reading-key-1')), findsNothing);
+    await tester.tap(find.text('Subscriber One'));
+    await tester.pumpAndSettle();
+    await tester.timedDrag(find.byKey(const ValueKey('reading-key-5')),
+        const Offset(0, 100), const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('reading-key-1')), findsNothing);
+    expect(store.readingDrafts, {1: '1245'});
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('drafts belong to the roster week and leave once queued', () async {
     final directory =
         await Directory.systemTemp.createTemp('powercollect-drafts-');
@@ -168,7 +195,7 @@ void main() {
         'current_reading': '1290',
       }
     ]);
-    await openBox(tester, store);
+    await openBox(tester, store, startEditing: false);
 
     await tester.tap(find.text('Subscriber One'));
     await tester.pumpAndSettle();
@@ -200,14 +227,26 @@ void main() {
     await tester.tap(find.text('إدخال القراءات').last);
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'مصطفي احمد');
+    await tester.tap(find.byType(TextField));
+    tester.testTextInput.enterText('م');
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isTrue);
+    tester.testTextInput.enterText('مصطفي احمد');
     await tester.pumpAndSettle();
     expect(find.text('أحمد مصطفى'), findsOneWidget);
     expect(find.text('Subscriber Two'), findsNothing);
 
-    await tester.enterText(find.byType(TextField), 'احمد خالد');
+    expect(tester.testTextInput.isVisible, isTrue);
+    tester.testTextInput.enterText('احمد خالد');
     await tester.pumpAndSettle();
     expect(find.text('أحمد مصطفى'), findsNothing);
+    await tester.tap(find.byTooltip('مسح البحث'));
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isTrue);
+    tester.testTextInput.enterText('B1');
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(find.byKey(const ValueKey('box-B1')), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 }

@@ -45,6 +45,9 @@ void main() {
           },
         )));
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('payment-key-2')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('payment-amount')));
+    await tester.pumpAndSettle();
     for (final digit in amount.split('')) {
       await tester.tap(find.byKey(ValueKey('payment-key-$digit')));
       await tester.pump();
@@ -87,6 +90,24 @@ void main() {
   }
 
   testWidgets(
+      'phone back and a downward swipe hide the keypad and retain the payment amount',
+      (tester) async {
+    final api = RecordingApi();
+    await openPayment(tester, api);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('payment-key-2')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('payment-amount')));
+    await tester.pumpAndSettle();
+    await tester.timedDrag(find.byKey(const ValueKey('payment-key-5')),
+        const Offset(0, 100), const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('payment-key-2')), findsNothing);
+    expect(find.text('25'), findsOneWidget);
+    expect(api.requests, isEmpty);
+  });
+
+  testWidgets(
       'a transfer goes to the chosen bank from the subscriber and retries the same operation',
       (tester) async {
     final api = RecordingApi(failFirst: true);
@@ -124,7 +145,7 @@ void main() {
     expect(find.text('تم تسجيل الدفعة'), findsOneWidget);
     expect(find.text('P-77'), findsOneWidget);
     expect(find.text('تحويل إلى البنك الوطني الإسلامي'), findsOneWidget);
-    expect(find.text('75.00 ₪ عليه'), findsOneWidget);
+    expect(find.text('\u206675 ₪\u2069 عليه'), findsOneWidget);
   });
 
   testWidgets('a dollar payment needs an exchange rate and counts in shekels',
@@ -141,7 +162,7 @@ void main() {
 
     await enterInList(tester, scrollable, 'payment-rate', '3.7');
     expect(find.text('= 74.00 ₪'), findsOneWidget);
-    expect(find.text('26.00 ₪ عليه'), findsOneWidget);
+    expect(find.text('\u206626 ₪\u2069 عليه'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('payment-submit')));
     await tester.pumpAndSettle();
 
@@ -167,7 +188,7 @@ void main() {
     await confirmAndSubmit(tester, scrollable);
 
     expect(api.requests.single, containsPair('payment_method', 'cash'));
-    expect(find.text('60.00 ₪ عليه'), findsOneWidget);
+    expect(find.text('\u206660 ₪\u2069 عليه'), findsOneWidget);
   });
 
   testWidgets(
@@ -185,7 +206,9 @@ void main() {
 
     expect(find.text('تم تسجيل الدفعة'), findsNothing);
     expect(find.text('تسجيل الدفعة'), findsOneWidget);
-    expect(find.text('75.00 ₪ عليه'), findsWidgets);
+    expect(find.text('\u206675 ₪\u2069 عليه'), findsWidgets);
+    await tester.tap(find.byKey(const ValueKey('payment-amount')));
+    await tester.pumpAndSettle();
     for (final digit in ['1', '0']) {
       await tester.tap(find.byKey(ValueKey('payment-key-$digit')));
       await tester.pump();

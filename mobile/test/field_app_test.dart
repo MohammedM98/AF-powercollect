@@ -52,6 +52,11 @@ class CollectorApi extends ApiClient {
           'account_number': 'A42',
           'balance': '100.00',
         },
+        'permissions': {
+          'view_history': true,
+          'record_payment': true,
+          'payment_methods': ['cash', 'bank_transfer']
+        },
         'last_payment': null,
         'transactions': [],
       };
@@ -245,6 +250,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('box-B1')));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Subscriber One'));
+    await tester.pumpAndSettle();
     for (final digit in ['1', '1', '0', '0']) {
       await tester.tap(find.byKey(ValueKey('reading-key-$digit')));
       await tester.pump();
@@ -297,6 +304,8 @@ void main() {
     await tester.tap(find.text('Collector Subscriber'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('subscriber-record-payment')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('payment-amount')));
     await tester.pumpAndSettle();
     for (final digit in ['2', '5']) {
       await tester.tap(find.byKey(ValueKey('payment-key-$digit')));

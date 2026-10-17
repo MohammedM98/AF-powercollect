@@ -7,11 +7,13 @@ use App\Enums\PermissionKey;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMobileCollectionRequest;
 use App\Models\Closing;
+use App\Models\MessageBatch;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Support\ArabicSearch;
 use App\Support\BranchClosingWorkflow;
 use App\Support\ClosingPeriods;
+use App\Support\Messaging\SmsGateway;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +27,7 @@ class MobileCollectionController extends Controller
 
     public function subscriptions(Request $request): JsonResponse
     {
-        abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
+        $this->authorize('recordAnyPayment', Subscription::class);
 
         $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
         $search = trim($validated['search'] ?? '');
@@ -64,49 +66,40 @@ class MobileCollectionController extends Controller
      */
     public function show(Request $request, string $subscription): JsonResponse
     {
-        abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
+        $this->authorize('recordAnyPayment', Subscription::class);
 
         $subscription = Subscription::query()
             ->visibleTo($request->user())
-            ->with('meterBox:id,box_number,name,name_suffix,location')
+            ->with(['meterBox:id,box_number,name,name_suffix,location', 'tariff', 'circuitBreaker', 'latestMeterReading'])
             ->findOrFail($subscription);
+        $lastReading = $subscription->latestMeterReading;
         $balanceInCents = Closing::cents($subscription->balance());
-        $lastPayment = $subscription->transactions()
+        $canViewHistory = $request->user()->can('view', $subscription);
+        $lastPayment = $canViewHistory ? $subscription->transactions()
             ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
             ->whereNull('cancelled_at')
             ->latest()
             ->latest('id')
-            ->first();
-        $recentTransactions = $subscription->transactions()
+            ->first() : null;
+        $recentTransactions = $canViewHistory ? $subscription->transactions()
             ->with(['meterReading', 'referenceTransaction'])
             ->latest()
             ->latest('id')
             ->limit(self::RECENT_TRANSACTIONS)
-            ->get();
+            ->get() : collect();
 
         // Walk back from the current balance, so each line shows the balance it left.
         $balanceAfterInCents = $balanceInCents;
         $transactions = $recentTransactions->map(function (SubscriptionTransaction $transaction) use (&$balanceAfterInCents): array {
-            $entry = [
-                'id' => $transaction->id,
-                'date' => $transaction->created_at->toDateString(),
-                'type' => $transaction->type,
-                'type_label' => $transaction->typeLabel(),
-                'description' => $transaction->description(),
-                'amount' => Closing::money(abs(Closing::cents($transaction->amount))),
-                'is_credit' => (float) $transaction->amount < 0,
-                'is_cancelled' => $transaction->isCancelled(),
-                'balance_after' => Closing::money($balanceAfterInCents),
-            ];
-            $balanceAfterInCents -= Closing::cents($transaction->amount);
-
-            return $entry;
+            return $this->statementLine($transaction, $balanceAfterInCents);
         });
 
         return response()->json([
             'subscription' => [
                 'id' => $subscription->id,
                 'full_name' => $subscription->displayName(),
+                'subscriber_name' => $subscription->full_name,
+                'personal_phone' => $subscription->phone,
                 'account_number' => $subscription->account_number,
                 'meter_box_number' => $subscription->meterBox?->box_number,
                 'meter_box_name' => $subscription->meterBox?->displayName(),
@@ -116,10 +109,82 @@ class MobileCollectionController extends Controller
                 'balance' => Closing::money($balanceInCents),
                 'status' => $subscription->status->value,
                 'status_label' => __($subscription->status->label()),
+                'accounting_type' => $subscription->accounting_type->value,
+                'accounting_type_label' => __($subscription->accounting_type->label()),
+                'subscription_date' => $subscription->subscription_date?->toDateString(),
+                'tariff_name' => __($subscription->tariff->category->label()),
+                'kilowatt_price' => $subscription->kilowattPrice(),
+                'minimum_payment' => number_format((float) $subscription->weeklyMinimumPayment(), 2, '.', ''),
+                'circuit_breaker_ampere' => $subscription->circuitBreaker?->ampere,
+                'initial_reading' => $subscription->initial_reading,
             ],
+            'last_reading' => $lastReading ? [
+                'id' => $lastReading->id,
+                'week_start' => $lastReading->week_start->toDateString(),
+                'week_end' => $lastReading->week_end->toDateString(),
+                'previous_reading' => $lastReading->previous_reading,
+                'current_reading' => $lastReading->current_reading,
+                'consumption' => $lastReading->consumption,
+                'status' => $lastReading->status->value,
+                'status_label' => __($lastReading->status->label()),
+            ] : null,
             'last_payment' => $lastPayment ? $this->collectionData($lastPayment->setRelation('subscription', $subscription)) : null,
             'transactions' => $transactions->all(),
+            'permissions' => [
+                'view_history' => $canViewHistory,
+                'record_payment' => $request->user()->can('recordPayment', $subscription),
+                'payment_methods' => array_map(fn (PaymentMethod $method): string => $method->value, $request->user()->allowedPaymentMethods()),
+            ],
+            'messaging' => [
+                'can_send' => $request->user()->can('create', MessageBatch::class),
+                'sms_available' => app(SmsGateway::class)->deliversMessages(),
+            ],
         ]);
+    }
+
+    public function transactions(Request $request, string $subscription): JsonResponse
+    {
+        abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
+        $request->validate(['page' => ['sometimes', 'integer', 'min:1']]);
+        $subscription = Subscription::query()->visibleTo($request->user())->findOrFail($subscription);
+        $this->authorize('view', $subscription);
+        $transactions = $subscription->transactions()
+            ->with(['meterReading', 'referenceTransaction'])
+            ->latest()->latest('id')->paginate(25);
+        $first = $transactions->first();
+        $balanceAfterInCents = $first ? Closing::cents($subscription->transactions()
+            ->where(fn ($query) => $query->where('created_at', '<', $first->created_at)
+                ->orWhere(fn ($sameTime) => $sameTime->where('created_at', $first->created_at)->where('id', '<=', $first->id)))
+            ->sum('amount')) : 0;
+        $lines = $transactions->getCollection()->map(function (SubscriptionTransaction $transaction) use (&$balanceAfterInCents): array {
+            return $this->statementLine($transaction, $balanceAfterInCents);
+        });
+
+        return response()->json([
+            'data' => $lines->all(),
+            'current_page' => $transactions->currentPage(),
+            'last_page' => $transactions->lastPage(),
+            'total' => $transactions->total(),
+        ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function statementLine(SubscriptionTransaction $transaction, int &$balanceAfterInCents): array
+    {
+        $entry = [
+            'id' => $transaction->id,
+            'date' => $transaction->created_at->toDateString(),
+            'type' => $transaction->type,
+            'type_label' => $transaction->typeLabel(),
+            'description' => $transaction->description(),
+            'amount' => Closing::money(abs(Closing::cents($transaction->amount))),
+            'is_credit' => (float) $transaction->amount < 0,
+            'is_cancelled' => $transaction->isCancelled(),
+            'balance_after' => Closing::money($balanceAfterInCents),
+        ];
+        $balanceAfterInCents -= Closing::cents($transaction->amount);
+
+        return $entry;
     }
 
     public function index(Request $request): JsonResponse
@@ -134,6 +199,7 @@ class MobileCollectionController extends Controller
         $collections = SubscriptionTransaction::query()
             ->where('recorded_by', $request->user()->id)
             ->where('type', SubscriptionTransaction::TYPE_PAYMENT)
+            ->whereNull('cancelled_at')
             ->where('created_at', '>=', $from)
             ->where('created_at', '<', $until)
             ->with('subscription:id,full_name,subscription_name,account_number')

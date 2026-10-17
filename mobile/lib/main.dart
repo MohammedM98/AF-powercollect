@@ -498,6 +498,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
 
   /// Open the subscriber's page, where the payment is recorded from.
   Future<void> openSubscriber(Map<String, dynamic> subscriber) async {
+    FocusScope.of(context).unfocus();
     if (!online) {
       showAppToast(context, 'التحصيل يتطلب اتصالًا بالخادم.', icon: 'cloudoff');
       return;
@@ -506,6 +507,9 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
       builder: (_) => SubscriberPage(
           api: widget.api,
           subscriber: subscriber,
+          paymentMethods: currentUser['payment_methods'] is List
+              ? List<String>.from(currentUser['payment_methods'] as List)
+              : const [],
           transferBanks: currentUser['transfer_banks'] is List
               ? List<String>.from(currentUser['transfer_banks'] as List)
               : defaultTransferBanks),
@@ -566,6 +570,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   }
 
   void navigate(FieldSection destination) {
+    FocusScope.of(context).unfocus();
     setState(() {
       section = destination;
       message = null;
@@ -691,13 +696,22 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           syncing: syncing,
           pending: widget.store.queuedReadings.length),
       if (!online && !syncing && section != FieldSection.account)
-        Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: AppNotice(offlineText, warning: true, icon: 'cloudoff')),
+        ConstrainedBox(
+            constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * .25),
+            child: SingleChildScrollView(
+                child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    child: AppNotice(offlineText,
+                        warning: true, icon: 'cloudoff')))),
       if (message != null && (online || requiresLogin))
-        Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: AppNotice(message!, warning: true)),
+        ConstrainedBox(
+            constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * .25),
+            child: SingleChildScrollView(
+                child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    child: AppNotice(message!, warning: true)))),
       if (requiresLogin)
         TextButton(
             onPressed: widget.onReauthenticate,

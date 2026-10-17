@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'api_client.dart';
+import 'app_balance.dart';
 import 'app_identity.dart';
 import 'field_store.dart';
 import 'receipt_reader_page.dart';
@@ -39,13 +40,6 @@ const _currencies = [
   ('JOD', 'JD', 'دينار'),
 ];
 
-/// A balance as the website words it: owed (عليه), in credit (له) or settled.
-String balanceText(double balance) => balance > 0
-    ? '${AppIdentity.grouped(balance)} ₪ عليه'
-    : balance < 0
-        ? '${AppIdentity.grouped(-balance)} ₪ له'
-        : '0.00 ₪ مسدّد';
-
 /// Record a payment the way the website's payment form does: the amount in
 /// shekels, dollars or dinars (at an exchange rate), paid in cash or by a
 /// transfer to one of the company's banks or e-wallets, with who sent it
@@ -56,12 +50,14 @@ class PaymentPage extends StatefulWidget {
       {required this.api,
       required this.subscriber,
       this.transferBanks = defaultTransferBanks,
+      this.paymentMethods = const ['cash', 'bank_transfer'],
       this.receiptScanner = const ReceiptScanner(),
       this.receiptReader = const DeviceReceiptTextReader(),
       super.key});
   final ApiClient api;
   final Map<String, dynamic> subscriber;
   final List<String> transferBanks;
+  final List<String> paymentMethods;
   final ReceiptScanner receiptScanner;
   final ReceiptTextReader receiptReader;
   @override
@@ -84,7 +80,7 @@ class _PaymentPageState extends State<PaymentPage> {
   bool busy = false;
   bool scanning = false;
   bool collectorConfirmed = false;
-  bool showKeypad = true;
+  bool showKeypad = false;
   bool recordedAny = false;
   late double balance = double.tryParse('${widget.subscriber['balance']}') ?? 0;
   String? error;
@@ -112,6 +108,9 @@ class _PaymentPageState extends State<PaymentPage> {
   @override
   void initState() {
     super.initState();
+    method = widget.paymentMethods.contains('bank_transfer')
+        ? 'bank_transfer'
+        : widget.paymentMethods.firstOrNull ?? '';
     sender.text = subscriberName;
   }
 
@@ -162,13 +161,15 @@ class _PaymentPageState extends State<PaymentPage> {
         }
         balance = newBalance;
         currency = 'ILS';
-        method = 'bank_transfer';
+        method = widget.paymentMethods.contains('bank_transfer')
+            ? 'bank_transfer'
+            : widget.paymentMethods.firstOrNull ?? '';
         bank = null;
         senderBank = null;
         senderIsSubscriber = true;
         sender.text = subscriberName;
         collectorConfirmed = false;
-        showKeypad = true;
+        showKeypad = false;
         submission = null;
         receipt = null;
         error = null;
@@ -231,6 +232,8 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   String? get missingDetail {
+    if (!widget.paymentMethods.contains(method))
+      return 'لا تملك صلاحية تسجيل هذه الدفعة.';
     if (!(value > 0) || !value.isFinite) return 'أدخل مبلغًا أكبر من صفر.';
     if (inShekels == null) return 'أدخل سعر الصرف لتحويل المبلغ إلى شيكل.';
     if (throughBank) {
@@ -292,93 +295,119 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-        canPop: !busy && !scanning,
-        child: Scaffold(
-            body: SafeArea(
-                child: receipt != null
-                    ? Column(children: [
-                        Expanded(child: success()),
-                      ])
-                    : Column(children: [
-                        AppHeader(
-                            title: subscriberName,
-                            subtitle:
-                                'حساب ${widget.subscriber['account_number']} · تسجيل دفعة',
-                            onBack: busy || scanning
-                                ? null
-                                : () => Navigator.pop(context, recordedAny)),
-                        Expanded(
-                            child: ListView(
-                                keyboardDismissBehavior:
-                                    ScrollViewKeyboardDismissBehavior.onDrag,
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 4, 16, 20),
-                                children: [
-                              balanceStrip(),
-                              const AppLabel('المبلغ المستلم',
-                                  hint: 'بالعملة التي استُلم بها'),
-                              amountPanel(),
-                              const AppLabel('طريقة الدفع'),
-                              Row(children: [
+  Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final availableHeight = MediaQuery.sizeOf(context).height -
+        MediaQuery.paddingOf(context).vertical;
+    final inlineKeypad = availableHeight < 500 * textScale;
+    final showNumberPad =
+        showKeypad && MediaQuery.viewInsetsOf(context).bottom == 0;
+    final keypad = AppKeypad(
+        adaptive: true,
+        keyPrefix: 'payment',
+        enabled: editable,
+        onClose: () => setState(() => showKeypad = false),
+        onKey: enterAmount);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) goBack();
+      },
+      child: Scaffold(
+          body: SafeArea(
+              child: receipt != null
+                  ? Column(children: [
+                      Expanded(child: success()),
+                    ])
+                  : Column(children: [
+                      AppHeader(
+                          title: subscriberName,
+                          subtitle:
+                              'حساب ${widget.subscriber['account_number']} · تسجيل دفعة',
+                          onBack: busy || scanning ? null : goBack),
+                      Expanded(
+                          child: ListView(
+                              keyboardDismissBehavior:
+                                  ScrollViewKeyboardDismissBehavior.onDrag,
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                              children: [
+                            balanceStrip(),
+                            const AppLabel('المبلغ المستلم',
+                                hint: 'بالعملة التي استُلم بها'),
+                            amountPanel(),
+                            if (inlineKeypad && showNumberPad) keypad,
+                            const AppLabel('طريقة الدفع'),
+                            Row(children: [
+                              if (widget.paymentMethods
+                                  .contains('bank_transfer'))
                                 methodTile('bank_transfer',
                                     'تحويل بنكي أو محفظة', 'bank'),
+                              if (widget.paymentMethods
+                                      .contains('bank_transfer') &&
+                                  widget.paymentMethods.contains('cash'))
                                 const SizedBox(width: 8),
+                              if (widget.paymentMethods.contains('cash'))
                                 methodTile('cash', 'نقد', 'cash'),
-                              ]),
-                              if (throughBank)
-                                Padding(
-                                    padding: const EdgeInsets.only(top: 12),
-                                    child: transferDetails())
-                              else ...[
-                                const AppLabel('رقم السند اليدوي',
-                                    hint: 'رقم الوصل الورقي'),
-                                detailField('مثال: 00412', voucher,
-                                    key: 'payment-voucher', ltr: true),
-                              ],
-                              const AppLabel('ملاحظة',
-                                  hint: 'اختياري · تظهر في كشف الحساب'),
-                              detailField('أي تفصيل يُحفظ مع الدفعة', notes,
-                                  key: 'payment-notes'),
-                              summary(),
-                              confirmation(),
-                              if (error != null) ...[
-                                const SizedBox(height: 12),
-                                AppNotice(error!, error: true)
-                              ],
-                            ])),
-                        Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            decoration: BoxDecoration(
-                                color: AppIdentity.background,
-                                border: Border(
-                                    top: BorderSide(
-                                        color: AppIdentity.lineSoft))),
-                            child: AppAction(
-                                key: const ValueKey('payment-submit'),
-                                label: busy
-                                    ? 'جارٍ التسجيل...'
-                                    : value > 0
-                                        ? 'تسجيل ${AppIdentity.money(value)} ${currencyLook.$3}'
-                                        : 'تسجيل الدفعة',
-                                icon: 'check',
-                                busy: busy,
-                                onPressed: busy ||
-                                        scanning ||
-                                        !collectorConfirmed ||
-                                        value <= 0
-                                    ? null
-                                    : submit)),
-                        if (showKeypad &&
-                            MediaQuery.viewInsetsOf(context).bottom == 0)
-                          AppKeypad(
-                              keyPrefix: 'payment',
-                              enabled: editable,
-                              onClose: () => setState(() => showKeypad = false),
-                              onKey: enterAmount),
-                      ]))),
-      );
+                            ]),
+                            if (throughBank)
+                              Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: transferDetails())
+                            else ...[
+                              const AppLabel('رقم السند اليدوي',
+                                  hint: 'رقم الوصل الورقي'),
+                              detailField('مثال: 00412', voucher,
+                                  key: 'payment-voucher', ltr: true),
+                            ],
+                            const AppLabel('ملاحظة',
+                                hint: 'اختياري · تظهر في كشف الحساب'),
+                            detailField('أي تفصيل يُحفظ مع الدفعة', notes,
+                                key: 'payment-notes'),
+                            summary(),
+                            confirmation(),
+                            if (error != null) ...[
+                              const SizedBox(height: 12),
+                              AppNotice(error!, error: true)
+                            ],
+                          ])),
+                      Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                              color: AppIdentity.background,
+                              border: Border(
+                                  top:
+                                      BorderSide(color: AppIdentity.lineSoft))),
+                          child: AppAction(
+                              key: const ValueKey('payment-submit'),
+                              label: busy
+                                  ? 'جارٍ التسجيل...'
+                                  : value > 0
+                                      ? 'تسجيل ${AppIdentity.money(value)} ${currencyLook.$3}'
+                                      : 'تسجيل الدفعة',
+                              icon: 'check',
+                              busy: busy,
+                              onPressed: busy ||
+                                      scanning ||
+                                      !collectorConfirmed ||
+                                      value <= 0
+                                  ? null
+                                  : submit)),
+                      if (!inlineKeypad && showNumberPad) keypad,
+                    ]))),
+    );
+  }
+
+  void goBack() {
+    if (busy || scanning) return;
+    if ((receipt == null && showKeypad) ||
+        MediaQuery.viewInsetsOf(context).bottom > 0) {
+      FocusScope.of(context).unfocus();
+      setState(() => showKeypad = false);
+      return;
+    }
+    Navigator.pop(context, recordedAny);
+  }
 
   Widget balanceStrip() {
     final status = widget.subscriber['status'];
@@ -406,9 +435,7 @@ class _PaymentPageState extends State<PaymentPage> {
                 Text(balanceText(balance),
                     style: AppIdentity.number(23,
                         weight: FontWeight.w800,
-                        color: balance > 0
-                            ? AppIdentity.heroBad
-                            : AppIdentity.heroGood)),
+                        color: balanceColor(balance, onHero: true))),
               ])),
           if (unusual)
             Container(
@@ -438,19 +465,22 @@ class _PaymentPageState extends State<PaymentPage> {
                 child: Container(
               constraints: const BoxConstraints(minHeight: 44),
               alignment: Alignment.centerRight,
-              child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  textDirection: TextDirection.ltr,
-                  children: [
-                    Text(amount.text.isEmpty ? '0.00' : amount.text,
-                        textDirection: TextDirection.ltr,
-                        style: AppIdentity.number(36,
-                            weight: FontWeight.w800,
-                            color: amount.text.isEmpty
-                                ? AppIdentity.faint
-                                : AppIdentity.ink)),
-                    if (showKeypad && editable) const AppCaret(height: 34),
-                  ]),
+              child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      textDirection: TextDirection.ltr,
+                      children: [
+                        Text(amount.text.isEmpty ? '0.00' : amount.text,
+                            textDirection: TextDirection.ltr,
+                            style: AppIdentity.number(36,
+                                weight: FontWeight.w800,
+                                color: amount.text.isEmpty
+                                    ? AppIdentity.faint
+                                    : AppIdentity.ink)),
+                        if (showKeypad && editable) const AppCaret(height: 34),
+                      ])),
             )),
             const SizedBox(width: 10),
             Text(currencyLook.$2,
@@ -511,6 +541,9 @@ class _PaymentPageState extends State<PaymentPage> {
                         enabled: editable,
                         onTap: () => setState(() => showKeypad = false),
                         onChanged: (_) => setState(() {}),
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => FocusScope.of(context).unfocus(),
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
                         inputFormatters: [
@@ -828,9 +861,10 @@ class _PaymentPageState extends State<PaymentPage> {
           radius: 22,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Column(children: [
-            summaryRow('الرصيد الحالي', balanceText(balance)),
-            summaryRow('هذه الدفعة',
-                '\u200E+${AppIdentity.grouped(inShekels ?? 0)} ₪'),
+            summaryRow('الرصيد الحالي', balanceText(balance),
+                color: balanceColor(balance, onHero: true)),
+            summaryRow(
+                'هذه الدفعة', '${AppIdentity.grouped(inShekels ?? 0)} ₪'),
             Container(
                 margin: const EdgeInsets.symmetric(vertical: 4),
                 height: 1,
@@ -839,9 +873,7 @@ class _PaymentPageState extends State<PaymentPage> {
                 'الرصيد بعد الدفعة', after == null ? '—' : balanceText(after),
                 color: after == null
                     ? const Color(0x80FFFFFF)
-                    : after > 0
-                        ? AppIdentity.heroBad
-                        : AppIdentity.heroGood),
+                    : balanceColor(after, onHero: true)),
             if (coverage != null) ...[
               summaryRow('تغطية المبلغ المستحق', '$coverage%'),
               Padding(
@@ -863,8 +895,10 @@ class _PaymentPageState extends State<PaymentPage> {
       Padding(
           padding: const EdgeInsets.symmetric(vertical: 5),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title,
-                style: AppIdentity.body(13.5, color: const Color(0xBFFFFFFF))),
+            Expanded(
+                child: Text(title,
+                    style: AppIdentity.body(13.5,
+                        color: const Color(0xBFFFFFFF)))),
             const SizedBox(width: 10),
             Expanded(
                 child: Text(text,
@@ -940,6 +974,9 @@ class _PaymentPageState extends State<PaymentPage> {
             : AppIdentity.body(15,
                 color: readOnly ? AppIdentity.muted : AppIdentity.ink),
         onTap: () => setState(() => showKeypad = false),
+        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => FocusScope.of(context).unfocus(),
         onChanged: (_) => setState(() {}),
         decoration: InputDecoration(
             hintText: hint,
@@ -1007,8 +1044,7 @@ class _PaymentPageState extends State<PaymentPage> {
         (
           'الرصيد بعد الدفعة',
           AppFact(balanceText(newBalance),
-              number: true,
-              color: newBalance > 0 ? AppIdentity.bad : AppIdentity.good)
+              number: true, color: balanceColor(newBalance))
         ),
       ],
       actions: [

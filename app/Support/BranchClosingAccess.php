@@ -10,7 +10,7 @@ class BranchClosingAccess
 {
     public static function view(User $user): bool
     {
-        return $user->is_active && ($user->isSuperAdmin() || ($user->branch_id && ($user->isBranchAdmin() || $user->hasPermission(PermissionKey::CloseCashBoxes) || in_array($user->id, ClosingSetting::forBranch($user->branch_id)->receivers ?? [], true) || in_array($user->id, ClosingSetting::forBranch($user->branch_id)->approvers ?? [], true))));
+        return $user->is_active && ($user->isSuperAdmin() || ($user->branch_id && ($user->isBranchAdmin() || $user->hasPermission(PermissionKey::CloseCashBoxes) || $user->hasPermission(PermissionKey::SendCashBoxesToAudit) || in_array($user->id, ClosingSetting::forBranch($user->branch_id)->receivers ?? [], true) || in_array($user->id, ClosingSetting::forBranch($user->branch_id)->approvers ?? [], true))));
     }
 
     public static function manage(User $user, int $branchId): bool
@@ -27,6 +27,16 @@ class BranchClosingAccess
     {
         return self::approve($user, $branchId) || ($user->is_active && $user->branch_id === $branchId
             && ($user->hasPermission(PermissionKey::CloseCashBoxes) || in_array($user->id, ClosingSetting::forBranch($branchId)->receivers ?? [], true)));
+    }
+
+    /**
+     * Whether the user may send the branch's closed boxes to audit and
+     * answer the audit's notes on them: the branch admin, and anyone of the
+     * branch given the "Send Cash Boxes to Audit" permission.
+     */
+    public static function send(User $user, int $branchId): bool
+    {
+        return self::manage($user, $branchId) || ($user->is_active && $user->branch_id === $branchId && $user->hasPermission(PermissionKey::SendCashBoxesToAudit));
     }
 
     public static function approve(User $user, int $branchId): bool

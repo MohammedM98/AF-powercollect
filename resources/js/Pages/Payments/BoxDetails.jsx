@@ -10,12 +10,13 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
-import { boxTypes, currencies, dateTime, BoxTypeIcon } from '../Payments/CollectorCashBox';
-import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from '../Payments/LedgerColumns';
-import BoxBreakdown, { breakdownEntry } from '../Payments/BoxBreakdown';
-import StatusGuide from '../Payments/StatusGuide';
-import { boxStatusLabels, entryStatus, isFlaggedEntry } from '@/lib/financialBoxes';
-import '../Payments/financial-boxes.css';
+import { boxTypes, currencies, dateTime, BoxTypeIcon } from './CollectorCashBox';
+import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from './LedgerColumns';
+import BoxBreakdown, { breakdownEntry } from './BoxBreakdown';
+import StatusGuide from './StatusGuide';
+import { canSendBox } from './FinancialBoxComponents';
+import { boxStatus, entryStatus, isFlaggedEntry } from '@/lib/financialBoxes';
+import './financial-boxes.css';
 
 
 /** A small action in an entry's row. */
@@ -53,18 +54,38 @@ function Stat({ icon, label, value, hint }) {
     </div>;
 }
 
+/** One step of a box's way to audit: when it happened and who did it, or that it has not yet. */
+function JourneyStep({ icon, label, at, by, pending, children }) {
+    return <li className={`flex min-w-0 items-start gap-2.5 rounded-control border p-3 ${at ? 'border-gray-100 bg-surface' : 'border-dashed border-gray-200'}`}>
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] ${at ? 'bg-gray-900 text-surface' : 'bg-gray-100 text-gray-400'}`}><Icon name={icon} className="h-4 w-4" /></span>
+        <span className="min-w-0 leading-5">
+            <span className="block text-xs font-semibold text-gray-500">{label}</span>
+            {at ? <><b className="block text-sm text-gray-900">{dateTime(at)}</b>{by && <span className="block truncate text-xs text-gray-600">{by}</span>}</> : <span className="block text-sm text-gray-500">{pending}</span>}
+            {children}
+        </span>
+    </li>;
+}
+
+/** When the box was opened, closed and sent to audit, and by whom. */
+function Journey({ box }) {
+    return <ol aria-label="مسار الصندوق" className="grid gap-2 sm:grid-cols-3">
+        <JourneyStep icon="clock" label="فُتح" at={box.opened_at} by={box.user?.name} />
+        <JourneyStep icon="lock" label="أُغلق" at={box.status === 'received' ? box.closedAt ?? box.closed_at : null} by={box.closedBy} pending={box.status === 'pending' ? 'ينتظر تأكيد الإغلاق' : 'لم يُغلق بعد'} />
+        <JourneyStep icon="send" label="أُرسل إلى التدقيق" at={box.sent_at} by={box.sentBy} pending="لم يُرسل بعد">{box.send_note && <span className="mt-1 block text-xs text-gray-600">«{box.send_note}»</span>}</JourneyStep>
+    </ol>;
+}
+
 /**
- * One of the branch's boxes, large: who it belongs to, its totals and
- * dates, and every entry in it as the subscriber's statement shows it, to
- * search, filter and, once the collector has corrected anything the branch
- * raised with them, confirm the box closed from the footer. The branch does
- * not check transfers or clearings one by one: the audit does, after the
- * box's close.
+ * One box, large: who it belongs to, its totals, when it was opened, closed
+ * and sent and by whom, and every entry in it as the subscriber's statement
+ * shows it. The branch confirms an open box closed from the footer once the
+ * collector has corrected anything it raised with them, and sends a closed
+ * box to audit. The branch does not check transfers or clearings one by
+ * one: the audit does.
  */
-export default function BoxDetails({ box, onClose, perform, period }) {
+export default function BoxDetails({ box, onClose, perform, onSend }) {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
-    const [cashCounted, setCashCounted] = useState(false);
     const [confirmingClose, setConfirmingClose] = useState(false);
     const type = box.type ?? 'cash';
     const cash = type === 'cash';
@@ -73,8 +94,8 @@ export default function BoxDetails({ box, onClose, perform, period }) {
     const active = entries.filter(isActive);
     const totals = sumByCurrency(active);
     const editable = ['open', 'pending'].includes(box.status);
-    const confirmable = !box.frozen && box.canCount && ['open', 'pending'].includes(box.status);
-    const confirmsDelivery = cash && box.isOwn && box.status === 'received' && !box.confirmed_at && !box.frozen;
+    const confirmable = box.canCount && ['open', 'pending'].includes(box.status);
+    const [statusLabel, statusTone] = boxStatus(box);
     const counted = cash && box.head_counts && box.expected_counts && Object.keys(currencies).some((currency) => Number(box.head_counts[currency] ?? 0) !== Number(box.expected_counts[currency] ?? 0));
     const groups = {
         all: ['الكل', () => true],
@@ -94,11 +115,11 @@ export default function BoxDetails({ box, onClose, perform, period }) {
                 <BoxTypeIcon type={type} className="h-12 w-12" />
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900">{boxTypes[type]} · صندوق <bdi dir="ltr" className="font-display">{box.number}</bdi></h2>
-                    <p className="mt-1 text-sm text-gray-500">{box.user?.name ?? '—'}{period ? ` · ${period}` : ''}</p>
+                    <p className="mt-1 text-sm text-gray-500">{box.user?.name ?? '—'}</p>
                 </div>
             </div>
             <div className="flex items-center gap-3">
-                <StatusPill tone={boxStatusLabels[box.status][1]} label={boxStatusLabels[box.status][0]} />
+                <StatusPill tone={statusTone} label={statusLabel} />
                 <button type="button" onClick={onClose} aria-label="إغلاق النافذة" className="rounded-control p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"><Icon name="close" className="h-5 w-5" /></button>
             </div>
         </header>
@@ -111,9 +132,11 @@ export default function BoxDetails({ box, onClose, perform, period }) {
                 <Stat icon="calendar" label="فُتح ← أُغلق" value={<span className="text-sm">{dateTime(box.opened_at)}</span>} hint={box.closed_at ? dateTime(box.closed_at) : 'لا يزال مفتوحًا'} />
             </dl>
 
+            <Journey box={box} />
+
             <BoxBreakdown type={type} entries={active.map(breakdownEntry)} />
 
-            {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">اطّلع على حركات الصندوق ثم أكّد إغلاقه. إن رأيت خطأ في حركة فتواصل مع المحصّل ليعدّلها بنفسه قبل التأكيد؛ بعد التأكيد تُقفل الحركات ويذهب الصندوق إلى التدقيق، وهو من يرفض الحوالات أو المقاصات ويبيّن السبب.{cash ? ' عُدّ النقد الذي سلّمه المحصّل وتأكد أنه يطابق إجمالي الصندوق قبل التأكيد.' : ''} تسليم الصناديق للشركة خطوة منفصلة.</p>}
+            {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">اطّلع على حركات الصندوق ثم أكّد إغلاقه. إن رأيت خطأ في حركة فتواصل مع المحصّل ليعدّلها بنفسه قبل التأكيد؛ بعد التأكيد تُقفل الحركات وينتقل الصندوق إلى «المغلقة» جاهزًا للإرسال إلى التدقيق، وهو من يرفض ما يجده خطأ ويبيّن السبب.</p>}
 
             <StatusGuide />
 
@@ -145,7 +168,7 @@ export default function BoxDetails({ box, onClose, perform, period }) {
                                         <span className="block font-display text-xs text-gray-400"><bdi dir="ltr">{entry.transaction?.subscription?.account_number ?? '—'}</bdi></span>
                                     </td>
                                     <LedgerTrailCells ledger={ledger} amount={entry.amount} currency={entry.currency} cancelled={!live} />
-                                    <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} />{entry.is_late && <span className="mt-1 block"><StatusPill tone="amber" label="متأخرة" /></span>}</td>
+                                    <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} /></td>
                                     <td style={{ whiteSpace: 'normal' }}><div className="flex flex-wrap items-center gap-1">
                                         {entry.receipt_url && <a href={entry.receipt_url} target="_blank" rel="noopener noreferrer" className={`${rowButton} tone-print border`}><Icon name="printer" className="h-3.5 w-3.5" />السند</a>}
                                     </div></td>
@@ -161,29 +184,24 @@ export default function BoxDetails({ box, onClose, perform, period }) {
             </section>
 
             {counted && <BoxCountSummary box={box} />}
-            {cash && box.status === 'received' && box.head_counts && <p className="text-sm text-gray-600">استلم الفرع: <b className="text-gray-900">{amountsLine(box.head_counts)}</b></p>}
         </div>
 
         <footer className="shrink-0 border-t border-gray-100 bg-surface p-4 sm:px-6">
-            {confirmable && cash && <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-control border border-emerald-500/25 bg-emerald-500/5 p-3 text-sm text-gray-800">
-                <input type="checkbox" className="mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" checked={cashCounted} onChange={(event) => setCashCounted(event.target.checked)} />
-                <span>عددتُ النقد الذي سلّمه المحصّل، ووجدته مطابقًا لإجمالي الصندوق: <b className="text-gray-900">{amountsLine(totals)}</b></span>
-            </label>}
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-gray-600">الإجمالي: <b className="text-gray-900">{amountsLine(totals)}</b> · {active.length} حركة سارية</p>
                 <div className="flex flex-wrap items-center gap-2">
                     <SecondaryButton onClick={onClose}>إغلاق النافذة</SecondaryButton>
-                    {confirmable && <PrimaryButton disabled={entries.length === 0 || (cash && !cashCounted)} onClick={() => setConfirmingClose(true)}><Icon name="check" className="h-4 w-4" />تأكيد إغلاق الصندوق</PrimaryButton>}
-                    {confirmsDelivery && <PrimaryButton onClick={() => perform('confirm', box)}>أؤكّد تسليم الصندوق</PrimaryButton>}
+                    {confirmable && <PrimaryButton disabled={entries.length === 0} onClick={() => setConfirmingClose(true)}><Icon name="check" className="h-4 w-4" />تأكيد إغلاق الصندوق</PrimaryButton>}
+                    {onSend && canSendBox(box) && <PrimaryButton onClick={() => onSend(box)}><Icon name="send" className="h-4 w-4" />إرسال إلى التدقيق</PrimaryButton>}
                 </div>
             </div>
         </footer>
         <ConfirmDialog
             show={confirmingClose}
             onCancel={() => setConfirmingClose(false)}
-            onConfirm={() => { setConfirmingClose(false); perform('receive', box, cash ? { cash_counted: true } : {}); }}
+            onConfirm={() => { setConfirmingClose(false); perform('receive', box); }}
             title="إغلاق الصندوق؟"
-            message={<>سيُغلق {boxTypes[type]} رقم <bdi dir="ltr">{box.number}</bdi> لـ{box.user?.name ?? '—'} بإجمالي <b className="text-gray-900">{amountsLine(totals)}</b> ({active.length} حركة سارية).{cash ? ' وأنت تؤكد أنك عددت نقده ووجدته مطابقًا لإجماليه.' : ''} بعد الإغلاق تُقفل حركاته فلا يستطيع المحصّل تعديلها، وينتقل إلى قسم التدقيق.</>}
+            message={<>سيُغلق {boxTypes[type]} رقم <bdi dir="ltr">{box.number}</bdi> لـ{box.user?.name ?? '—'} بإجمالي <b className="text-gray-900">{amountsLine(totals)}</b> ({active.length} حركة سارية). بعد الإغلاق تُقفل حركاته فلا يستطيع المحصّل تعديلها، وينتقل إلى «المغلقة» جاهزًا للإرسال إلى التدقيق.</>}
             confirmLabel="نعم، أغلق الصندوق"
             icon="lock"
         />

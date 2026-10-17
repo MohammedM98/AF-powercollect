@@ -7,7 +7,6 @@ use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\CashBoxPayment;
-use App\Models\Closing;
 use App\Models\MobileAccessToken;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
@@ -48,13 +47,13 @@ class CollectorBoxTypesTest extends TestCase
     }
 
     /**
-     * Confirming a box's close says the cash was counted, unless `$data` says otherwise.
+     * One of the branch's actions on its boxes.
      *
      * @param  array<string, mixed>  $data
      */
     private function action(User $actor, Branch $branch, string $action, int $record, array $data = []): TestResponse
     {
-        return $this->actingAs($actor)->post(route('closings.actions', ['action' => $action, 'record' => $record]), ['branch_id' => $branch->id, ...($action === 'receive' ? ['cash_counted' => true] : []), ...$data]);
+        return $this->actingAs($actor)->post(route('payments.cash-boxes.actions', ['action' => $action, 'record' => $record]), ['branch_id' => $branch->id, ...$data]);
     }
 
     /** @return array<string, string> */
@@ -126,9 +125,6 @@ class CollectorBoxTypesTest extends TestCase
         $collector = User::factory()->collector()->withPermissions([PermissionKey::AmendTransactionDetails])->for($branch)->create();
         $entry = $this->entry($branch, $collector, CashBoxType::BankTransfer);
         $transaction = $entry->transaction;
-        $this->travelTo($entry->box->closing->coverage_until);
-        $this->artisan('closings:process')->assertSuccessful();
-        $this->assertSame('pending', $entry->box->fresh()->status);
         $amend = fn (string $bank): TestResponse => $this->actingAs($collector)->patch(route('subscriptions.transactions.amend', [$transaction->subscription, $transaction]), ['bank_name' => $bank, 'amendment_reason' => 'طلب مدير الفرع']);
 
         $amend('جوال باي')->assertSessionHasNoErrors();
@@ -140,12 +136,13 @@ class CollectorBoxTypesTest extends TestCase
         $amend('بنك فلسطين')->assertForbidden();
     }
 
-    public function test_a_cash_box_closed_at_the_cutoff_keeps_its_expected_cash_in_step_with_corrections(): void
+    public function test_a_cash_box_closed_when_its_collector_left_keeps_its_expected_cash_in_step_with_corrections(): void
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Cash);
-        $this->travelTo($entry->box->closing->coverage_until);
+        $collector->update(['is_active' => false]);
         $this->artisan('closings:process')->assertSuccessful();
+        $this->assertSame('pending', $entry->box->fresh()->status);
 
         $entry->transaction->update(['amount' => '-150', 'currency_amount' => '150']);
 
@@ -155,18 +152,17 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertSame('150.00', $entry->box->fresh()->head_counts['ILS']);
     }
 
-    public function test_a_cash_box_closes_only_once_the_branch_says_it_counted_the_cash(): void
+    public function test_a_cash_box_closes_as_a_transfer_box_does_without_counting_the_cash(): void
     {
         [$branch, $head, $collector] = $this->start();
         $cash = $this->entry($branch, $collector, CashBoxType::Cash);
         $transfer = $this->entry($branch, $collector, CashBoxType::BankTransfer);
 
-        $this->action($head, $branch, 'receive', $cash->cash_box_id, ['cash_counted' => false])->assertSessionHasErrors('action');
-        $this->assertSame('open', $cash->box->fresh()->status);
-        $this->action($head, $branch, 'receive', $transfer->cash_box_id, ['cash_counted' => false])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'receive', $cash->cash_box_id, ['cash_counted' => true])->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $cash->cash_box_id)->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $transfer->cash_box_id)->assertSessionHasNoErrors();
 
-        $this->assertSame('received', $cash->box->fresh()->status);
+        $this->assertSame(['received', 'completed'], [$cash->box->fresh()->status, $cash->box->fresh()->stage()]);
+        $this->assertSame(['received', 'completed'], [$transfer->box->fresh()->status, $transfer->box->fresh()->stage()]);
     }
 
     public function test_a_payment_in_dollars_sits_in_the_box_at_its_value_in_shekels(): void
@@ -180,24 +176,6 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertSame(['10.00', false, '3.6'], [$payment->ledgerDetails()['paidAmount'], $payment->ledgerDetails()['isShekel'], $payment->ledgerDetails()['exchangeRate']]);
     }
 
-    public function test_auto_closed_boxes_go_straight_to_the_branch(): void
-    {
-        [$branch, $head, $collector] = $this->start();
-        $cash = $this->entry($branch, $collector, CashBoxType::Cash);
-        $transfer = $this->entry($branch, $collector, CashBoxType::BankTransfer);
-        $this->travelTo($cash->box->closing->coverage_until);
-        $this->artisan('closings:process')->assertSuccessful();
-
-        $this->assertSame('awaiting_branch', $transfer->box->fresh()->stage());
-        $this->action($collector, $branch, 'collector-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertForbidden();
-        $this->action($head, $branch, 'receive', $cash->cash_box_id)->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'electronic', $transfer->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'receive', $transfer->cash_box_id)->assertSessionHasNoErrors();
-
-        $this->assertSame('completed', $cash->box->fresh()->stage());
-        $this->assertSame('completed', $transfer->box->fresh()->stage());
-    }
-
     public function test_rejected_entries_stay_rejected_when_the_branch_confirms_the_box(): void
     {
         [$branch, $head, $collector] = $this->start();
@@ -209,10 +187,7 @@ class CollectorBoxTypesTest extends TestCase
 
         $this->assertDatabaseHas('cash_boxes', ['id' => $accepted->cash_box_id, 'status' => 'received', 'confirmed_at' => now(), 'received_by' => $head->id, 'head_counts' => null]);
         $this->assertSame('rejected', $rejected->fresh()->status);
-        $summary = app(BranchClosingWorkflow::class)->reviewSummary($accepted->box->closing);
-        $this->assertSame('100.00', $summary['clearing']['ILS']);
-        $this->assertSame(1, $summary['rejectedClearings']);
-        $this->assertSame('0.00', $summary['bank']['ILS']);
+        $this->assertSame('confirmed', $accepted->fresh()->status);
     }
 
     public function test_rejected_clearing_notifies_branch_admin_not_collector(): void
@@ -256,18 +231,6 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertSame($entry->cash_box_id, CashBoxPayment::query()->sole()->cash_box_id);
     }
 
-    public function test_safe_balance_counts_only_cash_boxes(): void
-    {
-        [$branch, $head, $collector] = $this->start();
-        $closing = app(BranchClosingWorkflow::class)->current($branch->id);
-        foreach ([CashBoxType::Cash, CashBoxType::BankTransfer, CashBoxType::Clearing] as $type) {
-            CashBox::factory()->create(['branch_id' => $branch->id, 'closing_id' => $closing->id, 'user_id' => $collector->id, 'type' => $type, 'status' => 'received', 'head_counts' => $this->counts(), 'confirmed_at' => now()]);
-        }
-
-        $this->assertSame('100.00', app(BranchClosingWorkflow::class)->balance($branch->id)['ILS']);
-        $this->assertSame('100.00', app(BranchClosingWorkflow::class)->cashLedger($closing)['received']['ILS']);
-    }
-
     public function test_collector_sees_own_box_transactions_only(): void
     {
         [$branch, $head, $collector] = $this->start();
@@ -291,7 +254,6 @@ class CollectorBoxTypesTest extends TestCase
         $entry = $this->entry($branch, $collector, CashBoxType::Cash);
 
         $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.cash.id', $entry->cash_box_id)->where('current.bank_transfer', null)->where('current.clearing', null));
-        $this->assertContains($collector->id, array_column(app(BranchClosingWorkflow::class)->snapshot($entry->box->closing)['unsyncedCollectors'], 'id'));
         $this->action($collector, $branch, 'close', $entry->cash_box_id, ['counts' => $this->counts()])->assertForbidden();
         $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open']);
     }
@@ -321,25 +283,6 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open']);
     }
 
-    public function test_legacy_separate_periods_transition_to_one_package_without_box_blockers(): void
-    {
-        [$branch, $head, $collector] = $this->start();
-        $closing = app(BranchClosingWorkflow::class)->current($branch->id);
-        $closing->update(['book' => 'cash']);
-        $bank = Closing::factory()->create(['branch_id' => $branch->id, 'coverage_from' => $closing->coverage_from, 'coverage_until' => $closing->coverage_until, 'book' => 'bank', 'workflow_settings' => $closing->workflow_settings]);
-        $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
-        $this->travelTo($closing->coverage_until);
-        app(BranchClosingWorkflow::class)->refresh($branch->id);
-
-        $workflow = app(BranchClosingWorkflow::class);
-        $this->assertNotContains('يوجد صندوق لم يُستلم أو لم يؤكّد صاحبه التسليم.', $workflow->blockers($bank));
-        $this->assertNotContains('يوجد صندوق لم يُستلم أو لم يؤكّد صاحبه التسليم.', $workflow->blockers($closing));
-        $this->assertCount(1, $workflow->snapshot($closing)['boxes']);
-        $this->assertCount(1, $workflow->snapshot($bank)['boxes']);
-        $this->assertCount(1, $workflow->snapshot($bank)['clearings']);
-        $this->assertSame('combined', $workflow->current($branch->id)->book);
-    }
-
     public function test_cancelled_entries_stay_visible_but_do_not_count_or_block_receipt(): void
     {
         [$branch, $head, $collector] = $this->start();
@@ -359,8 +302,7 @@ class CollectorBoxTypesTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $this->entry($branch, $collector, CashBoxType::Cash);
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
-        $this->travelTo($entry->box->closing->coverage_until);
-        app(BranchClosingWorkflow::class)->refresh($branch->id);
+        $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
 
         $this->actingAs($collector)->get(route('payments.cash-boxes', ['type' => 'clearing', 'state' => 'closed']))->assertInertia(fn (AssertableInertia $page) => $page->where('boxes.total', 1)->where('boxes.data.0.id', $entry->cash_box_id)->where('filters.type', 'clearing')->where('filters.state', 'closed'));
     }
@@ -389,20 +331,17 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'open']);
     }
 
-    public function test_refresh_attaches_historical_clearings_as_late_after_period_was_submitted(): void
+    public function test_refresh_attaches_historical_clearings_to_the_open_box_after_their_week_ended(): void
     {
-        [$branch, $head, $collector] = $this->start();
+        [$branch, , $collector] = $this->start();
         $closing = app(BranchClosingWorkflow::class)->current($branch->id);
         $occurred = now();
         $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
         $transaction = SubscriptionTransaction::withoutEvents(fn (): SubscriptionTransaction => SubscriptionTransaction::factory()->for(Subscription::factory()->for($branch))->create(['branch_id' => $branch->id, 'recorded_by' => $collector->id, 'type' => 'clearing', 'status' => SubscriptionTransaction::STATUS_ACTIVE, 'source_key' => 'clearing:'.Str::ulid(), 'amount' => '-20', 'notes' => 'صيانة قديمة', 'created_at' => $occurred]));
 
         $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page->where('current.clearing.totals.ILS', '20.00'));
 
         $entry = CashBoxPayment::query()->where('subscription_transaction_id', $transaction->id)->sole();
-        $this->assertTrue($entry->is_late);
-        $this->assertNotSame($closing->id, $entry->box->closing_id);
         $this->assertSame('open', $entry->box->status);
     }
 
@@ -433,23 +372,19 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertSame('0.00', $entry->box->fresh()->totals()['ILS']);
     }
 
-    public function test_carried_rejected_clearing_can_be_cancelled_after_the_package_is_sent(): void
+    public function test_a_rejected_clearing_can_be_cancelled_after_its_box_is_sent_to_audit(): void
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
-        $closing = $entry->box->closing;
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'rejected'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
-        $this->travelTo($closing->coverage_until);
-        $this->action($head, $branch, 'submit', $closing->id, ['acknowledged' => true])->assertSessionHasNoErrors();
+        $this->actingAs($head)->post(route('payments.cash-boxes.actions', ['action' => 'send']), ['branch_id' => $branch->id, 'box_ids' => [$entry->cash_box_id]])->assertSessionHasNoErrors();
 
         SubscriptionTransaction::factory()->for($entry->transaction->subscription)->create(['type' => 'penalty', 'source_key' => 'after-clearing:'.$entry->id, 'amount' => '20']);
-        $snapshot = $closing->fresh()->submitted_snapshot;
         $this->actingAs($head)->post(route('subscriptions.transactions.actions.store', [$entry->transaction->subscription, $entry->transaction]), ['action' => 'cancel', 'correction_reason' => 'other', 'correction_notes' => 'تصحيح'])->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('subscription_transactions', ['id' => $entry->subscription_transaction_id, 'status' => SubscriptionTransaction::STATUS_CANCELLED]);
         $this->assertFalse($entry->transaction->fresh()->isInClosedDay());
-        $this->assertSame($snapshot, $closing->fresh()->submitted_snapshot);
     }
 
     public function test_branch_receives_a_departed_collectors_boxes_without_their_submission(): void
@@ -467,8 +402,6 @@ class CollectorBoxTypesTest extends TestCase
 
         $this->assertNotNull($cash->box->fresh()->confirmed_at);
         $this->assertSame('received', $transfer->box->fresh()->status);
-        $this->travelTo($cash->box->closing->coverage_until);
-        $this->assertNotContains('يوجد صندوق لم يُستلم أو لم يؤكّد صاحبه التسليم.', app(BranchClosingWorkflow::class)->blockers($cash->box->closing));
     }
 
     public function test_collector_who_lost_the_permission_does_not_hold_up_their_closed_box(): void
@@ -487,19 +420,5 @@ class CollectorBoxTypesTest extends TestCase
 
         $this->assertNotNull($cash->box->fresh()->confirmed_at);
         $this->assertSame('completed', $clearing->box->fresh()->stage());
-    }
-
-    public function test_snapshot_keeps_the_clearing_service_and_lists_only_field_app_users_as_unsynced(): void
-    {
-        [$branch, $head, $collector] = $this->start();
-        $counterStaff = User::factory()->dataEntry()->for($branch)->withPermissions([PermissionKey::RecordCollections])->create();
-        $fieldStaff = User::factory()->dataEntry()->for($branch)->withPermissions([PermissionKey::RecordCollections])->create();
-        MobileAccessToken::issue($fieldStaff);
-        $clearing = $this->entry($branch, $collector, CashBoxType::Clearing);
-
-        $snapshot = app(BranchClosingWorkflow::class)->snapshot($clearing->box->closing);
-
-        $this->assertSame('صيانة مولد', $snapshot['clearings'][0]['transaction']['notes']);
-        $this->assertEqualsCanonicalizing([$collector->id, $fieldStaff->id], array_column($snapshot['unsyncedCollectors'], 'id'));
     }
 }

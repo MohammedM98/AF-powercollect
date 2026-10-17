@@ -215,19 +215,23 @@ class PaymentController extends Controller
     }
 
     /**
-     * The two tabs of the financial boxes page for those who close the
-     * branch's boxes: its boxes, and every entry of its open boxes, each
+     * The tabs of the financial boxes page for those who close the branch's
+     * boxes, each a place of its own: its open boxes, its closed boxes not
+     * sent yet, those sent to audit, and every entry of its open boxes, each
      * with how many there are.
      *
      * @param  EloquentCollection<int, Branch>  $branches
      * @return list<array{key: string, label: string, count: int, url: string}>
      */
-    private function boxTabs(EloquentCollection $branches, Branch $branch, int $boxes): array
+    private function boxTabs(EloquentCollection $branches, Branch $branch): array
     {
         $query = $branches->count() > 1 ? ['branch_id' => $branch->id] : [];
+        $counts = $this->branchBoxes->counts($branch->id);
 
         return [
-            ['key' => 'boxes', 'label' => 'الصناديق', 'count' => $boxes, 'url' => route('payments.cash-boxes', $query)],
+            ['key' => 'open', 'label' => 'الصناديق المفتوحة', 'count' => $counts['open'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'open'])],
+            ['key' => 'closed', 'label' => 'المغلقة · جاهزة للإرسال', 'count' => $counts['closed'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'closed'])],
+            ['key' => 'sent', 'label' => 'المرسلة إلى التدقيق', 'count' => $counts['sent'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'sent'])],
             ['key' => 'entries', 'label' => 'الحركات المفتوحة', 'count' => CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->where('status', 'open'))->count(), 'url' => route('payments.cash-boxes.entries', $query)],
         ];
     }
@@ -254,12 +258,12 @@ class PaymentController extends Controller
         return Inertia::render('Payments/Entries', [
             'started' => $started,
             'branch' => $branch, 'branches' => $branches, 'people' => $people,
-            'tabs' => $this->boxTabs($branches, $branch, $this->branchBoxes->count($branch->id)),
+            'tabs' => $this->boxTabs($branches, $branch),
             ...$list,
             'closableBoxes' => $started && BranchClosingAccess::receive($actor, $branch->id) ? $this->closableBoxes($branch->id, $actor, $person?->id) : null,
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
-            'urls' => ['index' => route('payments.cash-boxes.entries'), 'actions' => url('/reconciliation/actions')],
+            'urls' => ['index' => route('payments.cash-boxes.entries'), 'actions' => url('/payments/cash-boxes/actions')],
         ]);
     }
 
@@ -330,12 +334,13 @@ class PaymentController extends Controller
     }
 
     /**
-     * The financial boxes page for those who close the branch's boxes: the
-     * boxes of the week not sent yet, their own among them, in one table,
-     * to look over their entries and confirm them closed. Once the week's
-     * package is sent to the audit its boxes leave the page for that
-     * package; a box asked for with `?box=` still opens. Its other tab
-     * lists the entries of the open boxes.
+     * The financial boxes page for those who close the branch's boxes and
+     * send them to audit, one place at a time (`?place=`, closed boxes not
+     * sent yet by default): its open boxes, to look over their entries and
+     * confirm them closed; its closed boxes, to send to audit one by one or
+     * several at once; and those it sent, with when and by whom. A box asked
+     * for with `?box=` opens
+     * wherever it is. Its last tab lists the entries of the open boxes.
      */
     private function branchCashBoxes(Request $request): InertiaResponse
     {
@@ -345,18 +350,17 @@ class PaymentController extends Controller
         if ($started) {
             $this->workflow->refresh($branch->id);
         }
-        $closings = $this->branchBoxes->closings($branch->id);
-        $boxes = $this->branchBoxes->rows($branch->id, $actor, $request->integer('box') ?: null);
+        $place = in_array($request->query('place'), BranchBoxes::PLACES, true) ? $request->query('place') : 'closed';
 
         return Inertia::render('Payments/BranchCashBoxes', [
             'branch' => $branch, 'branches' => $branches, 'started' => $started,
-            'tabs' => $this->boxTabs($branches, $branch, $this->branchBoxes->count($branch->id)),
-            'boxes' => $boxes,
-            'closings' => $closings,
+            'place' => $place,
+            'tabs' => $this->boxTabs($branches, $branch),
+            'boxes' => $this->branchBoxes->rows($branch->id, $actor, $place, $request->integer('box') ?: null),
             'access' => $this->branchBoxes->access($actor, $branch->id),
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
-            'urls' => ['index' => route('payments.cash-boxes'), 'actions' => url('/reconciliation/actions'), 'reconciliation' => route('closings.index'), 'weekly' => route('weekly-packages.index', ['branch_id' => $branch->id])],
+            'urls' => ['index' => route('payments.cash-boxes'), 'actions' => url('/payments/cash-boxes/actions')],
         ]);
     }
 
@@ -602,7 +606,7 @@ class PaymentController extends Controller
             'settledIn' => $box->receivedIn ? ['start' => $box->receivedIn->period_start->toDateString(), 'end' => $box->receivedIn->period_end->toDateString()] : null,
             'urls' => [
                 'show' => route('payments.cash-boxes.show', $box),
-                'confirm' => route('closings.actions', ['action' => 'confirm', 'record' => $box->id]),
+                'confirm' => route('payments.cash-boxes.actions', ['action' => 'confirm', 'record' => $box->id]),
                 'export' => route('payments.cash-boxes.show', [$box, 'format' => 'csv']),
             ],
             'branchId' => $box->branch_id,

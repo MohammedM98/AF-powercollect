@@ -4,7 +4,6 @@ namespace App\Support;
 
 use App\Models\Branch;
 use App\Models\CashBox;
-use App\Models\Closing;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,10 +12,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 /**
- * The branch's boxes as the people who close them see them, shared by the
- * financial boxes page (its boxes and open entries tabs) and closing management
- * page: which branch the actor looks at, its weekly closings, and every box
- * still in play with what the actor may do to it.
+ * The branch's boxes as the people who close and send them see them, on
+ * the financial boxes page (its open, closed and sent boxes, and the
+ * entries of its open boxes): which branch the actor looks at, and its
+ * boxes in each place with what the actor may do to them.
  */
 class BranchBoxes
 {
@@ -49,67 +48,103 @@ class BranchBoxes
         return User::query()->whereIn('id', CashBox::query()->where('branch_id', $branchId)->whereNotNull('user_id')->select('user_id'))->orderBy('name')->get(['id', 'name']);
     }
 
-    /**
-     * The branch's latest weekly closings, newest first.
-     *
-     * @return EloquentCollection<int, Closing>
-     */
-    public function closings(int $branchId): EloquentCollection
-    {
-        return Closing::query()->where('branch_id', $branchId)->whereNotNull('workflow_settings')->withCount(['auditNotes as open_notes_count' => fn ($query) => $query->where('status', '!=', 'closed')])->orderByDesc('coverage_from')->orderBy('id')->limit(60)->get();
-    }
+    /** The places the branch's boxes sit in, each on its own tab: open, closed and not sent yet, and sent to audit. */
+    public const PLACES = ['open', 'closed', 'sent'];
+
+    /** How many sent boxes the sent tab lists, newest first. */
+    private const SENT_SHOWN = 200;
+
+    /** Who closed and sent a box, besides its entries, for the boxes page. */
+    private const PEOPLE = ['receivedBy:id,name', 'sentBy:id,name'];
 
     /**
-     * The boxes of the week not sent yet: any box still open or waiting to
-     * be confirmed, those confirmed into a weekly package not yet sent to
-     * the audit, and those holding a transfer or clearing not yet matched,
-     * which the next package carries. Once its package is sent, a box is
-     * looked over in that package. `$alsoBoxId` adds one box asked for by
-     * a link, sent or not. Each comes with its entries and whether the
-     * actor may confirm it closed.
+     * The branch's boxes in one place (see `PLACES`), newest first: those
+     * still open or waiting on the branch to confirm them closed, those it
+     * confirmed closed and has not sent to audit, or those it sent.
+     * `$alsoBoxId` adds one box asked for by a link, wherever it is. Each
+     * comes with its entries, when it was opened, closed and sent and by
+     * whom, and what the actor may do to it.
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public function rows(int $branchId, User $actor, ?int $alsoBoxId = null): Collection
+    public function rows(int $branchId, User $actor, string $place, ?int $alsoBoxId = null): Collection
     {
-        $boxes = $this->inPlay($branchId, $alsoBoxId)->with(BranchClosingWorkflow::BOX_DETAILS)->latest('id')->get();
+        $boxes = $this->in($branchId, $place)->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE])->get();
+        if ($alsoBoxId && ! $boxes->contains('id', $alsoBoxId)) {
+            $boxes->push(...CashBox::query()->where('branch_id', $branchId)->whereKey($alsoBoxId)->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE])->get());
+        }
         $ledgers = $this->ledgers($boxes->flatMap(fn (CashBox $box) => $box->payments->pluck('subscription_transaction_id'))->all());
+        $send = BranchClosingAccess::send($actor, $branchId);
 
-        return $boxes->map(function (CashBox $box) use ($actor, $ledgers): array {
-            $box->user?->makeHidden('permissions');
-            $row = $box->toArray();
-            $row['canCount'] = $this->workflow->mayReceive($box, $actor);
-            $row['isOwn'] = $box->user_id === $actor->id;
-            $row['stage'] = $box->stage();
-            $row['payments'] = array_map(fn (array $entry): array => $this->presentEntry($entry, $ledgers), $row['payments']);
-
-            return $row;
-        });
-    }
-
-    /** How many boxes the financial boxes page lists for the branch: those of the week not sent yet. */
-    public function count(int $branchId): int
-    {
-        return $this->inPlay($branchId)->count();
+        return $boxes->map(fn (CashBox $box): array => [
+            ...$this->present($box, $ledgers),
+            'canCount' => $this->workflow->mayReceive($box, $actor),
+            'canSend' => $send,
+            'isOwn' => $box->user_id === $actor->id,
+        ]);
     }
 
     /**
-     * The branch's boxes of the week not sent yet (see `rows`), and the one
-     * box asked for by a link.
+     * A box as the boxes page shows it: its entries as the subscriber's
+     * statement shows them, where it is (`place`), and when it was opened,
+     * closed and sent and by whom.
+     *
+     * @param  array<int, array<string, mixed>>  $ledgers
+     * @return array<string, mixed>
+     */
+    private function present(CashBox $box, array $ledgers = []): array
+    {
+        $box->user?->makeHidden('permissions');
+        $row = $box->toArray();
+        unset($row['received_by'], $row['sent_by']);
+
+        return [
+            ...$row,
+            'place' => $this->placeOf($box),
+            'stage' => $box->stage(),
+            'payments' => array_map(fn (array $entry): array => $this->presentEntry($entry, $ledgers), $row['payments'] ?? []),
+            'closedAt' => $box->status === 'received' ? ($box->received_at ?? $box->closed_at) : $box->closed_at,
+            'closedBy' => $box->receivedBy?->name,
+            'sentBy' => $box->sentBy?->name,
+        ];
+    }
+
+    /**
+     * How many of the branch's boxes are in each place, for the tabs.
+     *
+     * @return array<string, int>
+     */
+    public function counts(int $branchId): array
+    {
+        return collect(self::PLACES)->mapWithKeys(fn (string $place): array => [$place => $place === 'sent'
+            ? CashBox::query()->where('branch_id', $branchId)->whereNotNull('sent_at')->count()
+            : $this->in($branchId, $place)->count()])->all();
+    }
+
+    private function placeOf(CashBox $box): string
+    {
+        return match (true) {
+            $box->sent_at !== null => 'sent',
+            $box->status === 'received' => 'closed',
+            default => 'open',
+        };
+    }
+
+    /**
+     * The branch's boxes in one place. An open box shows once it holds an
+     * entry; the sent ones are the latest sent.
      *
      * @return Builder<CashBox>
      */
-    private function inPlay(int $branchId, ?int $alsoBoxId = null): Builder
+    private function in(int $branchId, string $place): Builder
     {
-        $unsent = fn (Builder $closing) => $closing->whereNull('submitted_snapshot');
+        $boxes = CashBox::query()->where('branch_id', $branchId);
 
-        return CashBox::query()->where('branch_id', $branchId)->where(fn (Builder $query) => $query
-            ->where('status', '!=', 'received')
-            ->orWhereHas('receivedIn', $unsent)
-            ->orWhere(fn (Builder $legacy) => $legacy->whereNull('received_in_closing_id')->whereHas('closing', $unsent))
-            ->orWhereHas('payments', fn (Builder $payments) => $payments->where('method', '!=', 'cash')->whereIn('status', ['pending', 'missing', 'rejected'])
-                ->whereHas('transaction', fn (Builder $transaction) => $transaction->where('status', SubscriptionTransaction::STATUS_ACTIVE)))
-            ->when($alsoBoxId, fn (Builder $query) => $query->orWhere('id', $alsoBoxId)));
+        return match ($place) {
+            'open' => $boxes->whereIn('status', ['open', 'pending'])->whereHas('payments')->latest('id'),
+            'closed' => $boxes->where('status', 'received')->whereNull('sent_at')->orderByDesc('received_at')->orderByDesc('id'),
+            'sent' => $boxes->whereNotNull('sent_at')->orderByDesc('sent_at')->orderByDesc('id')->limit(self::SENT_SHOWN),
+        };
     }
 
     /**
@@ -153,10 +188,10 @@ class BranchBoxes
     /**
      * What the actor may do in the branch's closing.
      *
-     * @return array{manage: bool, receive: bool, approve: bool}
+     * @return array{manage: bool, receive: bool, send: bool}
      */
     public function access(User $actor, int $branchId): array
     {
-        return ['manage' => BranchClosingAccess::manage($actor, $branchId), 'receive' => BranchClosingAccess::receive($actor, $branchId), 'approve' => BranchClosingAccess::approve($actor, $branchId)];
+        return ['manage' => BranchClosingAccess::manage($actor, $branchId), 'receive' => BranchClosingAccess::receive($actor, $branchId), 'send' => BranchClosingAccess::send($actor, $branchId)];
     }
 }

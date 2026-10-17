@@ -10,8 +10,6 @@ export const MAIN_LINKS = [
     { href: '/payments/summary', label: 'ملخص التحصيل', description: 'ما حُصّل اليوم وهذا الشهر', icon: 'gauge', can: 'viewOwnCashBoxes' },
     { href: '/payments/cash-boxes', label: 'الصناديق المالية', description: 'صناديق المحصّلين وحركاتها المفتوحة وتأكيد إغلاقها', icon: 'wallet', can: 'viewCashBoxes' },
     { href: '/ledger', label: 'السجل المالي', description: 'القيود حسب التاريخ والفرع', icon: 'ledger', can: 'viewLedger' },
-    { href: '/reconciliation', label: 'إدارة الإغلاق', description: 'ما ينتظر الفرع، وملاحظات التدقيق، وموعد القطع', icon: 'bank', can: 'viewBranchReconciliation' },
-    { href: '/weekly-packages', label: 'الإغلاق الأسبوعي', description: 'حزمة الأسبوع: راجعها وأرسلها للتدقيق', icon: 'layers', can: 'viewWeeklyClosings' },
     { href: '/receivables', label: 'أعمار الديون', description: 'الذمم المتأخرة حسب مدتها', icon: 'clock', can: 'viewDebtAging' },
     { href: '/transaction-audit', label: 'سجل التدقيق', description: 'من غيّر ماذا ومتى', icon: 'history', can: 'viewTransactionAudit' },
     { href: '/branch-performance', label: 'أداء الفروع', description: 'مقارنة نسب التحصيل بين الفروع', icon: 'trend', can: 'viewBranchPerformance' },
@@ -49,12 +47,12 @@ const OWN_LABELS = { '/payments/cash-boxes': 'صناديقي' };
 
 /** Whether the user sees only their own boxes, not the branch's. */
 function seesOwnBoxesOnly(can) {
-    return Boolean(can?.viewOwnCashBoxes && !can?.viewBranchReconciliation);
+    return Boolean(can?.viewOwnCashBoxes && !can?.viewBranchBoxes);
 }
 
 export const NAVIGATION_GROUPS = [
     { id: 'daily', label: 'المشتركون', shortLabel: 'المشتركون', icon: 'users', description: 'المشتركون والقراءات والرسائل', hrefs: ['/subscriptions', '/meter-readings', '/reading-cycles', '/disconnection-lists', '/messages'] },
-    { id: 'finance', label: 'المالية والتحصيل', shortLabel: 'المالية', icon: 'wallet', description: 'الدفعات والصناديق والإغلاق', hrefs: ['/payments', '/payments/summary', '/payments/cash-boxes', '/reconciliation', '/weekly-packages', '/ledger', '/receivables'] },
+    { id: 'finance', label: 'المالية والتحصيل', shortLabel: 'المالية', icon: 'wallet', description: 'الدفعات والصناديق والإغلاق', hrefs: ['/payments', '/payments/summary', '/payments/cash-boxes', '/ledger', '/receivables'] },
     { id: 'reports', label: 'التقارير والرقابة', shortLabel: 'التقارير', icon: 'trend', description: 'التقارير والأداء والتدقيق', hrefs: ['/reports', '/branch-performance', '/transaction-audit'] },
     { id: 'infrastructure', label: 'الفروع والشبكة', shortLabel: 'الشبكة', icon: 'bolt', description: 'الفروع والبنية الكهربائية', hrefs: ['/branches', '/governorates', '/meter-boxes', '/circuit-breakers'] },
     { id: 'administration', label: 'الإدارة والإعدادات', shortLabel: 'الإدارة', icon: 'cog', description: 'المستخدمون والصلاحيات والإعدادات', hrefs: ['/users', '/settings/permissions', '/tariffs', '/settings/reading-schedule', '/settings/print-templates', '/settings/sms'], featured: ['/users', '/settings/permissions'] },

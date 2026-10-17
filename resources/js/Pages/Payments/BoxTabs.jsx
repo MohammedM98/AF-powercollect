@@ -1,14 +1,15 @@
 import { Link } from '@inertiajs/react';
 
 /**
- * The financial boxes page's two tabs beside its title, as the users page
- * draws its own: the branch's boxes and the entries of its open boxes,
- * each with how many there are. `tabs` come from the server with their
- * links; `current` is the key of the one shown.
+ * The financial boxes page's tabs beside its title, as the users page draws
+ * its own: the branch's open boxes, its closed boxes not sent yet, those
+ * sent to audit, and the entries of its open boxes, each with how many
+ * there are. `tabs` come from the server with their links; `current` is the
+ * key of the one shown.
  */
 export default function BoxTabs({ tabs, current }) {
     return (
-        <nav aria-label="الصناديق المالية" className="inline-flex gap-0.5 rounded-xl border border-gray-100 bg-gray-100 p-[3px]">
+        <nav aria-label="الصناديق المالية" className="inline-flex max-w-full flex-wrap gap-0.5 rounded-xl border border-gray-100 bg-gray-100 p-[3px]">
             {tabs.map((tab) => {
                 const active = tab.key === current;
 

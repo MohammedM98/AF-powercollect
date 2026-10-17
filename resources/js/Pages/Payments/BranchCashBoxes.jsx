@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import Modal from '@/Components/Modal';
+import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
-import { boxPersonName, financialBoxesTotals, filterFinancialBoxes, sortFinancialBoxes } from '@/lib/financialBoxes';
-import BoxDetails from '../Closings/BoxDetails';
-import { periodLabel, periodRange } from '@/lib/closingPeriods';
+import { boxPersonName, financialBoxesTotals, sortFinancialBoxes } from '@/lib/financialBoxes';
+import BoxDetails from './BoxDetails';
 import BoxTabs from './BoxTabs';
 import StatusGuide from './StatusGuide';
 import FinancialBoxList from './FinancialBoxList';
-import { boxTypes, boxTypeStyles, currencies } from './CollectorCashBox';
-import { FinancialBoxCard, FinancialBoxSummary, financialAmountsLine } from './FinancialBoxComponents';
+import { boxTypes, BoxTypeIcon } from './CollectorCashBox';
+import { FinancialBoxCard, FinancialBoxIdentity, canSendBox, financialAmountsLine } from './FinancialBoxComponents';
 
 function savedPreference(key, fallback, allowed) {
     try {
@@ -24,29 +24,88 @@ function savedPreference(key, fallback, allowed) {
     }
 }
 
-/** The branch's financial boxes, in the site's table (whose box each is in its own column) or as cards; a tab beside the title opens the entries of its open boxes. */
-export default function BranchCashBoxes({ branch, branches, started, tabs, boxes, closings, access, pendingCount, urls }) {
+/** What each place holds, said under the tabs. */
+const placeHints = {
+    open: 'صناديق المحصّلين التي ما زالت تستقبل حركات. راجع الصندوق وأكّد إغلاقه فينتقل إلى «المغلقة».',
+    closed: 'صناديق أكّد الفرع إغلاقها ولم تُرسل بعد. أرسل صندوقًا وحده، أو حدّد عدة صناديق وأرسلها معًا؛ يصل كل صندوق إلى قسم التدقيق منفردًا برقمه.',
+    sent: 'كل صندوق أُرسل إلى التدقيق، وأين وصل فيه. الصندوق الذي أعاده التدقيق بملاحظة ينتظر ردّك.',
+};
+
+const emptyPlace = {
+    open: 'لا صناديق مفتوحة فيها حركات الآن.',
+    closed: 'لا صناديق مغلقة تنتظر الإرسال؛ كل ما أُغلق أُرسل.',
+    sent: 'لم يُرسل أي صندوق إلى التدقيق بعد.',
+};
+
+/** Where sent boxes stand in audit, to narrow the sent tab to one. */
+const auditFilters = [['all', 'الكل'], ['waiting', 'بانتظار التدقيق', (box) => ['waiting', 'reviewing'].includes(box.audit_status)], ['returned', 'عليها ملاحظات', (box) => box.audit_status === 'returned'], ['approved', 'مُدقّقة', (box) => box.audit_status === 'approved']];
+
+/** One figure above the boxes: a type of box, or where sent boxes stand in audit. */
+function SummaryTile({ icon, label, boxes, hint, active, onClick }) {
+    return <button type="button" onClick={onClick} aria-pressed={active} className={`flex min-w-0 items-center gap-3 rounded-card border bg-surface p-4 text-start shadow-card transition hover:-translate-y-0.5 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 motion-reduce:transform-none ${active ? 'border-gray-900' : 'border-gray-100'}`}>
+        {icon}
+        <span className="min-w-0"><span className="block text-sm font-semibold text-gray-600">{label}</span><span className="mt-0.5 flex flex-wrap items-baseline gap-1.5"><span dir="ltr" className="font-display text-xl font-bold text-gray-900">{formatMoney(financialBoxesTotals(boxes).ILS)}</span><span className="text-xs text-gray-500">₪</span></span><span className="block text-xs text-gray-500">{boxes.length} {hint}</span></span>
+    </button>;
+}
+
+const tileIcon = (name, tone) => <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] ${tone}`}><Icon name={name} className="h-5 w-5" /></span>;
+
+/** The boxes the branch is about to send to audit, each on its own, with an optional note for the audit. */
+function SendBoxesModal({ boxes, onClose, onSend }) {
+    const [note, setNote] = useState('');
+    const [sending, setSending] = useState(false);
+
+    return <Modal show onClose={onClose} maxWidth="lg" centered>
+        <div role="dialog" aria-modal="true" aria-labelledby="send-boxes-title" className="flex max-h-[calc(100dvh-4rem)] flex-col">
+            <header className="flex items-start justify-between gap-3 border-b border-gray-100 px-6 py-4">
+                <div><h2 id="send-boxes-title" className="text-xl font-bold text-gray-900">{boxes.length === 1 ? <>إرسال الصندوق <bdi dir="ltr" className="font-display">{boxes[0].number}</bdi> إلى التدقيق</> : `إرسال ${boxes.length} صناديق إلى التدقيق`}</h2><p className="mt-1 text-sm text-gray-500">يصل كل صندوق إلى قسم التدقيق منفردًا برقمه.</p></div>
+                <button type="button" onClick={onClose} aria-label="إغلاق" className="rounded-control p-2 text-gray-500 hover:bg-gray-100"><Icon name="close" className="h-5 w-5" /></button>
+            </header>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-gray-50 p-5">
+                <ul className="space-y-2">{boxes.map((box) => <li key={box.id} className="flex items-center justify-between gap-3 rounded-row border border-gray-100 bg-surface p-3"><FinancialBoxIdentity box={box} /><span className="text-end text-sm"><b dir="ltr" className="font-display text-gray-900">{formatMoney(financialBoxesTotals([box]).ILS)}</b> <span className="text-gray-500">شيكل</span><span className="block text-xs text-gray-500">{boxPersonName(box)} · {box.payments?.length ?? 0} حركة</span></span></li>)}</ul>
+                <p className="flex items-center justify-between rounded-control bg-surface px-4 py-3 text-sm"><span className="text-gray-600">المجموع</span><b className="font-display text-gray-900">{financialAmountsLine(financialBoxesTotals(boxes))}</b></p>
+                <p className="flex gap-2 rounded-control border border-amber-500/25 bg-amber-500/10 p-3 text-sm leading-6 text-amber-800 dark:text-amber-300"><Icon name="lock" className="h-5 w-5 shrink-0" />بعد الإرسال لا يُسحب الصندوق؛ أي تصحيح يكون بالرد على ملاحظة التدقيق إن أعاده.</p>
+                <label className="block"><span className="mb-1.5 block text-sm font-semibold text-gray-700">ملاحظة للتدقيق <span className="font-normal text-gray-500">(اختياري)</span></span><textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} maxLength={3000} className="block w-full rounded-control border-gray-200 text-sm" placeholder="مثال: الحوالة رقم … وصلت متأخرة إلى البنك" /></label>
+            </div>
+            <footer className="flex flex-wrap justify-end gap-2 border-t border-gray-100 px-6 py-4">
+                <SecondaryButton onClick={onClose}>إلغاء</SecondaryButton>
+                <PrimaryButton disabled={sending} onClick={() => { setSending(true); onSend(note.trim(), () => setSending(false)); }}><Icon name="send" className="h-4 w-4" />{boxes.length === 1 ? 'إرسال الصندوق' : `إرسال ${boxes.length} صناديق`}</PrimaryButton>
+            </footer>
+        </div>
+    </Modal>;
+}
+
+/**
+ * The branch's financial boxes, one place per tab so nothing mixes: its
+ * open boxes, to review and confirm closed; its closed boxes, to send to
+ * audit one by one or several at once; and those sent, with where each
+ * stands in audit and the audit's notes to answer. Every box shows when it
+ * was opened, closed and sent, and by whom. A last tab lists the entries of
+ * the open boxes.
+ */
+export default function BranchCashBoxes({ branch, branches, started, place, tabs, boxes, access, pendingCount, urls }) {
     const { errors } = usePage().props;
-    const pending = boxes.filter((box) => box.status === 'pending');
-    const [chosenStatus, setStatus] = useState(pending.length ? 'pending' : 'all');
-    // Confirming the last box waiting for its close keeps the page's state, so
-    // the filter falls back to every box rather than stay on an empty list.
-    const status = chosenStatus === 'pending' && !pending.length ? 'all' : chosenStatus;
     const [search, setSearch] = useState('');
     const [person, setPerson] = useState('');
+    const [type, setType] = useState('');
+    const [audit, setAudit] = useState('all');
     const [view, setView] = useState(() => savedPreference('view', 'table', ['table', 'cards']));
-    const [sort, setSort] = useState({ key: 'status', direction: 'asc' });
-    const [followup, setFollowup] = useState(null);
+    const [sort, setSort] = useState({ key: 'dates', direction: 'desc' });
+    const [picked, setPicked] = useState(() => new Set());
+    const [sending, setSending] = useState(null);
     const [boxId, setBoxId] = useState(() => Number(new URLSearchParams(window.location.search).get('box')) || null);
     const selectedBox = boxes.find((box) => box.id === boxId);
-    const people = [...new Map(boxes.filter((box) => box.user).map((box) => [box.user.id, box.user.name])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar'));
-    const shown = filterFinancialBoxes(boxes, { status, person, search });
-    const active = (entry) => !entry.transaction || entry.transaction.status === 'active';
-    const rejected = boxes.flatMap((box) => box.payments.filter((entry) => ['missing', 'rejected'].includes(entry.status) && active(entry)).map((entry) => ({ ...entry, box })));
-    const currentClosing = closings.find((closing) => new Date(closing.coverage_from) <= new Date() && new Date(closing.coverage_until) >= new Date());
-    const statusFilters = [['pending', 'بانتظار تأكيد الإغلاق'], ['open', 'مفتوحة'], ['received', 'مغلقة'], ['all', 'الكل']].map(([value, label]) => ({ value, label: <>{label} · <span className="font-display">{value === 'all' ? boxes.length : boxes.filter((box) => box.status === value).length}</span></> }));
-    const sortState = { sort: sort.key, direction: sort.direction };
-    const boxPeriod = (box) => periodLabel(closings.find((closing) => closing.id === box.closing_id));
+    const inPlace = boxes.filter((box) => box.place === place);
+    const people = [...new Map(inPlace.filter((box) => box.user).map((box) => [box.user.id, box.user.name])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar'));
+    const auditMatch = auditFilters.find(([value]) => value === audit)?.[2] ?? (() => true);
+    const shown = inPlace.filter((box) => (!type || box.type === type) && (!person || String(box.user?.id) === person) && auditMatch(box) && `${box.number} ${boxPersonName(box)}`.includes(search.trim()));
+    const sendable = shown.filter(canSendBox);
+    const pickedBoxes = inPlace.filter((box) => picked.has(box.id) && canSendBox(box));
+    const selection = place === 'closed' && access.send ? {
+        picked,
+        toggle: (id) => setPicked((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; }),
+        toggleAll: (ids) => setPicked((current) => { const all = ids.every((id) => current.has(id)); const next = new Set(current); ids.forEach((id) => (all ? next.delete(id) : next.add(id))); return next; }),
+    } : null;
 
     useEffect(() => {
         try {
@@ -63,46 +122,64 @@ export default function BranchCashBoxes({ branch, branches, started, tabs, boxes
         window.history.replaceState(window.history.state, '', url);
     }
 
-    function perform(kind, record, extra = {}) {
-        router.post(`${urls.actions}/${kind}/${record.id}`, { branch_id: branch.id, ...extra }, { preserveScroll: true });
+    function perform(kind, record, extra = {}, options = {}) {
+        router.post(`${urls.actions}/${kind}${record ? `/${record.id}` : ''}`, { branch_id: branch.id, ...extra }, { preserveScroll: true, ...options });
+    }
+
+    function send(list, note, done) {
+        perform('send', null, { box_ids: list.map((box) => box.id), note: note || null }, {
+            onSuccess: () => { setSending(null); setPicked(new Set()); closeBox(); },
+            onFinish: done,
+        });
     }
 
     function sortBy(key) {
         setSort((current) => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }));
     }
 
-    const attentionCards = [
-        { key: 'rejected', icon: 'alert', label: 'الحركات المرفوضة', count: rejected.length, hint: rejected.length ? `في ${new Set(rejected.map((entry) => entry.box.id)).size} صناديق` : 'لا حركات مرفوضة', tone: 'bg-brand-500/10 text-brand-600' },
-    ];
+    const summary = place === 'sent'
+        ? auditFilters.slice(1).map(([value, label, matches]) => ({ key: value, icon: tileIcon(value === 'returned' ? 'alert' : value === 'approved' ? 'check' : 'clock', value === 'returned' ? 'bg-brand-500/10 text-brand-600' : value === 'approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-gray-100 text-gray-600'), label, boxes: inPlace.filter(matches), hint: value === 'returned' ? 'صناديق تنتظر ردّك' : 'صناديق', active: audit === value, onClick: () => setAudit(audit === value ? 'all' : value) }))
+        : Object.keys(boxTypes).map((key) => ({ key, icon: <BoxTypeIcon type={key} className="h-10 w-10" />, label: boxTypes[key], boxes: inPlace.filter((box) => box.type === key), hint: place === 'open' ? 'صناديق مفتوحة' : 'صناديق لم تُرسل', active: type === key, onClick: () => setType(type === key ? '' : key) }));
 
-    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-gray-500">{branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : branch.name}</p><div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2"><h2 className="text-3xl font-bold text-gray-900">الصناديق المالية</h2><BoxTabs tabs={tabs} current="boxes" /></div></div>{currentClosing && <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-surface px-3 py-1.5 text-sm text-gray-600"><Icon name="calendar" className="h-4 w-4" />{periodRange(currentClosing)}</span>}</div>}>
+    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<div><p className="text-sm font-semibold text-gray-500">{branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value, place })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : branch.name}</p><div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2"><h2 className="text-3xl font-bold text-gray-900">الصناديق المالية</h2><BoxTabs tabs={tabs} current={place} /></div></div>}>
         <Head title="الصناديق المالية" />
-        {!started ? <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">لم يُفعّل نظام الصناديق في هذا الفرع بعد. {access.manage ? <>ابدأه من <Link href={urls.reconciliation} className="font-semibold text-brand-600">صفحة إدارة الإغلاق</Link>.</> : 'يُفعّله مسؤول الفرع من صفحة إدارة الإغلاق.'}</p> : <div className="financial-boxes financial-surface space-y-5">
+        {!started ? <div className="flex flex-wrap items-center justify-between gap-4 rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">
+            <p>لم يُفعّل نظام الصناديق في هذا الفرع بعد. {access.manage ? 'ابدأه لتُجمع دفعات كل محصّل في صناديقه من اليوم.' : 'يُفعّله مسؤول الفرع.'}</p>
+            {access.manage && <PrimaryButton onClick={() => perform('start')}><Icon name="wallet" className="h-4 w-4" />بدء نظام الصناديق</PrimaryButton>}
+        </div> : <div className="financial-boxes financial-surface space-y-5 pb-24">
             {errors?.action && <p role="alert" className="rounded-control bg-red-500/10 p-4 text-sm text-red-700">{errors.action}</p>}
-            <FinancialBoxSummary boxes={boxes} />
+            <p className="flex items-start gap-2 text-sm leading-6 text-gray-600"><Icon name="info" className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />{placeHints[place]}</p>
+            <section aria-label="ملخص" className="grid gap-3 sm:grid-cols-3">{summary.map(({ key, ...tile }) => <SummaryTile key={key} {...tile} />)}</section>
             <StatusGuide />
-            {access.manage && <section aria-label="بانتظار المتابعة" className="flex flex-wrap gap-3">{attentionCards.map((item) => <button key={item.key} type="button" onClick={() => setFollowup(item.key)} className="group flex min-w-0 items-center gap-3 rounded-card border border-gray-100 bg-surface p-3 pe-4 sm:min-w-[320px] text-start shadow-card transition hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 motion-reduce:transform-none motion-reduce:transition-none"><span className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${item.count ? item.tone : 'bg-gray-100 text-gray-400'}`}><Icon name={item.count ? item.icon : 'check'} className="h-5 w-5" />{item.count > 0 && <span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 font-display text-[11px] font-bold text-white ring-2 ring-surface">{item.count}</span>}</span><span className="min-w-0 flex-1"><span className={`block text-sm font-semibold ${item.count ? 'text-gray-900' : 'text-gray-500'}`}>{item.label}</span><span className="block truncate text-xs text-gray-500">{item.hint}</span></span><Icon name="chevron-left" className="h-4 w-4 text-gray-300 transition group-hover:text-gray-600" /></button>)}</section>}
-            <section aria-label="الصناديق المالية">
+            <section aria-label="الصناديق">
                 <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
                     <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
                         <div className="relative w-full sm:w-72"><Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" /><input type="text" aria-label="ابحث باسم الموظف أو رقم الصندوق" placeholder="ابحث باسم الموظف أو رقم الصندوق" value={search} onChange={(event) => setSearch(event.target.value)} className="block w-full py-2.5 pe-4 ps-10 text-sm" /></div>
                         <select aria-label="الموظف" value={person} onChange={(event) => setPerson(event.target.value)} className="w-full py-2.5 text-sm sm:w-56"><option value="">كل الموظفين</option>{people.map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}</select>
                     </div>
                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-                        <SegmentedTabs label="حالة الصندوق" value={status} onChange={setStatus} options={statusFilters} />
+                        <SegmentedTabs label="نوع الصندوق" value={type} onChange={setType} options={[{ value: '', label: 'كل الأنواع' }, ...Object.entries(boxTypes).map(([value, label]) => ({ value, label }))]} />
+                        {place === 'sent' && <SegmentedTabs label="حالة التدقيق" value={audit} onChange={setAudit} options={auditFilters.map(([value, label, matches]) => ({ value, label: <>{label} · <span className="font-display">{matches ? inPlace.filter(matches).length : inPlace.length}</span></> }))} />}
                         <SegmentedTabs label="طريقة العرض" value={view} onChange={setView} options={[{ value: 'table', label: <><Icon name="table" className="h-4 w-4" />جدول</> }, { value: 'cards', label: <><Icon name="grid" className="h-4 w-4" />بطاقات</> }]} />
                     </div>
                 </div>
                 <div className="data-table-container financial-box-list-container">
-                    {!shown.length ? <div className="flex flex-col items-center gap-2 px-4 py-14 text-center text-gray-500"><Icon name="wallet" className="h-8 w-8 text-gray-400" /><p>{boxes.length ? 'لا توجد صناديق بهذه الفلاتر.' : <>لا صناديق في الأسبوع الجاري بعد. صناديق الأسابيع المرسلة إلى التدقيق تجدها في <Link href={urls.weekly} className="font-semibold text-brand-600 hover:underline">الإغلاق الأسبوعي</Link>.</>}</p></div> : view === 'cards' ? <div className="grid gap-4 py-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{sortFinancialBoxes(shown, sort).map((box) => <FinancialBoxCard key={box.id} box={box} period={boxPeriod(box)} onOpen={(item) => setBoxId(item.id)} />)}</div> : <FinancialBoxList boxes={sortFinancialBoxes(shown, sort)} onOpen={(box) => setBoxId(box.id)} periodFor={boxPeriod} sortState={sortState} onSort={sortBy} />}
+                    {!shown.length ? <div className="flex flex-col items-center gap-2 px-4 py-14 text-center text-gray-500"><Icon name="wallet" className="h-8 w-8 text-gray-400" /><p>{inPlace.length ? 'لا توجد صناديق بهذه الفلاتر.' : emptyPlace[place]}</p></div>
+                        : view === 'cards' ? <div className="grid gap-4 py-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{sortFinancialBoxes(shown, sort).map((box) => <FinancialBoxCard key={box.id} box={box} onOpen={(item) => setBoxId(item.id)} onSend={access.send ? setSending : undefined} selection={selection && canSendBox(box) ? selection : null} />)}</div>
+                            : <FinancialBoxList boxes={sortFinancialBoxes(shown, sort)} onOpen={(box) => setBoxId(box.id)} onSend={access.send ? setSending : undefined} sortState={{ sort: sort.key, direction: sort.direction }} onSort={sortBy} selection={selection && sendable.length ? { ...selection, toggleAll: () => selection.toggleAll(sendable.map((box) => box.id)) } : null} />}
                 </div>
-                <p className="data-table-totals text-sm text-gray-600"><span>المعروض <b className="font-display text-gray-900">{shown.length}</b> من <b className="font-display text-gray-900">{boxes.length}</b> صندوقًا</span><span>مجموع الصناديق المعروضة: <b className="font-display text-gray-900">{financialAmountsLine(financialBoxesTotals(shown))}</b></span></p>
+                <p className="data-table-totals text-sm text-gray-600"><span>المعروض <b className="font-display text-gray-900">{shown.length}</b> من <b className="font-display text-gray-900">{inPlace.length}</b> صندوقًا{place === 'sent' && inPlace.length >= 200 ? ' (أحدث 200 صندوق مرسل)' : ''}</span><span>مجموع الصناديق المعروضة: <b className="font-display text-gray-900">{financialAmountsLine(financialBoxesTotals(shown))}</b></span></p>
             </section>
         </div>}
-        {followup && <Modal show onClose={() => setFollowup(null)} maxWidth="full" panelClassName="financial-box-followup flex flex-col">
-            <header className="flex items-center justify-between gap-3 border-b border-gray-100 p-6"><div><h2 className="text-xl font-bold text-gray-900">الحركات المرفوضة</h2><p className="mt-1 text-sm text-gray-500">راجع الحركات وصحّحها من حساب المشترك عند الحاجة.</p></div><button type="button" onClick={() => setFollowup(null)} aria-label="إغلاق المتابعة" className="rounded-control p-2 text-gray-500 hover:bg-gray-100"><Icon name="close" className="h-5 w-5" /></button></header>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-gray-50 p-5">{!rejected.length ? <p className="py-10 text-center text-sm text-gray-500">لا توجد حركات تنتظر المتابعة.</p> : rejected.map((entry) => <article key={entry.id} className="space-y-3 rounded-2xl border border-gray-100 bg-surface p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-gray-900">{entry.transaction?.subscription?.subscription_name || entry.transaction?.subscription?.full_name || '—'}</p><p className="text-xs text-gray-500">{boxTypes[entry.box.type]} · صندوق <b className="font-display">{entry.box.number}</b> · {boxPersonName(entry.box)}</p></div><b dir="ltr" className="font-display text-gray-900">{formatMoney(entry.amount)} <span className="text-xs font-normal text-gray-500">{currencies[entry.currency]}</span></b></div><p className="break-words text-sm text-gray-600">{entry.method === 'clearing' ? entry.transaction?.notes : entry.transaction?.reference_number}</p><div className="flex flex-wrap gap-3"><SecondaryButton type="button" className="px-3 py-1.5" onClick={() => { setFollowup(null); setBoxId(entry.box.id); }}>فتح الصندوق</SecondaryButton>{entry.statement_url && <Link href={entry.statement_url} prefetch className="self-center text-sm font-semibold text-brand-600">حساب المشترك</Link>}</div></article>)}</div>
-        </Modal>}
-        {selectedBox && <BoxDetails key={selectedBox.id} box={selectedBox} onClose={closeBox} perform={perform} period={boxPeriod(selectedBox)} />}
+        {pickedBoxes.length > 0 && <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
+            <div className="pointer-events-auto flex w-full max-w-3xl flex-wrap items-center gap-3 rounded-[22px] bg-gray-900 p-2.5 ps-4 text-surface shadow-lift">
+                <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-brand-500 px-2 font-display text-sm font-bold text-white">{pickedBoxes.length}</span>
+                <span className="min-w-0 flex-1 leading-5"><b className="block text-sm">{pickedBoxes.length === 1 ? 'صندوق محدد' : 'صناديق محددة'}</b><small className="block font-display text-xs opacity-75">{financialAmountsLine(financialBoxesTotals(pickedBoxes))}</small></span>
+                <button type="button" onClick={() => setPicked(new Set())} className="rounded-control px-3 py-2 text-sm font-semibold opacity-80 hover:opacity-100">إلغاء التحديد</button>
+                <button type="button" onClick={() => setSending(pickedBoxes)} className="inline-flex items-center gap-1.5 rounded-control bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-glow hover:bg-brand-600"><Icon name="send" className="h-4 w-4" />إرسال إلى التدقيق</button>
+            </div>
+        </div>}
+        {sending && <SendBoxesModal boxes={sending} onClose={() => setSending(null)} onSend={(note, done) => send(sending, note, done)} />}
+        {selectedBox && <BoxDetails key={selectedBox.id} box={selectedBox} onClose={closeBox} perform={perform} onSend={access.send ? (box) => setSending([box]) : undefined} />}
     </AuthenticatedLayout>;
 }

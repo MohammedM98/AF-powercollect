@@ -42,7 +42,7 @@ class CampTwoCollectorSeederTest extends TestCase
         $this->actingAs($user)->get(route('payments.index'))->assertOk();
         $this->get(route('payments.summary'))->assertOk();
         $this->get(route('payments.cash-boxes'))->assertOk();
-        $this->get(route('closings.index'))->assertForbidden();
+        $this->get(route('box-audit.index'))->assertForbidden();
         $this->get(route('subscriptions.index'))->assertForbidden();
     }
 

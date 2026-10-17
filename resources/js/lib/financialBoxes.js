@@ -41,13 +41,35 @@ export function sortFinancialBoxes(boxes, { key = 'status', direction = 'asc' } 
 
 /**
  * A box's status as everyone sees it, with its pill tone: still collecting,
- * closed at the weekly cutoff and waiting for the branch, or closed.
+ * closed on its own (its collector left) and waiting for the branch, or
+ * closed.
  */
 export const boxStatusLabels = {
     open: ['مفتوح', 'blue'],
     pending: ['بانتظار تأكيد الإغلاق', 'amber'],
     received: ['مُغلق', 'green'],
 };
+
+/** Where a box sent to audit stands there, with its pill tone. */
+export const auditStatusLabels = {
+    waiting: ['بانتظار التدقيق', 'gray'],
+    reviewing: ['قيد التدقيق', 'blue'],
+    returned: ['أُعيد بملاحظة', 'red'],
+    approved: ['مُدقّق', 'green'],
+};
+
+/**
+ * A box's status on the branch's pages: open or waiting for the branch to
+ * confirm it closed; closed and not sent yet; or, once sent, where it
+ * stands in audit.
+ */
+export function boxStatus(box) {
+    if (box.sent_at) {
+        return auditStatusLabels[box.audit_status] ?? auditStatusLabels.waiting;
+    }
+
+    return box.status === 'received' ? ['مُغلق · لم يُرسل', 'amber'] : boxStatusLabels[box.status];
+}
 
 /**
  * An entry's status as everyone sees it, with its pill tone: in effect,

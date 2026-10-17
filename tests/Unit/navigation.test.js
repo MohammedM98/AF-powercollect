@@ -54,27 +54,27 @@ test('staff with box access can reach their boxes without payment access and onl
     assert.equal(isActiveLink(boxes, '/payments/cash-boxes/12'), true);
 });
 
-test('closing boxes lives in the financial boxes link, whose open entries tab lights it too, beside the safe and statements page', () => {
-    const links = allowedNavigationGroups({ viewCashBoxes: true, viewBranchReconciliation: true }).flatMap((group) => group.links);
+test('closing and sending boxes lives in the financial boxes link, whose tabs light it too, and the audit has its own page', () => {
+    const links = allowedNavigationGroups({ viewCashBoxes: true, auditCashBoxes: true }).flatMap((group) => group.links);
 
-    assert.deepEqual(links.map((link) => [link.href, link.label]), [['/payments/cash-boxes', 'الصناديق المالية'], ['/reconciliation', 'إدارة الإغلاق']]);
-    assert.equal(isActiveLink(links[0], '/payments/cash-boxes?branch_id=2&box=7'), true);
+    assert.deepEqual(links.map((link) => [link.href, link.label]), [['/payments/cash-boxes', 'الصناديق المالية'], ['/box-audit', 'تدقيق صناديق الفروع']]);
+    assert.equal(isActiveLink(links[0], '/payments/cash-boxes?branch_id=2&place=sent&box=7'), true);
     assert.equal(isActiveLink(links[0], '/payments/cash-boxes/entries?branch_id=2'), true);
 });
 
 test('a section menu describes only the pages the user can open', () => {
     const everything = Object.fromEntries([...MAIN_LINKS, ...SETTINGS_LINKS].filter((link) => link.can).map((link) => [link.can, true]));
     const daily = allowedNavigationGroups(everything).find((group) => group.id === 'daily');
-    const finance = allowedNavigationGroups({ recordPayments: true, viewLedger: true, viewDebtAging: true, viewReports: true, viewBranchReconciliation: true }).find((group) => group.id === 'finance');
+    const finance = allowedNavigationGroups({ recordPayments: true, viewLedger: true, viewDebtAging: true, viewReports: true, auditCashBoxes: true }).find((group) => group.id === 'finance');
 
     assert.equal(groupSummary(daily), 'المشتركون والقراءات والرسائل');
-    assert.equal(groupSummary(finance), 'تسجيل الدفعات وإدارة الإغلاق والسجل المالي وغيرها');
+    assert.equal(groupSummary(finance), 'تسجيل الدفعات وتدقيق صناديق الفروع والسجل المالي وغيرها');
     assert.equal(groupSummary(allowedNavigationGroups({ viewMessages: true })[0]), 'الرسائل');
 });
 
 test('a collector who sees only their own boxes finds them named as theirs', () => {
     const own = allowedNavigationGroups({ recordPayments: true, viewOwnCashBoxes: true, viewCashBoxes: true }).flatMap((group) => group.links);
-    const branch = allowedNavigationGroups({ viewOwnCashBoxes: true, viewCashBoxes: true, viewBranchReconciliation: true }).flatMap((group) => group.links);
+    const branch = allowedNavigationGroups({ viewOwnCashBoxes: true, viewCashBoxes: true, viewBranchBoxes: true }).flatMap((group) => group.links);
 
     assert.deepEqual(own.map((link) => link.label), ['تسجيل الدفعات', 'ملخص التحصيل', 'صناديقي']);
     assert.deepEqual(branch.map((link) => link.label).slice(0, 2), ['ملخص التحصيل', 'الصناديق المالية']);

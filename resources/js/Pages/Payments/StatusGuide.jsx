@@ -1,17 +1,20 @@
 import Icon from '@/Components/Icon';
 import StatusPill from '@/Components/DataTable/StatusPill';
-import { boxStatusLabels } from '@/lib/financialBoxes';
+import { auditStatusLabels, boxStatusLabels } from '@/lib/financialBoxes';
 
 const boxStatuses = [
-    ['open', 'يجمع دفعات المحصّل الجديدة من نوعه.'],
-    ['pending', 'أغلقه موعد القطع الأسبوعي، وينتظر أن يؤكّد الفرع إغلاقه.'],
-    ['received', 'أكّد الفرع إغلاقه؛ قُفلت حركاته وانتقل إلى التدقيق.'],
+    [boxStatusLabels.open, 'يجمع دفعات المحصّل الجديدة من نوعه حتى يؤكّد الفرع إغلاقه.'],
+    [boxStatusLabels.pending, 'أُغلق وحده عند مغادرة المحصّل، وينتظر أن يؤكّد الفرع إغلاقه.'],
+    [['مُغلق · لم يُرسل', 'amber'], 'أكّد الفرع إغلاقه فقُفلت حركاته، وينتظر أن يُرسل إلى التدقيق.'],
+    [auditStatusLabels.waiting, 'أُرسل إلى قسم التدقيق ولم يبدأ تدقيقه، أو ردّ الفرع على ملاحظته.'],
+    [auditStatusLabels.reviewing, 'فتحه قسم التدقيق ويدقّقه الآن.'],
+    [auditStatusLabels.returned, 'أعاده التدقيق بملاحظة تنتظر ردّ الفرع.'],
+    [auditStatusLabels.approved, 'اعتمده التدقيق، وقد يحمّل على الفرع دينًا مع سببه.'],
 ];
 
 const entryStatuses = [
     ['سارية', 'green', 'حركة قائمة تُحسب في إجمالي الصندوق.'],
     ['ملغاة', 'gray', 'أُلغيت أو أُرجعت من كشف المشترك، فلا تُحسب في الإجمالي.'],
-    ['متأخرة', 'amber', 'سُجّلت بعد إرسال كشف أسبوعها، فدخلت في الأسبوع الحالي.'],
     ['غير موجودة في البنك', 'red', 'حوالة لم يُعثر عليها في البنك عند التحقق منها، وتحتاج متابعة.'],
     ['مرفوضة', 'red', 'مقاصة رُفضت عند التحقق منها، وتحتاج متابعة.'],
 ];
@@ -32,8 +35,8 @@ export default function StatusGuide({ className = '' }) {
             <section aria-label="حالة الصندوق">
                 <h3 className="mb-2 text-xs font-bold text-gray-500">حالة الصندوق</h3>
                 <dl className="space-y-2">
-                    {boxStatuses.map(([status, meaning]) => <div key={status} className="flex items-start gap-3">
-                        <dt className="w-40 shrink-0"><StatusPill tone={boxStatusLabels[status][1]} label={boxStatusLabels[status][0]} /></dt>
+                    {boxStatuses.map(([[label, tone], meaning]) => <div key={label} className="flex items-start gap-3">
+                        <dt className="w-40 shrink-0"><StatusPill tone={tone} label={label} /></dt>
                         <dd className="leading-6 text-gray-600">{meaning}</dd>
                     </div>)}
                 </dl>
@@ -47,7 +50,7 @@ export default function StatusGuide({ className = '' }) {
                     </div>)}
                 </dl>
             </section>
-            <p className="flex items-start gap-2 rounded-control bg-gray-50 p-3 leading-6 text-gray-600 md:col-span-2"><Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />تأكيد الحوالات والمقاصات أو رفضها من عمل قسم التدقيق بعد إغلاق الصندوق، لا من عمل الفرع أو المحصّل.</p>
+            <p className="flex items-start gap-2 rounded-control bg-gray-50 p-3 leading-6 text-gray-600 md:col-span-2"><Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />تدقيق الصناديق، نقدية أو حوالات أو مقاصات، من عمل قسم التدقيق بعد إرسالها، لا من عمل الفرع أو المحصّل؛ وهو وحده من يحمّل الديون، وعلى الفرع فقط.</p>
         </div>
     </details>;
 }

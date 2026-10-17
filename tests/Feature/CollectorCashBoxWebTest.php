@@ -82,9 +82,9 @@ class CollectorCashBoxWebTest extends TestCase
                 ->where('cashBox.boxes.0.paymentCount', 1)
                 ->where('cashBox.boxes.0.expectedCounts', null)
                 ->where('cashBox.boxes.0.stage', 'open')
-                ->where('cashBox.boxes.0.urls.confirm', route('closings.actions', ['action' => 'confirm', 'record' => $box->id])));
+                ->where('cashBox.boxes.0.urls.confirm', route('payments.cash-boxes.actions', ['action' => 'confirm', 'record' => $box->id])));
 
-        $this->get(route('closings.index'))->assertForbidden();
+        $this->get(route('box-audit.index'))->assertForbidden();
     }
 
     public function test_branch_close_is_visible_to_the_collector_and_new_payment_uses_new_box(): void
@@ -92,8 +92,8 @@ class CollectorCashBoxWebTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $box = $this->payment($branch, $collector);
 
-        $this->actingAs($collector)->post(route('closings.actions', ['action' => 'close', 'record' => $box->id]), ['branch_id' => $branch->id, 'counts' => $this->counts()])->assertForbidden();
-        $this->actingAs($head)->post(route('closings.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id, 'cash_counted' => true])->assertSessionHasNoErrors();
+        $this->actingAs($collector)->post(route('payments.cash-boxes.actions', ['action' => 'close', 'record' => $box->id]), ['branch_id' => $branch->id, 'counts' => $this->counts()])->assertForbidden();
+        $this->actingAs($head)->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id])->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('cash_boxes', ['id' => $box->id, 'status' => 'received', 'close_reason' => 'manual', 'received_by' => $head->id]);
         $next = $this->payment($branch, $collector);
@@ -112,14 +112,14 @@ class CollectorCashBoxWebTest extends TestCase
         $token = MobileAccessToken::issue($collector);
         $this->withToken($token)->postJson(route('mobile.cash-boxes.actions', ['action' => 'close', 'record' => $box->id]), ['branch_id' => $branch->id])->assertForbidden();
 
-        $this->actingAs($head)->post(route('closings.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id, 'cash_counted' => true])->assertSessionHasNoErrors();
+        $this->actingAs($head)->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id])->assertSessionHasNoErrors();
         $this->actingAs($collector)->get(route('payments.summary'))
             ->assertInertia(fn (AssertableInertia $page) => $page->where('cashBox.boxes.0.stage', 'completed')->where('cashBox.boxes.0.receivedAmounts.ILS', '100.00')
                 ->where('cashBox.boxes.0.differences.ILS', '0.00')->has('cashBox.needsAction', 0));
-        $this->post(route('closings.actions', ['action' => 'confirm', 'record' => $box->id]), ['branch_id' => $branch->id])->assertSessionHasErrors('action');
+        $this->post(route('payments.cash-boxes.actions', ['action' => 'confirm', 'record' => $box->id]), ['branch_id' => $branch->id])->assertSessionHasErrors('action');
     }
 
-    public function test_automatic_cutoff_leaves_the_box_for_the_branch(): void
+    public function test_the_weekly_cutoff_leaves_the_box_open_until_the_branch_closes_it(): void
     {
         [$branch, $head, $collector] = $this->start();
         $box = $this->payment($branch, $collector);
@@ -127,13 +127,13 @@ class CollectorCashBoxWebTest extends TestCase
 
         $this->actingAs($collector)->get(route('payments.summary'))
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->where('cashBox.boxes.0.status', 'pending')
-                ->where('cashBox.boxes.0.stage', 'awaiting_branch')
+                ->where('cashBox.boxes.0.status', 'open')
+                ->where('cashBox.boxes.0.stage', 'open')
                 ->where('cashBox.boxes.0.expectedCounts', null)
                 ->has('cashBox.needsAction', 0));
-        $this->post(route('closings.actions', ['action' => 'collector-count', 'record' => $box->id]), ['branch_id' => $branch->id, 'counts' => $this->counts()])->assertForbidden();
+        $this->post(route('payments.cash-boxes.actions', ['action' => 'collector-count', 'record' => $box->id]), ['branch_id' => $branch->id, 'counts' => $this->counts()])->assertForbidden();
 
-        $this->actingAs($head)->post(route('closings.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id, 'cash_counted' => true])->assertSessionHasNoErrors();
+        $this->actingAs($head)->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id])->assertSessionHasNoErrors();
         $this->assertSame(['ILS' => '100.00', 'USD' => '0.00', 'JOD' => '0.00'], $box->fresh()->head_counts);
     }
 
@@ -142,10 +142,10 @@ class CollectorCashBoxWebTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $box = $this->payment($branch, $head);
 
-        $this->actingAs($collector)->post(route('closings.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id, 'cash_counted' => true])->assertForbidden();
+        $this->actingAs($collector)->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id])->assertForbidden();
 
         $this->assertDatabaseHas('cash_boxes', ['id' => $box->id, 'status' => 'open', 'head_counts' => null]);
-        $this->post(route('closings.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => Branch::factory()->create()->id])->assertNotFound();
+        $this->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => Branch::factory()->create()->id])->assertNotFound();
         $this->assertDatabaseHas('cash_boxes', ['id' => $box->id, 'status' => 'open', 'head_counts' => null]);
     }
 
@@ -190,7 +190,7 @@ class CollectorCashBoxWebTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $box = $this->payment($branch, $collector);
 
-        $this->actingAs($head)->post(route('closings.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id, 'cash_counted' => true])->assertSessionHasNoErrors();
+        $this->actingAs($head)->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id])->assertSessionHasNoErrors();
         CollectorDebt::query()->create(['cash_box_id' => $box->id, 'branch_id' => $branch->id, 'user_id' => $collector->id, 'currency' => 'ILS', 'amount' => '40.00', 'remaining' => '40.00']);
 
         $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page
@@ -234,7 +234,7 @@ class CollectorCashBoxWebTest extends TestCase
         $this->assertSame((string) $box->id, $box->number);
         $this->assertNull($statementBox());
 
-        $this->post(route('closings.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id, 'cash_counted' => true])->assertSessionHasNoErrors();
+        $this->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id])->assertSessionHasNoErrors();
 
         $this->assertSame($box->number, $statementBox());
     }
@@ -243,13 +243,15 @@ class CollectorCashBoxWebTest extends TestCase
     {
         [$branch, $head, $collector] = $this->start();
         $received = $this->payment($branch, $collector);
-        $this->actingAs($head)->post(route('closings.actions', ['action' => 'receive', 'record' => $received->id]), ['branch_id' => $branch->id, 'cash_counted' => true])->assertSessionHasNoErrors();
-        $cutOff = $this->payment($branch, $collector);
-        $this->travelTo($cutOff->closing->coverage_until->addMinute());
+        $this->actingAs($head)->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $received->id]), ['branch_id' => $branch->id])->assertSessionHasNoErrors();
+        $left = $this->payment($branch, $collector);
+        $collector->update(['is_active' => false]);
+        $this->artisan('closings:process')->assertSuccessful();
+        $collector->update(['is_active' => true]);
 
         $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('boxes.data.0.id', $cutOff->id)
-            ->where('boxes.data.0.closedBy', 'تلقائي عند القطع الأسبوعي')
+            ->where('boxes.data.0.id', $left->id)
+            ->where('boxes.data.0.closedBy', 'تلقائي عند مغادرة المحصّل')
             ->where('boxes.data.0.receivedAmounts.ILS', '0.00')
             ->where('boxes.data.0.settledIn', null)
             ->where('boxes.data.1.id', $received->id)

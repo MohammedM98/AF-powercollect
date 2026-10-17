@@ -109,7 +109,7 @@ class CashBoxEntriesTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, '250', 'bank_transfer');
 
-        $this->actingAs($head)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
+        $this->actingAs($head)->get(route('payments.cash-boxes', ['place' => 'open']))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('boxes.0.id', $entry->cash_box_id)
             ->where('boxes.0.payments.0.ledger.referenceNumber', 'TRX-77')
             ->where('boxes.0.payments.0.ledger.paymentMethodLabel', __('Bank Transfer'))
@@ -136,7 +136,9 @@ class CashBoxEntriesTest extends TestCase
         $this->entry($branch, $collector, '250', 'bank_transfer');
         $this->entry($branch, $collector, '40');
         $tabs = [
-            ['key' => 'boxes', 'label' => 'الصناديق', 'count' => 2, 'url' => route('payments.cash-boxes')],
+            ['key' => 'open', 'label' => 'الصناديق المفتوحة', 'count' => 2, 'url' => route('payments.cash-boxes', ['place' => 'open'])],
+            ['key' => 'closed', 'label' => 'المغلقة · جاهزة للإرسال', 'count' => 0, 'url' => route('payments.cash-boxes', ['place' => 'closed'])],
+            ['key' => 'sent', 'label' => 'المرسلة إلى التدقيق', 'count' => 0, 'alert' => 0, 'url' => route('payments.cash-boxes', ['place' => 'sent'])],
             ['key' => 'entries', 'label' => 'الحركات المفتوحة', 'count' => 3, 'url' => route('payments.cash-boxes.entries')],
         ];
 
@@ -150,7 +152,7 @@ class CashBoxEntriesTest extends TestCase
     {
         [$branch, $head, $collector] = $this->start();
         $closed = $this->entry($branch, $collector, '100');
-        $this->actingAs($head)->post(route('closings.actions', ['action' => 'receive', 'record' => $closed->cash_box_id]), ['branch_id' => $branch->id, 'cash_counted' => true])->assertSessionHasNoErrors();
+        $this->actingAs($head)->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $closed->cash_box_id]), ['branch_id' => $branch->id])->assertSessionHasNoErrors();
         $open = $this->entry($branch, $collector, '40');
 
         $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page
@@ -181,8 +183,7 @@ class CashBoxEntriesTest extends TestCase
             ->where('closableBoxes.2.entries.0.bankName', 'بنك فلسطين')
             ->where('closableBoxes.2.entries.0.amount', '250.00'));
 
-        $close = fn (array $boxIds, array $data = []) => $this->post(route('closings.actions', ['action' => 'receive-type']), ['branch_id' => $branch->id, 'type' => 'cash', 'box_ids' => $boxIds, 'cash_counted' => true, ...$data]);
-        $close([$first->cash_box_id], ['cash_counted' => false])->assertSessionHasErrors('action');
+        $close = fn (array $boxIds, array $data = []) => $this->post(route('payments.cash-boxes.actions', ['action' => 'receive-type']), ['branch_id' => $branch->id, 'type' => 'cash', 'box_ids' => $boxIds, ...$data]);
         $close([])->assertSessionHasErrors('box_ids');
         $this->assertSame('open', $first->box->fresh()->status);
 
@@ -199,7 +200,7 @@ class CashBoxEntriesTest extends TestCase
         [$branch, $head, $collector] = $this->start();
         $cash = $this->entry($branch, $collector, '100');
         $transfer = $this->entry($branch, $collector, '250', 'bank_transfer');
-        $close = fn (array $boxIds) => $this->actingAs($head)->post(route('closings.actions', ['action' => 'receive-type']), ['branch_id' => $branch->id, 'type' => 'cash', 'box_ids' => $boxIds, 'cash_counted' => true]);
+        $close = fn (array $boxIds) => $this->actingAs($head)->post(route('payments.cash-boxes.actions', ['action' => 'receive-type']), ['branch_id' => $branch->id, 'type' => 'cash', 'box_ids' => $boxIds]);
 
         $close([$cash->cash_box_id, $transfer->cash_box_id])->assertSessionHasErrors('action');
         $this->assertSame('open', $cash->box->fresh()->status);
@@ -215,15 +216,15 @@ class CashBoxEntriesTest extends TestCase
         $entry = $this->entry($branch, $collector);
         $staff = User::factory()->accountant()->for($branch)->create();
 
-        $data = ['branch_id' => $branch->id, 'type' => 'cash', 'box_ids' => [$entry->cash_box_id], 'cash_counted' => true];
-        $this->actingAs($collector)->post(route('closings.actions', ['action' => 'receive-type']), $data)->assertForbidden();
-        $this->actingAs($staff)->post(route('closings.actions', ['action' => 'receive-type']), $data)->assertForbidden();
+        $data = ['branch_id' => $branch->id, 'type' => 'cash', 'box_ids' => [$entry->cash_box_id]];
+        $this->actingAs($collector)->post(route('payments.cash-boxes.actions', ['action' => 'receive-type']), $data)->assertForbidden();
+        $this->actingAs($staff)->post(route('payments.cash-boxes.actions', ['action' => 'receive-type']), $data)->assertForbidden();
         $this->actingAs($collector)->get(route('payments.summary'))->assertInertia(fn (AssertableInertia $page) => $page->missing('closableBoxes'));
 
         $closer = User::factory()->collector()->for($branch)->create();
         $closer->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::CloseCashBoxes]));
         $this->actingAs($closer)->get(route('payments.cash-boxes.entries'))->assertInertia(fn (AssertableInertia $page) => $page->has('closableBoxes', 1));
-        $this->post(route('closings.actions', ['action' => 'receive-type']), $data)->assertSessionHasNoErrors();
+        $this->post(route('payments.cash-boxes.actions', ['action' => 'receive-type']), $data)->assertSessionHasNoErrors();
 
         $this->assertSame('received', CashBox::query()->findOrFail($entry->cash_box_id)->status);
     }

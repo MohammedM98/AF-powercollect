@@ -30,6 +30,7 @@
 .financial-box-list-row:hover,
 .financial-box-list-row:focus-within { border-color: rgb(var(--gray-300)); box-shadow: 0 1px 2px rgb(16 24 40 / .04), 0 14px 34px -18px rgb(16 24 40 / .18); }
 .financial-box-list-row > td { min-width: 0; padding: 0; border: 0; text-align: start; overflow-wrap: anywhere; }
+.financial-box-list-row.is-picked { border-color: rgb(var(--brand-500) / .45); background-image: linear-gradient(180deg, rgb(var(--brand-500) / .05), transparent 60%); }
 .financial-box-list-number { grid-area: number; }
 .financial-box-list-type { grid-area: type; display: flex; align-items: center; gap: 10px; }
 .financial-box-list-person { grid-area: person; display: flex; align-items: center; gap: 8px; }

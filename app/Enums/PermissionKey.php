@@ -74,6 +74,7 @@ enum PermissionKey: string
     case RecordCashPayments = 'collections.record_cash';
     case RecordTransferPayments = 'collections.record_transfer';
     case CloseCashBoxes = 'collections.close_boxes';
+    case SendCashBoxesToAudit = 'collections.send_boxes';
     case ConfirmCollections = 'collections.confirm';
     case ViewCollections = 'collections.view';
     case AddCharges = 'collections.charge';
@@ -168,6 +169,7 @@ enum PermissionKey: string
             self::RecordCashPayments => 'Take Cash Payments',
             self::RecordTransferPayments => 'Take Bank Transfer Payments',
             self::CloseCashBoxes => 'Close Cash Boxes',
+            self::SendCashBoxesToAudit => 'Send Cash Boxes to Audit',
             self::ConfirmCollections => 'Confirm Collections',
             self::ViewCollections => 'View Collections',
             self::AddCharges => 'Add Charges',
@@ -292,6 +294,7 @@ enum PermissionKey: string
                     'record_cash' => self::RecordCashPayments,
                     'record_transfer' => self::RecordTransferPayments,
                     'close_boxes' => self::CloseCashBoxes,
+                    'send_boxes' => self::SendCashBoxesToAudit,
                     'confirm' => self::ConfirmCollections,
                     'charge' => self::AddCharges,
                     'discount' => self::AddDiscounts,

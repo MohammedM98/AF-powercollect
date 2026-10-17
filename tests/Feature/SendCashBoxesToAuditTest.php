@@ -67,7 +67,7 @@ class SendCashBoxesToAuditTest extends TestCase
         $this->action($head, $branch, 'send', data: ['box_ids' => [$cash->id, $transfer->id], 'note' => 'الحوالة وصلت متأخرة'])->assertSessionHasNoErrors();
 
         foreach ([$cash, $transfer] as $box) {
-            $this->assertDatabaseHas('cash_boxes', ['id' => $box->id, 'sent_by' => $head->id, 'sent_at' => now(), 'send_note' => 'الحوالة وصلت متأخرة', 'audit_status' => 'waiting']);
+            $this->assertDatabaseHas('cash_boxes', ['id' => $box->id, 'sent_by' => $head->id, 'sent_at' => now(), 'send_note' => 'الحوالة وصلت متأخرة']);
         }
         Notification::assertSentTo($auditor, BranchClosingNotification::class, fn (BranchClosingNotification $notification): bool => $notification->subject === "{$cash->number}، {$transfer->number}");
     }
@@ -121,7 +121,7 @@ class SendCashBoxesToAuditTest extends TestCase
             ->where('place', 'closed')->has('boxes', 1)->where('boxes.0.id', $closed->id)
             ->where('boxes.0.closedBy', $head->name)->where('boxes.0.sent_at', null)->where('boxes.0.canSend', true));
         $this->get(route('payments.cash-boxes', ['place' => 'sent']))->assertInertia(fn (AssertableInertia $page) => $page
-            ->has('boxes', 1)->where('boxes.0.id', $sent->id)->where('boxes.0.audit_status', 'waiting')
+            ->has('boxes', 1)->where('boxes.0.id', $sent->id)->where('boxes.0.place', 'sent')
             ->where('boxes.0.closedBy', $head->name)->where('boxes.0.sentBy', $head->name)
             ->where('boxes.0.opened_at', $sent->opened_at->toJSON())->where('boxes.0.sent_at', now()->toJSON()));
     }
@@ -140,8 +140,8 @@ class SendCashBoxesToAuditTest extends TestCase
 
         $migration->up();
 
-        $this->assertDatabaseHas('cash_boxes', ['id' => $sentBox->id, 'sent_at' => now()->subDay(), 'sent_by' => $head->id, 'audit_status' => 'waiting']);
-        $this->assertDatabaseHas('cash_boxes', ['id' => $unsentBox->id, 'sent_at' => null, 'audit_status' => null]);
+        $this->assertDatabaseHas('cash_boxes', ['id' => $sentBox->id, 'sent_at' => now()->subDay(), 'sent_by' => $head->id]);
+        $this->assertDatabaseHas('cash_boxes', ['id' => $unsentBox->id, 'sent_at' => null, 'sent_by' => null]);
         $this->assertTrue($head->fresh()->hasPermission(PermissionKey::SendCashBoxesToAudit));
     }
 }

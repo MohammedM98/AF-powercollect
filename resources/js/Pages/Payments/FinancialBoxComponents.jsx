@@ -41,7 +41,7 @@ export function FinancialBoxType({ box }) {
 
 export function FinancialBoxStatus({ box }) {
     const [label, tone] = boxStatus(box);
-    return <><StatusPill tone={tone} label={label} />{Number(box.branch_debt ?? 0) > 0 && <span className="mt-1 block text-xs font-semibold text-brand-600">دين على الفرع {formatMoney(box.branch_debt)} شيكل</span>}</>;
+    return <StatusPill tone={tone} label={label} />;
 }
 
 export function FinancialBoxAmount({ box, large = false }) {
@@ -98,22 +98,13 @@ export function canCloseBox(box) {
 /** Whether the actor may send the box to audit now: the branch confirmed it closed and has not sent it. */
 export const canSendBox = (box) => Boolean(box.canSend) && box.status === 'received' && !box.sent_at;
 
-/** Whether the audit sent the box back with a note the actor may answer. */
-export const canAnswerBox = (box) => Boolean(box.canSend) && box.audit_status === 'returned';
-
-/**
- * The box's main action in its row: review and close it while it is open,
- * send it once closed, answer the audit when it sent it back, else open it.
- */
+/** The box's main action in its row: review and close it while it is open, send it once closed, else open it. */
 export function FinancialBoxButton({ box, onOpen, onSend, className = '' }) {
     if (canCloseBox(box)) {
         return <PrimaryButton type="button" onClick={() => onOpen(box)} className={`whitespace-nowrap px-3 py-1.5 ${className}`}><Icon name="check" className="h-4 w-4" />مراجعة وإغلاق</PrimaryButton>;
     }
     if (onSend && canSendBox(box)) {
         return <PrimaryButton type="button" onClick={() => onSend([box])} className={`whitespace-nowrap px-3 py-1.5 ${className}`}><Icon name="send" className="h-4 w-4" />إرسال</PrimaryButton>;
-    }
-    if (canAnswerBox(box)) {
-        return <SecondaryButton type="button" onClick={() => onOpen(box)} className={`whitespace-nowrap px-3 py-1.5 text-brand-600 ${className}`}><Icon name="chat" className="h-4 w-4" />الرد على التدقيق</SecondaryButton>;
     }
 
     return <SecondaryButton type="button" onClick={() => onOpen(box)} className={`whitespace-nowrap px-3 py-1.5 ${className}`}>عرض الصندوق</SecondaryButton>;

@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\AreaController;
-use App\Http\Controllers\BoxAuditController;
 use App\Http\Controllers\BranchClosingController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchPerformanceController;
@@ -72,8 +71,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments/cash-boxes/{cashBox}', [PaymentController::class, 'showCashBox'])->whereNumber('cashBox')->name('payments.cash-boxes.show');
     Route::post('/payments/audit-notes/{auditNote}/reply', [PaymentController::class, 'replyToAuditNote'])->whereNumber('auditNote')->name('payments.audit-notes.reply');
     Route::post('/payments/cash-boxes/actions/{action}/{record?}', [BranchClosingController::class, 'action'])->whereNumber('record')->name('payments.cash-boxes.actions');
-    Route::get('/box-audit', [BoxAuditController::class, 'index'])->name('box-audit.index');
-    Route::post('/box-audit/{cashBox}/{action}', [BoxAuditController::class, 'action'])->whereNumber('cashBox')->whereIn('action', ['start', 'approve', 'return'])->name('box-audit.actions');
     Route::get('/payments/search', [PaymentController::class, 'search'])->name('payments.search');
     Route::post('/payments/split', [SplitPaymentController::class, 'store'])->name('payments.split.store');
     Route::get('/payments/split/reference-status', [SplitPaymentController::class, 'referenceStatus'])->name('payments.split.reference-status');

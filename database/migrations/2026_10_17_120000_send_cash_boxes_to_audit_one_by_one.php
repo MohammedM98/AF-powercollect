@@ -9,11 +9,10 @@ return new class extends Migration
 {
     /**
      * Boxes go to audit one by one, no longer in a weekly package: each box
-     * keeps when it was sent, who sent it and their note, where it stands in
-     * audit, who audited it, and any debt the audit charged to the branch
-     * for it. A box received into a week the branch already sent counts as
-     * sent then, by whoever sent the week, and waits on audit. The new
-     * permission to send boxes goes to every Branch Admin.
+     * keeps when it was sent, who sent it and their note. A box received
+     * into a week the branch already sent counts as sent then, by whoever
+     * sent the week. The new permission to send boxes goes to every Branch
+     * Admin.
      */
     public function up(): void
     {
@@ -21,19 +20,14 @@ return new class extends Migration
             $table->timestamp('sent_at')->nullable()->after('confirmed_at');
             $table->foreignId('sent_by')->nullable()->after('sent_at')->constrained('users')->restrictOnDelete();
             $table->text('send_note')->nullable()->after('sent_by');
-            $table->string('audit_status')->nullable()->after('send_note');
-            $table->timestamp('audited_at')->nullable()->after('audit_status');
-            $table->foreignId('audited_by')->nullable()->after('audited_at')->constrained('users')->restrictOnDelete();
-            $table->decimal('branch_debt', 12, 2)->nullable()->after('audited_by');
-            $table->text('branch_debt_reason')->nullable()->after('branch_debt');
-            $table->index(['branch_id', 'audit_status']);
+            $table->index(['branch_id', 'sent_at']);
         });
 
         $sentWeeks = DB::table('closings')->whereNotNull('workflow_settings')->whereNotNull('submitted_at')->get(['id', 'submitted_at', 'branch_approved_by']);
         foreach ($sentWeeks as $week) {
             DB::table('cash_boxes')->where('status', 'received')->whereNull('sent_at')
                 ->where(fn ($query) => $query->where('received_in_closing_id', $week->id)->orWhere(fn ($legacy) => $legacy->whereNull('received_in_closing_id')->where('closing_id', $week->id)))
-                ->update(['sent_at' => $week->submitted_at, 'sent_by' => $week->branch_approved_by, 'audit_status' => 'waiting']);
+                ->update(['sent_at' => $week->submitted_at, 'sent_by' => $week->branch_approved_by]);
         }
 
         $timestamp = now();
@@ -55,10 +49,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('cash_boxes', function (Blueprint $table): void {
-            $table->dropIndex(['branch_id', 'audit_status']);
-            $table->dropConstrainedForeignId('audited_by');
+            $table->dropIndex(['branch_id', 'sent_at']);
             $table->dropConstrainedForeignId('sent_by');
-            $table->dropColumn(['sent_at', 'send_note', 'audit_status', 'audited_at', 'branch_debt', 'branch_debt_reason']);
+            $table->dropColumn(['sent_at', 'send_note']);
         });
         $permissionId = DB::table('permissions')->where('key', 'collections.send_boxes')->value('id');
         DB::table('permission_user')->where('permission_id', $permissionId)->delete();

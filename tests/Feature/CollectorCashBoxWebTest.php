@@ -84,7 +84,7 @@ class CollectorCashBoxWebTest extends TestCase
                 ->where('cashBox.boxes.0.stage', 'open')
                 ->where('cashBox.boxes.0.urls.confirm', route('payments.cash-boxes.actions', ['action' => 'confirm', 'record' => $box->id])));
 
-        $this->get(route('box-audit.index'))->assertForbidden();
+        $this->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->component('Payments/CashBoxes'));
     }
 
     public function test_branch_close_is_visible_to_the_collector_and_new_payment_uses_new_box(): void

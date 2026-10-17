@@ -19,8 +19,8 @@ class BranchClosingController extends Controller
     /**
      * What the branch does with its boxes: start using them, confirm a box
      * closed (one, or several of a type at once), mark a transfer or
-     * clearing, let a collector confirm their own box, send closed boxes to
-     * audit, and answer the audit's notes on a box it sent back.
+     * clearing, let a collector confirm their own box, and send closed boxes
+     * to audit.
      */
     public function action(BranchClosingActionRequest $request, string $action, ?int $record = null): RedirectResponse
     {
@@ -31,7 +31,7 @@ class BranchClosingController extends Controller
         $allowed = match ($action) {
             'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
             'receive', 'receive-type', 'electronic' => BranchClosingAccess::receive($actor, $branchId),
-            'send', 'answer' => BranchClosingAccess::send($actor, $branchId),
+            'send' => BranchClosingAccess::send($actor, $branchId),
             'start' => BranchClosingAccess::manage($actor, $branchId),
             default => false,
         };
@@ -44,12 +44,11 @@ class BranchClosingController extends Controller
             }
             $this->workflow->refresh($branchId);
             abort_unless(ClosingSetting::ownFor($branchId)?->workflow_started_at, 404);
-            if (in_array($action, ['receive', 'confirm', 'answer'], true)) {
+            if (in_array($action, ['receive', 'confirm'], true)) {
                 $box = CashBox::query()->where('branch_id', $branchId)->findOrFail($record);
                 match ($action) {
                     'receive' => $this->workflow->receive($box, $actor),
                     'confirm' => $this->workflow->confirmBox($box, $actor),
-                    'answer' => $this->workflow->answerAudit($box, $actor, $data['body']),
                 };
             } elseif ($action === 'receive-type') {
                 $this->workflow->receiveType($branchId, $actor, CashBoxType::from($data['type']), array_map('intval', $data['box_ids']));

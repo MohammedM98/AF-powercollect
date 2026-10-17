@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['number', 'branch_id', 'user_id', 'kind', 'type', 'open_key', 'closing_id', 'status', 'opened_at', 'closed_at', 'collector_submitted_at', 'close_reason', 'collector_counts', 'head_counts', 'expected_counts', 'decisions', 'reason', 'received_by', 'received_at', 'received_in_closing_id', 'confirmed_at', 'sent_at', 'sent_by', 'send_note', 'audit_status', 'audited_at', 'audited_by', 'branch_debt', 'branch_debt_reason'])]
+#[Fillable(['number', 'branch_id', 'user_id', 'kind', 'type', 'open_key', 'closing_id', 'status', 'opened_at', 'closed_at', 'collector_submitted_at', 'close_reason', 'collector_counts', 'head_counts', 'expected_counts', 'decisions', 'reason', 'received_by', 'received_at', 'received_in_closing_id', 'confirmed_at', 'sent_at', 'sent_by', 'send_note'])]
 class CashBox extends Model
 {
     /** @use HasFactory<CashBoxFactory> */
@@ -19,7 +19,7 @@ class CashBox extends Model
 
     protected function casts(): array
     {
-        return ['type' => CashBoxType::class, 'collector_submitted_at' => 'datetime', 'collector_counts' => 'array', 'head_counts' => 'array', 'expected_counts' => 'array', 'decisions' => 'array', 'opened_at' => 'immutable_datetime', 'closed_at' => 'immutable_datetime', 'received_at' => 'datetime', 'confirmed_at' => 'datetime', 'sent_at' => 'datetime', 'audited_at' => 'datetime', 'branch_debt' => 'decimal:2'];
+        return ['type' => CashBoxType::class, 'collector_submitted_at' => 'datetime', 'collector_counts' => 'array', 'head_counts' => 'array', 'expected_counts' => 'array', 'decisions' => 'array', 'opened_at' => 'immutable_datetime', 'closed_at' => 'immutable_datetime', 'received_at' => 'datetime', 'confirmed_at' => 'datetime', 'sent_at' => 'datetime'];
     }
 
     public function stage(): string
@@ -84,16 +84,6 @@ class CashBox extends Model
     public function sentBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sent_by');
-    }
-
-    public function auditedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'audited_by');
-    }
-
-    public function auditNotes(): HasMany
-    {
-        return $this->hasMany(AuditNote::class);
     }
 
     public function receivedIn(): BelongsTo

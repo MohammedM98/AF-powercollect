@@ -4,9 +4,8 @@ import { Link } from '@inertiajs/react';
  * The financial boxes page's tabs beside its title, as the users page draws
  * its own: the branch's open boxes, its closed boxes not sent yet, those
  * sent to audit, and the entries of its open boxes, each with how many
- * there are (and, on the sent tab, how many the audit sent back). `tabs`
- * come from the server with their links; `current` is the key of the one
- * shown.
+ * there are. `tabs` come from the server with their links; `current` is the
+ * key of the one shown.
  */
 export default function BoxTabs({ tabs, current }) {
     return (
@@ -27,7 +26,6 @@ export default function BoxTabs({ tabs, current }) {
                     >
                         {tab.label}
                         <span className={`rounded-full px-1.5 font-display text-xs ${active ? 'bg-gray-100 text-gray-700' : 'bg-surface/60 text-gray-500'}`}>{tab.count.toLocaleString('en')}</span>
-                        {tab.alert > 0 && <span className="rounded-full bg-brand-600 px-1.5 font-display text-xs text-white" title="أعادها التدقيق بملاحظة تنتظر ردّك">{tab.alert.toLocaleString('en')}</span>}
                     </Link>
                 );
             })}

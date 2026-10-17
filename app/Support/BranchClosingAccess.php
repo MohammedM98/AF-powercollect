@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Enums\PermissionKey;
-use App\Enums\UserRole;
 use App\Models\ClosingSetting;
 use App\Models\User;
 
@@ -38,12 +37,6 @@ class BranchClosingAccess
     public static function send(User $user, int $branchId): bool
     {
         return self::manage($user, $branchId) || ($user->is_active && $user->branch_id === $branchId && $user->hasPermission(PermissionKey::SendCashBoxesToAudit));
-    }
-
-    /** Whether the user audits the boxes every branch sends: the financial auditors, and the Super Admin. */
-    public static function audit(User $user): bool
-    {
-        return $user->is_active && ($user->isSuperAdmin() || $user->role === UserRole::FinancialAuditor);
     }
 
     public static function approve(User $user, int $branchId): bool

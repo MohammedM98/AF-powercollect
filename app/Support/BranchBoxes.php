@@ -2,8 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\AuditNote;
-use App\Models\AuditNoteReply;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\SubscriptionTransaction;
@@ -16,9 +14,8 @@ use Illuminate\Support\Collection;
 /**
  * The branch's boxes as the people who close and send them see them, on
  * the financial boxes page (its open, closed and sent boxes, and the
- * entries of its open boxes), and as the audit sees them: which branch the
- * actor looks at, and its boxes in each place with what the actor may do
- * to them.
+ * entries of its open boxes): which branch the actor looks at, and its
+ * boxes in each place with what the actor may do to them.
  */
 class BranchBoxes
 {
@@ -57,25 +54,24 @@ class BranchBoxes
     /** How many sent boxes the sent tab lists, newest first. */
     private const SENT_SHOWN = 200;
 
-    /** What a box needs besides its entries for the boxes pages: who closed, sent and audited it, and the audit's notes with their answers. */
-    public const PEOPLE_AND_NOTES = ['receivedBy:id,name', 'sentBy:id,name', 'auditedBy:id,name', 'auditNotes.replies.user:id,name'];
+    /** Who closed and sent a box, besides its entries, for the boxes page. */
+    private const PEOPLE = ['receivedBy:id,name', 'sentBy:id,name'];
 
     /**
      * The branch's boxes in one place (see `PLACES`), newest first: those
      * still open or waiting on the branch to confirm them closed, those it
-     * confirmed closed and has not sent to audit, or those it sent, with
-     * where each stands in audit. `$alsoBoxId` adds one box asked for by a
-     * link, wherever it is. Each comes with its entries, when it was opened,
-     * closed and sent and by whom, the audit's notes on it, and what the
-     * actor may do to it.
+     * confirmed closed and has not sent to audit, or those it sent.
+     * `$alsoBoxId` adds one box asked for by a link, wherever it is. Each
+     * comes with its entries, when it was opened, closed and sent and by
+     * whom, and what the actor may do to it.
      *
      * @return Collection<int, array<string, mixed>>
      */
     public function rows(int $branchId, User $actor, string $place, ?int $alsoBoxId = null): Collection
     {
-        $boxes = $this->in($branchId, $place)->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE_AND_NOTES])->get();
+        $boxes = $this->in($branchId, $place)->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE])->get();
         if ($alsoBoxId && ! $boxes->contains('id', $alsoBoxId)) {
-            $boxes->push(...CashBox::query()->where('branch_id', $branchId)->whereKey($alsoBoxId)->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE_AND_NOTES])->get());
+            $boxes->push(...CashBox::query()->where('branch_id', $branchId)->whereKey($alsoBoxId)->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE])->get());
         }
         $ledgers = $this->ledgers($boxes->flatMap(fn (CashBox $box) => $box->payments->pluck('subscription_transaction_id'))->all());
         $send = BranchClosingAccess::send($actor, $branchId);
@@ -89,19 +85,18 @@ class BranchBoxes
     }
 
     /**
-     * A box as the boxes pages show it: its entries as the subscriber's
-     * statement shows them, where it is (`place`), when it was opened,
-     * closed and sent and by whom, where it stands in audit, any debt the
-     * audit charged to the branch for it, and the audit's notes on it.
+     * A box as the boxes page shows it: its entries as the subscriber's
+     * statement shows them, where it is (`place`), and when it was opened,
+     * closed and sent and by whom.
      *
      * @param  array<int, array<string, mixed>>  $ledgers
      * @return array<string, mixed>
      */
-    public function present(CashBox $box, array $ledgers = []): array
+    private function present(CashBox $box, array $ledgers = []): array
     {
         $box->user?->makeHidden('permissions');
         $row = $box->toArray();
-        unset($row['received_by'], $row['sent_by'], $row['audited_by'], $row['audit_notes']);
+        unset($row['received_by'], $row['sent_by']);
 
         return [
             ...$row,
@@ -111,31 +106,19 @@ class BranchBoxes
             'closedAt' => $box->status === 'received' ? ($box->received_at ?? $box->closed_at) : $box->closed_at,
             'closedBy' => $box->receivedBy?->name,
             'sentBy' => $box->sentBy?->name,
-            'auditedBy' => $box->auditedBy?->name,
-            'notes' => $box->auditNotes->sortBy('id')->map(fn (AuditNote $note): array => [
-                'id' => $note->id, 'entryId' => $note->cash_box_payment_id, 'body' => $note->body, 'status' => $note->status, 'createdAt' => $note->created_at,
-                'replies' => $note->replies->map(fn (AuditNoteReply $reply): array => ['id' => $reply->id, 'body' => $reply->body, 'user' => $reply->user?->name, 'createdAt' => $reply->created_at])->values()->all(),
-            ])->values()->all(),
         ];
     }
 
     /**
-     * How many of the branch's boxes are in each place, for the tabs: the
-     * sent ones still in audit, not those it approved.
+     * How many of the branch's boxes are in each place, for the tabs.
      *
      * @return array<string, int>
      */
     public function counts(int $branchId): array
     {
         return collect(self::PLACES)->mapWithKeys(fn (string $place): array => [$place => $place === 'sent'
-            ? CashBox::query()->where('branch_id', $branchId)->whereNotNull('sent_at')->where('audit_status', '!=', 'approved')->count()
+            ? CashBox::query()->where('branch_id', $branchId)->whereNotNull('sent_at')->count()
             : $this->in($branchId, $place)->count()])->all();
-    }
-
-    /** How many of the branch's sent boxes the audit sent back with a note, waiting on the branch's answer. */
-    public function returnedCount(int $branchId): int
-    {
-        return CashBox::query()->where('branch_id', $branchId)->where('audit_status', 'returned')->count();
     }
 
     private function placeOf(CashBox $box): string

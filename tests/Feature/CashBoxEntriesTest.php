@@ -138,7 +138,7 @@ class CashBoxEntriesTest extends TestCase
         $tabs = [
             ['key' => 'open', 'label' => 'الصناديق المفتوحة', 'count' => 2, 'url' => route('payments.cash-boxes', ['place' => 'open'])],
             ['key' => 'closed', 'label' => 'المغلقة · جاهزة للإرسال', 'count' => 0, 'url' => route('payments.cash-boxes', ['place' => 'closed'])],
-            ['key' => 'sent', 'label' => 'المرسلة إلى التدقيق', 'count' => 0, 'alert' => 0, 'url' => route('payments.cash-boxes', ['place' => 'sent'])],
+            ['key' => 'sent', 'label' => 'المرسلة إلى التدقيق', 'count' => 0, 'url' => route('payments.cash-boxes', ['place' => 'sent'])],
             ['key' => 'entries', 'label' => 'الحركات المفتوحة', 'count' => 3, 'url' => route('payments.cash-boxes.entries')],
         ];
 

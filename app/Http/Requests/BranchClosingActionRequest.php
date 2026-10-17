@@ -35,9 +35,6 @@ class BranchClosingActionRequest extends FormRequest
         if ($action === 'send') {
             $rules += ['box_ids' => ['required', 'array', 'min:1', 'max:500'], 'box_ids.*' => ['integer', 'distinct'], 'note' => ['nullable', 'string', 'max:3000']];
         }
-        if ($action === 'answer') {
-            $rules += ['body' => ['required', 'string', 'max:3000']];
-        }
 
         return $rules;
     }

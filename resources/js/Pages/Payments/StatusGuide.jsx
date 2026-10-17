@@ -1,15 +1,12 @@
 import Icon from '@/Components/Icon';
 import StatusPill from '@/Components/DataTable/StatusPill';
-import { auditStatusLabels, boxStatusLabels } from '@/lib/financialBoxes';
+import { boxStatusLabels, sendStatusLabels } from '@/lib/financialBoxes';
 
 const boxStatuses = [
     [boxStatusLabels.open, 'يجمع دفعات المحصّل الجديدة من نوعه حتى يؤكّد الفرع إغلاقه.'],
     [boxStatusLabels.pending, 'أُغلق وحده عند مغادرة المحصّل، وينتظر أن يؤكّد الفرع إغلاقه.'],
-    [['مُغلق · لم يُرسل', 'amber'], 'أكّد الفرع إغلاقه فقُفلت حركاته، وينتظر أن يُرسل إلى التدقيق.'],
-    [auditStatusLabels.waiting, 'أُرسل إلى قسم التدقيق ولم يبدأ تدقيقه، أو ردّ الفرع على ملاحظته.'],
-    [auditStatusLabels.reviewing, 'فتحه قسم التدقيق ويدقّقه الآن.'],
-    [auditStatusLabels.returned, 'أعاده التدقيق بملاحظة تنتظر ردّ الفرع.'],
-    [auditStatusLabels.approved, 'اعتمده التدقيق، وقد يحمّل على الفرع دينًا مع سببه.'],
+    [sendStatusLabels.unsent, 'أكّد الفرع إغلاقه فقُفلت حركاته، وينتظر أن يُرسل إلى التدقيق.'],
+    [sendStatusLabels.sent, 'أرسله الفرع إلى قسم التدقيق منفردًا برقمه.'],
 ];
 
 const entryStatuses = [
@@ -50,7 +47,7 @@ export default function StatusGuide({ className = '' }) {
                     </div>)}
                 </dl>
             </section>
-            <p className="flex items-start gap-2 rounded-control bg-gray-50 p-3 leading-6 text-gray-600 md:col-span-2"><Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />تدقيق الصناديق، نقدية أو حوالات أو مقاصات، من عمل قسم التدقيق بعد إرسالها، لا من عمل الفرع أو المحصّل؛ وهو وحده من يحمّل الديون، وعلى الفرع فقط.</p>
+            <p className="flex items-start gap-2 rounded-control bg-gray-50 p-3 leading-6 text-gray-600 md:col-span-2"><Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />تدقيق الصناديق، نقدية أو حوالات أو مقاصات، من عمل قسم التدقيق بعد إرسالها، لا من عمل الفرع أو المحصّل.</p>
         </div>
     </details>;
 }

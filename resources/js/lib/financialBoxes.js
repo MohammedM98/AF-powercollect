@@ -50,25 +50,22 @@ export const boxStatusLabels = {
     received: ['مُغلق', 'green'],
 };
 
-/** Where a box sent to audit stands there, with its pill tone. */
-export const auditStatusLabels = {
-    waiting: ['بانتظار التدقيق', 'gray'],
-    reviewing: ['قيد التدقيق', 'blue'],
-    returned: ['أُعيد بملاحظة', 'red'],
-    approved: ['مُدقّق', 'green'],
+/** A closed box on its way to audit, with its pill tone: not sent yet, or sent. */
+export const sendStatusLabels = {
+    unsent: ['مُغلق · لم يُرسل', 'amber'],
+    sent: ['أُرسل إلى التدقيق', 'green'],
 };
 
 /**
  * A box's status on the branch's pages: open or waiting for the branch to
- * confirm it closed; closed and not sent yet; or, once sent, where it
- * stands in audit.
+ * confirm it closed, closed and not sent yet, or sent to audit.
  */
 export function boxStatus(box) {
     if (box.sent_at) {
-        return auditStatusLabels[box.audit_status] ?? auditStatusLabels.waiting;
+        return sendStatusLabels.sent;
     }
 
-    return box.status === 'received' ? ['مُغلق · لم يُرسل', 'amber'] : boxStatusLabels[box.status];
+    return box.status === 'received' ? sendStatusLabels.unsent : boxStatusLabels[box.status];
 }
 
 /**

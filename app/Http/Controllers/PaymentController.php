@@ -217,12 +217,11 @@ class PaymentController extends Controller
     /**
      * The tabs of the financial boxes page for those who close the branch's
      * boxes, each a place of its own: its open boxes, its closed boxes not
-     * sent yet, those sent to audit (still in audit), and every entry of its
-     * open boxes, each with how many there are; the sent tab also says how
-     * many the audit sent back with a note.
+     * sent yet, those sent to audit, and every entry of its open boxes, each
+     * with how many there are.
      *
      * @param  EloquentCollection<int, Branch>  $branches
-     * @return list<array{key: string, label: string, count: int, alert?: int, url: string}>
+     * @return list<array{key: string, label: string, count: int, url: string}>
      */
     private function boxTabs(EloquentCollection $branches, Branch $branch): array
     {
@@ -232,7 +231,7 @@ class PaymentController extends Controller
         return [
             ['key' => 'open', 'label' => 'الصناديق المفتوحة', 'count' => $counts['open'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'open'])],
             ['key' => 'closed', 'label' => 'المغلقة · جاهزة للإرسال', 'count' => $counts['closed'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'closed'])],
-            ['key' => 'sent', 'label' => 'المرسلة إلى التدقيق', 'count' => $counts['sent'], 'alert' => $this->branchBoxes->returnedCount($branch->id), 'url' => route('payments.cash-boxes', [...$query, 'place' => 'sent'])],
+            ['key' => 'sent', 'label' => 'المرسلة إلى التدقيق', 'count' => $counts['sent'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'sent'])],
             ['key' => 'entries', 'label' => 'الحركات المفتوحة', 'count' => CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->where('status', 'open'))->count(), 'url' => route('payments.cash-boxes.entries', $query)],
         ];
     }
@@ -339,8 +338,8 @@ class PaymentController extends Controller
      * send them to audit, one place at a time (`?place=`, closed boxes not
      * sent yet by default): its open boxes, to look over their entries and
      * confirm them closed; its closed boxes, to send to audit one by one or
-     * several at once; and those sent, with where each stands in audit and
-     * the audit's notes to answer. A box asked for with `?box=` opens
+     * several at once; and those it sent, with when and by whom. A box asked
+     * for with `?box=` opens
      * wherever it is. Its last tab lists the entries of the open boxes.
      */
     private function branchCashBoxes(Request $request): InertiaResponse

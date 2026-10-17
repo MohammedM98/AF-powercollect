@@ -10,6 +10,7 @@ use Database\Seeders\CampTwoCollectorSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -41,8 +42,7 @@ class CampTwoCollectorSeederTest extends TestCase
         $this->assertTrue(Hash::check($matches[1], $user->password));
         $this->actingAs($user)->get(route('payments.index'))->assertOk();
         $this->get(route('payments.summary'))->assertOk();
-        $this->get(route('payments.cash-boxes'))->assertOk();
-        $this->get(route('box-audit.index'))->assertForbidden();
+        $this->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->component('Payments/CashBoxes'));
         $this->get(route('subscriptions.index'))->assertForbidden();
     }
 

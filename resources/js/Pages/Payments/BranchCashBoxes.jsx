@@ -28,7 +28,7 @@ function savedPreference(key, fallback, allowed) {
 const placeHints = {
     open: 'صناديق المحصّلين التي ما زالت تستقبل حركات. راجع الصندوق وأكّد إغلاقه فينتقل إلى «المغلقة».',
     closed: 'صناديق أكّد الفرع إغلاقها ولم تُرسل بعد. أرسل صندوقًا وحده، أو حدّد عدة صناديق وأرسلها معًا؛ يصل كل صندوق إلى قسم التدقيق منفردًا برقمه.',
-    sent: 'كل صندوق أُرسل إلى التدقيق، وأين وصل فيه. الصندوق الذي أعاده التدقيق بملاحظة ينتظر ردّك.',
+    sent: 'كل صندوق أرسله الفرع إلى التدقيق، ومتى ومن أرسله.',
 };
 
 const emptyPlace = {
@@ -37,18 +37,13 @@ const emptyPlace = {
     sent: 'لم يُرسل أي صندوق إلى التدقيق بعد.',
 };
 
-/** Where sent boxes stand in audit, to narrow the sent tab to one. */
-const auditFilters = [['all', 'الكل'], ['waiting', 'بانتظار التدقيق', (box) => ['waiting', 'reviewing'].includes(box.audit_status)], ['returned', 'عليها ملاحظات', (box) => box.audit_status === 'returned'], ['approved', 'مُدقّقة', (box) => box.audit_status === 'approved']];
-
-/** One figure above the boxes: a type of box, or where sent boxes stand in audit. */
+/** One type of box above the boxes: their total and how many there are; a click narrows the list to it. */
 function SummaryTile({ icon, label, boxes, hint, active, onClick }) {
     return <button type="button" onClick={onClick} aria-pressed={active} className={`flex min-w-0 items-center gap-3 rounded-card border bg-surface p-4 text-start shadow-card transition hover:-translate-y-0.5 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 motion-reduce:transform-none ${active ? 'border-gray-900' : 'border-gray-100'}`}>
         {icon}
         <span className="min-w-0"><span className="block text-sm font-semibold text-gray-600">{label}</span><span className="mt-0.5 flex flex-wrap items-baseline gap-1.5"><span dir="ltr" className="font-display text-xl font-bold text-gray-900">{formatMoney(financialBoxesTotals(boxes).ILS)}</span><span className="text-xs text-gray-500">₪</span></span><span className="block text-xs text-gray-500">{boxes.length} {hint}</span></span>
     </button>;
 }
-
-const tileIcon = (name, tone) => <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] ${tone}`}><Icon name={name} className="h-5 w-5" /></span>;
 
 /** The boxes the branch is about to send to audit, each on its own, with an optional note for the audit. */
 function SendBoxesModal({ boxes, onClose, onSend }) {
@@ -78,9 +73,8 @@ function SendBoxesModal({ boxes, onClose, onSend }) {
 /**
  * The branch's financial boxes, one place per tab so nothing mixes: its
  * open boxes, to review and confirm closed; its closed boxes, to send to
- * audit one by one or several at once; and those sent, with where each
- * stands in audit and the audit's notes to answer. Every box shows when it
- * was opened, closed and sent, and by whom. A last tab lists the entries of
+ * audit one by one or several at once; and those it sent. Every box shows
+ * when it was opened, closed and sent, and by whom. A last tab lists the entries of
  * the open boxes.
  */
 export default function BranchCashBoxes({ branch, branches, started, place, tabs, boxes, access, pendingCount, urls }) {
@@ -88,7 +82,6 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
     const [search, setSearch] = useState('');
     const [person, setPerson] = useState('');
     const [type, setType] = useState('');
-    const [audit, setAudit] = useState('all');
     const [view, setView] = useState(() => savedPreference('view', 'table', ['table', 'cards']));
     const [sort, setSort] = useState({ key: 'dates', direction: 'desc' });
     const [picked, setPicked] = useState(() => new Set());
@@ -97,8 +90,7 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
     const selectedBox = boxes.find((box) => box.id === boxId);
     const inPlace = boxes.filter((box) => box.place === place);
     const people = [...new Map(inPlace.filter((box) => box.user).map((box) => [box.user.id, box.user.name])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar'));
-    const auditMatch = auditFilters.find(([value]) => value === audit)?.[2] ?? (() => true);
-    const shown = inPlace.filter((box) => (!type || box.type === type) && (!person || String(box.user?.id) === person) && auditMatch(box) && `${box.number} ${boxPersonName(box)}`.includes(search.trim()));
+    const shown = inPlace.filter((box) => (!type || box.type === type) && (!person || String(box.user?.id) === person) && `${box.number} ${boxPersonName(box)}`.includes(search.trim()));
     const sendable = shown.filter(canSendBox);
     const pickedBoxes = inPlace.filter((box) => picked.has(box.id) && canSendBox(box));
     const selection = place === 'closed' && access.send ? {
@@ -137,9 +129,7 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
         setSort((current) => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }));
     }
 
-    const summary = place === 'sent'
-        ? auditFilters.slice(1).map(([value, label, matches]) => ({ key: value, icon: tileIcon(value === 'returned' ? 'alert' : value === 'approved' ? 'check' : 'clock', value === 'returned' ? 'bg-brand-500/10 text-brand-600' : value === 'approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-gray-100 text-gray-600'), label, boxes: inPlace.filter(matches), hint: value === 'returned' ? 'صناديق تنتظر ردّك' : 'صناديق', active: audit === value, onClick: () => setAudit(audit === value ? 'all' : value) }))
-        : Object.keys(boxTypes).map((key) => ({ key, icon: <BoxTypeIcon type={key} className="h-10 w-10" />, label: boxTypes[key], boxes: inPlace.filter((box) => box.type === key), hint: place === 'open' ? 'صناديق مفتوحة' : 'صناديق لم تُرسل', active: type === key, onClick: () => setType(type === key ? '' : key) }));
+    const summary = Object.keys(boxTypes).map((key) => ({ key, icon: <BoxTypeIcon type={key} className="h-10 w-10" />, label: boxTypes[key], boxes: inPlace.filter((box) => box.type === key), hint: { open: 'صناديق مفتوحة', closed: 'صناديق لم تُرسل', sent: 'صناديق أُرسلت' }[place], active: type === key, onClick: () => setType(type === key ? '' : key) }));
 
     return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<div><p className="text-sm font-semibold text-gray-500">{branches.length > 1 ? <select aria-label="الفرع" className="rounded-control border-gray-200 py-1 text-sm" value={branch.id} onChange={(event) => router.get(urls.index, { branch_id: event.target.value, place })}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : branch.name}</p><div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2"><h2 className="text-3xl font-bold text-gray-900">الصناديق المالية</h2><BoxTabs tabs={tabs} current={place} /></div></div>}>
         <Head title="الصناديق المالية" />
@@ -159,7 +149,6 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
                     </div>
                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
                         <SegmentedTabs label="نوع الصندوق" value={type} onChange={setType} options={[{ value: '', label: 'كل الأنواع' }, ...Object.entries(boxTypes).map(([value, label]) => ({ value, label }))]} />
-                        {place === 'sent' && <SegmentedTabs label="حالة التدقيق" value={audit} onChange={setAudit} options={auditFilters.map(([value, label, matches]) => ({ value, label: <>{label} · <span className="font-display">{matches ? inPlace.filter(matches).length : inPlace.length}</span></> }))} />}
                         <SegmentedTabs label="طريقة العرض" value={view} onChange={setView} options={[{ value: 'table', label: <><Icon name="table" className="h-4 w-4" />جدول</> }, { value: 'cards', label: <><Icon name="grid" className="h-4 w-4" />بطاقات</> }]} />
                     </div>
                 </div>

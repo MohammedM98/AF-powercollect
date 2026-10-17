@@ -424,81 +424,15 @@ class BranchClosingWorkflow
         $boxes = CashBox::query()->where('branch_id', $branchId)->whereIn('id', $boxIds)->where('status', 'received')->whereNull('sent_at')->orderBy('id')->get();
         $this->require($boxIds !== [] && $boxes->count() === count(array_unique($boxIds)), 'بعض الصناديق المختارة لم يُؤكَّد إغلاقها بعد أو أُرسلت من قبل.');
         foreach ($boxes as $box) {
-            $box->update(['sent_at' => now(), 'sent_by' => $actor->id, 'send_note' => $note, 'audit_status' => 'waiting']);
+            $box->update(['sent_at' => now(), 'sent_by' => $actor->id, 'send_note' => $note]);
         }
         $this->notifyAuditors($boxes->count() === 1 ? 'صندوق جديد بانتظار التدقيق' : 'صناديق جديدة بانتظار التدقيق', $boxes->pluck('number')->implode('، '));
-    }
-
-    /** The auditor opens a box waiting on audit: it is under audit from now on. */
-    public function startAudit(CashBox $box, User $actor): void
-    {
-        if ($box->audit_status === 'waiting') {
-            $box->update(['audit_status' => 'reviewing', 'audited_by' => $actor->id]);
-        }
-    }
-
-    /**
-     * The auditor approves a box sent to audit: its notes are settled, and
-     * any debt the audit charges to the branch for it (`$debt`, with its
-     * reason) is kept on the box. Only the audit charges debts, and only to
-     * the branch.
-     */
-    public function approveAudit(CashBox $box, User $actor, ?string $debt, ?string $reason): void
-    {
-        $this->require(in_array($box->audit_status, ['waiting', 'reviewing'], true), 'الصندوق لا ينتظر التدقيق.');
-        $charged = $debt !== null && Closing::cents($debt) > 0;
-        $this->require(! $charged || filled($reason), 'اكتب سبب الدين المحمَّل على الفرع.');
-        $box->auditNotes()->where('status', '!=', 'closed')->update(['status' => 'closed']);
-        $box->update(['audit_status' => 'approved', 'audited_at' => now(), 'audited_by' => $actor->id, 'branch_debt' => $charged ? Closing::money(Closing::cents($debt)) : null, 'branch_debt_reason' => $charged ? $reason : null]);
-        $this->notifySenders($box, $charged ? 'اعتمد التدقيق الصندوق وحمّل دينًا على الفرع.' : 'اعتمد التدقيق الصندوق.');
-    }
-
-    /**
-     * The auditor sends a box back to its branch with a note: one on each of
-     * the box's entries named in `$entryIds`, else one on the whole box.
-     *
-     * @param  list<int>  $entryIds
-     */
-    public function returnAudit(CashBox $box, User $actor, string $body, array $entryIds = []): void
-    {
-        $this->require(in_array($box->audit_status, ['waiting', 'reviewing'], true), 'الصندوق لا ينتظر التدقيق.');
-        $entries = $box->payments()->whereIn('id', $entryIds)->pluck('id');
-        $this->require($entries->count() === count(array_unique($entryIds)), 'بعض الحركات المختارة ليست في هذا الصندوق.');
-        foreach ($entries->isEmpty() ? [null] : $entries->all() as $entryId) {
-            AuditNote::query()->create(['closing_id' => $box->received_in_closing_id ?? $box->closing_id, 'cash_box_id' => $box->id, 'cash_box_payment_id' => $entryId, 'body' => $body, 'status' => 'awaiting_reply']);
-        }
-        $box->update(['audit_status' => 'returned', 'audited_at' => now(), 'audited_by' => $actor->id]);
-        $this->notifySenders($box, 'أعاد التدقيق الصندوق بملاحظة تنتظر ردّك.');
-    }
-
-    /**
-     * The branch answers the audit's notes on a box sent back to it, and the
-     * box goes back to audit.
-     */
-    public function answerAudit(CashBox $box, User $actor, string $body): void
-    {
-        $this->require(BranchClosingAccess::send($actor, $box->branch_id), 'لا يمكنك الرد على ملاحظات التدقيق في هذا الفرع.');
-        $this->require($box->audit_status === 'returned', 'الصندوق لا ينتظر ردّ الفرع.');
-        foreach ($box->auditNotes()->where('status', 'awaiting_reply')->get() as $note) {
-            $note->replies()->create(['user_id' => $actor->id, 'kind' => 'clarification', 'body' => $body]);
-            $note->update(['status' => 'awaiting_audit']);
-        }
-        $box->update(['audit_status' => 'waiting']);
-        $this->notifyAuditors('ردّ الفرع على ملاحظة التدقيق', $box->number);
     }
 
     private function notifyAuditors(string $action, string $subject): void
     {
         foreach (User::query()->where('is_active', true)->where('role', UserRole::FinancialAuditor)->get() as $auditor) {
             $auditor->notify(new BranchClosingNotification($action, $subject));
-        }
-    }
-
-    /** Tell those of the box's branch who send its boxes to audit what the audit did with it. */
-    private function notifySenders(CashBox $box, string $action): void
-    {
-        foreach (User::query()->where('branch_id', $box->branch_id)->where('is_active', true)->get()->filter(fn (User $user): bool => BranchClosingAccess::send($user, $box->branch_id)) as $sender) {
-            $sender->notify(new BranchClosingNotification($action, $box->number));
         }
     }
 

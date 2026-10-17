@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_identity.dart';
-import 'payment_page.dart' show balanceText, bankLogoAsset;
+import 'payment_page.dart' show bankLogoAsset;
 
 class CollectionView extends StatefulWidget {
   const CollectionView(
@@ -181,43 +181,17 @@ class _CollectionViewState extends State<CollectionView> {
   }
 
   Widget subscriberRow(Map<String, dynamic> subscriber) {
-    final balance = balanceOf(subscriber);
-    final unusual =
-        subscriber['status'] != null && subscriber['status'] != 'active';
     return Opacity(
       opacity: widget.online ? 1 : .6,
       child: AppRow(
         onTap: widget.online ? () => widget.onOpen(subscriber) : null,
         leading: AppAvatar('${subscriber['full_name']}'),
-        title: AppRowTitle('${subscriber['full_name']}'),
-        // Suspended and disconnected subscribers can pay too; say which they are.
-        subtitle: Text.rich(
-            TextSpan(children: [
-              TextSpan(text: 'حساب ${subscriber['account_number']}'),
-              if (subscriber['meter_box_number'] != null)
-                TextSpan(text: ' · طبلون ${subscriber['meter_box_number']}'),
-              if (unusual)
-                TextSpan(
-                    text:
-                        ' · ${subscriber['status_label'] ?? subscriber['status']}',
-                    style: TextStyle(color: AppIdentity.warning)),
-            ]),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppIdentity.body(12.5, color: AppIdentity.faint)),
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(balanceText(balance),
-              style: AppIdentity.number(14,
-                  color: balance > 0 ? AppIdentity.bad : AppIdentity.good)),
-          const SizedBox(width: 6),
-          AppIcon('chev', size: 18, color: AppIdentity.faint),
-        ]),
+        title: Text('${subscriber['full_name']}',
+            style: AppIdentity.body(15, weight: FontWeight.w700)),
+        trailing: AppIcon('chev', size: 18, color: AppIdentity.faint),
       ),
     );
   }
-
-  double balanceOf(Map<String, dynamic> subscriber) =>
-      double.tryParse('${subscriber['balance']}') ?? 0;
 
   /// What a payment took off the balance; older servers sent shekels only.
   double inShekels(Map<String, dynamic> payment) =>
@@ -227,6 +201,7 @@ class _CollectionViewState extends State<CollectionView> {
   Widget paymentRow(Map<String, dynamic> payment) {
     final logo = bankLogoAsset('${payment['bank_name']}');
     return AppRow(
+      adaptiveTrailing: true,
       leading: payment['payment_method'] != 'cash' && logo != null
           ? ClipRRect(
               borderRadius: BorderRadius.circular(14),

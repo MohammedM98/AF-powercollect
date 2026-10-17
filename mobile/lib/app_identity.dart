@@ -428,6 +428,7 @@ class AppRow extends StatelessWidget {
       this.leading,
       this.trailing,
       this.onTap,
+      this.adaptiveTrailing = false,
       this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       this.crossAxisAlignment = CrossAxisAlignment.center,
       super.key});
@@ -436,6 +437,7 @@ class AppRow extends StatelessWidget {
   final Widget? leading;
   final Widget? trailing;
   final VoidCallback? onTap;
+  final bool adaptiveTrailing;
   final EdgeInsetsGeometry padding;
   final CrossAxisAlignment crossAxisAlignment;
   @override
@@ -443,14 +445,33 @@ class AppRow extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: padding,
-          child: Row(crossAxisAlignment: crossAxisAlignment, children: [
-            if (leading != null) ...[leading!, const SizedBox(width: 12)],
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [title, if (subtitle != null) subtitle!])),
-            if (trailing != null) ...[const SizedBox(width: 12), trailing!],
-          ]),
+          child: LayoutBuilder(builder: (context, constraints) {
+            final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+            final stackTrailing = adaptiveTrailing &&
+                trailing != null &&
+                trailing is! AppIcon &&
+                constraints.maxWidth < 280 * textScale;
+            return Row(crossAxisAlignment: crossAxisAlignment, children: [
+              if (leading != null) ...[leading!, const SizedBox(width: 12)],
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    title,
+                    if (subtitle != null) subtitle!,
+                    if (stackTrailing)
+                      Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: trailing!)),
+                  ])),
+              if (trailing != null && !stackTrailing) ...[
+                const SizedBox(width: 12),
+                trailing!
+              ],
+            ]);
+          }),
         ),
       );
 }
@@ -570,8 +591,11 @@ class AppSection extends StatelessWidget {
             children: [
               Expanded(child: Text(title, style: AppIdentity.heading(17))),
               if (note != null)
-                Text(note!,
-                    style: AppIdentity.body(12.5, color: AppIdentity.faint)),
+                Flexible(
+                    child: Text(note!,
+                        textAlign: TextAlign.end,
+                        style:
+                            AppIdentity.body(12.5, color: AppIdentity.faint))),
             ]),
       );
 }
@@ -585,16 +609,19 @@ class AppLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(2, 16, 2, 8),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          Expanded(
-              child: Text(title,
-                  style: AppIdentity.body(14, weight: FontWeight.w700))),
-          if (hint != null)
-            Flexible(
-                child: Text(hint!,
-                    textAlign: TextAlign.end,
-                    style: AppIdentity.body(12, color: AppIdentity.faint))),
-          if (trailing != null) trailing!,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            Expanded(
+                child: Text(title,
+                    style: AppIdentity.body(14, weight: FontWeight.w700))),
+            if (hint != null)
+              Flexible(
+                  child: Text(hint!,
+                      textAlign: TextAlign.end,
+                      style: AppIdentity.body(12, color: AppIdentity.faint))),
+          ]),
+          if (trailing != null)
+            Padding(padding: const EdgeInsets.only(top: 6), child: trailing!),
         ]),
       );
 }
@@ -663,8 +690,8 @@ class AppHeader extends StatelessWidget {
                   children: [
                 Text(title,
                     style: AppIdentity.heading(22),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
                 if (subtitle != null && subtitle!.isNotEmpty)
                   Text(subtitle!,
                       style: AppIdentity.body(12.5,
@@ -1039,6 +1066,14 @@ class AppServiceCard extends StatelessWidget {
   final Color color;
   final Color tint;
   final VoidCallback onTap;
+
+  Widget summaryBadge() => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+          color: AppIdentity.raised, borderRadius: BorderRadius.circular(10)),
+      child: Text(summary,
+          style: AppIdentity.number(12.5, color: AppIdentity.ink2)));
+
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 10),
@@ -1051,31 +1086,33 @@ class AppServiceCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(22),
               child: Padding(
                 padding: const EdgeInsets.all(14),
-                child: Row(children: [
-                  AppIconTile(icon, color, tint, size: 52, iconSize: 24),
-                  const SizedBox(width: 14),
-                  Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                        Text(title,
-                            style:
-                                AppIdentity.body(16, weight: FontWeight.w700)),
-                        Text(subtitle,
-                            style: AppIdentity.body(12.5,
-                                color: AppIdentity.faint)),
-                      ])),
-                  const SizedBox(width: 14),
-                  Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                          color: AppIdentity.raised,
-                          borderRadius: BorderRadius.circular(10)),
-                      child: Text(summary,
-                          style: AppIdentity.number(12.5,
-                              color: AppIdentity.ink2))),
-                ]),
+                child: LayoutBuilder(builder: (context, constraints) {
+                  final stacked = constraints.maxWidth <
+                      420 * MediaQuery.textScalerOf(context).scale(14) / 14;
+                  return Row(children: [
+                    AppIconTile(icon, color, tint, size: 52, iconSize: 24),
+                    const SizedBox(width: 14),
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          Text(title,
+                              style: AppIdentity.body(16,
+                                  weight: FontWeight.w700)),
+                          Text(subtitle,
+                              style: AppIdentity.body(12.5,
+                                  color: AppIdentity.faint)),
+                          if (stacked) ...[
+                            const SizedBox(height: 6),
+                            summaryBadge(),
+                          ],
+                        ])),
+                    if (!stacked) ...[
+                      const SizedBox(width: 14),
+                      summaryBadge(),
+                    ],
+                  ]);
+                }),
               ),
             ),
           ),
@@ -1095,7 +1132,7 @@ class AppSegment extends StatelessWidget {
   final ValueChanged<int> onChanged;
   @override
   Widget build(BuildContext context) => Container(
-        height: 50,
+        height: 50 + (MediaQuery.textScalerOf(context).scale(14.5) - 14.5) * 2,
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
             color: AppIdentity.sunken, borderRadius: BorderRadius.circular(16)),
@@ -1192,7 +1229,8 @@ class AppSearchField extends StatelessWidget {
   final int? maxLength;
   final Key? fieldKey;
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => TextFieldTapRegion(
+      child: Container(
         height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
@@ -1208,6 +1246,7 @@ class AppSearchField extends StatelessWidget {
               key: fieldKey,
               controller: controller,
               onChanged: onChanged,
+              onTapOutside: (_) => FocusScope.of(context).unfocus(),
               onSubmitted: onSubmitted,
               maxLength: maxLength,
               textInputAction: TextInputAction.search,
@@ -1241,7 +1280,7 @@ class AppSearchField extends StatelessWidget {
               ),
             ),
         ]),
-      );
+      ));
 }
 
 /// A blinking text cursor for the numbers typed on the on-screen keypad.
@@ -1297,6 +1336,7 @@ class AppKeypad extends StatelessWidget {
       this.onClose,
       this.nextLabel = 'التالي',
       this.keyPrefix = 'reading',
+      this.adaptive = false,
       super.key});
   final ValueChanged<String> onKey;
   final bool withNext;
@@ -1304,6 +1344,7 @@ class AppKeypad extends StatelessWidget {
   final VoidCallback? onClose;
   final String nextLabel;
   final String keyPrefix;
+  final bool adaptive;
 
   static const _keys = [
     '1',
@@ -1323,13 +1364,21 @@ class AppKeypad extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
+    var downwardDrag = 0.0;
     // On a short phone the keys shrink so the list above keeps some room.
     final compact = MediaQuery.sizeOf(context).height < 700;
     return GestureDetector(
+      onVerticalDragStart: onClose == null ? null : (_) => downwardDrag = 0,
+      onVerticalDragUpdate: onClose == null
+          ? null
+          : (details) {
+              downwardDrag += details.primaryDelta ?? 0;
+            },
       onVerticalDragEnd: onClose == null
           ? null
           : (details) {
-              if ((details.primaryVelocity ?? 0) > 250) onClose!();
+              if (downwardDrag > 36 || (details.primaryVelocity ?? 0) > 250)
+                onClose!();
             },
       child: Container(
         padding: EdgeInsets.fromLTRB(
@@ -1341,18 +1390,39 @@ class AppKeypad extends StatelessWidget {
           InkWell(
             key: ValueKey('$keyPrefix-keypad-close'),
             onTap: onClose,
-            child: SizedBox(
-              height: compact ? 28 : 32,
-              width: double.infinity,
-              child:
-                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                AppIcon('down', color: AppIdentity.muted),
-                const SizedBox(width: 4),
-                Text('إخفاء لوحة الأرقام',
-                    style: AppIdentity.body(12.5,
-                        weight: FontWeight.w600, color: AppIdentity.muted)),
-              ]),
-            ),
+            child: adaptive
+                ? ConstrainedBox(
+                    constraints: BoxConstraints(
+                        minHeight: compact ? 28 : 32,
+                        minWidth: double.infinity),
+                    child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              AppIcon('down', color: AppIdentity.muted),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                  child: Text('إخفاء لوحة الأرقام',
+                                      textAlign: TextAlign.center,
+                                      style: AppIdentity.body(12.5,
+                                          weight: FontWeight.w600,
+                                          color: AppIdentity.muted))),
+                            ])),
+                  )
+                : SizedBox(
+                    height: compact ? 28 : 32,
+                    width: double.infinity,
+                    child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          AppIcon('down', color: AppIdentity.muted),
+                          const SizedBox(width: 4),
+                          Text('إخفاء لوحة الأرقام',
+                              style: AppIdentity.body(12.5,
+                                  weight: FontWeight.w600,
+                                  color: AppIdentity.muted)),
+                        ])),
           ),
           Directionality(
             textDirection: TextDirection.ltr,
@@ -1364,7 +1434,9 @@ class AppKeypad extends StatelessWidget {
                   child: Row(children: [
                     for (var column = 0; column < 3; column++) ...[
                       if (column > 0) const SizedBox(width: 7),
-                      Expanded(child: _key(_keys[row * 3 + column], compact)),
+                      Expanded(
+                          child:
+                              _key(_keys[row * 3 + column], compact, context)),
                     ],
                   ]),
                 ),
@@ -1376,8 +1448,13 @@ class AppKeypad extends StatelessWidget {
     );
   }
 
-  Widget _key(String key, bool compact) => SizedBox(
-        height: compact ? 42 : 50,
+  Widget _key(String key, bool compact, BuildContext context) => SizedBox(
+        height: adaptive
+            ? math.max(compact ? 42 : 50,
+                MediaQuery.textScalerOf(context).scale(23) * 1.2 + 12)
+            : compact
+                ? 42
+                : 50,
         child: DecoratedBox(
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
@@ -1511,7 +1588,8 @@ class AppNavBar extends StatelessWidget {
             ),
             const SizedBox(height: 3),
             Text(item.label,
-                maxLines: 1,
+                maxLines: 2,
+                textAlign: TextAlign.center,
                 style: AppIdentity.body(11.5,
                     weight: on ? FontWeight.w700 : FontWeight.w600,
                     color: color)),
@@ -1805,9 +1883,10 @@ class AppToggle extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           onTap: onChanged == null ? null : () => onChanged!(!value),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(label,
-                style: AppIdentity.body(13,
-                    weight: FontWeight.w600, color: AppIdentity.muted)),
+            Flexible(
+                child: Text(label,
+                    style: AppIdentity.body(13,
+                        weight: FontWeight.w600, color: AppIdentity.muted))),
             const SizedBox(width: 8),
             AnimatedContainer(
               duration: const Duration(milliseconds: 250),

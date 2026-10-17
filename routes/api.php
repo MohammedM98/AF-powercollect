@@ -5,6 +5,7 @@ use App\Http\Controllers\Mobile\MobileCollectionController;
 use App\Http\Controllers\Mobile\MobileReadingAssignmentController;
 use App\Http\Controllers\Mobile\MobileReadingController;
 use App\Http\Controllers\Mobile\MobileSessionController;
+use App\Http\Controllers\Mobile\MobileSubscriberMessageController;
 use App\Http\Controllers\Mobile\MobileSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
@@ -21,6 +22,8 @@ Route::prefix('mobile')->name('mobile.')->group(function (): void {
         Route::post('/reading-assignments/sync', [MobileReadingAssignmentController::class, 'sync'])->middleware('throttle:60,1')->name('reading-assignments.sync');
         Route::get('/collections/subscriptions', [MobileCollectionController::class, 'subscriptions'])->name('collections.subscriptions');
         Route::get('/collections/subscriptions/{subscription}', [MobileCollectionController::class, 'show'])->whereNumber('subscription')->name('collections.subscriptions.show');
+        Route::get('/collections/subscriptions/{subscription}/transactions', [MobileCollectionController::class, 'transactions'])->whereNumber('subscription')->name('collections.subscriptions.transactions');
+        Route::post('/collections/subscriptions/{subscription}/messages', [MobileSubscriberMessageController::class, 'store'])->whereNumber('subscription')->middleware('throttle:20,1')->name('collections.subscriptions.messages.store');
         Route::get('/collections', [MobileCollectionController::class, 'index'])->name('collections.index');
         Route::get('/collections/reference-status', [MobileCollectionController::class, 'referenceStatus'])->name('collections.reference-status');
         Route::get('/cash-boxes', [MobileCashBoxController::class, 'index'])->name('cash-boxes.index');

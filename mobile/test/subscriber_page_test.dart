@@ -18,6 +18,9 @@ class SubscriberApi extends ApiClient {
   int loads = 0;
   int payments = 0;
   String balance = '120.00';
+  Map<String, dynamic> subscriptionDetails = {};
+  Map<String, dynamic> permissionDetails = {};
+  Map<String, dynamic>? lastReading;
 
   @override
   Future<Map<String, dynamic>> collectionSubscriber(int id) async {
@@ -32,7 +35,15 @@ class SubscriberApi extends ApiClient {
         'balance': balance,
         'meter_box_number': 'B7',
         'phone': '0599000111',
+        ...subscriptionDetails,
       },
+      'permissions': {
+        'view_history': true,
+        'record_payment': true,
+        'payment_methods': ['cash', 'bank_transfer'],
+        ...permissionDetails
+      },
+      'last_reading': lastReading,
       'last_payment': {
         'amount': '30.00',
         'currency': 'ILS',
@@ -86,6 +97,8 @@ Future<List<bool?>> openSubscriber(WidgetTester tester, ApiClient api) async {
   final results = <bool?>[];
   await tester.pumpWidget(MaterialApp(
       theme: AppIdentity.theme,
+      builder: (context, child) =>
+          Directionality(textDirection: TextDirection.rtl, child: child!),
       home: Builder(
           builder: (context) => TextButton(
               onPressed: () async {
@@ -102,7 +115,7 @@ Future<List<bool?>> openSubscriber(WidgetTester tester, ApiClient api) async {
 
 void main() {
   testWidgets(
-      'shows the account, its last payment and latest lines before a payment',
+      'shows subscriber details and history access before recording a payment',
       (tester) async {
     final api = SubscriberApi();
     final results = await openSubscriber(tester, api);
@@ -112,11 +125,16 @@ void main() {
         tester
             .widget<Text>(find.byKey(const ValueKey('subscriber-balance')))
             .data,
-        '120.00 ₪ عليه');
+        '\u2066120 ₪\u2069 عليه');
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(find.text('B7'), 250,
+        scrollable: scrollable);
     expect(find.text('B7'), findsOneWidget);
+    expect(find.text('رقم تواصل الاشتراك'), findsNothing);
     expect(find.text('0599000111'), findsOneWidget);
-    expect(find.text('2026-10-01 · سند P-9'), findsOneWidget);
-    expect(find.text('قراءة أسبوعية'), findsOneWidget);
+    expect(find.text('آخر دفعة'), findsNothing);
+    expect(find.text('آخر الحركات'), findsNothing);
+    expect(find.text('السجل المالي'), findsOneWidget);
     expect(find.byType(PaymentPage), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('subscriber-record-payment')));
@@ -132,13 +150,80 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('summary separates personal details and subscription terms',
+      (tester) async {
+    final api = SubscriberApi()
+      ..subscriptionDetails = {
+        'subscriber_name': 'أحمد محمد علي',
+        'personal_phone': '0599111222',
+        'address': 'شارع النور',
+        'status': 'active',
+        'status_label': 'فعال',
+        'accounting_type_label': 'شهري',
+        'subscription_date': '2026-09-01',
+        'tariff_name': 'منزلي',
+        'kilowatt_price': '2.50',
+        'minimum_payment': '25.00',
+        'circuit_breaker_ampere': 20,
+      }
+      ..lastReading = {
+        'week_start': '2026-10-09',
+        'week_end': '2026-10-15',
+        'previous_reading': 1200,
+        'current_reading': 1250.5,
+        'consumption': 50.5,
+        'status': 'pending',
+        'status_label': 'قيد المراجعة',
+      };
+    await openSubscriber(tester, api);
+
+    expect(find.byType(PaymentPage), findsNothing);
+    final scrollable = find.byType(Scrollable).first;
+    for (final value in [
+      '0599000111',
+      'شارع النور',
+      'شهري',
+      '2026-09-01',
+      'منزلي',
+      'سعر الكيلوواط',
+      '2.50 ₪ / ك.و.س',
+      '25.00 ₪',
+      '20 أمبير',
+      'قراءة سابقة',
+      '1250.5',
+    ]) {
+      await tester.scrollUntilVisible(find.text(value), 150,
+          scrollable: scrollable);
+      expect(find.text(value), findsOneWidget);
+    }
+    await tester.tap(find.byKey(const ValueKey('subscriber-record-payment')));
+    await tester.pumpAndSettle();
+    expect(find.byType(PaymentPage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('no recorded reading shows the initial value in the detail row',
+      (tester) async {
+    final api = SubscriberApi()..subscriptionDetails = {'initial_reading': 0};
+    await openSubscriber(tester, api);
+
+    await tester.scrollUntilVisible(find.text('قراءة سابقة'), 150,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('قراءة سابقة'), findsOneWidget);
+    expect(find.text('0'), findsOneWidget);
+    expect(find.byKey(const ValueKey('subscriber-last-reading')), findsNothing);
+    expect(find.textContaining('null'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('a failed load can be retried and payment stays available',
       (tester) async {
     final api = SubscriberApi(failures: 1);
     await openSubscriber(tester, api);
 
     expect(find.text('لا يمكن الوصول إلى خادم Laravel.'), findsOneWidget);
-    expect(find.text('100.00 ₪ عليه'), findsOneWidget,
+    expect(find.text('\u2066100 ₪\u2069 عليه'), findsOneWidget,
         reason: 'the balance from the search shows until the page loads');
     final record = tester.widget<AppAction>(
         find.byKey(const ValueKey('subscriber-record-payment')));
@@ -148,7 +233,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.loads, 2);
     expect(find.text('لا يمكن الوصول إلى خادم Laravel.'), findsNothing);
-    expect(find.text('120.00 ₪ عليه'), findsOneWidget);
+    expect(find.text('\u2066120 ₪\u2069 عليه'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -158,6 +243,8 @@ void main() {
     final results = await openSubscriber(tester, api);
 
     await tester.tap(find.byKey(const ValueKey('subscriber-record-payment')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('payment-amount')));
     await tester.pumpAndSettle();
     for (final digit in ['2', '5']) {
       await tester.tap(find.byKey(ValueKey('payment-key-$digit')));
@@ -183,7 +270,7 @@ void main() {
 
     expect(api.payments, 1);
     expect(api.loads, 2);
-    expect(find.text('95.00 ₪ عليه'), findsOneWidget);
+    expect(find.text('\u206695 ₪\u2069 عليه'), findsOneWidget);
 
     await tester.tap(find.byTooltip('رجوع'));
     await tester.pumpAndSettle();

@@ -447,7 +447,7 @@ class MobileApiTest extends TestCase
 
     public function test_subscription_page_shows_balance_last_payment_and_latest_lines_newest_first(): void
     {
-        $collector = $this->collectorWithPermission(...self::TAKES_PAYMENTS);
+        $collector = $this->collectorWithPermission(...[...self::TAKES_PAYMENTS, PermissionKey::ViewSubscriptions]);
         $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id, 'full_name' => 'أحمد', 'phone' => '0599000111']);
         $charge = SubscriptionTransaction::factory()->for($subscription)->create(['amount' => '120.00', 'created_at' => now()->subDays(2)]);
         $payment = SubscriptionTransaction::recordPayment($subscription, $collector, ['amount' => '30', 'currency' => 'ILS', 'payment_method' => 'cash']);
@@ -484,6 +484,74 @@ class MobileApiTest extends TestCase
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($reader))
             ->getJson(route('mobile.collections.subscriptions.show', $ownBranch))
             ->assertForbidden();
+    }
+
+    public function test_subscription_summary_includes_personal_details_terms_and_the_latest_reading_by_week(): void
+    {
+        $collector = $this->collectorWithPermission(...self::TAKES_PAYMENTS);
+        $subscription = Subscription::factory()->create([
+            'branch_id' => $collector->branch_id,
+            'full_name' => 'أحمد علي',
+            'subscription_name' => 'منزل أحمد',
+            'phone' => '0599000111',
+            'subscription_phone' => '0599000222',
+            'address' => 'شارع النور',
+            'accounting_type' => 'monthly',
+            'subscription_date' => '2026-09-01',
+            'kilowatt_price' => '2.50',
+            'minimum_charge' => '25.00',
+            'circuit_breaker_id' => CircuitBreaker::factory()->create(['ampere' => 20])->id,
+        ]);
+        $latest = MeterReading::factory()->for($subscription)->create([
+            'week_start' => '2026-10-09',
+            'week_end' => '2026-10-15',
+            'previous_reading' => 1200,
+            'current_reading' => 1250.5,
+            'consumption' => 50.5,
+        ]);
+        MeterReading::factory()->for($subscription)->approved()->create(['week_start' => '2026-10-02']);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
+            ->getJson(route('mobile.collections.subscriptions.show', $subscription))
+            ->assertOk()
+            ->assertJsonPath('subscription.full_name', 'منزل أحمد')
+            ->assertJsonPath('subscription.subscriber_name', 'أحمد علي')
+            ->assertJsonPath('subscription.personal_phone', '0599000111')
+            ->assertJsonPath('subscription.phone', '0599000222')
+            ->assertJsonPath('subscription.address', 'شارع النور')
+            ->assertJsonPath('subscription.accounting_type', 'monthly')
+            ->assertJsonPath('subscription.subscription_date', '2026-09-01')
+            ->assertJsonPath('subscription.kilowatt_price', '2.50')
+            ->assertJsonPath('subscription.minimum_payment', '25.00')
+            ->assertJsonPath('subscription.circuit_breaker_ampere', 20)
+            ->assertJsonPath('last_reading.id', $latest->id)
+            ->assertJsonPath('last_reading.week_start', '2026-10-09')
+            ->assertJsonPath('last_reading.week_end', '2026-10-15')
+            ->assertJsonPath('last_reading.previous_reading', 1200)
+            ->assertJsonPath('last_reading.current_reading', 1250.5)
+            ->assertJsonPath('last_reading.consumption', 50.5)
+            ->assertJsonPath('last_reading.status', 'pending');
+    }
+
+    public function test_subscription_summary_without_readings_includes_initial_reading_and_default_terms(): void
+    {
+        $collector = $this->collectorWithPermission(...self::TAKES_PAYMENTS);
+        $subscription = Subscription::factory()->create([
+            'branch_id' => $collector->branch_id,
+            'initial_reading' => 500,
+            'kilowatt_price' => null,
+            'minimum_charge' => null,
+            'circuit_breaker_id' => CircuitBreaker::factory()->create(['minimum_payment' => '15.00'])->id,
+        ]);
+        $subscription->tariff->update(['rate' => '1.75']);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
+            ->getJson(route('mobile.collections.subscriptions.show', $subscription))
+            ->assertOk()
+            ->assertJsonPath('last_reading', null)
+            ->assertJsonPath('subscription.initial_reading', 500)
+            ->assertJsonPath('subscription.kilowatt_price', '1.75')
+            ->assertJsonPath('subscription.minimum_payment', '15.00');
     }
 
     public function test_mobile_bank_transfers_keep_both_source_and_destination_banks(): void
@@ -650,6 +718,81 @@ class MobileApiTest extends TestCase
 
         $this->actingAs(User::factory()->branchAdmin()->create(['branch_id' => $branch->id]))
             ->get('/pending-collections')->assertNotFound();
+    }
+
+    public function test_full_subscriber_history_paginates_with_running_balances(): void
+    {
+        $this->freezeTime();
+        $collector = $this->collectorWithPermission(...[...self::TAKES_PAYMENTS, PermissionKey::ViewSubscriptions]);
+        $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id]);
+        $charges = SubscriptionTransaction::factory()->for($subscription)->count(26)
+            ->sequence(fn ($sequence): array => ['source_key' => 'history-charge:'.$sequence->index])
+            ->create(['amount' => '10.00', 'created_at' => now()]);
+        $payment = SubscriptionTransaction::factory()->for($subscription)->create([
+            'type' => 'payment', 'amount' => '-30.00', 'source_key' => 'history-payment',
+            'cancelled_at' => now(), 'created_at' => now(),
+        ]);
+        $reversal = SubscriptionTransaction::factory()->for($subscription)->create([
+            'type' => 'cancellation', 'amount' => '30.00', 'source_key' => 'history-cancellation',
+            'reference_transaction_id' => $payment->id, 'created_at' => now(),
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
+            ->getJson(route('mobile.collections.subscriptions.transactions', $subscription))
+            ->assertOk()->assertJsonCount(25, 'data')
+            ->assertJsonPath('total', 28)->assertJsonPath('last_page', 2)
+            ->assertJsonPath('data.0.id', $reversal->id)->assertJsonPath('data.0.balance_after', '260.00')
+            ->assertJsonPath('data.1.id', $payment->id)->assertJsonPath('data.1.is_cancelled', true)
+            ->assertJsonPath('data.1.is_credit', true)->assertJsonPath('data.1.balance_after', '230.00')
+            ->assertJsonPath('data.24.balance_after', '40.00');
+        $this->getJson(route('mobile.collections.subscriptions.transactions', [$subscription, 'page' => 2]))
+            ->assertOk()->assertJsonCount(3, 'data')->assertJsonPath('current_page', 2)
+            ->assertJsonPath('data.0.id', $charges[2]->id)->assertJsonPath('data.0.balance_after', '30.00')
+            ->assertJsonPath('data.2.id', $charges[0]->id)->assertJsonPath('data.2.balance_after', '10.00');
+    }
+
+    public function test_mobile_details_and_history_use_website_permissions_without_leaking_statement_lines(): void
+    {
+        $collector = $this->collectorWithPermission(PermissionKey::RecordCollections);
+        $own = Subscription::factory()->create(['branch_id' => $collector->branch_id]);
+        $other = Subscription::factory()->create();
+        SubscriptionTransaction::factory()->for($own)->create(['amount' => '40.00']);
+        $details = route('mobile.collections.subscriptions.show', $own);
+        $history = route('mobile.collections.subscriptions.transactions', $own);
+
+        $this->getJson($history)->assertUnauthorized();
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
+        $this->getJson($details)->assertForbidden();
+        $this->getJson(route('mobile.collections.subscriptions'))->assertForbidden();
+        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections, PermissionKey::RecordCashPayments]));
+        $this->getJson($details)->assertOk()->assertJsonPath('subscription.balance', '40.00')
+            ->assertJsonPath('permissions.view_history', false)->assertJsonPath('permissions.payment_methods', ['cash'])
+            ->assertJsonPath('last_payment', null)->assertJsonCount(0, 'transactions');
+        $this->getJson($history)->assertForbidden();
+        $this->getJson(route('mobile.collections.subscriptions.transactions', $other))->assertNotFound();
+        $collector->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections, PermissionKey::RecordCashPayments, PermissionKey::ViewSubscriptions]));
+        $this->getJson($details)->assertJsonPath('permissions.view_history', true);
+        $this->getJson($history)->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson($history.'?page=0')->assertUnprocessable()->assertJsonValidationErrors('page');
+    }
+
+    public function test_collector_today_totals_exclude_cancelled_payments_as_on_the_website(): void
+    {
+        $this->freezeTime();
+        $collector = $this->collectorWithPermission(...self::TAKES_PAYMENTS);
+        $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id]);
+        $active = SubscriptionTransaction::factory()->for($subscription)->create([
+            'recorded_by' => $collector->id, 'type' => 'payment', 'payment_method' => 'cash',
+            'amount' => '-20.00', 'currency_amount' => '20.00', 'source_key' => 'active-mobile-payment',
+        ]);
+        SubscriptionTransaction::factory()->for($subscription)->create([
+            'recorded_by' => $collector->id, 'type' => 'payment', 'payment_method' => 'cash',
+            'amount' => '-10.00', 'currency_amount' => '10.00', 'source_key' => 'cancelled-mobile-payment', 'cancelled_at' => now(),
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
+            ->getJson(route('mobile.collections.index'))->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $active->id)->assertJsonPath('total', 20)->assertJsonPath('cash_total', 20);
     }
 
     private function collectorWithPermission(PermissionKey ...$permissions): User

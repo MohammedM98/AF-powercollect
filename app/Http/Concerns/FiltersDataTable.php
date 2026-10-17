@@ -224,6 +224,8 @@ trait FiltersDataTable
      */
     protected function meterBoxFilterGroupsFor(User $actor, Request $request, ?Closure $context = null): array
     {
+        $context = filled($request->input('filter.branch_id')) ? null : $context;
+
         $placements = MeterBox::query()
             ->visibleTo($actor)
             ->whereNotNull('meter_boxes.name')

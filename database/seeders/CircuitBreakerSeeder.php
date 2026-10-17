@@ -13,7 +13,19 @@ class CircuitBreakerSeeder extends Seeder
      *
      * @var array<int, int>
      */
-    private const MINIMUM_PAYMENTS = [2 => 20, 4 => 20, 6 => 60, 10 => 100, 16 => 160, 24 => 240, 32 => 320];
+    private const MINIMUM_PAYMENTS = [
+        2 => 20,
+        4 => 20,
+        5 => 50,
+        6 => 60,
+        8 => 80,
+        10 => 100,
+        12 => 120,
+        16 => 160,
+        20 => 200,
+        24 => 240,
+        32 => 320,
+    ];
 
     /**
      * Seed the circuit breakers. Safe to run again: a breaker that exists

@@ -590,7 +590,7 @@ export default function SubscriptionForm({
                     )}
 
                     {showMeterBoxField && (
-                        <FormField id="meter_box_id" label="رقم الطبلون" error={errors.meter_box_id}>
+                        <FormField id="meter_box_id" label="الطبلون (الاسم والرقم)" error={errors.meter_box_id}>
                             <SearchableSelect
                                 value={data.meter_box_id}
                                 onChange={onMeterBoxChange}

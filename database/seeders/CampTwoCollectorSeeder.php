@@ -25,7 +25,7 @@ class CampTwoCollectorSeeder extends Seeder
             throw new RuntimeException('This collector seeder is only available locally or in tests.');
         }
 
-        $branch = Branch::query()->where('name', 'مخيم 2')->sole();
+        $branch = Branch::query()->where('seed_key', 'camp-two')->orWhereIn('name', ['مكتب مخيم 2', 'مخيم 2'])->sole();
         $existing = User::query()->where('username', self::USERNAME)->first();
         if ($existing) {
             if ($existing->branch_id !== $branch->id || $existing->role !== UserRole::Collector || $existing->name !== 'محصّل مخيم 2') {

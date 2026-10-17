@@ -408,6 +408,7 @@ export default function Index({
                                     </td>
                                     <td className="text-gray-600">
                                         {subscription.meterBoxNumber ? <span className="data-chip">{subscription.meterBoxNumber}</span> : '—'}
+                                        {subscription.meterBoxName && <div className="mt-1 text-xs text-gray-500">{subscription.meterBoxName}</div>}
                                     </td>
                                     <td className="text-gray-600">
                                         {subscription.tariffCategoryLabel}

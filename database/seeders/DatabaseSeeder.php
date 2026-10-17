@@ -35,16 +35,10 @@ class DatabaseSeeder extends Seeder
             TariffSeeder::class,
             CircuitBreakerSeeder::class,
             CustomerSegmentSeeder::class,
-            LocationSeeder::class,
+            BranchSeeder::class,
             BranchManagerSeeder::class,
             MeterBoxSeeder::class,
         ]);
 
-        // Demo subscriptions (and the branch/meter-box/circuit-breaker chain
-        // they need) are local-only — SubscriptionSeeder itself refuses to
-        // run in production.
-        if (! app()->environment('production')) {
-            $this->call(SubscriptionSeeder::class);
-        }
     }
 }

@@ -21,7 +21,7 @@ class CampTwoCollectorSeederTest extends TestCase
     public function test_seeds_only_one_collector_with_payment_access_for_existing_camp_branch(): void
     {
         Storage::fake('local');
-        $branch = Branch::factory()->create(['name' => 'مخيم 2']);
+        $branch = Branch::factory()->create(['name' => 'مكتب المخيم المعدل', 'seed_key' => 'camp-two']);
         Permission::idsFor([PermissionKey::RecordCollections]);
 
         $this->seed(CampTwoCollectorSeeder::class);

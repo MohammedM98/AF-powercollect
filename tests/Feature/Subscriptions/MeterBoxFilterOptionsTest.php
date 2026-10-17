@@ -104,6 +104,29 @@ class MeterBoxFilterOptionsTest extends TestCase
             }));
     }
 
+    public function test_a_selected_branch_is_not_repeated_in_each_box_number_label(): void
+    {
+        $this->actingAs($this->superAdmin())
+            ->get(route('subscriptions.index', ['filter' => ['branch_id' => $this->branch->id, 'meter_box_name' => 'club']]))
+            ->assertInertia(fn ($page) => $page->where('filterOptions', function ($groups): bool {
+                $numbers = collect(collect($groups)->firstWhere('key', 'meter_box_id')['options']);
+
+                return $numbers->firstWhere('value', (string) $this->boxes['club'][0]->id)['label'] === '1 (club-1)'
+                    && $numbers->firstWhere('value', (string) $this->boxes['club'][9]->id)['label'] === '10 (club-10)';
+            }));
+    }
+
+    public function test_box_numbers_keep_their_branch_context_while_no_branch_is_selected(): void
+    {
+        $this->actingAs($this->superAdmin())
+            ->get(route('subscriptions.index', ['filter' => ['meter_box_name' => 'club']]))
+            ->assertInertia(fn ($page) => $page->where('filterOptions', function ($groups): bool {
+                $numbers = collect(collect($groups)->firstWhere('key', 'meter_box_id')['options']);
+
+                return $numbers->firstWhere('value', (string) $this->boxes['club'][0]->id)['label'] === '1 (club-1) — '.$this->branch->name;
+            }));
+    }
+
     public function test_the_options_do_not_grow_with_the_number_of_boxes(): void
     {
         $sizes = [];

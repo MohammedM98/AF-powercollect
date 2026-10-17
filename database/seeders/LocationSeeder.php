@@ -17,7 +17,7 @@ class LocationSeeder extends Seeder
      * @var array<string, array<string, array<int, string>>>
      */
     private const LOCATIONS = [
-        'النصيرات' => [
+        'الوسطى' => [
             'مخيم 2' => [
                 'مدارس جديد', 'الحاج', 'الابراج', 'ابو ذر', 'ابو هويشل', 'ابو رحمة', 'الفقي', 'الشافعي', 'ابو عمرة',
                 'زهرة الربيع', 'مكتبة خالد', 'المدارس', 'الحملاوي', 'النادي الأهلي', 'أرض الحلو', 'ابراج (شارع الحسنات)',
@@ -30,7 +30,7 @@ class LocationSeeder extends Seeder
     ];
 
     /**
-     * Seed the locations. Safe to run again: what already exists is kept.
+     * Seed the locations, keeping their identifiers and correcting the governorate.
      */
     public function run(): void
     {
@@ -38,7 +38,7 @@ class LocationSeeder extends Seeder
             $governorate = Governorate::firstOrCreate(['name' => $governorateName]);
 
             foreach ($areas as $areaName => $subAreaNames) {
-                $area = Area::firstOrCreate(['name' => $areaName], ['governorate_id' => $governorate->id]);
+                $area = Area::updateOrCreate(['name' => $areaName], ['governorate_id' => $governorate->id]);
 
                 foreach ($subAreaNames as $subAreaName) {
                     SubArea::firstOrCreate(['name' => $subAreaName], ['area_id' => $area->id]);
@@ -55,11 +55,12 @@ class LocationSeeder extends Seeder
     public static function branch(): Branch
     {
         $area = Area::query()->where('name', 'مخيم 2')->firstOrFail();
-        $named = Branch::query()->where('name', 'like', '%مخيم 2%')->get();
+        $named = Branch::query()->where('seed_key', 'camp-two')->orWhere('name', 'like', '%مخيم 2%')->get();
 
-        return $named->firstWhere('name', 'مخيم 2')
+        return $named->firstWhere('seed_key', 'camp-two')
+            ?? $named->firstWhere('name', 'مخيم 2')
             ?? ($named->count() === 1 ? $named->first() : null)
             ?? Branch::query()->where('area_id', $area->id)->first()
-            ?? Branch::query()->create(['name' => 'مخيم 2', 'governorate_id' => $area->governorate_id, 'area_id' => $area->id]);
+            ?? Branch::query()->create(['name' => 'مكتب مخيم 2', 'governorate_id' => $area->governorate_id, 'area_id' => $area->id]);
     }
 }

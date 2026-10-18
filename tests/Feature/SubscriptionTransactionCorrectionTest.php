@@ -97,7 +97,7 @@ class SubscriptionTransactionCorrectionTest extends TestCase
                 ->where('summary.paymentsCount', 1));
     }
 
-    public function test_a_corrected_cash_payment_is_grouped_with_its_reversal_which_shows_its_voucher_and_cash_box(): void
+    public function test_a_corrected_cash_payment_keeps_its_voucher_without_finalizing_its_open_box_number(): void
     {
         $payment = $this->recordPayment(['amount' => '80', 'payment_method' => 'cash', 'manual_voucher_number' => '00412', 'cash_box' => '4554']);
 
@@ -123,7 +123,7 @@ class SubscriptionTransactionCorrectionTest extends TestCase
                 ->where('entries.2.voucherNumber', '00412')
                 ->where('entries.2.systemVoucherNumber', $payment->printedVoucherNumber())
                 ->where('entries.2.manualVoucherNumber', '00412')
-                ->where('entries.2.cashBox', '4554')
+                ->where('entries.2.cashBox', null)
                 ->where('entries.3.groupId', $payment->correction->id)
                 ->where('entries.3.corrects.id', $payment->id)
                 ->where('entries.3.voucherNumber', '00413')

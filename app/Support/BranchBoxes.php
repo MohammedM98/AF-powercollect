@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Branch;
 use App\Models\CashBox;
+use App\Models\Closing;
 use App\Models\ClosingSetting;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
@@ -56,7 +57,7 @@ class BranchBoxes
     public const PLACES = ['open', 'closed'];
 
     /** Who closed and sent a box, besides its entries, for the boxes page. */
-    private const PEOPLE = ['receivedBy:id,name', 'sentBy:id,name'];
+    private const PEOPLE = ['receivedBy:id,name', 'sentBy:id,name', 'audit.auditor:id,name', 'payments.audit.auditor:id,name'];
 
     /**
      * Boxes in one state, narrowed to a week for closed boxes. A linked box
@@ -80,32 +81,78 @@ class BranchBoxes
         }
         $ledgers = $this->ledgers($boxes->flatMap(fn (CashBox $box) => $box->payments->pluck('subscription_transaction_id'))->all());
 
-        return $boxes->map(fn (CashBox $box): array => [
-            ...$this->present($box, $ledgers),
-            'canCount' => $this->workflow->mayReceive($box, $actor),
-            'isOwn' => $box->user_id === $actor->id,
-        ]);
+        return $boxes->map(function (CashBox $box) use ($ledgers, $actor): array {
+            $row = $this->present($box, $ledgers);
+            if ($actor->isFinancialAuditor()) {
+                $row['payments'] = array_map(fn (array $entry): array => [...$entry, 'statement_url' => null], $row['payments']);
+            }
+            $active = $box->payments->filter(fn ($entry): bool => $entry->transaction?->status === SubscriptionTransaction::STATUS_ACTIVE);
+            $reviewed = $active->filter(fn ($entry): bool => $entry->audit !== null);
+            $canAudit = $box->status === 'received' && BankTransferAuditing::allowed($actor) && $box->audit === null;
+
+            return [
+                ...$row,
+                'canCount' => $this->workflow->mayReceive($box, $actor),
+                'isOwn' => $box->user_id === $actor->id,
+                'canAudit' => $canAudit,
+                'canCompleteAudit' => $canAudit,
+                'completeAuditUrl' => route('payments.box-audits.store', $box),
+                'auditSummary' => [
+                    'total' => $active->count(), 'reviewed' => $reviewed->count(),
+                    'verified' => Closing::money($reviewed->sum(fn ($entry): int => Closing::cents($entry->amount) - Closing::cents($entry->audit->difference))),
+                    'difference' => Closing::money($reviewed->sum(fn ($entry): int => Closing::cents($entry->audit->difference))),
+                ],
+            ];
+        });
     }
 
     /**
      * Weekly browsing periods use the actual closing date in business time,
      * without rewriting a box or its original closing's saved schedule.
      *
-     * @return Collection<int, array{start: string, end: string, count: int}>
+     * @return Collection<int, array{start: string, end: string, count: int, reviewed: int}>
      */
     public function periods(int $branchId): Collection
     {
         return CashBox::query()->where('branch_id', $branchId)->where('status', 'received')
-            ->get(['received_at', 'closed_at', 'opened_at'])
-            ->groupBy(fn (CashBox $box): string => $this->weekOf($box->received_at ?? $box->closed_at ?? $box->opened_at))
-            ->map(fn (Collection $boxes, string $start): array => ['start' => $start, 'end' => ClosingPeriods::date($start)->addDays(6)->toDateString(), 'count' => $boxes->count()])
+            ->withExists('audit')->get(['id', 'received_at', 'closed_at', 'opened_at'])
+            ->groupBy(fn (CashBox $box): string => $this->weekOf($box->received_at ?? $box->closed_at ?? $box->opened_at, $branchId))
+            ->map(fn (Collection $boxes, string $start): array => ['start' => $start, 'end' => ClosingPeriods::date($start)->addDays(6)->toDateString(), 'count' => $boxes->count(), 'reviewed' => $boxes->where('audit_exists', true)->count()])
             ->sortKeysDesc()->values();
     }
 
-    public function weekOf(CarbonInterface $moment): string
+    /** @param Collection<int, array<string, mixed>> $rows @return array<string, mixed> */
+    public function periodAudit(Collection $rows, int $branchId, string $week): array
+    {
+        $pending = $rows->filter(fn (array $box): bool => $box['status'] === 'received' && $box['audit'] === null)->sortBy('id')->values();
+        $transfers = $pending->where('type', 'bank_transfer')->flatMap(fn (array $box): array => $box['payments'])
+            ->filter(fn (array $entry): bool => ($entry['transaction']['type'] ?? null) === SubscriptionTransaction::TYPE_PAYMENT && $entry['transaction']['status'] === SubscriptionTransaction::STATUS_ACTIVE);
+        $drafts = $transfers->filter(fn (array $entry): bool => isset($entry['audit']) && ! $entry['audit']['posted_at'] && ! $entry['audit']['adjustment_transaction_id']);
+        $differences = $drafts->map(fn (array $entry): int => Closing::cents($entry['audit']['difference']));
+        $snapshot = $pending->map(fn (array $box): array => [
+            'id' => $box['id'], 'type' => $box['type'], 'closed_at' => $box['closed_at'],
+            'payments' => collect($box['payments'])->sortBy('id')->map(fn (array $entry): array => [
+                'id' => $entry['id'], 'transaction' => $entry['subscription_transaction_id'],
+                'amount' => $entry['amount'], 'currency' => $entry['currency'],
+                'status' => $entry['transaction']['status'] ?? null, 'audit' => $entry['audit'] ?? null,
+            ])->values()->all(),
+        ])->all();
+
+        return [
+            'branch_id' => $branchId, 'week' => $week, 'box_ids' => $pending->pluck('id')->all(),
+            'snapshot' => hash('sha256', json_encode([$branchId, $week, $snapshot], JSON_THROW_ON_ERROR)),
+            'boxes' => $pending->count(), 'transfers' => $transfers->count(),
+            'exceptions' => $differences->filter(fn (int $amount): bool => $amount !== 0)->count(),
+            'automaticMatches' => $transfers->whereNull('audit')->count(),
+            'debit' => Closing::money($differences->filter(fn (int $amount): bool => $amount > 0)->sum()),
+            'credit' => Closing::money(-$differences->filter(fn (int $amount): bool => $amount < 0)->sum()),
+        ];
+    }
+
+    public function weekOf(CarbonInterface $moment, int $branchId): string
     {
         return CarbonImmutable::instance($moment)->setTimezone(config('app.business_timezone'))
-            ->startOfWeek(ClosingSetting::company()->week_starts_on)->toDateString();
+            ->startOfWeek(ClosingSetting::forBranch($branchId)->week_starts_on)->toDateString();
     }
 
     /**
@@ -203,6 +250,7 @@ class BranchBoxes
             ...$entry,
             'statement_url' => $subscriptionId ? route('subscriptions.statement', [$subscriptionId, 'transaction' => $entry['subscription_transaction_id'] ?? null]) : null,
             'receipt_url' => $subscriptionId && $vouched ? route('subscriptions.payments.receipt', [$subscriptionId, $entry['transaction']['id']]) : null,
+            'audit_url' => isset($entry['id']) ? route('payments.bank-audits.store', $entry['id']) : null,
             'ledger' => $ledgers[$entry['subscription_transaction_id'] ?? null] ?? null,
         ];
     }

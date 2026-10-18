@@ -19,6 +19,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia;
 use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
@@ -284,7 +285,7 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertSame('0.00', app(BranchClosingWorkflow::class)->expected($entry->box)['ILS']);
     }
 
-    public function test_closed_session_preserves_payment_history_and_existing_refund_action(): void
+    public function test_closed_session_preserves_payment_history_and_refuses_refunds(): void
     {
         [$branch, $head, $collector] = $this->start();
         $payment = $this->payment($branch, $collector);
@@ -293,14 +294,20 @@ class BranchClosingWorkflowTest extends TestCase
         $actor = User::factory()->superAdmin()->create();
         SubscriptionTransaction::factory()->for($payment->subscription)->create(['amount' => '25']);
 
-        $actions = $payment->fresh()->availableActions($actor);
-        $this->assertNotContains('delete', $actions);
-        $this->assertNotContains('edit_metadata', $actions);
-        $this->assertContains('refund', $actions);
-        $payment->applyAction($actor, TransactionAction::Refund, []);
+        $before = $payment->fresh()->getAttributes();
+        $this->assertSame([], $payment->fresh()->availableActions($actor));
 
+        try {
+            $payment->applyAction($actor, TransactionAction::Refund, []);
+            $this->fail('A closed-box payment must not be refunded.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('action', $exception->errors());
+        }
+
+        $this->assertSame($before, $payment->fresh()->getAttributes());
+        $this->assertSame('100.00', $box->fresh()->totals()['ILS']);
         $this->assertSame('100.00', $box->fresh()->head_counts['ILS']);
-        $this->assertDatabaseHas('subscription_transactions', ['reference_transaction_id' => $payment->id, 'type' => 'refund']);
+        $this->assertDatabaseMissing('subscription_transactions', ['reference_transaction_id' => $payment->id, 'type' => 'refund']);
     }
 
     public function test_offline_mobile_payment_uses_original_time_without_changing_ledger_date_or_retry(): void

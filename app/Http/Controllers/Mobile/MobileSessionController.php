@@ -45,6 +45,8 @@ class MobileSessionController extends Controller
 
         RateLimiter::clear($rateLimitKey);
 
+        abort_if($user->isFinancialAuditor(), 403);
+
         return response()->json([
             'user' => $this->userData($user),
             'token' => MobileAccessToken::issue($user),

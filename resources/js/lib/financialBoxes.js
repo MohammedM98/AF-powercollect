@@ -5,6 +5,23 @@ const boxState = (box) => box.status === 'pending' ? 'open' : box.status;
 export const activeBoxEntries = (box) => (box.payments ?? []).filter((entry) => !entry.transaction || entry.transaction.status === 'active');
 export const boxPersonName = (box) => box.user?.name ?? '—';
 
+const searchableText = (value) => String(value ?? '').replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660)).toLocaleLowerCase('ar').trim();
+
+export function boxEntryMatches(entry, search) {
+    const query = searchableText(search);
+    const transaction = entry.transaction ?? {};
+    return !query || [transaction.subscription?.subscription_name, transaction.subscription?.full_name,
+        transaction.subscription?.account_number, transaction.manual_voucher_number, transaction.voucher_number,
+        transaction.reference_number, transaction.bank_name, transaction.notes, entry.ledger?.voucherNumber,
+        entry.ledger?.referenceNumber].some((value) => searchableText(value).includes(query));
+}
+
+export function financialBoxMatches(box, search) {
+    const query = searchableText(search);
+    return !query || [box.number, boxPersonName(box)].some((value) => searchableText(value).includes(query))
+        || (box.payments ?? []).some((entry) => boxEntryMatches(entry, query));
+}
+
 /** Active entries only; currencies stay separate, including old foreign cash. */
 export function financialBoxTotals(box) {
     if (!box.payments) {
@@ -25,7 +42,7 @@ export function financialBoxesTotals(boxes) {
 export function filterFinancialBoxes(boxes, { status = 'all', person = '', search = '' } = {}) {
     return boxes.filter((box) => (status === 'all' || boxState(box) === status)
         && (!person || String(box.user?.id) === person)
-        && `${box.number} ${boxPersonName(box)}`.includes(search.trim()));
+        && financialBoxMatches(box, search));
 }
 
 export function sortFinancialBoxes(boxes, { key = 'status', direction = 'asc' } = {}) {
@@ -77,3 +94,18 @@ export function entryStatus(entry) {
 
 /** Whether a transfer or clearing was found wrong when it was checked. */
 export const isFlaggedEntry = (entry) => ['missing', 'rejected'].includes(entry.status);
+
+/** The financial effects still awaiting final approval; historical postings stay out. */
+export function auditApprovalSummary(boxes) {
+    const pending = boxes.filter((box) => box.status === 'received' && !box.audit);
+    const transfers = pending.filter((box) => box.type === 'bank_transfer').flatMap(activeBoxEntries);
+    const drafts = transfers.filter((entry) => entry.audit && !entry.audit.posted_at && !entry.audit.adjustment_transaction_id);
+    const differences = drafts.map((entry) => Math.round(Number(entry.audit.difference) * 100));
+    return {
+        boxes: pending.length, transfers: transfers.length,
+        exceptions: differences.filter((amount) => amount !== 0).length,
+        automaticMatches: transfers.filter((entry) => !entry.audit).length,
+        debit: differences.filter((amount) => amount > 0).reduce((sum, amount) => sum + amount, 0) / 100,
+        credit: -differences.filter((amount) => amount < 0).reduce((sum, amount) => sum + amount, 0) / 100,
+    };
+}

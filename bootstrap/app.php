@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AuthenticateMobileToken;
 use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureFinancialAuditorAccess;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(SecurityHeaders::class);
         $middleware->web(append: [
             EnsureAccountIsActive::class,
+            EnsureFinancialAuditorAccess::class,
             HandleInertiaRequests::class,
         ]);
     })

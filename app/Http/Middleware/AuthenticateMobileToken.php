@@ -26,6 +26,8 @@ class AuthenticateMobileToken
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
+        abort_if($token->user->isFinancialAuditor(), 403);
+
         Auth::setUser($token->user);
         $request->attributes->set('mobile_access_token', $token);
         $request->setUserResolver(fn () => $token->user);

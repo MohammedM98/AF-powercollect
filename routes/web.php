@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\BankController;
+use App\Http\Controllers\BankTransferAuditController;
 use App\Http\Controllers\BranchClosingController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchPerformanceController;
+use App\Http\Controllers\CashBoxAuditController;
 use App\Http\Controllers\CircuitBreakerController;
 use App\Http\Controllers\CurrencyRateController;
 use App\Http\Controllers\DashboardController;
@@ -21,6 +23,7 @@ use App\Http\Controllers\MeterReadingController;
 use App\Http\Controllers\PaperSheetController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentSettingController;
+use App\Http\Controllers\PeriodAuditController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PrintTemplateController;
 use App\Http\Controllers\ProfileController;
@@ -69,6 +72,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/summary', [PaymentController::class, 'summary'])->name('payments.summary');
     Route::get('/payments/cash-boxes', [PaymentController::class, 'cashBoxes'])->name('payments.cash-boxes');
+    Route::post('/payments/cash-boxes/audit-period', [PeriodAuditController::class, 'store'])->name('payments.period-audits.store');
+    Route::post('/payments/cash-boxes/entries/{entry}/audit', [BankTransferAuditController::class, 'store'])->whereNumber('entry')->name('payments.bank-audits.store');
+    Route::post('/payments/cash-boxes/{cashBox}/audit', [CashBoxAuditController::class, 'store'])->whereNumber('cashBox')->name('payments.box-audits.store');
     Route::get('/payments/cash-boxes/entries', [PaymentController::class, 'entries'])->name('payments.cash-boxes.entries');
     Route::get('/payments/entries', [PaymentController::class, 'movedEntries'])->name('payments.entries');
     Route::get('/payments/cash-boxes/{cashBox}', [PaymentController::class, 'showCashBox'])->whereNumber('cashBox')->name('payments.cash-boxes.show');

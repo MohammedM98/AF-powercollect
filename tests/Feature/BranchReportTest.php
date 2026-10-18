@@ -119,7 +119,7 @@ class BranchReportTest extends TestCase
             ->where('readings', ['entered' => 2, 'consumption' => 50, 'approved' => 1, 'billed' => '25.50', 'pending' => 1]));
     }
 
-    public function test_a_preparer_reports_only_on_their_own_branch_and_an_auditor_on_all(): void
+    public function test_a_preparer_reports_only_on_their_own_branch_and_company_report_permission_reaches_all(): void
     {
         $this->at('2026-10-01 08:00', fn () => $this->pay('10'));
         $this->at('2026-10-01 08:00', fn () => $this->pay('20', [], Subscription::factory()->create(['branch_id' => $this->south->id])));
@@ -130,7 +130,7 @@ class BranchReportTest extends TestCase
         $this->get(route('reports.index', ['branch' => 'all']))->assertInertia(fn ($page) => $page->where('collections.total', '10.00'));
         $this->assertStringNotContainsString('South', $this->get(route('reports.export'))->streamedContent());
 
-        $auditor = User::factory()->financialAuditor()->create(['branch_id' => $this->north->id]);
+        $auditor = User::factory()->accountant()->create(['branch_id' => $this->north->id]);
         $auditor->permissions()->sync(Permission::idsFor([PermissionKey::ViewAllClosings, PermissionKey::ExportFinancialReports]));
 
         $this->actingAs($auditor)->get(route('reports.index', ['branch' => 'all']))->assertInertia(fn ($page) => $page
@@ -151,7 +151,7 @@ class BranchReportTest extends TestCase
         $this->at('2026-09-30 19:00', fn () => $this->pay('7', [], $southSubscription));
         $this->at('2026-10-01 08:00', fn () => $this->pay('3', [], $southSubscription));
 
-        $auditor = User::factory()->financialAuditor()->create(['branch_id' => $this->north->id]);
+        $auditor = User::factory()->accountant()->create(['branch_id' => $this->north->id]);
         $auditor->permissions()->sync(Permission::idsFor([PermissionKey::ViewAllClosings, PermissionKey::ExportFinancialReports]));
 
         $this->actingAs($auditor)->get(route('reports.index', ['branch' => 'all', 'from' => '2026-09-30', 'to' => '2026-10-01']))->assertInertia(fn ($page) => $page

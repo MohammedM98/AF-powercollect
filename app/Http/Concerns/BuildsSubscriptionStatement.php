@@ -71,6 +71,7 @@ trait BuildsSubscriptionStatement
                 'amendments.user',
                 'closingLine.closing',
                 'splitPayment',
+                'bankTransferAudit',
             ])
             ->oldest()
             ->orderBy('id')
@@ -123,6 +124,7 @@ trait BuildsSubscriptionStatement
         // Cancelled lines and their reversals cancel each other out, so the totals leave both out.
         $counted = $transactions->reject(fn (SubscriptionTransaction $transaction): bool => $transaction->isCancelled() || $transaction->isReversal());
         $payments = $counted->filter(fn (SubscriptionTransaction $transaction): bool => $transaction->isPayment());
+        $paymentAdjustments = $counted->where('type', SubscriptionTransaction::TYPE_BANK_AUDIT_ADJUSTMENT);
         $discounts = $counted->filter(fn (SubscriptionTransaction $transaction): bool => $transaction->isDiscount());
         $clearings = $counted->filter(fn (SubscriptionTransaction $transaction): bool => $transaction->isClearing());
         $sumOf = fn ($lines): int => $lines->sum(fn (SubscriptionTransaction $transaction): int => $this->cents($transaction->amount));
@@ -152,8 +154,8 @@ trait BuildsSubscriptionStatement
             'entries' => $entries,
             'summary' => [
                 'balance' => $this->money($balanceInCents),
-                'charged' => $this->money($sumOf($counted->reject->isCredit())),
-                'paid' => $this->money(-$sumOf($payments)),
+                'charged' => $this->money($sumOf($counted->reject(fn (SubscriptionTransaction $transaction): bool => $transaction->isCredit() || $transaction->type === SubscriptionTransaction::TYPE_BANK_AUDIT_ADJUSTMENT))),
+                'paid' => $this->money(-$sumOf($payments) - $sumOf($paymentAdjustments)),
                 'paymentsCount' => $payments->count(),
                 'discounted' => $this->money(-$sumOf($discounts)),
                 'discountsCount' => $discounts->count(),
@@ -328,6 +330,7 @@ trait BuildsSubscriptionStatement
             'typeLabel' => $transaction->typeLabel(),
             'status' => $transaction->status,
             'reference_transaction_id' => $transaction->reference_transaction_id,
+            'auditOriginal' => $transaction->type === SubscriptionTransaction::TYPE_BANK_AUDIT_ADJUSTMENT ? ['id' => $transaction->reference_transaction_id, 'lineNumber' => $lineNumbers[$transaction->reference_transaction_id] ?? null] : null,
             'balance_after' => $transaction->balance_after ?? $this->money($balanceInCents),
             'available_actions' => $availableActions,
             'actionEffects' => [
@@ -351,8 +354,8 @@ trait BuildsSubscriptionStatement
             'referenceNumber' => $receipt->reference_number,
             // The bank transfer this payment is one part of, if it is.
             'splitPayment' => $transaction->splitPayment?->badge(),
-            // Once its box is closed, the payment carries that box's number; before, the box typed on it, if any.
-            'cashBox' => ($receipt->boxEntry?->box?->status !== 'open' ? $receipt->boxEntry?->box?->number : null) ?? $receipt->cash_box,
+            // Open membership is provisional; only closure gives the movement its final box number.
+            'cashBox' => $receipt->cashBoxNumber(),
             'recordedByName' => $transaction->recordedBy?->name,
             // The weekly reading the line was billed from, which a reading and its standing discount share.
             'meterReadingId' => $transaction->meter_reading_id,

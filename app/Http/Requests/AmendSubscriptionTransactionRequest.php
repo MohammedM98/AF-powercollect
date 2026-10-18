@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Bank;
 use App\Models\SubscriptionTransaction;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -55,10 +56,10 @@ class AmendSubscriptionTransactionRequest extends FormRequest
     {
         return [
             'bank_name' => $throughBank
-                ? ['required', Rule::in(config('powercollect.transfer_banks'))]
+                ? ['required', Rule::in(Bank::receiverNames())]
                 : ['prohibited'],
             'sender_bank_name' => $throughBank
-                ? ['nullable', Rule::in(config('powercollect.sender_banks'))]
+                ? ['nullable', Rule::in(Bank::senderNames())]
                 : ['prohibited'],
             'sender_name' => $throughBank ? ['nullable', 'string', 'max:255'] : ['prohibited'],
         ];

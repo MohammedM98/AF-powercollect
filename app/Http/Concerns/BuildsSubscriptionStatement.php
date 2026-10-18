@@ -8,6 +8,7 @@ use App\Enums\Currency;
 use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
+use App\Models\Bank;
 use App\Models\MeterReading;
 use App\Models\StandingDiscount;
 use App\Models\Subscription;
@@ -168,8 +169,8 @@ trait BuildsSubscriptionStatement
             'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
             // The ways this user may take a payment: what the payment form offers.
             'payableMethods' => PaymentMethod::options($actor->allowedPaymentMethods()),
-            'transferBanks' => config('powercollect.transfer_banks'),
-            'senderBanks' => config('powercollect.sender_banks'),
+            'transferBanks' => Bank::receiverNames(),
+            'senderBanks' => Bank::senderNames(),
             'chargeTypes' => ChargeType::formOptions(),
             'discountMethods' => DiscountMethod::options(),
             // Offered while typing a standing discount's customer segment.

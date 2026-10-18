@@ -9,6 +9,12 @@ test('the settings group counts as current on any settings page, including its c
     assert.equal(isInsideAnyLink(SETTINGS_LINKS, '/branch-performance'), false);
 });
 
+test('currencies and banks share one payment settings destination', () => {
+    const links = allowedNavigationGroups({ managePaymentSettings: true }).flatMap((group) => group.links);
+
+    assert.deepEqual(links.map((link) => [link.href, link.label]), [['/settings/payments', 'إعدادات الدفعات']]);
+});
+
 test('regrouping keeps every permitted destination exactly once', () => {
     const allLinks = [...MAIN_LINKS, ...SETTINGS_LINKS];
     const can = Object.fromEntries(allLinks.filter((link) => link.can).map((link) => [link.can, true]));
@@ -54,7 +60,7 @@ test('staff with box access can reach their boxes without payment access and onl
     assert.equal(isActiveLink(boxes, '/payments/cash-boxes/12'), true);
 });
 
-test('closing and sending boxes lives in the financial boxes link, whose tabs light it too', () => {
+test('closing and reviewing boxes lives in the financial boxes link, whose tabs light it too', () => {
     const links = allowedNavigationGroups({ viewCashBoxes: true }).flatMap((group) => group.links);
 
     assert.deepEqual(links.map((link) => [link.href, link.label]), [['/payments/cash-boxes', 'الصناديق المالية']]);

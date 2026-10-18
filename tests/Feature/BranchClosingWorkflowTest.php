@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class BranchClosingWorkflowTest extends TestCase
@@ -85,7 +86,7 @@ class BranchClosingWorkflowTest extends TestCase
         $branch = Branch::factory()->create();
         $head = User::factory()->branchAdmin()->for($branch)->create();
         $legacy = Closing::factory()->for($branch)->submitted()->create();
-        $this->payment($branch, $head, extra: ['created_at' => now()->subWeek()]);
+        SubscriptionTransaction::withoutEvents(fn () => $this->payment($branch, $head, extra: ['created_at' => now()->subWeek()]));
 
         $this->actingAs($head)->post(route('payments.cash-boxes.actions', ['action' => 'start']), ['branch_id' => $branch->id])->assertSessionHasNoErrors();
 
@@ -93,6 +94,44 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertSame('submitted', $legacy->fresh()->status->value);
         $this->assertDatabaseCount('cash_box_payments', 0);
         $this->assertSame('weekly', ClosingSetting::ownFor($branch)->frequency);
+    }
+
+    #[TestWith(['payment', 'cash', 'cash'])]
+    #[TestWith(['payment', 'bank_transfer', 'bank_transfer'])]
+    #[TestWith(['clearing', null, 'clearing'])]
+    public function test_first_collection_automatically_opens_its_box(string $type, ?string $method, string $boxType): void
+    {
+        $this->freezeTime();
+        $branch = Branch::factory()->create();
+        $collector = User::factory()->collector()->for($branch)->create();
+        ClosingSetting::company()->update(['week_starts_on' => 2, 'cutoff_time' => '15:00']);
+        $legacy = Closing::factory()->for($branch)->submitted()->create();
+        SubscriptionTransaction::withoutEvents(fn () => $this->payment($branch, $collector, extra: ['created_at' => now()->subWeek()]));
+
+        $payment = $this->payment($branch, $collector, extra: ['type' => $type, 'payment_method' => $method]);
+
+        $box = CashBox::query()->sole();
+        $this->assertDatabaseHas('cash_boxes', ['id' => $box->id, 'branch_id' => $branch->id, 'user_id' => $collector->id, 'type' => $boxType, 'status' => 'open']);
+        $this->assertDatabaseHas('cash_box_payments', ['cash_box_id' => $box->id, 'subscription_transaction_id' => $payment->id, 'amount' => '100.00']);
+        $this->assertDatabaseCount('cash_box_payments', 1);
+        $this->assertDatabaseHas('closing_settings', ['branch_id' => $branch->id, 'week_starts_on' => 2, 'cutoff_time' => '15:00', 'updated_by' => $collector->id]);
+        $this->assertNotNull(ClosingSetting::ownFor($branch)->workflow_started_at);
+        $this->assertNull($legacy->fresh()->workflow_settings);
+        $this->assertSame('submitted', $legacy->fresh()->status->value);
+    }
+
+    #[TestWith(['subscription_fee', 'active'])]
+    #[TestWith(['payment', 'cancelled'])]
+    public function test_non_collection_or_cancelled_transaction_does_not_open_boxes(string $type, string $status): void
+    {
+        $branch = Branch::factory()->create();
+        $collector = User::factory()->collector()->for($branch)->create();
+
+        $this->payment($branch, $collector, extra: ['type' => $type, 'status' => $status]);
+
+        $this->assertNull(ClosingSetting::ownFor($branch)?->workflow_started_at);
+        $this->assertDatabaseCount('cash_boxes', 0);
+        $this->assertDatabaseCount('cash_box_payments', 0);
     }
 
     public function test_branch_confirms_a_collectors_box_closed_in_one_step_and_new_payments_open_another(): void

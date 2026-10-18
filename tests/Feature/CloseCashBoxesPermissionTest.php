@@ -106,7 +106,7 @@ class CloseCashBoxesPermissionTest extends TestCase
             ->where('boxes.0.payments.0.receipt_url', route('subscriptions.payments.receipt', [$transaction->subscription_id, $transaction->id]))
             ->where('boxes.0.payments.0.statement_url', route('subscriptions.statement', [$transaction->subscription_id, 'transaction' => $transaction->id]))
             ->where('access.receive', true)
-            ->where('access.send', false));
+            ->missing('access.send'));
     }
 
     public function test_head_who_also_collects_finds_their_own_boxes_among_the_branch_boxes(): void
@@ -137,8 +137,9 @@ class CloseCashBoxesPermissionTest extends TestCase
         $this->assertFalse(PermissionKey::CloseCashBoxes->isCompanyWide());
         $this->assertFalse(PermissionKey::CloseCashBoxes->isRetired());
         $this->assertSame(PermissionKey::CloseCashBoxes, PermissionKey::resourceGroups()['collections']['actions']['close_boxes']);
-        $this->assertContains(PermissionKey::SendCashBoxesToAudit, UserRole::BranchAdmin->starterPermissions());
+        $this->assertNotContains(PermissionKey::SendCashBoxesToAudit, UserRole::BranchAdmin->starterPermissions());
         $this->assertFalse(PermissionKey::SendCashBoxesToAudit->isCompanyWide());
-        $this->assertSame(PermissionKey::SendCashBoxesToAudit, PermissionKey::resourceGroups()['collections']['actions']['send_boxes']);
+        $this->assertArrayNotHasKey('send_boxes', PermissionKey::resourceGroups()['collections']['actions']);
+        $this->assertTrue(PermissionKey::SendCashBoxesToAudit->isRetired());
     }
 }

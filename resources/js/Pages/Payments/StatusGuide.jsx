@@ -1,12 +1,10 @@
 import Icon from '@/Components/Icon';
 import StatusPill from '@/Components/DataTable/StatusPill';
-import { boxStatusLabels, sendStatusLabels } from '@/lib/financialBoxes';
+import { boxStatusLabels } from '@/lib/financialBoxes';
 
 const boxStatuses = [
     [boxStatusLabels.open, 'يجمع دفعات المحصّل الجديدة من نوعه حتى يؤكّد الفرع إغلاقه.'],
-    [boxStatusLabels.pending, 'أُغلق وحده عند مغادرة المحصّل، وينتظر أن يؤكّد الفرع إغلاقه.'],
-    [sendStatusLabels.unsent, 'أكّد الفرع إغلاقه فقُفلت حركاته، وينتظر أن يُرسل إلى التدقيق.'],
-    [sendStatusLabels.sent, 'أرسله الفرع إلى قسم التدقيق منفردًا برقمه.'],
+    [boxStatusLabels.received, 'أكّد مسؤول الفرع أو صاحب صلاحية الإغلاق إغلاقه فقُفلت حركاته، ويظهر تلقائيًا لقسم التدقيق ضمن فترة إغلاقه الأسبوعية.'],
 ];
 
 const entryStatuses = [
@@ -47,7 +45,7 @@ export default function StatusGuide({ className = '' }) {
                     </div>)}
                 </dl>
             </section>
-            <p className="flex items-start gap-2 rounded-control bg-gray-50 p-3 leading-6 text-gray-600 md:col-span-2"><Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />تدقيق الصناديق، نقدية أو حوالات أو مقاصات، من عمل قسم التدقيق بعد إرسالها، لا من عمل الفرع أو المحصّل.</p>
+            <p className="flex items-start gap-2 rounded-control bg-gray-50 p-3 leading-6 text-gray-600 md:col-span-2"><Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />يدقّق قسم التدقيق الصناديق النقدية والحوالات والمقاصات بعد إغلاقها، وتُرتّب له تلقائيًا ضمن فترات أسبوعية.</p>
         </div>
     </details>;
 }

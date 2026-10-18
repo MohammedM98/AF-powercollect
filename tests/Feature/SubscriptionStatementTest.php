@@ -159,12 +159,12 @@ class SubscriptionStatementTest extends TestCase
                 ->where('entries', fn ($entries): bool => collect($entries)->pluck('voucherNumber')->all() === ['000001', null, null, '000002']));
     }
 
-    #[TestWith(['USD', '3.7'])]
-    #[TestWith(['JOD', '5.215'])]
-    public function test_a_payment_in_another_currency_is_refused(string $currency, string $rate): void
+    #[TestWith(['USD'])]
+    #[TestWith(['JOD'])]
+    public function test_a_foreign_payment_without_a_managed_exchange_rate_is_refused(string $currency): void
     {
-        $this->recordPayment(['amount' => '20', 'currency' => $currency, 'exchange_rate' => $rate])
-            ->assertSessionHasErrors(['currency' => 'تُسجَّل الدفعات بالشيكل فقط.']);
+        $this->recordPayment(['amount' => '20', 'currency' => $currency])
+            ->assertSessionHasErrors('exchange_rate');
 
         $this->assertDatabaseCount('subscription_transactions', 0);
     }
@@ -406,8 +406,8 @@ class SubscriptionStatementTest extends TestCase
      */
     #[TestWith([['amount' => '0'], 'amount'])]
     #[TestWith([['amount' => '10.555'], 'amount'])]
-    #[TestWith([['currency' => 'EUR'], 'currency'])]
-    #[TestWith([['currency' => 'USD', 'exchange_rate' => '3.7'], 'currency'])]
+    #[TestWith([['currency' => 'GBP'], 'currency'])]
+    #[TestWith([['currency' => 'USD', 'exchange_rate' => '0'], 'exchange_rate'])]
     #[TestWith([['payment_method' => 'gold'], 'payment_method'])]
     #[TestWith([['payment_method' => 'cheque', 'bank_name' => 'بنك فلسطين', 'reference_number' => '77'], 'payment_method'])]
     #[TestWith([['payment_method' => 'e_wallet'], 'payment_method'])]

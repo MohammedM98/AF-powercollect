@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class CollectorBoxTypesTest extends TestCase
@@ -136,12 +137,11 @@ class CollectorBoxTypesTest extends TestCase
         $amend('بنك فلسطين')->assertForbidden();
     }
 
-    public function test_a_cash_box_closed_when_its_collector_left_keeps_its_expected_cash_in_step_with_corrections(): void
+    public function test_a_legacy_pending_cash_box_keeps_its_expected_cash_in_step_with_corrections(): void
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Cash);
-        $collector->update(['is_active' => false]);
-        $this->artisan('closings:process')->assertSuccessful();
+        $entry->box->update(['status' => 'pending', 'open_key' => null, 'closed_at' => now(), 'close_reason' => 'departure']);
         $this->assertSame('pending', $entry->box->fresh()->status);
 
         $entry->transaction->update(['amount' => '-150', 'currency_amount' => '150']);
@@ -307,6 +307,27 @@ class CollectorBoxTypesTest extends TestCase
         $this->actingAs($collector)->get(route('payments.cash-boxes', ['type' => 'clearing', 'state' => 'closed']))->assertInertia(fn (AssertableInertia $page) => $page->where('boxes.total', 1)->where('boxes.data.0.id', $entry->cash_box_id)->where('filters.type', 'clearing')->where('filters.state', 'closed'));
     }
 
+    public function test_legacy_waiting_boxes_are_open_on_web_and_mobile_and_can_be_closed_by_type(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $entry = $this->entry($branch, $collector, CashBoxType::Cash);
+        $entry->box->update(['status' => 'pending', 'open_key' => null, 'closed_at' => now(), 'close_reason' => 'departure']);
+
+        $this->actingAs($collector)->get(route('payments.cash-boxes', ['state' => 'open']))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('boxes.total', 1)->where('boxes.data.0.status', 'open')->where('boxes.data.0.stage', 'open')->where('boxes.data.0.closedAt', null));
+        $this->get(route('payments.cash-boxes', ['state' => 'closed']))->assertInertia(fn (AssertableInertia $page) => $page->where('boxes.total', 0));
+        $this->withToken(MobileAccessToken::issue($collector))->getJson(route('mobile.cash-boxes.index'))
+            ->assertJsonPath('boxes.0.status', 'open')->assertJsonPath('boxes.0.stage', 'open')->assertJsonPath('boxes.0.closed_at', null);
+        $this->actingAs($head)->get(route('payments.cash-boxes', ['place' => 'open']))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('boxes.0.status', 'open')->where('boxes.0.stage', 'open')->where('boxes.0.closedAt', null)->where('boxes.0.canCount', true));
+        $this->get(route('payments.cash-boxes.entries'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('entries.total', 1)->where('closableBoxes.0.id', $entry->cash_box_id));
+
+        $this->action($head, $branch, 'receive-type', 0, ['type' => 'cash', 'box_ids' => [$entry->cash_box_id]])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('cash_boxes', ['id' => $entry->cash_box_id, 'status' => 'received', 'received_by' => $head->id, 'close_reason' => 'manual', 'confirmed_at' => now()]);
+    }
+
     public function test_collector_actions_require_collection_permission(): void
     {
         [$branch] = $this->start();
@@ -378,7 +399,7 @@ class CollectorBoxTypesTest extends TestCase
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'rejected'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
-        $this->actingAs($head)->post(route('payments.cash-boxes.actions', ['action' => 'send']), ['branch_id' => $branch->id, 'box_ids' => [$entry->cash_box_id]])->assertSessionHasNoErrors();
+        $entry->box->update(['sent_at' => now(), 'sent_by' => $head->id]);
 
         SubscriptionTransaction::factory()->for($entry->transaction->subscription)->create(['type' => 'penalty', 'source_key' => 'after-clearing:'.$entry->id, 'amount' => '20']);
         $this->actingAs($head)->post(route('subscriptions.transactions.actions.store', [$entry->transaction->subscription, $entry->transaction]), ['action' => 'cancel', 'correction_reason' => 'other', 'correction_notes' => 'تصحيح'])->assertSessionHasNoErrors();
@@ -387,15 +408,18 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertFalse($entry->transaction->fresh()->isInClosedDay());
     }
 
-    public function test_branch_receives_a_departed_collectors_boxes_without_their_submission(): void
+    #[TestWith(['inactive'])]
+    #[TestWith(['transferred'])]
+    public function test_boxes_stay_open_after_collector_departure_until_the_branch_confirms_closure(string $departure): void
     {
         [$branch, $head, $collector] = $this->start();
         $cash = $this->entry($branch, $collector, CashBoxType::Cash);
         $transfer = $this->entry($branch, $collector, CashBoxType::BankTransfer);
-        $collector->update(['is_active' => false]);
+        $collector->update($departure === 'inactive' ? ['is_active' => false] : ['branch_id' => Branch::factory()->create()->id]);
         app(BranchClosingWorkflow::class)->refresh($branch->id);
 
-        $this->assertDatabaseHas('cash_boxes', ['id' => $cash->cash_box_id, 'status' => 'pending', 'close_reason' => 'departure', 'collector_submitted_at' => null]);
+        $this->assertDatabaseHas('cash_boxes', ['id' => $cash->cash_box_id, 'status' => 'open', 'closed_at' => null, 'close_reason' => null, 'collector_submitted_at' => null]);
+        $this->assertDatabaseHas('cash_boxes', ['id' => $transfer->cash_box_id, 'status' => 'open', 'closed_at' => null]);
         $this->action($head, $branch, 'receive', $cash->cash_box_id)->assertSessionHasNoErrors();
         $this->action($head, $branch, 'electronic', $transfer->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
         $this->action($head, $branch, 'receive', $transfer->cash_box_id)->assertSessionHasNoErrors();

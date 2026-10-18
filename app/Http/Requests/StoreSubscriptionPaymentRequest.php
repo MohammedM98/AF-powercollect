@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use App\Enums\Currency;
 use App\Enums\PaymentMethod;
+use App\Models\Bank;
+use App\Models\CurrencyRate;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
@@ -20,6 +22,7 @@ class StoreSubscriptionPaymentRequest extends FormRequest
         if ($this->has('reference_number')) {
             $this->merge(['reference_number' => trim((string) $this->input('reference_number'))]);
         }
+        $this->merge(['exchange_rate' => CurrencyRate::forPayment($this->input('currency'))]);
     }
 
     /**
@@ -31,7 +34,7 @@ class StoreSubscriptionPaymentRequest extends FormRequest
     }
 
     /**
-     * A payment is taken in shekels only; a bank transfer needs one of
+     * A payment keeps its original currency and exchange rate; a bank transfer needs one of
      * the transfer banks and who sent it (its reference number is optional) (the subscription or
      * someone else); the cash box and the paper voucher only apply to cash.
      *
@@ -75,7 +78,7 @@ class StoreSubscriptionPaymentRequest extends FormRequest
                 /** @var Subscription $subscription */
                 $subscription = $this->route('subscription');
 
-                self::checkOverpayment($validator, $this->input('amount'), max($subscription->balance(), 0.0), $this->boolean('confirm_overpayment'));
+                self::checkOverpayment($validator, self::amountInShekels($this->input('amount'), $this->input('currency'), $this->input('exchange_rate')), max($subscription->balance(), 0.0), $this->boolean('confirm_overpayment'));
             },
         ];
     }
@@ -86,6 +89,9 @@ class StoreSubscriptionPaymentRequest extends FormRequest
      */
     public static function checkOverpayment(Validator $validator, mixed $amount, float $owed, bool $confirmed): void
     {
+        if ($validator->errors()->isEmpty() && is_numeric($amount) && ((float) $amount < 0.01 || (float) $amount > 1000000)) {
+            $validator->errors()->add('amount', 'يجب أن تعادل الدفعة ما بين 0.01 و1,000,000 شيكل بعد التحويل.');
+        }
         if ($validator->errors()->isNotEmpty() || $confirmed || ! is_numeric($amount) || ! Subscription::overpaymentNeedsConfirmation((float) $amount, $owed)) {
             return;
         }
@@ -98,6 +104,13 @@ class StoreSubscriptionPaymentRequest extends FormRequest
         ));
     }
 
+    public static function amountInShekels(mixed $amount, mixed $currency, mixed $exchangeRate): ?float
+    {
+        $rate = $currency === Currency::Shekel->value ? 1 : $exchangeRate;
+
+        return is_numeric($amount) && is_numeric($rate) ? round((float) $amount * (float) $rate, 2) : null;
+    }
+
     /**
      * The payment's rules, for a payment made by `$paymentMethod`; shared
      * with correcting a payment.
@@ -108,10 +121,11 @@ class StoreSubscriptionPaymentRequest extends FormRequest
     {
         return [
             'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'],
-            'currency' => ['required', Rule::in([Currency::Shekel->value])],
+            'currency' => ['required', Rule::enum(Currency::class)],
+            'exchange_rate' => ['exclude_if:currency,ILS', 'required_unless:currency,ILS', 'numeric', 'decimal:0,4', 'gt:0', 'max:10000'],
             'payment_method' => ['required', Rule::enum(PaymentMethod::class)->only(PaymentMethod::offered())],
-            'bank_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'required', Rule::in(config('powercollect.transfer_banks'))],
-            'sender_bank_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'nullable', Rule::in(config('powercollect.sender_banks'))],
+            'bank_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'required', Rule::in(Bank::receiverNames())],
+            'sender_bank_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'nullable', Rule::in(Bank::senderNames())],
             'sender_name' => ['exclude_unless:payment_method,'.PaymentMethod::BankTransfer->value, 'required', 'string', 'max:255'],
             'reference_number' => ['exclude_if:payment_method,'.PaymentMethod::Cash->value, 'nullable', 'string', 'max:100'],
             // Sent once the collector confirmed that the reference is already on another payment.
@@ -138,7 +152,9 @@ class StoreSubscriptionPaymentRequest extends FormRequest
     public static function paymentMessages(): array
     {
         return [
-            'currency.in' => 'تُسجَّل الدفعات بالشيكل فقط.',
+            'currency.enum' => 'اختر الشيكل أو الدولار أو الدينار أو اليورو.',
+            'exchange_rate.required_unless' => 'لم يُضبط سعر صرف هذه العملة في صفحة العملات وأسعار الصرف.',
+            'exchange_rate.gt' => 'يجب أن يكون سعر الصرف أكبر من صفر.',
             'bank_name.required' => 'اختر البنك أو المحفظة التي حُوّل إليها المبلغ.',
             'bank_name.in' => 'اختر أحد البنوك أو المحافظ المتاحة.',
             'sender_bank_name.in' => 'اختر أحد البنوك أو المحافظ المتاحة للتحويل منه.',

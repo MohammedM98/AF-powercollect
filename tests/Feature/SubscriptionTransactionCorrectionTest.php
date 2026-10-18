@@ -9,6 +9,7 @@ use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingPayment;
+use App\Models\CurrencyRate;
 use App\Models\MeterReading;
 use App\Models\Permission;
 use App\Models\Subscription;
@@ -131,19 +132,17 @@ class SubscriptionTransactionCorrectionTest extends TestCase
                 ->where('entries.3.recorded.cash_box', '4554'));
     }
 
-    public function test_a_payment_taken_in_dollars_before_is_corrected_in_shekels_only(): void
+    public function test_a_foreign_payment_can_be_corrected_in_its_original_currency(): void
     {
         $payment = $this->recordPayment(['amount' => '20', 'currency' => 'USD', 'exchange_rate' => '3.7', 'payment_method' => 'cash']);
+        CurrencyRate::query()->where('currency', 'USD')->update(['rate' => '4.0000']);
 
-        $this->correct($payment, ['amount' => '20', 'currency' => 'USD', 'exchange_rate' => '3.7', 'payment_method' => 'cash', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'اختبار'])
-            ->assertSessionHasErrors('currency');
-        $this->assertFalse($payment->fresh()->isCancelled());
-
-        $this->correct($payment, ['amount' => '74', 'currency' => 'ILS', 'payment_method' => 'cash', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'اختبار'])
+        $this->correct($payment, ['amount' => '22', 'currency' => 'USD', 'exchange_rate' => '3.7', 'payment_method' => 'cash', 'correction_reason' => 'wrong_amount', 'correction_notes' => 'اختبار'])
             ->assertSessionHasNoErrors();
 
         $replacement = SubscriptionTransaction::where('corrects_id', $payment->id)->sole();
-        $this->assertSame(['-74.00', 'ILS'], [$replacement->amount, $replacement->currency->value]);
+        $this->assertSame(['-88.00', 'USD', '22.00', '4.0000'], [$replacement->amount, $replacement->currency->value, $replacement->currency_amount, $replacement->exchange_rate]);
+        $this->assertSame('3.7000', $payment->fresh()->exchange_rate);
         $this->assertTrue($payment->fresh()->isCancelled());
     }
 

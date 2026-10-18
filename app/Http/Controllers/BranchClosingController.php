@@ -19,8 +19,7 @@ class BranchClosingController extends Controller
     /**
      * What the branch does with its boxes: start using them, confirm a box
      * closed (one, or several of a type at once), mark a transfer or
-     * clearing, let a collector confirm their own box, and send closed boxes
-     * to audit.
+     * clearing, and let a collector confirm their own box.
      */
     public function action(BranchClosingActionRequest $request, string $action, ?int $record = null): RedirectResponse
     {
@@ -31,7 +30,6 @@ class BranchClosingController extends Controller
         $allowed = match ($action) {
             'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),
             'receive', 'receive-type', 'electronic' => BranchClosingAccess::receive($actor, $branchId),
-            'send' => BranchClosingAccess::send($actor, $branchId),
             'start' => BranchClosingAccess::manage($actor, $branchId),
             default => false,
         };
@@ -52,8 +50,6 @@ class BranchClosingController extends Controller
                 };
             } elseif ($action === 'receive-type') {
                 $this->workflow->receiveType($branchId, $actor, CashBoxType::from($data['type']), array_map('intval', $data['box_ids']));
-            } elseif ($action === 'send') {
-                $this->workflow->send($branchId, $actor, array_map('intval', $data['box_ids']), $data['note'] ?? null);
             } else {
                 $payment = CashBoxPayment::query()->whereHas('box', fn ($query) => $query->where('branch_id', $branchId))->findOrFail($record);
                 $this->workflow->reviewEntry($payment, $actor, $data['status']);

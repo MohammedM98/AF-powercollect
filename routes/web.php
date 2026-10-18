@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\AreaController;
+use App\Http\Controllers\BankController;
 use App\Http\Controllers\BranchClosingController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchPerformanceController;
 use App\Http\Controllers\CircuitBreakerController;
+use App\Http\Controllers\CurrencyRateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisconnectionItemController;
 use App\Http\Controllers\DisconnectionListController;
@@ -18,6 +20,7 @@ use App\Http\Controllers\MeterBoxSubscriptionController;
 use App\Http\Controllers\MeterReadingController;
 use App\Http\Controllers\PaperSheetController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaymentSettingController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PrintTemplateController;
 use App\Http\Controllers\ProfileController;
@@ -128,6 +131,13 @@ Route::middleware('auth')->group(function () {
     Route::put('/print-templates/{print_template}', [PrintTemplateController::class, 'update'])->name('print-templates.update');
     Route::post('/print-templates/{print_template}/duplicate', [PrintTemplateController::class, 'duplicate'])->name('print-templates.duplicate');
     Route::delete('/print-templates/{print_template}', [PrintTemplateController::class, 'destroy'])->name('print-templates.destroy');
+    Route::get('/settings/payments', [PaymentSettingController::class, 'index'])->name('settings.payments.index');
+    Route::put('/settings/payments', [PaymentSettingController::class, 'update'])->name('settings.payments.update');
+    Route::redirect('/settings/currencies', '/settings/payments')->name('settings.currencies.index');
+    Route::put('/settings/currencies/{currencyRate}', [CurrencyRateController::class, 'update'])->name('settings.currencies.update');
+    Route::redirect('/settings/banks', '/settings/payments')->name('settings.banks.index');
+    Route::post('/settings/banks', [BankController::class, 'store'])->name('settings.banks.store');
+    Route::put('/settings/banks/{bank}', [BankController::class, 'update'])->name('settings.banks.update');
     Route::get('/settings/sms', [SmsSettingController::class, 'edit'])->name('settings.sms.edit');
     Route::put('/settings/sms', [SmsSettingController::class, 'update'])->name('settings.sms.update');
     Route::post('/settings/sms/test', [SmsSettingController::class, 'test'])->middleware('throttle:6,1')->name('settings.sms.test');

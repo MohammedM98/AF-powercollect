@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entryStatus, financialBoxTotals, financialBoxesTotals, filterFinancialBoxes, sortFinancialBoxes } from '../../resources/js/lib/financialBoxes.js';
+import { boxStatus, entryStatus, financialBoxTotals, financialBoxesTotals, filterFinancialBoxes, sortFinancialBoxes } from '../../resources/js/lib/financialBoxes.js';
 
 test('display totals exclude cancelled payments and keep foreign currencies separate', () => {
     const boxes = [{ payments: [
@@ -21,12 +21,12 @@ test('status, employee and trimmed search filters work together', () => {
         { number: 14, status: 'pending', user: { id: 4, name: 'أحمد علي' } },
     ];
 
-    assert.deepEqual(filterFinancialBoxes(boxes, { status: 'pending', person: '3', search: ' أحمد ' }).map((box) => box.number), [12]);
+    assert.deepEqual(filterFinancialBoxes(boxes, { status: 'open', person: '3', search: ' أحمد ' }).map((box) => box.number), [12, 13]);
     assert.deepEqual(filterFinancialBoxes(boxes, { search: '13' }).map((box) => box.number), [13]);
     assert.deepEqual(filterFinancialBoxes(boxes, { person: '9' }), []);
 });
 
-test('sorting prioritizes waiting boxes and supports numeric amounts, numbers and dates in both directions', () => {
+test('sorting groups open boxes before closed boxes and supports numeric amounts, numbers and dates', () => {
     const boxes = [
         { number: '10', status: 'received', totals: { ILS: 50 }, opened_at: '2026-10-01', closed_at: '2026-10-05' },
         { number: '2', status: 'pending', totals: { ILS: 100 }, opened_at: '2026-10-02', closed_at: '2026-10-03' },
@@ -38,6 +38,14 @@ test('sorting prioritizes waiting boxes and supports numeric amounts, numbers an
     assert.deepEqual(sortFinancialBoxes(boxes, { key: 'total', direction: 'desc' }).map((box) => box.number), ['2', '10', '3']);
     assert.deepEqual(sortFinancialBoxes(boxes, { key: 'dates', direction: 'asc' }).map((box) => box.number), ['2', '3', '10']);
     assert.deepEqual(boxes.map((box) => box.number), ['10', '2', '3']);
+});
+
+test('boxes show only open or closed, including legacy waiting boxes and boxes sent to audit', () => {
+    assert.deepEqual(boxStatus({ status: 'open' }), ['مفتوح', 'blue']);
+    assert.deepEqual(boxStatus({ status: 'pending' }), ['مفتوح', 'blue']);
+    assert.deepEqual(boxStatus({ status: 'received' }), ['مُغلق', 'green']);
+    assert.deepEqual(boxStatus({ status: 'received', sent_at: '2026-10-18' }), ['مُغلق', 'green']);
+    assert.deepEqual(sortFinancialBoxes([{ number: '5', status: 'pending' }, { number: '2', status: 'open' }]).map((box) => box.number), ['2', '5']);
 });
 
 test('an entry is in effect until cancelled, whether or not the audit has checked it yet', () => {

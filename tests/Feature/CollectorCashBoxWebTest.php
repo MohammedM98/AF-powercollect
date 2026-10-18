@@ -16,6 +16,7 @@ use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Support\BranchClosingWorkflow;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
@@ -64,6 +65,26 @@ class CollectorCashBoxWebTest extends TestCase
 
         $this->assertNull(ClosingSetting::ownFor($branch->id)?->workflow_started_at);
         $this->assertDatabaseCount('cash_boxes', 0);
+    }
+
+    public function test_first_mobile_payment_opens_a_box_without_manual_activation(): void
+    {
+        $this->freezeSecond();
+        $branch = Branch::factory()->create();
+        $collector = $this->collector($branch);
+        $subscription = Subscription::factory()->for($branch)->create();
+        $originalTime = now()->subWeek();
+        $data = ['mobile_operation_id' => (string) Str::uuid(), 'collector_confirmed' => true, 'subscription_id' => $subscription->id, 'amount' => '100', 'currency' => 'ILS', 'payment_method' => 'cash', 'collected_at' => $originalTime->toIso8601String()];
+
+        $response = $this->withToken(MobileAccessToken::issue($collector))->postJson(route('mobile.collections.store'), $data)->assertCreated();
+
+        $box = CashBox::query()->sole();
+        $this->assertDatabaseHas('cash_boxes', ['id' => $box->id, 'branch_id' => $branch->id, 'user_id' => $collector->id, 'status' => 'open']);
+        $this->assertTrue($box->payments()->sole()->occurred_at->equalTo($originalTime));
+        $this->postJson(route('mobile.collections.store'), $data)->assertCreated()->assertJsonPath('id', $response->json('id'));
+        $this->assertDatabaseCount('cash_box_payments', 1);
+        $this->actingAs($collector)->get(route('payments.summary'))
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('cashBox.started', true)->where('cashBox.boxes.0.id', $box->id));
     }
 
     public function test_collector_sees_only_own_branch_boxes_without_branch_review_access(): void
@@ -251,7 +272,9 @@ class CollectorCashBoxWebTest extends TestCase
 
         $this->actingAs($collector)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('boxes.data.0.id', $left->id)
-            ->where('boxes.data.0.closedBy', 'تلقائي عند مغادرة المحصّل')
+            ->where('boxes.data.0.status', 'open')
+            ->where('boxes.data.0.closedAt', null)
+            ->where('boxes.data.0.closedBy', null)
             ->where('boxes.data.0.receivedAmounts.ILS', '0.00')
             ->where('boxes.data.0.settledIn', null)
             ->where('boxes.data.1.id', $received->id)

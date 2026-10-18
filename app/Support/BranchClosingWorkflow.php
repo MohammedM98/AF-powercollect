@@ -5,7 +5,6 @@ namespace App\Support;
 use App\Enums\CashBoxType;
 use App\Enums\ClosingStatus;
 use App\Enums\PaymentMethod;
-use App\Enums\UserRole;
 use App\Models\AuditNote;
 use App\Models\Branch;
 use App\Models\CashBox;
@@ -141,20 +140,23 @@ class BranchClosingWorkflow
                         $this->attachEntry($payment);
                     }
                 });
-            foreach (CashBox::query()->where('branch_id', $branchId)->where('status', 'open')->with('user')->get() as $box) {
-                if ($box->user && (! $box->user->is_active || $box->user->branch_id !== $branchId)) {
-                    $this->close($box, 'departure', now()->toImmutable()->utc());
-                }
-            }
         });
     }
 
     public function capture(SubscriptionTransaction $payment): void
     {
-        if (! in_array($payment->type, [SubscriptionTransaction::TYPE_PAYMENT, SubscriptionTransaction::TYPE_CLEARING], true) || ! ClosingSetting::ownFor($payment->branch_id)?->workflow_started_at) {
+        if (! in_array($payment->type, [SubscriptionTransaction::TYPE_PAYMENT, SubscriptionTransaction::TYPE_CLEARING], true) || $payment->status !== SubscriptionTransaction::STATUS_ACTIVE) {
             return;
         }
-        $this->refresh($payment->branch_id);
+        $this->locked($payment->branch_id, function () use ($payment): void {
+            app(BranchSettings::class)->forget(ClosingSetting::class);
+            if (! ClosingSetting::ownFor($payment->branch_id)?->workflow_started_at) {
+                $this->start($payment->branch_id, $payment->recordedBy()->firstOrFail());
+
+                return;
+            }
+            $this->refresh($payment->branch_id);
+        });
     }
 
     private function openBox(Closing $closing, int $userId, CashBoxType $type): CashBox
@@ -267,8 +269,8 @@ class BranchClosingWorkflow
     }
 
     /**
-     * Keep the expected cash of a box closed at the cutoff, and still waiting
-     * on the branch, in step with its collector's corrections.
+     * Keep legacy boxes that have not been confirmed closed in step with
+     * their collector's corrections.
      */
     private function recountClosed(CashBox $box): void
     {
@@ -283,11 +285,6 @@ class BranchClosingWorkflow
         $payments = $box->payments()->where('method', 'cash')->whereHas('transaction', fn ($query) => $query->where('status', SubscriptionTransaction::STATUS_ACTIVE))->get();
 
         return collect(self::CURRENCIES)->mapWithKeys(fn (string $currency): array => [$currency => Closing::money($payments->where('currency', $currency)->sum(fn ($payment): int => Closing::cents($payment->amount)))])->all();
-    }
-
-    private function close(CashBox $box, string $reason, CarbonImmutable $at): void
-    {
-        $box->update(['status' => 'pending', 'closed_at' => $at, 'close_reason' => $reason, 'open_key' => null, 'expected_counts' => $this->expected($box)]);
     }
 
     /**
@@ -305,24 +302,9 @@ class BranchClosingWorkflow
     }
 
     /**
-     * Close a box that is still open so the branch can confirm it now:
-     * collectors never close their own boxes; whoever may confirm the box
-     * closes it as part of confirming it.
-     */
-    private function closeForReceipt(CashBox $box): void
-    {
-        if ($box->status !== 'open') {
-            return;
-        }
-        $this->require($box->payments()->exists(), 'لا يمكن إغلاق صندوق فارغ.');
-        $this->close($box, 'manual', now()->toImmutable()->utc());
-        $box->refresh();
-    }
-
-    /**
      * The branch confirms a collector's box closed, in one step: it looked
      * over the entries, had the collector correct any mistake in them
-     * first, and closes the box, ready to send to audit. Every type of box
+     * first, and closes the box for audit review. Every type of box
      * closes the same way, cash as transfers: nothing is counted, a box
      * holds what its entries say, and the audit rejects what it finds
      * wrong. Once confirmed, the box's entries can no longer be corrected.
@@ -340,14 +322,16 @@ class BranchClosingWorkflow
      */
     private function accept(CashBox $box, User $actor): void
     {
-        $this->closeForReceipt($box);
+        $this->require($box->payments()->exists(), 'لا يمكن إغلاق صندوق فارغ.');
         $settling = $this->settlingClosing($box);
         $box->payments()->where('status', 'pending')->whereHas('transaction', fn ($query) => $query->where('status', SubscriptionTransaction::STATUS_ACTIVE))
             ->update(['status' => 'confirmed', 'confirmed_by' => $actor->id, 'confirmed_at' => now(), 'confirmed_in_closing_id' => $settling->id]);
         $expected = $this->expected($box);
         $box->update([
-            'status' => 'received', 'received_by' => $actor->id, 'received_at' => now(), 'confirmed_at' => now(), 'received_in_closing_id' => $settling->id,
-            ...($box->type->isCounted() ? ['expected_counts' => $expected, 'head_counts' => $expected, 'decisions' => []] : []),
+            'status' => 'received', 'closed_at' => now(), 'close_reason' => 'manual', 'open_key' => null,
+            'received_by' => $actor->id, 'received_at' => now(), 'confirmed_at' => now(), 'received_in_closing_id' => $settling->id,
+            'expected_counts' => $expected,
+            ...($box->type->isCounted() ? ['head_counts' => $expected, 'decisions' => []] : []),
         ]);
         $box->user?->notify(new BranchClosingNotification('أكّد الفرع إغلاق صندوقك.', $box->number));
     }
@@ -361,7 +345,7 @@ class BranchClosingWorkflow
      */
     public function closableBoxes(int $branchId, User $actor, ?CashBoxType $type = null, ?int $userId = null): EloquentCollection
     {
-        return CashBox::query()->where('branch_id', $branchId)->where('status', 'open')
+        return CashBox::query()->where('branch_id', $branchId)->whereIn('status', ['open', 'pending'])
             ->when($type, fn ($query) => $query->where('type', $type))
             ->when($userId, fn ($query) => $query->where('user_id', $userId))
             ->whereHas('payments')->orderBy('id')->get()
@@ -406,34 +390,6 @@ class BranchClosingWorkflow
     {
         $this->require($box->type->isCounted() && $actor->id === $box->user_id && $box->status === 'received' && ! $box->confirmed_at, 'التأكيد متاح لصاحب الصندوق بعد الاستلام فقط.');
         $box->update(['confirmed_at' => now()]);
-    }
-
-    /**
-     * The branch sends boxes it confirmed closed to audit, one or several at
-     * once (`$boxIds`): each reaches the audit on its own, by its number,
-     * with when it was sent, who sent it and the note sent with it. Its
-     * entries were locked when the branch confirmed it closed. Nothing is
-     * sent when any of them is not the branch's, is not closed yet or was
-     * sent already.
-     *
-     * @param  list<int>  $boxIds
-     */
-    public function send(int $branchId, User $actor, array $boxIds, ?string $note): void
-    {
-        $this->require(BranchClosingAccess::send($actor, $branchId), 'لا يمكنك إرسال صناديق هذا الفرع إلى التدقيق.');
-        $boxes = CashBox::query()->where('branch_id', $branchId)->whereIn('id', $boxIds)->where('status', 'received')->whereNull('sent_at')->orderBy('id')->get();
-        $this->require($boxIds !== [] && $boxes->count() === count(array_unique($boxIds)), 'بعض الصناديق المختارة لم يُؤكَّد إغلاقها بعد أو أُرسلت من قبل.');
-        foreach ($boxes as $box) {
-            $box->update(['sent_at' => now(), 'sent_by' => $actor->id, 'send_note' => $note]);
-        }
-        $this->notifyAuditors($boxes->count() === 1 ? 'صندوق جديد بانتظار التدقيق' : 'صناديق جديدة بانتظار التدقيق', $boxes->pluck('number')->implode('، '));
-    }
-
-    private function notifyAuditors(string $action, string $subject): void
-    {
-        foreach (User::query()->where('is_active', true)->where('role', UserRole::FinancialAuditor)->get() as $auditor) {
-            $auditor->notify(new BranchClosingNotification($action, $subject));
-        }
     }
 
     public function reviewEntry(CashBoxPayment $payment, User $actor, string $status): void

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Mobile;
 use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
 use App\Http\Controllers\Controller;
+use App\Models\Bank;
+use App\Models\CurrencyRate;
 use App\Models\MeterReading;
 use App\Models\MobileAccessToken;
 use App\Models\Subscription;
@@ -81,8 +83,9 @@ class MobileSessionController extends Controller
             'can_record_collections' => $user->can('recordAnyPayment', Subscription::class),
             // The ways the collector may take a payment (each is its own permission): the server refuses the others.
             'payment_methods' => array_map(fn (PaymentMethod $method): string => $method->value, $user->allowedPaymentMethods()),
-            'transfer_banks' => config('powercollect.transfer_banks'),
-            'sender_banks' => config('powercollect.sender_banks'),
+            'transfer_banks' => Bank::receiverNames(),
+            'sender_banks' => Bank::senderNames(),
+            'currencies' => CurrencyRate::options(),
         ];
     }
 }

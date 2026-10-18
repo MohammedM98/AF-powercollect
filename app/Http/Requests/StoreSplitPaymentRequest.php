@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Bank;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -47,8 +48,8 @@ class StoreSplitPaymentRequest extends FormRequest
     {
         return [
             'total_amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:1000000'],
-            'bank_name' => ['required', Rule::in(config('powercollect.transfer_banks'))],
-            'sender_bank_name' => ['nullable', Rule::in(config('powercollect.sender_banks'))],
+            'bank_name' => ['required', Rule::in(Bank::receiverNames())],
+            'sender_bank_name' => ['nullable', Rule::in(Bank::senderNames())],
             'sender_name' => ['required', 'string', 'max:255'],
             'reference_number' => ['required', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:1000'],

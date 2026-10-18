@@ -4,16 +4,19 @@ namespace App\Support;
 
 use App\Models\Branch;
 use App\Models\CashBox;
+use App\Models\ClosingSetting;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 /**
- * The branch's boxes as the people who close and send them see them, on
- * the financial boxes page (its open, closed and sent boxes, and the
+ * The branch's boxes as the people who close and audit them see them, on
+ * the financial boxes page (its open and closed boxes, and the
  * entries of its open boxes): which branch the actor looks at, and its
  * boxes in each place with what the actor may do to them.
  */
@@ -22,15 +25,16 @@ class BranchBoxes
     public function __construct(private BranchClosingWorkflow $workflow) {}
 
     /**
-     * The branches the actor may open (every branch for a super admin, else
+     * The branches the actor may open (every branch for administrators and auditors, else
      * their own) and the one asked for with `?branch_id=`, else the first.
      *
      * @return array{0: EloquentCollection<int, Branch>, 1: Branch}
      */
     public function branch(Request $request, User $actor): array
     {
-        $branches = $actor->isSuperAdmin() ? Branch::query()->orderBy('name')->get(['id', 'name']) : Branch::query()->whereKey($actor->branch_id)->get(['id', 'name']);
-        $branchId = $actor->isSuperAdmin() ? ($request->integer('branch_id') ?: $branches->first()?->id) : $actor->branch_id;
+        $allBranches = $actor->isSuperAdmin() || BranchClosingAccess::audit($actor);
+        $branches = $allBranches ? Branch::query()->orderBy('name')->get(['id', 'name']) : Branch::query()->whereKey($actor->branch_id)->get(['id', 'name']);
+        $branchId = $allBranches ? ($request->integer('branch_id') ?: $branches->first()?->id) : $actor->branch_id;
         $branch = $branches->firstWhere('id', $branchId);
         abort_unless($branch, 404);
 
@@ -48,40 +52,60 @@ class BranchBoxes
         return User::query()->whereIn('id', CashBox::query()->where('branch_id', $branchId)->whereNotNull('user_id')->select('user_id'))->orderBy('name')->get(['id', 'name']);
     }
 
-    /** The places the branch's boxes sit in, each on its own tab: open, closed and not sent yet, and sent to audit. */
-    public const PLACES = ['open', 'closed', 'sent'];
-
-    /** How many sent boxes the sent tab lists, newest first. */
-    private const SENT_SHOWN = 200;
+    /** The two states of a financial box, independent of its historical audit metadata. */
+    public const PLACES = ['open', 'closed'];
 
     /** Who closed and sent a box, besides its entries, for the boxes page. */
     private const PEOPLE = ['receivedBy:id,name', 'sentBy:id,name'];
 
     /**
-     * The branch's boxes in one place (see `PLACES`), newest first: those
-     * still open or waiting on the branch to confirm them closed, those it
-     * confirmed closed and has not sent to audit, or those it sent.
-     * `$alsoBoxId` adds one box asked for by a link, wherever it is. Each
-     * comes with its entries, when it was opened, closed and sent and by
-     * whom, and what the actor may do to it.
+     * Boxes in one state, narrowed to a week for closed boxes. A linked box
+     * may be included separately, subject to the same branch and audit scope.
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public function rows(int $branchId, User $actor, string $place, ?int $alsoBoxId = null): Collection
+    public function rows(int $branchId, User $actor, string $place, ?int $alsoBoxId = null, ?string $week = null): Collection
     {
-        $boxes = $this->in($branchId, $place)->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE])->get();
+        $query = $this->in($branchId, $place);
+        if ($place === 'closed' && $week) {
+            $from = ClosingPeriods::date($week);
+            $query->whereRaw('COALESCE(received_at, closed_at, opened_at) >= ?', [$from->utc()])
+                ->whereRaw('COALESCE(received_at, closed_at, opened_at) < ?', [$from->addWeek()->utc()]);
+        }
+        $boxes = $query->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE])->get();
         if ($alsoBoxId && ! $boxes->contains('id', $alsoBoxId)) {
-            $boxes->push(...CashBox::query()->where('branch_id', $branchId)->whereKey($alsoBoxId)->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE])->get());
+            $boxes->push(...CashBox::query()->where('branch_id', $branchId)->whereKey($alsoBoxId)
+                ->when(BranchClosingAccess::closedOnly($actor, $branchId), fn (Builder $query) => $query->where('status', 'received'))
+                ->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE])->get());
         }
         $ledgers = $this->ledgers($boxes->flatMap(fn (CashBox $box) => $box->payments->pluck('subscription_transaction_id'))->all());
-        $send = BranchClosingAccess::send($actor, $branchId);
 
         return $boxes->map(fn (CashBox $box): array => [
             ...$this->present($box, $ledgers),
             'canCount' => $this->workflow->mayReceive($box, $actor),
-            'canSend' => $send,
             'isOwn' => $box->user_id === $actor->id,
         ]);
+    }
+
+    /**
+     * Weekly browsing periods use the actual closing date in business time,
+     * without rewriting a box or its original closing's saved schedule.
+     *
+     * @return Collection<int, array{start: string, end: string, count: int}>
+     */
+    public function periods(int $branchId): Collection
+    {
+        return CashBox::query()->where('branch_id', $branchId)->where('status', 'received')
+            ->get(['received_at', 'closed_at', 'opened_at'])
+            ->groupBy(fn (CashBox $box): string => $this->weekOf($box->received_at ?? $box->closed_at ?? $box->opened_at))
+            ->map(fn (Collection $boxes, string $start): array => ['start' => $start, 'end' => ClosingPeriods::date($start)->addDays(6)->toDateString(), 'count' => $boxes->count()])
+            ->sortKeysDesc()->values();
+    }
+
+    public function weekOf(CarbonInterface $moment): string
+    {
+        return CarbonImmutable::instance($moment)->setTimezone(config('app.business_timezone'))
+            ->startOfWeek(ClosingSetting::company()->week_starts_on)->toDateString();
     }
 
     /**
@@ -100,10 +124,12 @@ class BranchBoxes
 
         return [
             ...$row,
+            'status' => $box->isEditable() ? 'open' : $box->status,
             'place' => $this->placeOf($box),
             'stage' => $box->stage(),
             'payments' => array_map(fn (array $entry): array => $this->presentEntry($entry, $ledgers), $row['payments'] ?? []),
-            'closedAt' => $box->status === 'received' ? ($box->received_at ?? $box->closed_at) : $box->closed_at,
+            'closed_at' => $box->isEditable() ? null : $box->closed_at,
+            'closedAt' => $box->isEditable() ? null : ($box->received_at ?? $box->closed_at),
             'closedBy' => $box->receivedBy?->name,
             'sentBy' => $box->sentBy?->name,
         ];
@@ -116,15 +142,12 @@ class BranchBoxes
      */
     public function counts(int $branchId): array
     {
-        return collect(self::PLACES)->mapWithKeys(fn (string $place): array => [$place => $place === 'sent'
-            ? CashBox::query()->where('branch_id', $branchId)->whereNotNull('sent_at')->count()
-            : $this->in($branchId, $place)->count()])->all();
+        return collect(self::PLACES)->mapWithKeys(fn (string $place): array => [$place => $this->in($branchId, $place)->count()])->all();
     }
 
     private function placeOf(CashBox $box): string
     {
         return match (true) {
-            $box->sent_at !== null => 'sent',
             $box->status === 'received' => 'closed',
             default => 'open',
         };
@@ -132,7 +155,7 @@ class BranchBoxes
 
     /**
      * The branch's boxes in one place. An open box shows once it holds an
-     * entry; the sent ones are the latest sent.
+     * entry; closed boxes retain their original records.
      *
      * @return Builder<CashBox>
      */
@@ -142,8 +165,7 @@ class BranchBoxes
 
         return match ($place) {
             'open' => $boxes->whereIn('status', ['open', 'pending'])->whereHas('payments')->latest('id'),
-            'closed' => $boxes->where('status', 'received')->whereNull('sent_at')->orderByDesc('received_at')->orderByDesc('id'),
-            'sent' => $boxes->whereNotNull('sent_at')->orderByDesc('sent_at')->orderByDesc('id')->limit(self::SENT_SHOWN),
+            'closed' => $boxes->where('status', 'received')->orderByDesc('received_at')->orderByDesc('id'),
         };
     }
 
@@ -188,10 +210,10 @@ class BranchBoxes
     /**
      * What the actor may do in the branch's closing.
      *
-     * @return array{manage: bool, receive: bool, send: bool}
+     * @return array{manage: bool, receive: bool}
      */
     public function access(User $actor, int $branchId): array
     {
-        return ['manage' => BranchClosingAccess::manage($actor, $branchId), 'receive' => BranchClosingAccess::receive($actor, $branchId), 'send' => BranchClosingAccess::send($actor, $branchId)];
+        return ['manage' => BranchClosingAccess::manage($actor, $branchId), 'receive' => BranchClosingAccess::receive($actor, $branchId)];
     }
 }

@@ -1400,11 +1400,15 @@ class SubscriptionTransaction extends Model
      */
     public function isCredit(): bool
     {
-        if ($this->type === self::TYPE_BANK_AUDIT_ADJUSTMENT) {
-            return (float) $this->amount < 0;
-        }
+        return self::isCreditLine($this->type, $this->amount);
+    }
 
-        return $this->isReversal() ? (float) $this->amount < 0 : in_array($this->type, self::CREDIT_TYPES, true);
+    /** Classify both model instances and report rows without hydrating extra models. */
+    public static function isCreditLine(string $type, int|float|string $amount): bool
+    {
+        return in_array($type, [...self::REVERSAL_TYPES, self::TYPE_BANK_AUDIT_ADJUSTMENT], true)
+            ? (float) $amount < 0
+            : in_array($type, self::CREDIT_TYPES, true);
     }
 
     /**

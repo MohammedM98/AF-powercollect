@@ -220,9 +220,9 @@ class BranchPerformanceController extends Controller
             ->toBase()
             ->selectRaw(
                 "recorded_by as user_id, count(*) as entries, max(created_at) as last_at,
-                    sum(case when type in ({$credit}) then 0 else abs(amount) end) as charged,
-                    sum(case when type in ({$credit}) then abs(amount) else 0 end) as credited",
-                [...SubscriptionTransaction::CREDIT_TYPES, ...SubscriptionTransaction::CREDIT_TYPES],
+                    sum(case when type in ({$credit}) or (type = ? and amount < 0) then 0 else abs(amount) end) as charged,
+                    sum(case when type in ({$credit}) or (type = ? and amount < 0) then abs(amount) else 0 end) as credited",
+                [...SubscriptionTransaction::CREDIT_TYPES, SubscriptionTransaction::TYPE_BANK_AUDIT_ADJUSTMENT, ...SubscriptionTransaction::CREDIT_TYPES, SubscriptionTransaction::TYPE_BANK_AUDIT_ADJUSTMENT],
             )
             ->groupBy('recorded_by')
             ->get()

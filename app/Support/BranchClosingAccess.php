@@ -36,7 +36,7 @@ class BranchClosingAccess
 
     public static function closedOnly(User $user, int $branchId): bool
     {
-        return self::audit($user) && ! self::receive($user, $branchId);
+        return $user->isFinancialAuditor() || (self::audit($user) && ! self::receive($user, $branchId));
     }
 
     public static function approve(User $user, int $branchId): bool

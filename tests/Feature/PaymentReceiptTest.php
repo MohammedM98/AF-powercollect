@@ -61,7 +61,7 @@ class PaymentReceiptTest extends TestCase
                 ->where('receipt.isShekel', false)
                 ->where('receipt.inShekels', '74')
                 ->where('receipt.exchangeRate', '3.7')
-                ->where('receipt.cashBox', '3')
+                ->where('receipt.cashBox', null)
                 ->where('receipt.recordedByName', 'Mohammed')
                 ->where('receipt.balanceAfter', '26.00')
                 ->where('receipt.cancellation', null)

@@ -4,31 +4,8 @@
  */
 
 /** How long the confirm button must be held, in milliseconds. */
-export const HOLD_DURATION = 3000;
-
-/** How far along a hold is, 0 to 100, after `elapsed` milliseconds. */
-export function holdProgress(elapsed, duration = HOLD_DURATION) {
-    if (!(elapsed > 0)) {
-        return 0;
-    }
-
-    return Math.min(100, Math.floor((elapsed / duration) * 100));
-}
-
-/** Western digits for any Arabic-Indic ones, so «١٢» reads as 12. */
-export function westernDigits(text) {
-    return String(text ?? '').replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660));
-}
-
-/**
- * Whether the number typed — the other way to confirm, for someone who
- * cannot hold the button — is exactly how many subscribers are confirmed.
- */
-export function typedCountMatches(typed, count) {
-    const digits = westernDigits(typed).trim();
-
-    return /^\d+$/.test(digits) && Number(digits) === count && count > 0;
-}
+export { HOLD_DURATION, holdProgress, typedCountMatches, westernDigits } from './holdConfirmation.js';
+import { westernDigits } from './holdConfirmation.js';
 
 /**
  * How many SMS one text takes: an Arabic text fits 70 characters in one

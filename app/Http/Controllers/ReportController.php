@@ -70,7 +70,7 @@ class ReportController extends Controller
             'readings' => $chosen->isEmpty() ? null : $report->readings(),
             'days' => $chosen->isEmpty() ? [] : $report->days(),
             'transactions' => $report->lines($kind)
-                ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading'])
+                ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
                 ->orderByDesc('subscription_transactions.created_at')
                 ->orderByDesc('subscription_transactions.id')
                 ->paginate(self::PER_PAGE)
@@ -88,7 +88,7 @@ class ReportController extends Controller
         abort_unless(FinancialReportAccess::export($request->user()), 403);
         ['chosen' => $chosen, 'from' => $from, 'to' => $to, 'kind' => $kind] = $this->filters($request, FinancialReportAccess::branches($request->user()));
         $lines = (new BranchReport($chosen, $from, $to))->lines($kind)
-            ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading'])
+            ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
             ->orderBy('subscription_transactions.created_at')
             ->orderBy('subscription_transactions.id');
         $columns = ['التاريخ', 'الوقت', 'الفرع', 'رقم السند', 'المشترك', 'رقم الحساب', 'الطبلون', 'النوع', 'البيان', 'طريقة الدفع', 'الحساب', 'العملة', 'المبلغ بالعملة', 'عليه', 'له', 'سجّله', 'ملغى'];

@@ -10,6 +10,7 @@ use App\Enums\DiscountMethod;
 use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
 use App\Enums\TransactionAction;
+use App\Support\BranchClosingWorkflow;
 use Closure;
 use Database\Factories\SubscriptionTransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -123,6 +124,8 @@ class SubscriptionTransaction extends Model
     /** A full or partial reversal of a payment-like transaction. */
     public const TYPE_REFUND = 'refund';
 
+    public const TYPE_BANK_AUDIT_ADJUSTMENT = 'bank_audit_adjustment';
+
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_CANCELLED = 'cancelled';
@@ -193,6 +196,54 @@ class SubscriptionTransaction extends Model
     }
 
     /**
+     * Serialize writes with box closure, including quiet saves and stale models.
+     * A closed box's historical transaction must never change in place.
+     *
+     * @param  array<string, mixed>  $options
+     */
+    public function save(array $options = []): bool
+    {
+        if (! $this->exists) {
+            return parent::save($options);
+        }
+
+        return $this->withMutationLock(function () use ($options): bool {
+            $this->ensureMutable();
+
+            return parent::save($options);
+        });
+    }
+
+    public function delete(): ?bool
+    {
+        if (! $this->exists) {
+            return parent::delete();
+        }
+
+        return $this->withMutationLock(function (): ?bool {
+            $this->ensureMutable();
+
+            return parent::delete();
+        });
+    }
+
+    private function withMutationLock(Closure $operation): mixed
+    {
+        $branchId = self::query()->whereKey($this->getKey())->value('branch_id');
+
+        return app(BranchClosingWorkflow::class)->locked((int) $branchId, $operation);
+    }
+
+    private function ensureMutable(): void
+    {
+        $stored = self::query()->lockForUpdate()->findOrFail($this->getKey());
+
+        if ($stored->type === self::TYPE_BANK_AUDIT_ADJUSTMENT || $stored->isInClosedDay(lockForUpdate: true)) {
+            throw ValidationException::withMessages(['action' => 'لا يمكن تغيير أو حذف حركة ضمن صندوق مغلق أو كشف إغلاق أُرسل للتدقيق أو اعتُمد.']);
+        }
+    }
+
+    /**
      * Record a payment on the subscription's account, converted to shekels
      * at `exchange_rate` (always 1 for shekels), with the next voucher
      * number (cash only). A transfer keeps its bank, sender and reference; cash keeps
@@ -213,7 +264,7 @@ class SubscriptionTransaction extends Model
         $referenceNumber = $method === PaymentMethod::Cash ? null : trim((string) ($payment['reference_number'] ?? ''));
         $activeReference = self::normalizeReference($referenceNumber);
 
-        return DB::transaction(function () use ($subscription, $collector, $payment, $currency, $method, $exchangeRate, $inShekels, $referenceNumber, $activeReference): self {
+        return app(BranchClosingWorkflow::class)->locked($subscription->branch_id, function () use ($subscription, $collector, $payment, $currency, $method, $exchangeRate, $inShekels, $referenceNumber, $activeReference): self {
             if (! ($payment['confirm_duplicate_reference'] ?? false)) {
                 self::ensureReferenceIsAvailable($activeReference, $payment['split_payment_id'] ?? null);
             }
@@ -280,7 +331,7 @@ class SubscriptionTransaction extends Model
      */
     public static function recordClearing(Subscription $subscription, User $recorder, float|string $amount, string $service, ?string $manualVoucherNumber = null): self
     {
-        return DB::transaction(fn (): self => $subscription->transactions()->create([
+        return app(BranchClosingWorkflow::class)->locked($subscription->branch_id, fn (): self => $subscription->transactions()->create([
             'recorded_by' => $recorder->id,
             'type' => self::TYPE_CLEARING,
             'source_key' => 'clearing:'.Str::ulid(),
@@ -330,9 +381,9 @@ class SubscriptionTransaction extends Model
      */
     public function cancel(User $actor, CorrectionReason $reason, ?string $notes, bool $reopenReading = false): self
     {
-        return DB::transaction(function () use ($actor, $reason, $notes, $reopenReading): self {
+        return $this->withMutationLock(function () use ($actor, $reason, $notes, $reopenReading): self {
             if ($this->isInClosedDay(lockForUpdate: true)) {
-                throw ValidationException::withMessages(['reason' => 'لا يمكن إلغاء دفعة ضمن كشف إغلاق أُرسل للتدقيق أو اعتُمد؛ أرجِعها بإرجاع الدفعة.']);
+                throw ValidationException::withMessages(['reason' => 'لا يمكن إلغاء دفعة ضمن صندوق مغلق أو كشف إغلاق أُرسل للتدقيق أو اعتُمد.']);
             }
 
             // Cancelling a weekly reading's bill waives it for good (the key it is billed by stays) unless the reading is sent back for review.
@@ -390,7 +441,7 @@ class SubscriptionTransaction extends Model
      */
     private function reverse(User $actor, CorrectionReason $reason, ?string $notes, Closure $mayCancel, bool $freeSourceKey = false): self
     {
-        return DB::transaction(function () use ($actor, $reason, $notes, $mayCancel, $freeSourceKey): self {
+        return $this->withMutationLock(function () use ($actor, $reason, $notes, $mayCancel, $freeSourceKey): self {
             $line = self::query()->lockForUpdate()->findOrFail($this->id);
 
             if (! $mayCancel($line)) {
@@ -431,7 +482,7 @@ class SubscriptionTransaction extends Model
      */
     public function correct(User $actor, CorrectionReason $reason, ?string $notes, Closure $record): self
     {
-        return DB::transaction(function () use ($actor, $reason, $notes, $record): self {
+        return $this->withMutationLock(function () use ($actor, $reason, $notes, $record): self {
             $this->cancel($actor, $reason, $notes);
 
             $replacement = $record($this->subscription);
@@ -455,7 +506,7 @@ class SubscriptionTransaction extends Model
             throw ValidationException::withMessages(['details' => 'لا يمكن تعديل الحقول المالية أو هوية الحركة.']);
         }
 
-        return DB::transaction(function () use ($actor, $fields, $reason): TransactionAmendment {
+        return $this->withMutationLock(function () use ($actor, $fields, $reason): TransactionAmendment {
             $line = self::query()->lockForUpdate()->findOrFail($this->id);
 
             if (! $line->isAmendable(lockForUpdate: true)) {
@@ -581,6 +632,14 @@ class SubscriptionTransaction extends Model
         return $this->manual_voucher_number ?: $this->printedVoucherNumber();
     }
 
+    /** A final box number after closure, retaining legacy values for ungrouped payments. */
+    public function cashBoxNumber(): ?string
+    {
+        $box = $this->boxEntry?->box;
+
+        return $box ? ($box->isEditable() ? null : $box->number) : $this->cash_box;
+    }
+
     /**
      * The canonical actions the current user may submit for this transaction.
      * Business rules and permissions are both decided on the server.
@@ -589,6 +648,10 @@ class SubscriptionTransaction extends Model
      */
     public function availableActions(User $actor, ?bool $isLast = null, ?bool $hasPayment = null, bool $lockForUpdate = false): array
     {
+        if ($this->type === self::TYPE_BANK_AUDIT_ADJUSTMENT || $this->isInClosedDay($lockForUpdate)) {
+            return [];
+        }
+
         if (! $actor->isSuperAdmin() && $this->subscription->branch_id !== $actor->branch_id) {
             return [];
         }
@@ -626,7 +689,7 @@ class SubscriptionTransaction extends Model
      */
     public function applyAction(User $actor, TransactionAction $action, array $data): ?self
     {
-        return DB::transaction(function () use ($actor, $action, $data): ?self {
+        return $this->withMutationLock(function () use ($actor, $action, $data): ?self {
             $line = self::query()->with('subscription')->lockForUpdate()->findOrFail($this->id);
             $isLast = $line->isLastTransaction(lockForUpdate: true);
             $hasPayment = $line->hasAppliedPayment(lockForUpdate: true);
@@ -782,34 +845,11 @@ class SubscriptionTransaction extends Model
 
     private function isPermanentDeletionLocked(bool $lockForUpdate = false): bool
     {
-        if (! $lockForUpdate) {
-            if ($this->reference_transaction_id !== null && $this->relationLoaded('referenceTransaction')) {
-                return $this->referenceTransaction?->isInClosedDay() ?? false;
-            }
-
-            if ($this->reverses_id !== null && $this->relationLoaded('reverses')) {
-                return $this->reverses?->isInClosedDay() ?? false;
-            }
-
-            if ($this->relationLoaded('closingLine')) {
-                return $this->isInClosedDay();
-            }
-        }
-
-        $originalId = $this->reference_transaction_id ?? $this->reverses_id ?? $this->id;
-
-        if (ClosingSetting::ownFor($this->branch_id)?->workflow_started_at && CashBoxPayment::query()->where('subscription_transaction_id', $originalId)->whereHas('box', fn (Builder $query): Builder => $query->where('status', '!=', 'open'))->exists()) {
-            return true;
-        }
-
-        return ClosingPayment::query()
-            ->where('subscription_transaction_id', $originalId)
-            ->whereHas('closing', fn (Builder $query): Builder => $query->whereIn('status', [
-                ClosingStatus::Submitted->value,
-                ClosingStatus::Approved->value,
-            ]))
+        return self::query()
+            ->whereKey(array_filter([$this->id, $this->reference_transaction_id, $this->reverses_id, $this->corrects_id]))
             ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
-            ->exists();
+            ->get()
+            ->contains(fn (self $line): bool => $line->isInClosedDay($lockForUpdate));
     }
 
     /** @param array<string, mixed> $data */
@@ -985,7 +1025,7 @@ class SubscriptionTransaction extends Model
             ->map(fn (self $transaction): array => $transaction->getAttributes())
             ->all();
 
-        self::query()->where('corrects_id', $this->id)->update(['corrects_id' => null]);
+        self::query()->where('corrects_id', $this->id)->lockForUpdate()->get()->each->update(['corrects_id' => null]);
         self::releaseEditableClosingLines([$this->id, ...$reversals->modelKeys()]);
         $reversals->each->delete();
         $this->delete();
@@ -1031,7 +1071,10 @@ class SubscriptionTransaction extends Model
 
         foreach ($transactions as $transaction) {
             $balanceInCents += Closing::cents($transaction->amount);
-            $transaction->updateQuietly(['balance_after' => Closing::money($balanceInCents)]);
+
+            if ($transaction->type !== self::TYPE_BANK_AUDIT_ADJUSTMENT && ! $transaction->isInClosedDay(lockForUpdate: true)) {
+                $transaction->updateQuietly(['balance_after' => Closing::money($balanceInCents)]);
+            }
         }
     }
 
@@ -1186,21 +1229,17 @@ class SubscriptionTransaction extends Model
     }
 
     /**
-     * Whether this payment belongs to a submitted or approved daily closing,
-     * or to a box the branch has confirmed closed. Until the branch confirms
-     * it, a box stays open to its collector's corrections, even once closed
-     * at the weekly cutoff.
+     * Membership itself locks the transaction, independently of current settings
+     * or cached relations. Legacy pending boxes remain editable until closure.
      */
     public function isInClosedDay(bool $lockForUpdate = false): bool
     {
-        if (ClosingSetting::ownFor($this->branch_id)?->workflow_started_at && CashBoxPayment::query()->where('subscription_transaction_id', $this->id)->when($this->isClearing(), fn (Builder $query): Builder => $query->where('status', '!=', 'rejected'))->whereHas('box', fn (Builder $query): Builder => $query->whereNotIn('status', ['open', 'pending']))->exists()) {
+        if (CashBox::query()
+            ->whereHas('payments', fn (Builder $query): Builder => $query->where('subscription_transaction_id', $this->id))
+            ->whereNotIn('status', ['open', 'pending'])
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())
+            ->exists()) {
             return true;
-        }
-
-        if (! $lockForUpdate && $this->relationLoaded('closingLine')) {
-            return $this->closingLine !== null
-                && $this->closingLine->closing !== null
-                && ! $this->closingLine->closing->status->isEditable();
         }
 
         return ClosingPayment::query()
@@ -1250,6 +1289,10 @@ class SubscriptionTransaction extends Model
      */
     public function isErasable(bool $lockForUpdate = false): bool
     {
+        if ($this->type === self::TYPE_BANK_AUDIT_ADJUSTMENT) {
+            return false;
+        }
+
         $erased = $this->isReversal() ? $this->reverses : $this;
 
         if ($erased?->type === self::TYPE_READING_DISCOUNT) {
@@ -1257,6 +1300,7 @@ class SubscriptionTransaction extends Model
         }
 
         return $this->isLastOnStatement($lockForUpdate)
+            && ! $this->isPermanentDeletionLocked($lockForUpdate)
             && ! ($erased?->isInClosedDay($lockForUpdate) ?? false)
             && ! ClosingPayment::query()
                 ->where('subscription_transaction_id', $erased?->id)
@@ -1276,7 +1320,7 @@ class SubscriptionTransaction extends Model
      */
     public function erase(User $actor, string $reason): void
     {
-        DB::transaction(function () use ($actor, $reason): void {
+        $this->withMutationLock(function () use ($actor, $reason): void {
             $line = self::query()->lockForUpdate()->findOrFail($this->id);
 
             if (! $line->isErasable(lockForUpdate: true)) {
@@ -1294,7 +1338,7 @@ class SubscriptionTransaction extends Model
                 ->map(fn (self $transaction): array => $transaction->getAttributes())
                 ->all();
 
-            self::query()->where('corrects_id', $target->id)->update(['corrects_id' => null]);
+            self::query()->where('corrects_id', $target->id)->lockForUpdate()->get()->each->update(['corrects_id' => null]);
             $reversals->each->delete();
             $correctionReversals->each->delete();
             $target->delete();
@@ -1356,6 +1400,10 @@ class SubscriptionTransaction extends Model
      */
     public function isCredit(): bool
     {
+        if ($this->type === self::TYPE_BANK_AUDIT_ADJUSTMENT) {
+            return (float) $this->amount < 0;
+        }
+
         return $this->isReversal() ? (float) $this->amount < 0 : in_array($this->type, self::CREDIT_TYPES, true);
     }
 
@@ -1375,7 +1423,8 @@ class SubscriptionTransaction extends Model
     #[Scope]
     protected function charges(Builder $query): void
     {
-        $query->counted()->whereNotIn($query->qualifyColumn('type'), [...self::CREDIT_TYPES, self::TYPE_REVERSAL]);
+        $query->counted()->whereNotIn($query->qualifyColumn('type'), [...self::CREDIT_TYPES, self::TYPE_REVERSAL])
+            ->where(fn (Builder $side): Builder => $side->where($query->qualifyColumn('type'), '!=', self::TYPE_BANK_AUDIT_ADJUSTMENT)->orWhere($query->qualifyColumn('amount'), '>=', 0));
     }
 
     /**
@@ -1385,7 +1434,8 @@ class SubscriptionTransaction extends Model
     #[Scope]
     protected function credits(Builder $query): void
     {
-        $query->counted()->whereIn($query->qualifyColumn('type'), self::CREDIT_TYPES);
+        $query->counted()->where(fn (Builder $side): Builder => $side->whereIn($query->qualifyColumn('type'), self::CREDIT_TYPES)
+            ->orWhere(fn (Builder $audit): Builder => $audit->where($query->qualifyColumn('type'), self::TYPE_BANK_AUDIT_ADJUSTMENT)->where($query->qualifyColumn('amount'), '<', 0)));
     }
 
     /**
@@ -1414,6 +1464,7 @@ class SubscriptionTransaction extends Model
                 default => 'مبلغ ثابت',
             },
             self::TYPE_CLEARING => 'مقاصة مقابل خدمة للشركة',
+            self::TYPE_BANK_AUDIT_ADJUSTMENT => $this->bankAuditDescription(),
             self::TYPE_INVOICE => 'فاتورة',
             self::TYPE_CREDIT => 'رصيد دائن',
             self::TYPE_READING_DISCOUNT => implode(' · ', array_filter([
@@ -1433,6 +1484,30 @@ class SubscriptionTransaction extends Model
                 : 'إرجاع دفعة',
             default => $this->typeLabel(),
         };
+    }
+
+    private function bankAuditDescription(): string
+    {
+        $audit = $this->bankTransferAudit;
+        if ($audit === null) {
+            return 'حركة تصحيح';
+        }
+
+        $difference = self::formatAmount(abs((float) $audit->difference));
+        if ($audit->outcome === 'missing') {
+            return sprintf('حوالة لم تصل للبنك؛ تحميل %s شيكل على المشترك.', $difference);
+        }
+
+        $effect = (float) $audit->difference > 0
+            ? sprintf('تحميل فرق %s شيكل.', $difference)
+            : sprintf('إضافة فرق %s شيكل لصالح المشترك.', $difference);
+
+        return sprintf('حوالة وصلت %s بدل %s %s؛ %s',
+            self::formatAmount($audit->bank_amount),
+            self::formatAmount($audit->recorded_amount),
+            __($this->currency->label()),
+            $effect,
+        );
     }
 
     /**
@@ -1516,6 +1591,7 @@ class SubscriptionTransaction extends Model
             self::TYPE_REVERSAL => 'قيد عكسي',
             self::TYPE_CANCELLATION => 'إلغاء',
             self::TYPE_REFUND => 'إرجاع',
+            self::TYPE_BANK_AUDIT_ADJUSTMENT => 'حركة تصحيح',
         ];
     }
 
@@ -1574,6 +1650,11 @@ class SubscriptionTransaction extends Model
     public function correction(): HasOne
     {
         return $this->hasOne(self::class, 'corrects_id');
+    }
+
+    public function bankTransferAudit(): HasOne
+    {
+        return $this->hasOne(BankTransferAudit::class, 'adjustment_transaction_id');
     }
 
     /** The split transfer this payment is a part of, if it is. */

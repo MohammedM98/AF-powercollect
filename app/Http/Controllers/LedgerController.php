@@ -204,7 +204,7 @@ class LedgerController extends Controller
             'largest' => round((float) $totals->largest, 2),
             'previousTotal' => $previousTotal,
             'changePct' => $previousTotal ? (int) round(($total - $previousTotal) / $previousTotal * 100) : null,
-            'collected' => round(-(float) $inPeriod->counted()->where('type', SubscriptionTransaction::TYPE_PAYMENT)->sum('amount'), 2),
+            'collected' => round(-(float) $inPeriod->counted()->whereIn('type', [SubscriptionTransaction::TYPE_PAYMENT, SubscriptionTransaction::TYPE_BANK_AUDIT_ADJUSTMENT])->sum('amount'), 2),
         ];
     }
 

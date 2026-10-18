@@ -97,8 +97,7 @@ class SubscriptionTransactionPolicy
     /**
      * Cancellation and refunding require their own permissions. Permanent
      * deletion never implies either, including through the legacy endpoint.
-     * A payment a submitted or approved closing counted is only undone by a
-     * refund, which the closing of the day it is paid out accounts for.
+     * A payment in a closed box or submitted or approved closing is immutable.
      */
     public function delete(User $user, SubscriptionTransaction $subscriptionTransaction): bool
     {

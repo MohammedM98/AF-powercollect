@@ -36,7 +36,7 @@ class BranchClosingWorkflow
     public const BOX_DETAILS = [
         'user:id,name,role,is_active,branch_id',
         'user.permissions',
-        'payments.transaction:id,subscription_id,type,reference_number,bank_name,sender_bank_name,sender_name,voucher_number,manual_voucher_number,notes,status',
+        'payments.transaction:id,subscription_id,type,reference_number,bank_name,sender_bank_name,sender_name,voucher_number,manual_voucher_number,notes,status,currency,currency_amount,exchange_rate,amount',
         'payments.transaction.subscription:id,account_number,full_name,subscription_name',
     ];
 
@@ -256,13 +256,10 @@ class BranchClosingWorkflow
 
     public function releaseEditablePayment(SubscriptionTransaction $payment): void
     {
-        if (! ClosingSetting::ownFor($payment->branch_id)?->workflow_started_at) {
-            return;
-        }
         $entry = CashBoxPayment::query()->where('subscription_transaction_id', $payment->id)->first();
         if ($entry) {
             $box = $entry->box;
-            $this->require($box->isEditable(), 'الدفعة مرتبطة بصندوق أكّد الفرع إغلاقه؛ استخدم الإرجاع أو قيد التصحيح.');
+            $this->require($box->isEditable(), 'لا يمكن حذف دفعة مرتبطة بصندوق مغلق.');
             $entry->delete();
             $this->recountClosed($box);
         }
@@ -311,8 +308,12 @@ class BranchClosingWorkflow
      */
     public function receive(CashBox $box, User $actor): void
     {
-        $this->require(in_array($box->status, ['open', 'pending'], true) && $this->mayReceive($box, $actor), 'لا يمكنك تأكيد إغلاق هذا الصندوق.');
-        $this->accept($box, $actor);
+        $this->locked($box->branch_id, function () use ($box, $actor): void {
+            $current = CashBox::query()->lockForUpdate()->findOrFail($box->id);
+            $this->require($current->isEditable() && $this->mayReceive($current, $actor), 'لا يمكنك تأكيد إغلاق هذا الصندوق.');
+            $this->accept($current, $actor);
+            $box->refresh();
+        });
     }
 
     /**
@@ -394,18 +395,22 @@ class BranchClosingWorkflow
 
     public function reviewEntry(CashBoxPayment $payment, User $actor, string $status): void
     {
-        $allowed = $payment->method === 'clearing' ? ['confirmed', 'rejected'] : ['confirmed', 'missing'];
-        $this->require($payment->method !== 'cash' && in_array($status, $allowed, true) && $payment->status !== 'confirmed', 'لا يمكن تغيير دفعة مؤكدة.');
-        $this->require($this->mayReceive($payment->box, $actor), 'لا يمكنك مراجعة حركات هذا الصندوق.');
-        $this->require($payment->transaction->status === SubscriptionTransaction::STATUS_ACTIVE, 'الدفعة ملغاة أو مُرجعة.');
-        $closing = $this->settlingClosing($payment->box);
-        $payment->update(['status' => $status, 'confirmed_by' => $actor->id, 'confirmed_at' => $status === 'confirmed' ? now() : null, 'confirmed_in_closing_id' => $status === 'confirmed' ? $closing->id : null]);
-        $box = $payment->box;
-        if (in_array($status, ['missing', 'rejected'], true)) {
-            foreach (User::query()->where('is_active', true)->get()->filter(fn (User $user): bool => BranchClosingAccess::manage($user, $box->branch_id)) as $admin) {
-                $admin->notify(new BranchClosingNotification('حركة مرفوضة تحتاج مراجعة الفرع.', $box->number, ['entry_id' => $payment->id, 'status' => $status]));
+        $this->locked($payment->box->branch_id, function () use ($payment, $actor, $status): void {
+            $payment->refresh()->load('box');
+            $this->require($payment->box->isEditable(), 'لا يمكن تغيير حركة ضمن صندوق مغلق.');
+            $allowed = $payment->method === 'clearing' ? ['confirmed', 'rejected'] : ['confirmed', 'missing'];
+            $this->require($payment->method !== 'cash' && in_array($status, $allowed, true) && $payment->status !== 'confirmed', 'لا يمكن تغيير دفعة مؤكدة.');
+            $this->require($this->mayReceive($payment->box, $actor), 'لا يمكنك مراجعة حركات هذا الصندوق.');
+            $this->require($payment->transaction->status === SubscriptionTransaction::STATUS_ACTIVE, 'الدفعة ملغاة أو مُرجعة.');
+            $closing = $this->settlingClosing($payment->box);
+            $payment->update(['status' => $status, 'confirmed_by' => $actor->id, 'confirmed_at' => $status === 'confirmed' ? now() : null, 'confirmed_in_closing_id' => $status === 'confirmed' ? $closing->id : null]);
+            $box = $payment->box;
+            if (in_array($status, ['missing', 'rejected'], true)) {
+                foreach (User::query()->where('is_active', true)->get()->filter(fn (User $user): bool => BranchClosingAccess::manage($user, $box->branch_id)) as $admin) {
+                    $admin->notify(new BranchClosingNotification('حركة مرفوضة تحتاج مراجعة الفرع.', $box->number, ['entry_id' => $payment->id, 'status' => $status]));
+                }
             }
-        }
+        });
     }
 
     /**

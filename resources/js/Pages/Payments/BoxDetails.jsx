@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Link } from '@inertiajs/react';
+import AuditApprovalDialog from './AuditApprovalDialog';
+import BankTransferAuditForm from './BankTransferAuditForm';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
 import ColumnWidths, { fixedTableStyle } from '@/Components/DataTable/ColumnWidths';
@@ -14,7 +16,7 @@ import { boxTypes, currencies, dateTime, BoxTypeIcon } from './CollectorCashBox'
 import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from './LedgerColumns';
 import BoxBreakdown, { breakdownEntry } from './BoxBreakdown';
 import StatusGuide from './StatusGuide';
-import { boxStatus, entryStatus, isFlaggedEntry } from '@/lib/financialBoxes';
+import { auditApprovalSummary, boxEntryMatches, boxStatus, entryStatus, isFlaggedEntry } from '@/lib/financialBoxes';
 import './financial-boxes.css';
 
 
@@ -80,10 +82,12 @@ function Journey({ box }) {
  * collector has corrected anything it raised with them. The branch does not check transfers or clearings one by
  * one: the audit does.
  */
-export default function BoxDetails({ box, onClose, perform }) {
-    const [search, setSearch] = useState('');
+export default function BoxDetails({ box, onClose, perform, initialSearch = '' }) {
+    const [search, setSearch] = useState(initialSearch);
     const [filter, setFilter] = useState('all');
     const [confirmingClose, setConfirmingClose] = useState(false);
+    const [confirmingAudit, setConfirmingAudit] = useState(false);
+    const [auditingEntry, setAuditingEntry] = useState(null);
     const type = box.type ?? 'cash';
     const cash = type === 'cash';
     const clearing = type === 'clearing';
@@ -92,6 +96,7 @@ export default function BoxDetails({ box, onClose, perform }) {
     const totals = sumByCurrency(active);
     const editable = ['open', 'pending'].includes(box.status);
     const confirmable = box.canCount && ['open', 'pending'].includes(box.status);
+    const bankAudit = !editable && type === 'bank_transfer';
     const [statusLabel, statusTone] = boxStatus(box);
     const counted = cash && box.head_counts && box.expected_counts && Object.keys(currencies).some((currency) => Number(box.head_counts[currency] ?? 0) !== Number(box.expected_counts[currency] ?? 0));
     const groups = {
@@ -101,9 +106,8 @@ export default function BoxDetails({ box, onClose, perform }) {
         cancelled: ['ملغاة', (entry) => !isActive(entry)],
     };
     const filterOptions = Object.entries(groups).map(([value, [label, matches]]) => ({ value, label: `${label} · ${entries.filter(matches).length}`, count: entries.filter(matches).length })).filter((option) => option.value === 'all' || option.count > 0);
-    const query = search.trim();
-    const shown = entries.filter(groups[filter]?.[1] ?? (() => true)).filter((entry) => !query || [subscriberName(entry), entry.transaction?.subscription?.account_number, entry.transaction?.manual_voucher_number, entry.transaction?.voucher_number, entry.transaction?.reference_number, entry.transaction?.notes].some((value) => String(value ?? '').includes(query)));
-    const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', 150], ...ledgerColumns.after, ['الحالة', 140], ['', 110]];
+    const shown = entries.filter(groups[filter]?.[1] ?? (() => true)).filter((entry) => boxEntryMatches(entry, search));
+    const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', 150], ...ledgerColumns.after, ['الحالة', 140], ...(bankAudit ? [['تدقيق البنك', 220]] : []), ['', 110]];
     const widths = columns.map(([, width]) => width);
 
     return <Modal show onClose={onClose} maxWidth="full" centered panelClassName="financial-box-detail financial-surface flex flex-col">
@@ -117,6 +121,7 @@ export default function BoxDetails({ box, onClose, perform }) {
             </div>
             <div className="flex items-center gap-3">
                 <StatusPill tone={statusTone} label={statusLabel} />
+                {!editable && <StatusPill tone={box.audit ? 'green' : 'amber'} label={box.audit ? 'اكتمل التدقيق' : 'بانتظار اكتمال التدقيق'} />}
                 <button type="button" onClick={onClose} aria-label="إغلاق النافذة" className="rounded-control p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"><Icon name="close" className="h-5 w-5" /></button>
             </div>
         </header>
@@ -130,6 +135,12 @@ export default function BoxDetails({ box, onClose, perform }) {
             </dl>
 
             <Journey box={box} />
+
+            {!editable && <section aria-label="تدقيق الصندوق" className="space-y-3 rounded-card border border-gray-100 bg-surface p-4 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold text-gray-900">مراجعة قسم التدقيق</h3>{box.audit ? <p className="text-sm text-gray-600">اعتمدها {box.audit.auditor?.name} · {dateTime(box.audit.audited_at)}</p> : box.canAudit && <PrimaryButton disabled={!box.canCompleteAudit} onClick={() => setConfirmingAudit(true)}>اعتماد الصندوق كاملًا</PrimaryButton>}</div>
+                {bankAudit && <p className="text-sm leading-7 text-gray-600">حُفظت مراجعة <b>{box.auditSummary?.reviewed ?? 0}</b> من <b>{box.auditSummary?.total ?? active.length}</b> حوالة. المثبت بحسب المراجعات: <b>{formatMoney(box.auditSummary?.verified ?? 0)} شيكل</b> · صافي الفروق على المشتركين: <b dir="ltr">{formatMoney(box.auditSummary?.difference ?? 0)} شيكل</b>. إجمالي الصندوق التاريخي محفوظ كما أُغلق.</p>}
+                {bankAudit && box.canAudit && <p className="text-sm leading-7 text-gray-600">سجّل الحوالات التي فيها مشاكل فقط. عند اعتماد الصندوق تُرحّل فروق المراجعات المحفوظة ماليًا وتُعتمد بقية الحوالات كمطابقة تلقائيًا.</p>}
+            </section>}
 
             <BoxBreakdown type={type} entries={active.map(breakdownEntry)} />
 
@@ -166,7 +177,9 @@ export default function BoxDetails({ box, onClose, perform }) {
                                     </td>
                                     <LedgerTrailCells ledger={ledger} amount={entry.amount} currency={entry.currency} cancelled={!live} />
                                     <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} /></td>
+                                    {bankAudit && <td style={{ whiteSpace: 'normal' }}>{entry.audit ? <div className="space-y-1"><StatusPill tone={entry.audit.outcome === 'matched' ? 'green' : 'amber'} label={{ matched: 'مطابقة', missing: 'لم تصل', short: 'نقص في المبلغ', over: 'زيادة لصالح المشترك' }[entry.audit.outcome]} /><p className="text-xs font-semibold text-gray-600">{entry.audit.posted_at || entry.audit.adjustment_transaction_id ? 'معتمدة نهائيًا' : 'مسودة · لم تُرحّل ماليًا'}</p><p className="text-xs text-gray-600">المثبت: {formatMoney(entry.audit.bank_amount)} {ledger.currencyLabel}</p><p className="text-xs text-gray-500">{entry.audit.auditor?.name} · {dateTime(entry.audit.audited_at)}</p>{entry.audit.reason && <p className="text-xs text-gray-600">{entry.audit.reason}</p>}</div> : <StatusPill tone="gray" label={live ? 'تُطابق عند اعتماد الصندوق' : 'حركة غير سارية'} />}</td>}
                                     <td style={{ whiteSpace: 'normal' }}><div className="flex flex-wrap items-center gap-1">
+                                        {bankAudit && box.canAudit && live && !entry.audit?.posted_at && !entry.audit?.adjustment_transaction_id && <button type="button" onClick={() => setAuditingEntry(entry)} className={rowButton}><Icon name="check" className="h-3.5 w-3.5" />{entry.audit ? 'تعديل المراجعة' : 'مراجعة الحوالة'}</button>}
                                         {entry.receipt_url && <a href={entry.receipt_url} target="_blank" rel="noopener noreferrer" className={`${rowButton} tone-print border`}><Icon name="printer" className="h-3.5 w-3.5" />السند</a>}
                                     </div></td>
                                 </tr>;
@@ -181,6 +194,7 @@ export default function BoxDetails({ box, onClose, perform }) {
             </section>
 
             {counted && <BoxCountSummary box={box} />}
+            {auditingEntry && <BankTransferAuditForm key={auditingEntry.id} entry={auditingEntry} onClose={() => setAuditingEntry(null)} />}
         </div>
 
         <footer className="shrink-0 border-t border-gray-100 bg-surface p-4 sm:px-6">
@@ -201,6 +215,7 @@ export default function BoxDetails({ box, onClose, perform }) {
             confirmLabel="نعم، أغلق الصندوق"
             icon="lock"
         />
+        {confirmingAudit && <AuditApprovalDialog title="اعتماد تدقيق الصندوق؟" scope={`${boxTypes[type]} · صندوق ${box.number} · ${box.user?.name ?? '—'}`} summary={auditApprovalSummary([box])} url={box.completeAuditUrl} onClose={() => setConfirmingAudit(false)} />}
     </Modal>;
 }
 

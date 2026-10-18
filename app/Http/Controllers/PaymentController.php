@@ -27,6 +27,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\Tariff;
 use App\Models\User;
+use App\Support\BankTransferAuditing;
 use App\Support\BranchBoxes;
 use App\Support\BranchClosingAccess;
 use App\Support\BranchClosingWorkflow;
@@ -356,27 +357,30 @@ class PaymentController extends Controller
         $request->validate(['week' => ['nullable', 'date_format:Y-m-d']]);
         $periods = $this->branchBoxes->periods($branch->id);
         $week = $request->query('week')
-            ? ClosingPeriods::week($request->query('week'))[0]->toDateString()
-            : ($periods->first()['start'] ?? $this->branchBoxes->weekOf(now()));
+            ? $this->branchBoxes->weekOf(ClosingPeriods::date($request->query('week')), $branch->id)
+            : ($periods->first()['start'] ?? $this->branchBoxes->weekOf(now(), $branch->id));
         $linkedBox = $request->integer('box') ? CashBox::query()->where('branch_id', $branch->id)->where('status', 'received')->find($request->integer('box')) : null;
         if ($linkedBox) {
-            $week = $this->branchBoxes->weekOf($linkedBox->received_at ?? $linkedBox->closed_at ?? $linkedBox->opened_at);
+            $week = $this->branchBoxes->weekOf($linkedBox->received_at ?? $linkedBox->closed_at ?? $linkedBox->opened_at, $branch->id);
         }
         if (! $periods->contains('start', $week)) {
             $periods->push(['start' => $week, 'end' => ClosingPeriods::date($week)->addDays(6)->toDateString(), 'count' => 0]);
             $periods = $periods->sortByDesc('start')->values();
         }
 
+        $boxes = $this->branchBoxes->rows($branch->id, $actor, $place, $request->integer('box') ?: null, $week);
+
         return Inertia::render('Payments/BranchCashBoxes', [
             'branch' => $branch, 'branches' => $branches, 'started' => $started || $periods->contains(fn (array $period): bool => $period['count'] > 0),
             'place' => $place,
             'tabs' => $this->boxTabs($branches, $branch, $actor),
-            'boxes' => $this->branchBoxes->rows($branch->id, $actor, $place, $request->integer('box') ?: null, $week),
-            'periods' => $periods, 'week' => $week, 'weekStartsOn' => ClosingSetting::company()->week_starts_on,
+            'boxes' => $boxes,
+            'periodAudit' => $place === 'closed' && BankTransferAuditing::allowed($actor) ? $this->branchBoxes->periodAudit($boxes, $branch->id, $week) : null,
+            'periods' => $periods, 'week' => $week, 'weekStartsOn' => ClosingSetting::forBranch($branch->id)->week_starts_on,
             'access' => $this->branchBoxes->access($actor, $branch->id),
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
-            'urls' => ['index' => route('payments.cash-boxes'), 'actions' => url('/payments/cash-boxes/actions')],
+            'urls' => ['index' => route('payments.cash-boxes'), 'actions' => url('/payments/cash-boxes/actions'), 'auditPeriod' => route('payments.period-audits.store')],
         ]);
     }
 

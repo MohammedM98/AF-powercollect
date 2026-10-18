@@ -41,7 +41,7 @@ export function FinancialBoxType({ box }) {
 
 export function FinancialBoxStatus({ box }) {
     const [label, tone] = boxStatus(box);
-    return <StatusPill tone={tone} label={label} />;
+    return <span className="flex flex-wrap gap-1"><StatusPill tone={tone} label={label} />{box.status === 'received' && 'audit' in box && <StatusPill tone={box.audit ? 'green' : 'amber'} label={box.audit ? 'تم التدقيق' : 'بانتظار التدقيق'} />}</span>;
 }
 
 export function FinancialBoxAmount({ box, large = false }) {

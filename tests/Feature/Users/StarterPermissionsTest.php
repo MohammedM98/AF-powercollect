@@ -48,7 +48,7 @@ class StarterPermissionsTest extends TestCase
         $this->actingAs($collector)->get(route('ledger.index'))->assertForbidden();
     }
 
-    public function test_a_new_financial_auditor_keeps_report_and_split_payment_visibility_without_closing_endpoints(): void
+    public function test_a_new_financial_auditor_only_opens_closed_boxes_and_personal_account(): void
     {
         $auditor = User::factory()->financialAuditor()->create();
         $split = SplitPayment::factory()->create(['total_amount' => 100]);
@@ -59,13 +59,11 @@ class StarterPermissionsTest extends TestCase
             'payment_method' => 'bank_transfer',
         ]);
 
-        $this->actingAs($auditor)->get(route('reports.index'))->assertOk();
-        $this->assertTrue($auditor->hasPermission(PermissionKey::ViewAllFinancialReports));
-        $this->get(route('split-payments.show', $split))
-            ->assertOk()
-            ->assertJsonCount(2, 'parts')
-            ->assertJsonPath('hiddenPartsCount', 0);
-        $this->get('/closings')->assertNotFound();
+        $this->actingAs($auditor)->get(route('reports.index'))->assertForbidden();
+        $this->assertFalse($auditor->hasPermission(PermissionKey::ViewAllFinancialReports));
+        $this->get(route('split-payments.show', $split))->assertForbidden();
+        $this->get(route('dashboard'))->assertRedirect(route('payments.cash-boxes', ['place' => 'closed']));
+        $this->get(route('profile.edit'))->assertOk();
     }
 
     public function test_an_auditor_added_by_a_branch_admin_does_not_get_what_only_the_company_grants(): void

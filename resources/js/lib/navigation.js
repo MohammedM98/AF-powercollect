@@ -117,6 +117,10 @@ export function pageTrail(groups, url) {
 
 /** The links the current user may open. */
 export function allowedLinks(links, can) {
+    if (can?.auditOnly) {
+        return links.filter((link) => link.href === '/payments/cash-boxes');
+    }
+
     return links.filter((link) => !link.can || can?.[link.can]);
 }
 

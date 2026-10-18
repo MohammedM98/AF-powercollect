@@ -102,8 +102,7 @@ enum UserRole: string
             ],
             // Takes payments in the field app, and nothing else: the financial log stays with the branch's staff.
             self::Collector => [PermissionKey::RecordCollections, PermissionKey::RecordCashPayments, PermissionKey::RecordTransferPayments],
-            // Legacy grants preserve split-payment visibility without changing its existing policy or controller.
-            self::FinancialAuditor => [PermissionKey::AuditClosings, PermissionKey::ViewAllClosings, PermissionKey::ViewAllFinancialReports, PermissionKey::ExportFinancialReports],
+            self::FinancialAuditor => [PermissionKey::AuditClosings, PermissionKey::ViewAllClosings],
             self::SuperAdmin => [],
         };
     }

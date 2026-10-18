@@ -4,8 +4,11 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import SearchableSelect from '@/Components/SearchableSelect';
 import SegmentedTabs from '@/Components/SegmentedTabs';
+import StatusPill from '@/Components/DataTable/StatusPill';
+import PrimaryButton from '@/Components/PrimaryButton';
 import { formatMoney } from '@/lib/format';
-import { boxPersonName, financialBoxesTotals, sortFinancialBoxes } from '@/lib/financialBoxes';
+import { boxEntryMatches, financialBoxMatches, financialBoxesTotals, sortFinancialBoxes } from '@/lib/financialBoxes';
+import AuditApprovalDialog from './AuditApprovalDialog';
 import BoxDetails from './BoxDetails';
 import BoxTabs from './BoxTabs';
 import StatusGuide from './StatusGuide';
@@ -44,18 +47,23 @@ function SummaryTile({ icon, label, boxes, hint, active, onClick }) {
 }
 
 /** Open boxes for closing, and closed boxes grouped by their closing week. */
-export default function BranchCashBoxes({ branch, branches, started, place, tabs, boxes, periods, week, pendingCount, urls }) {
+export default function BranchCashBoxes({ branch, branches, started, place, tabs, boxes, periods, week, pendingCount, periodAudit, urls }) {
     const { errors } = usePage().props;
     const [search, setSearch] = useState('');
     const [person, setPerson] = useState('');
     const [type, setType] = useState('');
+    const [auditState, setAuditState] = useState('');
+    const [confirmingPeriod, setConfirmingPeriod] = useState(false);
     const [view, setView] = useState(() => savedPreference('view', 'table', ['table', 'cards']));
     const [sort, setSort] = useState({ key: 'dates', direction: 'desc' });
     const [boxId, setBoxId] = useState(() => Number(new URLSearchParams(window.location.search).get('box')) || null);
     const selectedBox = boxes.find((box) => box.id === boxId);
     const inPlace = boxes.filter((box) => box.place === place);
     const people = [...new Map(inPlace.filter((box) => box.user).map((box) => [box.user.id, box.user.name])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar'));
-    const shown = inPlace.filter((box) => (!type || box.type === type) && (!person || String(box.user?.id) === person) && `${box.number} ${boxPersonName(box)}`.includes(search.trim()));
+    const currentPeriod = periods.find((period) => period.start === week);
+    const reviewedBoxes = currentPeriod?.reviewed ?? 0;
+    const periodBoxes = currentPeriod?.count ?? 0;
+    const shown = inPlace.filter((box) => (!type || box.type === type) && (!person || String(box.user?.id) === person) && (!auditState || Boolean(box.audit) === (auditState === 'reviewed')) && financialBoxMatches(box, search));
     useEffect(() => {
         try {
             localStorage.setItem('financial-boxes:view', view);
@@ -89,18 +97,19 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
             {errors?.action && <p role="alert" className="rounded-control bg-red-500/10 p-4 text-sm text-red-700">{errors.action}</p>}
             <p className="flex items-start gap-2 text-sm leading-6 text-gray-600"><Icon name="info" className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />{placeHints[place]}</p>
             {place === 'closed' && <div className="flex flex-wrap items-end justify-between gap-4 rounded-card border border-gray-100 bg-surface p-4 shadow-card sm:p-5">
-                <div className="flex min-w-0 flex-1 items-start gap-3"><Icon name="calendar" className="mt-1 h-5 w-5 shrink-0 text-gray-500" /><div><h3 className="font-bold text-gray-900">فترة الصناديق المغلقة</h3><p className="text-xs text-gray-500">المجاميع والصناديق المعروضة تخص الفترة المختارة.</p></div></div>
-                <div className="w-full sm:w-96"><label htmlFor="closed-box-week" className="mb-1 block text-sm font-medium text-gray-700">الفترة الأسبوعية</label><SearchableSelect id="closed-box-week" value={week} clearable={false} options={periods.map((period) => ({ value: period.start, label: `${periodDate(period.start)} — ${periodDate(period.end)}`, hint: `${period.count} صندوق` }))} onChange={(value) => router.get(urls.index, { branch_id: branch.id, place: 'closed', week: value }, { preserveScroll: true })} /></div>
+                <div className="flex min-w-0 flex-1 items-start gap-3"><Icon name="calendar" className="mt-1 h-5 w-5 shrink-0 text-gray-500" /><div className="space-y-2"><h3 className="font-bold text-gray-900">فترة الصناديق المغلقة</h3><p className="text-xs text-gray-500">دُقّق {reviewedBoxes} من {periodBoxes} صندوقًا في الفترة المختارة.</p><StatusPill tone={periodBoxes > 0 && reviewedBoxes === periodBoxes ? 'green' : 'amber'} label={periodBoxes > 0 && reviewedBoxes === periodBoxes ? 'اكتمل تدقيق الفترة' : 'لم يكتمل تدقيق الفترة'} /></div></div>
+                <div className="flex w-full flex-wrap items-end gap-3 sm:w-auto">{periodAudit?.boxes > 0 && <PrimaryButton onClick={() => setConfirmingPeriod(true)}><Icon name="check" className="h-4 w-4" />اعتماد الفترة كاملة</PrimaryButton>}<div className="w-full sm:w-96"><label htmlFor="closed-box-week" className="mb-1 block text-sm font-medium text-gray-700">الفترة الأسبوعية</label><SearchableSelect id="closed-box-week" value={week} clearable={false} options={periods.map((period) => ({ value: period.start, label: `${periodDate(period.start)} — ${periodDate(period.end)}`, hint: `${period.count} صندوق · ${period.reviewed === period.count ? 'تم التدقيق' : `دُقّق ${period.reviewed}`}` }))} onChange={(value) => router.get(urls.index, { branch_id: branch.id, place: 'closed', week: value }, { preserveScroll: true })} /></div></div>
             </div>}
             <section aria-label="ملخص" className="grid gap-3 sm:grid-cols-3">{summary.map(({ key, ...tile }) => <SummaryTile key={key} {...tile} />)}</section>
             <StatusGuide />
             <section aria-label="الصناديق">
                 <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
                     <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-                        <div className="relative w-full sm:w-72"><Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" /><input type="text" aria-label="ابحث باسم الموظف أو رقم الصندوق" placeholder="ابحث باسم الموظف أو رقم الصندوق" value={search} onChange={(event) => setSearch(event.target.value)} className="block w-full py-2.5 pe-4 ps-10 text-sm" /></div>
+                        <div className="relative w-full sm:w-72"><Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" /><input type="text" aria-label="ابحث بالصندوق أو المشترك أو السند أو مرجع الحوالة" placeholder="ابحث بالصندوق أو المشترك أو السند أو مرجع الحوالة" value={search} onChange={(event) => setSearch(event.target.value)} className="block w-full py-2.5 pe-4 ps-10 text-sm" /></div>
                         <select aria-label="الموظف" value={person} onChange={(event) => setPerson(event.target.value)} className="w-full py-2.5 text-sm sm:w-56"><option value="">كل الموظفين</option>{people.map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}</select>
                     </div>
                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+                        {place === 'closed' && <select aria-label="حالة التدقيق" value={auditState} onChange={(event) => setAuditState(event.target.value)} className="py-2.5 text-sm"><option value="">كل حالات التدقيق</option><option value="waiting">بانتظار التدقيق</option><option value="reviewed">تم التدقيق</option></select>}
                         <SegmentedTabs label="نوع الصندوق" value={type} onChange={setType} options={[{ value: '', label: 'كل الأنواع' }, ...Object.entries(boxTypes).map(([value, label]) => ({ value, label }))]} />
                         <SegmentedTabs label="طريقة العرض" value={view} onChange={setView} options={[{ value: 'table', label: <><Icon name="table" className="h-4 w-4" />جدول</> }, { value: 'cards', label: <><Icon name="grid" className="h-4 w-4" />بطاقات</> }]} />
                     </div>
@@ -113,6 +122,7 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
                 <p className="data-table-totals text-sm text-gray-600"><span>المعروض <b className="font-display text-gray-900">{shown.length}</b> من <b className="font-display text-gray-900">{inPlace.length}</b> صندوقًا</span><span>مجموع الصناديق المعروضة: <b className="font-display text-gray-900">{financialAmountsLine(financialBoxesTotals(shown))}</b></span></p>
             </section>
         </div>}
-        {selectedBox && <BoxDetails key={selectedBox.id} box={selectedBox} onClose={closeBox} perform={perform} />}
+        {selectedBox && <BoxDetails key={selectedBox.id} box={selectedBox} initialSearch={(selectedBox.payments ?? []).some((entry) => boxEntryMatches(entry, search)) ? search : ''} onClose={closeBox} perform={perform} />}
+        {confirmingPeriod && periodAudit && <AuditApprovalDialog title="اعتماد تدقيق الفترة كاملة؟" scope={`${branch.name} · ${periodDate(week)} — ${periodDate(currentPeriod.end)}`} summary={periodAudit} url={urls.auditPeriod} payload={{ branch_id: branch.id, week, box_ids: periodAudit.box_ids, snapshot: periodAudit.snapshot }} onClose={() => setConfirmingPeriod(false)} />}
     </AuthenticatedLayout>;
 }

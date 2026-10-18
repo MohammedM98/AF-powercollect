@@ -379,12 +379,11 @@ class CollectorBoxTypesTest extends TestCase
             ->where('box.totals.ILS', '26.00')->where('entries.total', 26)->has('entries.data', 1)->where('entries.data.0.id', $first->id));
     }
 
-    public function test_branch_admin_can_cancel_a_rejected_clearing_before_branch_submission(): void
+    public function test_branch_admin_can_cancel_a_rejected_clearing_while_its_box_is_open(): void
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
         $this->action($head, $branch, 'electronic', $entry->id, ['status' => 'rejected'])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'receive', $entry->cash_box_id)->assertSessionHasNoErrors();
 
         $this->actingAs($head)->post(route('subscriptions.transactions.actions.store', [$entry->transaction->subscription, $entry->transaction]), ['action' => 'cancel', 'correction_reason' => 'other', 'correction_notes' => 'المقاصة غير مطابقة'])->assertSessionHasNoErrors();
 
@@ -393,7 +392,7 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertSame('0.00', $entry->box->fresh()->totals()['ILS']);
     }
 
-    public function test_a_rejected_clearing_can_be_cancelled_after_its_box_is_sent_to_audit(): void
+    public function test_a_rejected_clearing_stays_locked_after_its_box_is_closed_and_sent_to_audit(): void
     {
         [$branch, $head, $collector] = $this->start();
         $entry = $this->entry($branch, $collector, CashBoxType::Clearing);
@@ -402,10 +401,12 @@ class CollectorBoxTypesTest extends TestCase
         $entry->box->update(['sent_at' => now(), 'sent_by' => $head->id]);
 
         SubscriptionTransaction::factory()->for($entry->transaction->subscription)->create(['type' => 'penalty', 'source_key' => 'after-clearing:'.$entry->id, 'amount' => '20']);
-        $this->actingAs($head)->post(route('subscriptions.transactions.actions.store', [$entry->transaction->subscription, $entry->transaction]), ['action' => 'cancel', 'correction_reason' => 'other', 'correction_notes' => 'تصحيح'])->assertSessionHasNoErrors();
+        $before = $entry->transaction->fresh()->getAttributes();
+        $this->actingAs($head)->post(route('subscriptions.transactions.actions.store', [$entry->transaction->subscription, $entry->transaction]), ['action' => 'cancel', 'correction_reason' => 'other', 'correction_notes' => 'تصحيح'])->assertSessionHasErrors('action');
 
-        $this->assertDatabaseHas('subscription_transactions', ['id' => $entry->subscription_transaction_id, 'status' => SubscriptionTransaction::STATUS_CANCELLED]);
-        $this->assertFalse($entry->transaction->fresh()->isInClosedDay());
+        $this->assertSame($before, $entry->transaction->fresh()->getAttributes());
+        $this->assertTrue($entry->transaction->fresh()->isInClosedDay());
+        $this->assertSame('100.00', $entry->box->fresh()->totals()['ILS']);
     }
 
     #[TestWith(['inactive'])]

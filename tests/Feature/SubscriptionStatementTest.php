@@ -79,7 +79,7 @@ class SubscriptionStatementTest extends TestCase
                         'currencyLabel' => 'شيكل',
                         'exchangeRate' => '1',
                         'paymentMethodLabel' => 'نقد',
-                        'cashBox' => '3',
+                        'cashBox' => null,
                         'recordedByName' => 'Mohammed',
                     ], collect($entries[2])->only([
                         'date', 'voucherNumber', 'systemVoucherNumber', 'manualVoucherNumber', 'isCredit', 'amount', 'currencyLabel', 'exchangeRate', 'paymentMethodLabel', 'cashBox', 'recordedByName',

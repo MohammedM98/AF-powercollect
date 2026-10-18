@@ -317,8 +317,8 @@ class PermissionsTest extends TestCase
                 ->where('selectedUser.lockedPermissions', [__(PermissionKey::ViewAreas->label())])
                 ->where('roleTemplates', fn ($templates): bool => collect($templates)->pluck('role')->all() === ['collector', 'data_entry', 'accountant', 'financial_auditor'])
                 ->where('roleTemplates.1.permissionIds', fn ($ids): bool => $sorted($ids->all()) === $idsOf(UserRole::DataEntry->starterPermissions()))
-                // Exporting is grantable, but seeing other branches still requires a company-wide grant.
-                ->where('roleTemplates.3.permissionIds', $idsOf([PermissionKey::ExportFinancialReports])));
+                // The auditor's cross-branch grants cannot be assigned by a branch admin.
+                ->where('roleTemplates.3.permissionIds', []));
     }
 
     public function test_branch_admin_cannot_open_another_branchs_employee_in_the_editor(): void

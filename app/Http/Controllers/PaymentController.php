@@ -13,6 +13,7 @@ use App\Http\Concerns\FiltersDataTable;
 use App\Http\Concerns\FiltersSubscriptionList;
 use App\Http\Requests\StoreSplitPaymentRequest;
 use App\Models\AuditNote;
+use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\CashBoxPayment;
@@ -106,8 +107,8 @@ class PaymentController extends Controller
             // The ways this user may take a payment: what the payment form offers.
             'paymentMethods' => PaymentMethod::options($actor->allowedPaymentMethods()),
             'canSplitPayments' => $actor->can('recordSplitPayment', Subscription::class),
-            'transferBanks' => config('powercollect.transfer_banks'),
-            'senderBanks' => config('powercollect.sender_banks'),
+            'transferBanks' => Bank::receiverNames(),
+            'senderBanks' => Bank::senderNames(),
             'chargeTypes' => ChargeType::formOptions(),
             'discountMethods' => DiscountMethod::options(),
             'discountSegments' => $canAddDiscounts ? StandingDiscount::segmentSuggestions() : [],
@@ -162,8 +163,8 @@ class PaymentController extends Controller
         $perPage = $this->dataTablePerPage($request);
         $boxes = $this->ownBoxQuery($actor)
             ->when($type, fn (Builder $query) => $query->where('type', $type))
-            ->when($state === 'open', fn (Builder $query) => $query->where('status', 'open'))
-            ->when($state === 'closed', fn (Builder $query) => $query->where('status', '!=', 'open'))
+            ->when($state === 'open', fn (Builder $query) => $query->whereIn('status', ['open', 'pending']))
+            ->when($state === 'closed', fn (Builder $query) => $query->where('status', 'received'))
             ->paginate($perPage)->withQueryString()->through(fn (CashBox $box): array => $this->cashBoxRow($box));
 
         return Inertia::render('Payments/CashBoxes', [
@@ -211,28 +212,30 @@ class PaymentController extends Controller
      */
     private function ownOpenEntries(User $actor): Builder
     {
-        return CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->where('status', 'open'));
+        return CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->whereIn('status', ['open', 'pending']));
     }
 
     /**
-     * The tabs of the financial boxes page for those who close the branch's
-     * boxes, in the order work goes through them, each a place of its own:
-     * every entry of its open boxes, its open boxes, its closed boxes not
-     * sent yet, and those sent to audit, each with how many there are.
+     * Box tabs include every closed box regardless of historical sending.
+     * Auditors see the closed tab; branch staff also see open boxes and entries.
      *
      * @param  EloquentCollection<int, Branch>  $branches
      * @return list<array{key: string, label: string, count: int, url: string}>
      */
-    private function boxTabs(EloquentCollection $branches, Branch $branch): array
+    private function boxTabs(EloquentCollection $branches, Branch $branch, User $actor): array
     {
         $query = $branches->count() > 1 ? ['branch_id' => $branch->id] : [];
         $counts = $this->branchBoxes->counts($branch->id);
 
+        $closedTab = ['key' => 'closed', 'label' => 'الصناديق المغلقة', 'count' => $counts['closed'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'closed'])];
+        if (BranchClosingAccess::closedOnly($actor, $branch->id)) {
+            return [$closedTab];
+        }
+
         return [
-            ['key' => 'entries', 'label' => 'الحركات', 'count' => CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->where('status', 'open'))->count(), 'url' => route('payments.cash-boxes.entries', $query)],
+            ['key' => 'entries', 'label' => 'الحركات', 'count' => CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->whereIn('status', ['open', 'pending']))->count(), 'url' => route('payments.cash-boxes.entries', $query)],
             ['key' => 'open', 'label' => 'الصناديق المفتوحة', 'count' => $counts['open'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'open'])],
-            ['key' => 'closed', 'label' => 'المغلقة · جاهزة للإرسال', 'count' => $counts['closed'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'closed'])],
-            ['key' => 'sent', 'label' => 'المرسلة إلى التدقيق', 'count' => $counts['sent'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'sent'])],
+            $closedTab,
         ];
     }
 
@@ -248,9 +251,10 @@ class PaymentController extends Controller
     {
         $actor = $request->user();
         [$branches, $branch] = $this->branchBoxes->branch($request, $actor);
+        abort_if(BranchClosingAccess::closedOnly($actor, $branch->id), 403);
         $people = $this->branchBoxes->people($branch->id);
         $person = $people->firstWhere('id', $request->integer('filter.user'));
-        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->where('status', 'open')->when($person, fn (Builder $box) => $box->where('user_id', $person->id)));
+        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->whereIn('status', ['open', 'pending'])->when($person, fn (Builder $box) => $box->where('user_id', $person->id)));
         $list = $this->entryList($request, $query, fn (CashBox $box): string => route('payments.cash-boxes', ['branch_id' => $branch->id, 'box' => $box->id]));
         $list['filters']['filter']['user'] = $person ? (string) $person->id : '';
         $started = ClosingSetting::forBranch($branch->id)->workflow_started_at !== null;
@@ -258,7 +262,7 @@ class PaymentController extends Controller
         return Inertia::render('Payments/Entries', [
             'started' => $started,
             'branch' => $branch, 'branches' => $branches, 'people' => $people,
-            'tabs' => $this->boxTabs($branches, $branch),
+            'tabs' => $this->boxTabs($branches, $branch, $actor),
             ...$list,
             'closableBoxes' => $started && BranchClosingAccess::receive($actor, $branch->id) ? $this->closableBoxes($branch->id, $actor, $person?->id) : null,
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
@@ -334,13 +338,8 @@ class PaymentController extends Controller
     }
 
     /**
-     * The financial boxes page for those who close the branch's boxes and
-     * send them to audit, one place at a time (`?place=`, closed boxes not
-     * sent yet by default): its open boxes, to look over their entries and
-     * confirm them closed; its closed boxes, to send to audit one by one or
-     * several at once; and those it sent, with when and by whom. A box asked
-     * for with `?box=` opens
-     * wherever it is. Its last tab lists the entries of the open boxes.
+     * Open boxes for branch staff, or closed boxes in a chosen business week.
+     * Links to a closed box select its closing week automatically.
      */
     private function branchCashBoxes(Request $request): InertiaResponse
     {
@@ -351,12 +350,29 @@ class PaymentController extends Controller
             $this->workflow->refresh($branch->id);
         }
         $place = in_array($request->query('place'), BranchBoxes::PLACES, true) ? $request->query('place') : 'closed';
+        if (BranchClosingAccess::closedOnly($actor, $branch->id)) {
+            $place = 'closed';
+        }
+        $request->validate(['week' => ['nullable', 'date_format:Y-m-d']]);
+        $periods = $this->branchBoxes->periods($branch->id);
+        $week = $request->query('week')
+            ? ClosingPeriods::week($request->query('week'))[0]->toDateString()
+            : ($periods->first()['start'] ?? $this->branchBoxes->weekOf(now()));
+        $linkedBox = $request->integer('box') ? CashBox::query()->where('branch_id', $branch->id)->where('status', 'received')->find($request->integer('box')) : null;
+        if ($linkedBox) {
+            $week = $this->branchBoxes->weekOf($linkedBox->received_at ?? $linkedBox->closed_at ?? $linkedBox->opened_at);
+        }
+        if (! $periods->contains('start', $week)) {
+            $periods->push(['start' => $week, 'end' => ClosingPeriods::date($week)->addDays(6)->toDateString(), 'count' => 0]);
+            $periods = $periods->sortByDesc('start')->values();
+        }
 
         return Inertia::render('Payments/BranchCashBoxes', [
-            'branch' => $branch, 'branches' => $branches, 'started' => $started,
+            'branch' => $branch, 'branches' => $branches, 'started' => $started || $periods->contains(fn (array $period): bool => $period['count'] > 0),
             'place' => $place,
-            'tabs' => $this->boxTabs($branches, $branch),
-            'boxes' => $this->branchBoxes->rows($branch->id, $actor, $place, $request->integer('box') ?: null),
+            'tabs' => $this->boxTabs($branches, $branch, $actor),
+            'boxes' => $this->branchBoxes->rows($branch->id, $actor, $place, $request->integer('box') ?: null, $week),
+            'periods' => $periods, 'week' => $week, 'weekStartsOn' => ClosingSetting::company()->week_starts_on,
             'access' => $this->branchBoxes->access($actor, $branch->id),
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
@@ -428,7 +444,7 @@ class PaymentController extends Controller
         $local = fn (?CarbonInterface $time): string => $time ? $time->copy()->setTimezone(config('app.business_timezone'))->format('Y-m-d H:i') : '';
         $statuses = ['missing' => 'غير موجودة في البنك', 'rejected' => 'مرفوضة'];
         $types = ['cash' => 'نقدي', 'bank_transfer' => 'حوالات بنكية', 'clearing' => 'مقاصات'];
-        $stages = ['open' => 'مفتوح', 'awaiting_branch' => 'بانتظار تأكيد الإغلاق', 'awaiting_confirmation' => 'استُلم – بانتظار تأكيد التسليم', 'completed' => 'مُغلق'];
+        $stages = ['open' => 'مفتوح', 'awaiting_confirmation' => 'مُغلق', 'completed' => 'مُغلق'];
         $safe = fn (array $cells): array => array_map(fn ($cell) => is_string($cell) && preg_match('/^[=+@\-\t\r]/u', $cell) ? "'".$cell : $cell, $cells);
 
         return response()->streamDownload(function () use ($box, $row, $entries, $local, $statuses, $types, $stages, $safe): void {
@@ -583,13 +599,13 @@ class PaymentController extends Controller
         return [
             'id' => $box->id,
             'number' => $box->number,
-            'status' => $box->status,
+            'status' => $box->isEditable() ? 'open' : $box->status,
             'type' => $box->type->value,
             'stage' => $box->stage(),
             'totals' => $box->totals(),
             'rejectedCount' => $box->payments->whereIn('status', ['missing', 'rejected'])->filter(fn (CashBoxPayment $entry): bool => $entry->transaction?->status === SubscriptionTransaction::STATUS_ACTIVE)->count(),
             'openedAt' => $box->opened_at,
-            'closedAt' => $box->closed_at,
+            'closedAt' => $box->isEditable() ? null : $box->closed_at,
             'receivedAt' => $box->received_at,
             'confirmedAt' => $box->confirmed_at,
             'paymentCount' => $box->payments_count,
@@ -643,7 +659,7 @@ class PaymentController extends Controller
      */
     private function closedBy(CashBox $box): ?string
     {
-        if ($box->status === 'open') {
+        if ($box->isEditable()) {
             return null;
         }
 

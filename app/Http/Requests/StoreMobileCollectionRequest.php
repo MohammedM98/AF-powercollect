@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\PermissionKey;
+use App\Models\CurrencyRate;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use Illuminate\Foundation\Http\FormRequest;
@@ -16,6 +17,7 @@ class StoreMobileCollectionRequest extends FormRequest
         if ($this->has('reference_number')) {
             $this->merge(['reference_number' => trim((string) $this->input('reference_number'))]);
         }
+        $this->merge(['exchange_rate' => CurrencyRate::forPayment($this->input('currency'))]);
     }
 
     public function authorize(): bool
@@ -61,7 +63,7 @@ class StoreMobileCollectionRequest extends FormRequest
                 $subscription = $this->existingTransaction() ? null : Subscription::query()->visibleTo($this->user())->find($this->input('subscription_id'));
 
                 if ($subscription !== null) {
-                    StoreSubscriptionPaymentRequest::checkOverpayment($validator, $this->input('amount'), max($subscription->balance(), 0.0), $this->boolean('confirm_overpayment'));
+                    StoreSubscriptionPaymentRequest::checkOverpayment($validator, StoreSubscriptionPaymentRequest::amountInShekels($this->input('amount'), $this->input('currency'), $this->input('exchange_rate')), max($subscription->balance(), 0.0), $this->boolean('confirm_overpayment'));
                 }
             },
         ];

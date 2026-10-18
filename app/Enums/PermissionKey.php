@@ -203,7 +203,7 @@ enum PermissionKey: string
 
     public function isRetired(): bool
     {
-        return str_starts_with($this->value, 'closings.');
+        return $this === self::SendCashBoxesToAudit || str_starts_with($this->value, 'closings.');
     }
 
     /**
@@ -294,7 +294,6 @@ enum PermissionKey: string
                     'record_cash' => self::RecordCashPayments,
                     'record_transfer' => self::RecordTransferPayments,
                     'close_boxes' => self::CloseCashBoxes,
-                    'send_boxes' => self::SendCashBoxesToAudit,
                     'confirm' => self::ConfirmCollections,
                     'charge' => self::AddCharges,
                     'discount' => self::AddDiscounts,

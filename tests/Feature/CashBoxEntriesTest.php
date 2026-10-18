@@ -138,8 +138,7 @@ class CashBoxEntriesTest extends TestCase
         $tabs = [
             ['key' => 'entries', 'label' => 'الحركات', 'count' => 3, 'url' => route('payments.cash-boxes.entries')],
             ['key' => 'open', 'label' => 'الصناديق المفتوحة', 'count' => 2, 'url' => route('payments.cash-boxes', ['place' => 'open'])],
-            ['key' => 'closed', 'label' => 'المغلقة · جاهزة للإرسال', 'count' => 0, 'url' => route('payments.cash-boxes', ['place' => 'closed'])],
-            ['key' => 'sent', 'label' => 'المرسلة إلى التدقيق', 'count' => 0, 'url' => route('payments.cash-boxes', ['place' => 'sent'])],
+            ['key' => 'closed', 'label' => 'الصناديق المغلقة', 'count' => 0, 'url' => route('payments.cash-boxes', ['place' => 'closed'])],
         ];
 
         $this->actingAs($head)->get(route('payments.cash-boxes'))->assertInertia(fn (AssertableInertia $page) => $page->component('Payments/BranchCashBoxes')->where('tabs', $tabs));

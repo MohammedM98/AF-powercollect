@@ -11,7 +11,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { formatMoney } from '@/lib/format';
 import { periodLabel, periodRange } from '@/lib/closingPeriods';
-import { boxStatusLabels, entryStatus } from '@/lib/financialBoxes';
+import { boxStatus, entryStatus } from '@/lib/financialBoxes';
 import { printUrl } from '@/lib/print';
 import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from './LedgerColumns';
 
@@ -63,10 +63,9 @@ export function BoxTypeIcon({ type, className = 'h-11 w-11' }) {
     );
 }
 
-const stages = { open: boxStatusLabels.open[0], awaiting_branch: boxStatusLabels.pending[0], awaiting_confirmation: 'استُلم – أكّد التسليم', completed: boxStatusLabels.received[0] };
-
 export function BoxStage({ box }) {
-    return <div className="flex flex-wrap gap-2"><StatusPill tone={box.stage === 'open' ? 'blue' : box.stage === 'completed' ? 'green' : 'amber'} label={stages[box.stage]} />{box.rejectedCount > 0 && <StatusPill tone="red" label={`حركات مرفوضة: ${box.rejectedCount}`} />}</div>;
+    const [label, tone] = boxStatus(box);
+    return <div className="flex flex-wrap gap-2"><StatusPill tone={tone} label={label} />{box.rejectedCount > 0 && <StatusPill tone="red" label={`حركات مرفوضة: ${box.rejectedCount}`} />}</div>;
 }
 
 export function boxAction(box) {

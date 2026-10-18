@@ -14,7 +14,6 @@ import { boxTypes, currencies, dateTime, BoxTypeIcon } from './CollectorCashBox'
 import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from './LedgerColumns';
 import BoxBreakdown, { breakdownEntry } from './BoxBreakdown';
 import StatusGuide from './StatusGuide';
-import { canSendBox } from './FinancialBoxComponents';
 import { boxStatus, entryStatus, isFlaggedEntry } from '@/lib/financialBoxes';
 import './financial-boxes.css';
 
@@ -54,7 +53,7 @@ function Stat({ icon, label, value, hint }) {
     </div>;
 }
 
-/** One step of a box's way to audit: when it happened and who did it, or that it has not yet. */
+/** One step of a box's history: when it happened and who did it, or that it has not yet. */
 function JourneyStep({ icon, label, at, by, pending, children }) {
     return <li className={`flex min-w-0 items-start gap-2.5 rounded-control border p-3 ${at ? 'border-gray-100 bg-surface' : 'border-dashed border-gray-200'}`}>
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] ${at ? 'bg-gray-900 text-surface' : 'bg-gray-100 text-gray-400'}`}><Icon name={icon} className="h-4 w-4" /></span>
@@ -66,24 +65,22 @@ function JourneyStep({ icon, label, at, by, pending, children }) {
     </li>;
 }
 
-/** When the box was opened, closed and sent to audit, and by whom. */
+/** When the box was opened and closed, and by whom. */
 function Journey({ box }) {
-    return <ol aria-label="مسار الصندوق" className="grid gap-2 sm:grid-cols-3">
+    return <ol aria-label="مسار الصندوق" className="grid gap-2 sm:grid-cols-2">
         <JourneyStep icon="clock" label="فُتح" at={box.opened_at} by={box.user?.name} />
-        <JourneyStep icon="lock" label="أُغلق" at={box.status === 'received' ? box.closedAt ?? box.closed_at : null} by={box.closedBy} pending={box.status === 'pending' ? 'ينتظر تأكيد الإغلاق' : 'لم يُغلق بعد'} />
-        <JourneyStep icon="send" label="أُرسل إلى التدقيق" at={box.sent_at} by={box.sentBy} pending="لم يُرسل بعد">{box.send_note && <span className="mt-1 block text-xs text-gray-600">«{box.send_note}»</span>}</JourneyStep>
+        <JourneyStep icon="lock" label="أُغلق" at={box.status === 'received' ? box.closedAt ?? box.closed_at : null} by={box.closedBy} pending="لم يُغلق بعد" />
     </ol>;
 }
 
 /**
  * One box, large: who it belongs to, its totals, when it was opened, closed
- * and sent and by whom, and every entry in it as the subscriber's statement
+ * and by whom, and every entry in it as the subscriber's statement
  * shows it. The branch confirms an open box closed from the footer once the
- * collector has corrected anything it raised with them, and sends a closed
- * box to audit. The branch does not check transfers or clearings one by
+ * collector has corrected anything it raised with them. The branch does not check transfers or clearings one by
  * one: the audit does.
  */
-export default function BoxDetails({ box, onClose, perform, onSend }) {
+export default function BoxDetails({ box, onClose, perform }) {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [confirmingClose, setConfirmingClose] = useState(false);
@@ -136,7 +133,7 @@ export default function BoxDetails({ box, onClose, perform, onSend }) {
 
             <BoxBreakdown type={type} entries={active.map(breakdownEntry)} />
 
-            {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">اطّلع على حركات الصندوق ثم أكّد إغلاقه. إن رأيت خطأ في حركة فتواصل مع المحصّل ليعدّلها بنفسه قبل التأكيد؛ بعد التأكيد تُقفل الحركات وينتقل الصندوق إلى «المغلقة» جاهزًا للإرسال إلى التدقيق، وهو من يرفض ما يجده خطأ ويبيّن السبب.</p>}
+            {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">اطّلع على حركات الصندوق ثم أكّد إغلاقه. إن رأيت خطأ في حركة فتواصل مع المحصّل ليعدّلها بنفسه قبل التأكيد؛ بعد التأكيد تُقفل الحركات وينتقل الصندوق إلى «المغلقة» ويظهر تلقائيًا لقسم التدقيق ضمن فترة إغلاقه الأسبوعية.</p>}
 
             <StatusGuide />
 
@@ -192,7 +189,6 @@ export default function BoxDetails({ box, onClose, perform, onSend }) {
                 <div className="flex flex-wrap items-center gap-2">
                     <SecondaryButton onClick={onClose}>إغلاق النافذة</SecondaryButton>
                     {confirmable && <PrimaryButton disabled={entries.length === 0} onClick={() => setConfirmingClose(true)}><Icon name="check" className="h-4 w-4" />تأكيد إغلاق الصندوق</PrimaryButton>}
-                    {onSend && canSendBox(box) && <PrimaryButton onClick={() => onSend(box)}><Icon name="send" className="h-4 w-4" />إرسال إلى التدقيق</PrimaryButton>}
                 </div>
             </div>
         </footer>
@@ -201,7 +197,7 @@ export default function BoxDetails({ box, onClose, perform, onSend }) {
             onCancel={() => setConfirmingClose(false)}
             onConfirm={() => { setConfirmingClose(false); perform('receive', box); }}
             title="إغلاق الصندوق؟"
-            message={<>سيُغلق {boxTypes[type]} رقم <bdi dir="ltr">{box.number}</bdi> لـ{box.user?.name ?? '—'} بإجمالي <b className="text-gray-900">{amountsLine(totals)}</b> ({active.length} حركة سارية). بعد الإغلاق تُقفل حركاته فلا يستطيع المحصّل تعديلها، وينتقل إلى «المغلقة» جاهزًا للإرسال إلى التدقيق.</>}
+            message={<>سيُغلق {boxTypes[type]} رقم <bdi dir="ltr">{box.number}</bdi> لـ{box.user?.name ?? '—'} بإجمالي <b className="text-gray-900">{amountsLine(totals)}</b> ({active.length} حركة سارية). بعد الإغلاق تُقفل حركاته فلا يستطيع المحصّل تعديلها، وينتقل إلى «المغلقة» ويظهر تلقائيًا لقسم التدقيق ضمن فترة إغلاقه الأسبوعية.</>}
             confirmLabel="نعم، أغلق الصندوق"
             icon="lock"
         />

@@ -37,10 +37,11 @@ class DirectPaymentsMigrationTest extends TestCase
 
     private function entry(Branch $branch, User $recorder, int $boxId): CashBoxPayment
     {
-        $transaction = SubscriptionTransaction::factory()->for(Subscription::factory()->for($branch))->create([
+        $transaction = SubscriptionTransaction::withoutEvents(fn () => SubscriptionTransaction::factory()->for(Subscription::factory()->for($branch))->create([
+            'branch_id' => $branch->id,
             'recorded_by' => $recorder->id, 'type' => 'payment', 'source_key' => 'payment:'.Str::ulid(),
             'amount' => '-100', 'currency_amount' => '100', 'currency' => 'ILS', 'payment_method' => 'bank_transfer',
-        ]);
+        ]));
 
         return CashBoxPayment::factory()->create(['cash_box_id' => $boxId, 'subscription_transaction_id' => $transaction->id, 'method' => 'bank_transfer', 'status' => 'pending']);
     }

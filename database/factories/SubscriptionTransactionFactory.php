@@ -22,6 +22,7 @@ class SubscriptionTransactionFactory extends Factory
             'subscription_id' => Subscription::factory(),
             'recorded_by' => fn (array $attributes): int => Subscription::findOrFail($attributes['subscription_id'])->registered_by,
             'type' => 'subscription_fee',
+            'payment_method' => fn (array $attributes): ?string => $attributes['type'] === SubscriptionTransaction::TYPE_PAYMENT ? 'cash' : null,
             'source_key' => fn (array $attributes): string => 'subscription-fee:'.$attributes['subscription_id'],
             'amount' => '50.00',
             'currency_amount' => fn (array $attributes): string => ltrim((string) $attributes['amount'], '-'),

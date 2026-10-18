@@ -1,5 +1,6 @@
 const currencyCodes = ['ILS', 'USD', 'JOD'];
-const statusOrder = ['pending', 'open', 'received'];
+const statusOrder = ['open', 'received'];
+const boxState = (box) => box.status === 'pending' ? 'open' : box.status;
 
 export const activeBoxEntries = (box) => (box.payments ?? []).filter((entry) => !entry.transaction || entry.transaction.status === 'active');
 export const boxPersonName = (box) => box.user?.name ?? '—';
@@ -22,7 +23,7 @@ export function financialBoxesTotals(boxes) {
 }
 
 export function filterFinancialBoxes(boxes, { status = 'all', person = '', search = '' } = {}) {
-    return boxes.filter((box) => (status === 'all' || box.status === status)
+    return boxes.filter((box) => (status === 'all' || boxState(box) === status)
         && (!person || String(box.user?.id) === person)
         && `${box.number} ${boxPersonName(box)}`.includes(search.trim()));
 }
@@ -32,40 +33,24 @@ export function sortFinancialBoxes(boxes, { key = 'status', direction = 'asc' } 
         number: (box) => Number(box.number),
         total: (box) => financialBoxTotals(box).ILS,
         dates: (box) => new Date(box.closed_at ?? box.opened_at).getTime() || 0,
-        status: (box) => statusOrder.indexOf(box.status),
+        status: (box) => statusOrder.indexOf(boxState(box)),
     };
     const value = values[key] ?? values.status;
     return [...boxes].sort((a, b) => (value(a) - value(b)) * (direction === 'asc' ? 1 : -1)
-        || statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status) || Number(a.number) - Number(b.number));
+        || statusOrder.indexOf(boxState(a)) - statusOrder.indexOf(boxState(b)) || Number(a.number) - Number(b.number));
 }
 
 /**
- * A box's status as everyone sees it, with its pill tone: still collecting,
- * closed on its own (its collector left) and waiting for the branch, or
- * closed.
+ * A box stays open until the branch confirms it closed.
  */
 export const boxStatusLabels = {
     open: ['مفتوح', 'blue'],
-    pending: ['بانتظار تأكيد الإغلاق', 'amber'],
     received: ['مُغلق', 'green'],
 };
 
-/** A closed box on its way to audit, with its pill tone: not sent yet, or sent. */
-export const sendStatusLabels = {
-    unsent: ['مُغلق · لم يُرسل', 'amber'],
-    sent: ['أُرسل إلى التدقيق', 'green'],
-};
-
-/**
- * A box's status on the branch's pages: open or waiting for the branch to
- * confirm it closed, closed and not sent yet, or sent to audit.
- */
+/** Historical audit metadata does not change the open/closed status. */
 export function boxStatus(box) {
-    if (box.sent_at) {
-        return sendStatusLabels.sent;
-    }
-
-    return box.status === 'received' ? sendStatusLabels.unsent : boxStatusLabels[box.status];
+    return boxStatusLabels[boxState(box)];
 }
 
 /**

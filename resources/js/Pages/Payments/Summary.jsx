@@ -147,7 +147,7 @@ export default function Summary({ today, cashBox, current, entries, filters, cou
                 </div>
                 <OpenEntriesTable table={table} entries={entries} filters={filters} counts={counts} url={collectionUrls.summary} label="حركاتي المفتوحة" />
             </section>
-        </div> : <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">{cashBox.branchName ? 'لم يُفعّل نظام الصناديق في فرعك بعد. يُفعّله مسؤول الفرع من صفحة إدارة الإغلاق.' : 'حسابك غير مرتبط بفرع، لذلك لا يوجد سجل صناديق شخصي.'}</p>}
+        </div> : <p className="rounded-panel border border-dashed border-gray-200 bg-surface p-6 text-sm leading-7 text-gray-500">{cashBox.branchName ? 'تُفتح الصناديق تلقائيًا عند تسجيل أول دفعة أو مقاصة في فرعك.' : 'حسابك غير مرتبط بفرع، لذلك لا يوجد سجل صناديق شخصي.'}</p>}
         <TodaysPayments today={today} />
         {selected && <CashBoxAction key={`${selected.box.id}-${selected.action}`} {...selected} onClose={() => setSelected(null)} onSuccess={() => setSaved('تم تأكيد التسليم.')} />}
     </AuthenticatedLayout>;

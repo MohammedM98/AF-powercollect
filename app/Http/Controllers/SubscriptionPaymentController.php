@@ -77,6 +77,9 @@ class SubscriptionPaymentController extends Controller
         ));
 
         Inertia::flash('recordedPayment', [
+            'amount' => $payment->currency_amount,
+            'currency' => $payment->currency->value,
+            'inShekels' => ltrim($payment->amount, '-'),
             'voucherNumber' => $payment->printedVoucherNumber(),
             'balance' => number_format($subscription->balance(), 2, '.', ''),
             'receiptUrl' => route('subscriptions.payments.receipt', [$subscription, $payment]),

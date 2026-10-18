@@ -91,6 +91,9 @@ class SubscriptionTransactionController extends Controller
 
         if ($replacement->isPayment()) {
             Inertia::flash('recordedPayment', [
+                'amount' => $replacement->currency_amount,
+                'currency' => $replacement->currency->value,
+                'inShekels' => ltrim($replacement->amount, '-'),
                 'voucherNumber' => $replacement->printedVoucherNumber(),
                 'balance' => number_format($subscription->balance(), 2, '.', ''),
                 'receiptUrl' => route('subscriptions.payments.receipt', [$subscription, $replacement]),

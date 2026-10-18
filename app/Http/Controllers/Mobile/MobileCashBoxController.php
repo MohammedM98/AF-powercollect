@@ -30,6 +30,8 @@ class MobileCashBoxController extends Controller
         $boxes = CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->with(['payments.transaction:id,subscription_id,reference_number,bank_name,sender_bank_name,voucher_number,notes,status', 'payments.transaction.subscription:id,full_name,subscription_name,account_number'])->latest('id')->limit(100)->get()
             ->map(function (CashBox $box): array {
                 $row = $box->toArray();
+                $row['status'] = $box->isEditable() ? 'open' : $box->status;
+                $row['closed_at'] = $box->isEditable() ? null : $box->closed_at;
                 $row['stage'] = $box->stage();
                 $row['totals'] = $box->totals();
                 if (! $box->collector_counts) {

@@ -25,8 +25,7 @@ class CashBox extends Model
     public function stage(): string
     {
         return match (true) {
-            $this->status === 'open' => 'open',
-            $this->status === 'pending' => 'awaiting_branch',
+            $this->isEditable() => 'open',
             $this->status === 'received' && $this->type->isCounted() && ! $this->confirmed_at => 'awaiting_confirmation',
             default => 'completed',
         };
@@ -34,7 +33,7 @@ class CashBox extends Model
 
     /**
      * Whether its collector may still correct the box's entries: until the
-     * branch confirms it closed, even once closed at the weekly cutoff.
+     * branch confirms it closed. Old pending boxes are still open for review.
      */
     public function isEditable(): bool
     {
@@ -50,15 +49,6 @@ class CashBox extends Model
         return collect(BranchClosingWorkflow::CURRENCIES)->mapWithKeys(fn (string $currency): array => [
             $currency => Closing::money($entries->where('currency', $currency)->sum(fn (CashBoxPayment $entry): int => Closing::cents($entry->amount))),
         ])->all();
-    }
-
-    /**
-     * Whether the branch may send the box to audit now: it confirmed the box
-     * closed and has not sent it yet.
-     */
-    public function isReadyToSend(): bool
-    {
-        return $this->status === 'received' && $this->sent_at === null;
     }
 
     public function user(): BelongsTo

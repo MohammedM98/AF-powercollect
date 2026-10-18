@@ -632,7 +632,7 @@ class MobileApiTest extends TestCase
             ->assertJson(['available' => false, 'message' => 'الرقم المرجعي مكرر: مسجَّل مسبقًا على دفعة أخرى.']);
     }
 
-    public function test_mobile_payments_are_taken_in_shekels_only_and_offer_the_website_banks(): void
+    public function test_mobile_payments_reject_unsupported_currencies_and_offer_the_website_banks(): void
     {
         $collector = User::factory()->collector()->create();
         $collector->permissions()->sync(Permission::idsFor(self::TAKES_PAYMENTS));
@@ -649,7 +649,7 @@ class MobileApiTest extends TestCase
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
         $this->getJson(route('mobile.me'))
             ->assertJsonPath('user.transfer_banks', config('powercollect.transfer_banks'));
-        $this->postJson(route('mobile.collections.store'), [...$payment, 'currency' => 'USD', 'exchange_rate' => '3.7', 'mobile_operation_id' => Str::uuid()->toString()])
+        $this->postJson(route('mobile.collections.store'), [...$payment, 'currency' => 'GBP', 'exchange_rate' => '3.7', 'mobile_operation_id' => Str::uuid()->toString()])
             ->assertUnprocessable()->assertJsonValidationErrors('currency');
         $this->postJson(route('mobile.collections.store'), [...$payment, 'mobile_operation_id' => Str::uuid()->toString()])
             ->assertCreated()
@@ -730,6 +730,7 @@ class MobileApiTest extends TestCase
             ->create(['amount' => '10.00', 'created_at' => now()]);
         $payment = SubscriptionTransaction::factory()->for($subscription)->create([
             'type' => 'payment', 'amount' => '-30.00', 'source_key' => 'history-payment',
+            'status' => SubscriptionTransaction::STATUS_CANCELLED, 'payment_method' => 'cash',
             'cancelled_at' => now(), 'created_at' => now(),
         ]);
         $reversal = SubscriptionTransaction::factory()->for($subscription)->create([

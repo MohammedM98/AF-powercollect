@@ -15,6 +15,7 @@ enum Currency: string
     case Shekel = 'ILS';
     case Dinar = 'JOD';
     case Dollar = 'USD';
+    case Euro = 'EUR';
 
     public function label(): string
     {
@@ -22,6 +23,7 @@ enum Currency: string
             self::Shekel => 'Shekel',
             self::Dinar => 'Dinar',
             self::Dollar => 'Dollar',
+            self::Euro => 'Euro',
         };
     }
 }

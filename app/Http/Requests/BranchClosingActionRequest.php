@@ -32,9 +32,6 @@ class BranchClosingActionRequest extends FormRequest
         if ($action === 'electronic') {
             $rules += ['status' => ['required', 'in:confirmed,missing,rejected']];
         }
-        if ($action === 'send') {
-            $rules += ['box_ids' => ['required', 'array', 'min:1', 'max:500'], 'box_ids.*' => ['integer', 'distinct'], 'note' => ['nullable', 'string', 'max:3000']];
-        }
 
         return $rules;
     }

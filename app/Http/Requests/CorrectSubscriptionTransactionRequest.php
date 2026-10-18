@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\CorrectionReason;
+use App\Models\CurrencyRate;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -17,6 +18,13 @@ use Illuminate\Validation\Validator;
  */
 class CorrectSubscriptionTransactionRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->line()->isPayment()) {
+            $this->merge(['exchange_rate' => CurrencyRate::forPayment($this->input('currency'))]);
+        }
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -64,7 +72,7 @@ class CorrectSubscriptionTransactionRequest extends FormRequest
                     $subscription = $this->route('subscription');
                     $owed = max(round($subscription->balance() - (float) $this->line()->amount, 2), 0.0);
 
-                    StoreSubscriptionPaymentRequest::checkOverpayment($validator, $this->input('amount'), $owed, $this->boolean('confirm_overpayment'));
+                    StoreSubscriptionPaymentRequest::checkOverpayment($validator, StoreSubscriptionPaymentRequest::amountInShekels($this->input('amount'), $this->input('currency'), $this->input('exchange_rate')), $owed, $this->boolean('confirm_overpayment'));
 
                     return;
                 }

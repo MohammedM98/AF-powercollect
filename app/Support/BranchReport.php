@@ -74,7 +74,9 @@ class BranchReport
             fn (Builder $query, array $branchIds): Builder => $query->whereHas('subscription', fn (Builder $subscription) => $subscription->whereIn('branch_id', $branchIds)),
         )
             ->when($kind === 'payments', fn (Builder $query) => $query->where('type', SubscriptionTransaction::TYPE_PAYMENT))
-            ->when($kind === 'charges', fn (Builder $query) => $query->whereNotIn('type', [...SubscriptionTransaction::CREDIT_TYPES, SubscriptionTransaction::TYPE_REVERSAL]))
+            ->when($kind === 'charges', fn (Builder $query) => $query
+                ->whereNotIn('type', [...SubscriptionTransaction::CREDIT_TYPES, SubscriptionTransaction::TYPE_REVERSAL])
+                ->where(fn (Builder $side): Builder => $side->where('type', '!=', SubscriptionTransaction::TYPE_BANK_AUDIT_ADJUSTMENT)->orWhere('amount', '>=', 0)))
             ->when($kind === 'discounts', fn (Builder $query) => $query->whereIn('type', self::DISCOUNT_TYPES))
             ->when($kind === 'corrections', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner->whereNotNull('cancelled_at')->orWhereNotNull('reverses_id')));
     }
@@ -120,7 +122,7 @@ class BranchReport
                 continue;
             }
 
-            if (in_array($row->type, SubscriptionTransaction::CREDIT_TYPES, true)) {
+            if (SubscriptionTransaction::isCreditLine($row->type, $row->amount)) {
                 $credits[$row->type] = ['count' => ($credits[$row->type]['count'] ?? 0) + 1, 'total' => ($credits[$row->type]['total'] ?? 0) - $cents];
             } else {
                 $charges[$row->type] = ['count' => ($charges[$row->type]['count'] ?? 0) + 1, 'total' => ($charges[$row->type]['total'] ?? 0) + $cents];
@@ -239,7 +241,8 @@ class BranchReport
                 $cents = Closing::cents($row->amount);
                 $key = match (true) {
                     $this->isCorrection($row) => 'corrections',
-                    $row->type === SubscriptionTransaction::TYPE_PAYMENT => 'payments',
+                    $row->type === SubscriptionTransaction::TYPE_PAYMENT
+                        || ($row->type === SubscriptionTransaction::TYPE_BANK_AUDIT_ADJUSTMENT && SubscriptionTransaction::isCreditLine($row->type, $row->amount)) => 'payments',
                     in_array($row->type, self::DISCOUNT_TYPES, true) => 'discounts',
                     default => 'charges',
                 };

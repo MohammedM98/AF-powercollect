@@ -236,8 +236,8 @@ class LedgerController extends Controller
             ->only($days)
             ->map(fn ($lines): array => [
                 'count' => $lines->count(),
-                'charged' => round($lines->reject(fn (object $line): bool => in_array($line->type, SubscriptionTransaction::CREDIT_TYPES, true))->sum('amount'), 2),
-                'credited' => round(-$lines->filter(fn (object $line): bool => in_array($line->type, SubscriptionTransaction::CREDIT_TYPES, true))->sum('amount'), 2),
+                'charged' => round($lines->reject(fn (object $line): bool => SubscriptionTransaction::isCreditLine($line->type, $line->amount))->sum('amount'), 2),
+                'credited' => round(-$lines->filter(fn (object $line): bool => SubscriptionTransaction::isCreditLine($line->type, $line->amount))->sum('amount'), 2),
             ])
             ->all();
     }

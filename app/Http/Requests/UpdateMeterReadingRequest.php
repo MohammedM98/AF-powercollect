@@ -19,7 +19,11 @@ class UpdateMeterReadingRequest extends FormRequest
     {
         $meterReading = $this->route('meter_reading');
 
-        return $this->user()->can('update', $meterReading) || $this->user()->can('updateAsLastReading', $meterReading);
+        if ($meterReading->requires_reentry) {
+            return $this->user()->can('update', $meterReading);
+        }
+
+        return $this->user()->can('update', $meterReading) || ($meterReading->next_previous_reading === null && $this->user()->can('updateAsLastReading', $meterReading));
     }
 
     /**

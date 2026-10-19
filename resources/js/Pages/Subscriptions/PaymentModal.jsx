@@ -96,7 +96,7 @@ export function BankRow({ bank, checked, name, onChange, required = false }) {
 
     return (
         <label
-            className={`flex min-h-[58px] cursor-pointer items-center gap-3 rounded-[14px] border-[1.5px] bg-surface px-3 py-2 transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-gray-900 ${
+            className={`relative flex min-h-[58px] cursor-pointer items-center gap-3 rounded-[14px] border-[1.5px] bg-surface px-3 py-2 transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-gray-900 ${
                 checked ? (color ? '' : 'border-gray-900') : 'border-gray-100 hover:border-gray-300'
             }`}
             style={checked && color ? { borderColor: color, boxShadow: `0 0 0 3px ${color}29`, backgroundColor: `${color}0d` } : undefined}
@@ -254,10 +254,9 @@ function PaymentSummary({ amount, currency, inShekels, balance, methodText, coll
             className="relative flex flex-col gap-[18px] overflow-hidden bg-graphite-gradient p-5 text-white sm:p-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:overflow-y-auto"
         >
             <span className="absolute inset-x-0 top-0 h-[3px] bg-spectrum" aria-hidden="true" />
-            <span
-                className="pointer-events-none absolute -bottom-32 -end-20 h-80 w-80 rounded-full bg-[radial-gradient(closest-side,rgb(165_29_38/0.25),transparent)]"
-                aria-hidden="true"
-            />
+            <span className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+                <span className="absolute -bottom-32 -end-20 h-80 w-80 rounded-full bg-[radial-gradient(closest-side,rgb(165_29_38/0.25),transparent)]" />
+            </span>
 
             <h4 className="relative flex items-center gap-2 font-luxe text-lg font-bold">
                 <Icon name="receipt" className="h-[18px] w-[18px]" strokeWidth={1.8} />
@@ -607,7 +606,7 @@ export default function PaymentModal({
 
     return (
         <>
-            <Modal show={show} onClose={requestClose} maxWidth="5xl">
+            <Modal show={show} onClose={requestClose} maxWidth="5xl" panelClassName="!overflow-clip">
                 {receipt ? (
                     <div role="dialog" aria-modal="true" aria-label={correcting ? 'صُحّحت الدفعة' : 'سُجّلت الدفعة'}>
                         <PaymentReceipt

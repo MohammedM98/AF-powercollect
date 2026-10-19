@@ -33,7 +33,7 @@ export default function MeterReadingModal({ show, onClose, reading, subscription
         '/meter-readings',
         reading,
         reading
-            ? { current_reading: String(reading.current_reading), notes: reading.notes ?? '', ...(offersApproval ? { approve: true } : {}) }
+            ? { current_reading: reading.requiresReentry ? '' : String(reading.current_reading), notes: reading.notes ?? '', ...(offersApproval ? { approve: true } : {}) }
             : { subscription_id: fixedSubscription?.value ?? '', week_start: weekOptions[0]?.value ?? '', current_reading: '', notes: '' },
     );
     const { data, setData, errors, isEdit } = form;

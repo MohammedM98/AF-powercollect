@@ -268,7 +268,7 @@ export default function Index({ entries, period, side, summary, ledgerTotals, da
                     <div><p className="scope">{scopeLabel}</p><h1>السجل المالي</h1><p>كل قيد على المشتركين، مرتبة حسب اليوم.</p></div>
                     <div className="acts">
                         <button type="button" className="btn tone-excel" title="تنزيل ملف CSV يفتح في Excel" onClick={exportCsv}><Icon name="excel" />تصدير Excel</button>
-                        <a className="btn tone-print" href={printUrl('السجل المالي')} target="_blank" rel="noopener noreferrer"><Icon name="printer" />طباعة</a>
+                        {can?.printAuditReports !== false && <a className="btn tone-print" href={printUrl('السجل المالي')} target="_blank" rel="noopener noreferrer"><Icon name="printer" />طباعة</a>}
                     </div>
                 </div>
                 <DateRange period={period} range={dateRange} today={today} onChange={changePeriod} errors={errors} />

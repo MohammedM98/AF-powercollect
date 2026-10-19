@@ -47,9 +47,9 @@ class MobileSubscriptionController extends Controller
                     'meter_box_name' => $subscription->meterBox?->displayName(),
                     'meter_box_location' => $subscription->meterBox?->location,
                     'previous_reading' => $currentWeekReading?->previous_reading
-                        ?? $subscription->latestMeterReading?->current_reading
+                        ?? $subscription->latestMeterReading?->nextPreviousReading()
                         ?? $subscription->initial_reading,
-                    'current_reading' => $currentWeekReading?->current_reading,
+                    'current_reading' => $currentWeekReading?->requires_reentry ? null : $currentWeekReading?->current_reading,
                     'reading_status' => $currentWeekReading?->status?->value,
                     'recent_readings' => $subscription->meterReadings
                         ->reject(fn (MeterReading $reading): bool => $reading->week_start->toDateString() === $week)

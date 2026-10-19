@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
+import AuditAccessCard, { AuditWorkSummary, auditSettingsChanges } from './AuditAccessCard';
 import Icon from '@/Components/Icon';
 import Switch from '@/Components/Switch';
 import Modal from '@/Components/Modal';
@@ -354,7 +355,7 @@ function ExtraOption({ section, item, selected, onChange, disabled }) {
  * is "custom": its options open, with the level's own actions as switches.
  * A changed section carries a burgundy edge and «تغيّر».
  */
-function SectionRow({ section, selected, saved, onChange, disabled, forceOpen }) {
+function SectionRow({ section, selected, saved, onChange, disabled, forceOpen, unavailableReason = null }) {
     const details = SECTION_DETAILS[section.key] ?? { icon: 'shield', description: '' };
     const level = section.ladder ? levelOf(section.ladder, selected) : null;
     const isCustom = section.ladder && level === null;
@@ -395,12 +396,13 @@ function SectionRow({ section, selected, saved, onChange, disabled, forceOpen })
                         )}
                     </h4>
                     <p className="text-[13px] text-gray-500">
-                        {sectionSentence(section, selected)}
-                        {section.ladder && heldExtras > 0 && <> · ومعه {heldExtras} {heldExtras === 1 ? 'خيار إضافي' : 'خيارات إضافية'}</>}
+                        {unavailableReason ?? sectionSentence(section, selected)}
+                        {!unavailableReason && section.ladder && heldExtras > 0 && <> · ومعه {heldExtras} {heldExtras === 1 ? 'خيار إضافي' : 'خيارات إضافية'}</>}
                     </p>
                 </div>
 
-                {section.ladder && (
+                {unavailableReason && <button type="button" disabled title={unavailableReason} className="inline-flex items-center gap-2 rounded-control border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-500"><Icon name="lock" className="h-4 w-4" />مقفل لهذا الدور</button>}
+                {!unavailableReason && section.ladder && (
                     <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                         <LevelPicker section={section} level={level} onChange={(next) => onChange(withSectionLevel(section, selected, next))} disabled={disabled} />
                         {extraItems.length > 0 && !isCustom && (
@@ -424,7 +426,7 @@ function SectionRow({ section, selected, saved, onChange, disabled, forceOpen })
                 )}
             </div>
 
-            {showExtras && (extraItems.length > 0 || isCustom) && (
+            {!unavailableReason && showExtras && (extraItems.length > 0 || isCustom) && (
                 <div id={panelId} className="mt-3 overflow-hidden rounded-control border border-gray-100 sm:ms-[52px]">
                     {isCustom && (
                         <>
@@ -626,17 +628,25 @@ export function PermissionChangeReview({ employee, changes }) {
  * save once something changed. Dangerous grants must be acknowledged in
  * the review before they are saved.
  */
-function PermissionEditor({ employee, sections, templates, copySources, scopedToOwnBranch, onDirtyChange }) {
+export function PermissionEditor({ employee, sections, templates, copySources, scopedToOwnBranch, onDirtyChange, auditOptions }) {
     const saved = employee.permissionIds;
-    const { data, setData, put, processing, errors } = useForm({ permissions: { [employee.id]: [...saved] } });
+    const savedAudit = employee.auditSettings;
+    const { data, setData, put, processing, errors } = useForm({ permissions: { [employee.id]: [...saved] }, ...(auditOptions ? { audit_settings: { [employee.id]: savedAudit } } : {}) });
     const selected = data.permissions[employee.id];
+    const auditValue = data.audit_settings?.[employee.id];
+    const auditEnabled = auditOptions && selected.includes(auditOptions.permissionId);
+    const auditChanges = auditOptions ? auditSettingsChanges(savedAudit, auditValue, auditOptions) : [];
+    const auditOnly = employee.role === 'financial_auditor';
     const [query, setQuery] = useState('');
     const [mode, setMode] = useState('all');
     const [reviewing, setReviewing] = useState(false);
     const [acknowledged, setAcknowledged] = useState(false);
     const changes = useMemo(() => individualChanges(sections, saved, selected), [sections, saved, selected]);
-    const dangerousGrants = changes.filter((change) => change.added && change.risk === 'danger');
-    const dirty = !samePermissions(saved, selected);
+    const auditGrants = auditEnabled && !saved.includes(auditOptions.permissionId)
+        ? auditOptions.actions.filter((action) => auditValue.actions.includes(action.value) && action.value.startsWith('approve_')).map((action) => ({ ...action, added: true, risk: 'danger' }))
+        : auditEnabled ? auditChanges : [];
+    const dangerousGrants = [...changes, ...auditGrants].filter((change) => change.added && change.risk === 'danger');
+    const dirty = !samePermissions(saved, selected) || auditChanges.length > 0;
     const template = templates.find((item) => item.role === employee.role);
     const deviations = template ? individualChanges(sections, template.permissionIds, selected).length : null;
     const matching = filterSections(sections, selected, saved, query, mode);
@@ -651,7 +661,11 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
     ].filter((group) => group.sections.length > 0);
 
     function setSelected(ids) {
-        setData('permissions', { [employee.id]: ids });
+        setData('permissions', { [employee.id]: auditOnly && auditOptions ? ids.filter((id) => id === auditOptions.permissionId || saved.includes(id)) : ids });
+    }
+
+    function setAudit(value) {
+        setData('audit_settings', { [employee.id]: value });
     }
 
     function setGroup(group, viewOnly) {
@@ -822,6 +836,8 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                     </div>
                 </div>
 
+                {auditOptions && <AuditAccessCard employee={employee} options={auditOptions} value={auditValue} enabled={auditEnabled} onEnabledChange={(checked) => setSelected(withToggled(selected, auditOptions.permissionId, checked))} onChange={setAudit} disabled={processing} />}
+                {auditOnly && <p className="mx-4 my-3 rounded-control border border-gray-100 bg-gray-50 px-4 py-3 text-sm leading-7 text-gray-600 sm:mx-5"><b className="text-gray-900">الصلاحيات التشغيلية مقفلة لدور المدقق.</b> استخدم بطاقة «عمل التدقيق المالي» لإدارة فروعه وإجراءاته. تغيير دوره يتم من صفحة الموظفين بواسطة السوبر أدمن.</p>}
                 {groups.length === 0 ? (
                     <div className="px-5 py-10 text-center text-sm text-gray-500">
                         <p>لا توجد صلاحيات تطابق البحث أو التصفية.</p>
@@ -836,10 +852,10 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                                 <h4 className="font-bold text-gray-900">{group.title}</h4>
                                 {group.hint && <span className="hidden text-xs text-gray-500 sm:inline">{group.hint}</span>}
                                 <span className="h-px flex-1 bg-gray-100" />
-                                <button type="button" onClick={() => setGroup(group, true)} disabled={processing} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
+                                <button type="button" onClick={() => setGroup(group, true)} disabled={processing || auditOnly} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
                                     عرض فقط للمجموعة
                                 </button>
-                                <button type="button" onClick={() => setGroup(group, false)} disabled={processing} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
+                                <button type="button" onClick={() => setGroup(group, false)} disabled={processing || auditOnly} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
                                     إلغاء المجموعة
                                 </button>
                             </div>
@@ -851,7 +867,8 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                                         selected={selected}
                                         saved={saved}
                                         onChange={setSelected}
-                                        disabled={processing}
+                                        disabled={processing || auditOnly}
+                                        unavailableReason={auditOnly ? 'هذا الدور يستخدم بطاقة التدقيق المالي فقط.' : null}
                                         forceOpen={searching}
                                     />
                                 ))}
@@ -871,8 +888,9 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                 </div>
             </section>
 
-            <div className="2xl:sticky 2xl:top-24">
-                <PermissionSummary employee={employee} sections={sections} selected={selected} template={template} scopedToOwnBranch={scopedToOwnBranch} />
+            <div className="space-y-4 2xl:sticky 2xl:top-24">
+                {auditOptions && (auditOnly || auditEnabled) && <AuditWorkSummary employee={employee} options={auditOptions} value={auditValue} enabled={auditEnabled} />}
+                {!auditOnly && <PermissionSummary employee={employee} sections={sections} selected={selected} template={template} scopedToOwnBranch={scopedToOwnBranch} />}
             </div>
 
             {/* Room at the end of the page, so the bar never hides the last section. */}
@@ -892,12 +910,12 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                     </p>
                 )}
                 <p className="flex flex-1 items-center gap-2 text-sm" role="status">
-                    <span className="flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-white px-2 font-display text-sm font-bold text-gray-900">{changes.length}</span>
-                    {changes.length === 1 ? 'تغيير لم يُحفظ' : 'تغييرات لم تُحفظ'} لـ {employee.name}
+                    <span className="flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-white px-2 font-display text-sm font-bold text-gray-900">{changes.length + auditChanges.length}</span>
+                    تغييرات لم تُحفظ لـ {employee.name}
                 </p>
                 <button
                     type="button"
-                    onClick={() => setSelected([...saved])}
+                    onClick={() => { setSelected([...saved]); if (auditOptions) setAudit(savedAudit); }}
                     disabled={processing || !dirty}
                     className="inline-flex items-center gap-1.5 rounded-control bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:opacity-40"
                 >
@@ -911,14 +929,17 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
             </div>
 
             <Modal show={reviewing} onClose={() => { if (!processing) { setReviewing(false); } }} maxWidth="2xl" centered>
-                <div role="dialog" aria-modal="true" aria-labelledby={`permission-review-${employee.id}`} dir="rtl">
-                    <div className="px-5 pb-4 pt-6 sm:px-7">
+                <div role="dialog" aria-modal="true" aria-labelledby={`permission-review-${employee.id}`} dir="rtl" className="flex max-h-[90dvh] min-h-0 flex-col">
+                    <div className="shrink-0 px-5 pb-4 pt-6 sm:px-7">
                         <h3 id={`permission-review-${employee.id}`} className="text-lg font-bold text-gray-900">مراجعة تغييرات الصلاحيات</h3>
                         <p className="mt-1 text-sm text-gray-500">
                             {changes.filter((item) => item.added).length} تُمنح · {changes.filter((item) => !item.added).length} تُلغى
+                            {auditChanges.length > 0 && ` · ${auditChanges.length} تغييرات في عمل التدقيق`}
                         </p>
                     </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto">
                     <PermissionChangeReview employee={employee} changes={changes} />
+                    {auditChanges.length > 0 && <div className="mx-5 mb-5 space-y-3 rounded-control border border-gray-100 p-4 sm:mx-7"><h4 className="font-bold text-gray-900">تغييرات عمل التدقيق</h4>{auditChanges.map((change) => <div key={change.key} className="text-sm leading-7"><b className="text-gray-900">{change.label}</b><p className="text-gray-500">قبل: {change.before}</p><p className="font-semibold text-gray-900">بعد: {change.after}</p></div>)}</div>}
                     {dangerousGrants.length > 0 && (
                         <label className="mx-5 mb-5 flex cursor-pointer items-start gap-2.5 rounded-control bg-red-500/[0.07] px-3.5 py-3 text-sm text-red-800 dark:text-red-300 sm:mx-7">
                             <input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} className="mt-0.5 rounded border-gray-300 text-brand-600" />
@@ -927,7 +948,8 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
                             </span>
                         </label>
                     )}
-                    <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:px-7">
+                    </div>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:px-7">
                         <SecondaryButton onClick={() => setReviewing(false)} disabled={processing} autoFocus>
                             العودة للتعديل
                         </SecondaryButton>
@@ -941,7 +963,7 @@ function PermissionEditor({ employee, sections, templates, copySources, scopedTo
     );
 }
 
-export default function Permissions({ users, selectedUser, permissionGroups, roleTemplates, filters, filterOptions, scopedToOwnBranch }) {
+export default function Permissions({ users, selectedUser, permissionGroups, roleTemplates, filters, filterOptions, scopedToOwnBranch, auditOptions = null }) {
     const hasUnsavedChanges = useRef(false);
     const [selectedDirty, setSelectedDirty] = useState(false);
     const editorRef = useRef(null);
@@ -1046,8 +1068,9 @@ export default function Permissions({ users, selectedUser, permissionGroups, rol
                     {selectedUser ? (
                         <PermissionEditor
                             // A fresh editor per employee and per saved state, so the levels always start from what's stored.
-                            key={`${selectedUser.id}:${selectedUser.permissionIds.join(',')}`}
+                            key={`${selectedUser.id}:${selectedUser.permissionIds.join(',')}:${JSON.stringify(selectedUser.auditSettings)}`}
                             employee={selectedUser}
+                            auditOptions={auditOptions}
                             sections={sections}
                             templates={roleTemplates}
                             copySources={users.data.filter((user) => user.id !== selectedUser.id)}

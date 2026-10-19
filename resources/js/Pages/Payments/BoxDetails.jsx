@@ -121,7 +121,7 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
                 </div>
             </div>
             <div className="flex items-center gap-3">
-                <a href={printUrl('تقرير تفاصيل الصندوق', `/payments/cash-boxes/report?box=${box.id}`)} target="_blank" rel="noopener noreferrer" className="tone-print inline-flex items-center gap-2 rounded-control border px-3 py-2 text-sm font-semibold"><Icon name="printer" className="h-4 w-4" />طباعة وتخصيص</a>
+                {box.canPrint !== false && <a href={printUrl('تقرير تفاصيل الصندوق', `/payments/cash-boxes/report?box=${box.id}`)} target="_blank" rel="noopener noreferrer" className="tone-print inline-flex items-center gap-2 rounded-control border px-3 py-2 text-sm font-semibold"><Icon name="printer" className="h-4 w-4" />طباعة وتخصيص</a>}
                 <StatusPill tone={statusTone} label={statusLabel} />
                 {!editable && <StatusPill tone={box.audit ? 'green' : 'amber'} label={box.audit ? 'اكتمل التدقيق' : 'بانتظار اكتمال التدقيق'} />}
                 <button type="button" onClick={onClose} aria-label="إغلاق النافذة" className="rounded-control p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"><Icon name="close" className="h-5 w-5" /></button>
@@ -141,7 +141,7 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
             {!editable && <section aria-label="تدقيق الصندوق" className="space-y-3 rounded-card border border-gray-100 bg-surface p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold text-gray-900">مراجعة قسم التدقيق</h3>{box.audit ? <p className="text-sm text-gray-600">اعتمدها {box.audit.auditor?.name} · {dateTime(box.audit.audited_at)}</p> : box.canAudit && <PrimaryButton disabled={!box.canCompleteAudit} onClick={() => setConfirmingAudit(true)}>اعتماد الصندوق كاملًا</PrimaryButton>}</div>
                 {bankAudit && <p className="text-sm leading-7 text-gray-600">حُفظت مراجعة <b>{box.auditSummary?.reviewed ?? 0}</b> من <b>{box.auditSummary?.total ?? active.length}</b> حوالة. المثبت بحسب المراجعات: <b>{formatMoney(box.auditSummary?.verified ?? 0)} شيكل</b> · صافي الفروق على المشتركين: <b dir="ltr">{formatMoney(box.auditSummary?.difference ?? 0)} شيكل</b>. إجمالي الصندوق التاريخي محفوظ كما أُغلق.</p>}
-                {bankAudit && box.canAudit && <p className="text-sm leading-7 text-gray-600">سجّل الحوالات التي فيها مشاكل فقط. عند اعتماد الصندوق تُرحّل فروق المراجعات المحفوظة ماليًا وتُعتمد بقية الحوالات كمطابقة تلقائيًا.</p>}
+                {bankAudit && (box.canReviewTransfers ?? box.canAudit) && <p className="text-sm leading-7 text-gray-600">سجّل الحوالات التي فيها مشاكل فقط. عند اعتماد الصندوق تُرحّل فروق المراجعات المحفوظة ماليًا وتُعتمد بقية الحوالات كمطابقة تلقائيًا.</p>}
             </section>}
 
             <BoxBreakdown type={type} entries={active.map(breakdownEntry)} />
@@ -180,8 +180,8 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
                                     <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} /></td>
                                     {bankAudit && <td style={{ whiteSpace: 'normal' }}>{entry.audit ? <div className="space-y-1"><StatusPill tone={entry.audit.outcome === 'missing' ? 'red' : entry.audit.outcome === 'matched' ? 'green' : 'amber'} label={{ matched: 'مطابقة', missing: 'غير موجودة', short: 'نقص في المبلغ', over: 'زيادة لصالح المشترك' }[entry.audit.outcome]} /><p className="text-xs font-semibold text-gray-600">{entry.audit.posted_at || entry.audit.adjustment_transaction_id ? 'معتمدة نهائيًا' : 'مسودة · لم تُرحّل ماليًا'}</p><p className="text-xs text-gray-600">المثبت: {formatMoney(entry.audit.bank_amount)} {ledger.currencyLabel}</p><p className="text-xs text-gray-500">{entry.audit.auditor?.name} · {dateTime(entry.audit.audited_at)}</p>{entry.audit.reason && <p className="text-xs text-gray-600">{entry.audit.reason}</p>}</div> : <StatusPill tone="gray" label={live ? 'تُطابق عند اعتماد الصندوق' : 'حركة غير سارية'} />}</td>}
                                     <td style={{ whiteSpace: 'normal' }}><div className="flex flex-wrap items-center gap-1">
-                                        {bankAudit && box.canAudit && live && !entry.audit?.posted_at && !entry.audit?.adjustment_transaction_id && <button type="button" onClick={() => setAuditingEntry(entry)} className={auditEditButton}><Icon name="pencil" className="h-3.5 w-3.5" />تعديل الحوالة</button>}
-                                        {entry.receipt_url && <a href={entry.receipt_url} target="_blank" rel="noopener noreferrer" className={`${rowButton} tone-print border`}><Icon name="printer" className="h-3.5 w-3.5" />السند</a>}
+                                        {bankAudit && (box.canReviewTransfers ?? box.canAudit) && live && !entry.audit?.posted_at && !entry.audit?.adjustment_transaction_id && <button type="button" onClick={() => setAuditingEntry(entry)} className={auditEditButton}><Icon name="pencil" className="h-3.5 w-3.5" />تعديل الحوالة</button>}
+                                        {box.canPrint !== false && entry.receipt_url && <a href={entry.receipt_url} target="_blank" rel="noopener noreferrer" className={`${rowButton} tone-print border`}><Icon name="printer" className="h-3.5 w-3.5" />السند</a>}
                                     </div></td>
                                 </tr>;
                             })}
@@ -212,10 +212,17 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
             onCancel={() => setConfirmingClose(false)}
             onConfirm={() => { setConfirmingClose(false); perform('receive', box); }}
             title="إغلاق الصندوق؟"
-            message={<>سيُغلق {boxTypes[type]} رقم <bdi dir="ltr">{box.number}</bdi> لـ{box.user?.name ?? '—'} بإجمالي <b className="text-gray-900">{amountsLine(totals)}</b> ({active.length} حركة سارية). بعد الإغلاق تُقفل حركاته فلا يستطيع المحصّل تعديلها، وينتقل إلى «المغلقة» ويظهر تلقائيًا لقسم التدقيق ضمن فترة إغلاقه الأسبوعية.</>}
+            message="تُقفل الحركات بعد الإغلاق، ويصبح الصندوق متاحًا للتدقيق."
             confirmLabel="نعم، أغلق الصندوق"
             icon="lock"
-        />
+        >
+            <dl className="grid grid-cols-2 gap-x-5 gap-y-4 rounded-control bg-gray-50 p-5">
+                <div><dt className="text-base text-gray-600">الصندوق</dt><dd className="mt-1 font-semibold text-gray-900">{boxTypes[type]} · <bdi dir="ltr">{box.number}</bdi></dd></div>
+                <div><dt className="text-base text-gray-600">المحصّل</dt><dd className="mt-1 font-semibold text-gray-900">{box.user?.name ?? '—'}</dd></div>
+                <div><dt className="text-base text-gray-600">الإجمالي</dt><dd className="mt-1 font-display text-xl font-bold text-gray-900">{amountsLine(totals)}</dd></div>
+                <div><dt className="text-base text-gray-600">الحركات السارية</dt><dd className="mt-1 font-display text-xl font-bold text-gray-900">{active.length}</dd></div>
+            </dl>
+        </ConfirmDialog>
         {confirmingAudit && <AuditApprovalDialog title="اعتماد تدقيق الصندوق؟" scope={`${boxTypes[type]} · صندوق ${box.number} · ${box.user?.name ?? '—'}`} summary={auditApprovalSummary([box])} url={box.completeAuditUrl} onClose={() => setConfirmingAudit(false)} />}
     </Modal>;
 }

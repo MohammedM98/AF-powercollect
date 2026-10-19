@@ -36,7 +36,7 @@ class MeterBoxSubscriptionController extends Controller
                 'statusLabel' => __($subscription->status->label()),
                 'circuitBreakerAmpere' => $subscription->circuitBreaker?->ampere,
                 'outstandingBalance' => number_format((float) ($subscription->outstanding_balance ?? 0), 2, '.', ''),
-                'lastReading' => $subscription->latestMeterReading?->current_reading ?? $subscription->initial_reading,
+                'lastReading' => $subscription->latestMeterReading?->nextPreviousReading() ?? $subscription->initial_reading,
                 'statementUrl' => route('subscriptions.statement', $subscription, absolute: false),
             ]);
 

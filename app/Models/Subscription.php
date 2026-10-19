@@ -32,12 +32,13 @@ class Subscription extends Model
 
     /** Auditors may read every branch's subscriber accounts; other staff stay in their branch. */
     #[Scope]
-    protected function readableTo(Builder $query, User $user): void
+    protected function readableTo(Builder $query, User $user, bool $auditLog = false): void
     {
-        $query->when(
-            ! $user->canViewAllSubscriberAccounts(),
-            fn (Builder $query) => $query->visibleTo($user),
-        );
+        if ($user->canViewAllSubscriberAccounts() || ($auditLog && $user->hasFinancialAuditAccess())) {
+            $user->scopeAuditBranches($query, 'subscriptions.branch_id');
+        } else {
+            $query->visibleTo($user);
+        }
     }
 
     /**
@@ -253,9 +254,9 @@ class Subscription extends Model
         $lastReading = $this->meterReadings()
             ->where('week_start', '<', $weekStart->toDateString())
             ->orderByDesc('week_start')
-            ->value('current_reading');
+            ->first();
 
-        return (float) ($lastReading ?? $this->initial_reading ?? 0);
+        return $lastReading?->nextPreviousReading() ?? (float) ($this->initial_reading ?? 0);
     }
 
     /**

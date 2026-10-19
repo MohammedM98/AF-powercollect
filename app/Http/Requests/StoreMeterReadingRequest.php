@@ -89,6 +89,12 @@ class StoreMeterReadingRequest extends FormRequest
                     return;
                 }
 
+                if ($subscription->meterReadings()->where('requires_reentry', true)->exists()) {
+                    $validator->errors()->add('current_reading', 'أدخل القراءة الحالية المعلّقة أولًا قبل تسجيل أسبوع جديد.');
+
+                    return;
+                }
+
                 $previousReading = $subscription->previousReadingBefore($weekStart);
 
                 if ($this->float('current_reading') < $previousReading) {

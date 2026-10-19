@@ -300,15 +300,15 @@ export default function SplitPaymentForm({ transferBanks, senderBanks, bare = fa
         });
     }
 
+    // Whether something is entered that closing the form would lose; the modal asks before throwing it away.
+    const dirty = !recorded && (parts.length !== (initialSubscription ? 1 : 0) || parts.some((part) => part.amount !== '') || data.total_amount !== '' || data.sender_name !== '' || data.reference_number !== '' || data.bank_name !== '');
+    useEffect(() => {
+        onDirtyChange?.(dirty);
+    }, [dirty, onDirtyChange]);
+
     if (recorded) {
         return <RecordedSplit recorded={recorded} onAnother={() => setRecorded(null)} />;
     }
-
-    // Whether something is entered that closing the form would lose; the modal asks before throwing it away.
-    const dirty = parts.length !== (initialSubscription ? 1 : 0) || parts.some((part) => part.amount !== '') || data.total_amount !== '' || data.sender_name !== '' || data.reference_number !== '' || data.bank_name !== '';
-    useEffect(() => {
-        onDirtyChange?.(dirty);
-    }, [dirty]);
 
     const meterTone = distributed ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'border-amber-500/40 bg-amber-500/[0.08] text-gray-800';
 

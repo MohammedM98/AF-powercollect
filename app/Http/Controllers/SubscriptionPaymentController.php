@@ -99,7 +99,7 @@ class SubscriptionPaymentController extends Controller
     public function receipt(Request $request, Subscription $subscription, SubscriptionTransaction $transaction): InertiaResponse
     {
         // Whoever records payments may print their receipts, even without access to the subscriptions list.
-        $auditor = BranchClosingAccess::audit($request->user()) && $transaction->isInClosedDay();
+        $auditor = BranchClosingAccess::audit($request->user()) && $request->user()->auditIncludesBranch($subscription->branch_id) && $transaction->isInClosedDay();
         abort_unless($auditor || $request->user()->can('view', $subscription) || $request->user()->can('recordPayment', $subscription), 403);
         abort_if($request->user()->isFinancialAuditor() && ! $auditor, 403);
         abort_unless($transaction->isPayment() || $transaction->isClearing(), 404);

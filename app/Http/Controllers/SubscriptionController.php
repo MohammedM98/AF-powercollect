@@ -237,7 +237,7 @@ class SubscriptionController extends Controller
             'weeklyMinimumPayment' => $subscription->weeklyMinimumPayment(),
             'subscriptionCount' => $subscription->profile?->subscriptions_count ?? 1,
             'meterReadings' => $readings->map(fn (MeterReading $reading) => $this->statementReading($reading, $actor)),
-            'lastReading' => (float) ($latestReading?->current_reading ?? $subscription->initial_reading ?? 0),
+            'lastReading' => $latestReading?->requires_reentry ? $latestReading->previous_reading : ($latestReading?->nextPreviousReading() ?? (float) ($subscription->initial_reading ?? 0)),
             'lastReadingWeekStart' => $latestReading?->week_start->format('Y-m-d'),
             'editableLastReadingId' => $this->editableLastReadingId($subscription, $readings, $actor),
             'canRecordReading' => $canRecordReadings && $subscription->status === SubscriptionStatus::Active,
@@ -266,7 +266,7 @@ class SubscriptionController extends Controller
             return null;
         }
 
-        return $actor->can('updateAsLastReading', $lastReading) ? $lastReading->id : null;
+        return $actor->can('adjustLastReading', $lastReading) ? $lastReading->id : null;
     }
 
     /**
@@ -281,7 +281,10 @@ class SubscriptionController extends Controller
             'weekStart' => $reading->week_start->format('Y-m-d'),
             'weekEnd' => $reading->week_end->format('Y-m-d'),
             'previous_reading' => $reading->previous_reading,
-            'current_reading' => $reading->current_reading,
+            'current_reading' => $reading->requires_reentry ? null : $reading->current_reading,
+            'nextPreviousReading' => $reading->nextPreviousReading(),
+            'requiresReentry' => $reading->requires_reentry,
+            'adjustmentHistory' => $reading->adjustment_history ?? [],
             'consumption' => $reading->consumption,
             'amountDue' => $reading->amount_due,
             'discountAmount' => $reading->discount_amount,
@@ -295,6 +298,8 @@ class SubscriptionController extends Controller
             'recordedSource' => $reading->mobile_operation_id !== null ? 'app' : 'web',
             'minimumApplied' => $reading->discount_method === null && (float) $reading->reading_fee < (float) $reading->minimum_payment,
             'canUpdate' => $actor->can('update', $reading),
+            'canUpdateUnitPrice' => $actor->can('updateUnitPrice', $reading),
+            'canUpdateMinimumPayment' => $actor->can('updateMinimumPayment', $reading),
         ];
     }
 
@@ -495,7 +500,7 @@ class SubscriptionController extends Controller
         ];
 
         if ($actor->canViewAllSubscriberAccounts()) {
-            $groups[] = $this->branchFilterGroup();
+            $groups[] = $this->branchFilterGroup($actor);
         }
 
         return $groups;

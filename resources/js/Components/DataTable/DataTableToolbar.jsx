@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import { printUrl } from '@/lib/print';
 import DensityToggle from './DensityToggle';
@@ -24,6 +25,7 @@ export default function DataTableToolbar({
     printable = true,
 }) {
     const searchRef = useRef(null);
+    const canPrint = usePage().props.can?.printAuditReports !== false;
 
     function openPrintDesigner() {
         window.open(printUrl(document.title), '_blank');
@@ -79,7 +81,7 @@ export default function DataTableToolbar({
                         نتيجة
                     </span>
                 )}
-                {printable && (
+                {printable && canPrint && (
                     <button
                         type="button"
                         onClick={openPrintDesigner}

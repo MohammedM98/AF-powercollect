@@ -967,6 +967,10 @@ class SubscriptionTransaction extends Model
      */
     private function reinstate(string $errorKey): void
     {
+        if ($this->isBilledByReading() && $this->meterReading?->requires_reentry) {
+            throw ValidationException::withMessages([$errorKey => 'أدخل القراءة الحالية من جديد قبل إعادة مبلغ القراءة السابق.']);
+        }
+
         $updates = [
             'status' => self::STATUS_ACTIVE,
             'cancelled_at' => null,

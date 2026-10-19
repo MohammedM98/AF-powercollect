@@ -15,7 +15,9 @@ class PreviewLastReadingRequest extends UpdateMeterReadingRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('updateAsLastReading', $this->route('meter_reading'));
+        $reading = $this->route('meter_reading');
+
+        return ! $reading->requires_reentry && $reading->next_previous_reading === null && $this->user()->can('updateAsLastReading', $reading);
     }
 
     /**

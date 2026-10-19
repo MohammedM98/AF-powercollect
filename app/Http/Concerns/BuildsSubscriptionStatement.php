@@ -2,6 +2,7 @@
 
 namespace App\Http\Concerns;
 
+use App\Enums\AuditAction;
 use App\Enums\ChargeType;
 use App\Enums\CorrectionReason;
 use App\Enums\Currency;
@@ -132,6 +133,7 @@ trait BuildsSubscriptionStatement
 
         return [
             'subscription' => [
+                'canPrint' => (! $actor->isFinancialAuditor() && ! $actor->hasFinancialAuditAccess()) || $actor->canAuditAction(AuditAction::PrintReports),
                 'id' => $subscription->id,
                 'fullName' => $subscription->displayName(),
                 'accountNumber' => $subscription->account_number,
@@ -363,7 +365,7 @@ trait BuildsSubscriptionStatement
             // a reading's discount has no menu of its own, as it goes with its reading.
             'reading' => $transaction->type === SubscriptionTransaction::TYPE_READING_DISCOUNT ? null : $this->correctableReading($transaction, $actor),
             // A payment's receipt, to print or reprint from the line's menu.
-            'receiptUrl' => $transaction->isPayment() || $transaction->isClearing() ? route('subscriptions.payments.receipt', [$transaction->subscription_id, $transaction->id]) : null,
+            'receiptUrl' => (($transaction->isPayment() || $transaction->isClearing()) && (! $actor->hasFinancialAuditAccess() || $actor->canAuditAction(AuditAction::PrintReports))) ? route('subscriptions.payments.receipt', [$transaction->subscription_id, $transaction->id]) : null,
             'details' => match ($transaction->type) {
                 SubscriptionTransaction::TYPE_METER_READING => $transaction->notes ?? $transaction->meterReading?->notes,
                 // Its customer segment is already in the description.
@@ -481,7 +483,8 @@ trait BuildsSubscriptionStatement
             'weekStart' => $reading->week_start->toDateString(),
             'weekEnd' => $reading->week_end->toDateString(),
             'previous_reading' => $reading->previous_reading,
-            'current_reading' => $reading->current_reading,
+            'current_reading' => $reading->requires_reentry ? null : $reading->current_reading,
+            'requiresReentry' => $reading->requires_reentry,
             'consumption' => $reading->consumption,
             'notes' => $reading->notes,
             'status' => $reading->status->value,

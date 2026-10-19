@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
 use App\Models\CashBox;
 use App\Support\BankTransferAuditing;
 use Illuminate\Http\RedirectResponse;
@@ -11,7 +12,7 @@ class CashBoxAuditController extends Controller
 {
     public function store(Request $request, CashBox $cashBox, BankTransferAuditing $auditing): RedirectResponse
     {
-        abort_unless(BankTransferAuditing::allowed($request->user()), 403);
+        abort_unless(BankTransferAuditing::allowed($request->user(), AuditAction::ApproveBoxes), 403);
         $request->validate(['confirmed' => ['required', 'accepted']]);
         $auditing->complete($cashBox, $request->user());
 

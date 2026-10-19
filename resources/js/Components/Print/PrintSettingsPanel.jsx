@@ -255,7 +255,7 @@ function TemplatesSection({ templates, onReset }) {
  * footer. Each change shows
  * in the preview at once.
  */
-export default function PrintSettingsPanel({ layout, onChange, scope, templates, onReset, reportFields = [] }) {
+export default function PrintSettingsPanel({ layout, onChange, scope, templates, onReset, reportFields = [], reportFieldsTitle = 'بيانات الصندوق' }) {
     const [confirming, setConfirming] = useState(null);
 
     function set(key, value) {
@@ -312,7 +312,7 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                 <p className="text-xs text-gray-500">بنفس البحث والترتيب والفلاتر التي كانت على الشاشة.</p>
             </Section>
 
-            {reportFields.length > 0 && <Section icon="wallet" title="بيانات الصندوق">
+            {reportFields.length > 0 && <Section icon="wallet" title={reportFieldsTitle}>
                 {reportFields.map((field) => <Switch key={field.key} label={field.label} checked={!layout.header.reportFields || layout.header.reportFields.includes(field.key)} onChange={(visible) => {
                     const selected = layout.header.reportFields ?? reportFields.map((item) => item.key);
                     setIn('header', 'reportFields', visible ? [...selected, field.key] : selected.filter((key) => key !== field.key));

@@ -56,3 +56,14 @@ test('Excel export contains only the selected records and protects user text', (
     assert.ok(csv.includes('"ملاحظة ""خاصة"",\nسطر ثان"'));
     assert.ok(!csv.includes('not exported'));
 });
+
+test('Excel leaves a current reading awaiting re-entry empty instead of exporting its old number', () => {
+    const csv = readingHistoryCsv([{
+        weekStart: '2026-09-18', weekEnd: '2026-09-24', previous_reading: 0, current_reading: 230,
+        requiresReentry: true, consumption: 0, unitPrice: 0.5, minimumPayment: 0,
+        discountAmount: 0, amountDue: 0, statusLabel: 'بانتظار إدخال الحالية',
+    }]);
+
+    assert.ok(csv.includes('"0","","0","0.5"'));
+    assert.ok(!csv.includes('"230"'));
+});

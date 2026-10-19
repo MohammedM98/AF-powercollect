@@ -94,7 +94,7 @@ export default function FormModal({
                             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${HEADER_TONES[headerTone] ?? HEADER_TONES.brand}`}>
                                 <Icon name={icon} />
                             </span>
-                            <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                            <h3 className="text-xl font-bold text-gray-900">{title}</h3>
                         </div>
                         <button
                             type="button"

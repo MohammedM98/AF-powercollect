@@ -1,194 +1,96 @@
 import { useEffect, useId, useState } from 'react';
-import Modal from '@/Components/Modal';
-import Icon from '@/Components/Icon';
+import DialogFrame from '@/Components/DialogFrame';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import InputError from '@/Components/InputError';
+import TextInput from '@/Components/TextInput';
 import { formatMoney } from '@/lib/format';
-import { lastReadingBalanceChange, lastReadingNeedsUnusualConfirmation } from '@/lib/readings';
 
-const shortDate = (date) => (date ? date.slice(5).split('-').reverse().join('/') : '');
+const PURPOSES = [
+    { value: 'correction', label: 'تصحيح خطأ إدخال', hint: 'إعادة حساب الفاتورة بالقراءة الصحيحة.' },
+    { value: 'meter_change', label: 'عداد جديد / مستبدل', hint: 'الفاتورة السابقة محفوظة، والبداية من العداد الجديد.' },
+];
 
-/** One value as it was and as it becomes, the old one struck through when it changes. */
-function Change({ before, after, unit = '' }) {
-    const changed = Number(before) !== Number(after);
-
-    return (
-        <span className="inline-flex flex-wrap items-baseline gap-1.5">
-            {changed && <bdi dir="ltr" className="font-display text-gray-400 line-through">{formatMoney(before)}</bdi>}
-            {changed && <span className="text-gray-400">←</span>}
-            <bdi dir="ltr" className="font-display font-semibold text-gray-900">{formatMoney(after)}</bdi>
-            {unit && <span className="text-gray-500">{unit}</span>}
-        </span>
-    );
-}
-
-/** A week's approval state: approved weeks are approved again at once on confirming. */
-function WeekStatus({ week }) {
-    return (
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${week.isApproved ? 'bg-emerald-500/10 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
-            {week.isApproved ? 'معتمدة · تُعتمد من جديد' : 'بانتظار الاعتماد'}
-        </span>
-    );
-}
-
-/** The week's consumption and amount, before and after, once it is worked out. */
-function Charges({ week }) {
-    return (
-        <>
-            <dt className="text-gray-500">الاستهلاك</dt>
-            <dd><Change before={week.before.consumption} after={week.after.consumption} unit="كيلو" /></dd>
-            <dt className="text-gray-500">المبلغ</dt>
-            <dd><Change before={week.before.amountDue} after={week.after.amountDue} unit="₪" /></dd>
-        </>
-    );
-}
-
-function UnusualNote() {
-    return (
-        <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
-            <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            الاستهلاك بعد التعديل أعلى بكثير من المعتاد لهذا المشترك.
-        </p>
-    );
-}
-
-/**
- * "Are you sure?" before an edited last reading is saved (`editor` is
- * useLastReadingEdit). It shows last week's reading, consumption and amount
- * before and after, as the server works them out. When this week has been
- * entered, its reading is typed again here by hand, never kept at the
- * number it had (shown struck through for reference), and this week is
- * worked out from it as it is typed. Then it shows what the edit does to
- * the balance. Confirming saves both and approves again at once whichever
- * was approved, last week first; a week the edit makes unusual is confirmed
- * here too.
- */
+/** Purpose, value, then the financial effect; the current reading is entered later in the table. */
 export default function LastReadingConfirmDialog({ editor, subscriptionName }) {
     const id = useId();
     const [confirmedUnusual, setConfirmedUnusual] = useState(false);
-    const weeks = editor.preview?.weeks ?? [];
-    const [lastWeek, thisWeek] = weeks;
-    const approvesAgain = weeks.some((week) => week.isApproved);
-    const needsUnusualConfirmation = lastReadingNeedsUnusualConfirmation(weeks);
-    const balanceChange = lastReadingBalanceChange(weeks);
-    const thisWeekReady = !thisWeek || (editor.nextCurrent !== '' && thisWeek.after !== null && !editor.previewing && !editor.nextError);
+    const preview = editor.preview;
+    const week = preview?.weeks?.[0];
+    const meterChange = editor.adjustmentType === 'meter_change';
+    const unusual = !meterChange && week?.isApproved && week?.unusual;
+    const phase = editor.phase;
+    const steps = ['reason', 'reading', 'review'];
+    const stepIndex = steps.indexOf(phase);
+    const purpose = PURPOSES.find((option) => option.value === editor.adjustmentType);
+    const formId = `${id}-form`;
 
-    useEffect(() => {
-        setConfirmedUnusual(false);
-    }, [editor.preview]);
+    useEffect(() => setConfirmedUnusual(false), [preview]);
 
-    return (
-        <Modal show={editor.confirming} onClose={editor.saving ? undefined : editor.cancel} maxWidth="lg" centered>
-            <div role="alertdialog" aria-modal="true" aria-labelledby={`${id}-title`} className="flex max-h-[90vh] flex-col">
-                <div className="flex items-start gap-4 px-7 pb-4 pt-7">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700">
-                        <Icon name="alert" strokeWidth={2} />
-                    </span>
-                    <div className="min-w-0 pt-0.5">
-                        <h3 id={`${id}-title`} className="text-lg font-bold text-gray-900">تعديل القراءة السابقة لـ {subscriptionName}</h3>
-                        {lastWeek && (
-                            <p className="mt-1 text-sm leading-6 text-gray-600">
-                                من <bdi dir="ltr" className="font-display">{formatMoney(lastWeek.before.currentReading)}</bdi> إلى <bdi dir="ltr" className="font-display">{formatMoney(lastWeek.after.currentReading)}</bdi>.
-                                {thisWeek && ' أدخل قراءة هذا الأسبوع من جديد من العداد؛ تُحسب منها.'}
-                                {approvesAgain && ' يُلغى المبلغ القديم بقيد عكسي، وتُعتمد المعتمدة منهما مباشرة بعد التأكيد، الأسبوع الماضي أولًا.'}
-                            </p>
-                        )}
+    function submit(event) {
+        event.preventDefault();
+        if (phase === 'reason') editor.beginReading();
+        else if (phase === 'reading') editor.review();
+        else editor.confirm({ confirmUnusual: confirmedUnusual });
+    }
+
+    return <DialogFrame show={Boolean(phase)} onClose={editor.cancel} busy={editor.saving} title="تعديل القراءة السابقة" description={subscriptionName} icon="pencil" maxWidth="2xl" footer={<>
+        <SecondaryButton onClick={phase === 'reason' ? editor.cancel : editor.back} disabled={editor.saving}>{phase === 'reason' ? 'إلغاء' : 'رجوع'}</SecondaryButton>
+        <PrimaryButton type="submit" form={formId} disabled={editor.saving || (phase === 'reason' && !editor.canContinue) || (phase === 'review' && (!preview || (unusual && !confirmedUnusual)))}>{editor.saving ? 'جارٍ المعالجة…' : phase === 'reason' ? 'متابعة' : phase === 'reading' ? 'مراجعة التعديل' : meterChange ? 'حفظ نقطة البداية' : 'حفظ التصحيح'}</PrimaryButton>
+    </>}>
+        <ol aria-label="خطوات تعديل القراءة" className="grid grid-cols-3 gap-2 text-sm sm:gap-5">
+            {['سبب التعديل', 'القراءة', 'المراجعة'].map((label, index) => <li key={label} aria-current={index === stepIndex ? 'step' : undefined} className={`flex flex-col items-center gap-2 text-center sm:flex-row sm:text-start ${index === stepIndex ? 'font-semibold text-brand-600' : 'text-gray-500'}`}><span className={index === stepIndex ? 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-500/10' : 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-50'}>{index + 1}</span>{label}</li>)}
+        </ol>
+        <form id={formId} onSubmit={submit} noValidate className="space-y-5">
+            {phase === 'reason' && <>
+                <fieldset className="space-y-3">
+                    <legend className="mb-3 text-lg font-bold text-gray-900">لماذا تريد تعديل القراءة؟</legend>
+                    {PURPOSES.map((option) => <label key={option.value} className={`flex cursor-pointer items-start gap-3 rounded-control border p-4 transition ${editor.adjustmentType === option.value ? 'border-brand-500 bg-brand-500/5' : 'border-gray-200 hover:border-gray-400'}`}>
+                        <input type="radio" name={`${id}-purpose`} value={option.value} checked={editor.adjustmentType === option.value} onChange={() => editor.chooseType(option.value)} className="mt-2 h-5 w-5 shrink-0 border-gray-300 text-brand-600 focus:ring-brand-500" />
+                        <span><b className="block text-lg text-gray-900">{option.label}</b><span className="mt-1 block text-base text-gray-600">{option.hint}</span></span>
+                    </label>)}
+                </fieldset>
+                {meterChange && <div>
+                    <label htmlFor={`${id}-reason`} className="mb-2 block text-base font-semibold text-gray-900">سبب تغيير العداد <span className="text-red-600">*</span></label>
+                    <textarea id={`${id}-reason`} value={editor.reason} onChange={(event) => editor.setReason(event.target.value)} maxLength={1000} required rows={3} className="block w-full rounded-control border-gray-200 text-base leading-8" placeholder="سرقة، تلف، أو استبدال العداد…" />
+                </div>}
+            </>}
+            {phase === 'reading' && <>
+                <p className="text-base font-semibold text-brand-600">{purpose?.label}</p>
+                <div className="flex items-baseline justify-between gap-3 border-b border-gray-100 pb-4"><span>القراءة المسجلة</span><bdi dir="ltr" className="font-display text-2xl font-semibold text-gray-900">{formatMoney(editor.savedValue)} <span className="text-base font-normal">كيلو</span></bdi></div>
+                <div>
+                    <label htmlFor={`${id}-reading`} className="mb-3 block text-lg font-bold text-gray-900">{meterChange ? 'قراءة بداية العداد الجديد' : 'القراءة الصحيحة'}</label>
+                    <div className="flex items-center gap-3" dir="ltr">
+                        <SecondaryButton aria-label="إنقاص القراءة السابقة" onClick={() => editor.step(-1)} disabled={editor.saving || Number(editor.value) <= Number(meterChange ? 0 : editor.floor)} className="h-14 w-14 shrink-0 !text-2xl">−</SecondaryButton>
+                        <TextInput {...editor.inputProps} id={`${id}-reading`} aria-label="القراءة السابقة الجديدة" className="min-w-0 flex-1 py-3 text-center font-display !text-2xl" />
+                        <SecondaryButton aria-label="زيادة القراءة السابقة" onClick={() => editor.step(1)} disabled={editor.saving} className="h-14 w-14 shrink-0 !text-2xl">+</SecondaryButton>
                     </div>
+                    {!meterChange && <p className="mt-3 text-base text-gray-600">بداية الفترة: <bdi dir="ltr">{formatMoney(editor.floor)}</bdi> كيلو.</p>}
                 </div>
-
-                <div className="flex-1 space-y-3 overflow-y-auto px-7 pb-2">
-                    {lastWeek && (
-                        <div className="rounded-xl border border-gray-200 px-4 py-3">
-                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                                <b className="text-sm text-gray-900">الأسبوع الماضي · <bdi dir="ltr">{shortDate(lastWeek.weekStart)} – {shortDate(lastWeek.weekEnd)}</bdi></b>
-                                <WeekStatus week={lastWeek} />
-                            </div>
-                            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                                <dt className="text-gray-500">القراءة</dt>
-                                <dd><Change before={lastWeek.before.currentReading} after={lastWeek.after.currentReading} /></dd>
-                                <Charges week={lastWeek} />
-                            </dl>
-                            {lastWeek.unusual && <UnusualNote />}
-                        </div>
-                    )}
-
-                    {thisWeek && (
-                        <div className="rounded-xl border-2 border-brand-500/40 px-4 py-3">
-                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                                <b className="text-sm text-gray-900">هذا الأسبوع · <bdi dir="ltr">{shortDate(thisWeek.weekStart)} – {shortDate(thisWeek.weekEnd)}</bdi></b>
-                                <WeekStatus week={thisWeek} />
-                            </div>
-                            <label htmlFor={`${id}-next`} className="mb-1.5 block text-sm font-semibold text-gray-800">
-                                القراءة الحالية — أدخلها من جديد
-                                <span className="ms-1.5 text-xs font-normal text-gray-500">
-                                    (المسجلة: <bdi dir="ltr" className="font-display line-through">{formatMoney(thisWeek.before.currentReading)}</bdi>)
-                                </span>
-                            </label>
-                            <input
-                                id={`${id}-next`}
-                                type="number"
-                                inputMode="decimal"
-                                step="0.01"
-                                min={lastWeek?.after.currentReading}
-                                dir="ltr"
-                                autoFocus
-                                value={editor.nextCurrent}
-                                onChange={(event) => editor.setNextCurrent(event.target.value)}
-                                disabled={editor.saving}
-                                aria-invalid={Boolean(editor.nextError)}
-                                className="block w-full font-display text-lg"
-                                placeholder={`من ${formatMoney(lastWeek?.after.currentReading ?? 0)} فأعلى`}
-                            />
-                            <InputError message={editor.nextError} className="mt-1" />
-                            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                                <dt className="text-gray-500">تبدأ من</dt>
-                                <dd><Change before={thisWeek.before.previousReading} after={lastWeek.after.currentReading} /></dd>
-                                {thisWeek.after && editor.nextCurrent !== '' && !editor.nextError ? (
-                                    <Charges week={thisWeek} />
-                                ) : (
-                                    <>
-                                        <dt className="text-gray-500">الاستهلاك</dt>
-                                        <dd className="text-gray-400">{editor.previewing ? 'جارٍ الحساب…' : 'بعد إدخال القراءة'}</dd>
-                                    </>
-                                )}
-                            </dl>
-                            {thisWeek.unusual && editor.nextCurrent !== '' && <UnusualNote />}
-                        </div>
-                    )}
-
-                    {approvesAgain && (
-                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm">
-                            <span className="text-gray-600">أثر التعديل على رصيد المشترك</span>
-                            <b className="text-gray-900">
-                                {balanceChange === null || !thisWeekReady
-                                    ? <span className="font-normal text-gray-400">بعد إدخال قراءة هذا الأسبوع</span>
-                                    : balanceChange === 0
-                                        ? 'لا يتغير'
-                                        : <>{balanceChange > 0 ? 'يزيد' : 'ينقص'} <bdi dir="ltr" className="font-display">{formatMoney(Math.abs(balanceChange))}</bdi> ₪</>}
-                            </b>
-                        </div>
-                    )}
-
-                    {needsUnusualConfirmation && thisWeekReady && (
-                        <label className="flex items-start gap-3 rounded-xl border border-dashed border-amber-500/60 px-4 py-3 text-sm font-semibold text-amber-800">
-                            <input type="checkbox" checked={confirmedUnusual} onChange={(event) => setConfirmedUnusual(event.target.checked)} className="mt-0.5 rounded border-gray-300 text-amber-600" />
-                            أؤكد أن القراءة صحيحة رغم أن الاستهلاك أعلى بكثير من المعتاد.
-                        </label>
-                    )}
+            </>}
+            {phase === 'review' && preview && <>
+                <div className="grid grid-cols-2 divide-x divide-x-reverse divide-gray-200 rounded-control bg-gray-50 p-5">
+                    <div className="px-2"><p className="text-base text-gray-600">قبل التعديل</p><bdi dir="ltr" className="mt-2 block font-display text-2xl font-semibold text-gray-500">{formatMoney(preview.before)}</bdi></div>
+                    <div className="px-4"><p className="text-base text-gray-600">بعد التعديل</p><bdi dir="ltr" className="mt-2 block font-display text-2xl font-bold text-gray-900">{formatMoney(preview.after)}</bdi></div>
                 </div>
-
-                <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-7 py-4">
-                    <SecondaryButton onClick={editor.cancel} disabled={editor.saving}>تراجع عن التعديل</SecondaryButton>
-                    <PrimaryButton
-                        type="button"
-                        onClick={() => editor.confirm({ confirmUnusual: confirmedUnusual })}
-                        disabled={editor.saving || !thisWeekReady || (needsUnusualConfirmation && !confirmedUnusual)}
-                    >
-                        {editor.saving ? 'جارٍ الحفظ…' : approvesAgain ? 'تأكيد واعتماد' : 'تأكيد'}
-                    </PrimaryButton>
-                </div>
-            </div>
-        </Modal>
-    );
+                <div><b className="text-gray-900">{purpose?.label}</b>{meterChange && <p className="mt-1 whitespace-pre-wrap text-base">{editor.reason}</p>}</div>
+                {meterChange ? <p className="rounded-control bg-emerald-500/10 p-4 font-semibold text-emerald-800 dark:text-emerald-300">الفاتورة السابقة وحركاتها محفوظة كما هي.</p> : week && <dl className="space-y-2 border-y border-gray-100 py-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2"><dt>الاستهلاك المصحّح</dt><dd className="font-semibold text-gray-900"><bdi dir="ltr">{formatMoney(week.after.consumption)}</bdi> كيلو</dd></div>
+                    <div className="flex flex-wrap items-center justify-between gap-2"><dt>قيمة الفاتورة</dt><dd><bdi dir="ltr" className="me-2 text-gray-500 line-through">{formatMoney(week.before.amountDue)}</bdi><bdi dir="ltr" className="font-display text-xl font-bold text-gray-900">{formatMoney(week.after.amountDue)}</bdi> ₪</dd></div>
+                </dl>}
+                <p className="font-semibold text-gray-900">أدخل القراءة الحالية لاحقًا من خانتها في الجدول.</p>
+                {Number(preview.removedCurrentAmount ?? 0) !== 0 && <p className="text-base">مبلغ الحالية الذي سيُلغى لحين إعادة إدخالها واعتمادها: <bdi dir="ltr" className="font-semibold text-gray-900">{formatMoney(preview.removedCurrentAmount)}</bdi> ₪.</p>}
+                {(week?.isApproved && !meterChange || preview.clearsCurrentReading) && <details className="text-base">
+                    <summary className="cursor-pointer font-semibold text-gray-700">تفاصيل الأثر المالي</summary>
+                    <ul className="mt-3 list-inside list-disc space-y-2">
+                        {!meterChange && week?.isApproved && <li>يُلغى المبلغ القديم بقيد عكسي محفوظ، ثم تُعتمد الفاتورة المصحّحة.</li>}
+                        {preview.clearsCurrentReading && <li>تُفرّغ خانة الحالية، ويُحفظ الرقم القديم في سجل التعديلات.</li>}
+                        {Number(preview.removedCurrentAmount ?? 0) !== 0 && <li>يُلغى مبلغ الحالية السابق ({formatMoney(preview.removedCurrentAmount)} ₪) حتى إدخالها واعتمادها مجددًا.</li>}
+                    </ul>
+                </details>}
+                {unusual && <label className="flex items-start gap-3 rounded-control border border-amber-300 p-4 text-base text-amber-800 dark:text-amber-300"><input type="checkbox" checked={confirmedUnusual} onChange={(event) => setConfirmedUnusual(event.target.checked)} className="mt-2 h-5 w-5 shrink-0 rounded border-gray-300 text-amber-600" />أؤكد صحة الاستهلاك رغم أنه أعلى من المعتاد.</label>}
+            </>}
+            {editor.error && <div role="alert"><InputError message={editor.error} /></div>}
+        </form>
+    </DialogFrame>;
 }

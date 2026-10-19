@@ -4,7 +4,7 @@ export default function InputError({ message, className = '' }) {
     }
 
     return (
-        <p data-input-error className={`text-xs text-brand-600 ${className}`}>
+        <p data-input-error className={`text-sm leading-7 text-brand-600 ${className}`}>
             {message}
         </p>
     );

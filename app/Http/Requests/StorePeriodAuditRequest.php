@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\AuditAction;
 use App\Support\BankTransferAuditing;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -13,7 +14,8 @@ class StorePeriodAuditRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user() && BankTransferAuditing::allowed($this->user());
+        return $this->user() && BankTransferAuditing::allowed($this->user(), AuditAction::ApprovePeriods)
+            && BankTransferAuditing::allowed($this->user(), AuditAction::ApproveBoxes);
     }
 
     /**

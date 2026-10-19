@@ -96,10 +96,7 @@ function focusReadingInput(currentInput, step = 1) {
  * The reading the week starts from. When the actor may edit it (the last
  * week's reading, while no later week is entered), its pencil opens it in
  * place with − and + like the week's own reading (useLastReadingEdit). The
- * week's own reading, if entered, is recalculated from it: saving first shows
- * what the edit does to both, with this week's reading typed again by hand,
- * and asks "are you sure?"; confirmed, the approved one(s) are approved
- * again at once.
+ * week's own reading is entered separately after confirming the baseline.
  */
 function LastReadingCell({ row }) {
     const lastReading = row.lastReading;
@@ -107,19 +104,11 @@ function LastReadingCell({ row }) {
         readingId: lastReading?.id,
         savedValue: row.previousReading,
         floor: lastReading?.previousReading ?? 0,
-        needsConfirmation: lastReading?.status === 'approved' || Boolean(row.reading),
     });
 
     return (
         <td className="re-last re-number">
             <LastReadingConfirmDialog editor={editor} subscriptionName={row.fullName} />
-            {editor.editing ? (
-                <div className="re-input" dir="ltr">
-                    <button type="button" tabIndex={-1} className="re-step" aria-label={`إنقاص القراءة السابقة لـ ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => editor.step(-1)} disabled={!editor.canStepDown}>−</button>
-                    <input {...editor.inputProps} aria-label={`القراءة السابقة لـ ${row.fullName}`} className={editor.error ? 'has-error' : ''} />
-                    <button type="button" tabIndex={-1} className="re-step" aria-label={`زيادة القراءة السابقة لـ ${row.fullName}`} onMouseDown={(e) => e.preventDefault()} onClick={() => editor.step(1)} disabled={!editor.canStepUp}>+</button>
-                </div>
-            ) : (
                 <span className="re-last-value">
                     <span className="re-last-number">{row.previousReading}</span>
                     {lastReading?.canEdit && (
@@ -134,7 +123,6 @@ function LastReadingCell({ row }) {
                         </button>
                     )}
                 </span>
-            )}
         </td>
     );
 }
@@ -144,7 +132,7 @@ function LastReadingCell({ row }) {
  * readings) adds a tick box, enabled when this row's reading can be approved.
  */
 function SheetRow({ row, week, approvable, showRecorder, selected, onToggleSelected }) {
-    const savedValue = row.reading ? String(row.reading.currentReading) : '';
+    const savedValue = row.reading && !row.reading.requiresReentry ? String(row.reading.currentReading) : '';
     const [value, setValue] = useState(savedValue);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -159,7 +147,7 @@ function SheetRow({ row, week, approvable, showRecorder, selected, onToggleSelec
     // Pick up the saved value whenever the server sends a fresh row.
     useEffect(() => {
         setValue(savedValue);
-    }, [savedValue]);
+    }, [savedValue, row.previousReading]);
 
     // A reading the server refused is entered again: the field gets the focus back, its number selected,
     // unless the user has already moved on to another field.
@@ -171,9 +159,9 @@ function SheetRow({ row, week, approvable, showRecorder, selected, onToggleSelec
     }, [error, saving]);
 
     const isDraft = value !== savedValue;
-    const charges = !isDraft && row.reading ? { ...row.reading, minimumApplies: Number(row.reading.readingFee) < Number(row.minimumPayment) && !row.discount } : calculateCharges(value, row);
+    const charges = !isDraft && row.reading && !row.reading.requiresReentry ? { ...row.reading, minimumApplies: Number(row.reading.readingFee) < Number(row.minimumPayment) && !row.discount } : calculateCharges(value, row);
     const belowMinimum = charges?.minimumApplies;
-    const isSaved = Boolean(row.reading) && !isDraft && !error;
+    const isSaved = Boolean(row.reading) && !row.reading.requiresReentry && !isDraft && !error;
     // Approved, but its bill was cancelled from the subscription's statement: it is not charged to them.
     const billCancelled = row.reading?.status === 'approved' && row.reading.billed === false;
     // What the amount due notes, on one line under it so the row keeps its height.
@@ -357,7 +345,7 @@ function SheetRow({ row, week, approvable, showRecorder, selected, onToggleSelec
                     <span className="text-xs text-gray-500">جارٍ الحفظ...</span>
                 ) : row.reading ? (
                     <div className="re-pills">
-                        <span className={`re-pill ${row.reading.status}`}><i />{row.reading.status === 'pending' ? 'بانتظار الاعتماد' : row.reading.statusLabel}</span>
+                        <span className={`re-pill ${row.reading.status}`}><i />{row.reading.requiresReentry ? 'بانتظار إدخال الحالية' : row.reading.status === 'pending' ? 'بانتظار الاعتماد' : row.reading.statusLabel}</span>
                         {billCancelled && !isDraft && (
                             <span className="re-pill unbilled" title="أُلغيت فاتورة هذه القراءة من كشف حساب المشترك، فلا تُحمَّل عليه.">
                                 <i />الفاتورة ملغاة

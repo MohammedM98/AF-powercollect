@@ -39,6 +39,7 @@ class PrintTemplate extends Model
         '/circuit-breakers' => ['label' => 'القواطع', 'icon' => 'bolt'],
         '/messages' => ['label' => 'الرسائل', 'icon' => 'messages'],
         '/payments/cash-boxes/report' => ['label' => 'تفاصيل الصندوق المالي', 'icon' => 'wallet'],
+        '/subscriptions/statement-print' => ['label' => 'كشف حساب المشترك', 'icon' => 'ledger'],
     ];
 
     protected function casts(): array

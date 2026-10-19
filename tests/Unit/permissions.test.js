@@ -40,7 +40,7 @@ test('cross-branch financial auditing is an independent sensitive action that is
     const payments = sectionModel({ key: 'collections', label: 'الدفعات', actions: [entry('view', 1), entry('record', 2), entry('audit', 3)] });
     const audit = sectionExtras(payments).find((group) => group.title === 'الصناديق').items[0];
 
-    assert.equal(audit.label, 'التدقيق المالي لكل الفروع');
+    assert.equal(audit.label, 'التدقيق المالي');
     assert.equal(audit.risk, 'sensitive');
     assert.equal(audit.needs, 0);
     assert.deepEqual(withSectionLevel(payments, [], 2), [1, 2]);

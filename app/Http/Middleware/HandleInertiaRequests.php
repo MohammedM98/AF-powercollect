@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\AuditAction;
 use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
@@ -79,6 +80,7 @@ class HandleInertiaRequests extends Middleware
             ] : null,
             'can' => $user ? [
                 'auditOnly' => $user->isFinancialAuditor(),
+                'printAuditReports' => (! $user->isFinancialAuditor() && ! $user->hasFinancialAuditAccess()) || $user->canAuditAction(AuditAction::PrintReports),
                 'viewBranches' => $user->can('viewAny', Branch::class),
                 'viewSubscriptions' => $user->can('viewAny', Subscription::class),
                 'recordPayments' => $user->can('recordAnyPayment', Subscription::class),

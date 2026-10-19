@@ -14,7 +14,7 @@ class SubscriptionPolicy
      */
     private function hasBaseAccess(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::ViewSubscriptions, PermissionKey::CreateSubscriptions, PermissionKey::UpdateSubscriptions);
+        return $user->hasAnyPermission(PermissionKey::ViewSubscriptions, PermissionKey::CreateSubscriptions, PermissionKey::UpdateSubscriptions, PermissionKey::AuditClosings);
     }
 
     /**
@@ -30,7 +30,7 @@ class SubscriptionPolicy
      */
     public function view(User $user, Subscription $subscription): bool
     {
-        if ($user->isSuperAdmin()) {
+        if ($user->canViewAllSubscriberAccounts()) {
             return true;
         }
 

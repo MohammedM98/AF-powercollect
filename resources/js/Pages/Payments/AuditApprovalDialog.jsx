@@ -11,7 +11,7 @@ export default function AuditApprovalDialog({ title, scope, summary, url, payloa
     const form = useForm({ ...payload, confirmed: false });
     const close = () => { if (!form.processing) onClose(); };
 
-    return <Modal show onClose={close} maxWidth="lg" centered>
+    return <Modal show onClose={close} maxWidth="3xl" centered>
         <div role="alertdialog" aria-modal="true" aria-labelledby="audit-approval-title" className="flex max-h-[90vh] flex-col">
             <header className="flex items-center gap-3 border-b border-gray-100 px-7 py-5"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600"><Icon name="check" /></span><div><h2 id="audit-approval-title" className="text-lg font-bold text-gray-900">{title}</h2><p className="mt-1 text-sm text-gray-600">{scope}</p></div></header>
             <div className="space-y-4 overflow-y-auto px-7 py-5">

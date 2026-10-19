@@ -16,7 +16,8 @@ class UpdateUserRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('update', $this->route('user'));
+        return $this->user()->can('update', $this->route('user'))
+            && (! $this->filled('password') || $this->user()->can('updatePassword', $this->route('user')));
     }
 
     /**

@@ -16,6 +16,7 @@ enum ChargeType: string
     case Penalty = 'penalty';
     case DisconnectionFee = 'disconnection_fee';
     case SubscriptionFee = 'subscription_fee';
+    case MinimumCharge = 'minimum_charge';
 
     public function label(): string
     {
@@ -23,6 +24,7 @@ enum ChargeType: string
             self::Penalty => 'Financial Penalty',
             self::DisconnectionFee => 'Service Disconnection Fee',
             self::SubscriptionFee => 'Subscription fee',
+            self::MinimumCharge => 'Charge Subscriber Minimum',
         };
     }
 

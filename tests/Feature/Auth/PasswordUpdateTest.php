@@ -15,7 +15,7 @@ class PasswordUpdateTest extends TestCase
 
     public function test_password_can_be_updated(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->superAdmin()->create();
 
         $response = $this
             ->actingAs($user)
@@ -38,7 +38,7 @@ class PasswordUpdateTest extends TestCase
         config(['session.driver' => 'database']);
         $this->app->forgetInstance('session.store');
         $this->app['session']->forgetDrivers();
-        $user = User::factory()->create(['remember_token' => 'old-remember-token']);
+        $user = User::factory()->superAdmin()->create(['remember_token' => 'old-remember-token']);
         $other = User::factory()->create();
         MobileAccessToken::issue($user);
         MobileAccessToken::issue($other);
@@ -75,7 +75,7 @@ class PasswordUpdateTest extends TestCase
 
     public function test_correct_password_must_be_provided_to_update_password(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->superAdmin()->create();
 
         $response = $this
             ->actingAs($user)

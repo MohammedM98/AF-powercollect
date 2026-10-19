@@ -7,6 +7,7 @@ use App\Http\Controllers\BranchClosingController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchPerformanceController;
 use App\Http\Controllers\CashBoxAuditController;
+use App\Http\Controllers\CashBoxReportController;
 use App\Http\Controllers\CircuitBreakerController;
 use App\Http\Controllers\CurrencyRateController;
 use App\Http\Controllers\DashboardController;
@@ -72,6 +73,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/summary', [PaymentController::class, 'summary'])->name('payments.summary');
     Route::get('/payments/cash-boxes', [PaymentController::class, 'cashBoxes'])->name('payments.cash-boxes');
+    Route::get('/payments/cash-boxes/report', CashBoxReportController::class)->name('payments.cash-boxes.report');
     Route::post('/payments/cash-boxes/audit-period', [PeriodAuditController::class, 'store'])->name('payments.period-audits.store');
     Route::post('/payments/cash-boxes/entries/{entry}/audit', [BankTransferAuditController::class, 'store'])->whereNumber('entry')->name('payments.bank-audits.store');
     Route::post('/payments/cash-boxes/{cashBox}/audit', [CashBoxAuditController::class, 'store'])->whereNumber('cashBox')->name('payments.box-audits.store');

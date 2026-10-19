@@ -55,7 +55,7 @@ class PasswordStrengthTest extends TestCase
     #[DataProvider('weakPasswords')]
     public function test_a_weak_password_is_refused_when_changing_your_own(string $password): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->superAdmin()->create();
 
         $this->actingAs($user)->from('/profile')->put('/password', [
             'current_password' => 'password', 'password' => $password, 'password_confirmation' => $password,

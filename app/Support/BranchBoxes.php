@@ -73,17 +73,21 @@ class BranchBoxes
             $query->whereRaw('COALESCE(received_at, closed_at, opened_at) >= ?', [$from->utc()])
                 ->whereRaw('COALESCE(received_at, closed_at, opened_at) < ?', [$from->addWeek()->utc()]);
         }
-        $boxes = $query->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE])->get();
+        $details = [...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE, 'payments' => fn ($entries) => $entries
+            ->visibleInBox()
+            ->when(BranchClosingAccess::audit($actor), fn (Builder $payments) => $payments
+                ->whereHas('transaction', fn (Builder $transaction) => $transaction->where('status', SubscriptionTransaction::STATUS_ACTIVE)))];
+        $boxes = $query->with($details)->get();
         if ($alsoBoxId && ! $boxes->contains('id', $alsoBoxId)) {
             $boxes->push(...CashBox::query()->where('branch_id', $branchId)->whereKey($alsoBoxId)
                 ->when(BranchClosingAccess::closedOnly($actor, $branchId), fn (Builder $query) => $query->where('status', 'received'))
-                ->with([...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE])->get());
+                ->with($details)->get());
         }
         $ledgers = $this->ledgers($boxes->flatMap(fn (CashBox $box) => $box->payments->pluck('subscription_transaction_id'))->all());
 
         return $boxes->map(function (CashBox $box) use ($ledgers, $actor): array {
             $row = $this->present($box, $ledgers);
-            if ($actor->isFinancialAuditor()) {
+            if ($actor->isFinancialAuditor() && ! $actor->canViewAllSubscriberAccounts()) {
                 $row['payments'] = array_map(fn (array $entry): array => [...$entry, 'statement_url' => null], $row['payments']);
             }
             $active = $box->payments->filter(fn ($entry): bool => $entry->transaction?->status === SubscriptionTransaction::STATUS_ACTIVE);
@@ -211,7 +215,7 @@ class BranchBoxes
         $boxes = CashBox::query()->where('branch_id', $branchId);
 
         return match ($place) {
-            'open' => $boxes->whereIn('status', ['open', 'pending'])->whereHas('payments')->latest('id'),
+            'open' => $boxes->whereIn('status', ['open', 'pending'])->whereHas('payments', fn (Builder $entries) => $entries->visibleInBox())->latest('id'),
             'closed' => $boxes->where('status', 'received')->orderByDesc('received_at')->orderByDesc('id'),
         };
     }

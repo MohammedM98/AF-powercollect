@@ -119,13 +119,13 @@ class LedgerController extends Controller
     private function filteredLedger(Request $request, User $actor): Builder
     {
         $search = $this->searchTerm($request);
-        $branchId = $actor->isSuperAdmin() ? $this->filterValue($request, 'branch_id') : null;
+        $branchId = $actor->canViewAllSubscriberAccounts() ? $this->filterValue($request, 'branch_id') : null;
         $type = $this->filterValue($request, 'type');
         $recordedBy = $this->filterValue($request, 'recorded_by');
 
         return SubscriptionTransaction::query()
             ->whereHas('subscription', fn (Builder $subscriptions) => $subscriptions
-                ->visibleTo($actor)
+                ->readableTo($actor)
                 ->when($branchId, fn (Builder $query) => $query->where('branch_id', $branchId)))
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $matches) => $matches
                 ->whereHas('subscription', fn (Builder $subscriptions) => $subscriptions->where(fn (Builder $inner) => $inner
@@ -314,7 +314,7 @@ class LedgerController extends Controller
      */
     private function scopeLabel(Request $request, User $actor): string
     {
-        if (! $actor->isSuperAdmin()) {
+        if (! $actor->canViewAllSubscriberAccounts()) {
             return $actor->branch?->name ?? '—';
         }
 
@@ -332,7 +332,7 @@ class LedgerController extends Controller
      */
     private function filterOptions(User $actor): array
     {
-        $groups = $actor->isSuperAdmin() ? [$this->branchFilterGroup()] : [];
+        $groups = $actor->canViewAllSubscriberAccounts() ? [$this->branchFilterGroup()] : [];
 
         $groups[] = $this->filterGroup('type', 'نوع القيد', [
             ['value' => self::DEBIT, 'label' => 'كل ما عليه (تحميل)'],
@@ -344,7 +344,7 @@ class LedgerController extends Controller
             ->map(fn (PaymentMethod $method): array => ['value' => $method->value, 'label' => __($method->label())])->all());
 
         $groups[] = $this->filterGroup('bank_name', 'البنك', SubscriptionTransaction::query()
-            ->whereHas('subscription', fn (Builder $subscriptions) => $subscriptions->visibleTo($actor))
+            ->whereHas('subscription', fn (Builder $subscriptions) => $subscriptions->readableTo($actor))
             ->whereNotNull('bank_name')->where('bank_name', '!=', '')
             ->distinct()->orderBy('bank_name')->pluck('bank_name')
             ->map(fn (string $bank): array => ['value' => $bank, 'label' => $bank])->all());
@@ -352,7 +352,7 @@ class LedgerController extends Controller
         $groups[] = $this->filterGroup('recorded_by', 'سجّله', $this->staffOptions(
             User::query()
                 ->whereIn('id', SubscriptionTransaction::query()
-                    ->whereHas('subscription', fn (Builder $subscriptions) => $subscriptions->visibleTo($actor))
+                    ->whereHas('subscription', fn (Builder $subscriptions) => $subscriptions->readableTo($actor))
                     ->select('recorded_by'))
                 ->orderBy('name')
                 ->get(),

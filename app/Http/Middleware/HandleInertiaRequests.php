@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
+use App\Models\ClosingSetting;
 use App\Models\CurrencyRate;
 use App\Models\DisconnectionList;
 use App\Models\Governorate;
@@ -104,7 +105,7 @@ class HandleInertiaRequests extends Middleware
                 'manageReadingSchedule' => $user->can('manageAny', ReadingEntrySetting::class),
                 'managePrintTemplates' => $user->can('viewAny', PrintTemplate::class),
                 'manageSmsSettings' => $user->can('manage', SmsSetting::class),
-                'managePaymentSettings' => $user->can('manage', CurrencyRate::class),
+                'managePaymentSettings' => $user->can('manage', CurrencyRate::class) || $user->can('manageAny', ClosingSetting::class),
             ] : null,
             // A list opened for printing gets the company's print templates for it.
             'printTemplates' => fn () => $user && $request->boolean('print') ? $this->printTemplates($request) : null,

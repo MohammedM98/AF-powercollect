@@ -29,13 +29,13 @@ enum UserRole: string
 
     /**
      * The branch-level staff roles a Branch Admin may assign. Excludes
-     * BranchAdmin and SuperAdmin, which only a Super Admin may assign.
+     * BranchAdmin and FinancialAuditor, which only a Super Admin may assign.
      *
      * @return array<int, self>
      */
     public static function staffRoles(): array
     {
-        return [self::Collector, self::DataEntry, self::Accountant, self::FinancialAuditor];
+        return [self::Collector, self::DataEntry, self::Accountant];
     }
 
     /**
@@ -46,7 +46,7 @@ enum UserRole: string
      */
     public static function assignableBySuperAdmin(): array
     {
-        return [self::BranchAdmin, ...self::staffRoles()];
+        return [self::BranchAdmin, ...self::staffRoles(), self::FinancialAuditor];
     }
 
     /**

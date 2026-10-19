@@ -242,6 +242,25 @@ export function columnTotal(texts) {
     return unit ? `${formatted} ${unit}` : formatted;
 }
 
+/** Report rows supply explicit amounts, excluding returned payments and keeping currencies apart. */
+export function rowColumnTotal(rows, key) {
+    if (!rows.some((row) => row.totals !== undefined)) {
+        return columnTotal(rows.map((row) => row.cells[key] ?? ''));
+    }
+
+    const amounts = new Map();
+    for (const row of rows) {
+        const value = row.totals?.[key];
+        if (value == null || !Number.isFinite(Number(value))) {
+            continue;
+        }
+        const unit = row.currency ?? '';
+        amounts.set(unit, (amounts.get(unit) ?? 0) + Math.round(Number(value) * 100));
+    }
+
+    return amounts.size ? [...amounts].map(([unit, cents]) => `${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: cents % 100 === 0 ? 0 : 2, maximumFractionDigits: 2 })} ${unit}`.trim()).join(' · ') : null;
+}
+
 /** The words around a cell's number, e.g. "شيكل" in "942.80 شيكل". */
 function unitOf(text) {
     return String(text)

@@ -175,6 +175,7 @@ class UserController extends Controller
             'role' => $user->role->value,
             'branch_id' => $user->branch_id,
             'is_active' => $user->is_active,
+            'canUpdatePassword' => auth()->user()->can('updatePassword', $user),
             'roleOptions' => $this->userRoleOptions($user),
         ];
     }

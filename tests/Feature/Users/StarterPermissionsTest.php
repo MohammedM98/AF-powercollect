@@ -48,7 +48,7 @@ class StarterPermissionsTest extends TestCase
         $this->actingAs($collector)->get(route('ledger.index'))->assertForbidden();
     }
 
-    public function test_a_new_financial_auditor_only_opens_closed_boxes_and_personal_account(): void
+    public function test_a_new_financial_auditor_cannot_open_unrelated_reports_or_split_payments(): void
     {
         $auditor = User::factory()->financialAuditor()->create();
         $split = SplitPayment::factory()->create(['total_amount' => 100]);
@@ -66,7 +66,7 @@ class StarterPermissionsTest extends TestCase
         $this->get(route('profile.edit'))->assertOk();
     }
 
-    public function test_an_auditor_added_by_a_branch_admin_does_not_get_what_only_the_company_grants(): void
+    public function test_a_branch_admin_cannot_create_a_financial_auditor(): void
     {
         $branch = Branch::factory()->create();
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
@@ -74,9 +74,8 @@ class StarterPermissionsTest extends TestCase
         $this->actingAs($branchAdmin)->post(route('users.store'), [
             'name' => 'New Auditor', 'username' => 'new.auditor', 'password' => 'Tulip2026ab', 'password_confirmation' => 'Tulip2026ab',
             'role' => UserRole::FinancialAuditor->value,
-        ])->assertSessionHasNoErrors();
+        ])->assertSessionHasErrors('role');
 
-        $auditor = User::where('username', 'new.auditor')->sole();
-        $this->assertFalse($auditor->hasPermission(PermissionKey::ViewAllFinancialReports));
+        $this->assertDatabaseMissing('users', ['username' => 'new.auditor']);
     }
 }

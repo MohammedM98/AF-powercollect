@@ -146,6 +146,12 @@ class User extends Authenticatable
         return $this->role === UserRole::FinancialAuditor;
     }
 
+    /** Read subscriber accounts across branches without granting branch administration. */
+    public function canViewAllSubscriberAccounts(): bool
+    {
+        return $this->hasPermission(PermissionKey::AuditClosings);
+    }
+
     /**
      * The area (منطقة) the user's branch sits in — the only area where
      * anyone but a Super Admin may add or edit sub-areas. Null when the

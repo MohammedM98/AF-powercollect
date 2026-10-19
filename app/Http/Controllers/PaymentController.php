@@ -234,7 +234,7 @@ class PaymentController extends Controller
         }
 
         return [
-            ['key' => 'entries', 'label' => 'الحركات', 'count' => CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->whereIn('status', ['open', 'pending']))->count(), 'url' => route('payments.cash-boxes.entries', $query)],
+            ['key' => 'entries', 'label' => 'الحركات', 'count' => CashBoxPayment::query()->visibleInBox()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->whereIn('status', ['open', 'pending']))->count(), 'url' => route('payments.cash-boxes.entries', $query)],
             ['key' => 'open', 'label' => 'الصناديق المفتوحة', 'count' => $counts['open'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'open'])],
             $closedTab,
         ];
@@ -310,6 +310,7 @@ class PaymentController extends Controller
      */
     private function entryList(Request $request, Builder $query, callable $boxUrl): array
     {
+        $query->visibleInBox();
         $types = array_column(CashBoxType::cases(), 'value');
         $filter = in_array($request->input('filter.type'), $types, true) ? $request->input('filter.type') : '';
         $search = trim((string) $request->query('search'));
@@ -395,8 +396,8 @@ class PaymentController extends Controller
         $actor = $request->user();
         abort_unless($cashBox->user_id === $actor->id && $cashBox->branch_id === $actor->branch_id, 404);
         $this->workflow->refresh($cashBox->branch_id);
-        $cashBox->refresh()->loadCount('payments');
-        $entryQuery = $cashBox->payments()->with(['transaction.subscription:id,full_name,subscription_name,account_number', 'transaction.recordedBy:id,name'])
+        $cashBox->refresh()->loadCount(['payments' => fn ($entries) => $entries->visibleInBox()]);
+        $entryQuery = $cashBox->payments()->visibleInBox()->with(['transaction.subscription:id,full_name,subscription_name,account_number', 'transaction.recordedBy:id,name'])
             ->orderByDesc('occurred_at')->orderByDesc('id');
 
         if ($request->query('format') === 'csv') {
@@ -446,7 +447,7 @@ class PaymentController extends Controller
     {
         $row = $this->cashBoxRow($box);
         $local = fn (?CarbonInterface $time): string => $time ? $time->copy()->setTimezone(config('app.business_timezone'))->format('Y-m-d H:i') : '';
-        $statuses = ['missing' => 'غير موجودة في البنك', 'rejected' => 'مرفوضة'];
+        $statuses = ['missing' => 'غير موجودة', 'rejected' => 'مرفوضة'];
         $types = ['cash' => 'نقدي', 'bank_transfer' => 'حوالات بنكية', 'clearing' => 'مقاصات'];
         $stages = ['open' => 'مفتوح', 'awaiting_confirmation' => 'مُغلق', 'completed' => 'مُغلق'];
         $safe = fn (array $cells): array => array_map(fn ($cell) => is_string($cell) && preg_match('/^[=+@\-\t\r]/u', $cell) ? "'".$cell : $cell, $cells);
@@ -513,7 +514,7 @@ class PaymentController extends Controller
     private function ownBoxQuery(User $actor): Builder
     {
         return CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)
-            ->withCount('payments')->with(['payments.transaction:id,status', 'receivedBy:id,name', 'receivedIn:id,period_start,period_end'])->latest('id');
+            ->withCount(['payments' => fn ($entries) => $entries->visibleInBox()])->with(['payments.transaction:id,status', 'receivedBy:id,name', 'receivedIn:id,period_start,period_end'])->latest('id');
     }
 
     /** @return array{payments: string, summary: string, cashBoxes: string} */

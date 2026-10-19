@@ -3,9 +3,12 @@
 namespace App\Http\Requests;
 
 use App\Enums\ChargeType;
+use App\Models\Closing;
+use App\Models\Subscription;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreSubscriptionChargeRequest extends FormRequest
 {
@@ -24,7 +27,29 @@ class StoreSubscriptionChargeRequest extends FormRequest
      */
     public function rules(): array
     {
-        return self::chargeRules($this->input('type'));
+        return [
+            ...self::chargeRules($this->input('type')),
+            'override_minimum_amount' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /** @return array<int, callable> */
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty() || $this->input('type') !== ChargeType::MinimumCharge->value) {
+                return;
+            }
+
+            /** @var Subscription $subscription */
+            $subscription = $this->route('subscription');
+            $minimum = $subscription->weeklyMinimumPayment();
+            if (Closing::cents($minimum) <= 0) {
+                $validator->errors()->add('amount', 'لا يوجد حد أدنى موجب محدد لهذا المشترك.');
+            } elseif (! $this->boolean('override_minimum_amount') && Closing::cents($this->input('amount')) !== Closing::cents($minimum)) {
+                $validator->errors()->add('amount', 'يجب أن يساوي المبلغ الحد الأدنى الحالي للمشترك. حدّث الصفحة وحاول مجددًا.');
+            }
+        }];
     }
 
     /**

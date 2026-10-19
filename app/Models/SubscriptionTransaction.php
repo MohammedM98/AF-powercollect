@@ -144,6 +144,7 @@ class SubscriptionTransaction extends Model
         self::TYPE_SUBSCRIPTION_FEE,
         'penalty',
         'disconnection_fee',
+        ChargeType::MinimumCharge->value,
     ];
 
     public const PAYMENT_LIKE_TYPES = [
@@ -311,7 +312,7 @@ class SubscriptionTransaction extends Model
     }
 
     /**
-     * Charge the subscription a penalty, disconnection fee or subscription fee.
+     * Record a manual charge on the subscription's account.
      */
     public static function recordCharge(Subscription $subscription, User $recorder, ChargeType $type, float|string $amount, ?string $notes): self
     {

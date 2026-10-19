@@ -12,6 +12,7 @@ export default function Edit({ user, roleOptions, branches, canChooseBranch, use
                 setData={form.setData}
                 errors={form.errors}
                 isEdit={form.isEdit}
+                canUpdatePassword={user.canUpdatePassword}
                 roleOptions={roleOptions}
                 userTypeOptions={userTypeOptions}
                 branches={branches}

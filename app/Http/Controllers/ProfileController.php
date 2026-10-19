@@ -44,6 +44,7 @@ class ProfileController extends Controller
                 ])->values()->all(),
             ])->values()->all(),
             'devices' => $devices,
+            'canUpdatePassword' => $user->can('updatePassword', $user),
             'businessTimezone' => config('app.business_timezone'),
         ]);
     }

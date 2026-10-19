@@ -1,4 +1,4 @@
-import { arrangeRows, columnTotal, DENSITY_PADDING, paperSize } from '@/lib/printLayout';
+import { arrangeRows, rowColumnTotal, DENSITY_PADDING, paperSize } from '@/lib/printLayout';
 
 // The time printed under the heading, in the app's Arabic with Western digits.
 const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
@@ -16,12 +16,13 @@ const ALIGN_CLASSES = { auto: 'text-start', start: 'text-start', center: 'text-c
  */
 export default function PrintPaper({ layout, table, summary, context, zoom }) {
     const { header, footer } = layout;
+    const details = (context.details ?? []).filter((field) => !header.reportFields || header.reportFields.includes(field.key));
     const style = layout.table;
     const columns = layout.columns.filter((column) => column.visible);
     const dataRows = table.rows.filter((row) => row.type === 'row');
     const sections = arrangeRows(table.rows, layout);
     const groupColumn = layout.columns.find((column) => column.key === layout.group.key);
-    const totalsOf = (rows) => columns.map((column) => (column.total ? columnTotal(rows.map((row) => row.cells[column.key] ?? '')) : null));
+    const totalsOf = (rows) => columns.map((column) => (column.total ? rowColumnTotal(rows, column.key) : null));
     const totals = totalsOf(dataRows);
     const hasTotals = totals.some((total) => total !== null);
     const size = paperSize(layout);
@@ -70,6 +71,12 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
                     {meta.length > 0 && <div className="mt-1 text-[0.85em] text-gray-600">{meta.join(' — ')}</div>}
                 </div>
             </header>
+
+            {details.length > 0 && <dl className="mb-4 grid break-inside-avoid grid-cols-3 gap-x-5 gap-y-3 rounded border border-gray-200 p-3">
+                {details.map((field) => <div key={field.key}>
+                    <dt className="text-[0.85em] text-gray-500">{field.label}</dt><dd className="mt-1 whitespace-pre-line font-semibold">{field.value}</dd>
+                </div>)}
+            </dl>}
 
             {columns.length === 0 ? (
                 <p className="pd-screen-only rounded border border-dashed border-gray-300 p-6 text-center text-gray-500">

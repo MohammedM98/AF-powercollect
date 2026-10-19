@@ -74,6 +74,7 @@ enum PermissionKey: string
     case RecordCashPayments = 'collections.record_cash';
     case RecordTransferPayments = 'collections.record_transfer';
     case CloseCashBoxes = 'collections.close_boxes';
+    case ManageBoxPeriods = 'collections.manage_box_periods';
     case SendCashBoxesToAudit = 'collections.send_boxes';
     case ConfirmCollections = 'collections.confirm';
     case ViewCollections = 'collections.view';
@@ -169,6 +170,7 @@ enum PermissionKey: string
             self::RecordCashPayments => 'Take Cash Payments',
             self::RecordTransferPayments => 'Take Bank Transfer Payments',
             self::CloseCashBoxes => 'Close Cash Boxes',
+            self::ManageBoxPeriods => 'Edit Box Period Start Day',
             self::SendCashBoxesToAudit => 'Send Cash Boxes to Audit',
             self::ConfirmCollections => 'Confirm Collections',
             self::ViewCollections => 'View Collections',
@@ -182,7 +184,7 @@ enum PermissionKey: string
             self::ForceDeleteTransactions => 'Permanently Delete Transactions',
             self::PrepareClosings => 'Prepare Closings',
             self::ViewOwnClosings => 'View Branch Closings',
-            self::AuditClosings => 'Audit Closings',
+            self::AuditClosings => 'Financial Audit Across All Branches',
             self::ViewAllClosings => 'View All Closings and Reports',
             self::ViewFinancialReports => 'View Financial Reports',
             self::ViewAllFinancialReports => 'View All Financial Reports',
@@ -203,7 +205,8 @@ enum PermissionKey: string
 
     public function isRetired(): bool
     {
-        return $this === self::SendCashBoxesToAudit || str_starts_with($this->value, 'closings.');
+        return $this === self::SendCashBoxesToAudit
+            || ($this !== self::AuditClosings && str_starts_with($this->value, 'closings.'));
     }
 
     /**
@@ -211,7 +214,8 @@ enum PermissionKey: string
      * the governorate/area map they sit in — rather than work inside one
      * branch. That is the general manager's job, so only a Super Admin may
      * grant these. (Sub-areas stay grantable: staff add them only inside
-     * their own branch's area.)
+     * their own branch's area.) The company also controls delegation of
+     * each branch's period-start setting.
      */
     public function isCompanyWide(): bool
     {
@@ -224,6 +228,7 @@ enum PermissionKey: string
             self::AuditClosings, self::ViewAllClosings, self::ViewAllFinancialReports => true,
             // Print templates are shared by every branch.
             self::ManagePrintTemplates => true,
+            self::ManageBoxPeriods => true,
             default => false,
         };
     }
@@ -294,6 +299,8 @@ enum PermissionKey: string
                     'record_cash' => self::RecordCashPayments,
                     'record_transfer' => self::RecordTransferPayments,
                     'close_boxes' => self::CloseCashBoxes,
+                    'manage_box_periods' => self::ManageBoxPeriods,
+                    'audit' => self::AuditClosings,
                     'confirm' => self::ConfirmCollections,
                     'charge' => self::AddCharges,
                     'discount' => self::AddDiscounts,

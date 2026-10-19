@@ -170,7 +170,7 @@ export function CashBoxAction({ box, onClose, onSuccess }) {
 export function BoxReportActions({ box, onView }) {
     return (
         <RowActionsMenu onView={onView}>
-            <button onClick={() => window.open(printUrl(`تقرير الصندوق ${box.number}`, box.urls.show), '_blank', 'noopener')}>طباعة</button>
+            <button onClick={() => window.open(printUrl('تقرير تفاصيل الصندوق', `/payments/cash-boxes/report?box=${box.id}`), '_blank', 'noopener')}>طباعة وتخصيص</button>
             <button onClick={() => { window.location.href = box.urls.export; }}>Excel</button>
         </RowActionsMenu>
     );

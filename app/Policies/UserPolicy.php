@@ -65,6 +65,18 @@ class UserPolicy
             && $model->branch_id === $user->branch_id;
     }
 
+    /** Only administrators manage passwords; branch administrators manage their own staff. */
+    public function updatePassword(User $user, User $model): bool
+    {
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return ! $user->is($model)
+            && $user->isBranchAdmin()
+            && $this->update($user, $model);
+    }
+
     /**
      * Deleting takes its own permission, on the same terms as editing,
      * and never reaches the user's own account or a Super Admin.

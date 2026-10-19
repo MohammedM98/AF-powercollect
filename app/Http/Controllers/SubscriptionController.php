@@ -47,9 +47,9 @@ class SubscriptionController extends Controller
         $query = Subscription::query()
             ->select('subscriptions.*')
             ->selectRaw("COALESCE(NULLIF(subscription_name, ''), full_name) as display_name")
-            ->visibleTo($actor)
+            ->readableTo($actor)
             ->with(['branch.area', 'branch.governorate', 'meterBox.subArea', 'tariff', 'tariffSegment', 'circuitBreaker', 'standingDiscount', 'registeredBy', 'meterReadings.recordedBy'])
-            ->with(['profile' => fn ($query) => $query->withCount(['subscriptions' => fn ($subscriptions) => $subscriptions->visibleTo($actor)])])
+            ->with(['profile' => fn ($query) => $query->withCount(['subscriptions' => fn ($subscriptions) => $subscriptions->readableTo($actor)])])
             ->withSum('transactions as outstanding_balance', 'amount')
             ->withExists(['transactions as has_subscription_fee' => fn (Builder $transactions) => $transactions->where('type', SubscriptionTransaction::TYPE_SUBSCRIPTION_FEE)]);
         $this->applySubscriptionListFilters($query, $request);
@@ -158,7 +158,7 @@ class SubscriptionController extends Controller
         return Inertia::render('Subscriptions/Edit', [
             'subscription' => [
                 ...$this->editableFields($subscription),
-                'subscriptionCount' => $subscription->profile->subscriptions()->visibleTo(auth()->user())->count(),
+                'subscriptionCount' => $subscription->profile->subscriptions()->readableTo(auth()->user())->count(),
             ],
             ...$this->formOptions(),
         ]);
@@ -460,7 +460,7 @@ class SubscriptionController extends Controller
     private function minimumChargeFilterGroup(User $actor): array
     {
         return $this->filterGroup('minimum_charge', 'الحد الأدنى', Subscription::query()
-            ->visibleTo($actor)
+            ->readableTo($actor)
             ->whereNotNull('minimum_charge')
             ->distinct()
             ->orderBy('minimum_charge')
@@ -488,13 +488,13 @@ class SubscriptionController extends Controller
             ...$this->meterBoxFilterGroupsFor(
                 $actor,
                 $request,
-                $actor->isSuperAdmin() ? fn (MeterBox $box) => $box->branch->name : null,
+                $actor->canViewAllSubscriberAccounts() ? fn (MeterBox $box) => $box->branch->name : null,
             ),
             $this->circuitBreakerFilterGroup(),
             $this->minimumChargeFilterGroup($actor),
         ];
 
-        if ($actor->isSuperAdmin()) {
+        if ($actor->canViewAllSubscriberAccounts()) {
             $groups[] = $this->branchFilterGroup();
         }
 

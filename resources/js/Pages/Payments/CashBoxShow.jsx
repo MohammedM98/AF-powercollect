@@ -6,7 +6,6 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import Icon from '@/Components/Icon';
 import { formatMoney } from '@/lib/format';
 import { isPrintMode, printUrl } from '@/lib/print';
-import StatusGuide from './StatusGuide';
 import { boxTypes, currencies, dateTime, BoxEntriesTable, BoxStage, BoxTypeChip, BoxTypeIcon, CountSummary, CashBoxAction, boxAction, actionLabel } from './CollectorCashBox';
 
 /** A link that looks like the quiet outlined button. */
@@ -47,7 +46,7 @@ export default function CashBoxShow({ box, entries, collectionUrls, pendingCount
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-2"><BoxTypeChip type={box.type} /><BoxStage box={box} /></div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <a href={printUrl(`تقرير الصندوق ${box.number}`)} target="_blank" rel="noopener noreferrer" className={`${reportButton} tone-print`}><Icon name="printer" className="h-4 w-4" />طباعة / PDF</a>
+                        <a href={printUrl('تقرير تفاصيل الصندوق', `/payments/cash-boxes/report?box=${box.id}`)} target="_blank" rel="noopener noreferrer" className={`${reportButton} tone-print`}><Icon name="printer" className="h-4 w-4" />طباعة وتخصيص / PDF</a>
                         <a href={box.urls.export} className={`${reportButton} tone-excel`}><Icon name="excel" className="h-4 w-4" />Excel</a>
                         {action && <PrimaryButton onClick={() => setShowAction(true)}>{actionLabel(box)}</PrimaryButton>}
                     </div>
@@ -74,7 +73,6 @@ export default function CashBoxShow({ box, entries, collectionUrls, pendingCount
             </div>
             <section className="financial-ledger-section space-y-4">
                 <h3 className="text-lg font-bold text-gray-900">حركات الصندوق</h3>
-                <StatusGuide />
                 <BoxEntriesTable type={box.type} boxNumber={box.number} entries={entries} pagination={{ filters: {}, baseUrl: box.urls.show }} />
             </section>
         </div>

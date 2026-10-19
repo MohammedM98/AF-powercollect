@@ -224,16 +224,16 @@ class UserAuthorizationTest extends TestCase
         $this->actingAs($branchAdmin)->put(route('users.update', $collector), [
             'name' => $collector->name,
             'username' => $collector->username,
-            'role' => UserRole::FinancialAuditor->value,
+            'role' => UserRole::Accountant->value,
         ])->assertRedirect(route('users.index'));
 
         $this->assertDatabaseHas('users', [
             'id' => $collector->id,
-            'role' => UserRole::FinancialAuditor->value,
+            'role' => UserRole::Accountant->value,
         ]);
     }
 
-    public function test_branch_admin_can_manage_data_entry_and_financial_auditor_staff(): void
+    public function test_branch_admin_can_manage_data_entry_but_cannot_manage_financial_auditors(): void
     {
         $branch = Branch::factory()->create();
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
@@ -241,7 +241,7 @@ class UserAuthorizationTest extends TestCase
         $auditor = User::factory()->financialAuditor()->create(['branch_id' => $branch->id]);
 
         $this->actingAs($branchAdmin)->get(route('users.edit', $dataEntry))->assertOk();
-        $this->actingAs($branchAdmin)->get(route('users.edit', $auditor))->assertOk();
+        $this->actingAs($branchAdmin)->get(route('users.edit', $auditor))->assertForbidden();
     }
 
     public function test_collector_has_no_access_to_user_management(): void

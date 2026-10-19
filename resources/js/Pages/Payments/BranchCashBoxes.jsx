@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
@@ -56,6 +56,7 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
     const [auditState, setAuditState] = useState('');
     const [confirmingPeriod, setConfirmingPeriod] = useState(false);
     const [busy, setBusy] = useState(false);
+    const searchVisit = useRef(0);
     const [auditingEntry, setAuditingEntry] = useState(null);
     const [view, setView] = useState(() => savedPreference('view', 'table', ['table', 'cards']));
     const [sort, setSort] = useState({ key: 'dates', direction: 'desc' });
@@ -69,7 +70,13 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
     const shown = inPlace.filter((box) => (!type || box.type === type) && (!person || String(box.user?.id) === person) && (!auditState || Boolean(box.audit) === (auditState === 'reviewed')) && financialBoxMatches(box, search));
     const navigation = { branch_id: branch.id, place, week, ...(searchingTransfers ? { view: 'transfers' } : {}) };
     function searchTransfers(values) {
-        router.get(urls.index, { ...navigation, ...values }, { preserveScroll: true, preserveState: true, onStart: () => setBusy(true), onFinish: () => setBusy(false) });
+        const visit = ++searchVisit.current;
+        router.get(urls.index, { ...navigation, ...values }, {
+            preserveScroll: true, preserveState: true, replace: true,
+            only: ['transferSearch', 'periods', 'canApprovePeriod', 'errors'],
+            onStart: () => setBusy(true),
+            onFinish: () => { if (visit === searchVisit.current) setBusy(false); },
+        });
     }
     function reviewPeriod() {
         if (!searchingTransfers) { setConfirmingPeriod(true); return; }
@@ -113,7 +120,7 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
                 <div className="flex w-full flex-wrap items-end gap-3 sm:w-auto">{(searchingTransfers ? canApprovePeriod && periodBoxes > reviewedBoxes : periodAudit?.boxes > 0) && <PrimaryButton disabled={busy} onClick={reviewPeriod}><Icon name="check" className="h-4 w-4" />{busy ? 'جارٍ تحديث الملخص…' : 'اعتماد الفترة كاملة'}</PrimaryButton>}<div className="w-full sm:w-96"><label htmlFor="closed-box-week" className="mb-1 block text-sm font-medium text-gray-700">الفترة الأسبوعية</label><SearchableSelect id="closed-box-week" value={week} clearable={false} options={periods.map((period) => ({ value: period.start, label: `${periodDate(period.start)} — ${periodDate(period.end)}`, hint: `${period.count} صندوق · ${period.reviewed === period.count ? 'تم التدقيق' : `دُقّق ${period.reviewed}`}` }))} onChange={(value) => router.get(urls.index, { ...navigation, week: value }, { preserveScroll: true })} /></div></div>
             </div>}
             {searchingTransfers ? <>
-                <AuditTransferSearch data={transferSearch} branchName={branch.name} busy={busy} errors={errors} onSearch={searchTransfers} onPage={(url) => router.visit(url, { preserveState: true, preserveScroll: true, onStart: () => setBusy(true), onFinish: () => setBusy(false) })} onEdit={setAuditingEntry} />
+                <AuditTransferSearch key={`${branch.id}:${week}`} data={transferSearch} branchName={branch.name} busy={busy} errors={errors} onSearch={searchTransfers} onPage={(url) => router.visit(url, { preserveState: true, preserveScroll: true, onStart: () => setBusy(true), onFinish: () => setBusy(false) })} onEdit={setAuditingEntry} />
                 <section aria-label="ملخص الحوالات غير المعتمدة في الفترة" className="rounded-card border border-gray-100 bg-surface p-5"><h3 className="mb-4 font-bold text-gray-900">ملخص الفترة قبل الاعتماد <span className="font-normal text-gray-500">· يشمل كل الصناديق، خارج نتائج البحث أيضًا</span></h3><dl className="grid grid-cols-2 gap-5 lg:grid-cols-4">{[['الحوالات غير المعتمدة', transferSearch.summary.transfers], ['حوالات فيها فروق', transferSearch.summary.exceptions], ['تحميل على المشتركين (شيكل)', formatMoney(transferSearch.summary.debit)], ['إضافة لصالح المشتركين (شيكل)', formatMoney(transferSearch.summary.credit)]].map(([label, value]) => <div key={label}><dt className="text-sm text-gray-500">{label}</dt><dd className="mt-1 font-display text-2xl font-bold text-gray-900">{value}</dd></div>)}</dl><p className="mt-4 border-t border-gray-100 pt-3 text-sm leading-7 text-gray-600">عند الاعتماد، تُحفظ الاستثناءات وتُرحّل فروقها، وتُعتمد {transferSearch.summary.automaticMatches} حوالة لم تُراجع كمطابقة تلقائيًا.</p></section>
             </> : <><section aria-label="ملخص" className="grid gap-3 sm:grid-cols-3">{summary.map(({ key, ...tile }) => <SummaryTile key={key} {...tile} />)}</section>
             <section aria-label="الصناديق">

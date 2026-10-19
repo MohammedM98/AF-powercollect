@@ -28,16 +28,26 @@ const entry = {
     ledger: { date: '2026-10-19 10:19', voucherNumber: '000125', referenceNumber: 'BANK-125', bankName: 'بنك فلسطين', paidAmount: '100', currencyLabel: 'شيكل' },
     box: { number: 41, collector: 'المحصل' }, audit: null,
 };
-function render(entries = [], options = {}) {
+function render(entries = [], options = {}, busy = false) {
     return renderToStaticMarkup(createElement(Search, {
-        branchName: 'فرع نابلس', data: { search: '', state: '', results: { data: entries, total: entries.length }, ...options },
+        branchName: 'فرع نابلس', busy, data: { search: '', state: '', results: { data: entries, total: entries.length }, ...options },
         onSearch() {}, onPage() {}, onEdit() {},
     }));
 }
 
 test('initial and empty search states explain how to find a transaction', () => {
     assert.match(render(), /ابدأ برقم الحركة/);
+    assert.match(render(), /تظهر النتائج تلقائيًا بعد توقف الكتابة/);
+    assert.doesNotMatch(render(), /type="submit"/);
     assert.match(render([], { search: 'unknown' }), /لا توجد حوالة مطابقة/);
+});
+
+test('loading leaves search controls usable and disables editing the previous results', () => {
+    const html = render([entry], { search: 'BANK-125' }, true);
+    assert.match(html, /جارٍ تحديث النتائج/);
+    assert.doesNotMatch(html, /<input[^>]*disabled/);
+    assert.doesNotMatch(html, /<select[^>]*disabled/);
+    assert.match(html, /<button[^>]*disabled=""[^>]*>[^]*?تعديل الحوالة/);
 });
 
 test('unreviewed bank amount is unknown and transaction date and reference use separate columns', () => {

@@ -21,6 +21,7 @@ class CashBoxReportController extends Controller
     {
         $actor = $request->user();
         $boxes = CashBox::query();
+        $actor->scopeAuditBranches($boxes);
         if (! $actor->isSuperAdmin() && ! BranchClosingAccess::audit($actor)) {
             $boxes->where('branch_id', $actor->branch_id);
             if (! BranchClosingAccess::view($actor)) {

@@ -19,11 +19,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 #[Fillable([
     'subscription_id', 'branch_id', 'week_start', 'week_end', 'previous_reading', 'current_reading',
     'consumption', 'usual_consumption', 'unit_price', 'reading_fee', 'minimum_payment', 'discount_method', 'discount_value', 'discount_segment', 'discount_amount',
     'amount_due', 'status', 'recorded_by', 'notes', 'approved_by', 'approved_at', 'mobile_operation_id',
+    'next_previous_reading', 'requires_reentry', 'adjustment_history',
 ])]
 class MeterReading extends Model
 {
@@ -33,6 +35,9 @@ class MeterReading extends Model
     protected function casts(): array
     {
         return [
+            'next_previous_reading' => 'float',
+            'requires_reentry' => 'boolean',
+            'adjustment_history' => 'array',
             'week_start' => 'date',
             'week_end' => 'date',
             'previous_reading' => 'float',
@@ -131,6 +136,9 @@ class MeterReading extends Model
     public static function recordFor(Subscription $subscription, CarbonInterface $weekStart, float $currentReading, User $recorder, ?string $notes, ?string $mobileOperationId = null): self
     {
         $weekStart = Carbon::instance($weekStart);
+        if ($subscription->meterReadings()->where('week_start', '<', $weekStart)->where('requires_reentry', true)->exists()) {
+            throw ValidationException::withMessages(['current_reading' => 'أدخل القراءة الحالية المعلّقة أولًا قبل تسجيل أسبوع جديد.']);
+        }
         $previousReading = $subscription->previousReadingBefore($weekStart);
         $consumption = self::consumptionBetween($previousReading, $currentReading);
         $discount = $subscription->standingDiscount;
@@ -296,7 +304,7 @@ class MeterReading extends Model
         return DB::transaction(function () use ($approver, $confirmUnusual): bool {
             $reading = self::query()->lockForUpdate()->findOrFail($this->id);
 
-            if (! $reading->isPending() || ($reading->isUnusual() && ! $confirmUnusual)) {
+            if ($reading->requires_reentry || ! $reading->isPending() || ($reading->isUnusual() && ! $confirmUnusual)) {
                 return false;
             }
 
@@ -337,7 +345,7 @@ class MeterReading extends Model
      */
     public function approveAgainAsBilled(SubscriptionTransaction $charge): void
     {
-        if (! $this->isPending()) {
+        if ($this->requires_reentry || ! $this->isPending()) {
             return;
         }
 
@@ -361,7 +369,9 @@ class MeterReading extends Model
                 'discount_method' => $discount?->method,
                 'discount_value' => $discount?->value,
                 'discount_segment' => $discount?->segment,
-                ...self::chargesFor($reading->consumption, $reading->unit_price, $reading->minimum_payment, $discount?->method, $discount?->value),
+                ...($reading->requires_reentry
+                    ? ['reading_fee' => '0.00', 'discount_amount' => '0.00', 'amount_due' => '0.00']
+                    : self::chargesFor($reading->consumption, $reading->unit_price, $reading->minimum_payment, $discount?->method, $discount?->value)),
             ]);
 
             if (! $reading->isPending()) {
@@ -484,7 +494,55 @@ class MeterReading extends Model
      */
     public function correct(float $currentReading, ?string $notes, User $editor): bool
     {
-        return $this->recalculate($this->previous_reading, $currentReading, $notes, $editor);
+        return DB::transaction(function () use ($currentReading, $notes, $editor): bool {
+            $before = ['currentReading' => $this->requires_reentry ? null : $this->current_reading];
+            $changed = $this->requires_reentry || round($currentReading, 2) !== round($this->current_reading, 2);
+            $reopened = $this->recalculate($this->previous_reading, $currentReading, $notes, $editor);
+            if ($changed) {
+                $this->recordAdjustment('reading_correction', $before, ['currentReading' => $currentReading], $editor);
+            }
+
+            return $reopened;
+        });
+    }
+
+    /** The next week's baseline can differ from this week's billed meter. */
+    public function nextPreviousReading(): float
+    {
+        return $this->next_previous_reading ?? $this->current_reading;
+    }
+
+    /**
+     * @param  array<string, mixed>  $before
+     * @param  array<string, mixed>  $after
+     */
+    public function recordAdjustment(string $kind, array $before, array $after, User $editor, ?string $reason = null): void
+    {
+        $this->update(['adjustment_history' => [
+            ...($this->adjustment_history ?? []),
+            ['kind' => $kind, 'before' => $before, 'after' => $after, 'reason' => $reason,
+                'userId' => $editor->id, 'userName' => $editor->name, 'at' => now()->toIso8601String()],
+        ]]);
+    }
+
+    /** Keep the old entry in the audit trail, but never bill it from a new baseline. */
+    public function requireCurrentReadingAgain(float $previousReading, User $editor): void
+    {
+        $this->recordAdjustment('current_reading_cleared', [
+            'previousReading' => $this->previous_reading, 'currentReading' => $this->current_reading,
+            'consumption' => $this->consumption, 'amountDue' => $this->amount_due,
+        ], ['previousReading' => $previousReading, 'currentReading' => null], $editor);
+
+        foreach ([SubscriptionTransaction::TYPE_METER_READING, SubscriptionTransaction::TYPE_READING_DISCOUNT] as $type) {
+            $this->currentLine($type)?->cancelForReading($editor, CorrectionReason::ReadingCorrected);
+        }
+
+        $this->update([
+            'previous_reading' => $previousReading, 'requires_reentry' => true,
+            'consumption' => 0, 'reading_fee' => 0, 'amount_due' => 0, 'discount_amount' => 0,
+            'usual_consumption' => null, 'status' => MeterReadingStatus::Pending,
+            'approved_by' => null, 'approved_at' => null,
+        ]);
     }
 
     /**
@@ -546,6 +604,7 @@ class MeterReading extends Model
             $this->update([
                 'previous_reading' => $previousReading,
                 'current_reading' => $currentReading,
+                'requires_reentry' => false,
                 'consumption' => $consumption,
                 'usual_consumption' => self::usualConsumptionIfUnusual($this->subscription, $consumption, $this->week_start),
                 ...self::chargesFor($consumption, $this->unit_price, $this->minimum_payment, $this->discount_method, $this->discount_value),

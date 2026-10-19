@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\AuditAction;
 use App\Enums\PermissionKey;
 use App\Models\Subscription;
 use App\Models\User;
@@ -14,7 +15,11 @@ class SubscriptionPolicy
      */
     private function hasBaseAccess(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::ViewSubscriptions, PermissionKey::CreateSubscriptions, PermissionKey::UpdateSubscriptions, PermissionKey::AuditClosings);
+        if ($user->isFinancialAuditor()) {
+            return $user->canAuditAction(AuditAction::ViewAccounts);
+        }
+
+        return $user->canViewAllSubscriberAccounts() || $user->hasAnyPermission(PermissionKey::ViewSubscriptions, PermissionKey::CreateSubscriptions, PermissionKey::UpdateSubscriptions);
     }
 
     /**
@@ -31,7 +36,7 @@ class SubscriptionPolicy
     public function view(User $user, Subscription $subscription): bool
     {
         if ($user->canViewAllSubscriberAccounts()) {
-            return true;
+            return $user->auditIncludesBranch($subscription->branch_id);
         }
 
         return $this->hasBaseAccess($user) && $subscription->branch_id === $user->branch_id;

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AuditAction;
 use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
@@ -10,6 +11,7 @@ use App\Support\DeletionBlocker;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -20,7 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 #[Fillable(['name', 'username', 'password', 'role', 'branch_id', 'is_active', 'user_type_id'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'audit_settings'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -71,6 +73,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => UserRole::class,
             'is_active' => 'boolean',
+            'audit_settings' => 'array',
         ];
     }
 
@@ -149,7 +152,42 @@ class User extends Authenticatable
     /** Read subscriber accounts across branches without granting branch administration. */
     public function canViewAllSubscriberAccounts(): bool
     {
-        return $this->hasPermission(PermissionKey::AuditClosings);
+        return $this->canAuditAction(AuditAction::ViewAccounts);
+    }
+
+    public function hasFinancialAuditAccess(): bool
+    {
+        return $this->is_active && $this->hasPermission(PermissionKey::AuditClosings);
+    }
+
+    /** @return array{scope: string, branch_ids: list<int>, actions: list<string>} */
+    public function auditSettings(): array
+    {
+        return $this->audit_settings ?? [
+            'scope' => 'all', 'branch_ids' => [],
+            'actions' => array_column(AuditAction::cases(), 'value'),
+        ];
+    }
+
+    public function canAuditAction(AuditAction $action): bool
+    {
+        return $this->isSuperAdmin() || ($this->hasFinancialAuditAccess()
+            && in_array($action->value, $this->auditSettings()['actions'], true));
+    }
+
+    public function auditIncludesBranch(?int $branchId): bool
+    {
+        return $this->isSuperAdmin() || ($this->hasFinancialAuditAccess() && ($this->auditSettings()['scope'] === 'all'
+            || in_array($branchId, $this->auditSettings()['branch_ids'], true)));
+    }
+
+    public function scopeAuditBranches(Builder $query, string $column = 'branch_id'): Builder
+    {
+        if (! $this->isSuperAdmin() && $this->hasFinancialAuditAccess() && $this->auditSettings()['scope'] === 'selected') {
+            $query->whereIn($column, $this->auditSettings()['branch_ids']);
+        }
+
+        return $query;
     }
 
     /**

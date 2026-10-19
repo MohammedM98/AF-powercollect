@@ -81,7 +81,7 @@ class TransactionAuditController extends Controller
             'period' => $period,
             'counts' => $this->counts($inPeriod()),
             'today' => DailySeries::today()->toDateString(),
-            'scopeLabel' => $actor->canViewAllSubscriberAccounts() ? 'كل الفروع' : ($actor->branch?->name ?? '—'),
+            'scopeLabel' => $actor->hasFinancialAuditAccess() ? ($actor->auditSettings()['scope'] === 'selected' ? 'الفروع المحددة للتدقيق' : 'كل الفروع') : ($actor->branch?->name ?? '—'),
             'filters' => $this->dataTableState($request, 'happened_at', 'desc', self::DEFAULT_PER_PAGE),
             'filterOptions' => $this->filterOptions($actor),
             // A row's subscription's statement, opened over the log.
@@ -98,9 +98,9 @@ class TransactionAuditController extends Controller
     private function filteredEvents(Request $request, User $actor): QueryBuilder
     {
         $search = $this->searchTerm($request);
-        $branchId = $actor->canViewAllSubscriberAccounts() ? $this->filterValue($request, 'branch_id') : null;
+        $branchId = $actor->hasFinancialAuditAccess() ? $this->filterValue($request, 'branch_id') : null;
         $userId = $this->filterValue($request, 'user_id');
-        $narrowsSubscriptions = ! $actor->canViewAllSubscriberAccounts() || $branchId !== null || $search !== '';
+        $narrowsSubscriptions = ($actor->hasFinancialAuditAccess() && $actor->auditSettings()['scope'] === 'selected') || ! $actor->hasFinancialAuditAccess() || $branchId !== null || $search !== '';
 
         $amendments = DB::table('transaction_amendments')
             ->join('subscription_transactions', 'subscription_transactions.id', '=', 'transaction_amendments.transaction_id')
@@ -121,7 +121,7 @@ class TransactionAuditController extends Controller
         return DB::query()
             ->fromSub($amendments->unionAll($reversals)->unionAll($deletions), 'events')
             ->when($narrowsSubscriptions, fn (QueryBuilder $query) => $query->whereIn('subscription_id', Subscription::query()
-                ->readableTo($actor)
+                ->readableTo($actor, true)
                 ->when($branchId, fn (Builder $subscriptions) => $subscriptions->where('branch_id', $branchId))
                 ->when($search !== '', fn (Builder $subscriptions) => $subscriptions->matchingSearch($search))
                 ->select('subscriptions.id')))
@@ -290,13 +290,14 @@ class TransactionAuditController extends Controller
      */
     private function filterOptions(User $actor): array
     {
-        $groups = $actor->canViewAllSubscriberAccounts() ? [$this->branchFilterGroup()] : [];
+        $groups = $actor->hasFinancialAuditAccess() ? [$this->branchFilterGroup($actor)] : [];
 
         $groups[] = $this->filterGroup('kind', 'الإجراء', collect(self::KINDS)->map(fn (string $label, string $value): array => ['value' => $value, 'label' => $label])->values());
         $groups[] = $this->filterGroup('user_id', 'بواسطة', $this->staffOptions(
             User::query()
+                ->when($actor->hasFinancialAuditAccess() && $actor->auditSettings()['scope'] === 'selected', fn (Builder $users) => $users->whereIn('id', $this->filteredEvents(new Request, $actor)->select('user_id')))
                 // Branch staff see their branch's staff and the Super Admins, who have no branch.
-                ->when(! $actor->canViewAllSubscriberAccounts(), fn (Builder $users) => $users->where(fn (Builder $inBranch) => $inBranch
+                ->when(! $actor->hasFinancialAuditAccess(), fn (Builder $users) => $users->where(fn (Builder $inBranch) => $inBranch
                     ->where('branch_id', $actor->branch_id)
                     ->orWhereNull('branch_id')))
                 ->orderBy('name')

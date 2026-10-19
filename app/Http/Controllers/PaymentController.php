@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
 use App\Enums\CashBoxType;
 use App\Enums\ChargeType;
 use App\Enums\DiscountMethod;
@@ -27,6 +28,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\Tariff;
 use App\Models\User;
+use App\Support\AuditTransferSearch;
 use App\Support\BankTransferAuditing;
 use App\Support\BranchBoxes;
 use App\Support\BranchClosingAccess;
@@ -355,7 +357,17 @@ class PaymentController extends Controller
         if (BranchClosingAccess::closedOnly($actor, $branch->id)) {
             $place = 'closed';
         }
-        $request->validate(['week' => ['nullable', 'date_format:Y-m-d']]);
+        $request->validate([
+            'week' => ['nullable', 'date_format:Y-m-d'],
+            'transfer_search' => ['nullable', 'string', 'max:100'],
+            'transfer_state' => ['nullable', 'in:differences,unreviewed,draft,missing,short,over,matched'],
+        ]);
+        $canSearchTransfers = $actor->is_active && ($actor->isSuperAdmin() || $actor->hasFinancialAuditAccess());
+        $searchingTransfers = $request->query('view') === 'transfers';
+        abort_if($searchingTransfers && ! $canSearchTransfers, 403);
+        if ($searchingTransfers) {
+            $place = 'closed';
+        }
         $periods = $this->branchBoxes->periods($branch->id);
         $week = $request->query('week')
             ? $this->branchBoxes->weekOf(ClosingPeriods::date($request->query('week')), $branch->id)
@@ -369,14 +381,20 @@ class PaymentController extends Controller
             $periods = $periods->sortByDesc('start')->values();
         }
 
-        $boxes = $this->branchBoxes->rows($branch->id, $actor, $place, $request->integer('box') ?: null, $week);
+        $boxes = $searchingTransfers ? collect() : $this->branchBoxes->rows($branch->id, $actor, $place, $request->integer('box') ?: null, $week);
+        $canApprovePeriod = $place === 'closed' && BankTransferAuditing::allowed($actor, AuditAction::ApprovePeriods) && BankTransferAuditing::allowed($actor, AuditAction::ApproveBoxes);
+        $periodPreview = fn (): array => $this->branchBoxes->periodAudit($searchingTransfers ? $this->branchBoxes->rows($branch->id, $actor, 'closed', week: $week) : $boxes, $branch->id, $week);
 
         return Inertia::render('Payments/BranchCashBoxes', [
             'branch' => $branch, 'branches' => $branches, 'started' => $started || $periods->contains(fn (array $period): bool => $period['count'] > 0),
             'place' => $place,
             'tabs' => $this->boxTabs($branches, $branch, $actor),
             'boxes' => $boxes,
-            'periodAudit' => $place === 'closed' && BankTransferAuditing::allowed($actor) ? $this->branchBoxes->periodAudit($boxes, $branch->id, $week) : null,
+            'periodAudit' => $canApprovePeriod ? ($searchingTransfers ? Inertia::optional($periodPreview) : $periodPreview()) : null,
+            'canApprovePeriod' => $canApprovePeriod,
+            'canSearchTransfers' => $canSearchTransfers,
+            'searchingTransfers' => $searchingTransfers,
+            'transferSearch' => $searchingTransfers ? app(AuditTransferSearch::class)->results($request, $actor, $branch->id, $week) : null,
             'periods' => $periods, 'week' => $week, 'weekStartsOn' => ClosingSetting::forBranch($branch->id)->week_starts_on,
             'access' => $this->branchBoxes->access($actor, $branch->id),
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),

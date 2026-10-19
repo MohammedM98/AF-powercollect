@@ -8,6 +8,8 @@ import { defaultLayout, fitLayout, pageCss, paperSize, rememberedLayout, remembe
 import PrintPaper from './PrintPaper';
 import PrintSettingsPanel from './PrintSettingsPanel';
 import { reportDetails, reportFilters } from '@/lib/cashBoxReport';
+import { statementPrintDetails } from '@/lib/statementPrint';
+import { STATEMENT_VIEWS } from '@/lib/accountStatement';
 
 /** Pixels in a millimetre on screen (96 dpi). */
 const PX_PER_MM = 96 / 25.4;
@@ -60,13 +62,14 @@ export default function PrintDesigner({ settings, children }) {
     const list = paginatedProp(props);
     const isCut = settings.allRows && list && list.total > list.data.length;
     const report = props.report;
-    const details = report?.counts ? reportDetails(report) : [];
-    const context = { appName: props.appName, branchName: report?.branch ?? props.auth?.user?.branchName, userName: props.auth?.user?.name, details };
+    const statementPrint = Boolean(props.printOptions);
+    const details = statementPrint ? statementPrintDetails(props) : report?.counts ? reportDetails(report) : [];
+    const context = { appName: props.appName, branchName: statementPrint ? props.subscription?.branchName : report?.branch ?? props.auth?.user?.branchName, userName: props.auth?.user?.name, details };
 
     function freshLayout(columns) {
         const fresh = defaultLayout({ columns, title: settings.title || document.title, company: props.appName ?? '' });
+        if (details.length > 0) fresh.header.reportFields = details.map((field) => field.key);
         if (report?.counts) {
-            fresh.header.reportFields = details.map((field) => field.key);
             fresh.columns = fresh.columns.map((column) => ({ ...column, total: ['مبلغ الصندوق', 'وصل البنك', 'الفرق'].includes(column.key) }));
         }
         return fresh;
@@ -193,6 +196,16 @@ export default function PrintDesigner({ settings, children }) {
                     </span>
                 )}
                 <div className="ms-auto flex flex-wrap items-center gap-2">
+                    {statementPrint && <label className="flex items-center gap-2 text-sm text-gray-600">عرض الكشف
+                        <select aria-label="عرض الكشف المطبوع" value={props.printOptions.view} onChange={(event) => {
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('view', event.target.value);
+                            if (props.subscription) url.searchParams.set('subscription', props.subscription.id);
+                            router.get(url.href, {}, { preserveState: true, preserveScroll: true });
+                        }} className="!py-1.5 text-sm">
+                            {STATEMENT_VIEWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                    </label>}
                     {report?.counts && <label className="flex items-center gap-2 text-sm text-gray-600">الحركات
                         <select aria-label="تصفية الحركات المطبوعة" value={report.filter} onChange={(event) => {
                             const url = new URL(window.location.href);
@@ -233,12 +246,13 @@ export default function PrintDesigner({ settings, children }) {
                     {layout ? (
                         <PrintSettingsPanel
                             reportFields={details}
+                            reportFieldsTitle={statementPrint ? 'بيانات الكشف' : 'بيانات الصندوق'}
                             layout={layout}
                             onChange={setLayout}
                             scope={{
                                 allRows: settings.allRows,
-                                allRowsOnly: Boolean(report?.counts),
-                                total: report?.counts ? report.rows.length : list?.total,
+                                allRowsOnly: Boolean(report?.counts) || statementPrint,
+                                total: statementPrint ? table?.rows.filter((row) => row.type === 'row').length : report?.counts ? report.rows.length : list?.total,
                                 onChange: (allRows) => window.location.assign(printScopeUrl(allRows)),
                             }}
                             templates={{

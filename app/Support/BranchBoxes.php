@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\AuditAction;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\Closing;
@@ -34,7 +35,7 @@ class BranchBoxes
     public function branch(Request $request, User $actor): array
     {
         $allBranches = $actor->isSuperAdmin() || BranchClosingAccess::audit($actor);
-        $branches = $allBranches ? Branch::query()->orderBy('name')->get(['id', 'name']) : Branch::query()->whereKey($actor->branch_id)->get(['id', 'name']);
+        $branches = $allBranches ? $actor->scopeAuditBranches(Branch::query(), 'branches.id')->orderBy('name')->get(['id', 'name']) : Branch::query()->whereKey($actor->branch_id)->get(['id', 'name']);
         $branchId = $allBranches ? ($request->integer('branch_id') ?: $branches->first()?->id) : $actor->branch_id;
         $branch = $branches->firstWhere('id', $branchId);
         abort_unless($branch, 404);
@@ -67,6 +68,7 @@ class BranchBoxes
      */
     public function rows(int $branchId, User $actor, string $place, ?int $alsoBoxId = null, ?string $week = null): Collection
     {
+        abort_if($actor->hasFinancialAuditAccess() && ! $actor->auditIncludesBranch($branchId), 404);
         $query = $this->in($branchId, $place);
         if ($place === 'closed' && $week) {
             $from = ClosingPeriods::date($week);
@@ -87,7 +89,7 @@ class BranchBoxes
 
         return $boxes->map(function (CashBox $box) use ($ledgers, $actor): array {
             $row = $this->present($box, $ledgers);
-            if ($actor->isFinancialAuditor() && ! $actor->canViewAllSubscriberAccounts()) {
+            if ($actor->hasFinancialAuditAccess() && ! $actor->canViewAllSubscriberAccounts()) {
                 $row['payments'] = array_map(fn (array $entry): array => [...$entry, 'statement_url' => null], $row['payments']);
             }
             $active = $box->payments->filter(fn ($entry): bool => $entry->transaction?->status === SubscriptionTransaction::STATUS_ACTIVE);
@@ -98,8 +100,10 @@ class BranchBoxes
                 ...$row,
                 'canCount' => $this->workflow->mayReceive($box, $actor),
                 'isOwn' => $box->user_id === $actor->id,
-                'canAudit' => $canAudit,
-                'canCompleteAudit' => $canAudit,
+                'canAudit' => $canAudit || ($box->status === 'received' && $actor->canAuditAction(AuditAction::ApproveBoxes) && $box->audit === null),
+                'canReviewTransfers' => $canAudit,
+                'canCompleteAudit' => $box->status === 'received' && $actor->canAuditAction(AuditAction::ApproveBoxes) && $box->audit === null,
+                'canPrint' => ! $actor->hasFinancialAuditAccess() || $actor->canAuditAction(AuditAction::PrintReports),
                 'completeAuditUrl' => route('payments.box-audits.store', $box),
                 'auditSummary' => [
                     'total' => $active->count(), 'reviewed' => $reviewed->count(),

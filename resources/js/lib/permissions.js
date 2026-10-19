@@ -44,7 +44,7 @@ export const SENSITIVE = {
     'collections.amend': { label: 'تعديل بيانات الدفعة', hint: 'البنك والمرسل والملاحظات؛ لا يغيّر المبلغ أو رقم المرجع', risk: 'sensitive' },
     'collections.close_boxes': { label: 'إغلاق صناديق المحصّلين', hint: 'يراجع صناديق محصّلي الفرع ويؤكّد إغلاقها؛ لا صناديقه هو', risk: 'sensitive' },
     'collections.manage_box_periods': { label: 'تعديل بداية فترات الصناديق', hint: 'يمنحها المدير العام لمسؤول الفرع لتعديل يوم بداية فترات فرعه فقط', risk: 'sensitive' },
-    'collections.audit': { label: 'التدقيق المالي لكل الفروع', hint: 'يمنحها المدير العام: المشتركين وكشوف الحساب والسجل المالي وسجل التدقيق لكل الفروع، وتدقيق حوالات الصناديق المغلقة', risk: 'sensitive' },
+    'collections.audit': { label: 'التدقيق المالي', hint: 'يمنحها السوبر أدمن؛ الفروع والإجراءات محددة في بطاقة «عمل التدقيق المالي» أعلاه', risk: 'sensitive' },
     'collections.refund': { label: 'ردّ الدفعة', hint: 'يردّ المبلغ بقيد مرتبط؛ تبقى الدفعة وسجل الردّ ظاهرين', risk: 'danger' },
     'collections.delete': { label: 'إلغاء الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف', risk: 'danger' },
     'collections.force_delete': { label: 'الحذف النهائي للحركة', hint: 'يحذفها من الكشف مع الاحتفاظ بسجل تدقيق؛ لا يحذف القراءة', risk: 'danger' },

@@ -8,6 +8,7 @@ import { individualChanges, sectionModel } from '../../resources/js/lib/permissi
 
 let PermissionSummary;
 let PermissionChangeReview;
+let PermissionEditor;
 
 before(async () => {
     const bundle = await rolldown({
@@ -27,7 +28,7 @@ before(async () => {
     });
     try {
         const { output } = await bundle.generate({ format: 'esm' });
-        ({ PermissionSummary, PermissionChangeReview } = await import(`data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`));
+        ({ PermissionSummary, PermissionChangeReview, PermissionEditor } = await import(`data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`));
     } finally { await bundle.close(); }
 });
 
@@ -37,6 +38,17 @@ const payments = sectionModel({ key: 'collections', label: 'الدفعات وا�
     { action: 'record', permission: { id: 2, label: 'إضافة دفعة' } },
     { action: 'force_delete', permission: { id: 3, label: 'الحذف النهائي للحركة' } },
 ] });
+
+test('the auditor editor includes its work card and clearly locks operational permissions', () => {
+    const auditor = { ...employee, id: 1, username: 'audit', role: 'financial_auditor', roleLabel: 'مدقق مالي', permissionIds: [999], auditSettings: { scope: 'selected', branch_ids: [1], actions: ['review_transfers'] } };
+    const html = renderToStaticMarkup(createElement(PermissionEditor, { employee: auditor, sections: [payments], templates: [], copySources: [], scopedToOwnBranch: false, onDirtyChange() {}, auditOptions: { permissionId: 999, branches: [{ id: 1, name: 'فرع العمل' }], actions: [{ value: 'review_transfers', label: 'مراجعة الحوالات', hint: 'تسجيل مبلغ البنك' }] } }));
+
+    assert.match(html, /عمل التدقيق المالي/);
+    assert.match(html, /الصلاحيات التشغيلية مقفلة لدور المدقق/);
+    assert.match(html, /فرع العمل/);
+    assert.match(html, /<button[^>]*disabled=""[^>]*>[^]*?مقفل لهذا الدور<\/button>/);
+    assert.doesNotMatch(html, /لا يملك عرض السجل أو إضافة دفعة/);
+});
 
 test('summary clearly limits its count to editable grants and identifies preserved rights', () => {
     const html = renderToStaticMarkup(createElement(PermissionSummary, { employee, sections: [payments], selected: [1, 2], template: { label: 'محصل', permissionIds: [1] }, scopedToOwnBranch: true }));

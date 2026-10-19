@@ -448,9 +448,14 @@ trait FiltersDataTable
      *
      * @return array{key: string, label: string, options: array<int, array{value: string, label: string}>}
      */
-    protected function branchFilterGroup(): array
+    protected function branchFilterGroup(?User $actor = null): array
     {
-        return $this->filterGroup('branch_id', 'الفرع', $this->modelOptions(Branch::orderBy('name')->get()));
+        $branches = Branch::query()->orderBy('name');
+        if ($actor) {
+            $actor->scopeAuditBranches($branches, 'branches.id');
+        }
+
+        return $this->filterGroup('branch_id', 'الفرع', $this->modelOptions($branches->get()));
     }
 
     /**

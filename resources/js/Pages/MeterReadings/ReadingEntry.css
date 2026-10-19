@@ -108,7 +108,6 @@
 .re-diff { color: var(--re-brand); font-weight: 700; }
 .re-due { font-weight: 800; }
 .re-due p { font-family: 'IBM Plex Sans Arabic', sans-serif; }
-.re-row.is-draft .re-diff, .re-row.is-draft .re-fee, .re-row.is-draft .re-due { opacity: .55; }
 .re-pill { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border-radius: 99px; padding: 4px 9px; font-size: 12.5px; font-weight: 700; border: 1px solid var(--re-line); color: var(--re-faint); background: var(--re-sunken); }
 .re-pill.pending, .re-pill.approved { color: var(--re-warn); background: color-mix(in srgb, var(--re-warn) 10%, transparent); border-color: color-mix(in srgb, var(--re-warn) 25%, transparent); }
 .re-pill.approved { color: var(--re-success); background: color-mix(in srgb, var(--re-success) 10%, transparent); border-color: color-mix(in srgb, var(--re-success) 25%, transparent); }

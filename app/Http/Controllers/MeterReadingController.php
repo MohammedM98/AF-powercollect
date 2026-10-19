@@ -7,10 +7,12 @@ use App\Enums\PermissionKey;
 use App\Enums\ReadingEntryMode;
 use App\Enums\SubscriptionStatus;
 use App\Http\Concerns\FiltersDataTable;
+use App\Http\Requests\AdjustLastReadingRequest;
 use App\Http\Requests\ApproveMeterReadingsRequest;
 use App\Http\Requests\PreviewLastReadingRequest;
 use App\Http\Requests\StoreMeterReadingRequest;
 use App\Http\Requests\UpdateMeterReadingRequest;
+use App\Http\Requests\UpdateReadingPricingRequest;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\MeterBox;
@@ -229,6 +231,87 @@ class MeterReadingController extends Controller
         });
     }
 
+    public function previewAdjustment(AdjustLastReadingRequest $request, MeterReading $meterReading): JsonResponse
+    {
+        $newReading = $request->float('current_reading');
+        $reset = $request->isMeterChange();
+        $after = $reset ? [
+            'consumption' => $meterReading->consumption, 'amount_due' => $meterReading->amount_due, 'unusual' => false,
+        ] : $meterReading->recalculatedBetween($meterReading->previous_reading, $newReading);
+        $next = $meterReading->subscription->meterReadings()->where('week_start', '>', $meterReading->week_start)->first();
+
+        return response()->json([
+            'reset' => $reset, 'before' => $meterReading->nextPreviousReading(), 'after' => $newReading,
+            'weeks' => [$this->previewedWeek($meterReading, $meterReading->previous_reading, $reset ? $meterReading->current_reading : $newReading, $after)],
+            'clearsCurrentReading' => $next !== null,
+            'removedCurrentAmount' => $next !== null && ! $next->isPending() ? $next->amount_due : '0.00',
+        ]);
+    }
+
+    public function adjustLastReading(AdjustLastReadingRequest $request, MeterReading $meterReading): RedirectResponse
+    {
+        $actor = $request->user();
+        DB::transaction(function () use ($request, $meterReading, $actor): void {
+            $meterReading->subscription()->lockForUpdate()->firstOrFail();
+            $reading = MeterReading::query()->lockForUpdate()->findOrFail($meterReading->id);
+            $this->authorize('adjustLastReading', $reading);
+            if (round($reading->nextPreviousReading(), 2) !== round($request->float('expected_reading'), 2)) {
+                throw ValidationException::withMessages(['current_reading' => 'تغيّرت القراءة؛ حدّث الصفحة وراجع القيمة الجديدة قبل التعديل.']);
+            }
+
+            $newReading = $request->float('current_reading');
+            if (! $request->isMeterChange() && round($newReading, 2) === round($reading->nextPreviousReading(), 2)) {
+                return;
+            }
+
+            if ($request->isMeterChange()) {
+                $reading->recordAdjustment('baseline_reset', ['previousReading' => $reading->nextPreviousReading()], ['previousReading' => $newReading], $actor, $request->validated('reason'));
+                $reading->update(['next_previous_reading' => $newReading]);
+            } else {
+                $wasApproved = $reading->correct($newReading, $reading->notes, $actor);
+                $reading->update(['next_previous_reading' => null]);
+                if ($wasApproved) {
+                    $this->approveCorrectedLastReading($reading, $actor, $request->boolean('confirm_unusual'));
+                }
+            }
+
+            $next = $reading->subscription->meterReadings()->where('week_start', '>', $reading->week_start)->lockForUpdate()->first();
+            $next?->requireCurrentReadingAgain($newReading, $actor);
+        });
+
+        $actor->notify(new ActionCompleted('meter-reading-updated', $meterReading->subscription->displayName()));
+
+        return back()->with('status', 'meter-reading-updated');
+    }
+
+    public function updatePricing(UpdateReadingPricingRequest $request, MeterReading $meterReading): RedirectResponse
+    {
+        $actor = $request->user();
+        $reopened = DB::transaction(function () use ($request, $meterReading, $actor): bool {
+            $meterReading->subscription()->lockForUpdate()->firstOrFail();
+            $reading = MeterReading::query()->lockForUpdate()->findOrFail($meterReading->id);
+            foreach (['unit_price' => 'updateUnitPrice', 'minimum_payment' => 'updateMinimumPayment'] as $field => $ability) {
+                if ($request->has($field)) {
+                    $this->authorize($ability, $reading);
+                }
+            }
+            $before = $reading->only(['unit_price', 'minimum_payment']);
+            $reading->fill($request->validated());
+            if (! $reading->isDirty(['unit_price', 'minimum_payment'])) {
+                return false;
+            }
+            $reopened = $reading->correct($reading->current_reading, $reading->notes, $actor);
+            $reading->recordAdjustment('pricing', $before, $reading->only(['unit_price', 'minimum_payment']), $actor);
+
+            return $reopened;
+        });
+        if ($reopened) {
+            Notification::send($meterReading->approvers()->reject(fn (User $approver) => $approver->is($actor)), new ReadingNeedsReapproval($meterReading->subscription->displayName(), $actor->name));
+        }
+
+        return back()->with('status', $reopened ? 'meter-reading-reopened' : 'meter-reading-updated');
+    }
+
     /**
      * Approve again a week sent back to review by editing the last reading,
      * as part of confirming that edit. A week the edit made unusual is held
@@ -291,7 +374,7 @@ class MeterReadingController extends Controller
             'unusual' => $after['unusual'] ?? false,
             'before' => [
                 'previousReading' => $reading->previous_reading,
-                'currentReading' => $reading->current_reading,
+                'currentReading' => $reading->requires_reentry ? null : $reading->current_reading,
                 'consumption' => (float) $reading->consumption,
                 'amountDue' => $reading->amount_due,
             ],
@@ -368,6 +451,7 @@ class MeterReadingController extends Controller
     {
         return MeterReading::query()
             ->visibleTo($actor)
+            ->where('requires_reentry', false)
             ->where('status', MeterReadingStatus::Pending);
     }
 
@@ -437,7 +521,7 @@ class MeterReadingController extends Controller
             ->limit(1);
 
         $lastBefore = MeterReading::query()
-            ->select('current_reading')
+            ->selectRaw('COALESCE(next_previous_reading, current_reading)')
             ->whereColumn('meter_readings.subscription_id', 'subscriptions.id')
             ->whereDate('week_start', '<', $week)
             ->orderByDesc('week_start')
@@ -643,7 +727,7 @@ class MeterReadingController extends Controller
             'meterBoxName' => $subscription->meterBox?->displayName(),
             'phone' => $subscription->contactPhone(),
             'subAreaName' => $subscription->meterBox?->subArea?->name,
-            'previousReading' => $reading?->previous_reading ?? (float) ($lastBefore?->current_reading ?? $subscription->initial_reading ?? 0),
+            'previousReading' => $reading?->previous_reading ?? ($lastBefore?->nextPreviousReading() ?? (float) ($subscription->initial_reading ?? 0)),
             'unitPrice' => (string) ($reading?->unit_price ?? $subscription->kilowattPrice()),
             'minimumPayment' => (string) ($reading?->minimum_payment ?? $subscription->weeklyMinimumPayment()),
             'discount' => $discountMethod ? [
@@ -654,7 +738,8 @@ class MeterReadingController extends Controller
             ] : null,
             'reading' => $reading ? [
                 'id' => $reading->id,
-                'currentReading' => $reading->current_reading,
+                'currentReading' => $reading->requires_reentry ? null : $reading->current_reading,
+                'requiresReentry' => $reading->requires_reentry,
                 'consumption' => $reading->consumption,
                 'readingFee' => $reading->reading_fee,
                 'discountAmount' => $reading->discount_amount,
@@ -679,7 +764,7 @@ class MeterReadingController extends Controller
                 'weekEnd' => $lastBefore->week_end?->toDateString(),
                 'previousReading' => $lastBefore->previous_reading,
                 'status' => $lastBefore->status->value,
-                'canEdit' => ! $subscription->has_later_week && $actor->can('updateAsLastReading', $lastBefore),
+                'canEdit' => ! $subscription->has_later_week && $actor->can('adjustLastReading', $lastBefore),
             ] : null,
             'hasLaterWeek' => (bool) $subscription->has_later_week,
             'canApprove' => $reading !== null && $actor->can('approve', $reading),

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
 use App\Enums\PermissionKey;
 use App\Http\Requests\StoreSplitPaymentRequest;
 use App\Models\SplitPayment;
@@ -87,7 +88,10 @@ class SplitPaymentController extends Controller
         $actor = $request->user();
         $seesEveryBranch = $actor->isSuperAdmin() || $actor->hasPermission(PermissionKey::ViewAllClosings) || $actor->hasPermission(PermissionKey::AuditClosings);
         $payments = $splitPayment->payments()->with(['subscription', 'cancelledBy'])->get();
-        [$visible, $hidden] = $payments->partition(fn (SubscriptionTransaction $payment): bool => $seesEveryBranch || $payment->subscription->branch_id === $actor->branch_id);
+        [$visible, $hidden] = $payments->partition(fn (SubscriptionTransaction $payment): bool => $actor->hasFinancialAuditAccess()
+            ? $actor->auditIncludesBranch($payment->subscription->branch_id) && (! $actor->isFinancialAuditor() || $payment->isInClosedDay())
+            : ($seesEveryBranch || $payment->subscription->branch_id === $actor->branch_id));
+        abort_if($actor->hasFinancialAuditAccess() && $visible->isEmpty(), 404);
         $standingTotal = $splitPayment->standingTotal();
 
         return response()->json([
@@ -110,7 +114,7 @@ class SplitPaymentController extends Controller
                 'amount' => SubscriptionTransaction::formatAmount(ltrim($payment->amount, '-')),
                 'isCancelled' => $payment->isCancelled(),
                 'cancellationLabel' => $payment->cancellation_reason ? __($payment->cancellation_reason->label()) : null,
-                'receiptUrl' => $actor->can('view', $payment->subscription) || $actor->can('recordPayment', $payment->subscription)
+                'receiptUrl' => (! $actor->hasFinancialAuditAccess() || $actor->canAuditAction(AuditAction::PrintReports)) && ($actor->can('view', $payment->subscription) || $actor->can('recordPayment', $payment->subscription))
                     ? route('subscriptions.payments.receipt', [$payment->subscription, $payment])
                     : null,
             ])->values()->all(),

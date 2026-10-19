@@ -2,8 +2,8 @@
 
 namespace App\Support;
 
+use App\Enums\AuditAction;
 use App\Enums\CashBoxType;
-use App\Enums\PermissionKey;
 use App\Models\BankTransferAudit;
 use App\Models\CashBox;
 use App\Models\CashBoxAudit;
@@ -17,14 +17,15 @@ class BankTransferAuditing
 {
     public function __construct(private BranchClosingWorkflow $workflow, private BranchBoxes $boxes) {}
 
-    public static function allowed(User $actor): bool
+    public static function allowed(User $actor, AuditAction $action = AuditAction::ReviewTransfers): bool
     {
-        return $actor->is_active && $actor->hasPermission(PermissionKey::AuditClosings);
+        return $actor->is_active && $actor->canAuditAction($action);
     }
 
     public function record(CashBoxPayment $entry, User $actor, string $bankAmount, ?string $reason): BankTransferAudit
     {
         abort_unless(self::allowed($actor), 403);
+        abort_unless($actor->auditIncludesBranch($entry->box->branch_id), 404);
 
         return $this->workflow->locked($entry->box->branch_id, function () use ($entry, $actor, $bankAmount, $reason): BankTransferAudit {
             $current = CashBoxPayment::query()->with(['box', 'transaction'])->lockForUpdate()->findOrFail($entry->id);
@@ -71,7 +72,8 @@ class BankTransferAuditing
 
     public function complete(CashBox $box, User $actor): CashBoxAudit
     {
-        abort_unless(self::allowed($actor), 403);
+        abort_unless(self::allowed($actor, AuditAction::ApproveBoxes), 403);
+        abort_unless($actor->auditIncludesBranch($box->branch_id), 404);
 
         return $this->workflow->locked($box->branch_id, function () use ($box, $actor): CashBoxAudit {
             $current = CashBox::query()->lockForUpdate()->findOrFail($box->id);
@@ -126,7 +128,8 @@ class BankTransferAuditing
     /** @param list<int> $expectedBoxIds */
     public function completePeriod(int $branchId, string $week, User $actor, array $expectedBoxIds, string $snapshot): void
     {
-        abort_unless(self::allowed($actor), 403);
+        abort_unless(self::allowed($actor, AuditAction::ApprovePeriods) && self::allowed($actor, AuditAction::ApproveBoxes), 403);
+        abort_unless($actor->auditIncludesBranch($branchId), 404);
 
         $this->workflow->locked($branchId, function () use ($branchId, $week, $actor, $expectedBoxIds, $snapshot): void {
             $this->workflow->require($this->boxes->weekOf(ClosingPeriods::date($week), $branchId) === $week, 'تغيرت حدود الفترة؛ حدّث الصفحة وراجع الفترة مجددًا.');

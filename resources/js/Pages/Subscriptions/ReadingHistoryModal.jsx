@@ -9,6 +9,7 @@ import { formatMoney, formatNumber } from '@/lib/format';
 import { groupReadingsByMonth, readingHistoryCsv, readingTotals, readingsInPeriod } from '@/lib/readingHistory';
 import { consumptionBetween, steppedReading, weeklyCharges } from '@/lib/readings';
 import { useLastReadingEdit } from '@/hooks/useLastReadingEdit';
+import ReadingPricingField from './ReadingPricingField';
 import './ReadingHistoryModal.css';
 
 const PERIODS = [['12', 'آخر 12 أسبوعًا'], ['26', '6 أشهر'], ['52', 'سنة'], ['all', 'الكل']];
@@ -29,6 +30,21 @@ function HistoryIcon({ name }) {
 
 function Figure({ label, value, unit, children }) {
     return <div className="rh-figure"><small>{label}</small><b>{value}{unit && <em>{unit}</em>}</b><span>{children ?? '—'}</span></div>;
+}
+
+function ReadingAdjustmentHistory({ reading }) {
+    const labels = { baseline_reset: 'تغيير نقطة البداية', reading_correction: 'تصحيح القراءة', current_reading_cleared: 'طلب إدخال الحالية مجددًا', pricing: 'تعديل التسعير' };
+    const fields = { previousReading: 'السابقة', currentReading: 'الحالية', unit_price: 'سعر الكيلو', minimum_payment: 'الحد الأدنى' };
+
+    return <>
+        {reading.requiresReentry && <span className="rh-note">بانتظار إدخال القراءة الحالية من جديد</span>}
+        {!reading.requiresReentry && reading.nextPreviousReading != null && Number(reading.nextPreviousReading) !== Number(reading.current_reading) && <span className="rh-note">نقطة البداية التالية: {formatMoney(reading.nextPreviousReading)} · القراءة المفوترة: {formatMoney(reading.current_reading)}</span>}
+        {reading.adjustmentHistory?.length > 0 && <details className="mt-2 text-xs font-normal"><summary className="cursor-pointer text-brand-700">سجل التعديلات ({reading.adjustmentHistory.length})</summary><div className="space-y-2 py-2">{[...reading.adjustmentHistory].reverse().map((entry, index) => <div key={index} className="rounded border border-gray-200 p-2">
+            <b>{labels[entry.kind] ?? 'تعديل'}</b><p>{entry.userName} · <bdi dir="ltr">{entry.at}</bdi></p>
+            {Object.entries(entry.after).filter(([field]) => fields[field]).map(([field, value]) => <p key={field}>{fields[field]}: <bdi dir="ltr">{entry.before[field] == null ? '—' : formatMoney(entry.before[field])} ← {value == null ? '—' : formatMoney(value)}</bdi></p>)}
+            {entry.reason && <p>السبب: {entry.reason}</p>}
+        </div>)}</div></details>}
+    </>;
 }
 
 function HistoryChart({ readings, average }) {
@@ -104,28 +120,21 @@ function HistoryChart({ readings, average }) {
 /**
  * The subscription's last reading — the one the latest week starts from — with a pencil that
  * opens it with − and + to correct it in place, as on the readings sheet (useLastReadingEdit).
- * `nextReading` is the latest week's reading once entered: it is recalculated from this one,
- * so saving first shows what the edit does, with that week's reading typed again by hand,
- * and asks "are you sure?"; confirmed, the approved one(s) are approved again at once.
+ * Saving confirms this baseline separately; the current field is then entered by hand in the table.
  */
-function LastReadingField({ subscription, lastReading, nextReading }) {
+function LastReadingField({ subscription, lastReading }) {
     const editor = useLastReadingEdit({
         readingId: lastReading.id,
-        savedValue: lastReading.current_reading,
+        savedValue: lastReading.nextPreviousReading ?? lastReading.current_reading,
         floor: lastReading.previous_reading,
-        needsConfirmation: lastReading.status === 'approved' || Boolean(nextReading),
     });
 
     return <>
         <LastReadingConfirmDialog editor={editor} subscriptionName={subscription.display_name} />
-        {editor.editing ? <div className="rh-stepper" dir="ltr">
-            <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => editor.step(-1)} disabled={!editor.canStepDown} aria-label="إنقاص القراءة السابقة">−</button>
-            <input {...editor.inputProps} aria-label="القراءة السابقة" />
-            <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => editor.step(1)} disabled={!editor.canStepUp} aria-label="زيادة القراءة السابقة">+</button>
-        </div> : <span className="rh-last-value">
-            <span className="rh-last-number">{formatMoney(lastReading.current_reading)}</span>
+        <span className="rh-last-value">
+            <span className="rh-last-number">{formatMoney(lastReading.nextPreviousReading ?? lastReading.current_reading)}</span>
             <button type="button" className="rh-last-pencil" onClick={editor.open} aria-label="تعديل القراءة السابقة" title={`تعديل قراءة الأسبوع ${shortDate(lastReading.weekStart)} – ${shortDate(lastReading.weekEnd)}`}><Icon name="pencil" /></button>
-        </span>}
+        </span>
     </>;
 }
 
@@ -137,7 +146,7 @@ function LastReadingField({ subscription, lastReading, nextReading }) {
  * `editableLastReading`, when the actor may edit it, makes the last reading editable beside it.
  */
 function LiveRow({ subscription, week, reading, maximum, average, editableLastReading = null }) {
-    const savedValue = reading ? String(reading.current_reading) : '';
+    const savedValue = reading && !reading.requiresReentry ? String(reading.current_reading) : '';
     const [value, setValue] = useState(savedValue);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -147,7 +156,7 @@ function LiveRow({ subscription, week, reading, maximum, average, editableLastRe
     useEffect(() => {
         setValue(savedValue);
         setError(null);
-    }, [savedValue]);
+    }, [savedValue, reading?.previous_reading, !reading ? subscription.lastReading : null]);
 
     useEffect(() => {
         if (!reading) {
@@ -162,7 +171,7 @@ function LiveRow({ subscription, week, reading, maximum, average, editableLastRe
     const negative = consumption !== null && consumption < 0;
     const unitPrice = reading?.unitPrice ?? subscription.kilowattPrice;
     const minimumPayment = reading?.minimumPayment ?? subscription.weeklyMinimumPayment;
-    const charges = reading && !isDraft
+    const charges = reading && !reading.requiresReentry && !isDraft
         ? { consumption: Number(reading.consumption), discountAmount: Number(reading.discountAmount), amountDue: Number(reading.amountDue), minimumApplies: reading.minimumApplied }
         : typed && !negative ? { consumption, ...weeklyCharges(consumption, unitPrice, minimumPayment, reading ? null : subscription.standingDiscount) } : null;
     const difference = charges && average > 0 ? Math.round((charges.consumption - average) / average * 100) : 0;
@@ -201,7 +210,7 @@ function LiveRow({ subscription, week, reading, maximum, average, editableLastRe
     }
 
     return <tr className={`rh-live ${reading ? '' : 'is-new'}`}>
-        <td className="rh-week"><b dir="ltr" title={week.label}>{shortDate(week.value)} ← {shortDate(week.end)}</b><span className="rh-note">{reading ? 'يمكن تعديل القراءة هنا' : 'قراءة جديدة — أدخلها هنا'}</span></td>
+        <td className="rh-week"><b dir="ltr" title={week.label}>{shortDate(week.value)} ← {shortDate(week.end)}</b><span className="rh-note">{reading ? 'يمكن تعديل القراءة هنا' : 'قراءة جديدة — أدخلها هنا'}</span>{reading && <ReadingAdjustmentHistory reading={reading} />}</td>
         <td className={`rh-previous rh-number ${editableLastReading ? 'rh-last-cell' : ''}`}>{editableLastReading ? <LastReadingField subscription={subscription} lastReading={editableLastReading} nextReading={reading} /> : formatMoney(previous)}</td>
         <td className="rh-current rh-live-current">
             <div className="rh-stepper" dir="ltr">
@@ -226,12 +235,12 @@ function LiveRow({ subscription, week, reading, maximum, average, editableLastRe
             {(error || negative) && <small className="rh-live-error" role="alert">{error ?? `أقل من السابقة (${formatMoney(previous)})`}</small>}
         </td>
         <td className="rh-consumption"><div><b>{charges ? formatMoney(charges.consumption) : '—'}</b>{charges && <><span className="rh-meter"><i style={{ width: `${Math.min(100, Math.max(0, charges.consumption) / Math.max(maximum, charges.consumption, 1) * 100)}%` }} /></span><span className={`rh-delta ${Math.abs(difference) < 10 ? '' : difference > 0 ? 'rh-up' : 'rh-down'}`} dir="ltr">{Math.abs(difference) < 10 ? '≈' : `${difference > 0 ? '+' : ''}${difference}٪`}</span></>}</div></td>
-        <td className="rh-price rh-number"><span dir="ltr">{money(unitPrice)}</span></td>
-        <td className="rh-minimum rh-number"><span dir="ltr">{money(minimumPayment)}</span></td>
+        <td className="rh-price rh-number">{reading ? <ReadingPricingField reading={reading} field="unit_price" /> : <span dir="ltr">{money(unitPrice)}</span>}</td>
+        <td className="rh-minimum rh-number">{reading ? <ReadingPricingField reading={reading} field="minimum_payment" /> : <span dir="ltr">{money(minimumPayment)}</span>}</td>
         <td className="rh-discount">{charges && charges.discountAmount > 0 ? <span className="rh-discount-value" dir="ltr">−{money(charges.discountAmount)}</span> : <span className="rh-muted">—</span>}</td>
         <td className="rh-due">{charges ? <b dir="ltr">{money(charges.amountDue)} <em>₪</em></b> : <b>—</b>}{charges?.minimumApplies && <small>الحد الأدنى</small>}</td>
         <td className="rh-status">
-            {saving ? <span className="rh-saving">جارٍ الحفظ...</span> : reading ? <span className={`rh-pill ${reading.status === 'approved' ? 'is-approved' : 'is-pending'}`}><i />{reading.status === 'pending' ? 'قيد المراجعة' : reading.statusLabel}</span> : <span className="rh-pill is-missing"><i />لم تُدخل</span>}
+            {saving ? <span className="rh-saving">جارٍ الحفظ...</span> : reading ? <span className={`rh-pill ${reading.status === 'approved' ? 'is-approved' : 'is-pending'}`}><i />{reading.requiresReentry ? 'بانتظار إدخال الحالية' : reading.status === 'pending' ? 'قيد المراجعة' : reading.statusLabel}</span> : <span className="rh-pill is-missing"><i />لم تُدخل</span>}
             <ConfirmDialog show={confirming} onConfirm={() => { setConfirming(false); save(true); }} onCancel={() => { setConfirming(false); setValue(savedValue); }} title="تعديل قراءة معتمدة؟" message={`قراءة ${subscription.display_name} معتمدة. تعديلها يعيدها إلى قيد المراجعة ويزيل مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`} confirmLabel="نعم، عدّل" cancelLabel="تراجع عن التعديل" icon="alert" />
         </td>
         <td className="rh-recorder">{reading ? <>{reading.recordedByName ?? '—'}<small><HistoryIcon name={reading.recordedSource === 'app' ? 'app' : 'web'} /><span>{reading.recordedSource === 'app' ? 'التطبيق' : 'الموقع'}</span> · <span dir="ltr">{reading.recordedAt}</span></small></> : '—'}</td>
@@ -261,7 +270,7 @@ export default function ReadingHistoryModal({ subscription, onClose, readingWeek
     // The new week's line is entered in the table (the line itself, once it is recorded and may still be corrected).
     const canEnter = Boolean(subscription?.canRecordReading && entryWeek);
     const newLine = canEnter && !entryReading && status === 'all';
-    const editableId = canEnter && entryReading?.canUpdate ? entryReading.id : null;
+    const editableId = entryReading?.canUpdate ? entryReading.id : null;
     // The last reading the actor may edit: beside the latest week's line while that line is entered here,
     // otherwise on its own line, in place of its reading.
     const lastReadingIndex = allReadings.findIndex((reading) => reading.id === subscription?.editableLastReadingId);
@@ -323,11 +332,11 @@ export default function ReadingHistoryModal({ subscription, onClose, readingWeek
 
                                     const difference = average > 0 ? Math.round((Number(reading.consumption) - average) / average * 100) : 0;
                                     return <tr key={reading.id}>
-                                        <td className="rh-week"><b dir="ltr" title={`${reading.weekStart} – ${reading.weekEnd}`}>{shortDate(reading.weekStart)} ← {shortDate(reading.weekEnd)}</b>{reading.notes && <span className="rh-note">{reading.notes}</span>}</td>
-                                        <td className="rh-previous rh-number">{formatMoney(reading.previous_reading)}</td><td className={`rh-current rh-number ${!liveRowShown && reading.id === editableLastReading?.id ? 'rh-last-cell' : ''}`}>{!liveRowShown && reading.id === editableLastReading?.id ? <LastReadingField subscription={subscription} lastReading={reading} nextReading={readingAfterLast} /> : formatMoney(reading.current_reading)}</td>
+                                        <td className="rh-week"><b dir="ltr" title={`${reading.weekStart} – ${reading.weekEnd}`}>{shortDate(reading.weekStart)} ← {shortDate(reading.weekEnd)}</b>{reading.notes && <span className="rh-note">{reading.notes}</span>}<ReadingAdjustmentHistory reading={reading} /></td>
+                                        <td className="rh-previous rh-number">{formatMoney(reading.previous_reading)}</td><td className={`rh-current rh-number ${!liveRowShown && reading.id === editableLastReading?.id ? 'rh-last-cell' : ''}`}>{!liveRowShown && reading.id === editableLastReading?.id ? <LastReadingField subscription={subscription} lastReading={reading} nextReading={readingAfterLast} /> : reading.requiresReentry ? '—' : formatMoney(reading.current_reading)}</td>
                                         <td className="rh-consumption"><div><b>{formatMoney(reading.consumption)}</b><span className="rh-meter"><i style={{ width: `${Number(reading.consumption) / maximum * 100}%` }} /></span><span className={`rh-delta ${Math.abs(difference) < 10 ? '' : difference > 0 ? 'rh-up' : 'rh-down'}`} dir="ltr" title="الفرق عن متوسط الفترة">{Math.abs(difference) < 10 ? '≈' : `${difference > 0 ? '+' : ''}${difference}٪`}</span></div></td>
-                                        <td className="rh-price rh-number"><span dir="ltr">{reading.unitPrice != null ? money(reading.unitPrice) : '—'}</span></td>
-                                        <td className="rh-minimum rh-number"><span dir="ltr">{reading.minimumPayment != null ? money(reading.minimumPayment) : '—'}</span></td>
+                                        <td className="rh-price rh-number"><ReadingPricingField reading={reading} field="unit_price" /></td>
+                                        <td className="rh-minimum rh-number"><ReadingPricingField reading={reading} field="minimum_payment" /></td>
                                         <td className="rh-discount">{Number(reading.discountAmount) > 0 ? <span className="rh-discount-value" dir="ltr">−{money(reading.discountAmount)}</span> : <span className="rh-muted">—</span>}</td>
                                         <td className="rh-due"><b dir="ltr">{money(reading.amountDue)} <em>₪</em></b>{reading.minimumApplied && <small>الحد الأدنى</small>}</td>
                                         <td className="rh-status"><span className={`rh-pill ${reading.status === 'approved' ? 'is-approved' : 'is-pending'}`}><i />{reading.status === 'pending' ? 'قيد المراجعة' : reading.statusLabel}</span></td>

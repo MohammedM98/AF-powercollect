@@ -31,7 +31,7 @@ class BranchClosingAccess
 
     public static function audit(User $user): bool
     {
-        return $user->is_active && ($user->isFinancialAuditor() || $user->hasAnyPermission(PermissionKey::AuditClosings, PermissionKey::ViewAllClosings));
+        return $user->is_active && ($user->hasFinancialAuditAccess() || (! $user->isFinancialAuditor() && $user->hasPermission(PermissionKey::ViewAllClosings)));
     }
 
     public static function closedOnly(User $user, int $branchId): bool

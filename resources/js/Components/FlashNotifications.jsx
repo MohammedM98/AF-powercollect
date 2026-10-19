@@ -92,7 +92,7 @@ export default function FlashNotifications({ initialStatus }) {
             dir="rtl"
             role="region"
             aria-label="الإشعارات"
-            className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3 sm:bottom-6 sm:right-6"
+            className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[calc(100%-2rem)] max-w-md flex-col gap-3 sm:bottom-6 sm:right-6"
         >
             {notifications.slice(-MAX_VISIBLE).map((notification) => {
                 const appearance = APPEARANCE[notification.type] ?? APPEARANCE.success;
@@ -113,8 +113,8 @@ export default function FlashNotifications({ initialStatus }) {
                                 <Icon name={appearance.icon} strokeWidth={2.25} />
                             </span>
                             <div className="min-w-0 flex-1">
-                                {appearance.title && <p className="text-[17px] font-bold leading-7">{appearance.title}</p>}
-                                <p className={`break-words leading-6 ${appearance.title ? 'text-sm text-white/90' : 'text-[17px] font-semibold'}`}>
+                                {appearance.title && <p className="text-lg font-bold leading-8">{appearance.title}</p>}
+                                <p className={`break-words text-[18px] leading-8 ${appearance.title ? 'text-white/95' : 'font-semibold'}`}>
                                     {notification.message}
                                 </p>
                             </div>

@@ -77,6 +77,37 @@ class MeterReadingPolicy
             && MeterReading::weekStartFor($meterReading->week_start, $meterReading->branch_id)->equalTo($this->lastWeekStart($meterReading->branch_id));
     }
 
+    public function adjustLastReading(User $user, MeterReading $meterReading): bool
+    {
+        if ($user->isFinancialAuditor() || $meterReading->requires_reentry || ! $this->updateAsLastReading($user, $meterReading)) {
+            return false;
+        }
+
+        return $meterReading->week_start->lessThan(MeterReading::latestEndedWeekStart($meterReading->branch_id))
+            && ! $meterReading->subscription->meterReadings()->where('week_start', '>', $meterReading->week_start)
+                ->where('week_start', '<', MeterReading::latestEndedWeekStart($meterReading->branch_id))->exists()
+            && $meterReading->subscription->meterReadings()->where('week_start', '>', $meterReading->week_start)->count() <= 1;
+    }
+
+    public function updateUnitPrice(User $user, MeterReading $meterReading): bool
+    {
+        return $user->hasPermission(PermissionKey::UpdateSubscriptionKilowattPrice) && $this->pricingIsEditable($user, $meterReading);
+    }
+
+    public function updateMinimumPayment(User $user, MeterReading $meterReading): bool
+    {
+        return $user->hasPermission(PermissionKey::UpdateSubscriptionMinimumCharge) && $this->pricingIsEditable($user, $meterReading);
+    }
+
+    private function pricingIsEditable(User $user, MeterReading $meterReading): bool
+    {
+        return ! $user->isFinancialAuditor()
+            && ! $meterReading->requires_reentry
+            && ($user->isSuperAdmin() || $user->branch_id === $meterReading->branch_id)
+            && $meterReading->week_start->equalTo(MeterReading::latestEndedWeekStart($meterReading->branch_id))
+            && ! $meterReading->subscription->meterReadings()->where('week_start', '>', $meterReading->week_start)->exists();
+    }
+
     /**
      * Whether the user may open the weeks before the latest one; without
      * it the sheet shows the latest week only.
@@ -103,6 +134,7 @@ class MeterReadingPolicy
     public function approve(User $user, MeterReading $meterReading): bool
     {
         return $this->approveAny($user)
+            && ! $meterReading->requires_reentry
             && $meterReading->isPending()
             && ($user->isSuperAdmin() || $meterReading->branch_id === $user->branch_id);
     }

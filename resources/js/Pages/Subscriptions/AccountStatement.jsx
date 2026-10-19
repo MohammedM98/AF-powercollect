@@ -22,8 +22,9 @@ import { downloadCsv } from '@/lib/csv';
 import { formatAmount } from '@/lib/currency';
 import { notify } from '@/lib/notify';
 import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
+import { statementPrintUrl, statementRowTotals } from '@/lib/statementPrint';
 
-const COLUMNS = [
+export const STATEMENT_COLUMNS = [
     '#',
     'رقم الصندوق',
     'رقم السند',
@@ -410,6 +411,8 @@ function StatementRow({
     return (
         <tr
             id={`statement-line-${entry.id}`}
+            data-print-totals={JSON.stringify(statementRowTotals(entry, isHistory))}
+            data-print-currency={entry.currencyLabel}
             className={rowClass(entry, highlighted && !focused, isHistory, chain !== null && chain === hoveredChain, focused)}
             style={color ? { '--ledger-chain': color } : undefined}
             data-chain={chain ?? undefined}
@@ -564,10 +567,10 @@ function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
  * with the company and `subscription` (the statement's header) above them
  * and only the statement on the page, light whatever the app's theme.
  */
-export default function AccountStatement({ subscription, entries, summary, paymentMethods, transactionTypes, onAction, focusLineId = null }) {
-    const [filters, setFilters] = useState(EMPTY_FILTERS);
-    const [view, setView] = useState(rememberedStatementView);
-    const [openHistories, setOpenHistories] = useState(() => new Set());
+export default function AccountStatement({ subscription, entries, summary, paymentMethods, transactionTypes, onAction, focusLineId = null, printOptions = null }) {
+    const [filters, setFilters] = useState(() => printOptions?.filters ?? EMPTY_FILTERS);
+    const [view, setView] = useState(() => printOptions?.view ?? rememberedStatementView());
+    const [openHistories, setOpenHistories] = useState(() => new Set(printOptions?.openHistories ?? []));
     const [highlightedLineId, setHighlightedLineId] = useState(null);
     const [pendingJump, setPendingJump] = useState(null);
     const [hoveredChain, setHoveredChain] = useState(null);
@@ -583,8 +586,8 @@ export default function AccountStatement({ subscription, entries, summary, payme
     const entriesById = useMemo(() => new Map(entries.map((entry) => [entry.id, entry])), [entries]);
     const isFiltered = Object.values(filters).some(Boolean);
     const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
-    const hasLineMenus = entries.some(hasLineMenu);
-    const columns = hasLineMenus ? [...COLUMNS, ''] : COLUMNS;
+    const hasLineMenus = !printOptions && entries.some(hasLineMenu);
+    const columns = hasLineMenus ? [...STATEMENT_COLUMNS, ''] : STATEMENT_COLUMNS;
 
     function setFilter(key, value) {
         setFilters((current) => ({ ...current, [key]: value }));
@@ -706,8 +709,13 @@ export default function AccountStatement({ subscription, entries, summary, payme
         .join(' · ');
 
     return (
-        <div className="account-statement">
-            <PrintHeading subscription={subscription} caption={printCaption} />
+        <div className={printOptions ? 'statement-print-source' : 'account-statement'}>
+            {!printOptions && <PrintHeading subscription={subscription} caption={printCaption} />}
+            {printOptions && <p className="data-table-totals">
+                ملخص الحساب الكامل: الرصيد {formatAmount(summary.balance)} شيكل · التحميلات {formatAmount(summary.charged)} شيكل · التسديدات {formatAmount(summary.paid)} شيكل · الخصومات {formatAmount(summary.discounted)} شيكل · المقاصات {formatAmount(summary.cleared)} شيكل.
+                {printCaption && ` نطاق الطباعة: ${printCaption}.`}
+                {' مجموع عمود المبلغ هو صافي عليه ناقص له، لكل عملة على حدة. الأرصدة بعد الحركات ليست قابلة للجمع.'}
+            </p>}
 
             <div className="statement-summary mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <SummaryCard
@@ -766,16 +774,16 @@ export default function AccountStatement({ subscription, entries, summary, payme
                         <Icon name="excel" className="h-4 w-4" />
                         تصدير Excel
                     </button>
-                    <button
+                    {subscription.canPrint !== false && <button
                         type="button"
-                        onClick={() => window.print()}
+                        onClick={() => window.open(statementPrintUrl(subscription.id, { view, filters, openHistories }), '_blank', 'noopener')}
                         disabled={visibleEntries.length === 0}
-                        title="طباعة الحركات المعروضة مع رأس الكشف وملخّصه"
+                        title="تخصيص وطباعة الحركات المعروضة مع رأس الكشف وملخّصه"
                         className={`${TOOL_BUTTON} tone-print`}
                     >
                         <Icon name="printer" className="h-4 w-4" />
-                        طباعة
-                    </button>
+                        طباعة وتخصيص
+                    </button>}
                 </div>
                 <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-6">
                     <label className="block text-sm text-gray-600 sm:col-span-2">

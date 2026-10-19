@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\AuditAction;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\SubscriptionTransaction;
@@ -21,7 +22,7 @@ class SubscriptionTransactionPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::ViewCollections, PermissionKey::AuditClosings);
+        return $user->canAuditAction(AuditAction::ViewLedger) || (! $user->isFinancialAuditor() && $user->hasPermission(PermissionKey::ViewCollections));
     }
 
     /**
@@ -56,7 +57,7 @@ class SubscriptionTransactionPolicy
      */
     public function viewTransactionAudit(User $user): bool
     {
-        return $user->hasAnyPermission(PermissionKey::ViewTransactionAudit, PermissionKey::AuditClosings);
+        return $user->canAuditAction(AuditAction::ViewHistory) || (! $user->isFinancialAuditor() && $user->hasPermission(PermissionKey::ViewTransactionAudit));
     }
 
     /**

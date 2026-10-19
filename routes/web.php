@@ -105,6 +105,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/subscriptions/{subscription}/personal-details', [SubscriptionPersonalDetailsController::class, 'update'])->name('subscriptions.personal-details.update');
     Route::get('/subscriptions/{subscription}/personal-details/history', [SubscriberProfileHistoryController::class, 'show'])->name('subscriptions.personal-details.history');
     Route::resource('subscriptions', SubscriptionController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+    Route::get('/subscriptions/statement-print', [SubscriptionStatementController::class, 'preview'])->name('subscriptions.statement.print');
     Route::get('/subscriptions/{subscription}/statement', [SubscriptionStatementController::class, 'show'])->name('subscriptions.statement');
     Route::get('/subscriptions/{subscription}/payments/reference-status', [SubscriptionPaymentController::class, 'referenceStatus'])->name('subscriptions.payments.reference-status');
     Route::post('/subscriptions/{subscription}/payments', [SubscriptionPaymentController::class, 'store'])->name('subscriptions.payments.store');
@@ -128,6 +129,9 @@ Route::middleware('auth')->group(function () {
     Route::resource('meter-readings', MeterReadingController::class)->only(['index', 'store', 'update']);
     Route::post('/meter-readings/approve', [MeterReadingController::class, 'approve'])->name('meter-readings.approve');
     Route::post('/meter-readings/{meter_reading}/last-reading-preview', [MeterReadingController::class, 'previewLastReading'])->name('meter-readings.last-reading-preview');
+    Route::post('/meter-readings/{meter_reading}/adjustment-preview', [MeterReadingController::class, 'previewAdjustment'])->name('meter-readings.adjustment-preview');
+    Route::put('/meter-readings/{meter_reading}/last-reading', [MeterReadingController::class, 'adjustLastReading'])->name('meter-readings.adjust-last');
+    Route::put('/meter-readings/{meter_reading}/pricing', [MeterReadingController::class, 'updatePricing'])->name('meter-readings.pricing');
     Route::resource('areas', AreaController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('sub-areas', SubAreaController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('governorates', GovernorateController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);

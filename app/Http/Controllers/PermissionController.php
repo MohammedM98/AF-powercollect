@@ -2,16 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Requests\UpdatePermissionsRequest;
+use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -56,6 +59,11 @@ class PermissionController extends Controller
             'permissionGroups' => $this->permissionGroups($actor),
             'roleTemplates' => $this->roleTemplates($actor, $grantablePermissionIds),
             'scopedToOwnBranch' => ! $actor->isSuperAdmin(),
+            'auditOptions' => $actor->isSuperAdmin() ? [
+                'permissionId' => Permission::query()->where('key', PermissionKey::AuditClosings->value)->value('id'),
+                'branches' => Branch::query()->orderBy('name')->get(['id', 'name']),
+                'actions' => array_map(fn (AuditAction $action): array => ['value' => $action->value, 'label' => $action->label(), 'hint' => $action->description()], AuditAction::cases()),
+            ] : null,
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => $this->filterOptions($actor),
         ]);
@@ -89,11 +97,20 @@ class PermissionController extends Controller
 
         $users = $this->manageableUsers($actor)->with('permissions')->whereIn('id', array_keys($payload))->get();
 
-        foreach ($users as $user) {
-            $selected = array_intersect((array) ($payload[$user->id] ?? []), $grantablePermissionIds);
-            $keptAsTheyWere = array_diff($user->permissions->modelKeys(), $grantablePermissionIds);
-            $user->permissions()->sync([...$selected, ...$keptAsTheyWere]);
-        }
+        DB::transaction(function () use ($users, $payload, $grantablePermissionIds, $request): void {
+            foreach ($users as $user) {
+                $selected = array_intersect((array) ($payload[$user->id] ?? []), $grantablePermissionIds);
+                $keptAsTheyWere = array_diff($user->permissions->modelKeys(), $grantablePermissionIds);
+                $user->permissions()->sync([...$selected, ...$keptAsTheyWere]);
+                if ($request->user()->isSuperAdmin() && $request->has("audit_settings.{$user->id}")) {
+                    $settings = $request->validated("audit_settings.{$user->id}");
+                    $settings['branch_ids'] = $settings['scope'] === 'all' ? [] : array_values(array_unique(array_map(intval(...), $settings['branch_ids'])));
+                    $settings['actions'] = array_values(array_unique($settings['actions']));
+                    $user->audit_settings = $settings;
+                    $user->save();
+                }
+            }
+        });
 
         $actor->notify(new ActionCompleted('permissions-updated', $users->pluck('name')->join('، ')));
 
@@ -119,6 +136,8 @@ class PermissionController extends Controller
             'role' => $user->role->value,
             'roleLabel' => __($user->role->label()),
             'branchName' => $user->branch?->name,
+            'auditSettings' => $user->auditSettings(),
+            'isActive' => $user->is_active,
             'permissionIds' => array_values(array_intersect($user->permissions->modelKeys(), $grantablePermissionIds)),
             'lockedPermissions' => $user->permissions
                 ->reject(fn (Permission $permission): bool => PermissionKey::tryFrom($permission->key)?->isRetired() ?? false)

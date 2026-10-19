@@ -33,7 +33,7 @@ class StoreUserRequest extends FormRequest
      * A Super Admin may assign any role and any branch. Anyone else who can
      * reach this request — a Branch Admin, or a grantee of the "Add Users"
      * permission — may only assign the branch-level staff roles (Collector,
-     * Data Entry, Financial Auditor); the controller forces branch_id to
+     * Data Entry, Accountant); the controller forces branch_id to
      * their own branch server-side regardless of what's submitted, so
      * branch_id isn't validated for them at all.
      *

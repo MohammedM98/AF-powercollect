@@ -2,11 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MAIN_LINKS, SETTINGS_LINKS, allowedNavigationGroups, groupSummary, isActiveLink, isInsideAnyLink, pageTrail, topBarItems } from '../../resources/js/lib/navigation.js';
 
-test('audit-only accounts see only the existing financial boxes destination even with legacy grants', () => {
+test('auditors see subscriber accounts and audit destinations without administration even with legacy grants', () => {
     const can = Object.fromEntries([...MAIN_LINKS, ...SETTINGS_LINKS].filter((link) => link.can).map((link) => [link.can, true]));
     const groups = allowedNavigationGroups({ ...can, auditOnly: true });
 
-    assert.deepEqual(groups.flatMap((group) => group.links.map((link) => link.href)), ['/payments/cash-boxes']);
+    assert.deepEqual(groups.flatMap((group) => group.links.map((link) => link.href)), ['/subscriptions', '/payments/cash-boxes', '/ledger', '/transaction-audit']);
 });
 
 test('the settings group counts as current on any settings page, including its create and edit pages', () => {

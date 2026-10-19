@@ -237,7 +237,7 @@ class BankTransferAuditTest extends TestCase
             ->where('boxes.0.canAudit', false));
     }
 
-    public function test_auditors_only_access_closed_boxes_across_branches_and_their_personal_account(): void
+    public function test_auditors_access_closed_boxes_and_subscriber_accounts_across_branches(): void
     {
         [, $auditor, $subscription, $payment, $box] = $this->payment();
         $auditor->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ViewCollections, PermissionKey::ViewSubscriptions, PermissionKey::ViewAllFinancialReports, PermissionKey::CloseCashBoxes]));
@@ -245,11 +245,14 @@ class BankTransferAuditTest extends TestCase
         $this->get(route('payments.cash-boxes', ['branch_id' => $box->branch_id, 'place' => 'open']))->assertInertia(fn ($page) => $page
             ->where('can.auditOnly', true)->where('place', 'closed')
             ->where('branches', fn ($branches): bool => collect($branches)->pluck('id')->contains($box->branch_id) && collect($branches)->pluck('id')->contains($auditor->branch_id))
-            ->where('boxes.0.id', $box->id)->where('boxes.0.payments.0.statement_url', null)
+            ->where('boxes.0.id', $box->id)->where('boxes.0.payments.0.statement_url', route('subscriptions.statement', [$subscription, 'transaction' => $payment->id]))
             ->where('boxes.0.canAudit', true));
         $this->get(route('subscriptions.payments.receipt', [$subscription, $payment]))->assertOk();
         $this->get(route('profile.edit'))->assertOk();
-        foreach (['ledger.index', 'subscriptions.index', 'reports.index', 'payments.index', 'payments.cash-boxes.entries'] as $route) {
+        foreach (['ledger.index', 'subscriptions.index', 'transaction-audit.index'] as $route) {
+            $this->get(route($route))->assertOk();
+        }
+        foreach (['reports.index', 'payments.index', 'payments.cash-boxes.entries'] as $route) {
             $this->get(route($route))->assertForbidden();
         }
         $this->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $box->branch_id])->assertForbidden();

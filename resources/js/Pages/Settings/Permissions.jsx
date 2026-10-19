@@ -290,7 +290,7 @@ function RiskBadge({ risk }) {
     );
 }
 
-/** A section's level picker: one button per level, each meaning everything up to it; the chosen one carries a burgundy dot. */
+/** A section's level picker: one button per level, each meaning everything up to it; the chosen one stays burgundy. */
 function LevelPicker({ section, level, onChange, disabled }) {
     return (
         <div role="radiogroup" aria-label={`مستوى ${section.label}`} className="inline-flex w-full gap-0.5 rounded-control border border-gray-100 bg-gray-50 p-[3px] sm:w-auto">
@@ -306,11 +306,11 @@ function LevelPicker({ section, level, onChange, disabled }) {
                         disabled={disabled}
                         title={section.ladder.long[index]}
                         onClick={() => onChange(index)}
-                        className={`inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 py-1.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 disabled:cursor-not-allowed sm:flex-none ${
-                            checked ? `bg-surface shadow-sm ring-1 ring-gray-100 ${index === 0 ? 'text-gray-500' : 'text-gray-900'}` : 'text-gray-500 hover:text-gray-900'
+                        className={`inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 py-1.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none ${
+                            checked ? 'bg-brand-500 text-white shadow-sm ring-1 ring-brand-500 enabled:hover:brightness-110 enabled:active:brightness-95' : 'text-gray-600 enabled:hover:bg-brand-50 enabled:hover:text-brand-700 enabled:active:bg-brand-100'
                         }`}
                     >
-                        {checked && index > 0 && <i className="h-2 w-2 rounded-full bg-brand-500" />}
+                        {checked && index > 0 && <i aria-hidden="true" className="h-2 w-2 rounded-full bg-white" />}
                         {name}
                     </button>
                 );

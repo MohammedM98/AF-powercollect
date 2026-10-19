@@ -165,7 +165,7 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect(collect($groups)->firstWhere('key', 'collections')['actions'])->pluck('action')->all() === [
-                'view', 'record', 'record_cash', 'record_transfer', 'close_boxes', 'confirm', 'charge', 'discount', 'clearing', 'correct', 'amend', 'refund', 'delete', 'force_delete',
+                'view', 'record', 'record_cash', 'record_transfer', 'close_boxes', 'manage_box_periods', 'audit', 'confirm', 'charge', 'discount', 'clearing', 'correct', 'amend', 'refund', 'delete', 'force_delete',
             ],
         ));
     }
@@ -315,10 +315,8 @@ class PermissionsTest extends TestCase
                 // Grants outside the actor's scope are shown separately and cannot be edited or copied.
                 ->where('users.data.0.permissionIds', fn ($ids): bool => $sorted($ids->all()) === $idsOf(UserRole::DataEntry->starterPermissions()))
                 ->where('selectedUser.lockedPermissions', [__(PermissionKey::ViewAreas->label())])
-                ->where('roleTemplates', fn ($templates): bool => collect($templates)->pluck('role')->all() === ['collector', 'data_entry', 'accountant', 'financial_auditor'])
-                ->where('roleTemplates.1.permissionIds', fn ($ids): bool => $sorted($ids->all()) === $idsOf(UserRole::DataEntry->starterPermissions()))
-                // The auditor's cross-branch grants cannot be assigned by a branch admin.
-                ->where('roleTemplates.3.permissionIds', []));
+                ->where('roleTemplates', fn ($templates): bool => collect($templates)->pluck('role')->all() === ['collector', 'data_entry', 'accountant'])
+                ->where('roleTemplates.1.permissionIds', fn ($ids): bool => $sorted($ids->all()) === $idsOf(UserRole::DataEntry->starterPermissions())));
     }
 
     public function test_branch_admin_cannot_open_another_branchs_employee_in_the_editor(): void

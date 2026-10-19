@@ -167,6 +167,7 @@ export function extractTable(root) {
 
                 return {
                     type: 'row',
+                    ...(row.dataset.printTotals ? { totals: parseJson(row.dataset.printTotals, {}), currency: row.dataset.printCurrency ?? '' } : {}),
                     cells: {
                         ...Object.fromEntries(columns.map((column) => [column.key, cellText(cells[column.index])])),
                         ...Object.fromEntries(fields.map((field) => [field.key, values[field.field] == null ? '' : String(values[field.field])])),

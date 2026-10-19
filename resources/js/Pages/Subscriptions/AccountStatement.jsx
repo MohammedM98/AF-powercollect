@@ -445,12 +445,6 @@ function StatementRow({
                 <span dir="ltr">{entry.date}</span>
             </td>
             <td data-label="البيان" className="font-medium text-gray-900">
-                {focused && (
-                    <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-brand-500/10 px-2 py-0.5 text-xs font-bold text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:text-brand-300">
-                        <Icon name="flag" className="h-3.5 w-3.5" />
-                        الحركة التي فتحتها
-                    </span>
-                )}
                 <div className="ledger-description">
                     {(isHistory || followsLineAbove(entry)) && <span className="me-1 text-blue-600">↲</span>}
                     <span className="ledger-struck">{withLtrDates(entry.description)}</span>

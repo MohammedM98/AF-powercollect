@@ -83,7 +83,7 @@ export function entryStatus(entry) {
         return ['ملغاة', 'gray'];
     }
     if (entry.status === 'missing') {
-        return ['غير موجودة في البنك', 'red'];
+        return ['غير موجودة', 'red'];
     }
     if (entry.status === 'rejected') {
         return ['مرفوضة', 'red'];

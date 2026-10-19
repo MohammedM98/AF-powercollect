@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\CircuitBreaker;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
@@ -65,10 +66,128 @@ class SubscriptionChargesAndDiscountsTest extends TestCase
         $this->actingAs($this->branchAdmin)
             ->get(route('subscriptions.statement', $this->subscription))
             ->assertInertia(fn ($page) => $page
-                ->has('chargeTypes', 3)
+                ->has('chargeTypes', 4)
                 ->where('chargeTypes.0', ['value' => 'penalty', 'label' => 'غرامة مالية', 'usualAmount' => null, 'needsReason' => true])
                 ->where('chargeTypes.1', ['value' => 'disconnection_fee', 'label' => 'رسوم قطع الخدمة', 'usualAmount' => 20, 'needsReason' => false])
-                ->where('chargeTypes.2', ['value' => 'subscription_fee', 'label' => 'رسوم اشتراك', 'usualAmount' => null, 'needsReason' => false]));
+                ->where('chargeTypes.2', ['value' => 'subscription_fee', 'label' => 'رسوم اشتراك', 'usualAmount' => null, 'needsReason' => false])
+                ->where('chargeTypes.3', ['value' => 'minimum_charge', 'label' => 'تحميل الحد الأدنى على المشترك', 'usualAmount' => null, 'needsReason' => false]));
+    }
+
+    public function test_the_subscribers_minimum_is_recorded_as_a_separate_charge_with_its_own_statement_label(): void
+    {
+        $this->subscription->update(['minimum_charge' => '12.50']);
+        $this->postAs($this->branchAdmin, route('subscriptions.charges.store', $this->subscription), [
+            'type' => 'minimum_charge', 'amount' => '12.5', 'notes' => 'تحميل يدوي بطلب الإدارة',
+        ])->assertSessionHasNoErrors()->assertSessionHas('status', 'charge-recorded');
+
+        $this->assertDatabaseHas('subscription_transactions', [
+            'subscription_id' => $this->subscription->id, 'recorded_by' => $this->branchAdmin->id,
+            'type' => 'minimum_charge', 'amount' => '12.50', 'notes' => 'تحميل يدوي بطلب الإدارة',
+        ]);
+        $this->assertDatabaseCount('meter_readings', 0);
+        $this->assertSame(12.5, $this->subscription->fresh()->minimum_charge);
+        $this->assertSame('charge-recorded', $this->branchAdmin->notifications()->sole()->data['action']);
+        $this->actingAs($this->branchAdmin)->get(route('subscriptions.statement', $this->subscription))->assertInertia(fn ($page) => $page
+            ->where('entries.0.typeLabel', 'تحميل الحد الأدنى على المشترك')
+            ->where('entries.0.isCredit', false)->where('summary.balance', '12.50')->where('summary.charged', '12.50')
+            ->where('subscription.minimumPayment', '12.5'));
+    }
+
+    public function test_a_minimum_charge_uses_the_breakers_minimum_when_no_subscriber_override_exists(): void
+    {
+        $breaker = CircuitBreaker::factory()->create(['minimum_payment' => '18.75']);
+        $this->subscription->update(['minimum_charge' => null, 'circuit_breaker_id' => $breaker->id]);
+        $this->postAs($this->branchAdmin, route('subscriptions.charges.store', $this->subscription), [
+            'type' => 'minimum_charge', 'amount' => '18.75',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('18.75', $this->latestTransaction()->amount);
+    }
+
+    public function test_a_different_or_stale_minimum_amount_is_refused_without_creating_a_charge(): void
+    {
+        $this->subscription->update(['minimum_charge' => '25']);
+        $this->postAs($this->branchAdmin, route('subscriptions.charges.store', $this->subscription), [
+            'type' => 'minimum_charge', 'amount' => '20',
+        ])->assertSessionHasErrors(['amount' => 'يجب أن يساوي المبلغ الحد الأدنى الحالي للمشترك. حدّث الصفحة وحاول مجددًا.']);
+        $this->assertDatabaseCount('subscription_transactions', 0);
+        $this->assertSame(0, $this->branchAdmin->notifications()->count());
+    }
+
+    public function test_a_subscriber_with_no_positive_minimum_cannot_receive_a_minimum_charge(): void
+    {
+        $this->subscription->update(['minimum_charge' => '0']);
+        $this->postAs($this->branchAdmin, route('subscriptions.charges.store', $this->subscription), [
+            'type' => 'minimum_charge', 'amount' => '10',
+        ])->assertSessionHasErrors(['amount' => 'لا يوجد حد أدنى موجب محدد لهذا المشترك.']);
+        $this->assertDatabaseCount('subscription_transactions', 0);
+    }
+
+    public function test_unlocking_allows_a_custom_charge_amount_without_changing_the_saved_minimum(): void
+    {
+        $this->subscription->update(['minimum_charge' => '25']);
+        $this->postAs($this->branchAdmin, route('subscriptions.charges.store', $this->subscription), [
+            'type' => 'minimum_charge', 'amount' => '18.50', 'override_minimum_amount' => true,
+        ])->assertSessionHasNoErrors()->assertSessionHas('status', 'charge-recorded');
+
+        $this->assertDatabaseHas('subscription_transactions', [
+            'subscription_id' => $this->subscription->id, 'type' => 'minimum_charge', 'amount' => '18.50',
+        ]);
+        $this->assertDatabaseHas('subscriptions', ['id' => $this->subscription->id, 'minimum_charge' => 25]);
+        $this->assertSame(18.5, $this->subscription->balance());
+        $this->assertSame('charge-recorded', $this->branchAdmin->notifications()->sole()->data['action']);
+    }
+
+    public function test_a_locked_minimum_charge_refuses_a_custom_amount_and_an_invalid_unlock_value(): void
+    {
+        $this->subscription->update(['minimum_charge' => '25']);
+        $this->postAs($this->branchAdmin, route('subscriptions.charges.store', $this->subscription), [
+            'type' => 'minimum_charge', 'amount' => '18.50', 'override_minimum_amount' => false,
+        ])->assertSessionHasErrors('amount');
+        $this->postAs($this->branchAdmin, route('subscriptions.charges.store', $this->subscription), [
+            'type' => 'minimum_charge', 'amount' => '18.50', 'override_minimum_amount' => 'invalid',
+        ])->assertSessionHasErrors('override_minimum_amount');
+        $this->assertDatabaseCount('subscription_transactions', 0);
+    }
+
+    public function test_unlocking_still_requires_charge_permission_and_a_positive_amount(): void
+    {
+        $this->subscription->update(['minimum_charge' => '25']);
+        $this->postAs($this->branchAdmin, route('subscriptions.charges.store', $this->subscription), [
+            'type' => 'minimum_charge', 'amount' => '-10', 'override_minimum_amount' => true,
+        ])->assertSessionHasErrors('amount');
+        $dataEntry = User::factory()->dataEntry()->for($this->branch)->create();
+        $this->postAs($dataEntry, route('subscriptions.charges.store', $this->subscription), [
+            'type' => 'minimum_charge', 'amount' => '18.50', 'override_minimum_amount' => true,
+        ])->assertForbidden();
+        $this->assertDatabaseCount('subscription_transactions', 0);
+    }
+
+    public function test_the_minimum_charge_keeps_existing_charge_permissions_and_branch_restrictions(): void
+    {
+        $this->subscription->update(['minimum_charge' => '20']);
+        $dataEntry = User::factory()->dataEntry()->for($this->branch)->create();
+        $foreign = User::factory()->branchAdmin()->create();
+        $payload = ['type' => 'minimum_charge', 'amount' => '20'];
+        $this->postAs($dataEntry, route('subscriptions.charges.store', $this->subscription), $payload)->assertForbidden();
+        $this->postAs($foreign, route('subscriptions.charges.store', $this->subscription), $payload)->assertForbidden();
+        $this->assertDatabaseCount('subscription_transactions', 0);
+    }
+
+    public function test_a_minimum_charge_can_be_cancelled_using_the_existing_charge_workflow(): void
+    {
+        $this->subscription->update(['minimum_charge' => '20']);
+        $this->postAs($this->branchAdmin, route('subscriptions.charges.store', $this->subscription), [
+            'type' => 'minimum_charge', 'amount' => '20',
+        ])->assertSessionHasNoErrors();
+        $charge = $this->latestTransaction();
+        $this->postAs($this->branchAdmin, route('subscriptions.charges.store', $this->subscription), [
+            'type' => 'disconnection_fee', 'amount' => '10',
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($this->branchAdmin)->post(route('subscriptions.transactions.actions.store', [$this->subscription, $charge]), [
+            'action' => 'cancel', 'correction_reason' => 'other', 'correction_notes' => 'تحميل مكرر',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('cancelled', $charge->fresh()->status);
+        $this->assertSame(10.0, $this->subscription->balance());
     }
 
     public function test_a_clearing_takes_the_value_of_the_subscriptions_service_off_what_they_owe(): void
@@ -245,7 +364,7 @@ class SubscriptionChargesAndDiscountsTest extends TestCase
     /**
      * POST as the given user, coming from the subscription's statement.
      *
-     * @param  array<string, string>  $data
+     * @param  array<string, mixed>  $data
      */
     private function postAs(User $user, string $uri, array $data): TestResponse
     {

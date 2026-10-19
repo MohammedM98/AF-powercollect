@@ -52,7 +52,7 @@ test('an entry is in effect until cancelled, whether or not the audit has checke
     assert.deepEqual(entryStatus({ status: 'pending', transactionStatus: 'active' }), ['سارية', 'green']);
     assert.deepEqual(entryStatus({ status: 'confirmed', transaction: { status: 'active' } }), ['سارية', 'green']);
     assert.deepEqual(entryStatus({ status: 'cash' }), ['سارية', 'green']);
-    assert.deepEqual(entryStatus({ status: 'missing', transactionStatus: 'active' }), ['غير موجودة في البنك', 'red']);
+    assert.deepEqual(entryStatus({ status: 'missing', transactionStatus: 'active' }), ['غير موجودة', 'red']);
     assert.deepEqual(entryStatus({ status: 'rejected', transaction: { status: 'active' } }), ['مرفوضة', 'red']);
     assert.deepEqual(entryStatus({ status: 'missing', transactionStatus: 'cancelled' }), ['ملغاة', 'gray']);
 });

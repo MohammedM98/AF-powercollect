@@ -28,7 +28,7 @@ class PermissionController extends Controller
      * are never listed.
      *
      * A Branch Admin sees only their own branch's staff (Collector, Data
-     * Entry, Financial Auditor) — never another branch's users, another
+     * Entry, Accountant) — never another branch's users, another
      * Branch Admin, or a Super Admin — and only the permissions they may
      * grant: never the company-wide ones.
      */

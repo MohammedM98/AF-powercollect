@@ -102,7 +102,7 @@ export function StatementActions({ canRecordPayment, canAddCharge, canAddDiscoun
                             >
                                 <Icon name={item.icon} className="h-[17px] w-[17px]" />
                             </span>
-                            <span className="flex-1 truncate">{item.label}</span>
+                            <span className="min-w-0 flex-1">{item.label}</span>
                         </button>
                     ))}
                 </div>

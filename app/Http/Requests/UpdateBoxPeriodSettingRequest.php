@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Branch;
+use App\Models\ClosingSetting;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateBoxPeriodSettingRequest extends FormRequest
@@ -12,7 +15,8 @@ class UpdateBoxPeriodSettingRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()?->is_active && $this->user()->isSuperAdmin();
+        return $this->user()?->can('manageAny', ClosingSetting::class)
+            && $this->user()->can('manage', [ClosingSetting::class, $this->branch()]);
     }
 
     /**
@@ -23,8 +27,19 @@ class UpdateBoxPeriodSettingRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'week_starts_on' => ['required', 'integer', 'between:0,6'],
         ];
+    }
+
+    public function branch(): ?Branch
+    {
+        $actor = $this->user();
+        $branchId = $this->filled('branch_id') ? $this->integer('branch_id') : ($actor->isSuperAdmin() ? null : $actor->branch_id);
+
+        return $branchId === null ? null : Branch::query()
+            ->when(! $actor->isSuperAdmin(), fn (Builder $query) => $query->whereKey($actor->branch_id))
+            ->findOrFail($branchId);
     }
 
     public function attributes(): array

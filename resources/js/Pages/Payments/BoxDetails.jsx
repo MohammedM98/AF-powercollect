@@ -12,16 +12,17 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney } from '@/lib/format';
+import { printUrl } from '@/lib/print';
 import { boxTypes, currencies, dateTime, BoxTypeIcon } from './CollectorCashBox';
 import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from './LedgerColumns';
 import BoxBreakdown, { breakdownEntry } from './BoxBreakdown';
-import StatusGuide from './StatusGuide';
 import { auditApprovalSummary, boxEntryMatches, boxStatus, entryStatus, isFlaggedEntry } from '@/lib/financialBoxes';
 import './financial-boxes.css';
 
 
 /** A small action in an entry's row. */
 const rowButton = 'inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition hover:bg-gray-100';
+const auditEditButton = `${rowButton} border border-brand-500/25 bg-brand-500/5 text-brand-700 hover:border-brand-500/40 hover:bg-brand-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:text-brand-300`;
 
 const isActive = (entry) => !entry.transaction || entry.transaction.status === 'active';
 const subscriberName = (entry) => entry.transaction?.subscription?.subscription_name || entry.transaction?.subscription?.full_name || '—';
@@ -102,7 +103,7 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
     const groups = {
         all: ['الكل', () => true],
         active: ['سارية', (entry) => isActive(entry) && !isFlaggedEntry(entry)],
-        ...(cash ? {} : { rejected: [clearing ? 'مرفوضة' : 'غير موجودة في البنك', (entry) => isActive(entry) && isFlaggedEntry(entry)] }),
+        ...(cash ? {} : { rejected: [clearing ? 'مرفوضة' : 'غير موجودة', (entry) => isActive(entry) && isFlaggedEntry(entry)] }),
         cancelled: ['ملغاة', (entry) => !isActive(entry)],
     };
     const filterOptions = Object.entries(groups).map(([value, [label, matches]]) => ({ value, label: `${label} · ${entries.filter(matches).length}`, count: entries.filter(matches).length })).filter((option) => option.value === 'all' || option.count > 0);
@@ -120,6 +121,7 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
                 </div>
             </div>
             <div className="flex items-center gap-3">
+                <a href={printUrl('تقرير تفاصيل الصندوق', `/payments/cash-boxes/report?box=${box.id}`)} target="_blank" rel="noopener noreferrer" className="tone-print inline-flex items-center gap-2 rounded-control border px-3 py-2 text-sm font-semibold"><Icon name="printer" className="h-4 w-4" />طباعة وتخصيص</a>
                 <StatusPill tone={statusTone} label={statusLabel} />
                 {!editable && <StatusPill tone={box.audit ? 'green' : 'amber'} label={box.audit ? 'اكتمل التدقيق' : 'بانتظار اكتمال التدقيق'} />}
                 <button type="button" onClick={onClose} aria-label="إغلاق النافذة" className="rounded-control p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"><Icon name="close" className="h-5 w-5" /></button>
@@ -146,7 +148,6 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
 
             {confirmable && <p className="rounded-control bg-sky-500/10 px-4 py-3 text-sm leading-7 text-sky-700 dark:text-sky-400">اطّلع على حركات الصندوق ثم أكّد إغلاقه. إن رأيت خطأ في حركة فتواصل مع المحصّل ليعدّلها بنفسه قبل التأكيد؛ بعد التأكيد تُقفل الحركات وينتقل الصندوق إلى «المغلقة» ويظهر تلقائيًا لقسم التدقيق ضمن فترة إغلاقه الأسبوعية.</p>}
 
-            <StatusGuide />
 
             <section aria-label="حركات الصندوق" className="space-y-4">
                 <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
@@ -177,9 +178,9 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
                                     </td>
                                     <LedgerTrailCells ledger={ledger} amount={entry.amount} currency={entry.currency} cancelled={!live} />
                                     <td style={{ whiteSpace: 'normal' }}><StatusPill tone={tone} label={label} /></td>
-                                    {bankAudit && <td style={{ whiteSpace: 'normal' }}>{entry.audit ? <div className="space-y-1"><StatusPill tone={entry.audit.outcome === 'matched' ? 'green' : 'amber'} label={{ matched: 'مطابقة', missing: 'لم تصل', short: 'نقص في المبلغ', over: 'زيادة لصالح المشترك' }[entry.audit.outcome]} /><p className="text-xs font-semibold text-gray-600">{entry.audit.posted_at || entry.audit.adjustment_transaction_id ? 'معتمدة نهائيًا' : 'مسودة · لم تُرحّل ماليًا'}</p><p className="text-xs text-gray-600">المثبت: {formatMoney(entry.audit.bank_amount)} {ledger.currencyLabel}</p><p className="text-xs text-gray-500">{entry.audit.auditor?.name} · {dateTime(entry.audit.audited_at)}</p>{entry.audit.reason && <p className="text-xs text-gray-600">{entry.audit.reason}</p>}</div> : <StatusPill tone="gray" label={live ? 'تُطابق عند اعتماد الصندوق' : 'حركة غير سارية'} />}</td>}
+                                    {bankAudit && <td style={{ whiteSpace: 'normal' }}>{entry.audit ? <div className="space-y-1"><StatusPill tone={entry.audit.outcome === 'missing' ? 'red' : entry.audit.outcome === 'matched' ? 'green' : 'amber'} label={{ matched: 'مطابقة', missing: 'غير موجودة', short: 'نقص في المبلغ', over: 'زيادة لصالح المشترك' }[entry.audit.outcome]} /><p className="text-xs font-semibold text-gray-600">{entry.audit.posted_at || entry.audit.adjustment_transaction_id ? 'معتمدة نهائيًا' : 'مسودة · لم تُرحّل ماليًا'}</p><p className="text-xs text-gray-600">المثبت: {formatMoney(entry.audit.bank_amount)} {ledger.currencyLabel}</p><p className="text-xs text-gray-500">{entry.audit.auditor?.name} · {dateTime(entry.audit.audited_at)}</p>{entry.audit.reason && <p className="text-xs text-gray-600">{entry.audit.reason}</p>}</div> : <StatusPill tone="gray" label={live ? 'تُطابق عند اعتماد الصندوق' : 'حركة غير سارية'} />}</td>}
                                     <td style={{ whiteSpace: 'normal' }}><div className="flex flex-wrap items-center gap-1">
-                                        {bankAudit && box.canAudit && live && !entry.audit?.posted_at && !entry.audit?.adjustment_transaction_id && <button type="button" onClick={() => setAuditingEntry(entry)} className={rowButton}><Icon name="check" className="h-3.5 w-3.5" />{entry.audit ? 'تعديل المراجعة' : 'مراجعة الحوالة'}</button>}
+                                        {bankAudit && box.canAudit && live && !entry.audit?.posted_at && !entry.audit?.adjustment_transaction_id && <button type="button" onClick={() => setAuditingEntry(entry)} className={auditEditButton}><Icon name="pencil" className="h-3.5 w-3.5" />تعديل الحوالة</button>}
                                         {entry.receipt_url && <a href={entry.receipt_url} target="_blank" rel="noopener noreferrer" className={`${rowButton} tone-print border`}><Icon name="printer" className="h-3.5 w-3.5" />السند</a>}
                                     </div></td>
                                 </tr>;

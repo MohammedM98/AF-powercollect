@@ -255,7 +255,7 @@ function TemplatesSection({ templates, onReset }) {
  * footer. Each change shows
  * in the preview at once.
  */
-export default function PrintSettingsPanel({ layout, onChange, scope, templates, onReset }) {
+export default function PrintSettingsPanel({ layout, onChange, scope, templates, onReset, reportFields = [] }) {
     const [confirming, setConfirming] = useState(null);
 
     function set(key, value) {
@@ -300,7 +300,7 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
             <TemplatesSection templates={templates} onReset={() => setConfirming('reset')} />
 
             <Section icon="list" title="الصفوف" open>
-                <ChoiceChips
+                {scope.allRowsOnly ? <p className="text-sm font-semibold text-gray-700">كل الحركات المطابقة للتصفية ({scope.total})</p> : <ChoiceChips
                     options={[
                         { value: 'all', label: `كل النتائج${typeof scope.total === 'number' ? ` (${scope.total.toLocaleString('en')})` : ''}`, icon: 'list' },
                         { value: 'page', label: 'الصفحة المعروضة فقط', icon: 'table' },
@@ -308,9 +308,16 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                     value={scope.allRows ? 'all' : 'page'}
                     onChange={(value) => scope.onChange(value === 'all')}
                     label="الصفوف المطبوعة"
-                />
+                />}
                 <p className="text-xs text-gray-500">بنفس البحث والترتيب والفلاتر التي كانت على الشاشة.</p>
             </Section>
+
+            {reportFields.length > 0 && <Section icon="wallet" title="بيانات الصندوق">
+                {reportFields.map((field) => <Switch key={field.key} label={field.label} checked={!layout.header.reportFields || layout.header.reportFields.includes(field.key)} onChange={(visible) => {
+                    const selected = layout.header.reportFields ?? reportFields.map((item) => item.key);
+                    setIn('header', 'reportFields', visible ? [...selected, field.key] : selected.filter((key) => key !== field.key));
+                }} />)}
+            </Section>}
 
             <Section icon="document" title="الورق">
                 <div className="grid grid-cols-2 gap-3">

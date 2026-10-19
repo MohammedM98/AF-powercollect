@@ -89,7 +89,7 @@ function Devices({ devices, dateLabel }) {
     );
 }
 
-export default function Edit({ user, permissionGroups, devices, businessTimezone }) {
+export default function Edit({ user, permissionGroups, devices, businessTimezone, canUpdatePassword }) {
     const { activity } = usePage().props;
     const { preference, changePreference } = useTheme();
     const initials = user.name.trim().split(/\s+/).filter((word) => !['أبو', 'عبد'].includes(word)).slice(0, 2).map((word) => word.replace(/^ال/, '')[0] || '').join('');
@@ -108,7 +108,15 @@ export default function Edit({ user, permissionGroups, devices, businessTimezone
                     <div className="pp-facts"><div><small>عضو منذ</small><b>{user.memberSince}</b></div><div><small>آخر نشاط</small><b>{dateLabel(user.lastActiveAt)}</b></div><div><small>عملياتك هذا الأسبوع</small><b>{user.weeklyActions.toLocaleString('en')}</b></div></div>
                 </section>
                 <div className="pp-grid">
-                    <div><UpdateProfileInformationForm user={user} /><UpdatePasswordForm /></div>
+                    <div>
+                        <UpdateProfileInformationForm user={user} />
+                        {canUpdatePassword ? <UpdatePasswordForm /> : (
+                            <section className="pp-panel">
+                                <PanelTitle icon="key">كلمة المرور</PanelTitle>
+                                <p>لتغيير كلمة المرور، تواصل مع مدير الفرع أو مدير النظام.</p>
+                            </section>
+                        )}
+                    </div>
                     <div>
                         <Permissions groups={permissionGroups} />
                         <Devices devices={devices} dateLabel={dateLabel} />

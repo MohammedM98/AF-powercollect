@@ -63,8 +63,8 @@
 .financial-ledger-section .data-table-container:has(+ .data-table-pagination) { border-end-start-radius: 0; border-end-end-radius: 0; }
 
 /* A wide window that keeps the page in sight around it: a click outside or Escape closes it. */
-.modal-scroll:has(.financial-box-detail) { display: flex; align-items: center; padding: 48px; }
-.financial-box-detail { width: min(1180px, calc(100vw - 96px)); max-width: none; height: min(820px, calc(100dvh - 96px)); max-height: none; margin: 0 auto; }
+.modal-scroll:has(.financial-box-detail) { display: flex; align-items: center; padding: 48px 16px; }
+.financial-box-detail { width: min(1680px, calc(100vw - 32px)); max-width: none; height: min(820px, calc(100dvh - 96px)); max-height: none; margin: 0 auto; }
 .financial-box-detail-stats dd { overflow-wrap: anywhere; }
 .financial-box-detail-stats > div > span { display: none; }
 .financial-box-detail > header { padding: 16px 24px; }

@@ -145,7 +145,7 @@ export function ChoiceTile({ name, value, checked, onChange, icon, title, hint, 
  * The big amount field: the number, its unit beside it, and a footer of
  * quick picks (`children`). Red while `error` is set.
  */
-export function AmountBox({ id, inputRef, value, onChange, unit, placeholder = '0', label, error = false, autoFocus = false, children }) {
+export function AmountBox({ id, inputRef, value, onChange, unit, placeholder = '0', label, error = false, autoFocus = false, readOnly = false, children }) {
     return (
         <div
             className={`rounded-[22px] border-[1.5px] bg-surface px-[18px] pb-3.5 pt-4 transition ${
@@ -167,6 +167,7 @@ export function AmountBox({ id, inputRef, value, onChange, unit, placeholder = '
                     placeholder={placeholder}
                     aria-label={label}
                     value={value}
+                    readOnly={readOnly}
                     onChange={onChange}
                     className="w-full min-w-0 flex-1 border-0 bg-transparent p-0 text-end font-display text-[34px] font-extrabold leading-tight text-gray-900 placeholder:text-gray-300 focus:ring-0 sm:text-[44px]"
                 />

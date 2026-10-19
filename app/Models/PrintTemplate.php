@@ -38,6 +38,7 @@ class PrintTemplate extends Model
         '/branches' => ['label' => 'الفروع', 'icon' => 'pin'],
         '/circuit-breakers' => ['label' => 'القواطع', 'icon' => 'bolt'],
         '/messages' => ['label' => 'الرسائل', 'icon' => 'messages'],
+        '/payments/cash-boxes/report' => ['label' => 'تفاصيل الصندوق المالي', 'icon' => 'wallet'],
     ];
 
     protected function casts(): array

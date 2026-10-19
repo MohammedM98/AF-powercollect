@@ -52,7 +52,7 @@ class ClosedBoxPeriodsTest extends TestCase
         $this->assertDatabaseHas('closing_settings', ['branch_id' => null, 'week_starts_on' => 6]);
     }
 
-    public function test_only_company_admins_can_change_the_period_setting(): void
+    public function test_only_company_admins_and_authorized_branch_admins_can_access_period_settings(): void
     {
         ClosingSetting::company();
         $this->put(route('settings.payments.update'), ['week_starts_on' => 1])->assertRedirect(route('login'));

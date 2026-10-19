@@ -11,7 +11,6 @@ import { boxEntryMatches, financialBoxMatches, financialBoxesTotals, sortFinanci
 import AuditApprovalDialog from './AuditApprovalDialog';
 import BoxDetails from './BoxDetails';
 import BoxTabs from './BoxTabs';
-import StatusGuide from './StatusGuide';
 import FinancialBoxList from './FinancialBoxList';
 import { boxTypes, BoxTypeIcon } from './CollectorCashBox';
 import { FinancialBoxCard, financialAmountsLine } from './FinancialBoxComponents';
@@ -101,7 +100,6 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
                 <div className="flex w-full flex-wrap items-end gap-3 sm:w-auto">{periodAudit?.boxes > 0 && <PrimaryButton onClick={() => setConfirmingPeriod(true)}><Icon name="check" className="h-4 w-4" />اعتماد الفترة كاملة</PrimaryButton>}<div className="w-full sm:w-96"><label htmlFor="closed-box-week" className="mb-1 block text-sm font-medium text-gray-700">الفترة الأسبوعية</label><SearchableSelect id="closed-box-week" value={week} clearable={false} options={periods.map((period) => ({ value: period.start, label: `${periodDate(period.start)} — ${periodDate(period.end)}`, hint: `${period.count} صندوق · ${period.reviewed === period.count ? 'تم التدقيق' : `دُقّق ${period.reviewed}`}` }))} onChange={(value) => router.get(urls.index, { branch_id: branch.id, place: 'closed', week: value }, { preserveScroll: true })} /></div></div>
             </div>}
             <section aria-label="ملخص" className="grid gap-3 sm:grid-cols-3">{summary.map(({ key, ...tile }) => <SummaryTile key={key} {...tile} />)}</section>
-            <StatusGuide />
             <section aria-label="الصناديق">
                 <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
                     <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">

@@ -21,7 +21,7 @@ class SubscriptionTransactionPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ViewCollections);
+        return $user->hasAnyPermission(PermissionKey::ViewCollections, PermissionKey::AuditClosings);
     }
 
     /**
@@ -56,7 +56,7 @@ class SubscriptionTransactionPolicy
      */
     public function viewTransactionAudit(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ViewTransactionAudit);
+        return $user->hasAnyPermission(PermissionKey::ViewTransactionAudit, PermissionKey::AuditClosings);
     }
 
     /**

@@ -7,7 +7,6 @@ import SegmentedTabs from '@/Components/SegmentedTabs';
 import Icon from '@/Components/Icon';
 import { financialBoxesTotals } from '@/lib/financialBoxes';
 import { FinancialBoxCard, FinancialBoxSummary, financialAmountsLine } from './FinancialBoxComponents';
-import StatusGuide from './StatusGuide';
 import FinancialBoxList from './FinancialBoxList';
 import { boxTypeStyles, BoxReportActions } from './CollectorCashBox';
 
@@ -32,7 +31,6 @@ export default function CashBoxes({ started, branchName, boxes, filters, pending
         <Head title="الصناديق المالية" />
         {started ? <div className="financial-boxes financial-surface space-y-5">
             <FinancialBoxSummary boxes={presentedBoxes} pageOnly />
-            <StatusGuide />
             <section aria-label="كل صناديقي">
                 <DataTableToolbar
                     showSearch={false}

@@ -1,4 +1,5 @@
 {
+    "Charge Subscriber Minimum": "تحميل الحد الأدنى على المشترك",
     "Active": "نشط",
     "Active Branches": "الفروع النشطة",
     "Active Users": "المستخدمون النشطون",
@@ -223,6 +224,7 @@
     "Edit Payment Details": "تعديل بيانات الدفعة",
     "Add Payments": "إضافة دفعة",
     "Close Cash Boxes": "إغلاق صناديق المحصّلين",
+    "Edit Box Period Start Day": "تعديل يوم بداية فترات الصناديق",
     "Send Cash Boxes to Audit": "إرسال الصناديق إلى التدقيق",
     "Payments and Transactions": "الدفعات والحركات المالية",
     "Refund Payments": "ردّ الدفعات",
@@ -260,6 +262,7 @@
     "Standing discount changed": "تغيير خصم القراءات الأسبوعية",
     "Prepare Closings": "إعداد كشوف الإغلاق",
     "Audit Closings": "تدقيق كشوف الإغلاق",
+    "Financial Audit Across All Branches": "التدقيق المالي لكل الفروع",
     "Closings": "الإغلاق",
     "Daily Closing": "إغلاق يومي",
     "Weekly Closing": "إغلاق أسبوعي",

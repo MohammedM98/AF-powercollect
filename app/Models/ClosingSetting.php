@@ -8,15 +8,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A closing schedule, set by hand on the closing schedule page: the time the
- * business day closes (`cutoff_time`; 00:00 means midnight, otherwise a time
- * from noon on, after which payments count for the next day) and whether each
- * day's closings open by themselves once the day is over.
+ * The company's box settings and each branch's override. The saved cutoff
+ * and workflow fields support existing box sessions; closed records retain
+ * their original dates when the period start day changes.
  *
- * The company's row (no branch) also holds the weekday that starts the week
- * (0 = Sunday … 6 = Saturday), which only the company sets: the weekly and
- * monthly closings approve every branch's days together. A branch that has a
- * row of its own closes its day by that; the others follow the company's.
+ * The company's row (no branch) holds the default weekday that starts the
+ * week (0 = Sunday … 6 = Saturday). A branch admin explicitly authorized by
+ * the Super Admin may override their branch's period start day.
  */
 #[Fillable(['branch_id', 'cutoff_time', 'week_starts_on', 'auto_open', 'frequency', 'arrangement', 'updated_by', 'workflow_started_at', 'receivers', 'approvers'])]
 class ClosingSetting extends Model
@@ -42,6 +40,19 @@ class ClosingSetting extends Model
     public static function createCompanyDefault(): static
     {
         return static::create(['cutoff_time' => self::DEFAULT_CUTOFF, 'week_starts_on' => self::DEFAULT_WEEK_START, 'auto_open' => true, 'frequency' => 'weekly', 'arrangement' => 'combined']);
+    }
+
+    public static function startFor(Branch|int $branch): static
+    {
+        $defaults = static::company();
+
+        return static::query()->firstOrCreate(['branch_id' => $branch instanceof Branch ? $branch->id : $branch], [
+            'week_starts_on' => $defaults->week_starts_on,
+            'cutoff_time' => $defaults->cutoff_time,
+            'auto_open' => $defaults->auto_open,
+            'frequency' => $defaults->frequency,
+            'arrangement' => $defaults->arrangement,
+        ]);
     }
 
     /**

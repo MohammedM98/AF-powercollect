@@ -44,7 +44,7 @@ trait BuildsSubscriptionStatement
             return null;
         }
 
-        $subscription = Subscription::query()->visibleTo($actor)->find($subscriptionId);
+        $subscription = Subscription::query()->readableTo($actor)->find($subscriptionId);
 
         return $subscription && $actor->can('view', $subscription) ? $this->subscriptionStatement($actor, $subscription) : null;
     }
@@ -201,7 +201,7 @@ trait BuildsSubscriptionStatement
         }
 
         return Subscription::query()
-            ->visibleTo($actor)
+            ->readableTo($actor)
             ->where('subscriber_profile_id', $subscription->subscriber_profile_id)
             ->with(['branch', 'tariff', 'tariffSegment', 'meterBox'])
             ->withSum('transactions as balance', 'amount')

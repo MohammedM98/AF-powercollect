@@ -20,7 +20,8 @@ class EnsureFinancialAuditorAccess
                 return redirect()->route('payments.cash-boxes', ['place' => 'closed']);
             }
             abort_unless($request->is('confirm-password') || $request->routeIs(
-                'payments.cash-boxes', 'payments.bank-audits.store', 'payments.box-audits.store', 'payments.period-audits.store',
+                'payments.cash-boxes', 'payments.cash-boxes.report', 'payments.bank-audits.store', 'payments.box-audits.store', 'payments.period-audits.store',
+                'subscriptions.index', 'subscriptions.statement', 'subscriptions.personal-details.history', 'ledger.index', 'transaction-audit.index',
                 'subscriptions.payments.receipt', 'profile.edit', 'profile.update', 'profile.devices.destroy',
                 'password.confirm', 'password.update', 'logout', 'notifications.*',
             ), 403);

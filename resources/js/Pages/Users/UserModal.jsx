@@ -12,6 +12,7 @@ export default function UserModal({ show, onClose, user, roleOptions, branches, 
                 setData={form.setData}
                 errors={form.errors}
                 isEdit={form.isEdit}
+                canUpdatePassword={user?.canUpdatePassword}
                 roleOptions={roleOptions}
                 userTypeOptions={userTypeOptions}
                 branches={branches}

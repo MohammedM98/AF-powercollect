@@ -30,6 +30,16 @@ class Subscription extends Model
     /** @use HasFactory<SubscriptionFactory> */
     use BelongsToBranch, HasFactory;
 
+    /** Auditors may read every branch's subscriber accounts; other staff stay in their branch. */
+    #[Scope]
+    protected function readableTo(Builder $query, User $user): void
+    {
+        $query->when(
+            ! $user->canViewAllSubscriberAccounts(),
+            fn (Builder $query) => $query->visibleTo($user),
+        );
+    }
+
     /**
      * Every new subscription gets an account number automatically; it is
      * never taken from user input.

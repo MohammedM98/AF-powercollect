@@ -6,7 +6,7 @@ import 'app_identity.dart';
 import 'payment_page.dart';
 import 'split_payment_page.dart';
 import 'subscriber_history_page.dart';
-import 'subscriber_message_page.dart';
+import 'subscriber_message_actions.dart';
 
 /// A subscriber's account as the collector sees it before taking a payment:
 /// personal and subscription details, the previous reading and access to their
@@ -293,53 +293,38 @@ class _SubscriberPageState extends State<SubscriberPage> {
   Widget subscriberActions() {
     final canViewHistory = permissions['view_history'] == true;
     final messaging = details?['messaging'] as Map?;
-    final canSend = messaging?['can_send'] == true;
-    final available = messaging?['sms_available'] == true;
-    final hasPhone = text(subscriber['phone']) != null;
-    final enabled = canSend && available && hasPhone;
-    return AppRows(children: [
-      AppRow(
-          key: const ValueKey('subscriber-split-payment'),
-          leading: detailIcon('cash', muted: !canRecordSplitPayment),
-          title: const AppRowTitle('تسجيل دفعة مقسّمة'),
-          subtitle: AppRowNote(canRecordSplitPayment
-              ? 'حوالة واحدة توزّع على عدة اشتراكات'
-              : 'تحتاج صلاحية تسجيل دفعة بتحويل بنكي'),
-          trailing: AppIcon(canRecordSplitPayment ? 'chev' : 'lock',
-              size: 18, color: AppIdentity.faint),
-          onTap: canRecordSplitPayment ? recordSplitPayment : null),
-      AppRow(
-          key: const ValueKey('subscriber-financial-history'),
-          leading: detailIcon('hist'),
-          title: const AppRowTitle('السجل المالي'),
-          subtitle: AppRowNote(canViewHistory
-              ? 'جميع الدفعات والقراءات والحركات'
-              : 'تحتاج صلاحية عرض بيانات المشترك من الإدارة'),
-          trailing: AppIcon(canViewHistory ? 'chev' : 'lock',
-              size: 18, color: AppIdentity.faint),
-          onTap: canViewHistory
-              ? () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => SubscriberHistoryPage(
-                      api: widget.api, subscriber: subscriber)))
-              : null),
-      AppRow(
-          key: const ValueKey('subscriber-messaging'),
-          leading: detailIcon('message', muted: !enabled),
-          title: const AppRowTitle('إرسال رسالة'),
-          subtitle: AppRowNote(!canSend
-              ? 'تحتاج صلاحية إرسال الرسائل من الإدارة'
-              : !hasPhone
-                  ? 'لا يوجد رقم هاتف لهذا المشترك'
-                  : !available
-                      ? 'خدمة SMS غير مفعّلة؛ تواصل مع الإدارة'
-                      : 'رسالة نصية إلى المشترك عبر SMS'),
-          trailing: AppIcon(enabled ? 'chev' : 'lock',
-              size: 18, color: AppIdentity.faint),
-          onTap: enabled
-              ? () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => SubscriberMessagePage(
-                      api: widget.api, subscriber: subscriber)))
-              : null),
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      AppRows(children: [
+        AppRow(
+            key: const ValueKey('subscriber-split-payment'),
+            leading: detailIcon('cash', muted: !canRecordSplitPayment),
+            title: const AppRowTitle('تسجيل دفعة مقسّمة'),
+            subtitle: AppRowNote(canRecordSplitPayment
+                ? 'حوالة واحدة توزّع على عدة اشتراكات'
+                : 'تحتاج صلاحية تسجيل دفعة بتحويل بنكي'),
+            trailing: AppIcon(canRecordSplitPayment ? 'chev' : 'lock',
+                size: 18, color: AppIdentity.faint),
+            onTap: canRecordSplitPayment ? recordSplitPayment : null),
+        AppRow(
+            key: const ValueKey('subscriber-financial-history'),
+            leading: detailIcon('hist'),
+            title: const AppRowTitle('السجل المالي'),
+            subtitle: AppRowNote(canViewHistory
+                ? 'جميع الدفعات والقراءات والحركات'
+                : 'تحتاج صلاحية عرض بيانات المشترك من الإدارة'),
+            trailing: AppIcon(canViewHistory ? 'chev' : 'lock',
+                size: 18, color: AppIdentity.faint),
+            onTap: canViewHistory
+                ? () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => SubscriberHistoryPage(
+                        api: widget.api, subscriber: subscriber)))
+                : null),
+      ]),
+      const SizedBox(height: 12),
+      SubscriberMessageActions(
+          api: widget.api,
+          subscriber: subscriber,
+          messaging: messaging ?? const {})
     ]);
   }
 }

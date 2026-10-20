@@ -142,6 +142,7 @@ class MobileCollectionController extends Controller
             ],
             'messaging' => [
                 'can_send' => $request->user()->can('create', MessageBatch::class),
+                'can_view_history' => $request->user()->can('viewAny', MessageBatch::class),
                 'sms_available' => app(SmsGateway::class)->deliversMessages(),
             ],
         ]);

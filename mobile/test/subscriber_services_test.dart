@@ -6,16 +6,24 @@ import 'package:power_collect/api_client.dart';
 import 'package:power_collect/app_identity.dart';
 import 'package:power_collect/subscriber_history_page.dart';
 import 'package:power_collect/subscriber_message_page.dart';
+import 'package:power_collect/subscriber_message_history_page.dart';
 import 'package:power_collect/payment_page.dart';
 
 import 'subscriber_page_test.dart' show SubscriberApi, listed, openSubscriber;
 
 class ServicesApi extends SubscriberApi {
-  Map<String, dynamic> messaging = {'can_send': true, 'sms_available': true};
+  Map<String, dynamic> messaging = {
+    'can_send': true,
+    'can_view_history': true,
+    'sms_available': true
+  };
   bool failOlder = true;
   bool emptyHistory = false;
   bool failRefresh = false;
   bool failSend = true;
+  bool messageOlderFails = true;
+  bool messageHistoryDenied = false;
+  bool emptyMessageHistory = false;
   String messageStatus = 'pending';
   Completer<Map<String, dynamic>>? sending;
   final requests = <Map<String, dynamic>>[];
@@ -23,6 +31,40 @@ class ServicesApi extends SubscriberApi {
   @override
   Future<Map<String, dynamic>> collectionSubscriber(int id) async =>
       {...await super.collectionSubscriber(id), 'messaging': messaging};
+
+  @override
+  Future<Map<String, dynamic>> subscriberMessageHistory(int id,
+      {int page = 1}) async {
+    if (messageHistoryDenied) throw const ApiException('Forbidden', 403);
+    if (page == 2 && messageOlderFails) {
+      messageOlderFails = false;
+      throw const ApiException('تعذر تحميل الرسائل القديمة', 0);
+    }
+    return {
+      'messages': {
+        'data': emptyMessageHistory
+            ? []
+            : [
+                {
+                  'id': page,
+                  'body':
+                      page == 1 ? 'رسالة حديثة للمشترك' : 'تذكير قديم بالرصيد',
+                  'kind': page == 1 ? 'custom' : 'balance_reminder',
+                  'status': page == 1 ? 'sent' : 'failed',
+                  'channel': 'sms',
+                  'phone': '0599000111',
+                  'createdBy': 'محمد',
+                  'sentBy': page == 1 ? 'محمد' : null,
+                  'createdAt': '2026-10-20T10:30:00Z',
+                  'sentAt': null,
+                  'error': page == 1 ? null : 'رفض المزوّد الإرسال',
+                }
+              ],
+        'current_page': page,
+        'last_page': emptyMessageHistory ? 1 : 2
+      }
+    };
+  }
 
   @override
   Future<Map<String, dynamic>> subscriberTransactions(int id,
@@ -89,6 +131,86 @@ Future<void> showMessage(WidgetTester tester, ServicesApi api,
 }
 
 void main() {
+  testWidgets(
+      'message cards share one row and history remains available without SMS or a phone',
+      (tester) async {
+    final api = ServicesApi()
+      ..messaging = {
+        'can_send': true,
+        'can_view_history': true,
+        'sms_available': false
+      }
+      ..subscriptionDetails = {'phone': ''};
+    await openSubscriber(tester, api);
+    final send = find.byKey(const ValueKey('subscriber-messaging'));
+    final history = find.byKey(const ValueKey('subscriber-message-history'));
+    expect(tester.widget<InkWell>(send).onTap, isNull);
+    expect(tester.widget<InkWell>(history).onTap, isNotNull);
+    expect(tester.getRect(send).top, tester.getRect(history).top);
+    expect(tester.getRect(send).width, tester.getRect(history).width);
+    await tester.ensureVisible(history);
+    await tester.tap(history);
+    await tester.pumpAndSettle();
+    expect(find.byType(SubscriberMessageHistoryPage), findsOneWidget);
+    expect(find.text('رسالة حديثة للمشترك'), findsOneWidget);
+    expect(find.text('رسالة مخصصة'), findsOneWidget);
+    expect(find.text('مرسلة'), findsOneWidget);
+    await tester.ensureVisible(find.text('عرض رسائل أقدم'));
+    await tester.tap(find.text('عرض رسائل أقدم'));
+    await tester.pumpAndSettle();
+    expect(find.text('تعذر تحميل الرسائل القديمة'), findsOneWidget);
+    expect(find.text('رسالة حديثة للمشترك'), findsOneWidget);
+    await tester.tap(find.text('إعادة المحاولة'));
+    await tester.pumpAndSettle();
+    expect(find.text('تذكير قديم بالرصيد'), findsOneWidget);
+    expect(find.text('تذكير بالرصيد'), findsOneWidget);
+    expect(api.requests, isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'history is locked without its grant and clears cached messages after revocation',
+      (tester) async {
+    final api = ServicesApi()
+      ..messaging = {
+        'can_send': true,
+        'can_view_history': false,
+        'sms_available': true
+      };
+    await openSubscriber(tester, api);
+    final history = find.byKey(const ValueKey('subscriber-message-history'));
+    expect(tester.widget<InkWell>(history).onTap, isNull);
+    expect(find.text('تحتاج صلاحية عرض الرسائل من الإدارة'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    api.messaging['can_view_history'] = true;
+    await openSubscriber(tester, api);
+    await tester.ensureVisible(history);
+    await tester.tap(history);
+    await tester.pumpAndSettle();
+    api.messageHistoryDenied = true;
+    unawaited(tester
+        .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+        .show());
+    await tester.pumpAndSettle();
+    expect(find.text('رسالة حديثة للمشترك'), findsNothing);
+    expect(find.text('ليس لديك صلاحية عرض الرسائل. تواصل مع الإدارة.'),
+        findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('message history has an empty state without sending anything',
+      (tester) async {
+    final api = ServicesApi()..emptyMessageHistory = true;
+    await openSubscriber(tester, api);
+    final history = find.byKey(const ValueKey('subscriber-message-history'));
+    await tester.ensureVisible(history);
+    await tester.tap(history);
+    await tester.pumpAndSettle();
+    expect(find.text('لا توجد رسائل سابقة لهذا المشترك'), findsOneWidget);
+    expect(api.requests, isEmpty);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets(
       'server permissions lock financial history and limit payment methods',
       (tester) async {
@@ -171,7 +293,7 @@ void main() {
       await openSubscriber(tester, api);
       expect(find.text(explanation), findsOneWidget);
       final row = tester
-          .widget<AppRow>(find.byKey(const ValueKey('subscriber-messaging')));
+          .widget<InkWell>(find.byKey(const ValueKey('subscriber-messaging')));
       expect(row.onTap, isNull);
       await tester.pumpWidget(const SizedBox());
     }

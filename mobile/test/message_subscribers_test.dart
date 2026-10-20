@@ -20,6 +20,7 @@ Future<void> openViewer(WidgetTester tester, MessageApi api) async {
 
 class MessageApi extends CollectorApi {
   bool allowed = true;
+  bool viewOnly = false;
   final searches = <String>[];
 
   @override
@@ -28,7 +29,8 @@ class MessageApi extends CollectorApi {
           'id': 2,
           'name': 'موظف الرسائل',
           'username': 'messages',
-          'can_send_messages': allowed,
+          'can_send_messages': allowed && !viewOnly,
+          'can_view_messages': allowed,
           'can_record_collections': false,
           'can_record_readings': false,
           'can_view_readings': false,
@@ -58,12 +60,35 @@ class MessageApi extends CollectorApi {
       'current_page': 1,
       'last_page': 1,
       'total': 2,
+      'can_send': !viewOnly,
+      'can_view_history': true,
       'sms_available': true
     };
   }
 }
 
 void main() {
+  testWidgets(
+      'view-only message staff get history access while sending stays locked',
+      (tester) async {
+    await openViewer(tester, MessageApi()..viewOnly = true);
+    await tester.tap(find.text('سجل رسائل المشتركين'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('أحمد علي'));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<InkWell>(find.byKey(const ValueKey('subscriber-messaging')))
+            .onTap,
+        isNull);
+    expect(
+        tester
+            .widget<InkWell>(
+                find.byKey(const ValueKey('subscriber-message-history')))
+            .onTap,
+        isNotNull);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets('granted staff open messaging without any collection permission',
       (tester) async {
     final api = MessageApi();
@@ -75,12 +100,14 @@ void main() {
     expect(find.text('أحمد علي'), findsOneWidget);
     final missing = tester.widget<AppRow>(find.ancestor(
         of: find.text('بلا هاتف'), matching: find.byType(AppRow)));
-    expect(missing.onTap, isNull);
+    expect(missing.onTap, isNotNull);
     await tester.enterText(find.byType(TextField), 'احمد');
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
     expect(api.searches.last, 'احمد');
     await tester.tap(find.text('أحمد علي'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('subscriber-messaging')));
     await tester.pumpAndSettle();
     expect(find.byType(SubscriberMessagePage), findsOneWidget);
     expect(find.text('إلى 0599000111'), findsOneWidget);

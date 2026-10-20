@@ -22,7 +22,7 @@ class MobileSubscriberMessageController extends Controller
 {
     public function index(Request $request, SmsGateway $gateway): JsonResponse
     {
-        $this->authorize('create', MessageBatch::class);
+        $this->authorize('viewAny', MessageBatch::class);
         $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
         $subscribers = Subscription::query()->visibleTo($request->user())
             ->matchingSearch(trim($validated['search'] ?? ''))->orderBy('full_name')->orderBy('id')
@@ -35,6 +35,8 @@ class MobileSubscriberMessageController extends Controller
             ]),
             'current_page' => $subscribers->currentPage(), 'last_page' => $subscribers->lastPage(),
             'total' => $subscribers->total(), 'sms_available' => $gateway->deliversMessages(),
+            'can_send' => $request->user()->can('create', MessageBatch::class),
+            'can_view_history' => $request->user()->can('viewAny', MessageBatch::class),
         ]);
     }
 

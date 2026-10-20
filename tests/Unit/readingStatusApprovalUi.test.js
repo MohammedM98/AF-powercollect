@@ -76,4 +76,3 @@ test('subscriber history has no approval action for unauthorized, approved, or r
         }
     }
 });
-

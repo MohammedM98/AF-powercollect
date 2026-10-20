@@ -402,7 +402,13 @@ class SubscriptionTransaction extends Model
             }
             $result = null;
             foreach ($active as $part) {
-                $reversal = $part->cancelSingle($actor, $reason, $notes);
+                $hasEarlierRefund = self::query()->where('reference_transaction_id', $part->id)->where('type', self::TYPE_REFUND)->lockForUpdate()->exists();
+                if ($hasEarlierRefund) {
+                    $reversal = $part->applyRefund($actor, ['correction_notes' => $notes]);
+                    $part->update(['cancellation_reason' => $reason]);
+                } else {
+                    $reversal = $part->cancelSingle($actor, $reason, $notes);
+                }
                 if ($part->id === $this->id) {
                     $this->setRawAttributes($part->getAttributes(), true);
                     $result = $reversal;
@@ -753,8 +759,13 @@ class SubscriptionTransaction extends Model
                     if (! $part->isCancelled() || $parts->contains('corrects_id', $part->id)) {
                         continue;
                     }
-                    $target = self::query()->where('reverses_id', $part->id)->whereIn('type', self::REVERSAL_TYPES)
-                        ->orderByDesc('created_at')->orderByDesc('id')->lockForUpdate()->first();
+                    $linkedReversals = self::query()->where('subscription_id', $part->subscription_id)
+                        ->where(fn (Builder $query): Builder => $query->where('reverses_id', $part->id)->orWhere('reference_transaction_id', $part->id))
+                        ->whereIn('type', self::REVERSAL_TYPES)->lockForUpdate()->get();
+                    if ($linkedReversals->count() !== 1) {
+                        throw ValidationException::withMessages(['action' => 'لهذه الحوالة إرجاعات جزئية سابقة؛ لا يمكن حذف إرجاع واحد وإعادة الحوالة كاملة.']);
+                    }
+                    $target = $linkedReversals->first();
                 }
                 if ($target === null || ! in_array($partAction->value, $target->availableActions($actor, lockForUpdate: true), true)) {
                     throw ValidationException::withMessages(['action' => 'لا يمكن تنفيذ العملية على جميع أجزاء الحوالة المقسّمة؛ تحقق من صلاحياتك وحالة الصناديق والحركات اللاحقة.']);

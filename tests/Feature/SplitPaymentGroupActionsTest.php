@@ -275,6 +275,28 @@ class SplitPaymentGroupActionsTest extends TestCase
         $this->assertSame(3, CashBoxPayment::visibleInBox()->count());
     }
 
+    #[TestWith(['refund'])]
+    #[TestWith(['legacy-cancel'])]
+    public function test_an_older_partial_refund_is_not_returned_again_when_the_whole_transfer_is_returned(string $action): void
+    {
+        $part = $this->split->payments[0];
+        $part->subscription->transactions()->create([
+            'recorded_by' => $this->actor->id, 'type' => 'refund', 'reference_transaction_id' => $part->id,
+            'amount' => '50.00', 'currency' => 'ILS', 'source_key' => 'legacy-refund:'.$part->id,
+        ]);
+
+        $this->actOn($part, $action)->assertSessionHasNoErrors();
+
+        $this->assertSame('0.00', $this->split->standingTotal());
+        $this->assertSame(500.0, $part->subscription->balance());
+        $this->assertDatabaseHas('subscription_transactions', ['type' => 'refund', 'reverses_id' => $part->id, 'amount' => '50.00']);
+        $this->assertSame('الحوالة لم تصل', $part->fresh()->cancellation_notes);
+        $refund = SubscriptionTransaction::where('reverses_id', $part->id)->sole();
+        $this->actOn($refund, 'delete_reversal')->assertSessionHasErrors('action');
+        $this->assertSame('0.00', $this->split->standingTotal());
+        $this->assertSame(500.0, $part->subscription->balance());
+    }
+
     private function actOn(SubscriptionTransaction $part, string $action): TestResponse
     {
         $this->actingAs($this->actor);

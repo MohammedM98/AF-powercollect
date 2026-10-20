@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Enums\PermissionKey;
 use App\Jobs\SendSubscriptionMessage;
+use App\Models\MessageBatch;
 use App\Models\MobileAccessToken;
 use App\Models\Permission;
 use App\Models\Subscription;
+use App\Models\SubscriptionMessage;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -193,6 +195,39 @@ class MobileSubscriberMessageTest extends TestCase
         $subscriber = Subscription::factory()->create(['branch_id' => $staff->branch_id, 'accounting_type' => $type]);
         $this->withToken(MobileAccessToken::issue($staff))->getJson(route('mobile.collections.subscriptions.show', $subscriber))
             ->assertOk()->assertJsonPath('subscription.accounting_type_label', $label);
+    }
+
+    public function test_mobile_message_history_is_read_only_permission_scoped_and_branch_scoped(): void
+    {
+        $staff = User::factory()->collector()->create();
+        $staff->permissions()->sync(Permission::idsFor([PermissionKey::ViewMessages]));
+        $subscriber = Subscription::factory()->create(['branch_id' => $staff->branch_id]);
+        $other = Subscription::factory()->create();
+        $batch = MessageBatch::factory()->create(['branch_id' => $staff->branch_id, 'created_by' => $staff->id]);
+        $message = SubscriptionMessage::factory()->for($subscriber)->create(['message_batch_id' => $batch->id, 'body' => 'رسالة سابقة']);
+        $url = route('mobile.collections.subscriptions.messages.index', $subscriber);
+
+        $this->getJson($url)->assertUnauthorized();
+        $this->withToken(MobileAccessToken::issue($staff))->getJson($url)->assertOk()
+            ->assertJsonCount(1, 'messages.data')->assertJsonPath('messages.data.0.id', $message->id)
+            ->assertJsonPath('messages.data.0.body', 'رسالة سابقة');
+        $this->getJson(route('mobile.collections.subscriptions.messages.index', $other))->assertNotFound();
+        $this->getJson(route('mobile.messages.subscriptions'))->assertOk()->assertJsonPath('can_send', false)->assertJsonPath('can_view_history', true);
+        $this->getJson(route('mobile.me'))->assertJsonPath('user.can_send_messages', false)->assertJsonPath('user.can_view_messages', true);
+        $this->postJson(route('mobile.collections.subscriptions.messages.store', $subscriber), ['mobile_operation_id' => (string) Str::uuid(), 'body' => 'لا ترسل'])
+            ->assertForbidden();
+        $staff->permissions()->sync([]);
+        $this->getJson($url)->assertForbidden();
+        $this->assertDatabaseCount('subscription_messages', 1);
+    }
+
+    public function test_subscriber_details_expose_separate_sending_and_history_capabilities(): void
+    {
+        $staff = $this->collector();
+        $staff->permissions()->sync(Permission::idsFor([PermissionKey::RecordCollections, PermissionKey::RecordCashPayments, PermissionKey::ViewMessages]));
+        $subscriber = Subscription::factory()->create(['branch_id' => $staff->branch_id]);
+        $this->withToken(MobileAccessToken::issue($staff))->getJson(route('mobile.collections.subscriptions.show', $subscriber))
+            ->assertOk()->assertJsonPath('messaging.can_send', false)->assertJsonPath('messaging.can_view_history', true);
     }
 
     private function collector(): User

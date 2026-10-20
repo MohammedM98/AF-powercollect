@@ -8,6 +8,7 @@ use App\Http\Controllers\Mobile\MobileSessionController;
 use App\Http\Controllers\Mobile\MobileSplitPaymentController;
 use App\Http\Controllers\Mobile\MobileSubscriberMessageController;
 use App\Http\Controllers\Mobile\MobileSubscriptionController;
+use App\Http\Controllers\SubscriptionMessageController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('mobile')->name('mobile.')->group(function (): void {
@@ -26,6 +27,7 @@ Route::prefix('mobile')->name('mobile.')->group(function (): void {
         Route::get('/collections/subscriptions/{subscription}', [MobileCollectionController::class, 'show'])->whereNumber('subscription')->name('collections.subscriptions.show');
         Route::get('/collections/subscriptions/{subscription}/transactions', [MobileCollectionController::class, 'transactions'])->whereNumber('subscription')->name('collections.subscriptions.transactions');
         Route::post('/collections/subscriptions/{subscription}/messages', [MobileSubscriberMessageController::class, 'store'])->whereNumber('subscription')->middleware('throttle:20,1')->name('collections.subscriptions.messages.store');
+        Route::get('/collections/subscriptions/{subscription}/messages', [SubscriptionMessageController::class, 'index'])->whereNumber('subscription')->name('collections.subscriptions.messages.index');
         Route::get('/collections', [MobileCollectionController::class, 'index'])->name('collections.index');
         Route::get('/collections/reference-status', [MobileCollectionController::class, 'referenceStatus'])->name('collections.reference-status');
         Route::get('/cash-boxes', [MobileCashBoxController::class, 'index'])->name('cash-boxes.index');

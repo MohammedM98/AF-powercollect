@@ -316,6 +316,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   bool get canCollect => currentUser['can_record_collections'] == true;
   bool get canViewReadings => currentUser['can_view_readings'] == true;
   bool get canSendMessages => currentUser['can_send_messages'] == true;
+  bool get canViewMessages => currentUser['can_view_messages'] == true;
 
   @override
   void initState() {
@@ -902,11 +903,12 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                 color: AppIdentity.info,
                 tint: AppIdentity.infoTint,
                 onTap: openWeeklyReadings),
-          if (canSendMessages)
+          if (canSendMessages || canViewMessages)
             AppServiceCard(
-                title: 'إرسال الرسائل',
-                subtitle: 'ابحث عن المشترك واكتب رسالته',
-                summary: 'رسائل نصية SMS',
+                title:
+                    canSendMessages ? 'إرسال الرسائل' : 'سجل رسائل المشتركين',
+                subtitle: 'رسائل المشترك وسجل الإرسال',
+                summary: canSendMessages ? 'رسائل نصية SMS' : 'عرض فقط',
                 icon: 'message',
                 color: AppIdentity.info,
                 tint: AppIdentity.infoTint,
@@ -915,7 +917,11 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                     MaterialPageRoute<void>(
                         builder: (_) =>
                             MessageSubscribersPage(api: widget.api)))),
-          if (!canRead && !canCollect && !canViewReadings && !canSendMessages)
+          if (!canRead &&
+              !canCollect &&
+              !canViewReadings &&
+              !canSendMessages &&
+              !canViewMessages)
             const AppNotice(
                 'لا توجد خدمات مفعّلة لحسابك. تواصل مع الإدارة لمنحك الصلاحيات.'),
         ]));

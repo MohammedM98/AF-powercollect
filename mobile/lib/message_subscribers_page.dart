@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'app_identity.dart';
-import 'subscriber_message_page.dart';
+import 'subscriber_message_actions.dart';
 
 class MessageSubscribersPage extends StatefulWidget {
   const MessageSubscribersPage({required this.api, super.key});
@@ -23,6 +23,8 @@ class _MessageSubscribersPageState extends State<MessageSubscribersPage> {
   int total = 0;
   bool busy = true;
   bool available = false;
+  bool canSend = false;
+  bool canViewHistory = false;
   String? error;
   List<Map<String, dynamic>> subscribers = [];
 
@@ -73,6 +75,8 @@ class _MessageSubscribersPageState extends State<MessageSubscribersPage> {
         lastPage = result['last_page'] as int;
         total = result['total'] as int;
         available = result['sms_available'] == true;
+        canSend = result['can_send'] == true;
+        canViewHistory = result['can_view_history'] == true;
       });
     } on ApiException catch (exception) {
       if (!mounted || request != version) return;
@@ -120,8 +124,7 @@ class _MessageSubscribersPageState extends State<MessageSubscribersPage> {
                           changed('');
                         }),
                     AppSection('اختر المستلم · $total مشترك'),
-                    if (busy)
-                      LinearProgressIndicator(color: AppIdentity.brand),
+                    if (busy) LinearProgressIndicator(color: AppIdentity.brand),
                     if (error != null) ...[
                       AppNotice(error!, error: true),
                       TextButton(
@@ -136,7 +139,9 @@ class _MessageSubscribersPageState extends State<MessageSubscribersPage> {
                       AppRows(
                           children: subscribers.map((subscriber) {
                         final phone = '${subscriber['phone'] ?? ''}'.trim();
-                        final enabled = available && phone.isNotEmpty && !busy;
+                        final enabled = !busy &&
+                            (canViewHistory ||
+                                (canSend && available && phone.isNotEmpty));
                         return AppRow(
                           leading: AppIconTile(
                               'message', AppIdentity.info, AppIdentity.infoTint,
@@ -150,9 +155,16 @@ class _MessageSubscribersPageState extends State<MessageSubscribersPage> {
                               ? () => Navigator.push(
                                   context,
                                   MaterialPageRoute<void>(
-                                      builder: (_) => SubscriberMessagePage(
-                                          api: widget.api,
-                                          subscriber: subscriber)))
+                                      builder: (_) =>
+                                          SubscriberMessagingDetailsPage(
+                                              api: widget.api,
+                                              messaging: {
+                                                'can_send': canSend,
+                                                'can_view_history':
+                                                    canViewHistory,
+                                                'sms_available': available
+                                              },
+                                              subscriber: subscriber)))
                               : null,
                         );
                       }).toList()),

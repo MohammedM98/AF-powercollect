@@ -86,6 +86,7 @@ class MobileSessionController extends Controller
             'can_record_collections' => $user->can('recordAnyPayment', Subscription::class),
             'can_record_split_payments' => $user->can('recordSplitPayment', Subscription::class),
             'can_send_messages' => $user->can('create', MessageBatch::class),
+            'can_view_messages' => $user->can('viewAny', MessageBatch::class),
             // The ways the collector may take a payment (each is its own permission): the server refuses the others.
             'payment_methods' => array_map(fn (PaymentMethod $method): string => $method->value, $user->allowedPaymentMethods()),
             'transfer_banks' => Bank::receiverNames(),

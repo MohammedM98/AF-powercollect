@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AuditAction;
 use App\Enums\PermissionKey;
 use App\Http\Requests\StoreSplitPaymentRequest;
+use App\Http\Requests\UpdateSplitPaymentRequest;
 use App\Models\SplitPayment;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
@@ -18,6 +19,21 @@ use Inertia\Inertia;
 
 class SplitPaymentController extends Controller
 {
+    public function edit(Request $request, SplitPayment $splitPayment): JsonResponse
+    {
+        $this->authorize('update', $splitPayment);
+
+        return response()->json($splitPayment->editingDetails($request->user()));
+    }
+
+    public function update(UpdateSplitPaymentRequest $request, SplitPayment $splitPayment): RedirectResponse
+    {
+        $splitPayment->revise($request->user(), $request->validated());
+        $request->user()->notify(new ActionCompleted('transaction-amended', 'تعديل الحوالة المقسّمة '.$splitPayment->reference_number));
+
+        return back()->with('status', 'transaction-amended');
+    }
+
     /**
      * Whether the split transfer's reference is free, or which payment holds
      * it already, for the form to say as it is typed. A reference already

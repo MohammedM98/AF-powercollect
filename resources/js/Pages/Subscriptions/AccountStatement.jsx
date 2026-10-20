@@ -221,8 +221,8 @@ function actionItem(entry, action) {
             tone: 'amber',
         },
         edit_metadata: {
-            label: 'تعديل بيانات الدفعة',
-            description: 'البنك والمرجع والمرسل والملاحظات — الرصيد لا يتغيّر',
+            label: entry.splitPayment ? 'تعديل الحوالة المقسّمة' : 'تعديل بيانات الدفعة',
+            description: entry.splitPayment ? 'بيانات الحوالة لجميع المشتركين — المبلغ والحصص ثابتة' : 'البنك والمرجع والمرسل والملاحظات — الرصيد لا يتغيّر',
             icon: 'pencil',
             tone: 'blue',
         },

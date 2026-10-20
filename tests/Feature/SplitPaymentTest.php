@@ -189,21 +189,24 @@ class SplitPaymentTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_cancelling_one_part_leaves_the_others_and_shows_the_transfer_as_incomplete(): void
+    public function test_cancelling_one_part_cancels_the_whole_transfer_with_the_same_reason(): void
     {
         $split = $this->recordSplit();
         $parts = $split->payments;
 
-        $parts[1]->cancel($this->cashier, CorrectionReason::NotReceived, 'bounced');
+        $parts[1]->cancel(User::factory()->superAdmin()->create(), CorrectionReason::NotReceived, 'bounced');
 
-        $this->assertSame('650.00', $split->standingTotal());
-        $this->assertNull($parts[0]->fresh()->cancelled_at);
-        $this->assertNull($parts[2]->fresh()->cancelled_at);
+        $this->assertSame('0.00', $split->standingTotal());
+        foreach ($parts as $part) {
+            $this->assertNotNull($part->fresh()->cancelled_at);
+            $this->assertSame('bounced', $part->fresh()->cancellation_notes);
+        }
+        $this->assertSame([640.0, 380.0, 270.0], array_map(fn (Subscription $subscription): float => $subscription->balance(), $this->subscriptions));
 
         $this->actingAs($this->cashier)->get(route('split-payments.show', $split))
             ->assertOk()
             ->assertJsonPath('total', '1000')
-            ->assertJsonPath('standingTotal', '650')
+            ->assertJsonPath('standingTotal', '0')
             ->assertJsonPath('isComplete', false)
             ->assertJsonPath('parts.1.isCancelled', true);
     }
@@ -227,14 +230,14 @@ class SplitPaymentTest extends TestCase
         $this->assertSame('990.00', $split->standingTotal());
     }
 
-    public function test_reinstating_a_cancelled_part_is_not_blocked_by_its_siblings_sharing_the_reference(): void
+    public function test_cancelling_the_transfer_releases_its_shared_reference(): void
     {
         $split = $this->recordSplit();
         $part = $split->payments[0];
-        $part->cancel($this->cashier, CorrectionReason::Other, 'oops');
+        $part->cancel(User::factory()->superAdmin()->create(), CorrectionReason::Other, 'oops');
 
         $this->assertNull(SubscriptionTransaction::activeReferenceConflict('BOP-558201', null, $split->id));
-        $this->assertNotNull(SubscriptionTransaction::activeReferenceConflict('BOP-558201'));
+        $this->assertNull(SubscriptionTransaction::activeReferenceConflict('BOP-558201'));
     }
 
     public function test_the_details_list_the_parts_of_the_users_branch_and_only_count_the_rest(): void

@@ -384,6 +384,37 @@ class SubscriptionTransaction extends Model
      */
     public function cancel(User $actor, CorrectionReason $reason, ?string $notes, bool $reopenReading = false): self
     {
+        $split = $this->isPayment() ? $this->splitPayment : null;
+        if ($split === null) {
+            return $this->cancelSingle($actor, $reason, $notes, $reopenReading);
+        }
+
+        return $split->withPaymentsLocked($actor, function (Collection $parts) use ($actor, $reason, $notes): self {
+            $selected = $parts->find($this->id);
+            if ($selected === null || $selected->isCancelled()) {
+                throw ValidationException::withMessages(['action' => 'أُلغيت هذه الدفعة أو أُرجعت من قبل.']);
+            }
+            $active = $parts->reject(fn (self $part): bool => $part->isCancelled());
+            foreach ($active as $part) {
+                if (! $actor->can('delete', $part)) {
+                    throw ValidationException::withMessages(['action' => 'لا يمكن إلغاء الحوالة المقسّمة: أحد أجزائها مغلق أو غير مسموح بإلغائه.']);
+                }
+            }
+            $result = null;
+            foreach ($active as $part) {
+                $reversal = $part->cancelSingle($actor, $reason, $notes);
+                if ($part->id === $this->id) {
+                    $this->setRawAttributes($part->getAttributes(), true);
+                    $result = $reversal;
+                }
+            }
+
+            return $result;
+        });
+    }
+
+    private function cancelSingle(User $actor, CorrectionReason $reason, ?string $notes, bool $reopenReading = false): self
+    {
         return $this->withMutationLock(function () use ($actor, $reason, $notes, $reopenReading): self {
             if ($this->isInClosedDay(lockForUpdate: true)) {
                 throw ValidationException::withMessages(['reason' => 'لا يمكن إلغاء دفعة ضمن صندوق مغلق أو كشف إغلاق أُرسل للتدقيق أو اعتُمد.']);
@@ -486,7 +517,7 @@ class SubscriptionTransaction extends Model
     public function correct(User $actor, CorrectionReason $reason, ?string $notes, Closure $record): self
     {
         return $this->withMutationLock(function () use ($actor, $reason, $notes, $record): self {
-            $this->cancel($actor, $reason, $notes);
+            $this->cancelSingle($actor, $reason, $notes);
 
             $replacement = $record($this->subscription);
             $replacement->update(['corrects_id' => $this->id]);
@@ -696,6 +727,91 @@ class SubscriptionTransaction extends Model
      */
     public function applyAction(User $actor, TransactionAction $action, array $data): ?self
     {
+        $split = $this->mutationSplitPayment();
+        if ($split === null || ! in_array($action, [TransactionAction::Refund, TransactionAction::Cancel, TransactionAction::Delete, TransactionAction::DeleteTree, TransactionAction::DeleteReversal], true)) {
+            return $this->applySingleAction($actor, $action, $data);
+        }
+
+        return $split->withPaymentsLocked($actor, function (Collection $parts) use ($actor, $action, $data): ?self {
+            $selected = self::query()->with('subscription')->lockForUpdate()->findOrFail($this->id);
+            if (! in_array($action->value, $selected->availableActions($actor, lockForUpdate: true), true)) {
+                throw ValidationException::withMessages(['action' => 'هذا الإجراء غير مسموح لهذه الحركة.']);
+            }
+            if (in_array($action, [TransactionAction::Delete, TransactionAction::DeleteTree], true)) {
+                $this->deleteSplitParts($actor, $parts, $data);
+
+                return null;
+            }
+            $targets = [];
+            foreach ($parts as $part) {
+                $target = $part;
+                $partAction = $action;
+                if (in_array($action, [TransactionAction::Refund, TransactionAction::Cancel], true) && $part->isCancelled()) {
+                    continue;
+                }
+                if ($action === TransactionAction::DeleteReversal) {
+                    if (! $part->isCancelled() || $parts->contains('corrects_id', $part->id)) {
+                        continue;
+                    }
+                    $target = self::query()->where('reverses_id', $part->id)->whereIn('type', self::REVERSAL_TYPES)
+                        ->orderByDesc('created_at')->orderByDesc('id')->lockForUpdate()->first();
+                }
+                if ($target === null || ! in_array($partAction->value, $target->availableActions($actor, lockForUpdate: true), true)) {
+                    throw ValidationException::withMessages(['action' => 'لا يمكن تنفيذ العملية على جميع أجزاء الحوالة المقسّمة؛ تحقق من صلاحياتك وحالة الصناديق والحركات اللاحقة.']);
+                }
+                $targets[] = [$target, $partAction];
+            }
+            $result = null;
+            foreach ($targets as [$target, $partAction]) {
+                $changed = $target->applySingleAction($actor, $partAction, $data);
+                if ($target->id === $this->id) {
+                    $this->setRawAttributes($target->getAttributes(), true);
+                    $result = $changed;
+                }
+            }
+
+            return $result;
+        });
+    }
+
+    /**
+     * Remove the complete transfer history without reinstating an earlier,
+     * corrected share. Validate every line before deleting any of them.
+     *
+     * @param  Collection<int, self>  $parts
+     * @param  array<string, mixed>  $data
+     */
+    private function deleteSplitParts(User $actor, Collection $parts, array $data, bool $legacy = false): void
+    {
+        foreach ($parts as $part) {
+            $reversals = self::query()->where('subscription_id', $part->subscription_id)
+                ->where(fn (Builder $query): Builder => $query->where('reverses_id', $part->id)->orWhere('reference_transaction_id', $part->id))
+                ->whereIn('type', self::REVERSAL_TYPES)->orderBy('id')->lockForUpdate()->get();
+            $hasReplacement = $parts->contains('corrects_id', $part->id);
+            $canDelete = $hasReplacement || ($part->isCancelled()
+                ? ($legacy ? ($reversals->last()?->isErasable(lockForUpdate: true) ?? false) : $part->isFullyReversed(lockForUpdate: true))
+                : $part->isLastTransaction(lockForUpdate: true));
+            if (! $actor->hasPermission(PermissionKey::ForceDeleteTransactions) || ! $canDelete
+                || $part->isInClosedDay(lockForUpdate: true) || $part->isPermanentDeletionLocked(lockForUpdate: true)
+                || $reversals->contains(fn (self $reversal): bool => $reversal->isInClosedDay(lockForUpdate: true))) {
+                throw ValidationException::withMessages(['action' => 'لا يمكن حذف الحوالة المقسّمة: أحد أجزائها مغلق أو غير مسموح بحذفه.']);
+            }
+        }
+        foreach ($parts as $part) {
+            $part->refresh()->applyTreeDelete($actor, $data);
+        }
+    }
+
+    private function mutationSplitPayment(): ?SplitPayment
+    {
+        $payment = $this->isPayment() ? $this : ($this->isReversal() ? $this->reverses : null);
+
+        return $payment?->isPayment() ? $payment->splitPayment : null;
+    }
+
+    /** @param array<string, mixed> $data */
+    private function applySingleAction(User $actor, TransactionAction $action, array $data): ?self
+    {
         return $this->withMutationLock(function () use ($actor, $action, $data): ?self {
             $line = self::query()->with('subscription')->lockForUpdate()->findOrFail($this->id);
             $isLast = $line->isLastTransaction(lockForUpdate: true);
@@ -740,6 +856,10 @@ class SubscriptionTransaction extends Model
         }
 
         if ($this->isPayment()) {
+            if ($this->split_payment_id !== null) {
+                return [...$metadataActions, ...($isLast ? [TransactionAction::Delete] : []), TransactionAction::Refund];
+            }
+
             return $isLast
                 ? [...$metadataActions, TransactionAction::Delete]
                 : [...$metadataActions, TransactionAction::Refund];
@@ -1330,6 +1450,19 @@ class SubscriptionTransaction extends Model
      * @throws ValidationException when it may not be erased (any more)
      */
     public function erase(User $actor, string $reason): void
+    {
+        $split = $this->mutationSplitPayment();
+        if ($split === null) {
+            $this->eraseSingle($actor, $reason);
+
+            return;
+        }
+        $split->withPaymentsLocked($actor, function (Collection $parts) use ($actor, $reason): void {
+            $this->deleteSplitParts($actor, $parts, ['correction_notes' => $reason], legacy: true);
+        });
+    }
+
+    private function eraseSingle(User $actor, string $reason): void
     {
         $this->withMutationLock(function () use ($actor, $reason): void {
             $line = self::query()->lockForUpdate()->findOrFail($this->id);

@@ -2,13 +2,19 @@
 
 namespace App\Models;
 
+use App\Support\BranchDomainContext;
+use App\Support\BranchDomainScope;
+use Closure;
 use Database\Factories\SplitPaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * One bank transfer divided between several subscriptions: what the payer
@@ -39,6 +45,45 @@ class SplitPayment extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(SubscriptionTransaction::class)->oldest()->orderBy('id');
+    }
+
+    /**
+     * Lock every branch before the transfer and its parts, using the same branch
+     * lock as payment recording and box closure. Inspect the complete transfer:
+     * a domain scope must never silently turn a group mutation into a partial one.
+     *
+     * @param  Closure(Collection<int, SubscriptionTransaction>): mixed  $operation
+     */
+    public function withPaymentsLocked(User $actor, Closure $operation): mixed
+    {
+        return DB::transaction(function () use ($actor, $operation): mixed {
+            $partsQuery = fn (): Builder => SubscriptionTransaction::withoutGlobalScope(BranchDomainScope::class)
+                ->where('split_payment_id', $this->id)->where('type', SubscriptionTransaction::TYPE_PAYMENT)
+                ->with(['subscription' => fn (BelongsTo $subscription) => $subscription->withoutGlobalScope(BranchDomainScope::class)])
+                ->orderBy('id');
+            $parts = $partsQuery()->get();
+            $this->requireAccessibleParts($actor, $parts);
+            $branchIds = $parts->pluck('subscription.branch_id')->unique()->sort()->values()->all();
+            Branch::withoutGlobalScope(BranchDomainScope::class)->whereIn('id', $branchIds)->orderBy('id')->lockForUpdate()->get();
+            self::withoutGlobalScope(BranchDomainScope::class)->whereKey($this->id)->lockForUpdate()->firstOrFail();
+            $parts = $partsQuery()->lockForUpdate()->get();
+            $this->requireAccessibleParts($actor, $parts);
+            if ($parts->pluck('subscription.branch_id')->diff($branchIds)->isNotEmpty()) {
+                throw ValidationException::withMessages(['action' => 'تغيّرت أجزاء الحوالة؛ حدّث الصفحة وأعد المحاولة.']);
+            }
+
+            return $operation($parts);
+        }, 3);
+    }
+
+    /** @param Collection<int, SubscriptionTransaction> $parts */
+    private function requireAccessibleParts(User $actor, Collection $parts): void
+    {
+        if ($parts->isEmpty() || $parts->contains(fn (SubscriptionTransaction $part): bool => $part->subscription === null
+            || (! $actor->isSuperAdmin() && $part->subscription->branch_id !== $actor->workBranchId())
+            || (BranchDomainContext::id() !== null && $part->subscription->branch_id !== BranchDomainContext::id()))) {
+            throw ValidationException::withMessages(['action' => 'لا يمكن تنفيذ العملية دون صلاحية الوصول إلى جميع أجزاء الحوالة المقسّمة.']);
+        }
     }
 
     /**

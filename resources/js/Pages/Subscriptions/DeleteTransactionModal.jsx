@@ -17,6 +17,7 @@ import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './Correc
 export default function DeleteTransactionModal({ onClose, subscription, balance, entry, action, reasons, onRecordPayment = null }) {
     const url = `/subscriptions/${subscription.id}/transactions/${entry.id}`;
     const isRefund = action === 'refund';
+    const isSplit = Boolean(entry.splitPayment);
     const noun = {
         discount: 'الخصم',
         reading_discount: 'خصم القراءة الأسبوعية',
@@ -25,7 +26,7 @@ export default function DeleteTransactionModal({ onClose, subscription, balance,
     }[entry.type] ?? 'الحركة';
     const label = isRefund ? 'إرجاع الدفعة' : `إلغاء ${noun}`;
     const refundAmount = Number(entry.refundableAmount ?? entry.amount);
-    const [recordNewPayment, setRecordNewPayment] = useState(Boolean(onRecordPayment));
+    const [recordNewPayment, setRecordNewPayment] = useState(Boolean(onRecordPayment) && !isSplit);
     const isReadingCharge = entry.type === 'meter_reading' && !isRefund;
     const form = useForm({ ...EMPTY_CORRECTION, action, reopen_reading: false });
 
@@ -68,9 +69,18 @@ export default function DeleteTransactionModal({ onClose, subscription, balance,
             maxWidth="xl"
             bodyClassName="space-y-5"
             action={{ submitLabel: label, title: `${label}؟`, confirmLabel: `نعم، ${label}`, icon: isRefund ? 'repeat' : 'close', tone: 'danger' }}
-            saveConfirmMessage={`ستُضاف حركة ${label} مرتبطة بـ «${entry.description}»${discountReturned ? `، ويُلغى معها خصم القراءة الأسبوعية (${entry.readingDiscount} شيكل)` : ''}، ويصبح الرصيد ${balanceText}. هل تريد المتابعة؟`}
+            saveConfirmMessage={isSplit
+                ? `سيُرجع كامل الحوالة المقسّمة من جميع المشتركين المرتبطين بها بالسبب نفسه، ويصبح رصيد هذا المشترك ${balanceText}. هل تريد المتابعة؟`
+                : `ستُضاف حركة ${label} مرتبطة بـ «${entry.description}»${discountReturned ? `، ويُلغى معها خصم القراءة الأسبوعية (${entry.readingDiscount} شيكل)` : ''}، ويصبح الرصيد ${balanceText}. هل تريد المتابعة؟`}
         >
             <OriginalLine entry={entry} tone="cancel" />
+
+            {isSplit && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm leading-7 text-gray-700">
+                    <p className="font-semibold text-gray-900">الإرجاع يشمل الحوالة المقسّمة كاملة</p>
+                    <p>تُرجع جميع الحصص القائمة من حسابات المشتركين المرتبطين بالحوالة بالسبب نفسه، وتُحدّث أرصدتهم والصناديق المفتوحة تلقائيًا. إذا تعذّر إرجاع أحد الأجزاء، فلن يُرجع أي جزء.</p>
+                </div>
+            )}
 
             <p className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
                 لا تُمسح الحركة من السجل: تبقى الحركة الأصلية، وتُضاف حركة {label} جديدة في نهاية السجل مع رابط مباشر بينهما.
@@ -105,7 +115,7 @@ export default function DeleteTransactionModal({ onClose, subscription, balance,
                 <div className="space-y-3">
                     <p className="rounded-xl border border-gray-100 px-4 py-3 text-sm text-gray-700">
                         يُرجَع <b className="font-display text-gray-900">{refundAmount.toLocaleString('en-US', { maximumFractionDigits: 2 })}</b> شيكل،
-                        أي كامل الدفعة. إن كان المبلغ الصحيح غير ذلك، سجّله دفعةً جديدة بعد الإرجاع.
+                        {isSplit ? 'وهي حصة هذا المشترك؛ تُرجع حصص بقية المشتركين أيضًا.' : 'أي كامل الدفعة. إن كان المبلغ الصحيح غير ذلك، سجّله دفعةً جديدة بعد الإرجاع.'}
                     </p>
                     {onRecordPayment && (
                         <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm">
@@ -116,7 +126,7 @@ export default function DeleteTransactionModal({ onClose, subscription, balance,
                                 onChange={(event) => setRecordNewPayment(event.target.checked)}
                             />
                             <span>
-                                <span className="block font-semibold text-gray-900">سجّل الدفعة الصحيحة بعد الإرجاع</span>
+                                <span className="block font-semibold text-gray-900">{isSplit ? 'سجّل دفعة جديدة لهذا المشترك بعد الإرجاع' : 'سجّل الدفعة الصحيحة بعد الإرجاع'}</span>
                                 <span className="block text-xs text-gray-500">يُفتح نموذج الدفعة مباشرة بعد حفظ الإرجاع.</span>
                             </span>
                         </label>
@@ -127,7 +137,7 @@ export default function DeleteTransactionModal({ onClose, subscription, balance,
 
             <CorrectionReasonFields form={form} reasons={reasons} action={label} />
 
-            <BalanceAfter label={`الرصيد بعد ${label}`} balanceAfter={balanceAfter} />
+            <BalanceAfter label={`${isSplit ? 'رصيد هذا المشترك' : 'الرصيد'} بعد ${label}`} balanceAfter={balanceAfter} />
         </FormModal>
     );
 }

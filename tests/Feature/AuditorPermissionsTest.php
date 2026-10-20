@@ -124,15 +124,15 @@ class AuditorPermissionsTest extends TestCase
         $this->assertFalse($auditor->fresh()->canAuditAction(AuditAction::ApproveBoxes));
     }
 
-    public function test_super_admin_cannot_assign_an_ineffective_operational_permission_to_the_auditor_role(): void
+    public function test_super_admin_assigns_effective_operational_permissions_to_a_former_auditor(): void
     {
         $admin = User::factory()->superAdmin()->create();
         $auditor = User::factory()->financialAuditor()->create();
         $ids = Permission::idsFor([PermissionKey::AuditClosings, PermissionKey::RecordCollections]);
 
-        $this->actingAs($admin)->put(route('settings.permissions.update'), ['permissions' => [$auditor->id => $ids]])->assertSessionHasErrors('permissions');
+        $this->actingAs($admin)->put(route('settings.permissions.update'), ['permissions' => [$auditor->id => $ids]])->assertSessionHasNoErrors();
 
-        $this->assertFalse($auditor->fresh()->hasPermission(PermissionKey::RecordCollections));
+        $this->assertTrue($auditor->fresh()->hasPermission(PermissionKey::RecordCollections));
     }
 
     #[TestWith(['selected', [], [], 'اختر فرعًا واحدًا على الأقل للتدقيق.'])]

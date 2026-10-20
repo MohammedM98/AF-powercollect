@@ -17,22 +17,19 @@ class FinancialAuditorAccessTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_super_admin_can_choose_the_auditor_role_and_promote_an_existing_user(): void
+    public function test_super_admin_assigns_auditing_without_a_system_role_selector(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
         $employee = User::factory()->collector()->create();
 
         $this->actingAs($superAdmin)->get(route('users.index'))->assertInertia(fn ($page) => $page
-            ->where('createRoleOptions', fn ($options): bool => collect($options)->contains('value', 'financial_auditor')));
+            ->missing('createRoleOptions'));
         $this->get(route('users.edit', $employee))->assertInertia(fn ($page) => $page
-            ->where('roleOptions', fn ($options): bool => collect($options)->contains('value', 'financial_auditor')));
-        $this->put(route('users.update', $employee), [
-            'name' => $employee->name, 'username' => $employee->username,
-            'branch_id' => $employee->branch_id, 'role' => 'financial_auditor',
-        ])->assertSessionHasNoErrors()->assertRedirect(route('users.index'));
+            ->missing('roleOptions'));
+        $this->put(route('settings.permissions.update'), ['permissions' => [$employee->id => Permission::idsFor([PermissionKey::AuditClosings])]])->assertSessionHasNoErrors();
 
         $employee->refresh();
-        $this->assertSame(UserRole::FinancialAuditor, $employee->role);
+        $this->assertSame(UserRole::Collector, $employee->role);
         $this->assertTrue($employee->hasPermission(PermissionKey::AuditClosings));
         $this->assertFalse($employee->hasPermission(PermissionKey::UpdateUsers));
     }
@@ -101,7 +98,7 @@ class FinancialAuditorAccessTest extends TestCase
         $branchAdmin->permissions()->attach($permissionId);
 
         $this->actingAs($branchAdmin->fresh())->get(route('users.create'))->assertInertia(fn ($page) => $page
-            ->where('roleOptions', fn ($options): bool => ! collect($options)->contains('value', 'financial_auditor')));
+            ->missing('roleOptions'));
         $this->put(route('users.update', $employee), [
             'name' => $employee->name, 'username' => $employee->username, 'role' => 'financial_auditor',
         ])->assertSessionHasErrors('role');

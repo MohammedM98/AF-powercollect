@@ -61,7 +61,7 @@ class StarterPermissionsTest extends TestCase
 
         $this->actingAs($auditor)->get(route('reports.index'))->assertForbidden();
         $this->assertFalse($auditor->hasPermission(PermissionKey::ViewAllFinancialReports));
-        $this->get(route('split-payments.show', $split))->assertForbidden();
+        $this->get(route('split-payments.show', $split))->assertNotFound();
         $this->get(route('dashboard'))->assertRedirect(route('payments.cash-boxes', ['place' => 'closed']));
         $this->get(route('profile.edit'))->assertOk();
     }

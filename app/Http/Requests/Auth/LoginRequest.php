@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Auth;
 
 use App\Models\User;
+use App\Support\BranchDomainContext;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -50,7 +51,9 @@ class LoginRequest extends FormRequest
             function (User $user) use (&$isStopped): bool {
                 $isStopped = ! $user->is_active;
 
-                return ! $isStopped;
+                $branch = BranchDomainContext::branch();
+
+                return ! $isStopped && ($branch === null || $user->canEnterBranch($branch));
             },
             $this->boolean('remember'),
         );

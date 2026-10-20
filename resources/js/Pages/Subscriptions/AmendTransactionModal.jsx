@@ -67,7 +67,7 @@ export default function AmendTransactionModal({ onClose, subscription, balance, 
             {throughBank && (
                 <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                        <InputLabel htmlFor="amend_bank_name" value="البنك المحوّل له" />
+                        <InputLabel htmlFor="amend_bank_name" value="البنك المستلم" />
                         <select
                             id="amend_bank_name"
                             name="bank_name"
@@ -87,7 +87,7 @@ export default function AmendTransactionModal({ onClose, subscription, balance, 
                     </div>
 
                     <div>
-                        <InputLabel htmlFor="amend_sender_bank_name" value="البنك المحوّل منه" />
+                        <InputLabel htmlFor="amend_sender_bank_name" value="البنك المرسل" />
                         <select
                             id="amend_sender_bank_name"
                             name="sender_bank_name"

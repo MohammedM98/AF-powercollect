@@ -60,6 +60,28 @@ class MeterReadingApprovalTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('subscriptions.data.0.outstandingBalance', fn ($balance): bool => (float) $balance === 42.5));
     }
 
+    public function test_subscriber_history_exposes_approval_only_for_eligible_readings_and_authorized_users(): void
+    {
+        $pending = $this->pendingReading('2026-09-18', '5.00', 'History Subscriber');
+        $pending->update(['usual_consumption' => 2]);
+        $approved = MeterReading::factory()->for($pending->subscription)->create(['week_start' => '2026-09-11', 'status' => MeterReadingStatus::Approved]);
+        $reentry = MeterReading::factory()->for($pending->subscription)->create(['week_start' => '2026-09-04', 'requires_reentry' => true]);
+
+        $this->actingAs($this->accountant)->get(route('subscriptions.index', ['search' => 'History Subscriber']))
+            ->assertInertia(fn ($page) => $page
+                ->where('subscriptions.data.0.meterReadings.0.id', $pending->id)
+                ->where('subscriptions.data.0.meterReadings.0.canApprove', true)
+                ->where('subscriptions.data.0.meterReadings.0.unusual.usual', 2)
+                ->where('subscriptions.data.0.meterReadings.1.id', $approved->id)
+                ->where('subscriptions.data.0.meterReadings.1.canApprove', false)
+                ->where('subscriptions.data.0.meterReadings.2.id', $reentry->id)
+                ->where('subscriptions.data.0.meterReadings.2.canApprove', false));
+
+        $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
+        $this->actingAs($dataEntry)->get(route('subscriptions.index', ['search' => 'History Subscriber']))
+            ->assertInertia(fn ($page) => $page->where('subscriptions.data.0.meterReadings.0.canApprove', false));
+    }
+
     public function test_approve_all_takes_the_weeks_pending_readings_matching_the_sheets_search_in_the_accountants_branch(): void
     {
         $matching = [$this->pendingReading('2026-09-18', '5.00', 'Ahmad One'), $this->pendingReading('2026-09-18', '6.00', 'Ahmad Two')];

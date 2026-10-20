@@ -10,6 +10,7 @@ use App\Http\Requests\UpdatePermissionsRequest;
 use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\User;
+use App\Models\UserType;
 use App\Notifications\ActionCompleted;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -42,22 +43,23 @@ class PermissionController extends Controller
         $actor = $request->user();
         $grantablePermissionIds = $this->grantablePermissionIds($actor);
 
-        $query = $this->manageableUsers($actor)->with(['branch', 'permissions']);
+        $query = $this->manageableUsers($actor)->with(['branch', 'permissions', 'userType', 'workBranches']);
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
-        $this->applyDataTableFilterSelects($query, $request, ['role', 'branch_id']);
+        $this->applyDataTableFilterSelects($query, $request, ['user_type_id', 'branch_id']);
 
         $users = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
             ->through(fn (User $user) => $this->employeeSummary($user, $grantablePermissionIds));
 
-        $findManageable = fn (int $id) => $this->manageableUsers($actor)->with(['branch', 'permissions'])->find($id);
+        $findManageable = fn (int $id) => $this->manageableUsers($actor)->with(['branch', 'permissions', 'userType', 'workBranches'])->find($id);
         $selectedUser = $findManageable($request->integer('selected')) ?? $findManageable($users->first()['id'] ?? 0);
 
         return Inertia::render('Settings/Permissions', [
             'users' => $users,
             'selectedUser' => $selectedUser ? $this->employeeSummary($selectedUser, $grantablePermissionIds) : null,
             'permissionGroups' => $this->permissionGroups($actor),
-            'roleTemplates' => $this->roleTemplates($actor, $grantablePermissionIds),
+            'roleTemplates' => [],
+            'workBranchOptions' => $actor->isSuperAdmin() ? Branch::orderBy('name')->get(['id', 'name']) : null,
             'scopedToOwnBranch' => ! $actor->isSuperAdmin(),
             'auditOptions' => $actor->isSuperAdmin() ? [
                 'permissionId' => Permission::query()->where('key', PermissionKey::AuditClosings->value)->value('id'),
@@ -102,6 +104,9 @@ class PermissionController extends Controller
                 $selected = array_intersect((array) ($payload[$user->id] ?? []), $grantablePermissionIds);
                 $keptAsTheyWere = array_diff($user->permissions->modelKeys(), $grantablePermissionIds);
                 $user->permissions()->sync([...$selected, ...$keptAsTheyWere]);
+                if ($request->user()->isSuperAdmin() && $request->has("work_branches.{$user->id}")) {
+                    $user->workBranches()->sync($request->validated("work_branches.{$user->id}"));
+                }
                 if ($request->user()->isSuperAdmin() && $request->has("audit_settings.{$user->id}")) {
                     $settings = $request->validated("audit_settings.{$user->id}");
                     $settings['branch_ids'] = $settings['scope'] === 'all' ? [] : array_values(array_unique(array_map(intval(...), $settings['branch_ids'])));
@@ -134,8 +139,11 @@ class PermissionController extends Controller
             'name' => $user->name,
             'username' => $user->username,
             'role' => $user->role->value,
-            'roleLabel' => __($user->role->label()),
+            'roleLabel' => $user->userType?->name ?? 'غير محدد',
+            'userTypeName' => $user->userType?->name,
             'branchName' => $user->branch?->name,
+            'branchId' => $user->branch_id,
+            'workBranchIds' => $user->workBranches->modelKeys(),
             'auditSettings' => $user->auditSettings(),
             'isActive' => $user->is_active,
             'permissionIds' => array_values(array_intersect($user->permissions->modelKeys(), $grantablePermissionIds)),
@@ -145,31 +153,6 @@ class PermissionController extends Controller
                 ->map(fn (Permission $permission): string => __(PermissionKey::tryFrom($permission->key)?->label() ?? $permission->label))
                 ->values()->all(),
         ];
-    }
-
-    /**
-     * Each role the actor may manage, with its usual permissions
-     * (UserRole::starterPermissions) among those the actor may grant: the
-     * template an employee's permissions can be reset to, and what marks
-     * an employee's permissions as customised.
-     *
-     * @param  array<int, int>  $grantablePermissionIds
-     * @return array<int, array{role: string, label: string, permissionIds: array<int, int>}>
-     */
-    private function roleTemplates(User $actor, array $grantablePermissionIds): array
-    {
-        $roles = $actor->isSuperAdmin() ? UserRole::assignableBySuperAdmin() : UserRole::staffRoles();
-        $idsByKey = Permission::query()->pluck('id', 'key');
-
-        return array_map(fn (UserRole $role): array => [
-            'role' => $role->value,
-            'label' => __($role->label()),
-            'permissionIds' => collect($role->starterPermissions())
-                ->map(fn (PermissionKey $key): ?int => isset($idsByKey[$key->value]) ? (int) $idsByKey[$key->value] : null)
-                ->filter(fn (?int $id): bool => in_array($id, $grantablePermissionIds, true))
-                ->values()
-                ->all(),
-        ], $roles);
     }
 
     /**
@@ -184,8 +167,11 @@ class PermissionController extends Controller
         return User::query()
             ->where('role', '!=', UserRole::SuperAdmin)
             ->when(! $actor->isSuperAdmin(), fn (Builder $query) => $query
-                ->where('branch_id', $actor->branch_id)
-                ->whereIn('role', UserRole::staffRoles()));
+                ->where('branch_id', $actor->workBranchId())
+                ->whereDoesntHave('permissions', fn (Builder $permissions) => $permissions->whereIn('key', array_map(
+                    fn (PermissionKey $key): string => $key->value,
+                    [PermissionKey::ManagePermissions, PermissionKey::AuditClosings, PermissionKey::ManageBranchDomains],
+                ))));
     }
 
     /**
@@ -264,10 +250,8 @@ class PermissionController extends Controller
      */
     private function filterOptions(User $actor): array
     {
-        $roles = $actor->isSuperAdmin() ? UserRole::assignableBySuperAdmin() : UserRole::staffRoles();
-
         $groups = [
-            $this->filterGroup('role', 'الدور', UserRole::options($roles)),
+            $this->filterGroup('user_type_id', 'نوع المستخدم', UserType::query()->orderBy('name')->get()->map(fn (UserType $type): array => ['value' => (string) $type->id, 'label' => $type->name])->all()),
         ];
 
         if ($actor->isSuperAdmin()) {

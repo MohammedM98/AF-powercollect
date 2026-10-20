@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Branch;
 use App\Models\ClosingSetting;
+use App\Support\BranchDomainContext;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
@@ -35,10 +36,10 @@ class UpdateBoxPeriodSettingRequest extends FormRequest
     public function branch(): ?Branch
     {
         $actor = $this->user();
-        $branchId = $this->filled('branch_id') ? $this->integer('branch_id') : ($actor->isSuperAdmin() ? null : $actor->branch_id);
+        $branchId = $this->filled('branch_id') ? $this->integer('branch_id') : (BranchDomainContext::id() ?? ($actor->isSuperAdmin() ? null : $actor->workBranchId()));
 
         return $branchId === null ? null : Branch::query()
-            ->when(! $actor->isSuperAdmin(), fn (Builder $query) => $query->whereKey($actor->branch_id))
+            ->when(! $actor->isSuperAdmin(), fn (Builder $query) => $query->whereKey($actor->workBranchId()))
             ->findOrFail($branchId);
     }
 

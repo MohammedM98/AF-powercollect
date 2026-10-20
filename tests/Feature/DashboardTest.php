@@ -91,7 +91,7 @@ class DashboardTest extends TestCase
             ->reloadOnly('branchForm', fn ($reload) => $reload->where('branchForm.governorates.0.name', 'Baghdad')));
     }
 
-    public function test_the_new_user_pop_up_offers_a_branch_admin_only_staff_roles_in_their_branch(): void
+    public function test_the_new_user_pop_up_keeps_the_branch_fixed_without_a_system_role_selector(): void
     {
         $branchAdmin = User::factory()->branchAdmin()->create();
 
@@ -101,7 +101,8 @@ class DashboardTest extends TestCase
             ->missing('userForm')
             ->reloadOnly('userForm', fn ($reload) => $reload
                 ->where('userForm.canChooseBranch', false)
-                ->where('userForm.roleOptions', fn ($options): bool => collect($options)->pluck('value')->all() === ['collector', 'data_entry', 'accountant'])));
+                ->missing('userForm.roleOptions')
+                ->has('userForm.userTypeOptions')));
     }
 
     public function test_someone_who_cannot_create_branches_gets_no_branch_pop_up_options(): void

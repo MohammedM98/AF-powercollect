@@ -50,9 +50,9 @@ class BranchPerformanceController extends Controller
         $actor = $request->user();
 
         if (! $actor->isSuperAdmin()) {
-            abort_unless($actor->branch_id, 403);
+            abort_unless($actor->workBranchId(), 403);
 
-            return redirect()->route('branch-performance.show', $actor->branch_id);
+            return redirect()->route('branch-performance.show', $actor->workBranchId());
         }
 
         $sort = $request->query('sort');
@@ -200,7 +200,7 @@ class BranchPerformanceController extends Controller
      */
     private function team(Branch $branch): array
     {
-        $members = $branch->users()->orderBy('name')->get();
+        $members = $branch->users()->with('userType')->orderBy('name')->get();
         $weekStart = DailySeries::startOfDay(6);
         $perMember = fn (Builder $query, string $member): Collection => $query
             ->whereIn($member, $members->modelKeys())
@@ -239,7 +239,7 @@ class BranchPerformanceController extends Controller
                     'id' => $member->id,
                     'name' => $member->name,
                     'username' => $member->username,
-                    'roleLabel' => __($member->role->label()),
+                    'roleLabel' => $member->isSuperAdmin() ? __($member->role->label()) : ($member->userType?->name ?? 'موظف'),
                     'isActive' => $member->is_active,
                     'entries' => (int) ($registered?->entries ?? 0) + (int) ($read?->entries ?? 0),
                     'weekEntries' => (int) ($registered?->week_entries ?? 0) + (int) ($read?->week_entries ?? 0),

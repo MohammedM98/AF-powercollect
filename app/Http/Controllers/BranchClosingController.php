@@ -25,7 +25,7 @@ class BranchClosingController extends Controller
     {
         $actor = $request->user();
         $branchId = $request->integer('branch_id');
-        abort_unless($actor->isSuperAdmin() || $actor->branch_id === $branchId, 404);
+        abort_unless($actor->isSuperAdmin() || $actor->workBranchId() === $branchId, 404);
         $data = $request->validated();
         $allowed = match ($action) {
             'confirm' => $actor->is_active && $actor->can('viewOwnCashBoxes', Subscription::class),

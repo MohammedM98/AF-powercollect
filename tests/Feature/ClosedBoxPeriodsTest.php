@@ -138,7 +138,7 @@ class ClosedBoxPeriodsTest extends TestCase
         $this->actingAs($auditor)->get(route('payments.cash-boxes', ['branch_id' => $branch->id, 'place' => 'open', 'box' => $open->id]))
             ->assertInertia(fn (AssertableInertia $page) => $page->where('place', 'closed')->has('boxes', 0));
         $this->get(route('payments.cash-boxes.entries', ['branch_id' => $branch->id]))->assertForbidden();
-        $this->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $open->id]), ['branch_id' => $branch->id])->assertForbidden();
+        $this->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $open->id]), ['branch_id' => $branch->id])->assertNotFound();
 
         $this->assertDatabaseHas('cash_boxes', ['id' => $open->id, 'status' => 'open']);
     }

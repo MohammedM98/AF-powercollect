@@ -106,7 +106,6 @@ class PasswordStrengthTest extends TestCase
         return [
             'name' => 'New Person',
             'username' => 'new.person',
-            'role' => 'collector',
             'branch_id' => Branch::factory()->create()->id,
             ...$overrides,
         ];

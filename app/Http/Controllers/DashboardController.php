@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Enums\PermissionKey;
 use App\Enums\SubscriptionStatus;
-use App\Enums\UserRole;
 use App\Http\Concerns\ProvidesFormOptions;
 use App\Models\Branch;
 use App\Models\MeterBox;
@@ -71,7 +70,7 @@ class DashboardController extends Controller
             // The "new branch/user" pop-up's dropdowns, loaded only when its button is clicked.
             'branchForm' => Inertia::optional(fn () => $actor->can('create', Branch::class) ? $this->branchFormOptions() : null),
             'userForm' => Inertia::optional(fn () => $actor->can('create', User::class)
-                ? [...$this->userBranchOptions(), 'roleOptions' => $this->userRoleOptions(null)]
+                ? $this->userBranchOptions()
                 : null),
         ]);
     }
@@ -110,12 +109,12 @@ class DashboardController extends Controller
             'total' => $total,
             'active' => $active,
             'activePct' => $this->percentage($active, $total),
-            'branchAdmins' => $users()->where('role', UserRole::BranchAdmin)->count(),
-            'collectors' => $users()->where('role', UserRole::Collector)->count(),
+            'branchAdmins' => $users()->whereHas('permissions', fn ($permissions) => $permissions->where('key', PermissionKey::ManagePermissions->value))->count(),
+            'collectors' => $users()->whereHas('permissions', fn ($permissions) => $permissions->where('key', PermissionKey::RecordCollections->value))->count(),
             'recent' => $users()->with('userType')->latest()->latest('id')->take(5)->get()->map(fn (User $user) => [
                 'id' => $user->id,
                 'name' => $user->name,
-                'subtitle' => $user->userType?->name ?? __($user->role->label()),
+                'subtitle' => $user->isSuperAdmin() ? __($user->role->label()) : ($user->userType?->name ?? 'موظف'),
             ])->all(),
         ];
     }

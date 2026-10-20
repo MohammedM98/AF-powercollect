@@ -183,7 +183,7 @@ class MessageController extends Controller
 
         $batch = DB::transaction(function () use ($actor, $kind, $channel, $body, $request, $recipients, $branchIds): MessageBatch {
             $batch = MessageBatch::create([
-                'branch_id' => $actor->isSuperAdmin() ? ($branchIds->count() === 1 ? $branchIds->first() : null) : $actor->branch_id,
+                'branch_id' => $actor->isSuperAdmin() ? ($branchIds->count() === 1 ? $branchIds->first() : null) : $actor->workBranchId(),
                 'kind' => $kind,
                 'channel' => $channel,
                 'body' => $body,
@@ -392,7 +392,7 @@ class MessageController extends Controller
         $user = $request->user();
 
         if (! $user->isSuperAdmin()) {
-            return $user->branch_id;
+            return $user->workBranchId();
         }
 
         return $request->filled('branch_id') ? (int) $request->input('branch_id') : Branch::query()->orderBy('name')->value('id');

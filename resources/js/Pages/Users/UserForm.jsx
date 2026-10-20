@@ -22,14 +22,12 @@ export function userFormData(user) {
         username: user?.username ?? '',
         password: '',
         password_confirmation: '',
-        role: user?.role ?? 'collector',
         branch_id: user?.branch_id ?? '',
         is_active: user?.is_active ?? true,
     };
 }
 
-export default function UserForm({ data, setData, errors, isEdit, roleOptions, branches, canChooseBranch, canUpdatePassword = false, userTypeOptions = [] }) {
-    const role = roleOptions.find((option) => option.value === data.role);
+export default function UserForm({ data, setData, errors, isEdit, branches, canChooseBranch, canUpdatePassword = false, userTypeOptions = [] }) {
     const name = data.name.trim();
     const userType = userTypeOptions.find((option) => String(option.value) === String(data.user_type_id));
     const branch = branches.find((option) => String(option.id) === String(data.branch_id));
@@ -44,7 +42,7 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                 title={name || 'مستخدم جديد'}
                 subtitle={data.username.trim() ? `@${data.username.trim()}` : null}
                 subtitleDir="ltr"
-                chips={[userType?.label, role?.label, branch?.name, data.is_active ? null : 'موقوف'].filter(Boolean)}
+                chips={[userType?.label, branch?.name, data.is_active ? null : 'موقوف'].filter(Boolean)}
                 filled={countFilled(data, requiredFields)}
                 total={requiredFields.length}
             />
@@ -72,10 +70,10 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                     <>
                         <FormField
                             id="password"
-                            label={isEdit ? 'كلمة مرور جديدة (اتركها فارغة للاحتفاظ بالحالية)' : 'كلمة المرور'}
+                            label={isEdit ? 'كلمة مرور جديدة' : 'كلمة المرور'}
                             required={!isEdit}
                             error={errors.password}
-                            hint="10 أحرف على الأقل، وتتضمن حروفًا وأرقامًا."
+                            hint={isEdit ? 'اتركها فارغة للاحتفاظ بالحالية. عند تغييرها: 10 أحرف على الأقل، تتضمن حروفًا وأرقامًا.' : '10 أحرف على الأقل، وتتضمن حروفًا وأرقامًا.'}
                         >
                             <PasswordInput className="block w-full" value={data.password} onChange={(e) => setData('password', e.target.value)} />
                         </FormField>
@@ -87,8 +85,8 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                 )}
             </FormSection>
 
-            <FormSection icon="badge" title="النوع والفرع والحالة" description="ما يفعله المستخدم وأين، وهل حسابه يعمل" columns={2}>
-                <FormField id="user_type_id" label="نوع المستخدم" error={errors.user_type_id}>
+            <FormSection icon="badge" title="النوع والفرع والحالة" description="المسمى الوظيفي ومكان العمل وحالة الحساب" columns={2}>
+                <FormField id="user_type_id" label="نوع المستخدم / المسمى الوظيفي" hint="للتصنيف فقط؛ الصلاحيات تُحدّد للموظف من صفحة الصلاحيات." error={errors.user_type_id}>
                     <SearchableSelect
                         value={data.user_type_id}
                         onChange={(value) => setData('user_type_id', value)}
@@ -99,7 +97,7 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                     />
                 </FormField>
 
-                {canChooseBranch && roleOptions.length > 0 && (
+                {canChooseBranch && (
                     <FormSelect
                         id="branch_id"
                         label="الفرع"
@@ -112,24 +110,7 @@ export default function UserForm({ data, setData, errors, isEdit, roleOptions, b
                     />
                 )}
 
-                {roleOptions.length > 0 && (
-                    <div className="sm:col-span-2">
-                        <FormSelect
-                            id="role"
-                            label="دور النظام"
-                            value={data.role}
-                            onChange={(value) => setData('role', value)}
-                            options={roleOptions}
-                            required
-                            error={errors.role}
-                            hint={data.role === 'financial_auditor'
-                                ? 'مدقق مالي: تُحدّد فروع عمله وإجراءاته من بطاقة «عمل التدقيق المالي» في صفحة الصلاحيات. لا يدير المستخدمين أو الصلاحيات.'
-                                : data.role === 'branch_admin'
-                                    ? 'يمكنه إدارة صلاحيات موظفي فرعه.'
-                                    : 'تبدأ الصلاحيات حسب الدور، ويمكن تعديلها من صفحة الصلاحيات.'}
-                        />
-                    </div>
-                )}
+                <p className="rounded-control border border-gray-100 bg-gray-50 p-3 text-sm leading-7 text-gray-600 sm:col-span-2">الصلاحيات مستقلة عن المسمى الوظيفي. بعد حفظ المستخدم، حدّد ما يستطيع عمله من صفحة الصلاحيات أو انسخ صلاحيات موظف آخر.</p>
 
                 <div className="sm:col-span-2">
                     <Switch checked={data.is_active} onChange={(checked) => setData('is_active', checked)} label="حساب نشط" ariaLabel="حساب نشط" />

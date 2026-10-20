@@ -274,7 +274,7 @@ class SubscriptionTransactionCorrectionTest extends TestCase
                 ->has('entries.1.amendments', 2)
                 ->where('entries.1.amendments.0.userName', 'Sami')
                 ->where('entries.1.amendments.0.reason', 'اختير البنك الخطأ عند التسجيل')
-                ->where('entries.1.amendments.0.changes.0.label', 'البنك المحوّل له')
+                ->where('entries.1.amendments.0.changes.0.label', 'البنك المستلم')
                 ->where('entries.1.amendments.0.changes.0.from', 'بنك فلسطين')
                 ->where('entries.1.amendments.0.changes.0.to', 'البنك الإسلامي الفلسطيني')
                 ->where('entries.1.amendments.1.reason', 'تحديث الملاحظة')

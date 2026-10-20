@@ -53,7 +53,7 @@ test('turning audit access off locks its controls and clearly removes the work s
     const summary = renderToStaticMarkup(createElement(Summary, { employee, options, value, enabled: false }));
     assert.match(summary, /التدقيق غير مفعّل/);
     assert.doesNotMatch(summary, /فرع جنين/);
-    assert.match(summary, /مقفلة لهذا الدور/);
+    assert.doesNotMatch(summary, /مقفلة لهذا الدور/);
 });
 
 test('the work summary names the selected audit branch and only the actions granted', () => {

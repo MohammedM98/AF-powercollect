@@ -20,6 +20,7 @@ import { formatMonthName } from '@/lib/format';
 import { consumptionBetween, steppedReading, weeklyCharges } from '@/lib/readings';
 import { activeReadingStatus, readingStatusFilters } from '@/lib/readingSheet';
 import ReadingContextBar from './ReadingContextBar';
+import ReadingApprovalDialog from './ReadingApprovalDialog';
 import './ReadingEntry.css';
 import { WEEK_DAYS, formatWeekDay } from '@/lib/weekDays';
 
@@ -131,7 +132,7 @@ function LastReadingCell({ row }) {
  * One subscription's line for the week. `approvable` (the actor may approve
  * readings) adds a tick box, enabled when this row's reading can be approved.
  */
-function SheetRow({ row, week, approvable, showRecorder, selected, onToggleSelected }) {
+export function SheetRow({ row, week, approvable, showRecorder, selected, onToggleSelected, onApprove, approving = false }) {
     const savedValue = row.reading && !row.reading.requiresReentry ? String(row.reading.currentReading) : '';
     const [value, setValue] = useState(savedValue);
     const [error, setError] = useState(null);
@@ -345,7 +346,7 @@ function SheetRow({ row, week, approvable, showRecorder, selected, onToggleSelec
                     <span className="text-xs text-gray-500">جارٍ الحفظ...</span>
                 ) : row.reading ? (
                     <div className="re-pills">
-                        <span className={`re-pill ${row.reading.status}`}><i />{row.reading.requiresReentry ? 'بانتظار إدخال الحالية' : row.reading.status === 'pending' ? 'بانتظار الاعتماد' : row.reading.statusLabel}</span>
+                        {approvable && row.canApprove && row.reading.status === 'pending' && !row.reading.requiresReentry ? <button type="button" className="re-pill pending re-pill-action" disabled={!isSaved || approving} onClick={() => onApprove(row.reading.id)} title={isSaved ? 'اضغط لمراجعة واعتماد هذه القراءة فقط' : 'احفظ تعديل القراءة أولًا'} aria-label={`اعتماد قراءة ${row.fullName}`}><i />بانتظار الاعتماد<Icon name="check" className="h-3.5 w-3.5" /></button> : <span className={`re-pill ${row.reading.status}`}><i />{row.reading.requiresReentry ? 'بانتظار إدخال الحالية' : row.reading.status === 'pending' ? 'بانتظار الاعتماد' : row.reading.statusLabel}</span>}
                         {billCancelled && !isDraft && (
                             <span className="re-pill unbilled" title="أُلغيت فاتورة هذه القراءة من كشف حساب المشترك، فلا تُحمَّل عليه.">
                                 <i />الفاتورة ملغاة
@@ -446,6 +447,7 @@ export default function Index({
     const [selectedIds, setSelectedIds] = useState(() => new Set());
     const [confirming, setConfirming] = useState(null);
     const [approving, setApproving] = useState(false);
+    const [singleApprovalId, setSingleApprovalId] = useState(null);
     const [showHint, setShowHint] = useState(true);
     // The end of the filters and the sheet: the pinned bar shows what the filters are set to while they are scrolled away.
     const filtersRef = useRef(null);
@@ -468,6 +470,7 @@ export default function Index({
 
     const approvableRows = rows.data.filter((row) => row.canApprove);
     const selectedRows = approvableRows.filter((row) => selectedIds.has(row.reading.id));
+    const singleApprovalRow = approvableRows.find((row) => row.reading.id === singleApprovalId);
     const selectedTotal = selectedRows.reduce((total, row) => total + Number(row.reading.amountDue), 0);
     // Readings far above the subscription's usual are approved only when ticked and confirmed, never with "approve all".
     const selectedUnusualCount = selectedRows.filter((row) => row.reading.unusual).length;
@@ -488,17 +491,21 @@ export default function Index({
         setSelectedIds(allOnPageSelected ? new Set() : new Set(approvableRows.map((row) => row.reading.id)));
     }
 
-    function approve() {
-        const payload = confirming === 'all'
+    function approve(singleRow = null) {
+        if (approving) return;
+        const payload = singleRow
+            ? { reading_ids: [singleRow.reading.id], ...(singleRow.reading.unusual ? { confirm_unusual: true } : {}) }
+            : confirming === 'all'
             ? { all: true, week, search, filter: filterValues }
             : { reading_ids: [...selectedIds], ...(selectedUnusualCount > 0 ? { confirm_unusual: true } : {}) };
 
         setConfirming(null);
+        setSingleApprovalId(null);
         setApproving(true);
         router.post('/meter-readings/approve', payload, {
             preserveScroll: true,
             preserveState: true,
-            onSuccess: () => setSelectedIds(new Set()),
+            onSuccess: () => setSelectedIds((current) => singleRow ? new Set([...current].filter((id) => id !== singleRow.reading.id)) : new Set()),
             onFinish: () => setApproving(false),
         });
     }
@@ -538,15 +545,9 @@ export default function Index({
                         <span className={`re-open ${entryWindow.isOpen ? 'is-open' : ''}`}><i />الإدخال {entryWindow.isOpen ? 'مفتوح' : 'مغلق'}</span>
                         <div className="re-week">
                             <button type="button" aria-label="الأسبوع السابق" disabled={weekIndex < 0 || weekIndex === weekOptions.length - 1} onClick={() => changeWeek(weekOptions[weekIndex + 1].value)}><Icon name="chevron-right" /></button>
-                            <select className="re-week-select" aria-label="السنة" value={currentYear} onChange={(e) => changePeriod(e.target.value)}>
-                                {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
-                            </select>
-                            <select className="re-week-select" aria-label="الشهر" value={currentMonth} onChange={(e) => changePeriod(e.target.value)}>
-                                {monthOptions.map((month) => <option key={month} value={month}>{formatMonthName(`${month}-01`)}</option>)}
-                            </select>
-                            <select className="re-week-select" aria-label="أسبوع القراءة" value={week} onChange={(e) => changeWeek(e.target.value)}>
-                                {weeksOfMonth.map((option) => <option key={option.value} value={option.value}>{`\u202A${shortDate(option.value)} – ${shortDate(option.end)}\u202C`}</option>)}
-                            </select>
+                            <div className="re-week-field re-week-year"><label htmlFor="reading-week-year" className="sr-only">السنة</label><SearchableSelect id="reading-week-year" value={currentYear} onChange={changePeriod} options={yearOptions.map((year) => ({ value: year, label: year }))} clearable={false} searchable={false} className="[&>div.absolute]:min-w-0" /></div>
+                            <div className="re-week-field re-week-month"><label htmlFor="reading-week-month" className="sr-only">الشهر</label><SearchableSelect id="reading-week-month" value={currentMonth} onChange={changePeriod} options={monthOptions.map((month) => ({ value: month, label: formatMonthName(`${month}-01`) }))} clearable={false} searchable={false} className="[&>div.absolute]:min-w-0" /></div>
+                            <div className="re-week-field re-week-range"><label htmlFor="reading-week-range" className="sr-only">أسبوع القراءة</label><SearchableSelect id="reading-week-range" value={week} onChange={changeWeek} options={weeksOfMonth.map((option) => ({ value: option.value, label: `\u202A${shortDate(option.value)} – ${shortDate(option.end)}\u202C` }))} clearable={false} searchable={false} className="[&>div.absolute]:min-w-0" /></div>
                             <button type="button" aria-label="الأسبوع التالي" disabled={weekIndex <= 0} onClick={() => changeWeek(weekOptions[weekIndex - 1].value)}><Icon name="chevron-left" /></button>
                         </div>
                     </div>
@@ -704,6 +705,8 @@ export default function Index({
                                     showRecorder={seesWhoRecorded}
                                     selected={row.canApprove && selectedIds.has(row.reading.id)}
                                     onToggleSelected={() => toggleSelected(row.reading.id)}
+                                    onApprove={setSingleApprovalId}
+                                    approving={approving}
                                 />
                             ))
                         )}
@@ -735,7 +738,7 @@ export default function Index({
 
             <ConfirmDialog
                 show={confirming !== null}
-                onConfirm={approve}
+                onConfirm={() => approve()}
                 onCancel={() => setConfirming(null)}
                 title={confirming === 'all' ? 'اعتماد كل القراءات؟' : 'اعتماد القراءات المحددة؟'}
                 message={
@@ -746,6 +749,7 @@ export default function Index({
                 confirmLabel="نعم، اعتمد"
                 cancelLabel="مراجعة القراءات"
             />
+            <ReadingApprovalDialog row={singleApprovalRow} onConfirm={() => approve(singleApprovalRow)} onCancel={() => setSingleApprovalId(null)} />
             </div>
         </AuthenticatedLayout>
     );

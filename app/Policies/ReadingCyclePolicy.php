@@ -32,7 +32,7 @@ class ReadingCyclePolicy
 
     public function create(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageReadingAssignments) && ($user->isSuperAdmin() || $user->branch_id !== null);
+        return $user->hasPermission(PermissionKey::ManageReadingAssignments) && ($user->isSuperAdmin() || $user->workBranchId() !== null);
     }
 
     /**
@@ -67,6 +67,6 @@ class ReadingCyclePolicy
 
     private function inBranch(User $user, ReadingCycle $cycle): bool
     {
-        return $user->isSuperAdmin() || $cycle->branch_id === $user->branch_id;
+        return $user->isSuperAdmin() || $cycle->branch_id === $user->workBranchId();
     }
 }

@@ -2,11 +2,9 @@
 
 namespace App\Http\Concerns;
 
-use App\Enums\UserRole;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Governorate;
-use App\Models\User;
 use App\Models\UserType;
 use Illuminate\Support\Collection;
 
@@ -47,23 +45,5 @@ trait ProvidesFormOptions
             'userTypeOptions' => UserType::orderBy('name')->get(['id', 'name'])
                 ->map(fn (UserType $type): array => ['value' => $type->id, 'label' => $type->name]),
         ];
-    }
-
-    /**
-     * The roles the current actor may assign, given the user being edited
-     * (or null when creating a new user). A Super Admin's own role can't
-     * be changed, so editing one offers no roles at all.
-     *
-     * @return array<int, array{value: string, label: string}>
-     */
-    protected function userRoleOptions(?User $user): array
-    {
-        $roles = match (true) {
-            ! auth()->user()->isSuperAdmin() => UserRole::staffRoles(),
-            $user?->isSuperAdmin() => [],
-            default => UserRole::assignableBySuperAdmin(),
-        };
-
-        return UserRole::options($roles);
     }
 }

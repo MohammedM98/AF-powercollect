@@ -112,7 +112,7 @@ class SubscriptionBulkChangeController extends Controller
                 'field' => $field,
                 'value' => $byCircuitBreaker ? null : $this->normalize($field, $request->validated('value')),
                 'description' => $this->describe($field, $byCircuitBreaker, $request->validated('value')),
-                'branch_id' => $actor->isSuperAdmin() ? ($branchIds->count() === 1 ? $branchIds->first() : null) : $actor->branch_id,
+                'branch_id' => $actor->isSuperAdmin() ? ($branchIds->count() === 1 ? $branchIds->first() : null) : $actor->workBranchId(),
                 'user_id' => $actor->id,
                 'changed_count' => $changes->count(),
             ]);

@@ -2,6 +2,8 @@
 
 return [
 
+    'branch_domains_enabled' => (bool) env('BRANCH_DOMAINS_ENABLED', false),
+
     /*
     |--------------------------------------------------------------------------
     | Seeded Super Admin

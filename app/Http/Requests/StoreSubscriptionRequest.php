@@ -148,7 +148,7 @@ class StoreSubscriptionRequest extends FormRequest
      */
     private function boxBranchId(): mixed
     {
-        return $this->user()->isSuperAdmin() ? $this->input('branch_id') : $this->user()->branch_id;
+        return $this->user()->isSuperAdmin() ? $this->input('branch_id') : $this->user()->workBranchId();
     }
 
     /** @return array<string, string> */

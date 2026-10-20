@@ -59,6 +59,6 @@ class SubscriptionBulkChange extends Model
     #[Scope]
     protected function visibleTo(Builder $query, User $user): void
     {
-        $query->when(! $user->isSuperAdmin(), fn (Builder $query) => $query->where('branch_id', $user->branch_id));
+        $query->when(! $user->isSuperAdmin(), fn (Builder $query) => $query->where('branch_id', $user->workBranchId()));
     }
 }

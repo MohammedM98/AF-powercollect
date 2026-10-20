@@ -71,8 +71,8 @@ class AmendSubscriptionTransactionRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'bank_name' => 'البنك المحوّل له',
-            'sender_bank_name' => 'البنك المحوّل منه',
+            'bank_name' => 'البنك المستلم',
+            'sender_bank_name' => 'البنك المرسل',
             'sender_name' => 'اسم المرسل',
             'reference_number' => 'الرقم المرجعي',
             'notes' => 'الملاحظات',

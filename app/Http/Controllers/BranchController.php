@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PermissionKey;
 use App\Http\Concerns\DeletesRecords;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Concerns\ProvidesFormOptions;
@@ -11,6 +12,7 @@ use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Governorate;
 use App\Notifications\ActionCompleted;
+use App\Support\BranchDomainContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -40,11 +42,14 @@ class BranchController extends Controller
                 ...$branch->toArray(),
                 'canUpdate' => $actor->can('update', $branch),
                 'canDelete' => $actor->can('delete', $branch),
+                'url' => BranchDomainContext::branchUrl($branch),
             ]);
 
         return Inertia::render('Branches/Index', [
             'branches' => $branches,
             'canCreate' => $actor->can('create', Branch::class),
+            'canManageDomains' => $actor->hasPermission(PermissionKey::ManageBranchDomains),
+            'domainRoutingEnabled' => (bool) config('powercollect.branch_domains_enabled'),
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => $this->filterOptions(),
             ...$this->branchFormOptions(),

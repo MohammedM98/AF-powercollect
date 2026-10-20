@@ -74,7 +74,7 @@ class StoreReadingCycleRequest extends FormRequest
 
     public function branchId(): int
     {
-        return $this->user()->isSuperAdmin() ? (int) $this->input('branch_id') : (int) $this->user()->branch_id;
+        return $this->user()->isSuperAdmin() ? (int) $this->input('branch_id') : (int) $this->user()->workBranchId();
     }
 
     public function branch(): Branch

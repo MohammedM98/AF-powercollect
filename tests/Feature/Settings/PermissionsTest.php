@@ -165,7 +165,7 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect(collect($groups)->firstWhere('key', 'collections')['actions'])->pluck('action')->all() === [
-                'view', 'record', 'record_cash', 'record_transfer', 'close_boxes', 'manage_box_periods', 'audit', 'confirm', 'charge', 'discount', 'clearing', 'correct', 'amend', 'refund', 'delete', 'force_delete',
+                'view', 'record', 'record_cash', 'record_transfer', 'close_boxes', 'manage_box_periods', 'manage_branch_closings', 'view_all_boxes', 'audit', 'confirm', 'charge', 'discount', 'clearing', 'correct', 'amend', 'refund', 'delete', 'force_delete',
             ],
         ));
     }
@@ -297,14 +297,15 @@ class PermissionsTest extends TestCase
             ->where('selectedUser.permissionIds', [$viewBranches->id]));
     }
 
-    public function test_the_page_lists_each_employees_permissions_and_each_roles_usual_ones_the_actor_may_grant(): void
+    public function test_the_page_lists_individual_grants_without_automatic_role_templates(): void
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
         $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $branch->id]);
-        $viewAreas = Permission::where('key', PermissionKey::ViewAreas->value)->firstOrFail();
-        $dataEntry->permissions()->attach($viewAreas);
+        $transferPermission = Permission::where('key', PermissionKey::RecordTransferPayments->value)->firstOrFail();
+        $branchAdmin->permissions()->detach($transferPermission);
+        $dataEntry->permissions()->attach($transferPermission);
         $idsOf = fn (array $keys): array => Permission::whereIn('key', array_map(fn (PermissionKey $key) => $key->value, $keys))->pluck('id')->sort()->values()->all();
         $sorted = fn (array $ids): array => collect($ids)->sort()->values()->all();
 
@@ -314,9 +315,8 @@ class PermissionsTest extends TestCase
                 ->where('users.data.0.role', 'data_entry')
                 // Grants outside the actor's scope are shown separately and cannot be edited or copied.
                 ->where('users.data.0.permissionIds', fn ($ids): bool => $sorted($ids->all()) === $idsOf(UserRole::DataEntry->starterPermissions()))
-                ->where('selectedUser.lockedPermissions', [__(PermissionKey::ViewAreas->label())])
-                ->where('roleTemplates', fn ($templates): bool => collect($templates)->pluck('role')->all() === ['collector', 'data_entry', 'accountant'])
-                ->where('roleTemplates.1.permissionIds', fn ($ids): bool => $sorted($ids->all()) === $idsOf(UserRole::DataEntry->starterPermissions())));
+                ->where('selectedUser.lockedPermissions', [__(PermissionKey::RecordTransferPayments->label())])
+                ->where('roleTemplates', []));
     }
 
     public function test_branch_admin_cannot_open_another_branchs_employee_in_the_editor(): void

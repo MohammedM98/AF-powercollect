@@ -77,7 +77,7 @@ class StoreMeterBoxRequest extends FormRequest
                 return;
             }
 
-            $branchId = $this->user()->isSuperAdmin() ? $this->input('branch_id') : $this->user()->branch_id;
+            $branchId = $this->user()->isSuperAdmin() ? $this->input('branch_id') : $this->user()->workBranchId();
             $branch = Branch::find($branchId);
             $subArea = SubArea::find($value);
 

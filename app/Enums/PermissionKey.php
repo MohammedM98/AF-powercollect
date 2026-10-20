@@ -5,6 +5,7 @@ namespace App\Enums;
 enum PermissionKey: string
 {
     case ViewBranches = 'branches.view';
+    case ManageBranchDomains = 'branches.manage_domains';
     case CreateBranches = 'branches.create';
     case UpdateBranches = 'branches.update';
     case DeleteBranches = 'branches.delete';
@@ -13,6 +14,10 @@ enum PermissionKey: string
     case CreateUsers = 'users.create';
     case UpdateUsers = 'users.update';
     case DeleteUsers = 'users.delete';
+    case ManagePermissions = 'users.manage_permissions';
+    case ManageUserPasswords = 'users.manage_passwords';
+    case ManageBranchSchedules = 'users.manage_branch_schedules';
+    case ManageBranchClosings = 'collections.manage_branch_closings';
 
     case ViewUserTypes = 'user_types.view';
     case CreateUserTypes = 'user_types.create';
@@ -113,6 +118,7 @@ enum PermissionKey: string
     {
         return match ($this) {
             self::ViewBranches => 'View Branches',
+            self::ManageBranchDomains => 'إدارة روابط الفروع',
             self::CreateBranches => 'Add Branches',
             self::UpdateBranches => 'Edit Branches',
             self::DeleteBranches => 'Delete Branches',
@@ -120,6 +126,10 @@ enum PermissionKey: string
             self::CreateUsers => 'Add Users',
             self::UpdateUsers => 'Edit Users',
             self::DeleteUsers => 'Delete Users',
+            self::ManagePermissions => 'إدارة صلاحيات موظفي الفرع',
+            self::ManageUserPasswords => 'تغيير كلمات مرور موظفي الفرع',
+            self::ManageBranchSchedules => 'إدارة مواعيد الفرع',
+            self::ManageBranchClosings => 'إدارة واعتماد صناديق الفرع',
             self::ViewUserTypes => 'View User Types',
             self::CreateUserTypes => 'Add User Types',
             self::UpdateUserTypes => 'Edit User Types',
@@ -185,7 +195,7 @@ enum PermissionKey: string
             self::PrepareClosings => 'Prepare Closings',
             self::ViewOwnClosings => 'View Branch Closings',
             self::AuditClosings => 'Financial Audit Across All Branches',
-            self::ViewAllClosings => 'View All Closings and Reports',
+            self::ViewAllClosings => 'عرض الصناديق المالية لجميع الفروع',
             self::ViewFinancialReports => 'View Financial Reports',
             self::ViewAllFinancialReports => 'View All Financial Reports',
             self::ViewBranchPerformance => 'View Branch Performance',
@@ -206,7 +216,7 @@ enum PermissionKey: string
     public function isRetired(): bool
     {
         return $this === self::SendCashBoxesToAudit
-            || ($this !== self::AuditClosings && str_starts_with($this->value, 'closings.'));
+            || (! in_array($this, [self::AuditClosings, self::ViewAllClosings], true) && str_starts_with($this->value, 'closings.'));
     }
 
     /**
@@ -220,7 +230,7 @@ enum PermissionKey: string
     public function isCompanyWide(): bool
     {
         return match ($this) {
-            self::ViewBranches, self::CreateBranches, self::UpdateBranches, self::DeleteBranches,
+            self::ViewBranches, self::CreateBranches, self::UpdateBranches, self::DeleteBranches, self::ManageBranchDomains,
             self::ViewGovernorates, self::CreateGovernorates, self::UpdateGovernorates, self::DeleteGovernorates,
             self::ViewAreas, self::CreateAreas, self::UpdateAreas, self::DeleteAreas,
             self::ViewUserTypes, self::CreateUserTypes, self::UpdateUserTypes, self::DeleteUserTypes,
@@ -229,6 +239,7 @@ enum PermissionKey: string
             // Print templates are shared by every branch.
             self::ManagePrintTemplates => true,
             self::ManageBoxPeriods => true,
+            self::ManagePermissions, self::ManageUserPasswords, self::ManageBranchSchedules, self::ManageBranchClosings => true,
             default => false,
         };
     }
@@ -300,6 +311,8 @@ enum PermissionKey: string
                     'record_transfer' => self::RecordTransferPayments,
                     'close_boxes' => self::CloseCashBoxes,
                     'manage_box_periods' => self::ManageBoxPeriods,
+                    'manage_branch_closings' => self::ManageBranchClosings,
+                    'view_all_boxes' => self::ViewAllClosings,
                     'audit' => self::AuditClosings,
                     'confirm' => self::ConfirmCollections,
                     'charge' => self::AddCharges,
@@ -343,7 +356,7 @@ enum PermissionKey: string
             ],
             'users' => [
                 'label' => 'Users',
-                'actions' => ['view' => self::ViewUsers, 'create' => self::CreateUsers, 'update' => self::UpdateUsers, 'delete' => self::DeleteUsers],
+                'actions' => ['view' => self::ViewUsers, 'create' => self::CreateUsers, 'update' => self::UpdateUsers, 'delete' => self::DeleteUsers, 'manage_permissions' => self::ManagePermissions, 'manage_passwords' => self::ManageUserPasswords, 'manage_branch_schedules' => self::ManageBranchSchedules],
             ],
             'user_types' => [
                 'label' => 'User Types',
@@ -351,7 +364,7 @@ enum PermissionKey: string
             ],
             'branches' => [
                 'label' => 'Branches',
-                'actions' => ['view' => self::ViewBranches, 'create' => self::CreateBranches, 'update' => self::UpdateBranches, 'delete' => self::DeleteBranches],
+                'actions' => ['view' => self::ViewBranches, 'create' => self::CreateBranches, 'update' => self::UpdateBranches, 'delete' => self::DeleteBranches, 'manage_domains' => self::ManageBranchDomains],
             ],
             'governorates' => [
                 'label' => 'Governorates',

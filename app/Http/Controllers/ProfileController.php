@@ -18,14 +18,14 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): InertiaResponse
     {
-        $user = $request->user()->loadMissing(['branch', 'permissions']);
+        $user = $request->user()->loadMissing(['branch', 'permissions', 'userType']);
         $devices = ProfileDeviceController::devices($request);
 
         return Inertia::render('Profile/Edit', [
             'user' => [
                 'name' => $user->name,
                 'username' => $user->username,
-                'roleLabel' => __($user->role->label()),
+                'roleLabel' => $user->isSuperAdmin() ? __($user->role->label()) : ($user->userType?->name ?? 'موظف'),
                 'branchName' => $user->isSuperAdmin() ? 'جميع الفروع' : ($user->branch?->name ?? 'لم يُحدد فرع'),
                 'isActive' => $user->is_active,
                 'memberSince' => $user->created_at->timezone(config('app.business_timezone'))->format('d/m/Y'),

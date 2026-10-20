@@ -93,7 +93,7 @@ class AccountLockoutTest extends TestCase
     {
         $superAdmin = User::factory()->superAdmin()->create();
 
-        $this->updateUser($superAdmin, $superAdmin, ['role' => UserRole::Collector->value, 'branch_id' => Branch::factory()->create()->id])->assertSessionHasNoErrors();
+        $this->updateUser($superAdmin, $superAdmin, ['role' => UserRole::Collector->value, 'branch_id' => Branch::factory()->create()->id])->assertSessionHasErrors('role');
 
         $this->assertSame(UserRole::SuperAdmin, $superAdmin->fresh()->role);
     }

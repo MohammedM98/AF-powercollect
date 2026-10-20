@@ -81,7 +81,7 @@ class TransactionAuditController extends Controller
             'period' => $period,
             'counts' => $this->counts($inPeriod()),
             'today' => DailySeries::today()->toDateString(),
-            'scopeLabel' => $actor->hasFinancialAuditAccess() ? ($actor->auditSettings()['scope'] === 'selected' ? 'الفروع المحددة للتدقيق' : 'كل الفروع') : ($actor->branch?->name ?? '—'),
+            'scopeLabel' => $actor->hasFinancialAuditAccess() ? ($actor->auditSettings()['scope'] === 'selected' ? 'الفروع المحددة للتدقيق' : 'كل الفروع') : ($actor->workBranch()?->name ?? '—'),
             'filters' => $this->dataTableState($request, 'happened_at', 'desc', self::DEFAULT_PER_PAGE),
             'filterOptions' => $this->filterOptions($actor),
             // A row's subscription's statement, opened over the log.
@@ -298,7 +298,7 @@ class TransactionAuditController extends Controller
                 ->when($actor->hasFinancialAuditAccess() && $actor->auditSettings()['scope'] === 'selected', fn (Builder $users) => $users->whereIn('id', $this->filteredEvents(new Request, $actor)->select('user_id')))
                 // Branch staff see their branch's staff and the Super Admins, who have no branch.
                 ->when(! $actor->hasFinancialAuditAccess(), fn (Builder $users) => $users->where(fn (Builder $inBranch) => $inBranch
-                    ->where('branch_id', $actor->branch_id)
+                    ->where('branch_id', $actor->workBranchId())
                     ->orWhereNull('branch_id')))
                 ->orderBy('name')
                 ->get(),

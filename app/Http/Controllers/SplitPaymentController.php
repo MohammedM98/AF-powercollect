@@ -9,6 +9,7 @@ use App\Models\SplitPayment;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Notifications\ActionCompleted;
+use App\Support\BranchDomainContext;
 use App\Support\DailySeries;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -28,15 +29,16 @@ class SplitPaymentController extends Controller
 
         $validated = $request->validate(['reference_number' => ['required', 'string', 'max:100']]);
         $conflict = SubscriptionTransaction::activeReferenceConflict($validated['reference_number']);
+        $outsideDomain = $conflict && BranchDomainContext::id() !== null && $conflict->subscription->branch_id !== BranchDomainContext::id();
 
         return response()->json([
             'available' => $conflict === null,
-            'conflict' => $conflict ? [
+            'conflict' => $outsideDomain ? ['id' => null, 'voucherNumber' => null, 'subscriptionName' => 'دفعة أخرى مسجّلة مسبقًا', 'url' => null] : ($conflict ? [
                 'id' => $conflict->id,
                 'voucherNumber' => $conflict->displayVoucherNumber(),
                 'subscriptionName' => $conflict->subscription->displayName(),
                 'url' => route('subscriptions.statement', [$conflict->subscription, 'transaction' => $conflict->id]),
-            ] : null,
+            ] : null),
         ]);
     }
 
@@ -88,9 +90,10 @@ class SplitPaymentController extends Controller
         $actor = $request->user();
         $seesEveryBranch = $actor->isSuperAdmin() || $actor->hasPermission(PermissionKey::ViewAllClosings) || $actor->hasPermission(PermissionKey::AuditClosings);
         $payments = $splitPayment->payments()->with(['subscription', 'cancelledBy'])->get();
-        [$visible, $hidden] = $payments->partition(fn (SubscriptionTransaction $payment): bool => $actor->hasFinancialAuditAccess()
-            ? $actor->auditIncludesBranch($payment->subscription->branch_id) && (! $actor->isFinancialAuditor() || $payment->isInClosedDay())
-            : ($seesEveryBranch || $payment->subscription->branch_id === $actor->branch_id));
+        [$visible, $hidden] = $payments->partition(fn (SubscriptionTransaction $payment): bool => $actor->isSuperAdmin() || ($actor->hasFinancialAuditAccess()
+            ? ($actor->auditIncludesBranch($payment->subscription->branch_id) && $payment->isInClosedDay())
+            || ($payment->subscription->branch_id === $actor->workBranchId() && ! $actor->isAuditOnly())
+            : ($seesEveryBranch || $payment->subscription->branch_id === $actor->workBranchId())));
         abort_if($actor->hasFinancialAuditAccess() && $visible->isEmpty(), 404);
         $standingTotal = $splitPayment->standingTotal();
 

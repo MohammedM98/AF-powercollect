@@ -8,6 +8,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Notifications\ActionCompleted;
 use App\Support\BranchClosingAccess;
+use App\Support\BranchDomainContext;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
 use Illuminate\Http\JsonResponse;
@@ -101,7 +102,7 @@ class SubscriptionPaymentController extends Controller
         // Whoever records payments may print their receipts, even without access to the subscriptions list.
         $auditor = BranchClosingAccess::audit($request->user()) && $request->user()->auditIncludesBranch($subscription->branch_id) && $transaction->isInClosedDay();
         abort_unless($auditor || $request->user()->can('view', $subscription) || $request->user()->can('recordPayment', $subscription), 403);
-        abort_if($request->user()->isFinancialAuditor() && ! $auditor, 403);
+        abort_if($request->user()->isAuditOnly() && ! $auditor, 403);
         abort_unless($transaction->isPayment() || $transaction->isClearing(), 404);
 
         $subscription->loadMissing(['profile', 'branch', 'meterBox']);
@@ -154,6 +155,10 @@ class SubscriptionPaymentController extends Controller
     private function referenceTransactionData(SubscriptionTransaction $transaction): array
     {
         $transaction->loadMissing('subscription');
+
+        if (BranchDomainContext::id() !== null && $transaction->subscription->branch_id !== BranchDomainContext::id()) {
+            return ['id' => null, 'voucherNumber' => null, 'subscriptionName' => 'دفعة أخرى مسجّلة مسبقًا', 'url' => null];
+        }
 
         return [
             'id' => $transaction->id,

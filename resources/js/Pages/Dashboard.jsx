@@ -310,7 +310,6 @@ export default function Dashboard({ greeting, sections, fieldApp, scopedToBranch
                     user={null}
                     branches={userForm.branches}
                     canChooseBranch={userForm.canChooseBranch}
-                    roleOptions={userForm.roleOptions}
                     userTypeOptions={userForm.userTypeOptions}
                 />
             )}

@@ -50,11 +50,9 @@ enum UserRole: string
     }
 
     /**
-     * The permissions ticked for a user of this role when they're added
-     * (or given this role): their usual work. After that the ticks are
-     * the user's own — a Super Admin, or the Branch Admin for their staff,
-     * can add or remove any of them. A Super Admin needs none: they hold
-     * every permission.
+     * Explicit fixture and sample-seeder presets. Account creation and
+     * job-title edits never apply these automatically. Super Admin access
+     * remains implicit and independent of permission rows.
      *
      * @return array<int, PermissionKey>
      */
@@ -62,6 +60,8 @@ enum UserRole: string
     {
         return match ($this) {
             self::BranchAdmin => [
+                PermissionKey::ManagePermissions, PermissionKey::ManageUserPasswords,
+                PermissionKey::ManageBranchSchedules, PermissionKey::ManageBranchClosings,
                 PermissionKey::ViewUsers, PermissionKey::CreateUsers, PermissionKey::UpdateUsers,
                 PermissionKey::ViewSubscriptions, PermissionKey::CreateSubscriptions, PermissionKey::UpdateSubscriptions,
                 PermissionKey::UpdateSubscriptionMinimumCharge,

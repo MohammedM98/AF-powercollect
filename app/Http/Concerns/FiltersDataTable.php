@@ -387,7 +387,7 @@ trait FiltersDataTable
         return collect($users)->map(fn (User $user) => [
             'value' => (string) $user->getKey(),
             'label' => $user->name,
-            ...($user->branch_id ? ['scope' => $this->filterScope(['branch_id' => $user->branch_id])] : []),
+            ...($user->workBranchId() ? ['scope' => $this->filterScope(['branch_id' => $user->workBranchId()])] : []),
         ])->values()->all();
     }
 

@@ -131,7 +131,7 @@ class BranchReportTest extends TestCase
         $this->assertStringNotContainsString('South', $this->get(route('reports.export'))->streamedContent());
 
         $auditor = User::factory()->accountant()->create(['branch_id' => $this->north->id]);
-        $auditor->permissions()->sync(Permission::idsFor([PermissionKey::ViewAllClosings, PermissionKey::ExportFinancialReports]));
+        $auditor->permissions()->sync(Permission::idsFor([PermissionKey::ViewAllFinancialReports, PermissionKey::ExportFinancialReports]));
 
         $this->actingAs($auditor)->get(route('reports.index', ['branch' => 'all']))->assertInertia(fn ($page) => $page
             ->where('filters.branch', 'all')
@@ -152,7 +152,7 @@ class BranchReportTest extends TestCase
         $this->at('2026-10-01 08:00', fn () => $this->pay('3', [], $southSubscription));
 
         $auditor = User::factory()->accountant()->create(['branch_id' => $this->north->id]);
-        $auditor->permissions()->sync(Permission::idsFor([PermissionKey::ViewAllClosings, PermissionKey::ExportFinancialReports]));
+        $auditor->permissions()->sync(Permission::idsFor([PermissionKey::ViewAllFinancialReports, PermissionKey::ExportFinancialReports]));
 
         $this->actingAs($auditor)->get(route('reports.index', ['branch' => 'all', 'from' => '2026-09-30', 'to' => '2026-10-01']))->assertInertia(fn ($page) => $page
             // North's 50 was taken on its 29 Sep, before the period; South's 7 on 30 Sep.
@@ -222,7 +222,7 @@ class BranchReportTest extends TestCase
     private function preparer(): User
     {
         $user = User::factory()->accountant()->create(['branch_id' => $this->north->id]);
-        $user->permissions()->sync(Permission::idsFor([PermissionKey::PrepareClosings, PermissionKey::ExportFinancialReports]));
+        $user->permissions()->sync(Permission::idsFor([PermissionKey::ViewFinancialReports, PermissionKey::ExportFinancialReports]));
 
         return $user;
     }

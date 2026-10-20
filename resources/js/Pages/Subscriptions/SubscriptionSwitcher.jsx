@@ -1,5 +1,7 @@
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Balance from '@/Components/Balance';
+import Icon from '@/Components/Icon';
+import './SubscriptionSwitcher.css';
 
 const STATUS_TONES = {
     active: 'green',
@@ -20,23 +22,22 @@ export default function SubscriptionSwitcher({ subscriberNumber, subscriptions, 
     const total = subscriptions.reduce((sum, subscription) => sum + Math.round(Number(subscription.balance) * 100), 0) / 100;
 
     return (
-        <section className="mb-5 rounded-panel border border-gray-100 bg-surface p-4 sm:p-5" aria-label="اشتراكات المشترك">
-            <div className="mb-3.5 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-                <h4 className="text-base font-bold text-gray-900">
-                    اشتراكات المشترك
-                    {subscriberNumber && (
-                        <>
-                            {' '}
-                            رقم <bdi dir="ltr">{subscriberNumber}</bdi>
-                        </>
-                    )}
-                    <span className="ms-2 text-sm font-medium text-gray-500">{subscriptions.length} اشتراكات</span>
-                </h4>
-                <p className="text-sm text-gray-600">
-                    الرصيد الإجمالي: <Balance value={total} />
-                </p>
+        <section className="subscription-switcher" aria-label="اشتراكات المشترك">
+            <div className="ssw-heading">
+                <div className="ssw-identity">
+                    <span className="ssw-icon"><Icon name="users" /></span>
+                    <div>
+                        <h4>اشتراكات المشترك <span className="ssw-count">{subscriptions.length} اشتراكات</span></h4>
+                        {subscriberNumber && <p>المشترك رقم <bdi dir="ltr" className="ssw-account-number">{subscriberNumber}</bdi></p>}
+                    </div>
+                </div>
+                <div className="ssw-total">
+                    <span>الرصيد الإجمالي للاشتراكات</span>
+                    <div><Balance value={total} word className="ssw-total-number" /></div>
+                </div>
             </div>
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <p className="ssw-hint"><Icon name="enter" /><span>اضغط على بطاقة الاشتراك لعرض كشفه.</span></p>
+            <div className="ssw-grid">
                 {subscriptions.map((subscription) => {
                     const current = subscription.id === currentId;
 
@@ -45,29 +46,31 @@ export default function SubscriptionSwitcher({ subscriberNumber, subscriptions, 
                             key={subscription.id}
                             type="button"
                             aria-current={current ? 'true' : undefined}
+                            aria-label={`عرض كشف الاشتراك ${subscription.accountNumber}`}
                             disabled={current}
                             onClick={() => onSelect(subscription)}
-                            className={`flex min-w-0 flex-col gap-1.5 rounded-xl border-[1.5px] px-3.5 py-3 text-start transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 ${
-                                current ? 'cursor-default border-gray-900 bg-gray-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                            }`}
+                            className="ssw-card"
                         >
-                            <span className="flex items-center justify-between gap-2">
-                                <span className="text-xs text-gray-500">
-                                    رقم الاشتراك{' '}
-                                    <bdi dir="ltr" className="font-semibold text-gray-700">
-                                        {subscription.accountNumber}
-                                    </bdi>
+                            <span className="ssw-card-top">
+                                <span className="ssw-account">
+                                    <span>رقم الاشتراك</span>
+                                    <bdi dir="ltr" className="ssw-account-number">{subscription.accountNumber}</bdi>
                                 </span>
                                 <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
                             </span>
-                            <b className="truncate text-[15px] text-gray-900">{subscription.fullName}</b>
-                            <span className="truncate text-xs text-gray-500">
-                                {[subscription.meterBoxNumber && `طبلون ${subscription.meterBoxNumber}`, subscription.tariffCategoryLabel]
-                                    .filter(Boolean)
-                                    .join(' · ')}
+                            <strong className="ssw-name">{subscription.fullName}</strong>
+                            <span className="ssw-facts">
+                                <span>
+                                    <span className="ssw-fact-label"><Icon name="grid" />رقم الطبلون</span>
+                                    {subscription.meterBoxNumber ? <bdi dir="ltr" className="ssw-fact-value ssw-account-number">{subscription.meterBoxNumber}</bdi> : <span className="ssw-fact-value ssw-empty">غير محدد</span>}
+                                </span>
+                                <span>
+                                    <span className="ssw-fact-label"><Icon name="building" />التصنيف</span>
+                                    <strong className="ssw-fact-value">{subscription.tariffCategoryLabel || 'غير محدد'}</strong>
+                                </span>
                             </span>
-                            <Balance value={subscription.balance} className="text-sm" />
-                            {current && <span className="text-xs font-semibold text-gray-500">المعروض الآن</span>}
+                            <span className="ssw-balance"><span>الرصيد الحالي</span><span className="ssw-balance-value"><Balance value={subscription.balance} word className="ssw-card-number" /></span></span>
+                            <span className="ssw-action">{current ? <><Icon name="check" />المعروض الآن</> : <>عرض كشف هذا الاشتراك<Icon name="arrow-left" /></>}</span>
                         </button>
                     );
                 })}

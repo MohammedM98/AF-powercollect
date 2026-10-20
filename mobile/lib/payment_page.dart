@@ -663,7 +663,7 @@ class _PaymentPageState extends State<PaymentPage> {
                 child: scanButton('receipt-gallery', 'img', 'اختيار صورة',
                     () => readReceipt(ReceiptImageSource.gallery))),
           ]),
-        const AppLabel('البنك المستلم (إلى)'),
+        const AppLabel('البنك المستلم'),
         GridView(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
@@ -676,7 +676,7 @@ class _PaymentPageState extends State<PaymentPage> {
             children: [
               for (final name in widget.transferBanks) bankTile(name)
             ]),
-        const AppLabel('البنك المحوّل منه (من)', hint: 'اختياري'),
+        const AppLabel('البنك المرسل', hint: 'اختياري'),
         senderBankField(),
         AppLabel('اسم المحوِّل',
             trailing: AppToggle(
@@ -821,7 +821,7 @@ class _PaymentPageState extends State<PaymentPage> {
     FocusScope.of(context).unfocus();
     setState(() => showKeypad = false);
     final choice = await showAppSheet<List<String?>>(context,
-        title: 'البنك المحوّل منه',
+        title: 'البنك المرسل',
         message: 'اختياري · من أين حُوّل المبلغ',
         children: [
           Builder(

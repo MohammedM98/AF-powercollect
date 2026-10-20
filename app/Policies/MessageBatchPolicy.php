@@ -25,7 +25,7 @@ class MessageBatchPolicy
             return true;
         }
 
-        return $this->viewAny($user) && $batch->branch_id !== null && $batch->branch_id === $user->branch_id;
+        return $this->viewAny($user) && $batch->branch_id !== null && $batch->branch_id === $user->workBranchId();
     }
 
     /**

@@ -64,6 +64,7 @@ trait BuildsSubscriptionStatement
                 'cancelledBy',
                 'reverses.closingLine.closing',
                 'reverses.boxEntry.box:id,number,status',
+                'reverses.splitPayment',
                 'boxEntry.box:id,number,status',
                 'referenceTransaction.closingLine.closing',
                 'linkedReversals',
@@ -117,6 +118,14 @@ trait BuildsSubscriptionStatement
                 if ($readingDiscount !== null) {
                     $entry['actionEffects']['delete'] = $this->money($this->cents($transaction->amount) + $this->cents($readingDiscount->amount));
                 }
+                if ($transaction->split_payment_id !== null) {
+                    $partIds = $transactions->where('split_payment_id', $transaction->split_payment_id)->modelKeys();
+                    $effect = $transactions->filter(fn (SubscriptionTransaction $line): bool => in_array($line->id, $partIds, true)
+                        || ($line->isReversal() && in_array($line->reverses_id, $partIds, true)))
+                        ->sum(fn (SubscriptionTransaction $line): int => $this->cents($line->amount));
+                    $entry['actionEffects']['delete'] = $this->money($effect);
+                    $entry['actionEffects']['delete_tree'] = $this->money($effect);
+                }
 
                 return [...$entry, 'readingDiscount' => $readingDiscount ? SubscriptionTransaction::formatAmount(abs((float) $readingDiscount->amount)) : null];
             })
@@ -133,7 +142,7 @@ trait BuildsSubscriptionStatement
 
         return [
             'subscription' => [
-                'canPrint' => (! $actor->isFinancialAuditor() && ! $actor->hasFinancialAuditAccess()) || $actor->canAuditAction(AuditAction::PrintReports),
+                'canPrint' => (! $actor->hasFinancialAuditAccess()) || $actor->canAuditAction(AuditAction::PrintReports),
                 'id' => $subscription->id,
                 'fullName' => $subscription->displayName(),
                 'accountNumber' => $subscription->account_number,
@@ -355,7 +364,7 @@ trait BuildsSubscriptionStatement
             'senderName' => $receipt->sender_name,
             'referenceNumber' => $receipt->reference_number,
             // The bank transfer this payment is one part of, if it is.
-            'splitPayment' => $transaction->splitPayment?->badge(),
+            'splitPayment' => $receipt->splitPayment?->badge(),
             // Open membership is provisional; only closure gives the movement its final box number.
             'cashBox' => $receipt->cashBoxNumber(),
             'recordedByName' => $transaction->recordedBy?->name,
@@ -492,7 +501,7 @@ trait BuildsSubscriptionStatement
             'accountNumber' => $transaction->subscription->account_number,
             'canCorrect' => $canCorrect,
             // May approve the corrected reading at once, instead of sending it back for approval.
-            'canApprove' => $actor->can('approveAny', MeterReading::class) && ($actor->isSuperAdmin() || $reading->branch_id === $actor->branch_id),
+            'canApprove' => $actor->can('approveAny', MeterReading::class) && ($actor->isSuperAdmin() || $reading->branch_id === $actor->workBranchId()),
             'correctUnavailableReason' => match (true) {
                 $canCorrect => null,
                 ! $isLatest => 'توجد قراءة لأسبوع لاحق',
@@ -505,8 +514,8 @@ trait BuildsSubscriptionStatement
     {
         return match ($field) {
             'amount' => 'المبلغ',
-            'bank_name' => 'البنك المحوّل له',
-            'sender_bank_name' => 'البنك المحوّل منه',
+            'bank_name' => 'البنك المستلم',
+            'sender_bank_name' => 'البنك المرسل',
             'sender_name' => 'اسم المرسل',
             'reference_number' => 'الرقم المرجعي',
             'notes' => 'الملاحظات',

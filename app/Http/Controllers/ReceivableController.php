@@ -209,7 +209,7 @@ class ReceivableController extends Controller
     private function scopeLabel(Request $request, User $actor): string
     {
         if (! $actor->isSuperAdmin()) {
-            return $actor->branch?->name ?? '—';
+            return $actor->workBranch()?->name ?? '—';
         }
 
         $branchId = $this->filterValue($request, 'branch_id');

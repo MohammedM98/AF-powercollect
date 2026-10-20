@@ -100,7 +100,7 @@ class SubscriptionController extends Controller
         $sourceSubscription = $request->sourceSubscription();
 
         if (! $actor->isSuperAdmin()) {
-            $data['branch_id'] = $actor->branch_id;
+            $data['branch_id'] = $actor->workBranchId();
         }
 
         $data['registered_by'] = $actor->id;
@@ -298,6 +298,8 @@ class SubscriptionController extends Controller
             'recordedSource' => $reading->mobile_operation_id !== null ? 'app' : 'web',
             'minimumApplied' => $reading->discount_method === null && (float) $reading->reading_fee < (float) $reading->minimum_payment,
             'canUpdate' => $actor->can('update', $reading),
+            'canApprove' => $actor->can('approve', $reading),
+            'unusual' => $reading->isUnusual() ? ['usual' => $reading->usual_consumption] : null,
             'canUpdateUnitPrice' => $actor->can('updateUnitPrice', $reading),
             'canUpdateMinimumPayment' => $actor->can('updateMinimumPayment', $reading),
         ];
@@ -449,8 +451,8 @@ class SubscriptionController extends Controller
             'subAreas' => SubArea::orderBy('name')->get(),
             'circuitBreakers' => CircuitBreaker::orderBy('ampere')->get(),
             'canChooseBranch' => $canChooseBranch,
-            'currentBranchAreaId' => $canChooseBranch ? null : $actor->branch?->area_id,
-            'currentBranchAreaName' => $canChooseBranch ? null : $actor->branch?->area?->name,
+            'currentBranchAreaId' => $canChooseBranch ? null : $actor->workBranch()?->area_id,
+            'currentBranchAreaName' => $canChooseBranch ? null : $actor->workBranch()?->area?->name,
             'canEditMinimumCharge' => $this->canEditMinimumCharge($actor),
             'canEditKilowattPrice' => $actor->hasPermission(PermissionKey::UpdateSubscriptionKilowattPrice),
         ];

@@ -43,7 +43,7 @@ class StoreMobileCollectionRequest extends FormRequest
             ...($this->existingTransaction() ? [] : [
                 'collected_at' => ['nullable', 'date', 'before_or_equal:now'],
                 'subscription_id' => ['required', Rule::exists('subscriptions', 'id')
-                    ->when(! $this->user()->isSuperAdmin(), fn ($rule) => $rule->where('branch_id', $this->user()->branch_id))],
+                    ->when(! $this->user()->isSuperAdmin(), fn ($rule) => $rule->where('branch_id', $this->user()->workBranchId()))],
                 ...$paymentRules,
             ]),
         ];

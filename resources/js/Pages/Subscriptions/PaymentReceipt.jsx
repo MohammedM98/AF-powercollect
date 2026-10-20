@@ -167,7 +167,7 @@ export default function PaymentReceipt({ subscription, receipt, printedBy }) {
 
                 <dl className="mt-4">
                     <ReceiptLine label="طريقة الدفع">{receipt.paymentMethodLabel}</ReceiptLine>
-                    <ReceiptLine label="البنك المحوّل له">{receipt.bankName}</ReceiptLine>
+                    <ReceiptLine label="البنك المستلم">{receipt.bankName}</ReceiptLine>
                     <ReceiptLine label="المحوّل منه">{transferredFrom}</ReceiptLine>
                     <ReceiptLine label="الرقم المرجعي" ltr>
                         {receipt.referenceNumber}

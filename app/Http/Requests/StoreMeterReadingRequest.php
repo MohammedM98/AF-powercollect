@@ -40,7 +40,7 @@ class StoreMeterReadingRequest extends FormRequest
                 'required',
                 Rule::exists('subscriptions', 'id')
                     ->where('status', SubscriptionStatus::Active->value)
-                    ->when(! $actor->isSuperAdmin(), fn ($rule) => $rule->where('branch_id', $actor->branch_id)),
+                    ->when(! $actor->isSuperAdmin(), fn ($rule) => $rule->where('branch_id', $actor->workBranchId())),
             ],
             'week_start' => ['required', 'date', 'before_or_equal:today'],
             'current_reading' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],

@@ -14,8 +14,10 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import BranchModal from './BranchModal';
+import DomainModal from './DomainModal';
 
-export default function Index({ branches, canCreate, filters, filterOptions, governorates, areas }) {
+export default function Index({ branches, canCreate, filters, filterOptions, governorates, areas, canManageDomains = false, domainRoutingEnabled = false }) {
+    const [domainBranch, setDomainBranch] = useState(null);
     const [modalBranch, setModalBranch] = useState(null);
     const [creating, setCreating] = useState(false);
     const rowClick = useRowClick();
@@ -38,6 +40,7 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
             }
         >
             <Head title="الفروع" />
+            {canManageDomains && !domainRoutingEnabled && <p className="mb-5 rounded-control border border-gray-200 bg-surface p-4 text-sm leading-7 text-gray-600">يمكنك تجهيز روابط الفروع هنا. تشغيلها يحتاج ربط DNS وHTTPS بالاستضافة وتفعيل توجيه الدومينات عند النشر.</p>}
 
             <DataTableToolbar
                 search={search}
@@ -66,6 +69,7 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
                             <SortableTh column="phone" label="الهاتف" sortState={filters} onSort={sort} />
                             <th>المحافظة</th>
                             <th>المنطقة</th>
+                            <th>رابط الفرع</th>
                             <SortableTh column="is_active" label="الحالة" sortState={filters} onSort={sort} />
                             <ActionsTh />
                         </tr>
@@ -73,7 +77,7 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
                     <tbody>
                         {branches.data.length === 0 ? (
                             <tr>
-                                <td className="text-gray-500" colSpan={6}>
+                                <td className="text-gray-500" colSpan={7}>
                                     لا توجد نتائج مطابقة.
                                 </td>
                             </tr>
@@ -93,6 +97,10 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
                                     </td>
                                     <td className="text-gray-600">{branch.governorate?.name ?? '—'}</td>
                                     <td className="text-gray-600">{branch.area?.name ?? '—'}</td>
+                                    <td onClick={(e) => e.stopPropagation()}><div className="space-y-2">
+                                        {branch.domain ? <><p dir="ltr" className="text-start text-xs text-gray-600">{branch.domain}</p><StatusPill tone={branch.domain_enabled ? 'green' : 'gray'} label={branch.domain_enabled ? 'الرابط مفعّل' : 'الرابط متوقف'} /></> : <p className="text-gray-400">لم يُحدد رابط</p>}
+                                        <div className="flex flex-wrap gap-3 text-xs font-semibold">{canManageDomains && <button type="button" onClick={() => setDomainBranch(branch)} className="text-brand-600 hover:underline">إدارة الرابط</button>}{domainRoutingEnabled && branch.url && <a href={branch.url} className="text-gray-700 hover:underline">فتح الفرع</a>}</div>
+                                    </div></td>
                                     <td>
                                         <StatusPill tone={branch.is_active ? 'green' : 'gray'} label={branch.is_active ? 'نشط' : 'متوقف'} />
                                     </td>
@@ -114,6 +122,7 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
             </div>
 
             <Pagination meta={branches} filters={filters} baseUrl="/branches" />
+            {domainBranch && <DomainModal key={domainBranch.id} branch={domainBranch} onClose={() => setDomainBranch(null)} routingEnabled={domainRoutingEnabled} />}
 
             <BranchModal show={creating} onClose={() => setCreating(false)} branch={null} governorates={governorates} areas={areas} />
 

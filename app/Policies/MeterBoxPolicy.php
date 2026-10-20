@@ -25,7 +25,7 @@ class MeterBoxPolicy
             return false;
         }
 
-        return $user->isSuperAdmin() || $meterBox->branch_id === $user->branch_id;
+        return $user->isSuperAdmin() || $meterBox->branch_id === $user->workBranchId();
     }
 
     /**
@@ -45,7 +45,7 @@ class MeterBoxPolicy
             return false;
         }
 
-        return $user->isSuperAdmin() || $meterBox->branch_id === $user->branch_id;
+        return $user->isSuperAdmin() || $meterBox->branch_id === $user->workBranchId();
     }
 
     /**
@@ -55,7 +55,7 @@ class MeterBoxPolicy
     public function delete(User $user, MeterBox $meterBox): bool
     {
         return $user->hasPermission(PermissionKey::DeleteMeterBoxes)
-            && ($user->isSuperAdmin() || $meterBox->branch_id === $user->branch_id);
+            && ($user->isSuperAdmin() || $meterBox->branch_id === $user->workBranchId());
     }
 
     /**

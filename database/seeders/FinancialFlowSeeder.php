@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\ClosingSetting;
+use App\Models\Permission;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
@@ -55,6 +56,7 @@ class FinancialFlowSeeder extends Seeder
                 'branch_id' => $branch->id,
                 'is_active' => true,
             ]);
+            $collector->permissions()->sync(Permission::idsFor(UserRole::Collector->starterPermissions()));
             $manager = User::query()->where('username', 'muhammad')->sole();
             $workflow = app(BranchClosingWorkflow::class);
 

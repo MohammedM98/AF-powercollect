@@ -19,7 +19,7 @@ class UserModelTest extends TestCase
         'meter_readings.correct_last', 'meter_readings.browse_weeks', 'reading_assignments.view', 'reading_assignments.print_sheets',
     ];
 
-    public function test_a_new_user_starts_with_their_roles_usual_permissions(): void
+    public function test_a_new_user_starts_without_automatic_permissions(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
         $branch = Branch::factory()->create();
@@ -29,25 +29,25 @@ class UserModelTest extends TestCase
             'username' => 'dana.entry',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'role' => UserRole::DataEntry->value,
             'branch_id' => $branch->id,
             'is_active' => '1',
         ])->assertRedirect(route('users.index'));
 
         $this->assertEqualsCanonicalizing(
-            self::DATA_ENTRY_STARTER_KEYS,
+            [],
             User::where('username', 'dana.entry')->firstOrFail()->permissions->pluck('key')->all(),
         );
     }
 
-    public function test_changing_a_users_role_swaps_their_permissions_for_the_new_roles_set(): void
+    public function test_changing_legacy_role_metadata_does_not_replace_individual_permissions(): void
     {
         $collector = User::factory()->collector()->create();
         $collector->permissions()->attach(Permission::idsFor([PermissionKey::ViewBranches]));
+        $before = $collector->permissions()->pluck('key')->all();
 
         $collector->update(['role' => UserRole::DataEntry]);
 
-        $this->assertEqualsCanonicalizing(self::DATA_ENTRY_STARTER_KEYS, $collector->fresh()->permissions->pluck('key')->all());
+        $this->assertEqualsCanonicalizing($before, $collector->fresh()->permissions->pluck('key')->all());
     }
 
     public function test_editing_a_user_without_changing_their_role_keeps_their_permissions(): void

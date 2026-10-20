@@ -241,9 +241,9 @@ class BankTransferAuditTest extends TestCase
     {
         [, $auditor, $subscription, $payment, $box] = $this->payment();
         $auditor->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ViewCollections, PermissionKey::ViewSubscriptions, PermissionKey::ViewAllFinancialReports, PermissionKey::CloseCashBoxes]));
-        $this->actingAs($auditor)->get(route('dashboard'))->assertRedirect(route('payments.cash-boxes', ['place' => 'closed']));
+        $this->actingAs($auditor)->get(route('dashboard'))->assertOk();
         $this->get(route('payments.cash-boxes', ['branch_id' => $box->branch_id, 'place' => 'open']))->assertInertia(fn ($page) => $page
-            ->where('can.auditOnly', true)->where('place', 'closed')
+            ->where('can.auditOnly', false)->where('place', 'closed')
             ->where('branches', fn ($branches): bool => collect($branches)->pluck('id')->contains($box->branch_id) && collect($branches)->pluck('id')->contains($auditor->branch_id))
             ->where('boxes.0.id', $box->id)->where('boxes.0.payments.0.statement_url', route('subscriptions.statement', [$subscription, 'transaction' => $payment->id]))
             ->where('boxes.0.canAudit', true));
@@ -252,10 +252,10 @@ class BankTransferAuditTest extends TestCase
         foreach (['ledger.index', 'subscriptions.index', 'transaction-audit.index'] as $route) {
             $this->get(route($route))->assertOk();
         }
-        foreach (['reports.index', 'payments.index', 'payments.cash-boxes.entries'] as $route) {
-            $this->get(route($route))->assertForbidden();
-        }
-        $this->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $box->branch_id])->assertForbidden();
+        $this->get(route('reports.index'))->assertOk();
+        $this->get(route('payments.index'))->assertForbidden();
+        $this->get(route('payments.cash-boxes.entries'))->assertForbidden();
+        $this->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $box->branch_id])->assertNotFound();
     }
 
     public function test_final_box_approval_posts_three_exceptions_and_matches_the_other_ninety_seven_transfers_once(): void

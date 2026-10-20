@@ -71,9 +71,7 @@ class BranchBoxes
         abort_if($actor->hasFinancialAuditAccess() && ! $actor->auditIncludesBranch($branchId), 404);
         $query = $this->in($branchId, $place);
         if ($place === 'closed' && $week) {
-            $from = ClosingPeriods::date($week);
-            $query->whereRaw('COALESCE(received_at, closed_at, opened_at) >= ?', [$from->utc()])
-                ->whereRaw('COALESCE(received_at, closed_at, opened_at) < ?', [$from->addWeek()->utc()]);
+            $query->inClosingWeek(ClosingPeriods::date($week));
         }
         $details = [...BranchClosingWorkflow::BOX_DETAILS, ...self::PEOPLE, 'payments' => fn ($entries) => $entries
             ->visibleInBox()
@@ -123,8 +121,8 @@ class BranchBoxes
     public function periods(int $branchId): Collection
     {
         return CashBox::query()->where('branch_id', $branchId)->where('status', 'received')
-            ->withExists('audit')->get(['id', 'received_at', 'closed_at', 'opened_at'])
-            ->groupBy(fn (CashBox $box): string => $this->weekOf($box->received_at ?? $box->closed_at ?? $box->opened_at, $branchId))
+            ->with('closing:id,coverage_until')->withExists('audit')->get(['id', 'closing_id', 'close_reason', 'received_at', 'closed_at', 'opened_at'])
+            ->groupBy(fn (CashBox $box): string => $this->weekOf($box->closingWeekMoment(), $branchId))
             ->map(fn (Collection $boxes, string $start): array => ['start' => $start, 'end' => ClosingPeriods::date($start)->addDays(6)->toDateString(), 'count' => $boxes->count(), 'reviewed' => $boxes->where('audit_exists', true)->count()])
             ->sortKeysDesc()->values();
     }
@@ -185,7 +183,7 @@ class BranchBoxes
             'payments' => array_map(fn (array $entry): array => $this->presentEntry($entry, $ledgers), $row['payments'] ?? []),
             'closed_at' => $box->isEditable() ? null : $box->closed_at,
             'closedAt' => $box->isEditable() ? null : ($box->received_at ?? $box->closed_at),
-            'closedBy' => $box->receivedBy?->name,
+            'closedBy' => $box->close_reason === CashBox::CLOSE_REASON_PERIOD_END ? 'النظام · إغلاق تلقائي' : $box->receivedBy?->name,
             'sentBy' => $box->sentBy?->name,
         ];
     }

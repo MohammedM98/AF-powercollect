@@ -2,11 +2,12 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Modal from '@/Components/Modal';
 import Icon from '@/Components/Icon';
 import { BALANCE_HINTS } from '@/lib/balance';
-import { chainColor, compactStatementEntries, describeBalance, filterStatementEntries, relatedLineChains, rememberStatementView, rememberedStatementView, STATEMENT_VIEWS } from '@/lib/accountStatement';
+import { chainColor, compactStatementEntries, describeBalance, filterStatementEntries, relatedLineChains } from '@/lib/accountStatement';
 import { groupReadingsByMonth } from '@/lib/readingHistory';
 import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import StopStandingDiscountButton from './StopStandingDiscountButton';
+import StatementViewTabs from './StatementViewTabs';
 import './SubscriptionDetailsModal.css';
 
 const TABS = [['details', 'البيانات'], ['transactions', 'الحساب'], ['consumption', 'الاستهلاك']];
@@ -55,11 +56,10 @@ function Section({ title, icon, onEdit, children, trailing }) {
 
 export function AccountTab({ statement, onOpenStatement, onLoadStatement, loading }) {
     const [type, setType] = useState('');
-    const [view, setView] = useState(rememberedStatementView);
+    const [view, setView] = useState('compact');
     const [hoveredChain, setHoveredChain] = useState(null);
     function chooseView(nextView) {
         setView(nextView);
-        rememberStatementView(nextView);
     }
     if (!statement) {
         return loading ? <div className="sp-loading" role="status" aria-label="جارٍ تحميل الحساب"><div /><div /><div /><div /></div>
@@ -79,7 +79,7 @@ export function AccountTab({ statement, onOpenStatement, onLoadStatement, loadin
         </div>
         <div className="sp-account-toolbar">
             <div className="sp-filters" role="group" aria-label="نوع المعاملة">{[['', 'الكل'], ['meter_reading', 'فواتير'], ['payment', 'دفعات'], ['debit', 'تحميلات'], ['credit', 'دفعات وخصومات']].map(([value, label]) => <button type="button" key={value} aria-pressed={type === value} onClick={() => setType(value)}>{label}</button>)}</div>
-            <div className="sp-filters" role="group" aria-label="طريقة العرض">{STATEMENT_VIEWS.map((option) => <button type="button" key={option.value} aria-pressed={view === option.value} title={option.hint} onClick={() => chooseView(option.value)}>{option.label}</button>)}</div>
+            <StatementViewTabs value={view} onChange={chooseView} />
             <button type="button" className="sp-button" onClick={() => onOpenStatement()}><Icon name="ledger" />كشف الحساب الكامل</button>
         </div>
         <div className="sp-table-wrap"><table className="sp-statement">
@@ -102,7 +102,7 @@ export function AccountTab({ statement, onOpenStatement, onLoadStatement, loadin
     </>;
 }
 
-export default function SubscriptionDetailsModal({ subscription, onClose, onEdit, onEditPersonal, onOpenStatement, onLoadStatement, statement, statementLoading, onSendMessage, onPrevious, onNext, onOpenReadings, canUpdate, readingWeekOptions = [] }) {
+export default function SubscriptionDetailsModal({ subscription, onClose, onEdit, onEditPersonal, onOpenStatement, onLoadStatement, statement, statementLoading, onSendMessage, onMessageHistory, onPrevious, onNext, onOpenReadings, canUpdate, readingWeekOptions = [] }) {
     const [activeTab, setActiveTab] = useState('details');
     const [expanded, setExpanded] = useState(false);
     const [enteringReading, setEnteringReading] = useState(false);
@@ -193,6 +193,7 @@ export default function SubscriptionDetailsModal({ subscription, onClose, onEdit
                         <div className="sp-quick-actions">
                             {subscription.canRecordPayment && <button type="button" className="sp-pay" onClick={() => onOpenStatement('payment')}><Icon name="banknotes" /><span>تسجيل دفعة</span></button>}
                             {onSendMessage && <button type="button" onClick={onSendMessage} aria-label="إرسال SMS" title="إرسال SMS"><Icon name="chat" /></button>}
+                            {onMessageHistory && <button type="button" onClick={onMessageHistory} title="سجل رسائل هذا الاشتراك"><Icon name="messages" /><span>سجل الرسائل</span></button>}
                             {subscription.canRecordReading && <button type="button" onClick={() => setEnteringReading(true)} disabled={currentWeekRecorded} aria-label={currentWeekRecorded ? 'تم إدخال قراءة هذا الأسبوع' : 'تسجيل قراءة'} title={currentWeekRecorded ? 'تم إدخال قراءة هذا الأسبوع' : 'تسجيل قراءة'}><Icon name="gauge" /></button>}
                             <button type="button" onClick={() => onOpenStatement()} aria-label="كشف حساب" title="كشف حساب"><Icon name="ledger" /></button>
                             {canUpdate && <button type="button" onClick={onEdit} aria-label="تعديل حالة الاشتراك" title="تعديل حالة الاشتراك"><Icon name="power" /></button>}
@@ -215,7 +216,8 @@ export default function SubscriptionDetailsModal({ subscription, onClose, onEdit
                             <Section title="الموقع والعداد" icon="pin" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
                                 <Field label="الفرع" value={subscription.branchName} /><Field label="المحافظة" value={subscription.governorateName} />
                                 <Field label="المنطقة" value={subscription.areaName} /><Field label="منطقة 2" value={subscription.subAreaName} />
-                                <Field label="رقم الطبلون" value={subscription.meterBoxNumber} numeric copy /><Field label="العنوان" value={subscription.address} />
+                                <Field label="اسم الطبلون" value={subscription.meterBoxName} /><Field label="رقم الطبلون" value={subscription.meterBoxNumber} numeric copy />
+                                <Field label="العنوان" value={subscription.address} wide />
                             </dl></Section>
                             <Section title="الاشتراك" icon="calendar" onEdit={canUpdate ? onEdit : undefined}><dl className="sp-fields">
                                 <Field label="اسم الاشتراك" value={subscription.display_name} /><Field label="رقم الاشتراك" value={subscription.account_number} numeric copy />

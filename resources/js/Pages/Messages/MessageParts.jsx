@@ -2,7 +2,7 @@ import Icon from '@/Components/Icon';
 import StatusPill from '@/Components/DataTable/StatusPill';
 
 /** Each kind of message and each way of sending has its own icon, the same wherever it shows. */
-export const KIND_ICONS = { weekly_reading: 'gauge', balance_reminder: 'wallet', custom: 'megaphone' };
+export const KIND_ICONS = { weekly_reading: 'gauge', balance_reminder: 'wallet', custom: 'megaphone', disconnection_warning: 'power' };
 
 export const CHANNEL_ICONS = { sms: 'phone', whatsapp: 'chat' };
 
@@ -18,7 +18,7 @@ export function withIcons(options, icons) {
     return options.map((option) => ({ ...option, icon: icons[option.value] }));
 }
 
-const KIND_TONES = { weekly_reading: 'blue', balance_reminder: 'amber', custom: 'gray' };
+const KIND_TONES = { weekly_reading: 'blue', balance_reminder: 'amber', custom: 'gray', disconnection_warning: 'red' };
 
 const STATUS_TONES = { pending: 'amber', sent: 'green', failed: 'red' };
 

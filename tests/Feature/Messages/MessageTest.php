@@ -184,7 +184,7 @@ class MessageTest extends TestCase
             ->assertOk()
             ->assertJsonPath('weekStart', $this->weekStart())
             ->assertJsonPath('weekBranchId', $branchAdmin->branch_id)
-            ->assertJsonPath('maxRecipients', 400)
+            ->assertJsonPath('maxRecipients', 5000)
             ->assertJsonCount(3, 'kinds');
     }
 

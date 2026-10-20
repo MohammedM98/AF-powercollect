@@ -113,6 +113,7 @@ enum PermissionKey: string
     case SendMessages = 'messages.send';
 
     case ManagePrintTemplates = 'print_templates.manage';
+    case PrintCompanyForms = 'company_forms.print';
 
     public function label(): string
     {
@@ -210,6 +211,7 @@ enum PermissionKey: string
             self::ViewMessages => 'View Messages',
             self::SendMessages => 'Send Messages',
             self::ManagePrintTemplates => 'Manage Print Templates',
+            self::PrintCompanyForms => 'طباعة وأرشفة نماذج الشركة',
         };
     }
 
@@ -312,8 +314,6 @@ enum PermissionKey: string
                     'close_boxes' => self::CloseCashBoxes,
                     'manage_box_periods' => self::ManageBoxPeriods,
                     'manage_branch_closings' => self::ManageBranchClosings,
-                    'view_all_boxes' => self::ViewAllClosings,
-                    'audit' => self::AuditClosings,
                     'confirm' => self::ConfirmCollections,
                     'charge' => self::AddCharges,
                     'discount' => self::AddDiscounts,
@@ -324,6 +324,10 @@ enum PermissionKey: string
                     'delete' => self::DeleteTransactions,
                     'force_delete' => self::ForceDeleteTransactions,
                 ],
+            ],
+            'financial_audit' => [
+                'label' => 'التدقيق المالي',
+                'actions' => ['audit' => self::AuditClosings, 'view_all_boxes' => self::ViewAllClosings],
             ],
             'reports' => [
                 'label' => 'Reports',
@@ -352,7 +356,7 @@ enum PermissionKey: string
             ],
             'print_templates' => [
                 'label' => 'Print Templates',
-                'actions' => ['manage' => self::ManagePrintTemplates],
+                'actions' => ['manage' => self::ManagePrintTemplates, 'print_company_forms' => self::PrintCompanyForms],
             ],
             'users' => [
                 'label' => 'Users',

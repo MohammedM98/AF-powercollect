@@ -4,6 +4,7 @@ import 'package:power_collect/api_client.dart';
 import 'package:power_collect/app_identity.dart';
 import 'package:power_collect/payment_page.dart';
 import 'package:power_collect/subscriber_page.dart';
+import 'package:power_collect/split_payment_page.dart';
 
 const listed = {
   'id': 42,
@@ -114,6 +115,46 @@ Future<List<bool?>> openSubscriber(WidgetTester tester, ApiClient api) async {
 }
 
 void main() {
+  testWidgets('English accounting types from older servers are shown in Arabic',
+      (tester) async {
+    final api = SubscriberApi()
+      ..subscriptionDetails = {'accounting_type_label': 'Weekly'};
+    await openSubscriber(tester, api);
+    await tester.scrollUntilVisible(find.text('أسبوعي'), 150,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('Weekly'), findsNothing);
+    expect(find.text('أسبوعي'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets(
+      'the split-payment action uses the server permission and opens with this subscriber',
+      (tester) async {
+    final api = SubscriberApi()
+      ..permissionDetails = {'record_split_payment': true};
+    await openSubscriber(tester, api);
+    final action = find.byKey(const ValueKey('subscriber-split-payment'));
+    await tester.scrollUntilVisible(action, 120,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    expect(find.byType(SplitPaymentPage), findsOneWidget);
+    expect(find.text('أحمد علي'), findsOneWidget);
+  });
+
+  testWidgets('cash-only users cannot open a split-payment form',
+      (tester) async {
+    final api = SubscriberApi()
+      ..permissionDetails = {
+        'record_split_payment': false,
+        'payment_methods': ['cash']
+      };
+    await openSubscriber(tester, api);
+    final action = find.byKey(const ValueKey('subscriber-split-payment'));
+    await tester.scrollUntilVisible(action, 120,
+        scrollable: find.byType(Scrollable).first);
+    expect(tester.widget<AppRow>(action).onTap, isNull);
+    expect(find.byType(SplitPaymentPage), findsNothing);
+  });
   testWidgets(
       'shows subscriber details and history access before recording a payment',
       (tester) async {

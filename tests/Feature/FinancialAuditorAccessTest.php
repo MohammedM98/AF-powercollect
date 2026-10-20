@@ -77,7 +77,7 @@ class FinancialAuditorAccessTest extends TestCase
 
         $this->actingAs($superAdmin)->get(route('settings.permissions.edit', ['selected' => $employee->id]))
             ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => collect(
-                collect($groups)->firstWhere('key', 'collections')['actions'],
+                collect($groups)->firstWhere('key', 'financial_audit')['actions'],
             )->contains(fn (array $entry): bool => $entry['action'] === 'audit' && $entry['permission']['id'] === $permissionId)));
         $this->put(route('settings.permissions.update'), ['permissions' => [$employee->id => [$permissionId]]])
             ->assertSessionHasNoErrors();
@@ -104,7 +104,7 @@ class FinancialAuditorAccessTest extends TestCase
         ])->assertSessionHasErrors('role');
         $this->assertSame(UserRole::Collector, $employee->fresh()->role);
         $this->get(route('settings.permissions.edit'))->assertInertia(fn ($page) => $page
-            ->where('permissionGroups', fn ($groups): bool => ! collect(collect($groups)->firstWhere('key', 'collections')['actions'])->contains('action', 'audit')));
+            ->where('permissionGroups', fn ($groups): bool => ! collect($groups)->contains('key', 'financial_audit')));
         $this->put(route('settings.permissions.update'), ['permissions' => [$employee->id => [$permissionId]]])
             ->assertSessionHasNoErrors();
 

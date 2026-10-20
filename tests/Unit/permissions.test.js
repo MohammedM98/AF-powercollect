@@ -37,10 +37,12 @@ test('editing the box period is an independent switch in the boxes group', () =>
 });
 
 test('cross-branch financial auditing is an independent sensitive action that is never granted by the payment ladder', () => {
-    const payments = sectionModel({ key: 'collections', label: 'الدفعات', actions: [entry('view', 1), entry('record', 2), entry('audit', 3)] });
-    const audit = sectionExtras(payments).find((group) => group.title === 'الصناديق').items[0];
+    const payments = sectionModel({ key: 'collections', label: 'الدفعات', actions: [entry('view', 1), entry('record', 2)] });
+    const auditSection = sectionModel({ key: 'financial_audit', label: 'التدقيق المالي', actions: [entry('audit', 3)] });
+    const audit = sectionExtras(auditSection)[0].items[0];
 
-    assert.equal(audit.label, 'التدقيق المالي');
+    assert.equal(audit.label, 'تفعيل التدقيق المالي');
+    assert.equal(auditSection.ladder, null);
     assert.equal(audit.risk, 'sensitive');
     assert.equal(audit.needs, 0);
     assert.deepEqual(withSectionLevel(payments, [], 2), [1, 2]);

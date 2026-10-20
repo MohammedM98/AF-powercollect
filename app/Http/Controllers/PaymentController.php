@@ -374,7 +374,7 @@ class PaymentController extends Controller
             : ($periods->first()['start'] ?? $this->branchBoxes->weekOf(now(), $branch->id));
         $linkedBox = $request->integer('box') ? CashBox::query()->where('branch_id', $branch->id)->where('status', 'received')->find($request->integer('box')) : null;
         if ($linkedBox) {
-            $week = $this->branchBoxes->weekOf($linkedBox->received_at ?? $linkedBox->closed_at ?? $linkedBox->opened_at, $branch->id);
+            $week = $this->branchBoxes->weekOf($linkedBox->closingWeekMoment(), $branch->id);
         }
         if (! $periods->contains('start', $week)) {
             $periods->push(['start' => $week, 'end' => ClosingPeriods::date($week)->addDays(6)->toDateString(), 'count' => 0]);
@@ -687,6 +687,7 @@ class PaymentController extends Controller
         }
 
         return $box->receivedBy?->name ?? match ($box->close_reason) {
+            CashBox::CLOSE_REASON_PERIOD_END => 'النظام · إغلاق تلقائي',
             'cutoff' => 'تلقائي عند القطع الأسبوعي',
             'departure' => 'تلقائي عند مغادرة المحصّل',
             'late_sync' => 'تلقائي لدفعة متأخرة',

@@ -3,6 +3,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Pagination from '@/Components/DataTable/Pagination';
 import Icon from '@/Components/Icon';
+import SearchableSelect from '@/Components/SearchableSelect';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
@@ -203,7 +204,7 @@ function TransactionRow({ entry, grouped, onOpen, rowClick }) {
                     {entry.voucherNumber && <span>سند <bdi>{entry.voucherNumber}</bdi>{entry.isManualVoucher && ' · يدوي'}</span>}
                     {payment && <span>{payment}</span>}
                     {entry.referenceNumber && <span>مرجع <bdi>{entry.referenceNumber}</bdi></span>}
-                    {entry.splitPayment && <SplitPaymentBadge split={entry.splitPayment} />}
+                    {entry.splitPayment && <SplitPaymentBadge split={entry.splitPayment} compact />}
                     <span>سجّله: {entry.recordedByName ?? '—'}</span>
                 </div>
             </td>
@@ -216,7 +217,12 @@ function TransactionRow({ entry, grouped, onOpen, rowClick }) {
             <td className="ty-c"><span className={`ty ${entry.isCancelled ? 'rv' : entry.isCredit ? 'cr' : 'dr'}`}>{entry.typeLabel}</span>{entry.isCancelled && entry.type !== 'reversal' && <div><span className="cxb">ملغاة</span></div>}</td>
             <td className="vch-c"><bdi className="vch">{entry.voucherNumber ?? '—'}</bdi>{entry.isManualVoucher && <span className="mb">يدوي</span>}</td>
             <td className="mth-c">{payment ? <div className="mth">{BANK_LOGOS[entry.bankName] ? <img src={BANK_LOGOS[entry.bankName]} alt="" /> : <span className="ci"><Icon name={entry.paymentMethod === 'cash' ? 'wallet' : 'bank'} /></span>}<span title={payment}>{payment}</span></div> : '—'}</td>
-            <td className="ref" title={entry.referenceNumber ?? undefined}><bdi>{entry.referenceNumber ?? '—'}</bdi>{entry.splitPayment && <div><SplitPaymentBadge split={entry.splitPayment} /></div>}</td>
+            <td className="ref" title={entry.referenceNumber ?? undefined}>
+                <div className="flex min-w-0 flex-col items-start gap-1">
+                    <bdi dir="ltr">{entry.referenceNumber ?? '—'}</bdi>
+                    {entry.splitPayment && <SplitPaymentBadge split={entry.splitPayment} compact />}
+                </div>
+            </td>
             <td className="by" title={entry.recordedByName ?? undefined}>{entry.recordedByName ?? '—'}</td>
             <td className="am-c"><span className={`am ${entry.isCredit ? 'cr' : 'dr'}`}><Money amount={entry.amount} />
                 {entry.currency && entry.currency !== 'ILS' && <small><bdi dir="ltr">{formatMoney(entry.currencyAmount)} {entry.currency}{entry.exchangeRate && ` × ${formatMoney(entry.exchangeRate)}`}</bdi></small>}
@@ -285,8 +291,25 @@ export default function Index({ entries, period, side, summary, ledgerTotals, da
                         <button type="button" className="btn fbtn" onClick={() => setFiltersOpen(!filtersOpen)} aria-expanded={filtersOpen} aria-controls="ledger-filters"><Icon name="filter" />الفلاتر{activeFilters > 0 && <span className="num">{activeFilters}</span>}</button>
                     </div>
                     <div className={`fb ${filtersOpen ? 'open' : ''}`} id="ledger-filters">
-                        {filterOptions.map((group) => <div className="sel" key={group.key}><select className={filterValues[group.key] ? 'on' : ''} aria-label={group.label} value={filterValues[group.key] ?? ''} onChange={(event) => setFilter(group.key, event.target.value)}><option value="">{group.label}: الكل</option>{group.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>)}
-                        <label className="tg"><input type="checkbox" checked={filterValues.show_cancelled !== '0'} onChange={(event) => setFilter('show_cancelled', event.target.checked ? '' : '0')} />إظهار الملغاة</label>
+                        {filterOptions.map((group) => (
+                            <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-44" key={group.key}>
+                                <label htmlFor={`ledger-filter-${group.key}`} className={`flex items-center gap-1.5 text-xs font-semibold ${filterValues[group.key] ? 'text-gray-900' : 'text-gray-500'}`}>
+                                    {group.label}
+                                    {filterValues[group.key] && <span className="h-1.5 w-1.5 rounded-full bg-brand-500" aria-hidden="true" />}
+                                </label>
+                                <SearchableSelect
+                                    id={`ledger-filter-${group.key}`}
+                                    value={filterValues[group.key] ?? ''}
+                                    onChange={(value) => setFilter(group.key, value)}
+                                    options={group.options}
+                                    placeholder="الكل"
+                                    searchPlaceholder={`بحث في ${group.label}...`}
+                                    emptyLabel="لا توجد نتائج"
+                                    active={Boolean(filterValues[group.key])}
+                                />
+                            </div>
+                        ))}
+                        <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-control border border-gray-200 bg-surface px-3 text-sm font-semibold text-gray-700"><input type="checkbox" className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" checked={filterValues.show_cancelled !== '0'} onChange={(event) => setFilter('show_cancelled', event.target.checked ? '' : '0')} />إظهار الملغاة</label>
                         {activeFilters > 0 && <button type="button" className="clr" onClick={clearFilters}>مسح الفلاتر</button>}
                     </div>
                     <table className="ledger-table" aria-label="السجل المالي">
@@ -299,7 +322,20 @@ export default function Index({ entries, period, side, summary, ledgerTotals, da
                         <div>الصافي<b><Money amount={ledgerTotals.net} balance /> <span>{ledgerTotals.net > 0 ? 'للشركة' : ledgerTotals.net < 0 ? 'للمشترك' : 'مسدّد'}</span></b></div>
                         <span className="r">{formatNumber(entries.total)} قيد مطابق · الملغاة خارج المجاميع</span>
                     </div>
-                    <div className="ledger-pagination"><label className="sel"><span className="sr-only">عدد القيود في الصفحة</span><select aria-label="عدد القيود في الصفحة" value={filters.per_page} onChange={(event) => setPerPage(event.target.value)}>{[15, 25, 50, 100].map((count) => <option key={count} value={count}>{count} قيد / صفحة</option>)}</select></label><Pagination meta={entries} filters={filters} baseUrl="/ledger" extraParams={extraParams} /></div>
+                    <div className="ledger-pagination">
+                        <div className="w-44">
+                            <label htmlFor="ledger-per-page" className="sr-only">عدد القيود في الصفحة</label>
+                            <SearchableSelect
+                                id="ledger-per-page"
+                                value={filters.per_page}
+                                onChange={setPerPage}
+                                options={[15, 25, 50, 100].map((count) => ({ value: count, label: `${count} قيد / صفحة` }))}
+                                clearable={false}
+                                searchable={false}
+                            />
+                        </div>
+                        <Pagination meta={entries} filters={filters} baseUrl="/ledger" extraParams={extraParams} />
+                    </div>
                 </section>
             </div>
             {statementWindow.subscription && <StatementModal key={statementWindow.subscription.id} subscription={statementWindow.subscription} statement={statementWindow.statement} initialForm={statementWindow.form} focusLineId={statementWindow.focusLineId} onSwitch={(header) => statementWindow.open(header)} onClose={statementWindow.close} />}

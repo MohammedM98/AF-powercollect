@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Mobile;
 
+use App\Enums\AccountingType;
 use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
 use App\Http\Controllers\Controller;
@@ -110,7 +111,10 @@ class MobileCollectionController extends Controller
                 'status' => $subscription->status->value,
                 'status_label' => __($subscription->status->label()),
                 'accounting_type' => $subscription->accounting_type->value,
-                'accounting_type_label' => __($subscription->accounting_type->label()),
+                'accounting_type_label' => match ($subscription->accounting_type) {
+                    AccountingType::Weekly => 'أسبوعي',
+                    AccountingType::Monthly => 'شهري',
+                },
                 'subscription_date' => $subscription->subscription_date?->toDateString(),
                 'tariff_name' => __($subscription->tariff->category->label()),
                 'kilowatt_price' => $subscription->kilowattPrice(),
@@ -133,6 +137,7 @@ class MobileCollectionController extends Controller
             'permissions' => [
                 'view_history' => $canViewHistory,
                 'record_payment' => $request->user()->can('recordPayment', $subscription),
+                'record_split_payment' => $request->user()->can('recordSplitPayment', Subscription::class) && $request->user()->can('recordPayment', $subscription),
                 'payment_methods' => array_map(fn (PaymentMethod $method): string => $method->value, $request->user()->allowedPaymentMethods()),
             ],
             'messaging' => [

@@ -32,7 +32,7 @@ export default function Payments({ currencies, banks, storeUrl, boxPeriod, canMa
                         <SearchableSelect name="week_starts_on" required clearable={false} searchable={false} value={form.data.week_starts_on} onChange={(value) => form.setData('week_starts_on', Number(value))} options={weekdays.map((label, value) => ({ value, label }))} />
                     </FormField>
                     <PrimaryButton type="submit" disabled={form.processing || (!form.isDirty && !boxPeriod.followsCompany)}>{form.processing ? 'جارٍ الحفظ…' : 'حفظ بداية الفترة'}</PrimaryButton>
-                    <p className="w-full text-sm text-gray-500">تبدأ الفترة يوم {weekdays[form.data.week_starts_on]} وتنتهي يوم {weekdays[(Number(form.data.week_starts_on) + 6) % 7]}. {boxPeriod.branch ? `ينطبق هذا الإعداد على فرع ${boxPeriod.branch.name} فقط.` : 'هذا هو الإعداد الافتراضي للفروع التي ليس لها إعداد خاص.'} تظهر الصناديق المغلقة تلقائيًا لقسم التدقيق حسب فترة فرعها.</p>
+                    <p className="w-full text-sm text-gray-500">تبدأ الفترة يوم {weekdays[form.data.week_starts_on]} وتنتهي يوم {weekdays[(Number(form.data.week_starts_on) + 6) % 7]}. {boxPeriod.branch ? `ينطبق هذا الإعداد على فرع ${boxPeriod.branch.name} فقط.` : 'هذا هو الإعداد الافتراضي للفروع التي ليس لها إعداد خاص.'} عند بداية الفترة الجديدة تُغلق صناديق الفترة المنتهية تلقائيًا بحركاتها وتظهر لقسم التدقيق، دون اعتماد التدقيق تلقائيًا.</p>
                 </form>
             </FormSection>
             {canManagePaymentCatalog && <><CurrencyRatesSection currencies={currencies} /><BanksSection banks={banks} storeUrl={storeUrl} /></>}

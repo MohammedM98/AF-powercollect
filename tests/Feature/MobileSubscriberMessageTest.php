@@ -141,6 +141,60 @@ class MobileSubscriberMessageTest extends TestCase
         Queue::assertPushedOnce(SendSubscriptionMessage::class);
     }
 
+    public function test_message_only_staff_can_find_and_message_their_branch_without_access_to_collection_data(): void
+    {
+        Queue::fake([SendSubscriptionMessage::class]);
+        config(['services.sms.driver' => 'http']);
+        $staff = User::factory()->collector()->create();
+        $staff->permissions()->sync(Permission::idsFor([PermissionKey::SendMessages]));
+        $recipient = Subscription::factory()->create(['branch_id' => $staff->branch_id, 'full_name' => 'أحمد', 'phone' => '0599000111']);
+        Subscription::factory()->create(['full_name' => 'مشترك آخر']);
+        $this->withToken(MobileAccessToken::issue($staff));
+
+        $this->getJson(route('mobile.me'))->assertOk()->assertJsonPath('user.can_send_messages', true)
+            ->assertJsonPath('user.can_record_collections', false);
+        $this->getJson(route('mobile.messages.subscriptions'))->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $recipient->id)->assertJsonPath('sms_available', true)
+            ->assertJsonMissingPath('data.0.balance')->assertJsonMissingPath('data.0.transactions');
+        $this->getJson(route('mobile.collections.subscriptions.show', $recipient))->assertForbidden();
+        $this->postJson(route('mobile.collections.subscriptions.messages.store', $recipient), [
+            'mobile_operation_id' => (string) Str::uuid(), 'body' => 'مرحباً أحمد',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('subscription_messages', ['subscription_id' => $recipient->id, 'body' => 'مرحباً أحمد']);
+        Queue::assertPushedOnce(SendSubscriptionMessage::class);
+    }
+
+    public function test_recipient_search_is_authenticated_searchable_and_revocable(): void
+    {
+        $staff = $this->collector();
+        $recipient = Subscription::factory()->create(['branch_id' => $staff->branch_id, 'full_name' => 'أحمد علي']);
+        Subscription::factory()->create(['branch_id' => $staff->branch_id, 'full_name' => 'محمد']);
+        $url = route('mobile.messages.subscriptions');
+        $this->getJson($url)->assertUnauthorized();
+        $this->withToken(MobileAccessToken::issue($staff));
+        $this->getJson($url.'?search='.urlencode('احمد'))->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $recipient->id);
+        $staff->permissions()->sync([]);
+        $this->getJson($url)->assertForbidden();
+        $this->getJson(route('mobile.me'))->assertJsonPath('user.can_send_messages', false);
+        $this->postJson(route('mobile.collections.subscriptions.messages.store', $recipient), [
+            'mobile_operation_id' => (string) Str::uuid(), 'body' => 'مرحباً',
+        ])->assertForbidden();
+        $this->assertDatabaseCount('subscription_messages', 0);
+    }
+
+    #[TestWith(['weekly', 'أسبوعي'])]
+    #[TestWith(['monthly', 'شهري'])]
+    public function test_mobile_accounting_types_are_always_arabic(string $type, string $label): void
+    {
+        app()->setLocale('en');
+        $staff = $this->collector();
+        $subscriber = Subscription::factory()->create(['branch_id' => $staff->branch_id, 'accounting_type' => $type]);
+        $this->withToken(MobileAccessToken::issue($staff))->getJson(route('mobile.collections.subscriptions.show', $subscriber))
+            ->assertOk()->assertJsonPath('subscription.accounting_type_label', $label);
+    }
+
     private function collector(): User
     {
         $collector = User::factory()->collector()->create();

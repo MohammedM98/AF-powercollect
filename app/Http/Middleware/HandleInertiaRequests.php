@@ -7,6 +7,7 @@ use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
 use App\Models\ClosingSetting;
+use App\Models\CompanyFormTemplate;
 use App\Models\CurrencyRate;
 use App\Models\DisconnectionList;
 use App\Models\Governorate;
@@ -113,6 +114,7 @@ class HandleInertiaRequests extends Middleware
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manageAny', ReadingEntrySetting::class),
                 'managePrintTemplates' => $user->can('viewAny', PrintTemplate::class),
+                'viewCompanyForms' => $user->can('viewAny', CompanyFormTemplate::class),
                 'manageSmsSettings' => $user->can('manage', SmsSetting::class),
                 'managePaymentSettings' => $user->can('manage', CurrencyRate::class) || $user->can('manageAny', ClosingSetting::class),
             ] : null,

@@ -38,6 +38,7 @@ class DatabaseSeeder extends Seeder
             BranchSeeder::class,
             BranchManagerSeeder::class,
             MeterBoxSeeder::class,
+            CompanyFormTemplateSeeder::class,
         ]);
 
     }

@@ -11,9 +11,10 @@ const apiBaseUrl = String.fromEnvironment('API_BASE_URL',
         bool.fromEnvironment('dart.vm.product') ? '' : 'http://10.0.2.2:8000');
 
 class ApiException implements Exception {
-  const ApiException(this.message, this.statusCode);
+  const ApiException(this.message, this.statusCode, {this.errors = const {}});
   final String message;
   final int statusCode;
+  final Map<String, dynamic> errors;
   bool get isNetwork => statusCode == 0;
   @override
   String toString() => message;
@@ -56,11 +57,17 @@ class ApiClient {
           int id, Map<String, dynamic> message) =>
       _request('POST', '/api/mobile/collections/subscriptions/$id/messages',
           body: message);
+  Future<Map<String, dynamic>> messageSubscribers(String search,
+          {int page = 1}) =>
+      _request('GET', '/api/mobile/messages/subscriptions',
+          query: {'search': search, 'page': '$page'});
   Future<Map<String, dynamic>> collectionsToday() =>
       _request('GET', '/api/mobile/collections');
   Future<Map<String, dynamic>> sendCollection(
           Map<String, dynamic> collection) =>
       _request('POST', '/api/mobile/collections', body: collection);
+  Future<Map<String, dynamic>> sendSplitPayment(Map<String, dynamic> payment) =>
+      _request('POST', '/api/mobile/split-payments', body: payment);
 
   Future<Map<String, dynamic>> _decodeResponse(
       HttpClientResponse response) async {
@@ -75,7 +82,8 @@ class ApiClient {
       }
       throw ApiException(
           firstError ?? '${decoded['message'] ?? 'تعذر إكمال الطلب.'}',
-          response.statusCode);
+          response.statusCode,
+          errors: errors is Map ? Map<String, dynamic>.from(errors) : const {});
     }
     return decoded;
   }

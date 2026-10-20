@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
@@ -19,12 +19,15 @@ import { formatCurrency } from '@/lib/currency';
 import { hasLatestWeekReading, readingOptionFor, weekOptionsFor } from '@/lib/readings';
 import { openQuickMessage } from '@/lib/quickMessage';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
+import SubscriptionMessageHistoryModal from '@/Pages/Messages/SubscriptionMessageHistoryModal';
 import SubscriptionModal from './SubscriptionModal';
 import PersonalDetailsModal from './PersonalDetailsModal';
 import BulkActionBar from './BulkActionBar';
+import BulkActionsMenu from './BulkActionsMenu';
 import BulkChangeModal from './BulkChangeModal';
+import BalanceFilter from './BalanceFilter';
+import { BALANCE_FILTER_KEYS, balanceFilterLabel, subscriptionFilterKey } from '@/lib/subscriptionBalance';
 import PhoneQuickEdit from './PhoneQuickEdit';
-import Icon from '@/Components/Icon';
 import Balance from '@/Components/Balance';
 import SubscriptionDetailsModal from './SubscriptionDetailsModal';
 import ReadingHistoryModal from './ReadingHistoryModal';
@@ -90,7 +93,7 @@ export default function Index({
     bulkActions,
     statusOptions,
 }) {
-    const { can } = usePage().props;
+    const { can, errors = {} } = usePage().props;
     const [modalSubscription, setModalSubscription] = useState(null);
     const [viewingSubscriptionId, setViewingSubscriptionId] = useState(null);
     // Looked up from the current page props (not kept as a copy) so the
@@ -101,6 +104,7 @@ export default function Index({
     const [personalDetailsSubscription, setPersonalDetailsSubscription] = useState(null);
     const [readingSubscription, setReadingSubscription] = useState(null);
     const [historySubscriptionId, setHistorySubscriptionId] = useState(null);
+    const [messageSubscription, setMessageSubscription] = useState(null);
     const historySubscription = subscriptions.data.find((subscription) => subscription.id === historySubscriptionId) ?? null;
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/subscriptions', filters);
     const rowClick = useRowClick();
@@ -108,13 +112,19 @@ export default function Index({
     const [selectedIds, setSelectedIds] = useState(() => new Set());
     const [allMatching, setAllMatching] = useState(false);
     const [bulkField, setBulkField] = useState(null);
+    const [pendingAction, setPendingAction] = useState(null);
     const pageIds = subscriptions.data.map((subscription) => subscription.id);
     const pageSelectedCount = pageIds.filter((id) => selectedIds.has(id)).length;
     const selectionCount = allMatching ? subscriptions.total : selectedIds.size;
     const selection = allMatching ? { all: true, search: filters.search, filter: filters.filter } : { ids: [...selectedIds] };
     const headerCheckbox = useRef(null);
-    const filtersKey = JSON.stringify([filters.search, filters.filter]);
-    const canSelect = bulkActions.minimumCharge || bulkActions.status || bulkActions.message;
+    const localFilterKey = subscriptionFilterKey(filterValues);
+    const serverFilterKey = subscriptionFilterKey(filters.filter);
+    const filtersKey = JSON.stringify([search.trim(), localFilterKey, filters.search, serverFilterKey]);
+    const filtersPending = search.trim() !== (filters.search ?? '') || localFilterKey !== serverFilterKey;
+    const balanceLabel = balanceFilterLabel(filters.filter);
+    const standardFilterValues = Object.fromEntries(Object.entries(filterValues).filter(([key]) => !BALANCE_FILTER_KEYS.includes(key)));
+    const canSelect = bulkActions.minimumCharge || bulkActions.status || bulkActions.message || bulkActions.meterBox;
 
     // A new search or filter is a new list: start the choice over.
     useEffect(() => {
@@ -150,6 +160,21 @@ export default function Index({
     function clearSelection() {
         setSelectedIds(new Set());
         setAllMatching(false);
+        setPendingAction(null);
+    }
+
+    function continueBulkAction(action = pendingAction) {
+        if (!action || filtersPending || selectionCount < 1 || selectionCount > 5000) return;
+        if (action.key === 'message') {
+            openQuickMessage(selection.ids ?? [], selection.all ? selection : null);
+        } else {
+            setBulkField(action.key);
+        }
+    }
+
+    function chooseBulkAction(action) {
+        setPendingAction(action);
+        if (selectionCount > 0) continueBulkAction(action);
     }
     const { requestDelete, deleteDialog } = useDeleteRecord('المشترك');
 
@@ -212,6 +237,13 @@ export default function Index({
                             onSelect: () => openQuickMessage([subscription.id]),
                             lockedReason: can?.sendMessages ? null : needsPermission('إرسال الرسائل'),
                         },
+                        {
+                            label: 'سجل الرسائل',
+                            icon: 'messages',
+                            tone: 'sky',
+                            onSelect: () => setMessageSubscription(subscription),
+                            lockedReason: can?.viewMessages ? null : needsPermission('عرض الرسائل'),
+                        },
                     ],
                 },
                 {
@@ -224,6 +256,13 @@ export default function Index({
                             shortcut: 'P',
                             onSelect: () => openStatement(subscription, 'payment'),
                             lockedReason: subscription.canRecordPayment ? null : needsPermission('تسجيل التحصيلات'),
+                        },
+                        {
+                            label: 'تسجيل دفعة مقسّمة',
+                            icon: 'layers',
+                            tone: 'brand',
+                            onSelect: () => openStatement(subscription, 'split_payment'),
+                            lockedReason: subscription.canRecordSplitPayment ? null : needsPermission('تسجيل دفعة بتحويل بنكي'),
                         },
                         {
                             label: 'تحميل حركة',
@@ -287,13 +326,7 @@ export default function Index({
                         <h2 className="text-3xl font-bold text-gray-900">المشتركون</h2>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <Link
-                            href="/subscriptions/bulk-changes"
-                            className="inline-flex items-center gap-2 rounded-control border border-gray-200 bg-surface px-4 py-2.5 text-sm font-semibold text-gray-900 transition hover:border-gray-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
-                        >
-                            <Icon name="history" className="h-4 w-4" />
-                            سجل التعديلات الجماعية
-                        </Link>
+                        <BulkActionsMenu abilities={bulkActions} onChoose={chooseBulkAction} />
                         {canCreate && <AddButton onClick={() => setCreating(true)}>مشترك جديد</AddButton>}
                     </div>
                 </>
@@ -312,13 +345,22 @@ export default function Index({
                     <DataTableFilterMenu
                         tableKey="subscriptions"
                         groups={filterOptions}
-                        values={filterValues}
+                        values={standardFilterValues}
                         onChange={setFilter}
                         onChangeMany={setFilters}
                         onClear={clearFilters}
-                    />
+                    >
+                        <BalanceFilter values={filterValues} onChange={setFilters} errors={errors} />
+                    </DataTableFilterMenu>
                 }
             />
+
+            {balanceLabel && (
+                <div role="status" className="flex flex-wrap items-center justify-between gap-3 border-x border-gray-100 bg-brand-500/5 px-5 py-3 text-sm text-gray-700">
+                    <span><b className="font-display text-gray-900">{subscriptions.total.toLocaleString('en')}</b> اشتراكًا · {balanceLabel}{filtersPending && ' · جارٍ تحديث النتائج…'}</span>
+                    {canSelect && subscriptions.total > 0 && !allMatching && <button type="button" disabled={filtersPending} onClick={() => { setSelectedIds(new Set()); setAllMatching(true); }} className="rounded-control border border-brand-500/20 bg-surface px-3 py-2 font-semibold text-brand-600 transition hover:bg-brand-500/10 disabled:opacity-40">تحديد جميع النتائج ({subscriptions.total.toLocaleString('en')})</button>}
+                </div>
+            )}
 
             {canSelect && !allMatching && pageIds.length > 0 && pageSelectedCount === pageIds.length && subscriptions.total > pageIds.length && (
                 <div role="status" className="flex flex-wrap items-center justify-center gap-2 border-x border-gray-100 bg-brand-500/5 px-4 py-2.5 text-sm text-gray-700">
@@ -443,17 +485,18 @@ export default function Index({
 
             <Pagination meta={subscriptions} filters={filters} baseUrl="/subscriptions" />
 
-            {canSelect && selectionCount > 0 && (
+            {canSelect && (selectionCount > 0 || pendingAction) && !filtersPending && (
                 <>
                     {/* Room at the end of the page, so the bar never hides the last rows. */}
-                    <div className="h-24" aria-hidden="true" />
+                    <div className="h-52 sm:h-24" aria-hidden="true" />
                     <BulkActionBar
                         count={selectionCount}
                         selection={selection}
-                        filters={filters}
                         abilities={bulkActions}
                         onAction={setBulkField}
                         onClear={clearSelection}
+                        pendingAction={pendingAction}
+                        onContinue={() => continueBulkAction()}
                     />
                 </>
             )}
@@ -464,6 +507,7 @@ export default function Index({
                     selection={selection}
                     count={selectionCount}
                     statusOptions={statusOptions}
+                    selectionLabel={balanceLabel}
                     onClose={() => setBulkField(null)}
                     onDone={() => {
                         setBulkField(null);
@@ -529,6 +573,7 @@ export default function Index({
                     closeProfile();
                 }}
                 onSendMessage={can?.sendMessages ? () => openQuickMessage([viewingSubscriptionId]) : undefined}
+                onMessageHistory={can?.viewMessages ? () => setMessageSubscription(viewingSubscription) : undefined}
                 onEdit={() => {
                     setModalSubscription(viewingSubscription);
                     closeProfile();
@@ -539,6 +584,8 @@ export default function Index({
                     openStatement(viewingSubscription, form);
                 }}
             />
+
+            {messageSubscription && <SubscriptionMessageHistoryModal key={messageSubscription.id} subscription={messageSubscription} onClose={() => setMessageSubscription(null)} />}
 
             <ReadingHistoryModal
                 key={`history-${historySubscription?.id ?? 'closed'}`}

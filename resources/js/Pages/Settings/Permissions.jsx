@@ -8,6 +8,10 @@ import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import ConfirmDialog from '@/Components/ConfirmDialog';
+import PermissionPanel from './PermissionPanel';
+import PermissionGuide, { PermissionExplanation } from './PermissionGuide';
+import { CATEGORIES, ICONS, permissionGuideEntries } from '@/lib/permissionGuide';
+import './PermissionDesign.css';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
 import {
@@ -34,6 +38,7 @@ const SECTION_DETAILS = {
     tariffs: { icon: 'dollar', description: 'أسعار الكيلو والحد الأدنى', page: 'التعرفات' },
     meter_readings: { icon: 'gauge', description: 'قراءات العدادات الأسبوعية', page: 'القراءات الأسبوعية' },
     collections: { icon: 'card', description: 'السجل المالي والدفعات وحركات الحسابات', page: 'تسجيل الدفعات والسجل المالي' },
+    financial_audit: { icon: 'shield', description: 'مراجعة الصناديق المغلقة ومبالغ البنك واعتماد فروق التدقيق', page: 'التدقيق المالي' },
     reports: { icon: 'trend', description: 'تقارير المال، كل تقرير بصلاحيته', page: 'التقارير' },
     messages: { icon: 'messages', description: 'رسائل المشتركين', page: 'الرسائل' },
     print_templates: { icon: 'printer', description: 'قوالب الطباعة المشتركة لكل الشركة', page: 'قوالب الطباعة' },
@@ -44,14 +49,6 @@ const SECTION_DETAILS = {
     areas: { icon: 'map', description: 'المناطق', page: 'المناطق' },
     sub_areas: { icon: 'map', description: 'منطقة 2 داخل منطقة الفرع', page: 'منطقة 2' },
 };
-
-/** The sections in the order the editor groups them; any section not named here goes last. */
-const SECTION_GROUPS = [
-    { title: 'البيانات الأساسية', hint: 'المشتركون وأدوات العمل اليومي', keys: ['subscriptions', 'meter_boxes', 'circuit_breakers', 'tariffs'] },
-    { title: 'المال والتحصيل', hint: 'كل ما يغيّر أرصدة المشتركين أو يعرضها', keys: ['meter_readings', 'collections', 'reports'] },
-    { title: 'التواصل والطباعة', hint: 'الرسائل وقوالب الطباعة', keys: ['messages', 'print_templates'] },
-    { title: 'الإدارة والمواقع', hint: 'الموظفون والفروع والتقسيمات الجغرافية', keys: ['users', 'user_types', 'branches', 'governorates', 'areas', 'sub_areas'] },
-];
 
 function EmployeeAvatar({ name, size = 'md' }) {
     const sizes = { sm: 'h-8 w-8 rounded-[10px] text-xs', md: 'h-10 w-10 rounded-[13px] text-sm', lg: 'h-14 w-14 rounded-[18px] text-lg' };
@@ -103,7 +100,7 @@ function MenuButton({ icon, label, children }) {
                 aria-haspopup="menu"
                 aria-expanded={open}
                 onClick={() => setOpen((current) => !current)}
-                className="inline-flex h-10 items-center gap-2 rounded-control border border-gray-200 bg-surface px-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
+                className="permission-copy-trigger inline-flex h-10 items-center gap-2 rounded-control border border-gray-200 bg-surface px-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
             >
                 <Icon name={icon} className="h-4 w-4" />
                 {label}
@@ -308,7 +305,7 @@ function LevelPicker({ section, level, onChange, disabled }) {
                         title={section.ladder.long[index]}
                         onClick={() => onChange(index)}
                         className={`inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 py-1.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none ${
-                            checked ? 'bg-brand-500 text-white shadow-sm ring-1 ring-brand-500 enabled:hover:brightness-110 enabled:active:brightness-95' : 'text-gray-600 enabled:hover:bg-brand-50 enabled:hover:text-brand-700 enabled:active:bg-brand-100'
+                            checked ? 'text-white' : 'text-gray-600'
                         }`}
                     >
                         {checked && index > 0 && <i aria-hidden="true" className="h-2 w-2 rounded-full bg-white" />}
@@ -321,23 +318,24 @@ function LevelPicker({ section, level, onChange, disabled }) {
 }
 
 /** One extra option: its name and risk, what it opens, and its switch — off and explained when it needs a level first. */
-function ExtraOption({ section, item, selected, onChange, disabled }) {
+function ExtraOption({ section, item, selected, onChange, disabled, onExplain }) {
     const on = selected.includes(item.id);
     const needed = item.needs > 0 && section.ladder ? section.ladder.ids[item.needs - 1] : null;
     const locked = !on && needed !== null && !selected.includes(needed);
 
     return (
-        <div className={`flex min-h-[58px] items-center gap-3 border-t border-gray-100 px-3.5 py-2.5 first:border-t-0 ${locked ? 'opacity-60' : ''}`}>
+        <div className={`permission-option flex min-h-[68px] items-center gap-3 border-t border-gray-100 px-3.5 py-2.5 first:border-t-0 ${locked ? 'opacity-60' : ''}`}>
             <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-900">
                     {item.label}
                     <RiskBadge risk={item.risk} />
                 </p>
-                <p className="text-xs leading-5 text-gray-500">
+                <p className="text-sm leading-7 text-gray-500">
                     {item.hint}
                     {locked && <span className="text-blue-700 dark:text-blue-400">{item.hint ? ' · ' : ''}يتطلب مستوى «{section.ladder.levels[item.needs]}»</span>}
                 </p>
             </div>
+            {onExplain && <button type="button" aria-label={`شرح ${item.label}`} onClick={onExplain} className="shrink-0 rounded-control border border-gray-200 p-2 text-gray-500 hover:text-brand-600"><Icon name="info" className="h-4 w-4" /></button>}
             <Switch
                 checked={on}
                 onChange={(next) => onChange(withToggled(selected, item.id, next))}
@@ -352,109 +350,25 @@ function ExtraOption({ section, item, selected, onChange, disabled }) {
  * One section: its icon and name, a line saying what the chosen level
  * lets them do, the level picker, and its extra options grouped by kind
  * under «خيارات إضافية». A section whose permissions don't sit on a level
- * is "custom": its options open, with the level's own actions as switches.
+ * is "custom": its exact actions remain available as switches when opened.
  * A changed section carries a burgundy edge and «تغيّر».
  */
-function SectionRow({ section, selected, saved, onChange, disabled, forceOpen, unavailableReason = null }) {
-    const details = SECTION_DETAILS[section.key] ?? { icon: 'shield', description: '' };
+export function SectionRow({ section, selected, saved, onChange, disabled, open = false, onToggle, onExplain }) {
+    const details = SECTION_DETAILS[section.key] ?? { icon: ICONS[section.key] ?? 'shield' };
     const level = section.ladder ? levelOf(section.ladder, selected) : null;
     const isCustom = section.ladder && level === null;
     const extras = sectionExtras(section);
-    const extraItems = extras.flatMap((group) => group.items);
-    const heldExtras = extraItems.filter((item) => selected.includes(item.id)).length;
-    const [open, setOpen] = useState(false);
     const ids = sectionIds(section);
-    const changed = ids.some((id) => selected.includes(id) !== saved.includes(id));
-    const holdsAny = ids.some((id) => selected.includes(id));
-    // A section without levels shows its options always; a custom one opens them to fix it.
-    const showExtras = !section.ladder || open || isCustom || forceOpen;
-    const panelId = `extras-${section.key}`;
-
-    return (
-        <section
-            aria-labelledby={`section-${section.key}`}
-            className={`relative rounded-row border bg-surface p-3.5 transition sm:p-4 ${
-                changed ? 'border-brand-200 before:absolute before:inset-y-4 before:-start-px before:w-[3px] before:rounded-full before:bg-brand-500' : 'border-gray-100'
-            }`}
-        >
-            <div className="flex flex-wrap items-center gap-3">
-                <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] transition ${
-                        holdsAny ? 'bg-graphite-gradient text-white dark:ring-1 dark:ring-white/10' : 'bg-gray-100 text-gray-500'
-                    }`}
-                >
-                    <Icon name={details.icon} className="h-5 w-5" />
-                </span>
-                <div className="min-w-[11rem] flex-1">
-                    <h4 id={`section-${section.key}`} className="flex flex-wrap items-center gap-2 font-bold text-gray-900">
-                        {section.label}
-                        {changed && <span className="rounded-full border border-brand-200 bg-brand-50 px-2 text-[11px] font-bold text-brand-700">تغيّر</span>}
-                        {isCustom && (
-                            <span title="صلاحيات هذا القسم لا تطابق مستوى واحدًا: اختر مستوى لتوحيدها، أو عدّلها من الخيارات" className="rounded-full bg-blue-500/10 px-2 text-[11px] font-bold text-blue-700 dark:text-blue-400">
-                                مخصّص
-                            </span>
-                        )}
-                    </h4>
-                    <p className="text-[13px] text-gray-500">
-                        {unavailableReason ?? sectionSentence(section, selected)}
-                        {!unavailableReason && section.ladder && heldExtras > 0 && <> · ومعه {heldExtras} {heldExtras === 1 ? 'خيار إضافي' : 'خيارات إضافية'}</>}
-                    </p>
-                </div>
-
-                {unavailableReason && <button type="button" disabled title={unavailableReason} className="inline-flex items-center gap-2 rounded-control border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-500"><Icon name="lock" className="h-4 w-4" />مقفل لهذا الدور</button>}
-                {!unavailableReason && section.ladder && (
-                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-                        <LevelPicker section={section} level={level} onChange={(next) => onChange(withSectionLevel(section, selected, next))} disabled={disabled} />
-                        {extraItems.length > 0 && !isCustom && (
-                            <button
-                                type="button"
-                                onClick={() => setOpen((current) => !current)}
-                                aria-expanded={showExtras}
-                                aria-controls={panelId}
-                                className="inline-flex h-9 items-center gap-1.5 rounded-control border border-gray-200 bg-surface px-3 text-sm font-semibold text-gray-700 transition hover:border-brand-500/40 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900"
-                            >
-                                خيارات إضافية
-                                {heldExtras > 0 ? (
-                                    <span className="rounded-full bg-brand-50 px-1.5 font-display text-[11px] font-bold text-brand-700">{heldExtras}</span>
-                                ) : (
-                                    <span className="font-display text-xs text-gray-400">({extraItems.length})</span>
-                                )}
-                                <Icon name="chevron-down" className={`h-4 w-4 transition-transform ${showExtras ? 'rotate-180' : ''}`} />
-                            </button>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {!unavailableReason && showExtras && (extraItems.length > 0 || isCustom) && (
-                <div id={panelId} className="mt-3 overflow-hidden rounded-control border border-gray-100 sm:ms-[52px]">
-                    {isCustom && (
-                        <>
-                            <p className="bg-gray-50 px-3.5 py-1.5 text-xs font-bold text-gray-500">إجراءات القسم</p>
-                            {section.ladder.ids.map((id, index) => (
-                                <ExtraOption
-                                    key={id}
-                                    section={section}
-                                    item={{ id, label: section.ladder.labels[index], hint: '', risk: null, needs: 0 }}
-                                    selected={selected}
-                                    onChange={onChange}
-                                    disabled={disabled}
-                                />
-                            ))}
-                        </>
-                    )}
-                    {extras.map((group) => (
-                        <div key={group.title}>
-                            <p className="border-t border-gray-100 bg-gray-50 px-3.5 py-1.5 text-xs font-bold text-gray-500 first:border-t-0">{group.title}</p>
-                            {group.items.map((item) => (
-                                <ExtraOption key={item.id} section={section} item={item} selected={selected} onChange={onChange} disabled={disabled} />
-                            ))}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </section>
-    );
+    const changed = ids.some(id => selected.includes(id) !== saved.includes(id));
+    const guide = permissionGuideEntries([section]);
+    const explain = id => onExplain?.(guide.find(entry => entry.id === id));
+    return <PermissionPanel title={section.label} icon={details.icon} summary={sectionSentence(section, selected)} count={ids.filter(id => selected.includes(id)).length + ' / ' + ids.length} changed={changed} open={open} onToggle={onToggle}>
+        {section.ladder && <div className="space-y-3 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><b className="text-sm text-gray-900">مستوى الوصول</b><div className="permission-levels"><LevelPicker section={section} level={level} onChange={next => onChange(withSectionLevel(section, selected, next))} disabled={disabled} /></div></div><p className="text-xs leading-6 text-gray-500">كل مستوى يشمل ما قبله. الإجراءات الخاصة أدناه مستقلة.</p>
+            {!isCustom && section.ladder.ids.map((id, index) => <div key={id} className="permission-option flex items-start gap-3 rounded-control p-2"><span className={'mt-2 h-2 w-2 shrink-0 rounded-full ' + (selected.includes(id) ? 'bg-emerald-500' : 'bg-gray-300')} /><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-gray-900">{guide.find(entry => entry.id === id)?.label ?? section.ladder.labels[index]}</p><p className="mt-1 text-sm leading-7 text-gray-500">{guide.find(entry => entry.id === id)?.description}</p></div><button type="button" aria-label={'شرح ' + section.ladder.labels[index]} onClick={() => explain(id)} className="rounded-control border border-gray-200 p-2 text-gray-500 hover:text-brand-600"><Icon name="info" className="h-4 w-4" /></button></div>)}
+        </div>}
+        {isCustom && <div><p className="bg-gray-50 px-4 py-2 text-sm font-bold text-gray-600">إجراءات مخصّصة — تُحفظ كما اخترتها</p>{section.ladder.ids.map((id,index) => <ExtraOption key={id} section={section} item={{ id, label: section.ladder.labels[index], hint: guide.find(entry => entry.id === id)?.description, risk: null, needs: 0 }} selected={selected} onChange={onChange} disabled={disabled} onExplain={() => explain(id)} />)}</div>}
+        {extras.map(group => <div key={group.title}><p className="border-y border-gray-100 bg-gray-50 px-4 py-2 text-sm font-bold text-gray-600">{group.title}</p>{group.items.map(item => <ExtraOption key={item.id} section={section} item={{ ...item, hint: guide.find(entry => entry.id === item.id)?.description ?? item.hint }} selected={selected} onChange={onChange} disabled={disabled} onExplain={() => explain(item.id)} />)}</div>)}
+    </PermissionPanel>;
 }
 
 /** The ways to be paid the selected permissions allow, for the summary. */
@@ -630,7 +544,9 @@ export function PermissionChangeReview({ employee, changes }) {
  */
 export function PermissionEditor({ employee, sections, templates, copySources, scopedToOwnBranch, onDirtyChange, auditOptions, workBranchOptions = null }) {
     const saved = employee.permissionIds;
-    const savedAudit = employee.auditSettings;
+    const savedAudit = auditOptions && !saved.includes(auditOptions.permissionId) && employee.auditSettingsConfigured === false
+        ? { scope: 'selected', branch_ids: employee.branchId ? [employee.branchId] : [], actions: [] }
+        : employee.auditSettings;
     const savedWorkBranches = employee.workBranchIds ?? [];
     const { data, setData, put, processing, errors } = useForm({ permissions: { [employee.id]: [...saved] }, ...(auditOptions ? { audit_settings: { [employee.id]: savedAudit } } : {}), ...(workBranchOptions ? { work_branches: { [employee.id]: [...savedWorkBranches] } } : {}) });
     const workBranches = data.work_branches?.[employee.id] ?? savedWorkBranches;
@@ -638,9 +554,26 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
     const selected = data.permissions[employee.id];
     const auditValue = data.audit_settings?.[employee.id];
     const auditEnabled = auditOptions && selected.includes(auditOptions.permissionId);
+    const auditDraftInitialized = useRef(Boolean(auditOptions && (saved.includes(auditOptions.permissionId) || employee.auditSettingsConfigured)));
+    function toggleAudit(checked) {
+        if (checked && !auditDraftInitialized.current) {
+            setAudit({ scope: 'selected', branch_ids: employee.branchId ? [employee.branchId] : [], actions: [] });
+            auditDraftInitialized.current = true;
+        }
+        setSelected(withToggled(selected, auditOptions.permissionId, checked));
+    }
     const auditChanges = auditOptions ? auditSettingsChanges(savedAudit, auditValue, auditOptions) : [];
     const [query, setQuery] = useState('');
     const [mode, setMode] = useState('all');
+    const [category, setCategory] = useState('all');
+    const [openSections, setOpenSections] = useState(new Set());
+    const [activeSection, setActiveSection] = useState('');
+    const [guideAudience, setGuideAudience] = useState(null);
+    const [explanation, setExplanation] = useState(null);
+    function toggleSection(key, next) {
+        setActiveSection(key);
+        setOpenSections(old => { const updated = new Set(old); next ? updated.add(key) : updated.delete(key); return updated; });
+    }
     const [reviewing, setReviewing] = useState(false);
     const [acknowledged, setAcknowledged] = useState(false);
     const changes = useMemo(() => individualChanges(sections, saved, selected), [sections, saved, selected]);
@@ -651,16 +584,15 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
     const dirty = !samePermissions(saved, selected) || auditChanges.length > 0 || workBranchesChanged;
     const template = templates.find((item) => item.role === employee.role);
     const deviations = template ? individualChanges(sections, template.permissionIds, selected).length : null;
-    const matching = filterSections(sections, selected, saved, query, mode);
-    const searching = query.trim() !== '';
-    const groups = [
-        ...SECTION_GROUPS.map((group) => ({ ...group, sections: group.keys.map((key) => matching.find((section) => section.key === key)).filter(Boolean) })),
-        {
-            title: 'أخرى',
-            hint: '',
-            sections: matching.filter((section) => !SECTION_GROUPS.some((group) => group.keys.includes(section.key))),
-        },
-    ].filter((group) => group.sections.length > 0);
+    const matchingCandidates = filterSections(sections, selected, saved, query, mode);
+    if (mode === 'changed' && auditChanges.length > 0 && !matchingCandidates.some(section => section.key === 'financial_audit')) {
+        matchingCandidates.push(...filterSections(sections.filter(section => section.key === 'financial_audit'), selected, saved, query, 'all'));
+    }
+    const matching = matchingCandidates.filter(section => category === 'all' || CATEGORIES.find(item => item.key === category)?.sections.includes(section.key));
+    const groups = CATEGORIES.filter(item => item.key !== 'all').map(group => ({ title: group.label, hint: '', sections: group.sections.map(key => matching.find(section => section.key === key)).filter(Boolean) })).filter(group => group.sections.length > 0);
+    const currentSection = sections.find(section => section.key === activeSection);
+    const currentCategory = CATEGORIES.find(group => group.sections.includes(activeSection));
+
 
     function setSelected(ids) {
         setData('permissions', { [employee.id]: ids });
@@ -724,7 +656,7 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
         <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]">
             <section className="rise-in min-w-0 rounded-card border border-gray-100 bg-surface shadow-card" aria-label={`صلاحيات ${employee.name}`}>
                 <div className="space-y-4 border-b border-gray-100 p-4 sm:p-5">
-                    <div className="flex flex-wrap items-center gap-3.5">
+                    <div className="permission-employee-heading -mx-4 -mt-4 flex flex-wrap items-center gap-3.5 p-5 sm:-mx-5 sm:-mt-5">
                         <EmployeeAvatar name={employee.name} size="lg" />
                         <div className="min-w-0">
                             <h3 className="break-words text-xl font-bold text-gray-900">{employee.name}</h3>
@@ -740,6 +672,7 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                             </p>
                         </div>
                         <div className="flex w-full flex-wrap gap-2 sm:ms-auto sm:w-auto">
+                            <SecondaryButton onClick={() => setGuideAudience('selected')}><Icon name="document" className="h-4 w-4" />دليل الموظف</SecondaryButton>
                             <MenuButton icon="users" label="نسخ من موظف">
                                 {(close) =>
                                     copySources.length === 0 ? (
@@ -756,6 +689,7 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                                                     setSelected([...user.permissionIds]);
                                                     if (auditOptions && user.auditSettings && user.permissionIds.includes(auditOptions.permissionId)) {
                                                         setAudit({ ...user.auditSettings, branch_ids: [...user.auditSettings.branch_ids], actions: [...user.auditSettings.actions] });
+                                                        auditDraftInitialized.current = true;
                                                     }
                                                     close();
                                                 }}
@@ -805,7 +739,7 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                                 className="block w-full py-2 ps-10 text-sm"
                             />
                         </div>
-                        <div className="flex flex-wrap gap-1.5" role="group" aria-label="تصفية الأقسام">
+                        <div className="permission-design-tabs" role="group" aria-label="تصفية الأقسام">
                             {[
                                 ['all', 'الكل'], ['enabled', 'المفعّلة'], ['sensitive', 'فيها صلاحيات خاصة'], ['changed', 'المعدّلة'],
                             ].map(([value, label]) => (
@@ -814,10 +748,7 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                                     type="button"
                                     onClick={() => setMode(value)}
                                     aria-pressed={mode === value}
-                                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${
-                                        mode === value ? 'border-gray-900 bg-gray-900 text-surface' : 'border-gray-200 text-gray-600 hover:border-brand-500/40 hover:text-gray-900'
-                                    }`}
-                                >
+                                    className={`permission-design-tab ${mode === value ? 'active' : ''}`}                                >
                                     {label} <span className="ms-0.5 font-display opacity-70">{filterSections(sections, selected, saved, '', value).length}</span>
                                 </button>
                             ))}
@@ -825,7 +756,7 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                     </div>
                 </div>
 
-                {workBranchOptions && <div className="mx-4 my-4 space-y-3 rounded-card border border-gray-200 bg-gray-50 p-4 sm:mx-5" aria-label="فروع العمل المسموحة">
+                {workBranchOptions && (category === 'all' || category === 'administration') && <PermissionPanel title="فروع العمل المسموحة" summary={employee.branchName + ' · فروع إضافية: ' + workBranches.length} icon="pin" className="mx-4 my-4 sm:mx-5" open={openSections.has('work-branches')} onToggle={next => toggleSection('work-branches', next)} changed={workBranchesChanged}><div className="space-y-3 p-4">
                     <h3 className="flex items-center gap-2 font-bold text-gray-900"><Icon name="pin" className="h-5 w-5" />فروع العمل المسموحة</h3>
                     <p className="text-sm leading-7 text-gray-500">الفرع الإداري: <b className="text-gray-900">{employee.branchName ?? 'غير محدد'}</b>. اختر فروعًا إضافية يستطيع الموظف العمل فيها بنفس صلاحياته عبر رابط كل فرع. نطاق التدقيق مستقل أدناه.</p>
                     <div className="grid gap-2 sm:grid-cols-2">{workBranchOptions.map((branch) => <label key={branch.id} className="flex cursor-pointer items-center gap-2 rounded-control border border-gray-200 bg-surface p-3 text-sm text-gray-900">
@@ -833,8 +764,12 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                     </label>)}</div>
                     <p className="text-xs leading-6 text-gray-500">نسخ صلاحيات موظف آخر لا يغيّر فروع العمل هذه.</p>
                     {errors.work_branches && <p className="text-sm text-red-600">{errors.work_branches}</p>}
-                </div>}
-                {auditOptions && <AuditAccessCard employee={employee} options={auditOptions} value={auditValue} enabled={auditEnabled} onEnabledChange={(checked) => setSelected(withToggled(selected, auditOptions.permissionId, checked))} onChange={setAudit} disabled={processing} />}
+                </div></PermissionPanel>}
+                <div className="permission-navigation space-y-3 border-b border-gray-100 px-4 pb-4 sm:px-5">
+                    <div className="permission-design-tabs permission-category-tabs" role="group" aria-label="مجموعات الصلاحيات">{CATEGORIES.filter(item => item.key === 'all' || sections.some(section => item.sections.includes(section.key))).map(item => <button type="button" key={item.key} aria-pressed={category === item.key} onClick={() => { setCategory(item.key); setOpenSections(new Set()); setActiveSection(''); }} className={`permission-design-tab ${category === item.key ? 'active' : ''}`}><Icon name={item.icon} className="h-4 w-4" />{item.label}</button>)}</div>
+                    <div className="permission-position" aria-live="polite"><Icon name="pin" className="h-4 w-4 text-brand-600" /><span>{employee.name} / {currentCategory?.label ?? CATEGORIES.find(item => item.key === category)?.label}{currentSection && currentSection.label !== currentCategory?.label && ' / ' + currentSection.label}</span><span className="ms-auto">{matching.length} أقسام مطابقة</span></div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500"><span>الفتح والطيّ لا يغيّران صلاحيات الموظف.</span><div className="flex flex-wrap gap-3"><button type="button" onClick={() => setOpenSections(new Set([...matching.map(section => section.key), ...(workBranchOptions && (category === 'all' || category === 'administration') ? ['work-branches'] : [])]))} className="rounded p-1 font-semibold hover:text-brand-600">فتح الأقسام المعروضة</button><button type="button" onClick={() => setOpenSections(new Set())} className="rounded p-1 font-semibold hover:text-brand-600">طيّ الكل</button><button type="button" onClick={() => setGuideAudience('all')} className="rounded p-1 font-semibold text-brand-600">دليل الصلاحيات</button></div></div>
+                </div>
                 {groups.length === 0 ? (
                     <div className="px-5 py-10 text-center text-sm text-gray-500">
                         <p>لا توجد صلاحيات تطابق البحث أو التصفية.</p>
@@ -849,15 +784,20 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                                 <h4 className="font-bold text-gray-900">{group.title}</h4>
                                 {group.hint && <span className="hidden text-xs text-gray-500 sm:inline">{group.hint}</span>}
                                 <span className="h-px flex-1 bg-gray-100" />
-                                <button type="button" onClick={() => setGroup(group, true)} disabled={processing} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
+{group.sections.some(section => section.ladder?.actions.includes('view') || section.key === 'reports') &&                                 <button type="button" onClick={() => setGroup(group, true)} disabled={processing} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
                                     عرض فقط للمجموعة
-                                </button>
+                                </button>}
                                 <button type="button" onClick={() => setGroup(group, false)} disabled={processing} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
                                     إلغاء المجموعة
                                 </button>
                             </div>
                             <div className="space-y-2">
-                                {group.sections.map((section) => (
+                                {group.sections.map((section) => section.key === 'financial_audit' && auditOptions ? (
+                                    <PermissionPanel key={section.key} title="التدقيق المالي" icon="shield" summary={auditEnabled ? 'مفعّل · الفروع والإجراءات محددة داخل القسم' : 'غير مفعّل · يمنحه السوبر أدمن لأشخاص محددين'} changed={auditChanges.length > 0 || selected.includes(auditOptions.permissionId) !== saved.includes(auditOptions.permissionId)} open={openSections.has(section.key)} onToggle={next => toggleSection(section.key, next)}>
+                                        <AuditAccessCard embedded employee={employee} options={auditOptions} value={auditValue} enabled={auditEnabled} onEnabledChange={toggleAudit} onChange={setAudit} disabled={processing} />
+                                        {sectionExtras(section).flatMap(item => item.items).filter(item => item.action !== 'audit').map(item => <ExtraOption key={item.id} section={section} item={item} selected={selected} onChange={setSelected} disabled={processing} onExplain={() => setExplanation(permissionGuideEntries([section]).find(entry => entry.id === item.id))} />)}
+                                    </PermissionPanel>
+                                ) : (
                                     <SectionRow
                                         key={section.key}
                                         section={section}
@@ -866,7 +806,9 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                                         onChange={setSelected}
                                         disabled={processing}
 
-                                        forceOpen={searching}
+                                        open={openSections.has(section.key)}
+                                        onToggle={next => toggleSection(section.key, next)}
+                                        onExplain={setExplanation}
                                     />
                                 ))}
                             </div>
@@ -879,17 +821,19 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                     <p>
                         كل مستوى يشمل ما قبله، والخيارات الإضافية مستقلة عنه.{' '}
                         {scopedToOwnBranch
-                            ? 'تظهر هنا الصلاحيات التي تملكها فقط، وتمنحها لموظفي فرعك؛ صلاحيات الفروع والمحافظات والمناطق يمنحها مدير النظام.'
-                            : 'السوبر أدمن يملك جميع الصلاحيات تلقائيًا. بقية الحسابات تعمل بالصلاحيات المحددة هنا؛ المسمى الوظيفي لا يمنح صلاحيات.'}
+                            ? 'تمنح وتسحب الصلاحيات المتاحة هنا لموظفي فرعك فقط. إضافة المستخدمين تحتاج صلاحية مستقلة؛ التفويض الإداري والصلاحيات العامة يديرها السوبر أدمن.'
+                            : 'لتمكين مدير الفرع من إضافة موظفين وتوزيع صلاحياتهم، فعّل له «إضافة المستخدمين» و«إدارة صلاحيات موظفي الفرع»، وحدّد صلاحيات العمل التي يمكنه تفويضها. المسمى الوظيفي وحده لا يمنح صلاحيات.'}
                     </p>
                 </div>
             </section>
 
-            <div className="space-y-4 2xl:sticky 2xl:top-24">
+            <div className="space-y-4 2xl:sticky 2xl:top-24"><PermissionPanel title="ملخص صلاحيات الموظف" summary={employee.name + ' · الاختيارات الحالية'} icon="shield" open={openSections.has('summary')} onToggle={next => toggleSection('summary', next)}><div className="permission-summary-body">
                 {auditOptions && auditEnabled && <AuditWorkSummary employee={employee} options={auditOptions} value={auditValue} enabled={auditEnabled} />}
                 <PermissionSummary employee={employee} sections={sections} selected={selected} template={template} scopedToOwnBranch={scopedToOwnBranch} />
-            </div>
+            </div></PermissionPanel></div>
 
+            <PermissionExplanation entry={explanation} onClose={() => setExplanation(null)} />
+            {guideAudience && <PermissionGuide key={guideAudience} show onClose={() => setGuideAudience(null)} sections={sections} employee={employee} selected={selected} scopedToOwnBranch={scopedToOwnBranch} auditOptions={auditOptions} auditValue={auditValue} initialAudience={guideAudience} />}
             {/* Room at the end of the page, so the bar never hides the last section. */}
             {dirty && <div className="h-20 2xl:col-span-2" aria-hidden="true" />}
 

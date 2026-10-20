@@ -73,7 +73,7 @@ export default function UserForm({ data, setData, errors, isEdit, branches, canC
                             label={isEdit ? 'كلمة مرور جديدة' : 'كلمة المرور'}
                             required={!isEdit}
                             error={errors.password}
-                            hint={isEdit ? 'اتركها فارغة للاحتفاظ بالحالية. عند تغييرها: 10 أحرف على الأقل، تتضمن حروفًا وأرقامًا.' : '10 أحرف على الأقل، وتتضمن حروفًا وأرقامًا.'}
+                            hint={isEdit ? 'اتركها فارغة للاحتفاظ بالحالية. عند تغييرها: 8 خانات على الأقل، ويمكن استخدام حروف فقط أو أرقام فقط.' : '8 خانات على الأقل، ويمكن استخدام حروف فقط أو أرقام فقط.'}
                         >
                             <PasswordInput className="block w-full" value={data.password} onChange={(e) => setData('password', e.target.value)} />
                         </FormField>

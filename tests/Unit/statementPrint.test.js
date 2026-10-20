@@ -44,6 +44,17 @@ function render(options = {}) {
 }
 const lineIds = (html) => [...html.matchAll(/id="statement-line-(\d+)"/g)].map((match) => Number(match[1]));
 
+test('a statement starts compact despite an old full view preference unless a print view is supplied', () => {
+    const previous = globalThis.window;
+    globalThis.window = { localStorage: { getItem: () => 'full' } };
+    try {
+        assert.deepEqual(lineIds(render({ view: undefined })), [3, 4]);
+        assert.deepEqual(lineIds(render({ view: 'full' })), [1, 2, 3, 4]);
+    } finally {
+        globalThis.window = previous;
+    }
+});
+
 test('the statement print URL preserves filters, view and expanded history without the list page or modal state', () => {
     const previous = globalThis.window;
     globalThis.window = { location: { origin: 'https://example.test' } };

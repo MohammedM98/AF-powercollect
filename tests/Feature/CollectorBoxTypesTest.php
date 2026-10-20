@@ -429,21 +429,22 @@ class CollectorBoxTypesTest extends TestCase
         $this->assertSame('received', $transfer->box->fresh()->status);
     }
 
-    public function test_collector_who_lost_the_permission_does_not_hold_up_their_closed_box(): void
+    public function test_period_end_closure_does_not_wait_for_a_collector_whose_permissions_were_revoked(): void
     {
         [$branch, $head, $collector] = $this->start();
         $clearing = $this->entry($branch, $collector, CashBoxType::Clearing);
         $cash = $this->entry($branch, $collector, CashBoxType::Cash);
+        $collector->permissions()->detach();
         $this->travelTo($cash->box->closing->coverage_until);
         $this->artisan('closings:process')->assertSuccessful();
-        $collector->permissions()->detach();
 
         $this->action($collector, $branch, 'collector-count', $cash->cash_box_id, ['counts' => $this->counts()])->assertForbidden();
-        $this->action($head, $branch, 'receive', $cash->cash_box_id)->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'electronic', $clearing->id, ['status' => 'confirmed'])->assertSessionHasNoErrors();
-        $this->action($head, $branch, 'receive', $clearing->cash_box_id)->assertSessionHasNoErrors();
+        $this->action($head, $branch, 'receive', $cash->cash_box_id)->assertSessionHasErrors('action');
+        $this->action($head, $branch, 'electronic', $clearing->id, ['status' => 'confirmed'])->assertSessionHasErrors('action');
 
-        $this->assertNotNull($cash->box->fresh()->confirmed_at);
+        $this->assertSame('received', $cash->box->fresh()->status);
+        $this->assertSame(CashBox::CLOSE_REASON_PERIOD_END, $cash->box->fresh()->close_reason);
+        $this->assertNull($cash->box->fresh()->confirmed_at);
         $this->assertSame('completed', $clearing->box->fresh()->stage());
     }
 }

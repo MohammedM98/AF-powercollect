@@ -129,7 +129,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
 
         function onOpen(event) {
             setPaletteOpen(false);
-            setQuickMessage({ subscriptionIds: event.detail?.subscriptionIds ?? [], openedAt: Date.now() });
+            setQuickMessage({ subscriptionIds: event.detail?.subscriptionIds ?? [], selection: event.detail?.selection ?? null, openedAt: Date.now() });
         }
 
         window.addEventListener(QUICK_MESSAGE_EVENT, onOpen);
@@ -232,7 +232,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
                 searchesSubscribers={searchesSubscribers}
             />
             {quickMessage && (
-                <QuickMessageModal key={quickMessage.openedAt} subscriptionIds={quickMessage.subscriptionIds} onClose={() => setQuickMessage(null)} />
+                <QuickMessageModal key={quickMessage.openedAt} subscriptionIds={quickMessage.subscriptionIds} selection={quickMessage.selection} onClose={() => setQuickMessage(null)} />
             )}
             <QuickTour open={tourOpen} onClose={closeTour} searchesSubscribers={searchesSubscribers} />
         </div>

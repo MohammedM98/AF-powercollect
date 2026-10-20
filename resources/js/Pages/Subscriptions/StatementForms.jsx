@@ -9,9 +9,11 @@ import EditTransactionAmountModal from './EditTransactionAmountModal';
 import ForceDeleteTransactionModal from './ForceDeleteTransactionModal';
 import DiscountModal from './DiscountModal';
 import PaymentModal from './PaymentModal';
+import SplitPaymentModal from '@/Pages/Payments/SplitPaymentModal';
 
 const ACTION_ICON_TONES = {
     payment: 'text-emerald-600 group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
+    split_payment: 'text-brand-600 group-hover/item:bg-brand-600 group-focus-visible/item:bg-brand-600',
     charge: 'text-amber-600 group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
     discount: 'text-violet-600 group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
     clearing: 'text-teal-600 group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
@@ -22,7 +24,7 @@ const ACTION_ICON_TONES = {
  * shown only to users allowed to use it (each is its own permission).
  * `onOpen` gets 'charge', 'discount', 'clearing' or 'payment'.
  */
-export function StatementActions({ canRecordPayment, canAddCharge, canAddDiscount, canAddClearing, onOpen }) {
+export function StatementActions({ canRecordPayment, canRecordSplitPayment, canAddCharge, canAddDiscount, canAddClearing, onOpen }) {
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
     const triggerRef = useRef(null);
@@ -58,6 +60,7 @@ export function StatementActions({ canRecordPayment, canAddCharge, canAddDiscoun
 
     const actions = [
         canRecordPayment && { action: 'payment', label: 'تسجيل دفعة', icon: 'banknotes' },
+        canRecordSplitPayment && { action: 'split_payment', label: 'تسجيل دفعة مقسّمة', icon: 'layers' },
         canAddCharge && { action: 'charge', label: 'تحميل حركة', icon: 'document-plus' },
         canAddDiscount && { action: 'discount', label: 'إضافة خصم', icon: 'discount' },
         canAddClearing && { action: 'clearing', label: 'مقاصة', icon: 'scale' },
@@ -129,6 +132,14 @@ export function StatementForms({ statement, openForm, onClose, onOpen = null }) 
 
     return (
         <>
+            {openForm === 'split_payment' && statement.canRecordSplitPayment && (
+                <SplitPaymentModal
+                    onClose={onClose}
+                    transferBanks={statement.transferBanks}
+                    senderBanks={statement.senderBanks}
+                    initialSubscription={{ ...subscription, balance: summary.balance }}
+                />
+            )}
             {amending && (
                 <AmendTransactionModal
                     key={`amend-${amending.id}`}

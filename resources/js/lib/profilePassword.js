@@ -1,5 +1,5 @@
 /** The shortest password the server accepts (see AppServiceProvider::boot). */
-export const MIN_LENGTH = 10;
+export const MIN_LENGTH = 8;
 
 export function passwordStrength(password, currentPassword) {
     const checks = [password.length >= MIN_LENGTH, /[A-Za-z\u0600-\u06ff]/.test(password), /\d/.test(password), Boolean(password) && password !== currentPassword];

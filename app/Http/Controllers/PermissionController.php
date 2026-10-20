@@ -145,6 +145,7 @@ class PermissionController extends Controller
             'branchId' => $user->branch_id,
             'workBranchIds' => $user->workBranches->modelKeys(),
             'auditSettings' => $user->auditSettings(),
+            'auditSettingsConfigured' => $user->audit_settings !== null,
             'isActive' => $user->is_active,
             'permissionIds' => array_values(array_intersect($user->permissions->modelKeys(), $grantablePermissionIds)),
             'lockedPermissions' => $user->permissions
@@ -230,7 +231,7 @@ class PermissionController extends Controller
 
                             return [
                                 'action' => $action,
-                                'permission' => $permission ? ['id' => $permission->id, 'label' => __($permissionKey->label())] : null,
+                                'permission' => $permission ? ['id' => $permission->id, 'key' => $permissionKey->value, 'label' => __($permissionKey->label()), 'centralOnly' => $permissionKey->isCompanyWide()] : null,
                             ];
                         })
                         ->values()

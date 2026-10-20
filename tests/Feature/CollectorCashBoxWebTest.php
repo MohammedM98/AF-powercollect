@@ -140,7 +140,7 @@ class CollectorCashBoxWebTest extends TestCase
         $this->post(route('payments.cash-boxes.actions', ['action' => 'confirm', 'record' => $box->id]), ['branch_id' => $branch->id])->assertSessionHasErrors('action');
     }
 
-    public function test_the_weekly_cutoff_leaves_the_box_open_until_the_branch_closes_it(): void
+    public function test_the_weekly_cutoff_closes_the_box_without_asking_the_collector_to_confirm_receipt(): void
     {
         [$branch, $head, $collector] = $this->start();
         $box = $this->payment($branch, $collector);
@@ -148,14 +148,16 @@ class CollectorCashBoxWebTest extends TestCase
 
         $this->actingAs($collector)->get(route('payments.summary'))
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->where('cashBox.boxes.0.status', 'open')
-                ->where('cashBox.boxes.0.stage', 'open')
+                ->where('cashBox.boxes.0.status', 'received')
+                ->where('cashBox.boxes.0.stage', 'completed')
+                ->where('cashBox.boxes.0.closedBy', 'النظام · إغلاق تلقائي')
                 ->where('cashBox.boxes.0.expectedCounts', null)
                 ->has('cashBox.needsAction', 0));
         $this->post(route('payments.cash-boxes.actions', ['action' => 'collector-count', 'record' => $box->id]), ['branch_id' => $branch->id, 'counts' => $this->counts()])->assertForbidden();
 
-        $this->actingAs($head)->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $box->id]), ['branch_id' => $branch->id])->assertSessionHasNoErrors();
-        $this->assertSame(['ILS' => '100.00', 'USD' => '0.00', 'JOD' => '0.00'], $box->fresh()->head_counts);
+        $this->post(route('payments.cash-boxes.actions', ['action' => 'confirm', 'record' => $box->id]), ['branch_id' => $branch->id])->assertSessionHasErrors('action');
+        $this->assertNull($box->fresh()->head_counts);
+        $this->assertNull($box->fresh()->confirmed_at);
     }
 
     public function test_collector_cannot_close_another_collectors_box_or_another_branch_box(): void

@@ -174,6 +174,7 @@ trait BuildsSubscriptionStatement
                 'clearingsCount' => $clearings->count(),
             ],
             'canRecordPayment' => $actor->can('recordPayment', $subscription),
+            'canRecordSplitPayment' => $actor->can('recordSplitPayment', Subscription::class) && $actor->can('recordPayment', $subscription),
             'canAdjustBalance' => $actor->can('adjustBalance', $subscription),
             'canAddCharge' => $actor->can('addCharge', $subscription),
             'canAddDiscount' => $canAddDiscount,
@@ -214,7 +215,7 @@ trait BuildsSubscriptionStatement
         return Subscription::query()
             ->readableTo($actor)
             ->where('subscriber_profile_id', $subscription->subscriber_profile_id)
-            ->with(['branch', 'tariff', 'tariffSegment', 'meterBox'])
+            ->with(['branch.area', 'tariff', 'tariffSegment', 'meterBox.subArea'])
             ->withSum('transactions as balance', 'amount')
             ->orderBy('account_number')
             ->get()
@@ -226,6 +227,9 @@ trait BuildsSubscriptionStatement
                 'tariffCategoryLabel' => __($sibling->tariff->category->label()),
                 'tariffSegmentName' => $sibling->tariffSegment?->name,
                 'meterBoxNumber' => $sibling->meterBox?->box_number,
+                'meterBoxName' => $sibling->meterBox?->displayName(),
+                'areaName' => $sibling->branch->area?->name,
+                'subAreaName' => $sibling->meterBox?->subArea?->name,
                 'status' => $sibling->status->value,
                 'statusLabel' => __($sibling->status->label()),
                 'balance' => $this->money($this->cents((string) ($sibling->balance ?? '0'))),

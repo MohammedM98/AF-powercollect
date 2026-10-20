@@ -28,15 +28,15 @@ export function AuditWorkSummary({ employee, options, value, enabled }) {
     </aside>;
 }
 
-export default function AuditAccessCard({ employee, options, value, enabled, onEnabledChange, onChange, disabled }) {
+export default function AuditAccessCard({ employee, options, value, enabled, onEnabledChange, onChange, disabled, embedded = false }) {
     const blocked = disabled || !enabled;
     function toggleAction(key, checked) {
         let actions = checked ? [...value.actions, key] : value.actions.filter((action) => action !== key);
         if (key === 'approve_boxes' && !checked) actions = actions.filter((action) => action !== 'approve_periods');
         onChange({ ...value, actions });
     }
-    return <section className="m-4 rounded-row border border-gray-100 bg-surface p-4 sm:m-5" aria-label="عمل التدقيق المالي">
-        <div className="flex items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-graphite-gradient text-white"><Icon name="shield" className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h3 className="font-bold text-gray-900">عمل التدقيق المالي</h3><p className="mt-1 text-sm leading-6 text-gray-500">حدّد أين يعمل الموظف وما يستطيع تنفيذه في التدقيق.</p></div><Switch checked={enabled} onChange={onEnabledChange} disabled={disabled} ariaLabel="تفعيل التدقيق المالي" /></div>
+    return <section className={embedded ? 'bg-surface p-4 sm:p-5' : 'm-4 rounded-row border border-gray-100 bg-surface p-4 sm:m-5'} aria-label="عمل التدقيق المالي">
+        <div className="flex items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-graphite-gradient text-white"><Icon name="shield" className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h3 className="font-bold text-gray-900">{embedded ? 'إتاحة التدقيق لهذا الموظف' : 'عمل التدقيق المالي'}</h3><p className="mt-1 text-sm leading-6 text-gray-500">حدّد أين يعمل الموظف وما يستطيع تنفيذه في التدقيق.</p></div><Switch checked={enabled} onChange={onEnabledChange} disabled={disabled} ariaLabel="تفعيل التدقيق المالي" /></div>
         <dl className="mt-4 grid gap-3 rounded-control bg-gray-50 p-3.5 text-sm sm:grid-cols-2"><div><dt className="text-gray-500">نوع المستخدم / المسمى الوظيفي</dt><dd className="mt-1 font-semibold text-gray-900">{employee.roleLabel}</dd></div><div><dt className="text-gray-500">الفرع الإداري للموظف</dt><dd className="mt-1 font-semibold text-gray-900">{employee.branchName ?? 'بلا فرع إداري'}</dd></div></dl>
         {!enabled && <p className="mt-3 text-sm leading-7 text-gray-600">فعّل التدقيق لمنح الوصول إلى الصناديق المغلقة، ثم اختر الفروع والإجراءات أدناه.</p>}
         <fieldset disabled={blocked} className="mt-5 min-w-0"><legend className="font-semibold text-gray-900">نطاق فروع التدقيق</legend><p className="mt-1 text-sm leading-7 text-gray-500">الفرع الإداري يبقى كما هو؛ هذا الاختيار يحدد الفروع التي يراجعها.</p><div className="mt-3 flex flex-wrap gap-3">{[['all', 'كل الفروع'], ['selected', 'فروع محددة']].map(([scope, label]) => <label key={scope} className="flex cursor-pointer items-center gap-2 rounded-control border border-gray-100 px-3 py-2 text-sm font-semibold text-gray-900"><input type="radio" name={`audit-scope-${employee.id}`} checked={value.scope === scope} onChange={() => onChange({ ...value, scope })} className="text-brand-600 focus:ring-brand-500" />{label}</label>)}</div>

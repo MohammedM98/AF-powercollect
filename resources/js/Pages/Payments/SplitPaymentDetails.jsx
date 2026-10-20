@@ -8,10 +8,10 @@ import { formatMoney } from '@/lib/format';
 /** One line of the transfer's own details. */
 function Detail({ label, children, ltr = false }) {
     return (
-        <div>
+        <div className="min-w-0 text-start">
             <dt className="text-[13px] font-semibold text-gray-500">{label}</dt>
-            <dd className="mt-0.5 break-words text-[15px] font-semibold text-gray-900" dir={ltr ? 'ltr' : undefined}>
-                {children || '—'}
+            <dd className="mt-0.5 break-words text-[15px] font-semibold text-gray-900">
+                {ltr ? <bdi dir="ltr">{children || '—'}</bdi> : children || '—'}
             </dd>
         </div>
     );
@@ -42,23 +42,23 @@ export default function SplitPaymentDetails({ id, onClose }) {
 
     return (
         <Modal show onClose={onClose} maxWidth="2xl">
-            <div role="dialog" aria-modal="true" aria-label="تفاصيل الدفعة المقسّمة" className="flex max-h-[90vh] flex-col">
-                <div className="flex items-center justify-between border-b border-gray-100 px-7 py-5">
-                    <div className="flex items-center gap-3">
+            <div role="dialog" aria-modal="true" aria-label="تفاصيل الدفعة المقسّمة" dir="rtl" className="flex max-h-[90vh] flex-col text-start">
+                <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-5 sm:px-7">
+                    <div className="flex min-w-0 items-center gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-glow">
                             <Icon name="layers" />
                         </span>
-                        <div>
+                        <div className="min-w-0">
                             <h3 className="text-lg font-bold text-gray-900">دفعة مقسّمة على عدة مشتركين</h3>
                             {split && <p className="text-[13px] text-gray-500">تحويل بنكي واحد وُزّع على {split.partsCount} اشتراكات</p>}
                         </div>
                     </div>
-                    <button type="button" onClick={onClose} aria-label="إغلاق" className="rounded-xl p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-900">
+                    <button type="button" onClick={onClose} aria-label="إغلاق" className="shrink-0 rounded-xl p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-900">
                         <Icon name="close" />
                     </button>
                 </div>
 
-                <div className="flex-1 space-y-5 overflow-y-auto px-7 py-6">
+                <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-6 sm:px-7">
                     {failed && <p className="py-8 text-center text-sm text-brand-600">تعذّر تحميل تفاصيل الدفعة.</p>}
                     {!split && !failed && <p className="py-8 text-center text-sm text-gray-500">جارٍ التحميل…</p>}
 
@@ -67,17 +67,17 @@ export default function SplitPaymentDetails({ id, onClose }) {
                             <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-gray-100 bg-gray-50 px-5 py-4">
                                 <div>
                                     <p className="text-[13px] font-semibold text-gray-500">المبلغ المحوَّل</p>
-                                    <p className="font-display text-3xl font-bold text-gray-900">{formatMoney(split.total)} ₪</p>
+                                    <p className="font-display text-3xl font-bold text-gray-900"><bdi dir="ltr">{formatMoney(split.total)} ₪</bdi></p>
                                 </div>
                                 {split.isComplete ? (
                                     <p className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3.5 py-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-400">
                                         <Icon name="check" className="h-4 w-4" />
-                                        الأجزاء كاملة = {formatMoney(split.standingTotal)} ₪
+                                        <span>الأجزاء كاملة = <bdi dir="ltr" className="whitespace-nowrap">{formatMoney(split.standingTotal)} ₪</bdi></span>
                                     </p>
                                 ) : (
                                     <p className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3.5 py-1.5 text-sm font-bold text-amber-800 dark:text-amber-300">
                                         <Icon name="warning" className="h-4 w-4" />
-                                        ناقصة: القائم {formatMoney(split.standingTotal)} من {formatMoney(split.total)} ₪
+                                        <span>ناقصة: القائم <bdi dir="ltr">{formatMoney(split.standingTotal)}</bdi> من <bdi dir="ltr" className="whitespace-nowrap">{formatMoney(split.total)} ₪</bdi></span>
                                     </p>
                                 )}
                             </div>
@@ -89,10 +89,9 @@ export default function SplitPaymentDetails({ id, onClose }) {
                                     {split.referenceNumber}
                                 </Detail>
                                 <Detail label="سجّلها">
-                                    {split.recordedByName}
-                                    <span className="mx-1.5 font-normal text-gray-400">·</span>
-                                    <span dir="ltr" className="font-display font-normal text-gray-600">
-                                        {split.date} {split.time}
+                                    <span className="block">{split.recordedByName || '—'}</span>
+                                    <span className="mt-1 block text-sm font-normal text-gray-600">
+                                        <bdi dir="ltr" className="font-display">{split.date} {split.time}</bdi>
                                     </span>
                                 </Detail>
                             </dl>
@@ -101,27 +100,27 @@ export default function SplitPaymentDetails({ id, onClose }) {
                                 <p className="mb-2 text-[14.5px] font-semibold text-gray-700">الأجزاء</p>
                                 <ul className="divide-y divide-gray-100 overflow-hidden rounded-[18px] border border-gray-100">
                                     {split.parts.map((part, index) => (
-                                        <li key={part.id} className={`flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm ${part.isCancelled ? 'bg-gray-50 text-gray-400' : 'bg-surface'}`}>
-                                            <span className="w-5 font-display text-xs text-gray-400">{index + 1}</span>
-                                            <span className="min-w-0 flex-1 basis-44">
-                                                <b className={part.isCancelled ? 'line-through' : 'text-gray-900'}>{part.subscriptionName}</b>
-                                                <span dir="ltr" className="mx-2 font-display text-xs">
-                                                    {part.accountNumber}
-                                                </span>
-                                            </span>
-                                            {part.isCancelled && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">{part.cancellationLabel ?? 'ملغاة'}</span>}
-                                            <b className={`font-display text-base ${part.isCancelled ? 'line-through' : 'text-gray-900'}`}>{formatMoney(part.amount)} ₪</b>
-                                            {part.receiptUrl && (
+                                        <li key={part.id} className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_7rem_4.75rem] ${part.isCancelled ? 'bg-gray-50 text-gray-400' : 'bg-surface'}`}>
+                                            <div className="flex min-w-0 items-start gap-3">
+                                                <span className="w-5 shrink-0 pt-0.5 font-display text-xs text-gray-400">{index + 1}</span>
+                                                <div className="min-w-0">
+                                                    <b className={`block break-words ${part.isCancelled ? 'line-through' : 'text-gray-900'}`}>{part.subscriptionName}</b>
+                                                    <bdi dir="ltr" className="mt-1 block text-end font-display text-xs text-gray-500">{part.accountNumber}</bdi>
+                                                    {part.isCancelled && <span className="mt-1 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">{part.cancellationLabel ?? 'ملغاة'}</span>}
+                                                </div>
+                                            </div>
+                                            <bdi dir="ltr" className={`justify-self-end whitespace-nowrap font-display text-base font-bold ${part.isCancelled ? 'line-through' : 'text-gray-900'}`}>{formatMoney(part.amount)} ₪</bdi>
+                                            {part.receiptUrl ? (
                                                 <a
                                                     href={part.receiptUrl}
                                                     target="_blank"
                                                     rel="noreferrer"
-                                                    className="tone-print inline-flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-xs font-semibold transition"
+                                                    className="tone-print col-start-2 inline-flex items-center gap-1.5 justify-self-end rounded-control border px-2.5 py-1 text-xs font-semibold transition sm:col-start-auto"
                                                 >
                                                     <Icon name="printer" className="h-3.5 w-3.5" />
                                                     السند
                                                 </a>
-                                            )}
+                                            ) : <span className="hidden sm:block" aria-hidden="true" />}
                                         </li>
                                     ))}
                                 </ul>

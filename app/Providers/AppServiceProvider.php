@@ -56,10 +56,6 @@ class AppServiceProvider extends ServiceProvider
         SubscriptionTransaction::deleting(function (SubscriptionTransaction $payment): void {
             app(BranchClosingWorkflow::class)->releaseEditablePayment($payment);
         });
-        // Every password — a new user's, a user's own — is at least ten characters with letters and numbers; in
-        // production it also must not be in a known breach (a check that calls out to a service, so not in tests).
-        Password::defaults(fn (): Password => $this->app->isProduction()
-            ? Password::min(10)->letters()->numbers()->uncompromised()
-            : Password::min(10)->letters()->numbers());
+        Password::defaults(fn (): Password => Password::min(8));
     }
 }

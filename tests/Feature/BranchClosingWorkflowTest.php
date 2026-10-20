@@ -14,6 +14,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Support\BranchClosingWorkflow;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -113,6 +114,7 @@ class BranchClosingWorkflowTest extends TestCase
 
         $box = CashBox::query()->sole();
         $this->assertDatabaseHas('cash_boxes', ['id' => $box->id, 'branch_id' => $branch->id, 'user_id' => $collector->id, 'type' => $boxType, 'status' => 'open']);
+        $this->assertSame('00:00', $box->closing->coverage_until->setTimezone(config('app.business_timezone'))->format('H:i'));
         $this->assertDatabaseHas('cash_box_payments', ['cash_box_id' => $box->id, 'subscription_transaction_id' => $payment->id, 'amount' => '100.00']);
         $this->assertDatabaseCount('cash_box_payments', 1);
         $this->assertDatabaseHas('closing_settings', ['branch_id' => $branch->id, 'week_starts_on' => 2, 'cutoff_time' => '15:00', 'updated_by' => $collector->id]);
@@ -194,21 +196,42 @@ class BranchClosingWorkflowTest extends TestCase
             ->where('boxes.0.status', 'open')->where('boxes.0.payments.0.amount', '100.00'));
     }
 
-    public function test_no_weekly_cutoff_closes_a_box_and_payments_after_it_join_the_same_open_box(): void
+    #[TestWith(['payment', 'cash'])]
+    #[TestWith(['payment', 'bank_transfer'])]
+    #[TestWith(['clearing', null])]
+    public function test_weekly_cutoff_seals_the_old_box_without_audit_or_receipt_and_starts_a_new_box(string $type, ?string $method): void
     {
         [$branch, , $collector] = $this->start();
-        $this->payment($branch, $collector);
+        $payment = $this->payment($branch, $collector, extra: ['type' => $type, 'payment_method' => $method]);
         $box = CashBox::query()->sole();
         $closing = $box->closing;
+        $original = $payment->fresh()->getAttributes();
 
-        $this->travelTo($closing->coverage_until->addDay());
+        $this->travelTo($closing->coverage_until->subSecond());
         $this->artisan('closings:process')->assertSuccessful();
-        $this->payment($branch, $collector, '7');
-
         $this->assertSame('open', $box->fresh()->status);
-        $this->assertNull($box->fresh()->closed_at);
-        $this->assertSame(2, $box->payments()->count());
-        $this->assertSame(1, CashBox::query()->count());
+
+        $this->travelTo($closing->coverage_until);
+        $this->artisan('closings:process')->assertSuccessful();
+        $this->artisan('closings:process')->assertSuccessful();
+        $next = $this->payment($branch, $collector, '7', extra: ['type' => $type, 'payment_method' => $method]);
+
+        $box->refresh();
+        $this->assertSame('received', $box->status);
+        $this->assertSame(CashBox::CLOSE_REASON_PERIOD_END, $box->close_reason);
+        $this->assertTrue($box->closed_at->equalTo($closing->coverage_until));
+        $this->assertSame($closing->id, $box->closing_id);
+        $this->assertNull($box->open_key);
+        $this->assertNull($box->received_by);
+        $this->assertNull($box->received_at);
+        $this->assertNull($box->confirmed_at);
+        $this->assertSame(1, $box->payments()->count());
+        $this->assertSame($original, $payment->fresh()->getAttributes());
+        $this->assertSame($method === 'cash' ? 'cash' : 'pending', $box->payments()->sole()->status);
+        $this->assertDatabaseCount('cash_box_audits', 0);
+        $this->assertDatabaseCount('bank_transfer_audits', 0);
+        $this->assertDatabaseCount('cash_boxes', 2);
+        $this->assertDatabaseHas('cash_box_payments', ['subscription_transaction_id' => $next->id, 'cash_box_id' => CashBox::query()->where('status', 'open')->sole()->id]);
         $this->assertTrue(app(BranchClosingWorkflow::class)->current($branch->id)->coverage_from->equalTo($closing->coverage_until));
     }
 
@@ -225,6 +248,114 @@ class BranchClosingWorkflowTest extends TestCase
         $this->assertDatabaseMissing('cash_boxes', ['id' => $box->id]);
     }
 
+    public function test_each_branch_closes_at_its_own_week_start_in_business_time(): void
+    {
+        [$branch, , $collector] = $this->start();
+        $this->payment($branch, $collector);
+        $saturdayBox = CashBox::query()->sole();
+        $other = Branch::factory()->create();
+        ClosingSetting::startFor($other)->update(['week_starts_on' => 0, 'cutoff_time' => '00:00']);
+        $otherCollector = User::factory()->collector()->for($other)->create();
+        $this->payment($other, $otherCollector);
+        $sundayBox = CashBox::query()->where('branch_id', $other->id)->sole();
+
+        $boundary = $saturdayBox->closing->coverage_until;
+        $this->assertSame('2026-10-17 00:00', $boundary->setTimezone(config('app.business_timezone'))->format('Y-m-d H:i'));
+        $this->travelTo($boundary);
+        $this->artisan('closings:process')->assertSuccessful();
+
+        $this->assertSame('received', $saturdayBox->fresh()->status);
+        $this->assertSame('open', $sundayBox->fresh()->status);
+        $this->travelTo($sundayBox->closing->coverage_until);
+        $this->artisan('closings:process')->assertSuccessful();
+        $this->assertSame('received', $sundayBox->fresh()->status);
+    }
+
+    public function test_a_delayed_run_closes_overdue_boxes_at_the_original_boundary_and_preserves_manual_closures(): void
+    {
+        [$branch, $head, $collector] = $this->start();
+        $this->payment($branch, $collector);
+        $manual = CashBox::query()->sole();
+        $this->receiveBox($branch, $head, $manual);
+        $original = $manual->fresh()->getAttributes();
+        $this->payment($branch, $collector, '20');
+        $overdue = CashBox::query()->where('status', 'open')->sole();
+        $boundary = $overdue->closing->coverage_until;
+
+        $this->travelTo($boundary->addWeeks(2)->addHour());
+        $this->payment($branch, $collector, '7');
+
+        $this->assertSame($original, $manual->fresh()->getAttributes());
+        $this->assertSame('received', $overdue->fresh()->status);
+        $this->assertTrue($overdue->fresh()->closed_at->equalTo($boundary));
+        $this->assertSame(1, CashBox::query()->where('status', 'open')->count());
+        $this->assertSame(1, $overdue->payments()->count());
+    }
+
+    public function test_changing_the_branch_start_day_updates_the_automatic_deadline_of_its_open_period(): void
+    {
+        [$branch, , $collector] = $this->start();
+        $this->payment($branch, $collector);
+        $box = CashBox::query()->sole();
+        ClosingSetting::ownFor($branch)->update(['week_starts_on' => 1]);
+        $this->travelTo(CarbonImmutable::parse('2026-10-12 00:00:00', config('app.business_timezone'))->utc());
+
+        $this->artisan('closings:process')->assertSuccessful();
+
+        $this->assertSame('received', $box->fresh()->status);
+        $this->assertTrue($box->fresh()->closed_at->equalTo(now()));
+        $this->assertSame(1, app(BranchClosingWorkflow::class)->current($branch->id)->workflow_settings['week_starts_on']);
+    }
+
+    public function test_a_legacy_box_carried_across_weeks_closes_after_its_last_entry_without_moving_its_payments(): void
+    {
+        [$branch, , $collector] = $this->start();
+        $this->payment($branch, $collector);
+        $box = CashBox::query()->sole();
+        $boundary = $box->closing->coverage_until;
+        $this->travelTo($boundary->addDay());
+        $payment = SubscriptionTransaction::withoutEvents(fn () => $this->payment($branch, $collector, '7'));
+        $entry = $box->payments()->create([
+            'subscription_transaction_id' => $payment->id, 'currency' => 'ILS', 'amount' => '7.00',
+            'method' => 'cash', 'status' => 'cash', 'occurred_at' => now(), 'synced_at' => now(), 'is_late' => false,
+        ]);
+
+        $this->artisan('closings:process')->assertSuccessful();
+        $this->assertSame('open', $box->fresh()->status);
+        $end = $box->fresh()->closing->coverage_until;
+        $this->assertTrue($end->equalTo($boundary->addWeek()));
+        $this->travelTo($end);
+        $this->artisan('closings:process')->assertSuccessful();
+
+        $this->assertTrue($box->fresh()->closed_at->equalTo($end));
+        $this->assertSame('received', $box->fresh()->status);
+        $this->assertSame($box->id, $entry->fresh()->cash_box_id);
+        $this->assertSame(2, $box->payments()->count());
+        $this->assertSame(['ILS' => '107.00', 'USD' => '0.00', 'JOD' => '0.00'], $box->fresh()->totals());
+    }
+
+    public function test_automatically_closed_boxes_and_transfer_search_stay_in_the_ended_week(): void
+    {
+        [$branch, , $collector] = $this->start();
+        $payment = $this->payment($branch, $collector, method: 'bank_transfer', extra: ['reference_number' => 'ROLL-100']);
+        $box = CashBox::query()->sole();
+        $boundary = $box->closing->coverage_until;
+        $this->travelTo($boundary);
+        $auditor = User::factory()->financialAuditor()->create();
+
+        $this->actingAs($auditor)->get(route('payments.cash-boxes', ['branch_id' => $branch->id, 'week' => '2026-10-10']))
+            ->assertInertia(fn ($page) => $page->has('boxes', 1)->where('boxes.0.id', $box->id)
+                ->where('boxes.0.closedBy', 'النظام · إغلاق تلقائي')->where('boxes.0.canCompleteAudit', true));
+        $this->get(route('payments.cash-boxes', ['branch_id' => $branch->id, 'week' => '2026-10-17']))
+            ->assertInertia(fn ($page) => $page->has('boxes', 0));
+        $this->get(route('payments.cash-boxes', ['branch_id' => $branch->id, 'week' => '2026-10-17', 'box' => $box->id]))
+            ->assertInertia(fn ($page) => $page->where('week', '2026-10-10')->where('boxes.0.id', $box->id));
+        $this->get(route('payments.cash-boxes', ['branch_id' => $branch->id, 'week' => '2026-10-10', 'view' => 'transfers', 'transfer_search' => 'ROLL-100']))
+            ->assertInertia(fn ($page) => $page->where('transferSearch.results.total', 1)
+                ->where('transferSearch.results.data.0.id', $payment->boxEntry->id));
+        $this->assertDatabaseCount('cash_box_audits', 0);
+    }
+
     public function test_a_payment_synced_after_its_week_ended_joins_the_collectors_open_box(): void
     {
         [$branch, , $collector] = $this->start();
@@ -235,10 +366,11 @@ class BranchClosingWorkflowTest extends TestCase
 
         $this->payment($branch, $collector, extra: ['created_at' => $occurred]);
 
-        $box = CashBox::query()->sole();
+        $box = CashBox::query()->where('status', 'open')->sole();
         $this->assertSame('open', $box->status);
-        $this->assertSame(2, $box->payments()->count());
-        $this->assertFalse($box->payments()->latest('id')->first()->is_late);
+        $this->assertSame(1, $box->payments()->count());
+        $this->assertTrue($box->payments()->sole()->is_late);
+        $this->assertDatabaseCount('cash_boxes', 2);
     }
 
     public function test_delivering_cash_to_the_company_is_gone_and_past_deliveries_are_kept(): void
@@ -323,7 +455,7 @@ class BranchClosingWorkflowTest extends TestCase
 
         $response = $this->postJson(route('mobile.collections.store'), $data)->assertCreated();
         $entry = CashBoxPayment::query()->sole();
-        // It joins the collector's open box: no week holds a box back any more.
+        // Offline entries keep their collection time while joining the current open period.
         $this->assertSame('open', $entry->box->status);
         $this->assertTrue($entry->occurred_at->equalTo($originalTime));
         $this->assertTrue($entry->transaction->created_at->equalTo(now()));

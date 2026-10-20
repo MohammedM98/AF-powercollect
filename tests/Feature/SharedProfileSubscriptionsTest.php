@@ -3,12 +3,13 @@
 namespace Tests\Feature;
 
 use App\Enums\PermissionKey;
+use App\Models\Area;
 use App\Models\MeterBox;
 use App\Models\MobileAccessToken;
 use App\Models\Permission;
 use App\Models\SubArea;
-use App\Models\Subscription;
 use App\Models\SubscriberProfile;
+use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,6 +19,26 @@ use Tests\TestCase;
 class SharedProfileSubscriptionsTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_statement_subscription_cards_include_the_meter_box_name_suffix_number_and_area(): void
+    {
+        $area = Area::factory()->create(['name' => 'المخيم']);
+        $subArea = SubArea::factory()->create(['name' => 'الحي الشرقي', 'area_id' => $area->id]);
+        $actor = User::factory()->branchAdmin()->create();
+        $actor->branch->update(['area_id' => $area->id]);
+        $box = MeterBox::factory()->create(['branch_id' => $actor->branch_id, 'sub_area_id' => $subArea->id, 'name' => 'طبلون السوق', 'name_suffix' => 'أ', 'box_number' => '110303']);
+        $subscription = Subscription::factory()->create(['branch_id' => $actor->branch_id, 'meter_box_id' => $box->id]);
+        Subscription::factory()->for($subscription->profile, 'profile')->create(['branch_id' => $actor->branch_id, 'meter_box_id' => null]);
+
+        $this->actingAs($actor)->get(route('subscriptions.statement', $subscription))->assertInertia(fn ($page) => $page
+            ->has('subscriptions', 2)
+            ->where('subscriptions.0.meterBoxName', 'طبلون السوق أ')
+            ->where('subscriptions.0.meterBoxNumber', '110303')
+            ->where('subscriptions.0.areaName', 'المخيم')
+            ->where('subscriptions.0.subAreaName', 'الحي الشرقي')
+            ->where('subscriptions.1.meterBoxName', null)
+            ->where('subscriptions.1.subAreaName', null));
+    }
 
     public function test_an_additional_subscription_shares_personal_details_but_has_its_own_account_and_financial_history(): void
     {

@@ -36,8 +36,11 @@ class ApplySubscriptionBulkChangeRequest extends FormRequest
             'mode' => [Rule::requiredIf($isMinimum), Rule::in(['amount', 'circuit_breaker'])],
             'value' => $isMinimum
                 ? [Rule::requiredIf($this->input('mode') === 'amount'), 'nullable', 'numeric', 'min:0', 'max:100000']
-                : ['required', Rule::enum(SubscriptionStatus::class)],
+                : ($this->input('field') === 'meter_box_id'
+                    ? ['required', 'integer', 'min:1']
+                    : ['required', Rule::enum(SubscriptionStatus::class)]),
             'all' => ['boolean'],
+            'expected_count' => ['required_if:field,meter_box_id', 'integer', 'min:1', 'max:'.self::MAX_SUBSCRIPTIONS],
             'ids' => ['exclude_if:all,true', 'required', 'array', 'min:1', 'max:'.self::MAX_SUBSCRIPTIONS],
             'ids.*' => ['integer'],
         ];

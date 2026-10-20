@@ -35,7 +35,7 @@ class MeterBoxOptionsTest extends TestCase
         $this->actingAs($this->dataEntry)->getJson(route('meter-boxes.options'))
             ->assertOk()
             ->assertExactJson([
-                'data' => [['value' => (string) $own->id, 'label' => 'camp 2A - (9897)', 'sub_area_id' => $subArea->id, 'branch_id' => $this->branch->id]],
+                'data' => [['value' => (string) $own->id, 'label' => 'camp 2A - (9897)', 'hint' => $this->branch->name.' · '.$subArea->name, 'sub_area_id' => $subArea->id, 'branch_id' => $this->branch->id]],
                 'hasMore' => false,
             ]);
     }

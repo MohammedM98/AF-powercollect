@@ -40,6 +40,7 @@ export default function SubscriptionSwitcher({ subscriberNumber, subscriptions, 
             <div className="ssw-grid">
                 {subscriptions.map((subscription) => {
                     const current = subscription.id === currentId;
+                    const area = [...new Set([subscription.areaName, subscription.subAreaName].filter(Boolean))].join(' / ');
 
                     return (
                         <button
@@ -61,12 +62,21 @@ export default function SubscriptionSwitcher({ subscriberNumber, subscriptions, 
                             <strong className="ssw-name">{subscription.fullName}</strong>
                             <span className="ssw-facts">
                                 <span>
-                                    <span className="ssw-fact-label"><Icon name="grid" />رقم الطبلون</span>
-                                    {subscription.meterBoxNumber ? <bdi dir="ltr" className="ssw-fact-value ssw-account-number">{subscription.meterBoxNumber}</bdi> : <span className="ssw-fact-value ssw-empty">غير محدد</span>}
+                                    <span className="ssw-fact-label"><Icon name="grid" />الطبلون</span>
+                                    {subscription.meterBoxName || subscription.meterBoxNumber ? (
+                                        <span className="ssw-fact-value ssw-meter-box">
+                                            {subscription.meterBoxName && <span>{subscription.meterBoxName}</span>}
+                                            {subscription.meterBoxNumber && <bdi dir="ltr" className="ssw-account-number">{subscription.meterBoxName ? `(${subscription.meterBoxNumber})` : subscription.meterBoxNumber}</bdi>}
+                                        </span>
+                                    ) : <span className="ssw-fact-value ssw-empty">غير محدد</span>}
                                 </span>
                                 <span>
                                     <span className="ssw-fact-label"><Icon name="building" />التصنيف</span>
                                     <strong className="ssw-fact-value">{subscription.tariffCategoryLabel || 'غير محدد'}</strong>
+                                </span>
+                                <span className="ssw-area">
+                                    <span className="ssw-fact-label"><Icon name="pin" />المنطقة</span>
+                                    <strong className={`ssw-fact-value${area ? '' : ' ssw-empty'}`}>{area || 'غير محددة'}</strong>
                                 </span>
                             </span>
                             <span className="ssw-balance"><span>الرصيد الحالي</span><span className="ssw-balance-value"><Balance value={subscription.balance} word className="ssw-card-number" /></span></span>

@@ -42,11 +42,15 @@ class SubscriptionTransactionController extends Controller
     /** Amend non-financial payment details in place and keep their history. */
     public function amend(AmendSubscriptionTransactionRequest $request, Subscription $subscription, SubscriptionTransaction $transaction): RedirectResponse
     {
-        $transaction->amend(
-            $request->user(),
-            $request->safe()->except(['amendment_reason']),
-            $request->validated('amendment_reason'),
-        );
+        if ($transaction->split_payment_id !== null) {
+            $transaction->splitPayment->revise($request->user(), $request->validated());
+        } else {
+            $transaction->amend(
+                $request->user(),
+                $request->safe()->except(['amendment_reason']),
+                $request->validated('amendment_reason'),
+            );
+        }
 
         $request->user()->notify(new ActionCompleted(
             'transaction-amended',

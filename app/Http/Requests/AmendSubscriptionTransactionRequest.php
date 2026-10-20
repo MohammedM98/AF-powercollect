@@ -28,8 +28,8 @@ class AmendSubscriptionTransactionRequest extends FormRequest
     {
         return [
             ...self::bankRules($this->line()->payment_method?->throughBank() ?? false),
-            // A payment's reference number is never changed after it is recorded.
-            'reference_number' => ['prohibited'],
+            'reference_number' => $this->line()->payment_method?->throughBank()
+                ? ['sometimes', 'required', 'string', 'max:100'] : ['prohibited'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'amendment_reason' => ['required', 'string', 'max:1000'],
             'amount' => ['prohibited'],

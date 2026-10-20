@@ -88,6 +88,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/payments/split', [SplitPaymentController::class, 'store'])->name('payments.split.store');
     Route::get('/payments/split/reference-status', [SplitPaymentController::class, 'referenceStatus'])->name('payments.split.reference-status');
     Route::get('/split-payments/{splitPayment}', [SplitPaymentController::class, 'show'])->name('split-payments.show');
+    Route::get('/split-payments/{splitPayment}/edit', [SplitPaymentController::class, 'edit'])->name('split-payments.edit');
+    Route::patch('/split-payments/{splitPayment}', [SplitPaymentController::class, 'update'])->name('split-payments.update');
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
     Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
     Route::get('/transaction-audit', [TransactionAuditController::class, 'index'])->name('transaction-audit.index');

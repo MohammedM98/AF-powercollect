@@ -160,7 +160,7 @@ class SubscriptionTransaction extends Model
     public const REVERSAL_TYPES = [self::TYPE_REVERSAL, self::TYPE_CANCELLATION, self::TYPE_REFUND];
 
     /** Payment details that may change without touching its financial meaning. */
-    public const AMENDABLE_FIELDS = ['bank_name', 'sender_bank_name', 'sender_name', 'notes'];
+    public const AMENDABLE_FIELDS = ['bank_name', 'sender_bank_name', 'sender_name', 'reference_number', 'notes'];
 
     protected function casts(): array
     {
@@ -572,6 +572,17 @@ class SubscriptionTransaction extends Model
                 throw ValidationException::withMessages(['details' => 'غيّر بيانًا واحدًا على الأقل قبل الحفظ.']);
             }
 
+            if (array_key_exists('reference_number', $updates)) {
+                $reference = self::normalizeReference($updates['reference_number']);
+                if ($reference === null) {
+                    throw ValidationException::withMessages(['reference_number' => 'أدخل رقمًا مرجعيًا صالحًا.']);
+                }
+                if (self::activeReferenceConflict($reference, $line->id, $line->split_payment_id) !== null) {
+                    throw ValidationException::withMessages(['reference_number' => 'هذا الرقم المرجعي مسجّل مسبقًا على دفعة أخرى.']);
+                }
+                $updates['active_reference'] = $reference;
+            }
+
             $line->update($updates);
             $amendment = $line->amendments()->create([
                 'user_id' => $actor->id,
@@ -734,6 +745,14 @@ class SubscriptionTransaction extends Model
     public function applyAction(User $actor, TransactionAction $action, array $data): ?self
     {
         $split = $this->mutationSplitPayment();
+        if ($split !== null && $action === TransactionAction::EditMetadata) {
+            if (! $this->isPayment() || $this->fresh()->isCancelled()) {
+                throw ValidationException::withMessages(['action' => 'هذه الدفعة ملغاة أو مُرجعة.']);
+            }
+            $split->revise($actor, [...array_intersect_key($data, array_flip(self::AMENDABLE_FIELDS)), 'amendment_reason' => $data['amendment_reason']]);
+
+            return $this->refresh();
+        }
         if ($split === null || ! in_array($action, [TransactionAction::Refund, TransactionAction::Cancel, TransactionAction::Delete, TransactionAction::DeleteTree, TransactionAction::DeleteReversal], true)) {
             return $this->applySingleAction($actor, $action, $data);
         }
@@ -1018,31 +1037,7 @@ class SubscriptionTransaction extends Model
     private function applyMetadataEdit(User $actor, array $data): self
     {
         $fields = array_intersect_key($data, array_flip(self::AMENDABLE_FIELDS));
-        $changes = [];
-        $updates = [];
-
-        foreach ($fields as $field => $value) {
-            $oldValue = $this->getAttribute($field);
-            $newValue = filled($value) ? trim((string) $value) : null;
-
-            if ((string) ($oldValue ?? '') === (string) ($newValue ?? '')) {
-                continue;
-            }
-
-            $changes[$field] = [$oldValue, $newValue];
-            $updates[$field] = $newValue;
-        }
-
-        if ($changes === []) {
-            throw ValidationException::withMessages(['details' => 'غيّر بيانًا واحدًا على الأقل قبل الحفظ.']);
-        }
-
-        $this->update($updates);
-        $this->amendments()->create([
-            'user_id' => $actor->id,
-            'changes' => $changes,
-            'reason' => filled($data['amendment_reason'] ?? null) ? trim((string) $data['amendment_reason']) : 'تعديل بيانات الحركة',
-        ]);
+        $this->amend($actor, $fields, filled($data['amendment_reason'] ?? null) ? trim((string) $data['amendment_reason']) : 'تعديل بيانات الحركة');
 
         return $this;
     }

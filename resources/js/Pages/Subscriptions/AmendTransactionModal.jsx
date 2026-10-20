@@ -7,6 +7,7 @@ import { describeBalance } from '@/lib/accountStatement';
 import Balance from '@/Components/Balance';
 import { formatAmount } from '@/lib/currency';
 import { BalanceAfter } from './AccountSummary';
+import EditSplitPaymentModal from '@/Pages/Payments/EditSplitPaymentModal';
 
 const inputClass = 'mt-1 block w-full';
 
@@ -24,6 +25,14 @@ function LockedValue({ label, children }) {
 
 /** Amend a payment's descriptive details without changing its money or balance. */
 export default function AmendTransactionModal({ onClose, subscription, balance, entry, transferBanks, senderBanks }) {
+    if (entry.splitPayment) {
+        return <EditSplitPaymentModal id={entry.splitPayment.id} onClose={onClose} transferBanks={transferBanks} senderBanks={senderBanks} />;
+    }
+
+    return <SinglePaymentEditor onClose={onClose} subscription={subscription} balance={balance} entry={entry} transferBanks={transferBanks} senderBanks={senderBanks} />;
+}
+
+function SinglePaymentEditor({ onClose, subscription, balance, entry, transferBanks, senderBanks }) {
     const throughBank = entry.paymentMethod === 'bank_transfer' || entry.paymentMethod === 'cheque';
     const form = useForm({
         ...(throughBank
@@ -31,6 +40,7 @@ export default function AmendTransactionModal({ onClose, subscription, balance, 
                   bank_name: entry.recorded?.bank_name ?? entry.bankName ?? '',
                   sender_bank_name: entry.recorded?.sender_bank_name ?? entry.senderBankName ?? '',
                   sender_name: entry.recorded?.sender_name ?? entry.senderName ?? '',
+                  reference_number: entry.recorded?.reference_number ?? entry.referenceNumber ?? '',
               }
             : {}),
         action: 'edit_metadata',
@@ -120,22 +130,20 @@ export default function AmendTransactionModal({ onClose, subscription, balance, 
                     </div>
 
                     <div>
-                        <label htmlFor="amend_reference_number" className="flex items-center gap-1.5 text-[15px] font-semibold text-gray-700">
-                            الرقم المرجعي
-                            <Icon name="lock" className="h-3.5 w-3.5 text-gray-400" />
-                        </label>
+                        <InputLabel htmlFor="amend_reference_number" value="الرقم المرجعي" />
                         <input
                             id="amend_reference_number"
                             type="text"
                             dir="ltr"
-                            readOnly
-                            disabled
-                            title="لا يمكن تعديل الرقم المرجعي بعد تسجيل الدفعة"
-                            className={`${inputClass} cursor-not-allowed bg-gray-50 text-end text-gray-600`}
-                            value={entry.recorded?.reference_number ?? entry.referenceNumber ?? ''}
+                            name="reference_number"
+                            required
+                            maxLength={100}
+                            className={`${inputClass} text-end`}
+                            value={form.data.reference_number}
+                            onChange={(event) => form.setData('reference_number', event.target.value)}
                             placeholder="—"
                         />
-                        <p className="mt-1 text-xs text-gray-500">لا يُعدَّل بعد التسجيل</p>
+                        <InputError message={form.errors.reference_number} className="mt-2" />
                     </div>
                 </div>
             )}

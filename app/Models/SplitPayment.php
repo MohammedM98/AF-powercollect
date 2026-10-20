@@ -66,6 +66,7 @@ class SplitPayment extends Model
             $branchIds = $parts->pluck('subscription.branch_id')->unique()->sort()->values()->all();
             Branch::withoutGlobalScope(BranchDomainScope::class)->whereIn('id', $branchIds)->orderBy('id')->lockForUpdate()->get();
             self::withoutGlobalScope(BranchDomainScope::class)->whereKey($this->id)->lockForUpdate()->firstOrFail();
+            $this->refresh();
             $parts = $partsQuery()->lockForUpdate()->get();
             $this->requireAccessibleParts($actor, $parts);
             if ($parts->pluck('subscription.branch_id')->diff($branchIds)->isNotEmpty()) {
@@ -84,6 +85,84 @@ class SplitPayment extends Model
             || (BranchDomainContext::id() !== null && $part->subscription->branch_id !== BranchDomainContext::id()))) {
             throw ValidationException::withMessages(['action' => 'لا يمكن تنفيذ العملية دون صلاحية الوصول إلى جميع أجزاء الحوالة المقسّمة.']);
         }
+    }
+
+    /** @return array<string, mixed> */
+    public function editingDetails(User $actor): array
+    {
+        return $this->withPaymentsLocked($actor, function (Collection $parts) use ($actor): array {
+            $active = $this->editableParts($actor, $parts);
+
+            return [
+                'id' => $this->id,
+                ...$this->only(['bank_name', 'sender_bank_name', 'sender_name', 'reference_number', 'notes', 'total_amount']),
+                'revision' => $this->editingRevision($parts),
+                'parts' => $active->map(fn (SubscriptionTransaction $part): array => [
+                    'id' => $part->id, 'subscriptionName' => $part->subscription->displayName(),
+                    'accountNumber' => $part->subscription->account_number, 'amount' => Closing::money(-Closing::cents($part->amount)),
+                ])->values()->all(),
+            ];
+        });
+    }
+
+    /**
+     * Amend shared information atomically without touching amounts or allocation.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function revise(User $actor, array $data): void
+    {
+        $this->withPaymentsLocked($actor, function (Collection $parts) use ($actor, $data): void {
+            $active = $this->editableParts($actor, $parts);
+            if (isset($data['revision']) && ! hash_equals($this->editingRevision($parts), $data['revision'])) {
+                throw ValidationException::withMessages(['action' => 'تغيّرت الحوالة منذ فتح النافذة؛ أغلقها وافتحها مجددًا لمراجعة أحدث البيانات.']);
+            }
+            $fields = array_intersect_key($data, array_flip(SubscriptionTransaction::AMENDABLE_FIELDS));
+            $reference = trim($data['reference_number'] ?? $this->reference_number);
+            $referenceChanged = $active->contains(fn (SubscriptionTransaction $part): bool => $part->reference_number !== $reference);
+            if ($referenceChanged && SubscriptionTransaction::activeReferenceConflict($reference, null, $this->id) !== null) {
+                throw ValidationException::withMessages(['reference_number' => 'هذا الرقم المرجعي مسجّل مسبقًا على دفعة أخرى.']);
+            }
+            $reason = trim($data['amendment_reason']);
+            $changed = false;
+            foreach ($active as $part) {
+                $changes = [];
+                foreach ($fields as $field => $value) {
+                    $value = filled($value) ? trim((string) $value) : null;
+                    if ((string) ($part->$field ?? '') !== (string) ($value ?? '')) {
+                        $changes[$field] = [$part->$field, $value];
+                    }
+                }
+                if ($changes !== []) {
+                    $part->amend($actor, $fields, $reason);
+                }
+                $changed = $changed || $changes !== [];
+            }
+            if (! $changed) {
+                throw ValidationException::withMessages(['details' => 'غيّر بيانًا واحدًا على الأقل قبل الحفظ.']);
+            }
+            $this->update($fields);
+        });
+    }
+
+    /** @param Collection<int, SubscriptionTransaction> $parts */
+    private function editableParts(User $actor, Collection $parts): Collection
+    {
+        $active = $parts->reject(fn (SubscriptionTransaction $part): bool => $part->isCancelled());
+        if ($active->isEmpty() || $parts->contains(fn (SubscriptionTransaction $part): bool => $part->isCancelled() && ! $parts->contains('corrects_id', $part->id))
+            || $active->contains(fn (SubscriptionTransaction $part): bool => ! $part->isAmendable(lockForUpdate: true) || ! $actor->can('amend', $part))) {
+            throw ValidationException::withMessages(['action' => 'لا يمكن تعديل الحوالة كاملة: أحد أجزائها مغلق أو مُرجع أو غير مسموح بتعديله.']);
+        }
+
+        return $active;
+    }
+
+    /** @param Collection<int, SubscriptionTransaction> $parts */
+    private function editingRevision(Collection $parts): string
+    {
+        return hash('sha256', json_encode([$this->only(['bank_name', 'sender_bank_name', 'sender_name', 'reference_number', 'notes', 'total_amount']),
+            $parts->map(fn (SubscriptionTransaction $part): array => $part->only(['id', 'amount', 'bank_name', 'sender_bank_name', 'sender_name', 'reference_number', 'notes', 'cancelled_at']))->all(),
+        ], JSON_THROW_ON_ERROR));
     }
 
     /**

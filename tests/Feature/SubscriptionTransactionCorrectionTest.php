@@ -253,8 +253,9 @@ class SubscriptionTransactionCorrectionTest extends TestCase
             'reference_number' => 'TR-201',
             'notes' => 'تم تدقيق الحوالة',
             'amendment_reason' => 'تصحيح الرقم المرجعي',
-        ])->assertSessionHasErrors('reference_number');
-        $this->assertSame('TR-1', $payment->fresh()->reference_number);
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('TR-201', $payment->fresh()->reference_number);
+        $this->assertSame('TR201', $payment->fresh()->active_reference);
 
         $this->amend($payment, [
             'bank_name' => 'البنك الإسلامي الفلسطيني',
@@ -271,16 +272,17 @@ class SubscriptionTransactionCorrectionTest extends TestCase
                 ->where('entries.1.isAmended', true)
                 ->where('entries.1.canAmend', true)
                 ->where('entries.1.amendUnavailableReason', null)
-                ->has('entries.1.amendments', 2)
+                ->has('entries.1.amendments', 3)
                 ->where('entries.1.amendments.0.userName', 'Sami')
                 ->where('entries.1.amendments.0.reason', 'اختير البنك الخطأ عند التسجيل')
                 ->where('entries.1.amendments.0.changes.0.label', 'البنك المستلم')
                 ->where('entries.1.amendments.0.changes.0.from', 'بنك فلسطين')
                 ->where('entries.1.amendments.0.changes.0.to', 'البنك الإسلامي الفلسطيني')
-                ->where('entries.1.amendments.1.reason', 'تحديث الملاحظة')
-                ->where('entries.1.amendments.1.changes.0.label', 'الملاحظات')
-                ->where('entries.1.amendments.1.changes.0.to', 'ملاحظة جديدة')
-                ->where('entries.1.recorded.reference_number', 'TR-1')
+                ->where('entries.1.amendments.1.reason', 'تصحيح الرقم المرجعي')
+                ->where('entries.1.amendments.2.reason', 'تحديث الملاحظة')
+                ->where('entries.1.amendments.2.changes.0.label', 'الملاحظات')
+                ->where('entries.1.amendments.2.changes.0.to', 'ملاحظة جديدة')
+                ->where('entries.1.recorded.reference_number', 'TR-201')
                 ->where('entries.1.balance', '175.00')
                 ->where('summary.balance', '175.00'));
     }

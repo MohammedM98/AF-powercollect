@@ -38,7 +38,8 @@ class ApplySubscriptionTransactionActionRequest extends FormRequest
             ...($this->input('action') === TransactionAction::EditMetadata->value
                 ? AmendSubscriptionTransactionRequest::bankRules($this->transaction()->payment_method?->throughBank() ?? false)
                 : ['bank_name' => ['nullable', 'string', 'max:255'], 'sender_bank_name' => ['nullable', 'string', 'max:255'], 'sender_name' => ['nullable', 'string', 'max:255']]),
-            'reference_number' => ['prohibited'],
+            'reference_number' => $this->input('action') === TransactionAction::EditMetadata->value && $this->transaction()->payment_method?->throughBank()
+                ? ['sometimes', 'required', 'string', 'max:100'] : ['prohibited'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'amendment_reason' => ['required_if:action,edit,edit_metadata', 'nullable', 'string', 'max:1000'],
             'correction_reason' => ['nullable', Rule::enum(CorrectionReason::class)],

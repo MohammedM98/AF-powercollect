@@ -39,15 +39,17 @@ const payments = sectionModel({ key: 'collections', label: 'الدفعات وا�
     { action: 'force_delete', permission: { id: 3, label: 'الحذف النهائي للحركة' } },
 ] });
 
-test('the auditor editor includes its work card and clearly locks operational permissions', () => {
+test('the auditor editor allows individually assigned work and keeps copying permissions without role templates', () => {
     const auditor = { ...employee, id: 1, username: 'audit', role: 'financial_auditor', roleLabel: 'مدقق مالي', permissionIds: [999], auditSettings: { scope: 'selected', branch_ids: [1], actions: ['review_transfers'] } };
     const html = renderToStaticMarkup(createElement(PermissionEditor, { employee: auditor, sections: [payments], templates: [], copySources: [], scopedToOwnBranch: false, onDirtyChange() {}, auditOptions: { permissionId: 999, branches: [{ id: 1, name: 'فرع العمل' }], actions: [{ value: 'review_transfers', label: 'مراجعة الحوالات', hint: 'تسجيل مبلغ البنك' }] } }));
 
     assert.match(html, /عمل التدقيق المالي/);
-    assert.match(html, /الصلاحيات التشغيلية مقفلة لدور المدقق/);
+    assert.doesNotMatch(html, /الصلاحيات التشغيلية مقفلة لدور المدقق/);
     assert.match(html, /فرع العمل/);
-    assert.match(html, /<button[^>]*disabled=""[^>]*>[^]*?مقفل لهذا الدور<\/button>/);
-    assert.doesNotMatch(html, /لا يملك عرض السجل أو إضافة دفعة/);
+    assert.doesNotMatch(html, /مقفل لهذا الدور/);
+    assert.match(html, /لا يملك عرض السجل أو إضافة دفعة/);
+    assert.match(html, /نسخ من موظف/);
+    assert.doesNotMatch(html, /تطبيق قالب/);
 });
 
 test('summary clearly limits its count to editable grants and identifies preserved rights', () => {

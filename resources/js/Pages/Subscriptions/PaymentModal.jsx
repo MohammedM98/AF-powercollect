@@ -188,7 +188,7 @@ export function BankDropdown({ banks, id, name, onChange, value }) {
                 <ul
                     id={listboxId}
                     role="listbox"
-                    aria-label="البنك المحوّل منه"
+                    aria-label="البنك المرسل"
                     className="animate-modal-panel absolute inset-x-0 z-30 mt-2 max-h-80 overflow-y-auto rounded-2xl border border-gray-100 bg-surface p-1.5 shadow-lift"
                 >
                     <li role="none">
@@ -814,7 +814,7 @@ export default function PaymentModal({
                                         <div className="animate-menu mt-3 grid gap-4 rounded-[20px] border border-gray-100 bg-gray-50 p-4">
                                             <fieldset>
                                                 <legend className="mb-2 text-[14.5px] font-semibold text-gray-700">
-                                                    البنك المستلم (إلى) <span className="text-brand-600">*</span>
+                                                    البنك المستلم <span className="text-brand-600">*</span>
                                                 </legend>
                                                 <div className="grid gap-2">
                                                     {transferBanks.map((bank) => (
@@ -833,7 +833,7 @@ export default function PaymentModal({
 
                                             <div>
                                                 <FieldLabel htmlFor="sender_bank_name" hint="اختياري">
-                                                    البنك المحوّل منه (من)
+                                                    البنك المرسل
                                                 </FieldLabel>
                                                 <BankDropdown
                                                     banks={senderBanks}

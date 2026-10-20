@@ -203,7 +203,7 @@ class FinancialLifecycleTest extends TestCase
         $before = $payment->boxEntry->box->fresh()->getAttributes();
 
         $response = $this->actingAs($actor)->post(route('payments.cash-boxes.actions', ['action' => 'receive', 'record' => $payment->boxEntry->cash_box_id]), ['branch_id' => $branch->id]);
-        if (str_starts_with($kind, 'foreign_')) {
+        if (str_starts_with($kind, 'foreign_') || $kind === 'auditor') {
             $response->assertNotFound();
         } else {
             $response->assertForbidden();

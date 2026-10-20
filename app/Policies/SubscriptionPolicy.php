@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Enums\AuditAction;
 use App\Enums\PermissionKey;
 use App\Models\Subscription;
 use App\Models\User;
@@ -15,10 +14,6 @@ class SubscriptionPolicy
      */
     private function hasBaseAccess(User $user): bool
     {
-        if ($user->isFinancialAuditor()) {
-            return $user->canAuditAction(AuditAction::ViewAccounts);
-        }
-
         return $user->canViewAllSubscriberAccounts() || $user->hasAnyPermission(PermissionKey::ViewSubscriptions, PermissionKey::CreateSubscriptions, PermissionKey::UpdateSubscriptions);
     }
 
@@ -39,7 +34,7 @@ class SubscriptionPolicy
             return $user->auditIncludesBranch($subscription->branch_id);
         }
 
-        return $this->hasBaseAccess($user) && $subscription->branch_id === $user->branch_id;
+        return $this->hasBaseAccess($user) && $subscription->branch_id === $user->workBranchId();
     }
 
     /**
@@ -59,7 +54,7 @@ class SubscriptionPolicy
             return true;
         }
 
-        return $user->hasPermission(PermissionKey::UpdateSubscriptions) && $subscription->branch_id === $user->branch_id;
+        return $user->hasPermission(PermissionKey::UpdateSubscriptions) && $subscription->branch_id === $user->workBranchId();
     }
 
     /**
@@ -158,7 +153,7 @@ class SubscriptionPolicy
 
     private function inBranch(User $user, Subscription $subscription): bool
     {
-        return $user->isSuperAdmin() || $subscription->branch_id === $user->branch_id;
+        return $user->isSuperAdmin() || $subscription->branch_id === $user->workBranchId();
     }
 
     /**
@@ -168,7 +163,7 @@ class SubscriptionPolicy
     public function delete(User $user, Subscription $subscription): bool
     {
         return $user->hasPermission(PermissionKey::DeleteSubscriptions)
-            && ($user->isSuperAdmin() || $subscription->branch_id === $user->branch_id);
+            && ($user->isSuperAdmin() || $subscription->branch_id === $user->workBranchId());
     }
 
     /**

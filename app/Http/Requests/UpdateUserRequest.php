@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\UserRole;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -23,10 +22,8 @@ class UpdateUserRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * A Super Admin may reassign role/branch for any target except another
-     * Super Admin. A Branch Admin may reassign a staff member's role among
-     * the branch-level staff roles, but never their branch — branch_id
-     * isn't validated for them at all.
+     * Editing a job title or account details never changes permission grants.
+     * Only a Super Admin may change an employee's administrative branch.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -41,13 +38,11 @@ class UpdateUserRequest extends FormRequest
             'username' => ['required', 'string', 'max:255', 'regex:/^[\w.-]+$/', Rule::unique('users', 'username')->ignore($target->id)],
             'password' => ['nullable', 'confirmed', Password::defaults()],
             'is_active' => ['boolean'],
+            'role' => ['prohibited'],
         ];
 
         if ($actor->isSuperAdmin() && ! $target->isSuperAdmin()) {
-            $rules['role'] = ['sometimes', Rule::enum(UserRole::class)->only(UserRole::assignableBySuperAdmin())];
             $rules['branch_id'] = ['required', Rule::exists('branches', 'id')];
-        } elseif ($actor->isBranchAdmin()) {
-            $rules['role'] = ['sometimes', Rule::enum(UserRole::class)->only(UserRole::staffRoles())];
         }
 
         return $rules;

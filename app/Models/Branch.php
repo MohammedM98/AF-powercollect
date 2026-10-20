@@ -21,6 +21,7 @@ class Branch extends Model
     {
         return [
             'is_active' => 'boolean',
+            'domain_enabled' => 'boolean',
         ];
     }
 

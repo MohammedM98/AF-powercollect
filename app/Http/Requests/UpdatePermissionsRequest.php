@@ -3,9 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\AuditAction;
-use App\Enums\PermissionKey;
 use App\Models\Permission;
-use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -32,6 +30,9 @@ class UpdatePermissionsRequest extends FormRequest
             'permissions' => ['present', 'array'],
             'permissions.*' => ['present', 'array'],
             'permissions.*.*' => ['integer', 'exists:permissions,id'],
+            'work_branches' => ['sometimes', Rule::prohibitedIf(! $this->user()->isSuperAdmin()), 'array'],
+            'work_branches.*' => ['array'],
+            'work_branches.*.*' => ['integer', 'exists:branches,id'],
             'audit_settings' => ['sometimes', Rule::prohibitedIf(! $this->user()->isSuperAdmin()), 'array'],
             'audit_settings.*' => ['array:scope,branch_ids,actions'],
             'audit_settings.*.scope' => ['required', Rule::in(['all', 'selected'])],
@@ -60,11 +61,9 @@ class UpdatePermissionsRequest extends FormRequest
                     $validator->errors()->add('audit_settings', 'اعتماد الفترة يتطلب صلاحية اعتماد الصناديق.');
                 }
             }
-            $auditId = Permission::query()->where('key', PermissionKey::AuditClosings->value)->value('id');
-            foreach (User::query()->where('role', 'financial_auditor')->whereIn('id', array_keys($this->input('permissions', [])))->with('permissions')->get() as $user) {
-                $newIds = array_diff($this->input("permissions.{$user->id}", []), $user->permissions->modelKeys(), [$auditId]);
-                if ($newIds !== []) {
-                    $validator->errors()->add('permissions', 'دور المدقق المالي يستخدم خيارات بطاقة التدقيق؛ الصلاحيات التشغيلية غير متاحة لهذا الدور.');
+            foreach (array_keys($this->input('work_branches', [])) as $id) {
+                if (! array_key_exists($id, $this->input('permissions', []))) {
+                    $validator->errors()->add('work_branches', 'احفظ فروع العمل مع صلاحيات الموظف نفسه.');
                 }
             }
         }];

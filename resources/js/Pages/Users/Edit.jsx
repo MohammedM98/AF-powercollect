@@ -2,7 +2,7 @@ import FormPage from '@/Components/FormPage';
 import { useResourceForm } from '@/hooks/useResourceForm';
 import UserForm, { userFormData } from './UserForm';
 
-export default function Edit({ user, roleOptions, branches, canChooseBranch, userTypeOptions }) {
+export default function Edit({ user, branches, canChooseBranch, userTypeOptions }) {
     const form = useResourceForm('/users', user, userFormData(user));
 
     return (
@@ -13,10 +13,9 @@ export default function Edit({ user, roleOptions, branches, canChooseBranch, use
                 errors={form.errors}
                 isEdit={form.isEdit}
                 canUpdatePassword={user.canUpdatePassword}
-                roleOptions={roleOptions}
                 userTypeOptions={userTypeOptions}
                 branches={branches}
-                canChooseBranch={canChooseBranch}
+                canChooseBranch={canChooseBranch && !user.isSuperAdmin}
             />
         </FormPage>
     );

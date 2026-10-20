@@ -10,6 +10,7 @@ import { groupReadingsByMonth, readingHistoryCsv, readingTotals, readingsInPerio
 import { consumptionBetween, steppedReading, weeklyCharges } from '@/lib/readings';
 import { useLastReadingEdit } from '@/hooks/useLastReadingEdit';
 import ReadingPricingField from './ReadingPricingField';
+import ReadingApprovalDialog from '@/Pages/MeterReadings/ReadingApprovalDialog';
 import './ReadingHistoryModal.css';
 
 const PERIODS = [['12', 'آخر 12 أسبوعًا'], ['26', '6 أشهر'], ['52', 'سنة'], ['all', 'الكل']];
@@ -30,6 +31,37 @@ function HistoryIcon({ name }) {
 
 function Figure({ label, value, unit, children }) {
     return <div className="rh-figure"><small>{label}</small><b>{value}{unit && <em>{unit}</em>}</b><span>{children ?? '—'}</span></div>;
+}
+
+function ReadingHistoryStatus({ subscription, reading, disabled = false }) {
+    const [confirming, setConfirming] = useState(false);
+    const [approving, setApproving] = useState(false);
+    const [error, setError] = useState(null);
+    const canApprove = reading.canApprove && reading.status === 'pending' && !reading.requiresReentry;
+    const label = reading.requiresReentry ? 'بانتظار إدخال الحالية' : reading.status === 'pending' ? 'بانتظار الاعتماد' : reading.statusLabel;
+
+    function approve() {
+        if (!canApprove || disabled || approving) return;
+
+        setConfirming(false);
+        setApproving(true);
+        setError(null);
+        router.post('/meter-readings/approve', {
+            reading_ids: [reading.id],
+            ...(reading.unusual ? { confirm_unusual: true } : {}),
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            onError: (errors) => setError(Object.values(errors)[0] ?? 'تعذّر اعتماد القراءة.'),
+            onFinish: () => setApproving(false),
+        });
+    }
+
+    return <>
+        {canApprove ? <button type="button" className="rh-pill is-pending rh-pill-action" disabled={disabled || approving} onClick={() => setConfirming(true)} aria-label={`اعتماد قراءة ${subscription.display_name}`} title={disabled ? 'احفظ تعديل القراءة أولًا' : 'اضغط لمراجعة واعتماد هذه القراءة فقط'}><i />{approving ? 'جارٍ الاعتماد...' : label}<Icon name="check" className="h-3.5 w-3.5" /></button> : <span className={`rh-pill ${reading.status === 'approved' ? 'is-approved' : 'is-pending'}`}><i />{label}</span>}
+        <ReadingApprovalDialog row={confirming ? { fullName: subscription.display_name, previousReading: reading.previous_reading, reading: { ...reading, currentReading: reading.current_reading } } : null} onConfirm={approve} onCancel={() => setConfirming(false)} />
+        {error && <small className="rh-live-error" role="alert">{error}</small>}
+    </>;
 }
 
 function ReadingAdjustmentHistory({ reading }) {
@@ -240,7 +272,7 @@ function LiveRow({ subscription, week, reading, maximum, average, editableLastRe
         <td className="rh-discount">{charges && charges.discountAmount > 0 ? <span className="rh-discount-value" dir="ltr">−{money(charges.discountAmount)}</span> : <span className="rh-muted">—</span>}</td>
         <td className="rh-due">{charges ? <b dir="ltr">{money(charges.amountDue)} <em>₪</em></b> : <b>—</b>}{charges?.minimumApplies && <small>الحد الأدنى</small>}</td>
         <td className="rh-status">
-            {saving ? <span className="rh-saving">جارٍ الحفظ...</span> : reading ? <span className={`rh-pill ${reading.status === 'approved' ? 'is-approved' : 'is-pending'}`}><i />{reading.requiresReentry ? 'بانتظار إدخال الحالية' : reading.status === 'pending' ? 'قيد المراجعة' : reading.statusLabel}</span> : <span className="rh-pill is-missing"><i />لم تُدخل</span>}
+            {saving ? <span className="rh-saving">جارٍ الحفظ...</span> : reading ? <ReadingHistoryStatus subscription={subscription} reading={reading} disabled={isDraft || Boolean(error) || negative} /> : <span className="rh-pill is-missing"><i />لم تُدخل</span>}
             <ConfirmDialog show={confirming} onConfirm={() => { setConfirming(false); save(true); }} onCancel={() => { setConfirming(false); setValue(savedValue); }} title="تعديل قراءة معتمدة؟" message={`قراءة ${subscription.display_name} معتمدة. تعديلها يعيدها إلى قيد المراجعة ويزيل مبلغها من المعاملات المالية للمشترك حتى يُعاد اعتمادها.`} confirmLabel="نعم، عدّل" cancelLabel="تراجع عن التعديل" icon="alert" />
         </td>
         <td className="rh-recorder">{reading ? <>{reading.recordedByName ?? '—'}<small><HistoryIcon name={reading.recordedSource === 'app' ? 'app' : 'web'} /><span>{reading.recordedSource === 'app' ? 'التطبيق' : 'الموقع'}</span> · <span dir="ltr">{reading.recordedAt}</span></small></> : '—'}</td>
@@ -339,7 +371,7 @@ export default function ReadingHistoryModal({ subscription, onClose, readingWeek
                                         <td className="rh-minimum rh-number"><ReadingPricingField reading={reading} field="minimum_payment" /></td>
                                         <td className="rh-discount">{Number(reading.discountAmount) > 0 ? <span className="rh-discount-value" dir="ltr">−{money(reading.discountAmount)}</span> : <span className="rh-muted">—</span>}</td>
                                         <td className="rh-due"><b dir="ltr">{money(reading.amountDue)} <em>₪</em></b>{reading.minimumApplied && <small>الحد الأدنى</small>}</td>
-                                        <td className="rh-status"><span className={`rh-pill ${reading.status === 'approved' ? 'is-approved' : 'is-pending'}`}><i />{reading.status === 'pending' ? 'قيد المراجعة' : reading.statusLabel}</span></td>
+                                        <td className="rh-status"><ReadingHistoryStatus subscription={subscription} reading={reading} /></td>
                                         <td className="rh-recorder">{reading.recordedByName ?? '—'}<small><HistoryIcon name={reading.recordedSource === 'app' ? 'app' : 'web'} /><span>{reading.recordedSource === 'app' ? 'التطبيق' : 'الموقع'}</span> · <span dir="ltr">{reading.recordedAt}</span></small></td>
                                     </tr>;
                                 })}

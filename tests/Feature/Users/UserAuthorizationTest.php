@@ -29,7 +29,7 @@ class UserAuthorizationTest extends TestCase
         $response->assertSee('From Branch B');
     }
 
-    public function test_super_admin_can_create_a_branch_admin(): void
+    public function test_super_admin_creates_an_employee_without_automatically_granting_management(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
         $branch = Branch::factory()->create();
@@ -39,7 +39,6 @@ class UserAuthorizationTest extends TestCase
             'username' => 'alice.admin',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'role' => UserRole::BranchAdmin->value,
             'branch_id' => $branch->id,
             'is_active' => '1',
         ]);
@@ -47,7 +46,7 @@ class UserAuthorizationTest extends TestCase
         $response->assertRedirect(route('users.index'));
         $this->assertDatabaseHas('users', [
             'username' => 'alice.admin',
-            'role' => UserRole::BranchAdmin->value,
+            'role' => UserRole::Collector->value,
             'branch_id' => $branch->id,
         ]);
     }
@@ -79,14 +78,12 @@ class UserAuthorizationTest extends TestCase
             'username' => 'dana.entry',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'role' => UserRole::DataEntry->value,
             'branch_id' => $otherBranch->id,
         ]);
 
         $response->assertRedirect(route('users.index'));
         $this->assertDatabaseHas('users', [
             'username' => 'dana.entry',
-            'role' => UserRole::DataEntry->value,
             'branch_id' => $ownBranch->id,
         ]);
     }
@@ -123,14 +120,12 @@ class UserAuthorizationTest extends TestCase
             'username' => 'dana.entry',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'role' => UserRole::DataEntry->value,
             'branch_id' => $otherBranch->id,
         ]);
 
         $response->assertRedirect(route('users.index'));
         $this->assertDatabaseHas('users', [
             'username' => 'dana.entry',
-            'role' => UserRole::DataEntry->value,
             'branch_id' => $ownBranch->id,
         ]);
     }
@@ -169,7 +164,6 @@ class UserAuthorizationTest extends TestCase
             'username' => 'should.not',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'role' => UserRole::DataEntry->value,
         ])->assertForbidden();
 
         $this->assertDatabaseMissing('users', ['username' => 'should.not']);
@@ -215,7 +209,7 @@ class UserAuthorizationTest extends TestCase
         ]);
     }
 
-    public function test_branch_admin_can_reassign_a_staff_members_role_among_staff_roles(): void
+    public function test_branch_admin_cannot_change_system_role_metadata(): void
     {
         $branch = Branch::factory()->create();
         $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
@@ -225,11 +219,11 @@ class UserAuthorizationTest extends TestCase
             'name' => $collector->name,
             'username' => $collector->username,
             'role' => UserRole::Accountant->value,
-        ])->assertRedirect(route('users.index'));
+        ])->assertSessionHasErrors('role');
 
         $this->assertDatabaseHas('users', [
             'id' => $collector->id,
-            'role' => UserRole::Accountant->value,
+            'role' => UserRole::Collector->value,
         ]);
     }
 

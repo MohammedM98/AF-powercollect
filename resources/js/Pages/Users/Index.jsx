@@ -26,7 +26,6 @@ export default function Index({
     canCreate,
     branches,
     canChooseBranch,
-    createRoleOptions,
     filters,
     filterOptions,
     userTypeOptions,
@@ -119,7 +118,6 @@ export default function Index({
                                 <tr>
                                     <SortableTh column="name" label="الاسم" sortState={filters} onSort={sort} />
                                     <SortableTh column="username" label="اسم المستخدم" sortState={filters} onSort={sort} />
-                                    <SortableTh column="role" label="الدور" sortState={filters} onSort={sort} />
                                     <th>نوع المستخدم</th>
                                     <th>الفرع</th>
                                     <SortableTh column="is_active" label="الحالة" sortState={filters} onSort={sort} />
@@ -129,7 +127,7 @@ export default function Index({
                             <tbody>
                                 {users.data.length === 0 ? (
                                     <tr>
-                                        <td className="text-gray-500" colSpan={7}>
+                                        <td className="text-gray-500" colSpan={6}>
                                             لا توجد نتائج مطابقة.
                                         </td>
                                     </tr>
@@ -142,7 +140,6 @@ export default function Index({
                                             <td className="text-end text-gray-600" dir="ltr">
                                                 {user.username}
                                             </td>
-                                            <td className="text-gray-600">{user.roleLabel}</td>
                                             <td className="text-gray-600">{user.userTypeName ?? '—'}</td>
                                             <td className="text-gray-600">{user.branchName ?? '—'}</td>
                                             <td>
@@ -173,7 +170,6 @@ export default function Index({
                 user={null}
                 branches={branches}
                 canChooseBranch={canChooseBranch}
-                roleOptions={createRoleOptions}
                 userTypeOptions={userTypeOptions}
             />
 
@@ -189,7 +185,6 @@ export default function Index({
                     user={modalUser}
                     branches={branches}
                     canChooseBranch={canChooseBranch}
-                    roleOptions={modalUser.roleOptions}
                     userTypeOptions={userTypeOptions}
                 />
             )}

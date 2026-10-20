@@ -3,8 +3,10 @@
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\BankController;
 use App\Http\Controllers\BankTransferAuditController;
+use App\Http\Controllers\BranchAccessController;
 use App\Http\Controllers\BranchClosingController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\BranchDomainController;
 use App\Http\Controllers\BranchPerformanceController;
 use App\Http\Controllers\CashBoxAuditController;
 use App\Http\Controllers\CashBoxReportController;
@@ -96,6 +98,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/branch-performance/{branch}', [BranchPerformanceController::class, 'show'])->name('branch-performance.show');
 
     Route::resource('branches', BranchController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+    Route::put('/branch-domains/{branch}', [BranchDomainController::class, 'update'])->name('branch-domains.update');
+    Route::get('/branch-access', [BranchAccessController::class, 'index'])->name('branch-access.index');
     Route::resource('user-types', UserTypeController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('/subscriptions/bulk-changes', [SubscriptionBulkChangeController::class, 'index'])->name('subscriptions.bulk-changes.index');

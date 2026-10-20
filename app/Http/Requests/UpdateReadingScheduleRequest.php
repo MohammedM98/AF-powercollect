@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Enums\ReadingEntryMode;
 use App\Models\Branch;
 use App\Models\ReadingEntrySetting;
+use App\Support\BranchDomainContext;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -43,7 +44,9 @@ class UpdateReadingScheduleRequest extends FormRequest
      */
     public function branch(): ?Branch
     {
-        return $this->filled('branch_id') ? Branch::query()->find($this->integer('branch_id')) : null;
+        $branchId = $this->filled('branch_id') ? $this->integer('branch_id') : BranchDomainContext::id();
+
+        return $branchId === null ? null : Branch::query()->findOrFail($branchId);
     }
 
     /**

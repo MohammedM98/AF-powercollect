@@ -25,6 +25,7 @@ use App\Models\Tariff;
 use App\Models\User;
 use App\Models\UserType;
 use App\Support\BranchClosingAccess;
+use App\Support\BranchDomainContext;
 use App\Support\FinancialReportAccess;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -65,6 +66,12 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'appName' => config('app.name'),
+            'branchContext' => [
+                'current' => BranchDomainContext::branch()?->only(['id', 'name', 'domain']),
+                'centralUrl' => BranchDomainContext::centralUrl('/branch-access'),
+                'recoveryUrl' => $request->attributes->get('unavailable_branch_domain') ? BranchDomainContext::centralUrl($user ? '/dashboard' : '/login') : null,
+                'enabled' => (bool) config('powercollect.branch_domains_enabled'),
+            ],
             'status' => fn () => $request->session()->get('status'),
             'paymentOptions' => fn () => $user ? [
                 'currencies' => CurrencyRate::options(),
@@ -74,13 +81,13 @@ class HandleInertiaRequests extends Middleware
                 'user' => [
                     'name' => $user->name,
                     'username' => $user->username,
-                    'roleLabel' => __($user->role->label()),
+                    'roleLabel' => $user->isSuperAdmin() ? __($user->role->label()) : ($user->userType?->name ?? 'موظف'),
                     'branchName' => $user->branch?->name,
                 ],
             ] : null,
             'can' => $user ? [
-                'auditOnly' => $user->isFinancialAuditor(),
-                'printAuditReports' => (! $user->isFinancialAuditor() && ! $user->hasFinancialAuditAccess()) || $user->canAuditAction(AuditAction::PrintReports),
+                'auditOnly' => $user->isAuditOnly(),
+                'printAuditReports' => (! $user->hasFinancialAuditAccess()) || $user->canAuditAction(AuditAction::PrintReports),
                 'viewBranches' => $user->can('viewAny', Branch::class),
                 'viewSubscriptions' => $user->can('viewAny', Subscription::class),
                 'recordPayments' => $user->can('recordAnyPayment', Subscription::class),

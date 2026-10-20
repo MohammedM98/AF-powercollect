@@ -4,6 +4,7 @@ namespace App\Models\Concerns;
 
 use App\Models\Branch;
 use App\Models\User;
+use App\Support\BranchDomainContext;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,8 +29,8 @@ trait BelongsToBranch
     protected function visibleTo(Builder $query, User $user): void
     {
         $query->when(
-            ! $user->isSuperAdmin(),
-            fn (Builder $query) => $query->where($query->qualifyColumn('branch_id'), $user->branch_id),
+            ! $user->isSuperAdmin() || BranchDomainContext::id() !== null,
+            fn (Builder $query) => $query->where($query->qualifyColumn('branch_id'), $user->workBranchId()),
         );
     }
 }

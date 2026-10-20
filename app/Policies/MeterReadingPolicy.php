@@ -23,7 +23,7 @@ class MeterReadingPolicy
      */
     public function view(User $user, MeterReading $meterReading): bool
     {
-        return $this->viewAny($user) && ($user->isSuperAdmin() || $meterReading->branch_id === $user->branch_id);
+        return $this->viewAny($user) && ($user->isSuperAdmin() || $meterReading->branch_id === $user->workBranchId());
     }
 
     /**
@@ -34,7 +34,7 @@ class MeterReadingPolicy
     {
         return $this->canRecord($user)
             && $this->entryIsOpenFor($user)
-            && ($weekStart === null || $this->weekIsOpenFor($user, $weekStart, $user->branch_id));
+            && ($weekStart === null || $this->weekIsOpenFor($user, $weekStart, $user->workBranchId()));
     }
 
     /**
@@ -53,7 +53,7 @@ class MeterReadingPolicy
             return false;
         }
 
-        return $user->isSuperAdmin() || $meterReading->branch_id === $user->branch_id;
+        return $user->isSuperAdmin() || $meterReading->branch_id === $user->workBranchId();
     }
 
     /**
@@ -73,13 +73,13 @@ class MeterReadingPolicy
             return true;
         }
 
-        return $meterReading->branch_id === $user->branch_id
+        return $meterReading->branch_id === $user->workBranchId()
             && MeterReading::weekStartFor($meterReading->week_start, $meterReading->branch_id)->equalTo($this->lastWeekStart($meterReading->branch_id));
     }
 
     public function adjustLastReading(User $user, MeterReading $meterReading): bool
     {
-        if ($user->isFinancialAuditor() || $meterReading->requires_reentry || ! $this->updateAsLastReading($user, $meterReading)) {
+        if ($meterReading->requires_reentry || ! $this->updateAsLastReading($user, $meterReading)) {
             return false;
         }
 
@@ -101,9 +101,8 @@ class MeterReadingPolicy
 
     private function pricingIsEditable(User $user, MeterReading $meterReading): bool
     {
-        return ! $user->isFinancialAuditor()
-            && ! $meterReading->requires_reentry
-            && ($user->isSuperAdmin() || $user->branch_id === $meterReading->branch_id)
+        return ! $meterReading->requires_reentry
+            && ($user->isSuperAdmin() || $user->workBranchId() === $meterReading->branch_id)
             && $meterReading->week_start->equalTo(MeterReading::latestEndedWeekStart($meterReading->branch_id))
             && ! $meterReading->subscription->meterReadings()->where('week_start', '>', $meterReading->week_start)->exists();
     }
@@ -136,7 +135,7 @@ class MeterReadingPolicy
         return $this->approveAny($user)
             && ! $meterReading->requires_reentry
             && $meterReading->isPending()
-            && ($user->isSuperAdmin() || $meterReading->branch_id === $user->branch_id);
+            && ($user->isSuperAdmin() || $meterReading->branch_id === $user->workBranchId());
     }
 
     /**
@@ -169,7 +168,7 @@ class MeterReadingPolicy
      */
     private function entryIsOpenFor(User $user): bool
     {
-        return $user->isSuperAdmin() || ReadingEntrySetting::forBranch($user->branch_id)->isOpen();
+        return $user->isSuperAdmin() || ReadingEntrySetting::forBranch($user->workBranchId())->isOpen();
     }
 
     /**

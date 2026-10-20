@@ -7,6 +7,8 @@ use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToBranch;
+use App\Support\BranchDomainContext;
+use App\Support\BranchDomainScope;
 use App\Support\DeletionBlocker;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -31,20 +33,9 @@ class User extends Authenticatable
     /** Why the last active Super Admin cannot be deactivated, demoted or deleted. */
     public const LAST_SUPER_ADMIN_MESSAGE = 'لا يمكن إيقاف آخر مدير نظام فعّال أو تغيير دوره أو حذفه؛ أضف مدير نظام آخر أولًا.';
 
-    /**
-     * A new user starts with their role's usual permissions ticked, and
-     * changing someone's role swaps their ticks for the new role's.
-     */
+    /** Keep administrator lockout protections independent of employee job titles. */
     protected static function booted(): void
     {
-        static::created(fn (User $user) => $user->resetToRoleStarterPermissions());
-
-        static::updated(function (User $user): void {
-            if ($user->wasChanged('role')) {
-                $user->resetToRoleStarterPermissions();
-            }
-        });
-
         // However it is reached, the company must keep one active Super Admin, or nobody can get back in to fix anything.
         static::updating(function (User $user): void {
             $losesTheRole = $user->isDirty('role') && $user->role !== UserRole::SuperAdmin;
@@ -134,6 +125,35 @@ class User extends Authenticatable
         return $this->role === UserRole::BranchAdmin;
     }
 
+    /** Administrative branch stays unchanged when working through another branch's domain. */
+    public function workBranchId(): ?int
+    {
+        return BranchDomainContext::id() ?? $this->branch_id;
+    }
+
+    public function workBranch(): ?Branch
+    {
+        return BranchDomainContext::branch() ?? $this->branch;
+    }
+
+    public function workBranches(): BelongsToMany
+    {
+        return $this->belongsToMany(Branch::class, 'branch_user');
+    }
+
+    public function canEnterBranch(Branch $branch): bool
+    {
+        return $this->is_active && ($this->isSuperAdmin() || $this->branch_id === $branch->id
+            || $this->workBranches()->withoutGlobalScope(BranchDomainScope::class)->whereKey($branch->id)->exists()
+            || ($this->hasFinancialAuditAccess() && $this->auditIncludesBranch($branch->id)));
+    }
+
+    /** Delegated administrators and auditors are managed by the Super Admin. */
+    public function isProtectedFromBranchManagement(): bool
+    {
+        return $this->isSuperAdmin() || $this->hasAnyPermission(PermissionKey::ManagePermissions, PermissionKey::AuditClosings, PermissionKey::ManageBranchDomains);
+    }
+
     public function isCollector(): bool
     {
         return $this->role === UserRole::Collector;
@@ -158,6 +178,15 @@ class User extends Authenticatable
     public function hasFinancialAuditAccess(): bool
     {
         return $this->is_active && $this->hasPermission(PermissionKey::AuditClosings);
+    }
+
+    /** Whether financial audit is the account's only assigned work. */
+    public function isAuditOnly(): bool
+    {
+        return ! $this->isSuperAdmin() && $this->hasFinancialAuditAccess()
+            && $this->loadMissing('permissions')->permissions->every(
+                fn (Permission $permission): bool => in_array($permission->key, [PermissionKey::AuditClosings->value, PermissionKey::ViewAllClosings->value], true),
+            );
     }
 
     /** @return array{scope: string, branch_ids: list<int>, actions: list<string>} */
@@ -197,7 +226,7 @@ class User extends Authenticatable
      */
     public function branchAreaId(): ?int
     {
-        return $this->branch?->area_id;
+        return (BranchDomainContext::branch() ?? $this->branch)?->area_id;
     }
 
     /**

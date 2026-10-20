@@ -356,7 +356,7 @@ export default function SplitPaymentForm({ transferBanks, senderBanks, bare = fa
             <div className="grid gap-4 rounded-[20px] border border-gray-100 bg-gray-50 p-4">
                 <fieldset>
                     <legend className="mb-2 text-[14.5px] font-semibold text-gray-700">
-                        البنك المستلم (إلى) <span className="text-brand-600">*</span>
+                        البنك المستلم <span className="text-brand-600">*</span>
                     </legend>
                     <div className="grid gap-2">
                         {transferBanks.map((bank) => (
@@ -368,7 +368,7 @@ export default function SplitPaymentForm({ transferBanks, senderBanks, bare = fa
 
                 <div>
                     <FieldLabel htmlFor="sender_bank_name" hint="اختياري">
-                        البنك المحوّل منه (من)
+                        البنك المرسل
                     </FieldLabel>
                     <BankDropdown banks={senderBanks} id="sender_bank_name" name="sender_bank_name" value={data.sender_bank_name} onChange={(value) => setData('sender_bank_name', value)} />
                     <InputError message={errors.sender_bank_name} className="mt-2" />

@@ -21,6 +21,12 @@ class UserFactory extends Factory
      */
     protected static ?string $password;
 
+    /** Legacy named states are explicit test fixtures, not account creation defaults. */
+    public function configure(): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->permissions()->sync(Permission::idsFor($user->role->starterPermissions())));
+    }
+
     /**
      * Define the model's default state.
      *

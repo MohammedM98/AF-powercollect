@@ -29,6 +29,12 @@ const NO_LADDER = ['reports'];
  * service outright and must be acknowledged before they are saved.
  */
 export const SENSITIVE = {
+    'branches.manage_domains': { label: 'إدارة روابط الفروع', hint: 'يربط دومينًا بفرع أو يوقفه من اللوحة المركزية؛ يحتاج ربط DNS وHTTPS في الاستضافة', risk: 'danger' },
+    'users.manage_permissions': { label: 'إدارة صلاحيات موظفي الفرع', hint: 'يدير صلاحيات موظفي فرعه ضمن الصلاحيات التي يملكها؛ المنح الإداري يبقى للسوبر أدمن', risk: 'danger' },
+    'users.manage_passwords': { label: 'تغيير كلمات مرور موظفي الفرع', hint: 'يحتاج أيضًا صلاحية تعديل المستخدمين؛ لا يغيّر كلمة مرور مدير صلاحيات آخر', risk: 'danger' },
+    'users.manage_branch_schedules': { label: 'إدارة مواعيد الفرع', hint: 'يضبط مواعيد إدخال القراءات لفرعه فقط', risk: 'sensitive' },
+    'collections.manage_branch_closings': { label: 'إدارة واعتماد صناديق الفرع', hint: 'يدير تسليم صناديق فرعه واعتمادها وإعدادات المسؤولين عنها', risk: 'danger' },
+    'collections.view_all_boxes': { label: 'عرض الصناديق المالية لجميع الفروع', hint: 'عرض الصناديق المغلقة دون منح تعديل الحوالات أو اعتمادها أو عرض التقارير المالية', risk: 'sensitive' },
     delete: { label: 'الحذف', hint: 'يحذف ما لا يرتبط به شيء', risk: 'danger' },
     minimum_charge: { label: 'تعديل الحد الأدنى للدفع', hint: 'يغيّر الحد الأدنى الأسبوعي لمشترك', risk: 'sensitive' },
     kilowatt_price: { label: 'تعديل سعر الكيلو للمشترك', hint: 'يعطي المشترك سعرًا غير سعر تعرفته، أعلى أو أقل', risk: 'danger' },

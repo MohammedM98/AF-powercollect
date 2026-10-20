@@ -80,14 +80,14 @@ class ReadingCycleController extends Controller
                 'createdBy' => $cycle->createdBy?->name,
             ]);
 
-        $branches = $actor->isSuperAdmin() ? Branch::query()->orderBy('name')->get() : Branch::query()->whereKey($actor->branch_id)->get();
+        $branches = $actor->isSuperAdmin() ? Branch::query()->orderBy('name')->get() : Branch::query()->whereKey($actor->workBranchId())->get();
 
         return Inertia::render('ReadingCycles/Index', [
             'cycles' => $cycles,
             'canCreate' => $actor->can('create', ReadingCycle::class),
             'branchOptions' => $actor->isSuperAdmin() ? $this->modelOptions($branches) : [],
             'weekOptions' => $branches->mapWithKeys(fn (Branch $branch) => [$branch->id => $this->weekOptions($branch)]),
-            'defaultBranchId' => $actor->branch_id,
+            'defaultBranchId' => $actor->workBranchId(),
             'filters' => $this->dataTableState($request, 'week_start', 'desc'),
             'filterOptions' => $actor->isSuperAdmin() ? [$this->branchFilterGroup()] : [],
         ]);

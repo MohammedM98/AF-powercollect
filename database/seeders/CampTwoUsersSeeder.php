@@ -60,9 +60,7 @@ class CampTwoUsersSeeder extends Seeder
                     'is_active' => true,
                 ]);
 
-                if ($details['permissions'] !== null) {
-                    $user->permissions()->sync(Permission::idsFor($details['permissions']));
-                }
+                $user->permissions()->sync(Permission::idsFor($details['permissions'] ?? $details['role']->starterPermissions()));
             }
         });
 

@@ -22,7 +22,7 @@ class SubscriptionTransactionPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->canAuditAction(AuditAction::ViewLedger) || (! $user->isFinancialAuditor() && $user->hasPermission(PermissionKey::ViewCollections));
+        return $user->canAuditAction(AuditAction::ViewLedger) || ($user->hasPermission(PermissionKey::ViewCollections));
     }
 
     /**
@@ -40,7 +40,7 @@ class SubscriptionTransactionPolicy
      */
     public function viewForBranch(User $user, Branch $branch): bool
     {
-        return $this->viewBranchPerformance($user) && ($user->isSuperAdmin() || $branch->id === $user->branch_id);
+        return $this->viewBranchPerformance($user) && ($user->isSuperAdmin() || $branch->id === $user->workBranchId());
     }
 
     /**
@@ -57,7 +57,7 @@ class SubscriptionTransactionPolicy
      */
     public function viewTransactionAudit(User $user): bool
     {
-        return $user->canAuditAction(AuditAction::ViewHistory) || (! $user->isFinancialAuditor() && $user->hasPermission(PermissionKey::ViewTransactionAudit));
+        return $user->canAuditAction(AuditAction::ViewHistory) || ($user->hasPermission(PermissionKey::ViewTransactionAudit));
     }
 
     /**
@@ -121,7 +121,7 @@ class SubscriptionTransactionPolicy
 
     private function inBranchOf(User $user, SubscriptionTransaction $subscriptionTransaction): bool
     {
-        return $user->isSuperAdmin() || $subscriptionTransaction->subscription->branch_id === $user->branch_id;
+        return $user->isSuperAdmin() || $subscriptionTransaction->subscription->branch_id === $user->workBranchId();
     }
 
     /**

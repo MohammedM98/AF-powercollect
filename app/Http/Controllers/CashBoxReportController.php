@@ -23,16 +23,16 @@ class CashBoxReportController extends Controller
         $boxes = CashBox::query();
         $actor->scopeAuditBranches($boxes);
         if (! $actor->isSuperAdmin() && ! BranchClosingAccess::audit($actor)) {
-            $boxes->where('branch_id', $actor->branch_id);
+            $boxes->where('branch_id', $actor->workBranchId());
             if (! BranchClosingAccess::view($actor)) {
                 $boxes->where('user_id', $actor->id);
             }
         }
-        if ($actor->isFinancialAuditor() || (BranchClosingAccess::audit($actor) && ! $actor->isSuperAdmin())) {
+        if ((BranchClosingAccess::audit($actor) && ! $actor->isSuperAdmin())) {
             $boxes->where(function (Builder $query) use ($actor): void {
                 $query->where('status', 'received');
-                if ($actor->branch_id && ! BranchClosingAccess::closedOnly($actor, $actor->branch_id)) {
-                    $query->orWhere('branch_id', $actor->branch_id);
+                if ($actor->workBranchId() && ! BranchClosingAccess::closedOnly($actor, $actor->workBranchId())) {
+                    $query->orWhere('branch_id', $actor->workBranchId());
                 }
             });
         }

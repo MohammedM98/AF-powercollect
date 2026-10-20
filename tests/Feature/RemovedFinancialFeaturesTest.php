@@ -60,7 +60,7 @@ class RemovedFinancialFeaturesTest extends TestCase
         $actor = User::factory()->superAdmin()->create();
         $holder = User::factory()->accountant()->create();
         $target = User::factory()->dataEntry()->create();
-        $retired = Permission::idsFor([PermissionKey::PrepareClosings, PermissionKey::ViewAllClosings]);
+        $retired = Permission::idsFor([PermissionKey::PrepareClosings, PermissionKey::ViewOwnClosings]);
         $holder->permissions()->syncWithoutDetaching($retired);
 
         $this->actingAs($actor)->get(route('settings.permissions.edit', ['selected' => $holder->id]))

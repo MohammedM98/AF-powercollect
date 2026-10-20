@@ -22,9 +22,10 @@ const BUTTON =
  * shows instead of the framework's plain English one, with a way back.
  */
 export default function Error({ status }) {
-    const { auth } = usePage().props;
+    const { auth, branchContext } = usePage().props;
     const signedIn = Boolean(auth?.user);
     const message = MESSAGES[status] ?? MESSAGES[500];
+    const RecoveryLink = branchContext?.recoveryUrl ? 'a' : Link;
 
     const body = (
         <div className="mx-auto flex max-w-md flex-col items-center py-16 text-center" role="alert">
@@ -38,10 +39,10 @@ export default function Error({ status }) {
             <h1 className="mt-2 text-2xl font-bold text-gray-900">{message.title}</h1>
             <p className="mt-3 text-sm leading-7 text-gray-600">{message.text}</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                <Link href={signedIn ? '/dashboard' : '/login'} className={`${BUTTON} bg-brand-gradient text-white shadow-glow hover:brightness-110`}>
+                <RecoveryLink href={branchContext?.recoveryUrl ?? (signedIn ? '/dashboard' : '/login')} className={`${BUTTON} bg-brand-gradient text-white shadow-glow hover:brightness-110`}>
                     <Icon name={signedIn ? 'home' : 'enter'} className="h-4 w-4" />
                     {signedIn ? 'العودة إلى لوحة التحكم' : 'تسجيل الدخول'}
-                </Link>
+                </RecoveryLink>
                 <button type="button" onClick={() => window.history.back()} className={`${BUTTON} border border-gray-200 bg-surface text-gray-900 hover:bg-gray-50`}>
                     رجوع
                 </button>

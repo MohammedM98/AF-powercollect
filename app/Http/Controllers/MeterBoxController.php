@@ -122,7 +122,7 @@ class MeterBoxController extends Controller
         $data = $request->validated();
 
         if (! $actor->isSuperAdmin()) {
-            $data['branch_id'] = $actor->branch_id;
+            $data['branch_id'] = $actor->workBranchId();
         }
 
         $meterBox = MeterBox::create($data);
@@ -206,7 +206,7 @@ class MeterBoxController extends Controller
             'governorates' => $canChooseBranch ? Governorate::orderBy('name')->get() : collect(),
             'areas' => $canChooseBranch ? Area::orderBy('name')->get() : collect(),
             'subAreas' => SubArea::orderBy('name')->get(),
-            'currentBranchAreaId' => $canChooseBranch ? null : $actor->branch?->area_id,
+            'currentBranchAreaId' => $canChooseBranch ? null : $actor->workBranch()?->area_id,
         ];
     }
 

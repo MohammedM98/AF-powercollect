@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateReadingScheduleRequest;
 use App\Models\Branch;
 use App\Models\ReadingEntrySetting;
 use App\Notifications\ActionCompleted;
+use App\Support\BranchDomainContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -29,7 +30,7 @@ class ReadingScheduleController extends Controller
         $this->authorize('manageAny', ReadingEntrySetting::class);
 
         $actor = $request->user();
-        $requested = $request->integer('branch') ?: ($actor->isSuperAdmin() ? null : $actor->branch_id);
+        $requested = $request->integer('branch') ?: (BranchDomainContext::id() ?? ($actor->isSuperAdmin() ? null : $actor->workBranchId()));
         $branch = $requested === null ? null : Branch::query()->findOrFail($requested);
         $this->authorize('manage', [ReadingEntrySetting::class, $branch]);
 

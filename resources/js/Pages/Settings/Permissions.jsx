@@ -142,7 +142,7 @@ function MenuItem({ title, subtitle, trailing, onSelect, leading }) {
  * permissions they hold and whether they differ from their job's usual ones.
  */
 function EmployeeList({ users, selectedId, selectedDirty, templates, filters, filterOptions, search, onSearchChange, filterValues, onFilterChange, onSelect, searchRef }) {
-    const roleGroup = filterOptions.find((group) => group.key === 'role');
+    const roleGroup = filterOptions.find((group) => group.key === 'user_type_id');
     const branchGroup = filterOptions.find((group) => group.key === 'branch_id');
     const byBranch = users.data.reduce((groups, user) => {
         const branch = user.branchName ?? 'بلا فرع';
@@ -174,14 +174,14 @@ function EmployeeList({ users, selectedId, selectedDirty, templates, filters, fi
                 {roleGroup && (
                     <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label={roleGroup.label}>
                         {[{ value: '', label: 'الكل' }, ...roleGroup.options].map((option) => {
-                            const pressed = (filterValues.role ?? '') === option.value;
+                            const pressed = (filterValues.user_type_id ?? '') === option.value;
 
                             return (
                                 <button
                                     key={option.value}
                                     type="button"
                                     aria-pressed={pressed}
-                                    onClick={() => onFilterChange('role', option.value)}
+                                    onClick={() => onFilterChange('user_type_id', option.value)}
                                     className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${
                                         pressed ? 'border-gray-900 bg-gray-900 text-surface' : 'border-gray-200 text-gray-600 hover:text-gray-900'
                                     }`}
@@ -628,15 +628,17 @@ export function PermissionChangeReview({ employee, changes }) {
  * save once something changed. Dangerous grants must be acknowledged in
  * the review before they are saved.
  */
-export function PermissionEditor({ employee, sections, templates, copySources, scopedToOwnBranch, onDirtyChange, auditOptions }) {
+export function PermissionEditor({ employee, sections, templates, copySources, scopedToOwnBranch, onDirtyChange, auditOptions, workBranchOptions = null }) {
     const saved = employee.permissionIds;
     const savedAudit = employee.auditSettings;
-    const { data, setData, put, processing, errors } = useForm({ permissions: { [employee.id]: [...saved] }, ...(auditOptions ? { audit_settings: { [employee.id]: savedAudit } } : {}) });
+    const savedWorkBranches = employee.workBranchIds ?? [];
+    const { data, setData, put, processing, errors } = useForm({ permissions: { [employee.id]: [...saved] }, ...(auditOptions ? { audit_settings: { [employee.id]: savedAudit } } : {}), ...(workBranchOptions ? { work_branches: { [employee.id]: [...savedWorkBranches] } } : {}) });
+    const workBranches = data.work_branches?.[employee.id] ?? savedWorkBranches;
+    const workBranchesChanged = !samePermissions(savedWorkBranches, workBranches);
     const selected = data.permissions[employee.id];
     const auditValue = data.audit_settings?.[employee.id];
     const auditEnabled = auditOptions && selected.includes(auditOptions.permissionId);
     const auditChanges = auditOptions ? auditSettingsChanges(savedAudit, auditValue, auditOptions) : [];
-    const auditOnly = employee.role === 'financial_auditor';
     const [query, setQuery] = useState('');
     const [mode, setMode] = useState('all');
     const [reviewing, setReviewing] = useState(false);
@@ -645,8 +647,8 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
     const auditGrants = auditEnabled && !saved.includes(auditOptions.permissionId)
         ? auditOptions.actions.filter((action) => auditValue.actions.includes(action.value) && action.value.startsWith('approve_')).map((action) => ({ ...action, added: true, risk: 'danger' }))
         : auditEnabled ? auditChanges : [];
-    const dangerousGrants = [...changes, ...auditGrants].filter((change) => change.added && change.risk === 'danger');
-    const dirty = !samePermissions(saved, selected) || auditChanges.length > 0;
+    const dangerousGrants = [...changes, ...auditGrants, ...(workBranches.some((id) => !savedWorkBranches.includes(id)) ? [{ added: true, risk: 'danger', label: 'العمل في فروع إضافية' }] : [])].filter((change) => change.added && change.risk === 'danger');
+    const dirty = !samePermissions(saved, selected) || auditChanges.length > 0 || workBranchesChanged;
     const template = templates.find((item) => item.role === employee.role);
     const deviations = template ? individualChanges(sections, template.permissionIds, selected).length : null;
     const matching = filterSections(sections, selected, saved, query, mode);
@@ -661,7 +663,7 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
     ].filter((group) => group.sections.length > 0);
 
     function setSelected(ids) {
-        setData('permissions', { [employee.id]: auditOnly && auditOptions ? ids.filter((id) => id === auditOptions.permissionId || saved.includes(id)) : ids });
+        setData('permissions', { [employee.id]: ids });
     }
 
     function setAudit(value) {
@@ -738,22 +740,6 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                             </p>
                         </div>
                         <div className="flex w-full flex-wrap gap-2 sm:ms-auto sm:w-auto">
-                            <MenuButton icon="shield" label="تطبيق قالب">
-                                {(close) =>
-                                    templates.map((item) => (
-                                        <MenuItem
-                                            key={item.role}
-                                            title={item.label}
-                                            subtitle={`${item.permissionIds.length} صلاحية${item.role === employee.role ? ' · الدور الحالي' : ''}`}
-                                            trailing={item.role === employee.role && <Icon name="check" className="h-4 w-4 text-gray-500" />}
-                                            onSelect={() => {
-                                                setSelected([...item.permissionIds]);
-                                                close();
-                                            }}
-                                        />
-                                    ))
-                                }
-                            </MenuButton>
                             <MenuButton icon="users" label="نسخ من موظف">
                                 {(close) =>
                                     copySources.length === 0 ? (
@@ -768,6 +754,9 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                                                 trailing={<span className="font-display text-xs font-semibold text-gray-500">{user.permissionIds.length}</span>}
                                                 onSelect={() => {
                                                     setSelected([...user.permissionIds]);
+                                                    if (auditOptions && user.auditSettings && user.permissionIds.includes(auditOptions.permissionId)) {
+                                                        setAudit({ ...user.auditSettings, branch_ids: [...user.auditSettings.branch_ids], actions: [...user.auditSettings.actions] });
+                                                    }
                                                     close();
                                                 }}
                                             />
@@ -836,8 +825,16 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                     </div>
                 </div>
 
+                {workBranchOptions && <div className="mx-4 my-4 space-y-3 rounded-card border border-gray-200 bg-gray-50 p-4 sm:mx-5" aria-label="فروع العمل المسموحة">
+                    <h3 className="flex items-center gap-2 font-bold text-gray-900"><Icon name="pin" className="h-5 w-5" />فروع العمل المسموحة</h3>
+                    <p className="text-sm leading-7 text-gray-500">الفرع الإداري: <b className="text-gray-900">{employee.branchName ?? 'غير محدد'}</b>. اختر فروعًا إضافية يستطيع الموظف العمل فيها بنفس صلاحياته عبر رابط كل فرع. نطاق التدقيق مستقل أدناه.</p>
+                    <div className="grid gap-2 sm:grid-cols-2">{workBranchOptions.map((branch) => <label key={branch.id} className="flex cursor-pointer items-center gap-2 rounded-control border border-gray-200 bg-surface p-3 text-sm text-gray-900">
+                        <input type="checkbox" className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" checked={branch.id === employee.branchId || workBranches.includes(branch.id)} disabled={processing || branch.id === employee.branchId} onChange={(e) => setData('work_branches', { [employee.id]: withToggled(workBranches, branch.id, e.target.checked) })} />{branch.name}{branch.id === employee.branchId && <span className="ms-auto text-xs text-gray-500">الفرع الإداري</span>}
+                    </label>)}</div>
+                    <p className="text-xs leading-6 text-gray-500">نسخ صلاحيات موظف آخر لا يغيّر فروع العمل هذه.</p>
+                    {errors.work_branches && <p className="text-sm text-red-600">{errors.work_branches}</p>}
+                </div>}
                 {auditOptions && <AuditAccessCard employee={employee} options={auditOptions} value={auditValue} enabled={auditEnabled} onEnabledChange={(checked) => setSelected(withToggled(selected, auditOptions.permissionId, checked))} onChange={setAudit} disabled={processing} />}
-                {auditOnly && <p className="mx-4 my-3 rounded-control border border-gray-100 bg-gray-50 px-4 py-3 text-sm leading-7 text-gray-600 sm:mx-5"><b className="text-gray-900">الصلاحيات التشغيلية مقفلة لدور المدقق.</b> استخدم بطاقة «عمل التدقيق المالي» لإدارة فروعه وإجراءاته. تغيير دوره يتم من صفحة الموظفين بواسطة السوبر أدمن.</p>}
                 {groups.length === 0 ? (
                     <div className="px-5 py-10 text-center text-sm text-gray-500">
                         <p>لا توجد صلاحيات تطابق البحث أو التصفية.</p>
@@ -852,10 +849,10 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                                 <h4 className="font-bold text-gray-900">{group.title}</h4>
                                 {group.hint && <span className="hidden text-xs text-gray-500 sm:inline">{group.hint}</span>}
                                 <span className="h-px flex-1 bg-gray-100" />
-                                <button type="button" onClick={() => setGroup(group, true)} disabled={processing || auditOnly} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
+                                <button type="button" onClick={() => setGroup(group, true)} disabled={processing} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
                                     عرض فقط للمجموعة
                                 </button>
-                                <button type="button" onClick={() => setGroup(group, false)} disabled={processing || auditOnly} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
+                                <button type="button" onClick={() => setGroup(group, false)} disabled={processing} className="rounded-lg px-2 py-0.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-900">
                                     إلغاء المجموعة
                                 </button>
                             </div>
@@ -867,8 +864,8 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                                         selected={selected}
                                         saved={saved}
                                         onChange={setSelected}
-                                        disabled={processing || auditOnly}
-                                        unavailableReason={auditOnly ? 'هذا الدور يستخدم بطاقة التدقيق المالي فقط.' : null}
+                                        disabled={processing}
+
                                         forceOpen={searching}
                                     />
                                 ))}
@@ -883,14 +880,14 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                         كل مستوى يشمل ما قبله، والخيارات الإضافية مستقلة عنه.{' '}
                         {scopedToOwnBranch
                             ? 'تظهر هنا الصلاحيات التي تملكها فقط، وتمنحها لموظفي فرعك؛ صلاحيات الفروع والمحافظات والمناطق يمنحها مدير النظام.'
-                            : 'مدير النظام يملك جميع الصلاحيات تلقائيًا، ومدير الفرع يدير صلاحيات موظفي فرعه مما يملكه هو.'}
+                            : 'السوبر أدمن يملك جميع الصلاحيات تلقائيًا. بقية الحسابات تعمل بالصلاحيات المحددة هنا؛ المسمى الوظيفي لا يمنح صلاحيات.'}
                     </p>
                 </div>
             </section>
 
             <div className="space-y-4 2xl:sticky 2xl:top-24">
-                {auditOptions && (auditOnly || auditEnabled) && <AuditWorkSummary employee={employee} options={auditOptions} value={auditValue} enabled={auditEnabled} />}
-                {!auditOnly && <PermissionSummary employee={employee} sections={sections} selected={selected} template={template} scopedToOwnBranch={scopedToOwnBranch} />}
+                {auditOptions && auditEnabled && <AuditWorkSummary employee={employee} options={auditOptions} value={auditValue} enabled={auditEnabled} />}
+                <PermissionSummary employee={employee} sections={sections} selected={selected} template={template} scopedToOwnBranch={scopedToOwnBranch} />
             </div>
 
             {/* Room at the end of the page, so the bar never hides the last section. */}
@@ -910,12 +907,12 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                     </p>
                 )}
                 <p className="flex flex-1 items-center gap-2 text-sm" role="status">
-                    <span className="flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-white px-2 font-display text-sm font-bold text-gray-900">{changes.length + auditChanges.length}</span>
+                    <span className="flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-white px-2 font-display text-sm font-bold text-gray-900">{changes.length + auditChanges.length + Number(workBranchesChanged)}</span>
                     تغييرات لم تُحفظ لـ {employee.name}
                 </p>
                 <button
                     type="button"
-                    onClick={() => { setSelected([...saved]); if (auditOptions) setAudit(savedAudit); }}
+                    onClick={() => { setSelected([...saved]); if (auditOptions) setAudit(savedAudit); if (workBranchOptions) setData('work_branches', { [employee.id]: [...savedWorkBranches] }); }}
                     disabled={processing || !dirty}
                     className="inline-flex items-center gap-1.5 rounded-control bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:opacity-40"
                 >
@@ -932,6 +929,7 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
                 <div role="dialog" aria-modal="true" aria-labelledby={`permission-review-${employee.id}`} dir="rtl" className="flex max-h-[90dvh] min-h-0 flex-col">
                     <div className="shrink-0 px-5 pb-4 pt-6 sm:px-7">
                         <h3 id={`permission-review-${employee.id}`} className="text-lg font-bold text-gray-900">مراجعة تغييرات الصلاحيات</h3>
+                        {workBranchesChanged && <div className="mt-3 rounded-control bg-amber-500/10 p-3 text-sm leading-7 text-gray-900"><b>تغيير فروع العمل الإضافية</b><p>قبل: {workBranchOptions?.filter((branch) => savedWorkBranches.includes(branch.id)).map((branch) => branch.name).join('، ') || 'لا توجد'}</p><p>بعد: {workBranchOptions?.filter((branch) => workBranches.includes(branch.id)).map((branch) => branch.name).join('، ') || 'لا توجد'}</p></div>}
                         <p className="mt-1 text-sm text-gray-500">
                             {changes.filter((item) => item.added).length} تُمنح · {changes.filter((item) => !item.added).length} تُلغى
                             {auditChanges.length > 0 && ` · ${auditChanges.length} تغييرات في عمل التدقيق`}
@@ -963,7 +961,7 @@ export function PermissionEditor({ employee, sections, templates, copySources, s
     );
 }
 
-export default function Permissions({ users, selectedUser, permissionGroups, roleTemplates, filters, filterOptions, scopedToOwnBranch, auditOptions = null }) {
+export default function Permissions({ users, selectedUser, permissionGroups, roleTemplates, filters, filterOptions, scopedToOwnBranch, auditOptions = null, workBranchOptions = null }) {
     const hasUnsavedChanges = useRef(false);
     const [selectedDirty, setSelectedDirty] = useState(false);
     const editorRef = useRef(null);
@@ -1068,9 +1066,10 @@ export default function Permissions({ users, selectedUser, permissionGroups, rol
                     {selectedUser ? (
                         <PermissionEditor
                             // A fresh editor per employee and per saved state, so the levels always start from what's stored.
-                            key={`${selectedUser.id}:${selectedUser.permissionIds.join(',')}:${JSON.stringify(selectedUser.auditSettings)}`}
+                            key={`${selectedUser.id}:${selectedUser.permissionIds.join(',')}:${JSON.stringify(selectedUser.auditSettings)}:${JSON.stringify(selectedUser.workBranchIds)}`}
                             employee={selectedUser}
                             auditOptions={auditOptions}
+                            workBranchOptions={workBranchOptions}
                             sections={sections}
                             templates={roleTemplates}
                             copySources={users.data.filter((user) => user.id !== selectedUser.id)}

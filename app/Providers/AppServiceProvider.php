@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\SmsSetting;
 use App\Models\SubscriptionTransaction;
 use App\Support\BranchClosingWorkflow;
+use App\Support\BranchDomainScope;
 use App\Support\BranchSettings;
 use App\Support\Messaging\HttpSmsGateway;
 use App\Support\Messaging\LogSmsGateway;
@@ -43,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        BranchDomainScope::register();
         SubscriptionTransaction::created(function (SubscriptionTransaction $payment): void {
             app(BranchClosingWorkflow::class)->capture($payment);
         });

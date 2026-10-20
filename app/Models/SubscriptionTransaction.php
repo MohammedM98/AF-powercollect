@@ -11,6 +11,8 @@ use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
 use App\Enums\TransactionAction;
 use App\Support\BranchClosingWorkflow;
+use App\Support\BranchDomainContext;
+use App\Support\BranchDomainScope;
 use Closure;
 use Database\Factories\SubscriptionTransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -568,11 +570,11 @@ class SubscriptionTransaction extends Model
             return null;
         }
 
-        return self::query()
+        return self::withoutGlobalScope(BranchDomainScope::class)
             ->where('active_reference', $normalized)
             ->when($ignoreTransactionId, fn (Builder $query): Builder => $query->whereKeyNot($ignoreTransactionId))
             ->when($ignoreSplitPaymentId, fn (Builder $query): Builder => $query->where(fn (Builder $other) => $other->whereNull('split_payment_id')->orWhere('split_payment_id', '!=', $ignoreSplitPaymentId)))
-            ->with('subscription')
+            ->with(['subscription' => fn (BelongsTo $query) => $query->withoutGlobalScope(BranchDomainScope::class)])
             ->first();
     }
 
@@ -587,6 +589,10 @@ class SubscriptionTransaction extends Model
 
     private static function referenceConflictException(self $conflict): ValidationException
     {
+        if (BranchDomainContext::id() !== null && $conflict->subscription->branch_id !== BranchDomainContext::id()) {
+            return ValidationException::withMessages(['reference_number' => 'هذا الرقم المرجعي مسجّل مسبقًا على دفعة أخرى.']);
+        }
+
         return ValidationException::withMessages([
             'reference_number' => sprintf(
                 'هذا الرقم المرجعي مسجَّل مسبقًا على دفعة أخرى%s للمشترك %s.',
@@ -653,7 +659,7 @@ class SubscriptionTransaction extends Model
             return [];
         }
 
-        if (! $actor->isSuperAdmin() && $this->subscription->branch_id !== $actor->branch_id) {
+        if (! $actor->isSuperAdmin() && $this->subscription->branch_id !== $actor->workBranchId()) {
             return [];
         }
 

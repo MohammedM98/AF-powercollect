@@ -15,7 +15,7 @@ class MeterBoxSubscriptionController extends Controller
         $this->authorize('viewAny', MeterBox::class);
         $this->authorize('viewAny', Subscription::class);
         $actor = $request->user();
-        abort_unless($actor->isSuperAdmin() || $meterBox->branch_id === $actor->branch_id, 404);
+        abort_unless($actor->isSuperAdmin() || $meterBox->branch_id === $actor->workBranchId(), 404);
 
         // The page loads these rows itself; opened directly in the browser, the boxes page is the place to see them.
         if (! $request->expectsJson()) {

@@ -315,7 +315,7 @@ class LedgerController extends Controller
     private function scopeLabel(Request $request, User $actor): string
     {
         if (! $actor->hasFinancialAuditAccess()) {
-            return $actor->branch?->name ?? '—';
+            return $actor->workBranch()?->name ?? '—';
         }
 
         $branchId = $this->filterValue($request, 'branch_id');

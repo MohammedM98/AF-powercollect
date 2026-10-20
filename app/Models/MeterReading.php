@@ -120,7 +120,7 @@ class MeterReading extends Model
      */
     public static function recentWeekOptionsFor(User $user, int $count = 8): array
     {
-        $branchIds = $user->isSuperAdmin() ? Branch::query()->orderBy('name')->pluck('id') : collect([$user->branch_id]);
+        $branchIds = $user->isSuperAdmin() ? Branch::query()->orderBy('name')->pluck('id') : collect([$user->workBranchId()]);
 
         return $branchIds->mapWithKeys(fn (?int $branchId): array => [$branchId => self::recentWeekOptions($branchId, $count)])->all();
     }

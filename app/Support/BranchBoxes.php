@@ -35,8 +35,8 @@ class BranchBoxes
     public function branch(Request $request, User $actor): array
     {
         $allBranches = $actor->isSuperAdmin() || BranchClosingAccess::audit($actor);
-        $branches = $allBranches ? $actor->scopeAuditBranches(Branch::query(), 'branches.id')->orderBy('name')->get(['id', 'name']) : Branch::query()->whereKey($actor->branch_id)->get(['id', 'name']);
-        $branchId = $allBranches ? ($request->integer('branch_id') ?: $branches->first()?->id) : $actor->branch_id;
+        $branches = $allBranches ? $actor->scopeAuditBranches(Branch::query(), 'branches.id')->orderBy('name')->get(['id', 'name']) : Branch::query()->whereKey($actor->workBranchId())->get(['id', 'name']);
+        $branchId = $allBranches ? ($request->integer('branch_id') ?: $branches->first()?->id) : $actor->workBranchId();
         $branch = $branches->firstWhere('id', $branchId);
         abort_unless($branch, 404);
 

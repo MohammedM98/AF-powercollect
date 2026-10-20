@@ -35,13 +35,13 @@ class UserController extends Controller
 
         $query = User::query()->visibleTo($actor)->with(['branch', 'userType']);
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
-        $this->applyDataTableFilterSelects($query, $request, ['role', 'is_active', 'branch_id']);
+        $this->applyDataTableFilterSelects($query, $request, ['user_type_id', 'is_active', 'branch_id']);
 
         $users = $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
             ->through(fn (User $user) => [
                 ...$this->editableFields($user),
-                'roleLabel' => __($user->role->label()),
+                'roleLabel' => $user->isSuperAdmin() ? __($user->role->label()) : ($user->userType?->name ?? 'موظف'),
                 'branchName' => $user->branch?->name,
                 'userTypeName' => $user->userType?->name,
                 'canUpdate' => $actor->can('update', $user),
@@ -55,7 +55,6 @@ class UserController extends Controller
             'canCreate' => $actor->can('create', User::class),
             'filters' => $this->dataTableState($request, 'name'),
             'filterOptions' => $this->filterOptions($actor),
-            'createRoleOptions' => $this->userRoleOptions(null),
             'tab' => $canViewUserTypes && $request->query('tab') === 'types' ? 'types' : 'users',
             'userTypes' => $canViewUserTypes ? $this->userTypeRows($actor) : null,
             'canCreateUserType' => $actor->can('create', UserType::class),
@@ -91,7 +90,6 @@ class UserController extends Controller
 
         return Inertia::render('Users/Create', [
             ...$this->userBranchOptions(),
-            'roleOptions' => $this->userRoleOptions(null),
         ]);
     }
 
@@ -102,12 +100,11 @@ class UserController extends Controller
     {
         $actor = auth()->user();
         $data = $request->validated();
+        $data['role'] = UserRole::Collector;
 
-        // A Branch Admin or a grantee of the "Add Users" permission may
-        // choose the new user's role (among the staff roles), but never
-        // their branch — force it regardless of what the request contains.
+        /** Non-Super-Admins can add employees only to their own branch. */
         if (! $actor->isSuperAdmin()) {
-            $data['branch_id'] = $actor->branch_id;
+            $data['branch_id'] = $actor->workBranchId();
         }
 
         $data['password'] = Hash::make($data['password']);
@@ -128,7 +125,6 @@ class UserController extends Controller
         return Inertia::render('Users/Edit', [
             'user' => $this->editableFields($user),
             ...$this->userBranchOptions(),
-            'roleOptions' => $this->userRoleOptions($user),
         ]);
     }
 
@@ -176,7 +172,7 @@ class UserController extends Controller
             'branch_id' => $user->branch_id,
             'is_active' => $user->is_active,
             'canUpdatePassword' => auth()->user()->can('updatePassword', $user),
-            'roleOptions' => $this->userRoleOptions($user),
+            'isSuperAdmin' => $user->isSuperAdmin(),
         ];
     }
 
@@ -190,7 +186,7 @@ class UserController extends Controller
     private function filterOptions(User $actor): array
     {
         $groups = [
-            $this->filterGroup('role', 'الدور', UserRole::options()),
+            $this->filterGroup('user_type_id', 'نوع المستخدم', UserType::query()->orderBy('name')->get()->map(fn (UserType $type): array => ['value' => (string) $type->id, 'label' => $type->name])->all()),
             $this->activeStatusFilterGroup(),
         ];
 

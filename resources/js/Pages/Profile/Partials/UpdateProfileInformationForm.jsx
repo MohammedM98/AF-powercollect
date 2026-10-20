@@ -27,7 +27,7 @@ export default function UpdateProfileInformationForm({ user }) {
                     <div className="pp-input"><input id="username" value={user.username} dir="ltr" disabled /></div>
                 </div>
                 <div className="pp-readonly">
-                    <div className="pp-readonly-box"><small><Icon name="lock" />الدور</small><b>{user.roleLabel}</b></div>
+                    <div className="pp-readonly-box"><small><Icon name="badge" />المسمى الوظيفي</small><b>{user.roleLabel}</b></div>
                     <div className="pp-readonly-box"><small><Icon name="lock" />الفرع</small><b>{user.branchName}</b></div>
                 </div>
                 <div className="pp-actions">

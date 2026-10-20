@@ -145,6 +145,10 @@
 .rh-pill.is-approved { color: var(--rh-success); background: color-mix(in srgb, var(--rh-success) 10%, transparent); border-color: color-mix(in srgb, var(--rh-success) 25%, transparent); }
 .rh-pill.is-approved i { box-shadow: 0 0 0 3px color-mix(in srgb, var(--rh-success) 20%, transparent); }
 .rh-pill.is-pending { color: var(--rh-warn); background: color-mix(in srgb, var(--rh-warn) 10%, transparent); border-color: color-mix(in srgb, var(--rh-warn) 25%, transparent); }
+.rh-pill-action { cursor: pointer; transition: box-shadow 150ms ease; }
+.rh-pill-action:hover:not(:disabled) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--rh-warn) 12%, transparent); }
+.rh-pill-action:focus-visible { outline: 2px solid var(--rh-warn); outline-offset: 3px; }
+.rh-pill-action:disabled { cursor: wait; opacity: .55; }
 .rh-header .rh-pill { font-size: 12px; padding: 1px 9px; }
 .rh-header .rh-pill.is-approved { color: #34d399; background: #34d3991a; border-color: #34d39944; }
 .rh-header .rh-pill.is-pending { color: #fbbf24; }

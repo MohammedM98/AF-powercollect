@@ -133,7 +133,7 @@ trait BuildsSubscriptionStatement
 
         return [
             'subscription' => [
-                'canPrint' => (! $actor->isFinancialAuditor() && ! $actor->hasFinancialAuditAccess()) || $actor->canAuditAction(AuditAction::PrintReports),
+                'canPrint' => (! $actor->hasFinancialAuditAccess()) || $actor->canAuditAction(AuditAction::PrintReports),
                 'id' => $subscription->id,
                 'fullName' => $subscription->displayName(),
                 'accountNumber' => $subscription->account_number,
@@ -492,7 +492,7 @@ trait BuildsSubscriptionStatement
             'accountNumber' => $transaction->subscription->account_number,
             'canCorrect' => $canCorrect,
             // May approve the corrected reading at once, instead of sending it back for approval.
-            'canApprove' => $actor->can('approveAny', MeterReading::class) && ($actor->isSuperAdmin() || $reading->branch_id === $actor->branch_id),
+            'canApprove' => $actor->can('approveAny', MeterReading::class) && ($actor->isSuperAdmin() || $reading->branch_id === $actor->workBranchId()),
             'correctUnavailableReason' => match (true) {
                 $canCorrect => null,
                 ! $isLatest => 'توجد قراءة لأسبوع لاحق',
@@ -505,8 +505,8 @@ trait BuildsSubscriptionStatement
     {
         return match ($field) {
             'amount' => 'المبلغ',
-            'bank_name' => 'البنك المحوّل له',
-            'sender_bank_name' => 'البنك المحوّل منه',
+            'bank_name' => 'البنك المستلم',
+            'sender_bank_name' => 'البنك المرسل',
             'sender_name' => 'اسم المرسل',
             'reference_number' => 'الرقم المرجعي',
             'notes' => 'الملاحظات',

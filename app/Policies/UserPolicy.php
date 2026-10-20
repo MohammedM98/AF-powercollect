@@ -3,7 +3,6 @@
 namespace App\Policies;
 
 use App\Enums\PermissionKey;
-use App\Enums\UserRole;
 use App\Models\User;
 
 class UserPolicy
@@ -34,7 +33,7 @@ class UserPolicy
             return true;
         }
 
-        return $this->hasBaseAccess($user) && $model->branch_id === $user->branch_id;
+        return $this->hasBaseAccess($user) && $model->branch_id === $user->workBranchId();
     }
 
     /**
@@ -61,8 +60,8 @@ class UserPolicy
         }
 
         return $user->hasPermission(PermissionKey::UpdateUsers)
-            && in_array($model->role, UserRole::staffRoles(), true)
-            && $model->branch_id === $user->branch_id;
+            && ! $model->isProtectedFromBranchManagement()
+            && $model->branch_id === $user->workBranchId();
     }
 
     /** Only administrators manage passwords; branch administrators manage their own staff. */
@@ -73,7 +72,7 @@ class UserPolicy
         }
 
         return ! $user->is($model)
-            && $user->isBranchAdmin()
+            && $user->hasPermission(PermissionKey::ManageUserPasswords)
             && $this->update($user, $model);
     }
 
@@ -92,8 +91,8 @@ class UserPolicy
         }
 
         return $user->hasPermission(PermissionKey::DeleteUsers)
-            && in_array($model->role, UserRole::staffRoles(), true)
-            && $model->branch_id === $user->branch_id;
+            && ! $model->isProtectedFromBranchManagement()
+            && $model->branch_id === $user->workBranchId();
     }
 
     /**

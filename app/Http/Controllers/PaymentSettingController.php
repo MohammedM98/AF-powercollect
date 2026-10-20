@@ -7,6 +7,7 @@ use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\ClosingSetting;
 use App\Models\CurrencyRate;
+use App\Support\BranchDomainContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,12 +21,12 @@ class PaymentSettingController extends Controller
         $this->authorize('manageAny', ClosingSetting::class);
         $request->validate(['branch' => ['nullable', 'integer']]);
         $actor = $request->user();
-        $branchId = $request->filled('branch') ? $request->integer('branch') : ($actor->isSuperAdmin() ? null : $actor->branch_id);
+        $branchId = $request->filled('branch') ? $request->integer('branch') : (BranchDomainContext::id() ?? ($actor->isSuperAdmin() ? null : $actor->workBranchId()));
         $branch = $branchId === null ? null : Branch::query()
-            ->when(! $actor->isSuperAdmin(), fn (Builder $query) => $query->whereKey($actor->branch_id))
+            ->when(! $actor->isSuperAdmin(), fn (Builder $query) => $query->whereKey($actor->workBranchId()))
             ->findOrFail($branchId);
         $this->authorize('manage', [ClosingSetting::class, $branch]);
-        $manageCatalog = $actor->can('manage', CurrencyRate::class) && $actor->can('manage', Bank::class);
+        $manageCatalog = BranchDomainContext::id() === null && $actor->can('manage', CurrencyRate::class) && $actor->can('manage', Bank::class);
 
         return Inertia::render('Settings/Payments', [
             'boxPeriod' => [

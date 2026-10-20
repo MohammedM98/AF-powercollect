@@ -154,12 +154,14 @@ class BranchBoxPeriodSettingsTest extends TestCase
     #[TestWith(['accountant'])]
     #[TestWith(['financialAuditor'])]
     #[TestWith(['collector'])]
-    public function test_the_grant_only_allows_branch_administrators_to_change_periods(string $role): void
+    public function test_the_individual_grant_allows_any_employee_to_change_only_their_branch_period(string $role): void
     {
         $user = User::factory()->{$role}()->withPermissions([PermissionKey::ManageBoxPeriods])->create();
 
-        $this->actingAs($user)->get(route('settings.payments.index'))->assertForbidden();
-        $this->put(route('settings.payments.update'), ['week_starts_on' => 1])->assertForbidden();
+        $this->actingAs($user)->get(route('settings.payments.index'))->assertOk();
+        $this->put(route('settings.payments.update'), ['week_starts_on' => 1])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('closing_settings', ['branch_id' => $user->branch_id, 'week_starts_on' => 1]);
+        $this->put(route('settings.payments.update'), ['week_starts_on' => 2, 'branch_id' => Branch::factory()->create()->id])->assertNotFound();
     }
 
     public function test_a_period_override_saved_before_the_first_payment_survives_automatic_box_startup(): void

@@ -33,7 +33,7 @@ class DisconnectionListPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermission(PermissionKey::ManageDisconnections) && ($user->isSuperAdmin() || $user->branch_id !== null);
+        return $user->hasPermission(PermissionKey::ManageDisconnections) && ($user->isSuperAdmin() || $user->workBranchId() !== null);
     }
 
     /**
@@ -64,6 +64,6 @@ class DisconnectionListPolicy
 
     private function inBranch(User $user, DisconnectionList $list): bool
     {
-        return $user->isSuperAdmin() || $list->branch_id === $user->branch_id;
+        return $user->isSuperAdmin() || $list->branch_id === $user->workBranchId();
     }
 }

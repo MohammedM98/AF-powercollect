@@ -483,7 +483,7 @@ class MeterReadingController extends Controller
      */
     private function entryWindow(User $actor): array
     {
-        $setting = ReadingEntrySetting::forBranch($actor->branch_id);
+        $setting = ReadingEntrySetting::forBranch($actor->workBranchId());
 
         return [
             'isOpen' => $setting->isOpen(),
@@ -574,7 +574,7 @@ class MeterReadingController extends Controller
     private function sheetBranchId(Request $request, User $actor): ?int
     {
         if (! $actor->isSuperAdmin()) {
-            return $actor->branch_id;
+            return $actor->workBranchId();
         }
 
         $chosen = $request->input('filter.branch_id');

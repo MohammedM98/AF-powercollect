@@ -178,7 +178,7 @@ class UserTypeTest extends TestCase
                 ->reloadOnly('userForm', fn ($reload) => $reload->where('userForm.userTypeOptions', $options)));
     }
 
-    public function test_a_user_can_be_created_with_a_custom_type_and_an_independent_permission_role(): void
+    public function test_a_user_can_be_created_with_a_job_title_and_no_automatic_permissions(): void
     {
         $actor = User::factory()->branchAdmin()->create();
         $type = UserType::factory()->create(['name' => 'كهربائي']);
@@ -188,7 +188,8 @@ class UserTypeTest extends TestCase
 
         $employee = User::where('username', 'new.employee')->sole();
         $this->assertSame($type->id, $employee->user_type_id);
-        $this->assertSame('data_entry', $employee->role->value);
+        $this->assertSame('collector', $employee->role->value);
+        $this->assertSame(0, $employee->permissions()->count());
         $this->assertSame($actor->branch_id, $employee->branch_id);
         $this->get(route('users.index', ['search' => 'new.employee']))->assertInertia(fn ($page) => $page
             ->where('users.data.0.userTypeName', 'كهربائي')->where('users.data.0.user_type_id', $type->id));
@@ -232,7 +233,7 @@ class UserTypeTest extends TestCase
         $this->assertDatabaseCount('notifications', 0);
     }
 
-    public function test_new_users_without_a_role_start_as_collectors_with_only_the_permission_to_take_payments(): void
+    public function test_new_users_start_without_permissions_until_they_are_assigned(): void
     {
         $actor = User::factory()->superAdmin()->create();
         $branch = Branch::factory()->create();
@@ -250,7 +251,7 @@ class UserTypeTest extends TestCase
         $this->assertSame('collector', $employee->role->value);
         $this->assertSame($type->id, $employee->user_type_id);
         $this->assertSame($branch->id, $employee->branch_id);
-        $this->assertEqualsCanonicalizing(['collections.record', 'collections.record_cash', 'collections.record_transfer'], $employee->permissions()->pluck('key')->all());
+        $this->assertSame([], $employee->permissions()->pluck('key')->all());
     }
 
     #[TestWith(['branch_admin'])]
@@ -293,7 +294,6 @@ class UserTypeTest extends TestCase
             'username' => 'new.employee',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'role' => 'data_entry',
         ];
     }
 }

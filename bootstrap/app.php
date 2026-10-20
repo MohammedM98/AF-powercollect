@@ -2,13 +2,16 @@
 
 use App\Http\Middleware\AuthenticateMobileToken;
 use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureBranchDomainAccess;
 use App\Http\Middleware\EnsureFinancialAuditorAccess;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ResolveBranchDomain;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Inertia\ExceptionResponse;
 use Inertia\Inertia;
 
@@ -25,7 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         // Every response, the API's and the error pages' too, carries the security headers.
         $middleware->append(SecurityHeaders::class);
+        $middleware->prepend(ResolveBranchDomain::class);
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnsureBranchDomainAccess::class);
         $middleware->web(append: [
+            EnsureBranchDomainAccess::class,
             EnsureAccountIsActive::class,
             EnsureFinancialAuditorAccess::class,
             HandleInertiaRequests::class,

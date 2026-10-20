@@ -80,14 +80,6 @@ class AdminManagedPasswordTest extends TestCase
         $target = User::factory()->collector()->create(['branch_id' => $branch->id]);
         $original = $target->password;
 
-        if ($role === UserRole::FinancialAuditor) {
-            $this->actingAs($actor)->get(route('users.edit', $target))->assertForbidden();
-            $this->put(route('users.update', $target), $this->passwordPayload($target))->assertForbidden();
-            $this->assertSame($original, $target->fresh()->password);
-
-            return;
-        }
-
         $this->actingAs($actor)->get(route('users.edit', $target))->assertInertia(fn (AssertableInertia $page) => $page
             ->where('user.canUpdatePassword', false));
         $this->put(route('users.update', $target), $this->passwordPayload($target))->assertForbidden();

@@ -102,7 +102,7 @@ class PaymentController extends Controller
                     'canAddClearing' => $actor->can('addClearing', $subscription),
                     'standingDiscount' => $canAddDiscounts ? $this->statementStandingDiscount($subscription->standingDiscount) : null,
                 ]),
-            'scopeLabel' => $actor->isSuperAdmin() ? 'كل الفروع' : ($actor->branch?->name ?? '—'),
+            'scopeLabel' => $actor->isSuperAdmin() ? 'كل الفروع' : ($actor->workBranch()?->name ?? '—'),
             'filters' => $this->dataTableState($request, 'display_name'),
             'filterOptions' => $this->filterOptions($actor, $request),
             ...$this->collectionCounts($actor),
@@ -159,7 +159,7 @@ class PaymentController extends Controller
 
         $started = $this->boxesStarted($actor);
         if ($started) {
-            $this->workflow->refresh($actor->branch_id);
+            $this->workflow->refresh($actor->workBranchId());
         }
         $type = in_array($request->query('type'), array_column(CashBoxType::cases(), 'value'), true) ? $request->query('type') : '';
         $state = in_array($request->query('state'), ['open', 'closed'], true) ? $request->query('state') : '';
@@ -172,7 +172,7 @@ class PaymentController extends Controller
 
         return Inertia::render('Payments/CashBoxes', [
             'started' => $started,
-            'branchName' => $actor->branch?->name,
+            'branchName' => $actor->workBranch()?->name,
             'boxes' => $boxes,
             'filters' => ['type' => $type, 'state' => $state, 'per_page' => $perPage],
             ...$this->collectionCounts($actor),
@@ -215,7 +215,7 @@ class PaymentController extends Controller
      */
     private function ownOpenEntries(User $actor): Builder
     {
-        return CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)->whereIn('status', ['open', 'pending']));
+        return CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $actor->workBranchId())->where('user_id', $actor->id)->whereIn('status', ['open', 'pending']));
     }
 
     /**
@@ -412,7 +412,7 @@ class PaymentController extends Controller
     {
         $this->authorize('viewOwnCashBoxes', Subscription::class);
         $actor = $request->user();
-        abort_unless($cashBox->user_id === $actor->id && $cashBox->branch_id === $actor->branch_id, 404);
+        abort_unless($cashBox->user_id === $actor->id && $cashBox->branch_id === $actor->workBranchId(), 404);
         $this->workflow->refresh($cashBox->branch_id);
         $cashBox->refresh()->loadCount(['payments' => fn ($entries) => $entries->visibleInBox()]);
         $entryQuery = $cashBox->payments()->visibleInBox()->with(['transaction.subscription:id,full_name,subscription_name,account_number', 'transaction.recordedBy:id,name'])
@@ -509,9 +509,9 @@ class PaymentController extends Controller
         $this->authorize('viewOwnCashBoxes', Subscription::class);
         $data = $request->validate(['body' => ['required', 'string', 'max:3000']]);
         $actor = $request->user();
-        abort_unless($actor->branch_id, 403);
+        abort_unless($actor->workBranchId(), 403);
 
-        $this->workflow->locked($actor->branch_id, function () use ($actor, $auditNote, $data): void {
+        $this->workflow->locked($actor->workBranchId(), function () use ($actor, $auditNote, $data): void {
             $this->workflow->collectorReply($this->waitingAuditNotes($actor)->findOrFail($auditNote), $actor, $data['body']);
         });
 
@@ -526,12 +526,12 @@ class PaymentController extends Controller
     private function waitingAuditNotes(User $actor): Builder
     {
         return AuditNote::query()->where('assigned_to', $actor->id)->where('status', 'with_collector')
-            ->whereHas('closing', fn (Builder $query) => $query->where('branch_id', $actor->branch_id));
+            ->whereHas('closing', fn (Builder $query) => $query->where('branch_id', $actor->workBranchId()));
     }
 
     private function ownBoxQuery(User $actor): Builder
     {
-        return CashBox::query()->where('branch_id', $actor->branch_id)->where('user_id', $actor->id)
+        return CashBox::query()->where('branch_id', $actor->workBranchId())->where('user_id', $actor->id)
             ->withCount(['payments' => fn ($entries) => $entries->visibleInBox()])->with(['payments.transaction:id,status', 'receivedBy:id,name', 'receivedIn:id,period_start,period_end'])->latest('id');
     }
 
@@ -544,7 +544,7 @@ class PaymentController extends Controller
     /** Whether the actor's branch keeps collector boxes yet. */
     private function boxesStarted(User $actor): bool
     {
-        return $actor->branch_id && ClosingSetting::ownFor($actor->branch_id)?->workflow_started_at !== null;
+        return $actor->workBranchId() && ClosingSetting::ownFor($actor->workBranchId())?->workflow_started_at !== null;
     }
 
     /**
@@ -573,10 +573,10 @@ class PaymentController extends Controller
     private function ownCashBoxes(User $actor, bool $includeRecentHistory = true): array
     {
         if (! $this->boxesStarted($actor)) {
-            return ['started' => false, 'branchName' => $actor->branch?->name, 'boxes' => [], 'current' => [], 'needsAction' => [], 'auditNotes' => [], 'debts' => []];
+            return ['started' => false, 'branchName' => $actor->workBranch()?->name, 'boxes' => [], 'current' => [], 'needsAction' => [], 'auditNotes' => [], 'debts' => []];
         }
 
-        $this->workflow->refresh($actor->branch_id);
+        $this->workflow->refresh($actor->workBranchId());
         $query = $this->ownBoxQuery($actor);
         $outstanding = (clone $query)->whereNull('confirmed_at')->get();
         $history = $includeRecentHistory ? (clone $query)->whereNotNull('confirmed_at')->limit(10)->get() : collect();
@@ -584,7 +584,7 @@ class PaymentController extends Controller
 
         return [
             'started' => true,
-            'branchName' => $actor->branch?->name,
+            'branchName' => $actor->workBranch()?->name,
             'boxes' => $rows->values()->all(),
             'current' => collect(CashBoxType::cases())->mapWithKeys(fn (CashBoxType $type): array => [$type->value => $rows->first(fn (array $box): bool => $box['type'] === $type->value && $box['status'] === 'open')])->all(),
             'needsAction' => $rows->filter(fn (array $box): bool => $box['stage'] === 'awaiting_confirmation')->values()->all(),
@@ -604,7 +604,7 @@ class PaymentController extends Controller
                     'box' => $note->box ? ['number' => $note->box->number, 'url' => route('payments.cash-boxes.show', $note->box)] : null,
                     'replyUrl' => route('payments.audit-notes.reply', $note),
                 ])->all(),
-            'debts' => CollectorDebt::query()->where('user_id', $actor->id)->where('branch_id', $actor->branch_id)->where('remaining', '>', 0)
+            'debts' => CollectorDebt::query()->where('user_id', $actor->id)->where('branch_id', $actor->workBranchId())->where('remaining', '>', 0)
                 ->with('box:id,number')->oldest('id')->get()->map(fn (CollectorDebt $debt): array => [
                     'id' => $debt->id,
                     'currency' => $debt->currency,
@@ -863,7 +863,7 @@ class PaymentController extends Controller
      */
     private function todaysPayments(User $actor): array
     {
-        $periods = ClosingPeriods::for($actor->branch_id);
+        $periods = ClosingPeriods::for($actor->workBranchId());
         $day = $periods->dayOf(now());
         [$from, $until] = $periods->utcRange($day, $day);
 

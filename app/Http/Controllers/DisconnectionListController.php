@@ -123,7 +123,7 @@ class DisconnectionListController extends Controller
         $actor = $request->user();
 
         $list = DisconnectionList::create([
-            'branch_id' => $actor->isSuperAdmin() ? $request->validated('branch_id') : $actor->branch_id,
+            'branch_id' => $actor->isSuperAdmin() ? $request->validated('branch_id') : $actor->workBranchId(),
             'title' => $request->validated('title'),
             'notes' => $request->validated('notes'),
             'created_by' => $actor->id,

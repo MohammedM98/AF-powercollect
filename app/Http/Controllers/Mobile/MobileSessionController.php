@@ -7,6 +7,7 @@ use App\Enums\PermissionKey;
 use App\Http\Controllers\Controller;
 use App\Models\Bank;
 use App\Models\CurrencyRate;
+use App\Models\MessageBatch;
 use App\Models\MeterReading;
 use App\Models\MobileAccessToken;
 use App\Models\Subscription;
@@ -83,6 +84,8 @@ class MobileSessionController extends Controller
             'can_record_readings' => $user->hasPermission(PermissionKey::RecordMeterReadings),
             'can_view_readings' => $user->can('viewAny', MeterReading::class),
             'can_record_collections' => $user->can('recordAnyPayment', Subscription::class),
+            'can_record_split_payments' => $user->can('recordSplitPayment', Subscription::class),
+            'can_send_messages' => $user->can('create', MessageBatch::class),
             // The ways the collector may take a payment (each is its own permission): the server refuses the others.
             'payment_methods' => array_map(fn (PaymentMethod $method): string => $method->value, $user->allowedPaymentMethods()),
             'transfer_banks' => Bank::receiverNames(),

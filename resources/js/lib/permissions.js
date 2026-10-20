@@ -20,7 +20,7 @@ const LADDERS = {
 };
 
 /** Sections whose everyday actions aren't a ladder (each is its own switch). */
-const NO_LADDER = ['reports'];
+const NO_LADDER = ['reports', 'financial_audit'];
 
 /**
  * The permissions set apart from the levels, keyed by action or by
@@ -29,12 +29,14 @@ const NO_LADDER = ['reports'];
  * service outright and must be acknowledged before they are saved.
  */
 export const SENSITIVE = {
+    'financial_audit.audit': { label: 'تفعيل التدقيق المالي', hint: 'يمنحها السوبر أدمن لأشخاص محددين، مع تحديد الفروع وإجراءات مراجعة البنك واعتماد الصناديق والفترات', risk: 'sensitive' },
+    'financial_audit.view_all_boxes': { label: 'عرض الصناديق المغلقة لجميع الفروع', hint: 'عرض فقط؛ لا يمنح تسجيل مبلغ البنك أو ترحيل فروق التدقيق أو اعتمادها', risk: 'sensitive' },
+    'print_templates.print_company_forms': { label: 'طباعة وأرشفة نماذج الشركة', hint: 'يصدر نماذج فارغة أو معبأة ويؤرشف الطلبات الورقية في فرعه؛ تخصيص القوالب يحتاج صلاحية الإدارة', risk: 'sensitive' },
     'branches.manage_domains': { label: 'إدارة روابط الفروع', hint: 'يربط دومينًا بفرع أو يوقفه من اللوحة المركزية؛ يحتاج ربط DNS وHTTPS في الاستضافة', risk: 'danger' },
-    'users.manage_permissions': { label: 'إدارة صلاحيات موظفي الفرع', hint: 'يدير صلاحيات موظفي فرعه ضمن الصلاحيات التي يملكها؛ المنح الإداري يبقى للسوبر أدمن', risk: 'danger' },
+    'users.manage_permissions': { label: 'إدارة صلاحيات موظفي الفرع', hint: 'يمنح ويسحب الصلاحيات المسموح بتفويضها والتي يملكها، لموظفي فرعه فقط. إضافة حساب موظف تحتاج خيار «إضافة المستخدمين»؛ تفويض إدارة الصلاحيات يبقى للسوبر أدمن', risk: 'danger' },
     'users.manage_passwords': { label: 'تغيير كلمات مرور موظفي الفرع', hint: 'يحتاج أيضًا صلاحية تعديل المستخدمين؛ لا يغيّر كلمة مرور مدير صلاحيات آخر', risk: 'danger' },
     'users.manage_branch_schedules': { label: 'إدارة مواعيد الفرع', hint: 'يضبط مواعيد إدخال القراءات لفرعه فقط', risk: 'sensitive' },
     'collections.manage_branch_closings': { label: 'إدارة واعتماد صناديق الفرع', hint: 'يدير تسليم صناديق فرعه واعتمادها وإعدادات المسؤولين عنها', risk: 'danger' },
-    'collections.view_all_boxes': { label: 'عرض الصناديق المالية لجميع الفروع', hint: 'عرض الصناديق المغلقة دون منح تعديل الحوالات أو اعتمادها أو عرض التقارير المالية', risk: 'sensitive' },
     delete: { label: 'الحذف', hint: 'يحذف ما لا يرتبط به شيء', risk: 'danger' },
     minimum_charge: { label: 'تعديل الحد الأدنى للدفع', hint: 'يغيّر الحد الأدنى الأسبوعي لمشترك', risk: 'sensitive' },
     kilowatt_price: { label: 'تعديل سعر الكيلو للمشترك', hint: 'يعطي المشترك سعرًا غير سعر تعرفته، أعلى أو أقل', risk: 'danger' },
@@ -47,10 +49,9 @@ export const SENSITIVE = {
     'meter_readings.correct': { label: 'تصحيح القراءة الأسبوعية', hint: 'يعدّل قراءة الأسبوع المتاح؛ المعتمدة تعود للاعتماد', risk: 'sensitive' },
     'meter_readings.correct_last': { label: 'تعديل القراءة السابقة واعتمادها', hint: 'من خانة «القراءة السابقة»؛ بعد التأكيد تُعتمد المعتمدة منهما مباشرة', risk: 'sensitive' },
     'subscriptions.bulk_update': { label: 'تعديل المشتركين جماعيًا', hint: 'الحالة أو الحد الأدنى لمجموعة، مع صلاحية تعديل الحقل نفسه', risk: 'sensitive' },
-    'collections.amend': { label: 'تعديل بيانات الدفعة', hint: 'البنك والمرسل والملاحظات؛ لا يغيّر المبلغ أو رقم المرجع', risk: 'sensitive' },
+    'collections.amend': { label: 'تعديل بيانات الدفعة', hint: 'البنك والمرسل والرقم المرجعي والملاحظات؛ لا يغيّر المبلغ', risk: 'sensitive' },
     'collections.close_boxes': { label: 'إغلاق صناديق المحصّلين', hint: 'يراجع صناديق محصّلي الفرع ويؤكّد إغلاقها؛ لا صناديقه هو', risk: 'sensitive' },
     'collections.manage_box_periods': { label: 'تعديل بداية فترات الصناديق', hint: 'يمنحها المدير العام لمسؤول الفرع لتعديل يوم بداية فترات فرعه فقط', risk: 'sensitive' },
-    'collections.audit': { label: 'التدقيق المالي', hint: 'يمنحها السوبر أدمن؛ الفروع والإجراءات محددة في بطاقة «عمل التدقيق المالي» أعلاه', risk: 'sensitive' },
     'collections.refund': { label: 'ردّ الدفعة', hint: 'يردّ المبلغ بقيد مرتبط؛ تبقى الدفعة وسجل الردّ ظاهرين', risk: 'danger' },
     'collections.delete': { label: 'إلغاء الحركات المالية', hint: 'إلغاء حركة بقيد عكسي، وتبقى ظاهرة في الكشف', risk: 'danger' },
     'collections.force_delete': { label: 'الحذف النهائي للحركة', hint: 'يحذفها من الكشف مع الاحتفاظ بسجل تدقيق؛ لا يحذف القراءة', risk: 'danger' },
@@ -76,7 +77,7 @@ const EXTRA_GROUPS = {
         ['طرق الدفع المسموحة', ['record_cash', 'record_transfer']],
         ['حركات على الرصيد', ['charge', 'discount', 'clearing']],
         ['تصحيح الحركات', ['amend', 'correct', 'refund', 'delete', 'force_delete']],
-        ['الصناديق', ['close_boxes', 'manage_box_periods', 'confirm', 'audit']],
+        ['الصناديق', ['close_boxes', 'manage_box_periods', 'confirm']],
     ],
     reading_assignments: [['الطباعة', ['print_sheets']], ['الاعتماد والمراجعة', ['approve', 'review']]],
     disconnections: [['التنفيذ', ['warn', 'execute', 'change_fee']]],
@@ -173,6 +174,7 @@ export function sectionModel(group) {
     return {
         key: group.key,
         label: group.label,
+        permissions: available.map(({ action, permission }) => ({ ...permission, action })),
         ladder: ladderEntries.length
             ? {
                   ids: ladderEntries.map((entry) => entry.permission.id),

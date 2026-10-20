@@ -14,11 +14,30 @@ use App\Models\SubscriptionMessage;
 use App\Support\Messaging\MessageComposer;
 use App\Support\Messaging\SmsGateway;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class MobileSubscriberMessageController extends Controller
 {
+    public function index(Request $request, SmsGateway $gateway): JsonResponse
+    {
+        $this->authorize('create', MessageBatch::class);
+        $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
+        $subscribers = Subscription::query()->visibleTo($request->user())
+            ->matchingSearch(trim($validated['search'] ?? ''))->orderBy('full_name')->orderBy('id')
+            ->paginate(25, ['id', 'full_name', 'subscription_name', 'account_number', 'phone', 'subscription_phone']);
+
+        return response()->json([
+            'data' => $subscribers->getCollection()->map(fn (Subscription $subscriber): array => [
+                'id' => $subscriber->id, 'full_name' => $subscriber->displayName(),
+                'account_number' => $subscriber->account_number, 'phone' => $subscriber->contactPhone(),
+            ]),
+            'current_page' => $subscribers->currentPage(), 'last_page' => $subscribers->lastPage(),
+            'total' => $subscribers->total(), 'sms_available' => $gateway->deliversMessages(),
+        ]);
+    }
+
     public function store(StoreMobileSubscriberMessageRequest $request, string $subscription, MessageComposer $composer, SmsGateway $gateway): JsonResponse
     {
         $subscription = Subscription::query()->visibleTo($request->user())

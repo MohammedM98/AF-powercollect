@@ -4,6 +4,7 @@ import 'api_client.dart';
 import 'app_balance.dart';
 import 'app_identity.dart';
 import 'payment_page.dart';
+import 'split_payment_page.dart';
 import 'subscriber_history_page.dart';
 import 'subscriber_message_page.dart';
 
@@ -15,6 +16,7 @@ class SubscriberPage extends StatefulWidget {
       {required this.api,
       required this.subscriber,
       this.transferBanks = defaultTransferBanks,
+      this.senderBanks = const [],
       this.paymentMethods = const ['cash', 'bank_transfer'],
       super.key});
   final ApiClient api;
@@ -22,6 +24,7 @@ class SubscriberPage extends StatefulWidget {
   /// The subscriber as the search listed them, shown until their page loads.
   final Map<String, dynamic> subscriber;
   final List<String> transferBanks;
+  final List<String> senderBanks;
   final List<String> paymentMethods;
   @override
   State<SubscriberPage> createState() => _SubscriberPageState();
@@ -45,6 +48,7 @@ class _SubscriberPageState extends State<SubscriberPage> {
       : widget.paymentMethods;
   bool get canRecordPayment =>
       permissions['record_payment'] as bool? ?? paymentMethods.isNotEmpty;
+  bool get canRecordSplitPayment => permissions['record_split_payment'] == true;
   Map<String, dynamic>? get lastReading => details?['last_reading'] is Map
       ? Map<String, dynamic>.from(details!['last_reading'] as Map)
       : null;
@@ -86,6 +90,20 @@ class _SubscriberPageState extends State<SubscriberPage> {
   }
 
   void close() => Navigator.pop(context, recordedAny);
+
+  Future<void> recordSplitPayment() async {
+    if (!canRecordSplitPayment) return;
+    final recorded = await Navigator.of(context).push<bool>(MaterialPageRoute(
+        builder: (_) => SplitPaymentPage(
+            api: widget.api,
+            subscriber: subscriber,
+            transferBanks: widget.transferBanks,
+            senderBanks: widget.senderBanks)));
+    if (!mounted || recorded != true) return;
+    recordedAny = true;
+    showAppToast(context, 'سُجلت الحوالة المقسّمة لجميع الاشتراكات.');
+    await load();
+  }
 
   @override
   Widget build(BuildContext context) => PopScope(
@@ -239,7 +257,14 @@ class _SubscriberPageState extends State<SubscriberPage> {
           'حالة الاشتراك',
           status
         ),
-      if (text(subscriber['accounting_type_label']) case final type?)
+      if ((switch (
+              '${subscriber['accounting_type'] ?? subscriber['accounting_type_label'] ?? ''}'
+                  .toLowerCase()) {
+        'weekly' => 'أسبوعي',
+        'monthly' => 'شهري',
+        _ => text(subscriber['accounting_type_label']),
+      })
+          case final type?)
         ('sync', 'نوع المحاسبة', type),
       if (text(subscriber['subscription_date']) case final date?)
         ('calendar', 'تاريخ الاشتراك', date),
@@ -273,6 +298,16 @@ class _SubscriberPageState extends State<SubscriberPage> {
     final hasPhone = text(subscriber['phone']) != null;
     final enabled = canSend && available && hasPhone;
     return AppRows(children: [
+      AppRow(
+          key: const ValueKey('subscriber-split-payment'),
+          leading: detailIcon('cash', muted: !canRecordSplitPayment),
+          title: const AppRowTitle('تسجيل دفعة مقسّمة'),
+          subtitle: AppRowNote(canRecordSplitPayment
+              ? 'حوالة واحدة توزّع على عدة اشتراكات'
+              : 'تحتاج صلاحية تسجيل دفعة بتحويل بنكي'),
+          trailing: AppIcon(canRecordSplitPayment ? 'chev' : 'lock',
+              size: 18, color: AppIdentity.faint),
+          onTap: canRecordSplitPayment ? recordSplitPayment : null),
       AppRow(
           key: const ValueKey('subscriber-financial-history'),
           leading: detailIcon('hist'),

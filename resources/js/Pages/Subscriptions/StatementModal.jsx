@@ -98,6 +98,7 @@ export default function StatementModal({ subscription, statement, initialForm = 
                             {statement && (
                                 <StatementActions
                                     canRecordPayment={statement.canRecordPayment}
+                                    canRecordSplitPayment={statement.canRecordSplitPayment}
                                     canAddCharge={statement.canAddCharge}
                                     canAddDiscount={statement.canAddDiscount}
                                     canAddClearing={statement.canAddClearing}
@@ -136,6 +137,7 @@ export default function StatementModal({ subscription, statement, initialForm = 
                                     onSelect={onSwitch}
                                 />
                                 <AccountStatement
+                                    key={statement.subscription.id}
                                     subscription={statement.subscription}
                                     entries={statement.entries}
                                     summary={statement.summary}

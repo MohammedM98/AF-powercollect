@@ -12,7 +12,7 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import { useDataTable } from '@/hooks/useDataTable';
 import { timeAgo } from '@/lib/format';
 
-const FIELD_ICONS = { minimum_charge: 'wallet', status: 'flag' };
+const FIELD_ICONS = { minimum_charge: 'wallet', status: 'flag', meter_box_id: 'grid' };
 
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' });
 

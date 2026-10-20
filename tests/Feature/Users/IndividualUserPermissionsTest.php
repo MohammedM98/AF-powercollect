@@ -50,6 +50,35 @@ class IndividualUserPermissionsTest extends TestCase
         $this->assertFalse($employee->fresh()->can('manage', Permission::class));
     }
 
+    public function test_a_delegated_manager_can_add_an_employee_then_grant_and_revoke_their_work_permission(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $manager = User::factory()->collector()->create();
+        $manager->permissions()->sync([]);
+        $delegated = Permission::idsFor([PermissionKey::CreateUsers, PermissionKey::ManagePermissions, PermissionKey::ViewSubscriptions]);
+        $viewSubscriptions = Permission::query()->where('key', PermissionKey::ViewSubscriptions->value)->sole();
+
+        $this->actingAs($admin)->put(route('settings.permissions.update'), ['permissions' => [$manager->id => $delegated]])->assertSessionHasNoErrors();
+        $this->actingAs($manager->fresh())->get(route('users.index'))->assertInertia(fn ($page) => $page->where('canCreate', true)->where('can.manageSettings', true));
+        $this->post(route('users.store'), [
+            'name' => 'موظف الفرع', 'username' => 'delegated.employee',
+            'password' => 'Tulip2026ab', 'password_confirmation' => 'Tulip2026ab',
+        ])->assertSessionHasNoErrors()->assertRedirect(route('users.index'));
+        $employee = User::query()->where('username', 'delegated.employee')->sole();
+        $this->assertSame($manager->branch_id, $employee->branch_id);
+        $this->assertSame(0, $employee->permissions()->count());
+
+        $this->put(route('settings.permissions.update'), ['permissions' => [$employee->id => [$viewSubscriptions->id]]])->assertSessionHasNoErrors();
+        $this->actingAs($employee->fresh())->get(route('subscriptions.index'))->assertOk();
+        $this->actingAs($manager->fresh())->put(route('settings.permissions.update'), ['permissions' => [$employee->id => []]])->assertSessionHasNoErrors();
+        $this->assertSame(0, $employee->permissions()->count());
+        $this->actingAs($employee->fresh())->get(route('subscriptions.index'))->assertForbidden();
+
+        $this->actingAs($admin)->put(route('settings.permissions.update'), ['permissions' => [$manager->id => Permission::idsFor([PermissionKey::CreateUsers])]])->assertSessionHasNoErrors();
+        $this->actingAs($manager->fresh())->get(route('users.index'))->assertInertia(fn ($page) => $page->where('canCreate', true)->where('can.manageSettings', false));
+        $this->put(route('settings.permissions.update'), ['permissions' => [$employee->id => [$viewSubscriptions->id]]])->assertForbidden();
+    }
+
     public function test_account_edits_cannot_elevate_a_system_role(): void
     {
         $employee = User::factory()->collector()->create();

@@ -19,8 +19,7 @@ class AuditTransferSearch
 
         return CashBoxPayment::query()
             ->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branchId)->where('status', 'received')->where('type', 'bank_transfer')
-                ->whereRaw('COALESCE(received_at, closed_at, opened_at) >= ?', [$from->utc()])
-                ->whereRaw('COALESCE(received_at, closed_at, opened_at) < ?', [$from->addWeek()->utc()]))
+                ->inClosingWeek($from))
             ->whereHas('transaction', fn (Builder $payment) => $payment->where('type', SubscriptionTransaction::TYPE_PAYMENT)->where('status', SubscriptionTransaction::STATUS_ACTIVE)->whereNull('cancelled_at'));
     }
 

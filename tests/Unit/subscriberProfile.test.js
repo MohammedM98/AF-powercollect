@@ -61,7 +61,7 @@ function renderProfile(subscription = {}, options = {}) {
 }
 
 test('profile preserves separate personal and subscription identities and displays a zero reading', () => {
-    const html = renderProfile({ phone: '0591111111', subscription_phone: '0562222222', contact_phone: '0562222222' });
+    const html = renderProfile({ phone: '0591111111', subscription_phone: '0562222222', contact_phone: '0562222222', meterBoxName: 'طبلون السوق أ', meterBoxNumber: '068754' });
 
     assert.match(html, /اشتراك المتجر/);
     assert.match(html, /صاحب المتجر/);
@@ -70,6 +70,8 @@ test('profile preserves separate personal and subscription identities and displa
     assert.match(html, /رقم الجوال<\/dt><dd[^>]*><span[^>]*>0591111111<\/span>/);
     assert.match(html, /جوال الاشتراك<\/dt><dd[^>]*><span[^>]*>0562222222<\/span>/);
     assert.match(html, /القراءة الأولى<\/dt><dd[^>]*><span[^>]*>0<\/span>/);
+    assert.match(html, /اسم الطبلون<\/dt><dd[^>]*><span[^>]*>طبلون السوق أ<\/span>/);
+    assert.match(html, /رقم الطبلون<\/dt><dd[^>]*><span[^>]*>068754<\/span>/);
     assert.match(html, /لا توجد قراءات مسجلة بعد/);
 });
 
@@ -77,6 +79,7 @@ test('profile hides unavailable actions and disables navigation at list boundari
     const html = renderProfile();
 
     assert.doesNotMatch(html, /تسجيل دفعة|تعديل البيانات|إرسال SMS/);
+    assert.doesNotMatch(html, /سجل الرسائل/);
     assert.doesNotMatch(html, /aria-label="تسجيل قراءة"/);
     assert.match(html, /<button[^>]*disabled=""[^>]*aria-label="المشترك السابق"/);
     assert.match(html, /<button[^>]*disabled=""[^>]*aria-label="المشترك التالي"/);
@@ -87,12 +90,13 @@ test('profile offers permitted actions but disables a reading already recorded t
         canRecordPayment: true, canRecordReading: true,
         meterReadings: [{ weekStart: '2026-09-25', weekEnd: '2026-10-01', consumption: 0, discountAmount: 0, amountDue: 0 }],
     }, {
-        canUpdate: true, onSendMessage() {}, onNext() {}, readingWeekOptions: [{ value: '2026-09-25' }],
+        canUpdate: true, onSendMessage() {}, onMessageHistory() {}, onNext() {}, readingWeekOptions: [{ value: '2026-09-25' }],
     });
 
     assert.match(html, /تسجيل دفعة/);
     assert.match(html, /تعديل البيانات/);
     assert.match(html, /aria-label="إرسال SMS"/);
+    assert.match(html, /سجل الرسائل/);
     assert.match(html, /<button[^>]*disabled=""[^>]*aria-label="تم إدخال قراءة هذا الأسبوع"/);
     assert.doesNotMatch(html, /<button[^>]*disabled=""[^>]*aria-label="المشترك التالي"/);
 });
@@ -163,8 +167,23 @@ test('account opens compact, leaving out a cancelled line and its reversal, and 
     assert.doesNotMatch(html, /القراءة الخاطئة|عكس القراءة/);
     assert.match(html, /صُحّحت · 2 حركات سابقة/);
     assert.match(html, /أُخفيت 2 حركة ملغاة/);
-    assert.match(html, /aria-pressed="true"[^>]*>عرض مختصر/);
+    assert.match(html, /aria-pressed="true"[^>]*>(?:(?!<\/button>)[\s\S])*عرض مختصر/);
     assert.match(html, /كل الحركات/);
+});
+
+test('opening the account ignores a previously saved full view preference', () => {
+    const previous = globalThis.window;
+    globalThis.window = { localStorage: { getItem: () => 'full' } };
+    try {
+        const html = renderToStaticMarkup(createElement(AccountTab, {
+            statement: { summary: { balance: 0, charged: 0, paid: 0, discounted: 0 }, entries: [] },
+        }));
+
+        assert.match(html, /aria-pressed="true"[^>]*>(?:(?!<\/button>)[\s\S])*عرض مختصر/);
+        assert.match(html, /aria-pressed="false"[^>]*>(?:(?!<\/button>)[\s\S])*كل الحركات/);
+    } finally {
+        globalThis.window = previous;
+    }
 });
 
 test('account colours a weekly reading and its discount alike, and a line on its own not at all', () => {

@@ -5,6 +5,7 @@ use App\Http\Controllers\Mobile\MobileCollectionController;
 use App\Http\Controllers\Mobile\MobileReadingAssignmentController;
 use App\Http\Controllers\Mobile\MobileReadingController;
 use App\Http\Controllers\Mobile\MobileSessionController;
+use App\Http\Controllers\Mobile\MobileSplitPaymentController;
 use App\Http\Controllers\Mobile\MobileSubscriberMessageController;
 use App\Http\Controllers\Mobile\MobileSubscriptionController;
 use Illuminate\Support\Facades\Route;
@@ -15,6 +16,7 @@ Route::prefix('mobile')->name('mobile.')->group(function (): void {
     Route::middleware('mobile.auth')->group(function (): void {
         Route::get('/me', [MobileSessionController::class, 'show'])->name('me');
         Route::post('/logout', [MobileSessionController::class, 'destroy'])->name('logout');
+        Route::get('/messages/subscriptions', [MobileSubscriberMessageController::class, 'index'])->name('messages.subscriptions');
         Route::get('/subscriptions', [MobileSubscriptionController::class, 'index'])->name('subscriptions.index');
         Route::post('/readings', [MobileReadingController::class, 'store'])->name('readings.store');
         Route::get('/readings', [MobileReadingController::class, 'index'])->name('readings.index');
@@ -31,5 +33,6 @@ Route::prefix('mobile')->name('mobile.')->group(function (): void {
         Route::post('/cash-boxes/{action}/{record}', [MobileCashBoxController::class, 'action'])->whereNumber('record')->name('cash-boxes.actions');
         Route::post('/audit-notes/{note}/reply', [MobileCashBoxController::class, 'reply'])->whereNumber('note')->name('audit-notes.reply');
         Route::post('/collections', [MobileCollectionController::class, 'store'])->name('collections.store');
+        Route::post('/split-payments', [MobileSplitPaymentController::class, 'store'])->name('split-payments.store');
     });
 });

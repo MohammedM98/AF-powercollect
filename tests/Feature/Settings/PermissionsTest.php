@@ -7,6 +7,7 @@ use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\Permission;
+use App\Models\Subscription;
 use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Database\Events\QueryExecuted;
@@ -137,7 +138,7 @@ class PermissionsTest extends TestCase
         $response = $this->actingAs($superAdmin)->get(route('settings.permissions.edit'));
 
         $response->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => collect($groups)->pluck('key')->all() === [
-            'subscriptions', 'meter_boxes', 'circuit_breakers', 'tariffs', 'meter_readings', 'reading_assignments', 'collections', 'reports',
+            'subscriptions', 'meter_boxes', 'circuit_breakers', 'tariffs', 'meter_readings', 'reading_assignments', 'collections', 'financial_audit', 'reports',
             'disconnections', 'messages', 'print_templates', 'users', 'user_types', 'branches', 'governorates', 'areas', 'sub_areas',
         ]));
     }
@@ -151,7 +152,7 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect($groups)
-                ->reject(fn (array $group): bool => in_array($group['key'], ['meter_readings', 'reading_assignments', 'collections', 'reports', 'disconnections', 'messages', 'print_templates'], true))
+                ->reject(fn (array $group): bool => in_array($group['key'], ['meter_readings', 'reading_assignments', 'collections', 'financial_audit', 'reports', 'disconnections', 'messages', 'print_templates'], true))
                 ->every(fn (array $group): bool => collect($group['actions'])->contains('action', 'delete')),
         ));
     }
@@ -165,7 +166,7 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect(collect($groups)->firstWhere('key', 'collections')['actions'])->pluck('action')->all() === [
-                'view', 'record', 'record_cash', 'record_transfer', 'close_boxes', 'manage_box_periods', 'manage_branch_closings', 'view_all_boxes', 'audit', 'confirm', 'charge', 'discount', 'clearing', 'correct', 'amend', 'refund', 'delete', 'force_delete',
+                'view', 'record', 'record_cash', 'record_transfer', 'close_boxes', 'manage_box_periods', 'manage_branch_closings', 'confirm', 'charge', 'discount', 'clearing', 'correct', 'amend', 'refund', 'delete', 'force_delete',
             ],
         ));
     }
@@ -180,6 +181,30 @@ class PermissionsTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $reportActions($groups) === ['view', 'view_all', 'branch_performance', 'debt_aging', 'transaction_audit', 'export']));
         $this->actingAs($branchAdmin)->get(route('settings.permissions.edit'))
             ->assertInertia(fn ($page) => $page->where('permissionGroups', fn ($groups): bool => $reportActions($groups) === ['view', 'branch_performance', 'debt_aging', 'transaction_audit', 'export']));
+    }
+
+    public function test_financial_audit_is_a_separate_super_admin_delegation_and_does_not_grant_payment_entry(): void
+    {
+        $this->seedPermissions();
+        $admin = User::factory()->superAdmin()->create();
+        $employee = User::factory()->collector()->withPermissions([])->create();
+        $audit = Permission::query()->where('key', PermissionKey::AuditClosings->value)->sole();
+
+        $this->actingAs($admin)->get(route('settings.permissions.edit', ['selected' => $employee->id]))->assertInertia(fn ($page) => $page
+            ->where('selectedUser.auditSettingsConfigured', false)
+            ->where('permissionGroups', fn ($groups): bool => collect(collect($groups)->firstWhere('key', 'financial_audit')['actions'])->pluck('permission.key')->all() === ['closings.audit', 'closings.view_all']));
+        $this->put(route('settings.permissions.update'), [
+            'permissions' => [$employee->id => [$audit->id]],
+            'audit_settings' => [$employee->id => ['scope' => 'selected', 'branch_ids' => [$employee->branch_id], 'actions' => ['review_transfers']]],
+        ])->assertSessionHasNoErrors();
+        $employee = $employee->fresh();
+        $this->assertTrue($employee->hasFinancialAuditAccess());
+        $this->assertFalse($employee->can('recordAnyPayment', Subscription::class));
+        $this->assertSame(['review_transfers'], $employee->auditSettings()['actions']);
+
+        $manager = User::factory()->branchAdmin()->create();
+        $this->actingAs($manager)->get(route('settings.permissions.edit'))->assertInertia(fn ($page) => $page
+            ->where('permissionGroups', fn ($groups): bool => ! collect($groups)->contains('key', 'financial_audit')));
     }
 
     public function test_branch_admin_does_not_see_company_wide_permissions_on_the_permissions_page(): void

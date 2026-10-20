@@ -6,6 +6,7 @@ use App\Enums\SubscriptionStatus;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Concerns\FiltersSubscriptionList;
 use App\Http\Requests\ApplySubscriptionBulkChangeRequest;
+use App\Models\MeterBox;
 use App\Models\Subscription;
 use App\Models\SubscriptionBulkChange;
 use App\Models\SubscriptionBulkChangeItem;
@@ -17,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -77,12 +79,19 @@ class SubscriptionBulkChangeController extends Controller
     {
         $actor = $request->user();
         $field = $request->validated('field');
+        if ($field === 'meter_box_id') {
+            return $this->moveMeterBoxes($request, $actor);
+        }
         $byCircuitBreaker = $field === 'minimum_charge' && $request->validated('mode') === 'circuit_breaker';
 
         $subscriptions = $this->chosenSubscriptions($request, $actor)->with('circuitBreaker')->limit(ApplySubscriptionBulkChangeRequest::MAX_SUBSCRIPTIONS + 1)->get();
 
         if ($subscriptions->count() > ApplySubscriptionBulkChangeRequest::MAX_SUBSCRIPTIONS) {
             return back()->withErrors(['ids' => 'يمكن تعديل '.ApplySubscriptionBulkChangeRequest::MAX_SUBSCRIPTIONS.' مشترك على الأكثر في المرة الواحدة؛ ضيّق الفلاتر.']);
+        }
+
+        if ($request->has('expected_count') && $subscriptions->count() !== (int) $request->validated('expected_count')) {
+            return back()->withErrors(['ids' => 'تغيّرت النتائج المطابقة منذ تحديدها. حدّث الصفحة وحدّد الاشتراكات مجددًا قبل التطبيق.']);
         }
 
         $changes = $subscriptions
@@ -164,6 +173,10 @@ class SubscriptionBulkChangeController extends Controller
         abort_unless(SubscriptionBulkChange::query()->visibleTo($actor)->whereKey($change->id)->exists(), 404);
         $this->authorize('bulkUpdate', [Subscription::class, $change->field]);
 
+        if ($change->field === 'meter_box_id') {
+            return $this->undoMeterBoxMove($change, $actor);
+        }
+
         if ($change->isUndone()) {
             return back()->withErrors(['undo' => 'تم التراجع عن هذا التعديل من قبل.']);
         }
@@ -203,6 +216,93 @@ class SubscriptionBulkChangeController extends Controller
             : $query->whereIn('subscriptions.id', $request->validated('ids'));
     }
 
+    private function moveMeterBoxes(ApplySubscriptionBulkChangeRequest $request, User $actor): RedirectResponse
+    {
+        $bulkChange = DB::transaction(function () use ($request, $actor): SubscriptionBulkChange {
+            $target = MeterBox::query()->visibleTo($actor)->lockForUpdate()->find($request->validated('value'));
+            if ($target === null) {
+                throw ValidationException::withMessages(['value' => 'اختر طبلونًا متاحًا ضمن فرع الاشتراكات المحددة.']);
+            }
+
+            $subscriptions = $this->chosenSubscriptions($request, $actor)
+                ->orderBy('subscriptions.id')->limit(ApplySubscriptionBulkChangeRequest::MAX_SUBSCRIPTIONS + 1)->lockForUpdate()->get();
+
+            if ($subscriptions->isEmpty() || $subscriptions->count() > ApplySubscriptionBulkChangeRequest::MAX_SUBSCRIPTIONS
+                || $subscriptions->count() !== (int) $request->validated('expected_count')
+                || (! $request->boolean('all') && $subscriptions->count() !== count(array_unique($request->validated('ids'))))) {
+                throw ValidationException::withMessages(['ids' => 'تغيّرت الاشتراكات المحددة أو تعذّر الوصول إليها. حدّد من 1 إلى 5,000 اشتراك متاح وأعد المراجعة.']);
+            }
+
+            if ($subscriptions->contains(fn (Subscription $subscription): bool => $subscription->branch_id !== $target->branch_id)) {
+                throw ValidationException::withMessages(['value' => 'النقل متاح داخل الفرع نفسه فقط. اختر اشتراكات وطبلونًا من الفرع نفسه.']);
+            }
+
+            $changes = $subscriptions->filter(fn (Subscription $subscription): bool => $subscription->meter_box_id !== $target->id);
+            if ($changes->isEmpty()) {
+                throw ValidationException::withMessages(['ids' => 'كل الاشتراكات المحددة موجودة في هذا الطبلون بالفعل.']);
+            }
+
+            $bulkChange = SubscriptionBulkChange::create([
+                'field' => 'meter_box_id',
+                'value' => (string) $target->id,
+                'description' => 'نقل إلى الطبلون ← '.$target->label(),
+                'branch_id' => $target->branch_id,
+                'user_id' => $actor->id,
+                'changed_count' => $changes->count(),
+            ]);
+
+            foreach ($changes->chunk(250) as $chunk) {
+                SubscriptionBulkChangeItem::insert($chunk->map(fn (Subscription $subscription): array => [
+                    'subscription_bulk_change_id' => $bulkChange->id,
+                    'subscription_id' => $subscription->id,
+                    'old_value' => $this->currentValue($subscription, 'meter_box_id'),
+                    'new_value' => (string) $target->id,
+                ])->values()->all());
+                Subscription::query()->whereKey($chunk->modelKeys())->update(['meter_box_id' => $target->id]);
+            }
+
+            return $bulkChange;
+        });
+
+        $actor->notify(new ActionCompleted('subscriptions-bulk-changed', $bulkChange->description.' — '.$bulkChange->changed_count));
+
+        return back()->with('status', 'subscriptions-bulk-changed');
+    }
+
+    private function undoMeterBoxMove(SubscriptionBulkChange $change, User $actor): RedirectResponse
+    {
+        DB::transaction(function () use ($change, $actor): void {
+            $change->refreshForUpdate();
+            if ($change->isUndone()) {
+                throw ValidationException::withMessages(['undo' => 'تم التراجع عن هذا التعديل من قبل.']);
+            }
+
+            $items = $change->items()->get();
+            $oldBoxes = MeterBox::query()->visibleTo($actor)->whereKey($items->pluck('old_value')->filter()->unique())->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $subscriptions = Subscription::query()->visibleTo($actor)->whereKey($items->pluck('subscription_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $restored = 0;
+
+            foreach ($items as $item) {
+                $subscription = $subscriptions->get($item->subscription_id);
+                $oldBox = $oldBoxes->get($item->old_value);
+                if ($subscription === null || $this->currentValue($subscription, 'meter_box_id') !== $item->new_value
+                    || $subscription->branch_id !== $change->branch_id
+                    || ($item->old_value !== null && ($oldBox === null || $oldBox->branch_id !== $subscription->branch_id))) {
+                    continue;
+                }
+
+                $subscription->update(['meter_box_id' => $item->old_value]);
+                $restored++;
+            }
+
+            $change->update(['undone_at' => now(), 'undone_by' => $actor->id, 'restored_count' => $restored]);
+        });
+
+        $actor->notify(new ActionCompleted('subscriptions-bulk-undone', $change->description));
+
+        return back()->with('status', 'subscriptions-bulk-undone');
+    }
+
     /**
      * One bulk change's subscriptions with their value before and after,
      * and what each has now.
@@ -217,16 +317,21 @@ class SubscriptionBulkChangeController extends Controller
             return null;
         }
 
+        $items = $change->items()->with('subscription')->get();
+        $meterBoxLabels = $change->field === 'meter_box_id'
+            ? MeterBox::query()->visibleTo($actor)->whereKey($items->flatMap(fn (SubscriptionBulkChangeItem $item): array => [$item->old_value, $item->new_value, $item->subscription?->meter_box_id])->filter()->unique())->get()->mapWithKeys(fn (MeterBox $box): array => [$box->id => $box->label()])->all()
+            : [];
+
         return [
             'id' => $change->id,
             'field' => $change->field,
-            'items' => $change->items()->with('subscription')->get()->map(fn (SubscriptionBulkChangeItem $item) => [
+            'items' => $items->map(fn (SubscriptionBulkChangeItem $item) => [
                 'id' => $item->id,
                 'name' => $item->subscription?->displayName() ?? 'مشترك محذوف',
                 'accountNumber' => $item->subscription?->account_number,
-                'old' => $this->display($change->field, $item->old_value),
-                'new' => $this->display($change->field, $item->new_value),
-                'now' => $item->subscription ? $this->display($change->field, $this->currentValue($item->subscription, $change->field)) : '—',
+                'old' => $this->display($change->field, $item->old_value, $meterBoxLabels),
+                'new' => $this->display($change->field, $item->new_value, $meterBoxLabels),
+                'now' => $item->subscription ? $this->display($change->field, $this->currentValue($item->subscription, $change->field), $meterBoxLabels) : '—',
             ]),
         ];
     }
@@ -306,8 +411,11 @@ class SubscriptionBulkChangeController extends Controller
     }
 
     /** A kept value as people read it. */
-    private function display(string $field, ?string $value): string
+    private function display(string $field, ?string $value, array $meterBoxLabels = []): string
     {
+        if ($field === 'meter_box_id') {
+            return $value === null ? 'بدون طبلون' : ($meterBoxLabels[$value] ?? 'طبلون غير متاح (#'.$value.')');
+        }
         if ($value === null) {
             return '—';
         }

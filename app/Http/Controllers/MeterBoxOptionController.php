@@ -36,6 +36,7 @@ class MeterBoxOptionController extends Controller
 
         $boxes = MeterBox::query()
             ->visibleTo($request->user())
+            ->with(['branch', 'subArea'])
             ->when($filters['branch_id'] ?? null, fn (Builder $query, int $branchId) => $query->where('branch_id', $branchId))
             ->when($filters['sub_area_id'] ?? null, fn (Builder $query, int $subAreaId) => $query->where('sub_area_id', $subAreaId))
             ->when($search !== '', fn (Builder $query) => $query->matchingLabel($search)->orderByRaw('box_number = ? desc', [$search]))
@@ -47,6 +48,7 @@ class MeterBoxOptionController extends Controller
             'data' => $boxes->take(self::LIMIT)->map(fn (MeterBox $box): array => [
                 'value' => (string) $box->id,
                 'label' => $box->label(),
+                'hint' => collect([$box->branch?->name, $box->subArea?->name])->filter()->implode(' · '),
                 'sub_area_id' => $box->sub_area_id,
                 'branch_id' => $box->branch_id,
             ])->values(),

@@ -7,6 +7,7 @@ use App\Enums\MessageKind;
 use App\Enums\MessageStatus;
 use App\Enums\SubscriptionStatus;
 use App\Http\Concerns\FiltersDataTable;
+use App\Http\Concerns\FiltersSubscriptionList;
 use App\Http\Requests\StoreMessageBatchRequest;
 use App\Jobs\SendSubscriptionMessage;
 use App\Models\Branch;
@@ -27,6 +28,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -40,18 +42,12 @@ use Inertia\Response as InertiaResponse;
  */
 class MessageController extends Controller
 {
-    use FiltersDataTable;
+    use FiltersDataTable, FiltersSubscriptionList;
 
     /**
      * The most subscriptions a search in the quick message window lists.
      */
     private const SEARCH_RESULTS = 8;
-
-    /**
-     * The most subscriptions one quick message reaches; more are written
-     * from the messages page.
-     */
-    private const QUICK_MAX_RECIPIENTS = 400;
 
     public function __construct(private MessageComposer $composer) {}
 
@@ -133,7 +129,7 @@ class MessageController extends Controller
             ...$this->writingOptions($request->user()),
             'weekBranchId' => $weekBranchId,
             'weekStart' => MeterReading::latestEndedWeekStart($weekBranchId)->toDateString(),
-            'maxRecipients' => self::QUICK_MAX_RECIPIENTS,
+            'maxRecipients' => MessageComposer::MAX_RECIPIENTS,
         ]);
     }
 
@@ -148,6 +144,33 @@ class MessageController extends Controller
     {
         $this->authorize('create', MessageBatch::class);
 
+        $request->validate([
+            'selection' => ['nullable', 'array'],
+            'selection.all' => ['sometimes', 'boolean'],
+            'subscription_ids' => ['nullable', 'array', 'max:'.MessageComposer::MAX_RECIPIENTS],
+            'subscription_ids.*' => ['integer'],
+            'search' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if ($request->boolean('selection.all')) {
+            $request->validate(['selection' => ['array'], 'selection.search' => ['nullable', 'string', 'max:255'], 'selection.filter' => ['nullable', 'array']]);
+            $selectionRequest = new Request([
+                'search' => $request->input('selection.search', ''),
+                'filter' => $request->input('selection.filter', []),
+            ]);
+            $query = Subscription::query()->visibleTo($request->user());
+            $ids = $this->applySubscriptionListFilters($query, $selectionRequest)
+                ->reorder()->limit(MessageComposer::MAX_RECIPIENTS + 1)->pluck('subscriptions.id')->all();
+
+            if (count($ids) > MessageComposer::MAX_RECIPIENTS) {
+                throw ValidationException::withMessages(['selection' => 'يمكن مراسلة '.MessageComposer::MAX_RECIPIENTS.' اشتراك على الأكثر؛ ضيّق الفلاتر ثم أعد المحاولة.']);
+            }
+
+            $request->merge(['subscription_ids' => $ids, 'status' => '', 'search' => '']);
+
+            return response()->json(['recipients' => $ids === [] ? [] : $this->recipientRows($request, $request->user())]);
+        }
+
         $searching = $request->filled('search');
 
         if (! $searching && ! $request->filled('subscription_ids')) {
@@ -155,7 +178,7 @@ class MessageController extends Controller
         }
 
         return response()->json([
-            'recipients' => $this->recipientRows($request, $request->user(), $searching ? self::SEARCH_RESULTS : self::QUICK_MAX_RECIPIENTS),
+            'recipients' => $this->recipientRows($request, $request->user(), $searching ? self::SEARCH_RESULTS : MessageComposer::MAX_RECIPIENTS),
         ]);
     }
 

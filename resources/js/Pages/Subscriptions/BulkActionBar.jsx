@@ -1,46 +1,11 @@
-import { router } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import { printUrl } from '@/lib/print';
 import { openQuickMessage } from '@/lib/quickMessage';
 
-/** The most ticked subscriptions a message or printout carries in its address. */
+/** The most ticked subscriptions a printout carries in its address. */
 export const MAX_LINKED_IDS = 400;
 
-/** The list filters the message page understands too. */
-const MESSAGE_FILTERS = ['status', 'branch_id', 'meter_box_id', 'meter_box_name', 'circuit_breaker_id'];
-
 const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white';
-
-/**
- * The address of the message page for the chosen subscriptions: the ticked
- * ids, or every match of the list's search and filters — or null when
- * those filters can't be carried over (a tariff or segment filter).
- */
-export function messageUrl({ all, ids, filters }) {
-    const params = new URLSearchParams({ kind: 'custom' });
-
-    if (!all) {
-        params.set('status', '');
-        ids.forEach((id) => params.append('subscription_ids[]', id));
-
-        return `/messages/create?${params}`;
-    }
-
-    const active = Object.entries(filters.filter ?? {}).filter(([, value]) => value !== '' && value !== null && value !== undefined);
-
-    if (active.some(([key]) => !MESSAGE_FILTERS.includes(key))) {
-        return null;
-    }
-
-    params.set('status', '');
-    active.forEach(([key, value]) => params.set(key, value));
-
-    if (filters.search) {
-        params.set('search', filters.search);
-    }
-
-    return `/messages/create?${params}`;
-}
 
 function BarButton({ icon, label, onClick, disabled = false, hint, className = '' }) {
     return (
@@ -61,15 +26,13 @@ function BarButton({ icon, label, onClick, disabled = false, hint, className = '
 /**
  * The bar shown while subscriptions are chosen: how many, the actions —
  * change the minimum charge or the status (kept in the bulk changes log),
- * write them a message (in the quick message window for the ticked ones,
- * on the messages page for every match of the filters), print them — and
+ * write them a message in the quick message window, print them — and
  * clearing the choice. Actions the user may not take don't show.
  */
-export default function BulkActionBar({ count, selection, filters, abilities, onAction, onClear }) {
+export default function BulkActionBar({ count, selection, abilities, onAction, onClear, pendingAction = null, onContinue }) {
     const ids = selection.ids ?? [];
     const tooManyToLink = !selection.all && ids.length > MAX_LINKED_IDS;
     const linkHint = `اختر ${MAX_LINKED_IDS} مشتركًا أو أقل، أو «كل النتائج المطابقة»`;
-    const toMessages = messageUrl({ all: selection.all, ids, filters });
 
     function print() {
         const url = printUrl(document.title);
@@ -86,21 +49,29 @@ export default function BulkActionBar({ count, selection, filters, abilities, on
                 <span className="flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-white px-2 font-display text-sm font-bold text-gray-900">
                     {count.toLocaleString('en')}
                 </span>
-                {selection.all ? 'مشترك (كل النتائج المطابقة)' : 'مشترك محدد'}
+                {selection.all ? 'اشتراك (كل النتائج المطابقة)' : 'اشتراك محدد'}
             </span>
             <div className="flex flex-1 flex-wrap items-center gap-2">
-                {abilities.minimumCharge && <BarButton icon="wallet" label="الحد الأدنى" onClick={() => onAction('minimum_charge')} />}
-                {abilities.status && <BarButton icon="flag" label="الحالة" onClick={() => onAction('status')} />}
+                {pendingAction ? (
+                    <>
+                        <span className="flex-1 text-sm">{pendingAction.label}{count === 0 && ' · حدّد الاشتراكات من القائمة'}</span>
+                        <BarButton icon="check" label="متابعة" onClick={onContinue} disabled={count === 0 || count > 5000} hint="حدّد من 1 إلى 5,000 اشتراك للمتابعة." />
+                    </>
+                ) : <>
+                {abilities.minimumCharge && <BarButton icon="wallet" label="تعديل الحد الأدنى" onClick={() => onAction('minimum_charge')} disabled={count > 5000} hint="يمكن تعديل 5,000 اشتراك على الأكثر؛ ضيّق الفلاتر." />}
+                {abilities.status && <BarButton icon="flag" label="الحالة" onClick={() => onAction('status')} disabled={count > 5000} hint="يمكن تعديل 5,000 اشتراك على الأكثر؛ ضيّق الفلاتر." />}
+                {abilities.meterBox && <BarButton icon="grid" label="نقل إلى طبلون آخر" onClick={() => onAction('meter_box_id')} disabled={count > 5000} hint="يمكن نقل 5,000 اشتراك على الأكثر؛ ضيّق الفلاتر." />}
                 {abilities.message && (
                     <BarButton
                         icon="messages"
-                        label="رسالة"
-                        onClick={() => (selection.all ? router.visit(toMessages) : openQuickMessage(ids))}
-                        disabled={!toMessages || tooManyToLink}
-                        hint={!toMessages ? 'فلتر نوع الاشتراك لا ينتقل إلى صفحة الرسائل؛ حدّد المشتركين بدلًا منه' : linkHint}
+                        label="إرسال رسالة"
+                        onClick={() => openQuickMessage(ids, selection.all ? selection : null)}
+                        disabled={count > 5000}
+                        hint="يمكن مراسلة 5,000 اشتراك على الأكثر؛ ضيّق الفلاتر."
                     />
                 )}
                 <BarButton icon="printer" label="طباعة" onClick={print} disabled={tooManyToLink} hint={linkHint} className="tone-print tone-on-dark border" />
+                </>}
             </div>
             <button
                 type="button"

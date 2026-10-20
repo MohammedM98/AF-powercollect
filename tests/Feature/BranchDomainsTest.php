@@ -120,6 +120,34 @@ class BranchDomainsTest extends TestCase
         $this->put('https://north.company.test/branch-domains/'.$this->south->id, ['domain' => 'new.company.test', 'domain_enabled' => true])->assertForbidden();
     }
 
+    public function test_a_delegated_manager_can_manage_only_their_branch_employees_from_the_branch_domain(): void
+    {
+        $manager = User::factory()->collector()->withPermissions([PermissionKey::ManagePermissions, PermissionKey::ViewSubscriptions])->create(['branch_id' => $this->north->id]);
+        $employee = User::factory()->collector()->withPermissions([])->create(['branch_id' => $this->north->id]);
+        $foreign = User::factory()->collector()->withPermissions([])->create(['branch_id' => $this->south->id]);
+        $viewSubscriptions = Permission::query()->where('key', PermissionKey::ViewSubscriptions->value)->sole();
+        $url = 'https://north.company.test/settings/permissions';
+
+        $this->actingAs($manager)->get($url)->assertInertia(fn ($page) => $page
+            ->where('scopedToOwnBranch', true)
+            ->where('users.data', fn ($rows): bool => collect($rows)->pluck('id')->all() === [$employee->id]));
+        $this->put($url, ['permissions' => [
+            $employee->id => [$viewSubscriptions->id],
+            $foreign->id => [$viewSubscriptions->id],
+            $manager->id => [],
+        ]])->assertSessionHasNoErrors();
+
+        $this->assertTrue($employee->fresh()->hasPermission(PermissionKey::ViewSubscriptions));
+        $this->assertFalse($foreign->fresh()->hasPermission(PermissionKey::ViewSubscriptions));
+        $this->assertTrue($manager->fresh()->hasPermission(PermissionKey::ManagePermissions));
+        $this->put($url, ['permissions' => [$employee->id => []]])->assertSessionHasNoErrors();
+        $this->assertFalse($employee->fresh()->hasPermission(PermissionKey::ViewSubscriptions));
+
+        $manager->permissions()->sync(Permission::idsFor([PermissionKey::ViewSubscriptions]));
+        $this->actingAs($manager->fresh())->get($url)->assertForbidden();
+        $this->put($url, ['permissions' => [$employee->id => [$viewSubscriptions->id]]])->assertForbidden();
+    }
+
     public function test_branch_selector_lists_only_allowed_active_domains_and_supports_custom_domains(): void
     {
         $employee = User::factory()->collector()->create(['branch_id' => $this->south->id]);

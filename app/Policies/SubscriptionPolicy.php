@@ -70,7 +70,7 @@ class SubscriptionPolicy
         }
 
         return match ($field) {
-            'status' => $user->hasPermission(PermissionKey::UpdateSubscriptions),
+            'status', 'meter_box_id' => $user->hasPermission(PermissionKey::UpdateSubscriptions),
             'minimum_charge' => $user->hasPermission(PermissionKey::UpdateSubscriptions)
                 && $user->hasPermission(PermissionKey::UpdateSubscriptionMinimumCharge),
             default => false,

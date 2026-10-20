@@ -4,6 +4,7 @@ import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Balance from '@/Components/Balance';
 import Icon from '@/Components/Icon';
+import StatementViewTabs from './StatementViewTabs';
 import { COMPANY_NAME } from '@/Layouts/GuestLayout';
 import {
     chainColor,
@@ -11,9 +12,6 @@ import {
     filterStatementEntries,
     netOfReadingDiscount,
     relatedLineChains,
-    rememberStatementView,
-    rememberedStatementView,
-    STATEMENT_VIEWS,
     statementCsv,
     withReadingDiscounts,
 } from '@/lib/accountStatement';
@@ -433,8 +431,10 @@ function StatementRow({
                 {entry.voucherNumber ?? <Dash />}
             </td>
             <td data-label="الرقم المرجعي" className="tabular-nums text-gray-700">
-                {entry.referenceNumber ? <span dir="ltr">{entry.referenceNumber}</span> : <Dash />}
-                {entry.splitPayment && <div className="mt-1"><SplitPaymentBadge split={entry.splitPayment} /></div>}
+                <div className="flex min-w-0 flex-col items-start gap-1">
+                    {entry.referenceNumber ? <bdi dir="ltr">{entry.referenceNumber}</bdi> : <Dash />}
+                    {entry.splitPayment && <SplitPaymentBadge split={entry.splitPayment} compact />}
+                </div>
             </td>
             <td data-label="البنك" className="text-gray-700">
                 {entry.bankName ? (
@@ -569,7 +569,7 @@ function SummaryCard({ label, value, hint, tone = 'default', className = '' }) {
  */
 export default function AccountStatement({ subscription, entries, summary, paymentMethods, transactionTypes, onAction, focusLineId = null, printOptions = null }) {
     const [filters, setFilters] = useState(() => printOptions?.filters ?? EMPTY_FILTERS);
-    const [view, setView] = useState(() => printOptions?.view ?? rememberedStatementView());
+    const [view, setView] = useState(() => printOptions?.view ?? 'compact');
     const [openHistories, setOpenHistories] = useState(() => new Set(printOptions?.openHistories ?? []));
     const [highlightedLineId, setHighlightedLineId] = useState(null);
     const [pendingJump, setPendingJump] = useState(null);
@@ -595,7 +595,6 @@ export default function AccountStatement({ subscription, entries, summary, payme
 
     function chooseView(nextView) {
         setView(nextView);
-        rememberStatementView(nextView);
     }
 
     function toggleHistory(lineId) {
@@ -748,21 +747,8 @@ export default function AccountStatement({ subscription, entries, summary, payme
 
             <div className="data-table-toolbar">
                 <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-                    <div role="group" aria-label="طريقة العرض" className="me-auto inline-flex rounded-control border border-gray-100 bg-gray-50 p-0.5">
-                        {STATEMENT_VIEWS.map((option) => (
-                            <button
-                                key={option.value}
-                                type="button"
-                                aria-pressed={view === option.value}
-                                title={option.hint}
-                                onClick={() => chooseView(option.value)}
-                                className={`h-[30px] rounded-[10px] px-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${
-                                    view === option.value ? 'bg-surface text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'
-                                }`}
-                            >
-                                {option.label}
-                            </button>
-                        ))}
+                    <div className="me-auto">
+                        <StatementViewTabs value={view} onChange={chooseView} />
                     </div>
                     <button
                         type="button"

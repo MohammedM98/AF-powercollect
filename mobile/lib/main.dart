@@ -12,6 +12,7 @@ import 'field_store.dart';
 import 'queued_readings.dart';
 import 'reading_flow.dart';
 import 'weekly_readings_page.dart';
+import 'message_subscribers_page.dart';
 
 void main() => runApp(const PowerCollectApp());
 
@@ -314,6 +315,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   bool get canRead => currentUser['can_record_readings'] == true;
   bool get canCollect => currentUser['can_record_collections'] == true;
   bool get canViewReadings => currentUser['can_view_readings'] == true;
+  bool get canSendMessages => currentUser['can_send_messages'] == true;
 
   @override
   void initState() {
@@ -512,7 +514,10 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
               : const [],
           transferBanks: currentUser['transfer_banks'] is List
               ? List<String>.from(currentUser['transfer_banks'] as List)
-              : defaultTransferBanks),
+              : defaultTransferBanks,
+          senderBanks: currentUser['sender_banks'] is List
+              ? List<String>.from(currentUser['sender_banks'] as List)
+              : const []),
     ));
     if (!mounted || recorded != true) return;
     try {
@@ -897,9 +902,22 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                 color: AppIdentity.info,
                 tint: AppIdentity.infoTint,
                 onTap: openWeeklyReadings),
-          if (!canRead && !canCollect && !canViewReadings)
+          if (canSendMessages)
+            AppServiceCard(
+                title: 'إرسال الرسائل',
+                subtitle: 'ابحث عن المشترك واكتب رسالته',
+                summary: 'رسائل نصية SMS',
+                icon: 'message',
+                color: AppIdentity.info,
+                tint: AppIdentity.infoTint,
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                        builder: (_) =>
+                            MessageSubscribersPage(api: widget.api)))),
+          if (!canRead && !canCollect && !canViewReadings && !canSendMessages)
             const AppNotice(
-                'ليس لديك صلاحية لعرض القراءات أو إدخالها أو تسجيل الدفعات.'),
+                'لا توجد خدمات مفعّلة لحسابك. تواصل مع الإدارة لمنحك الصلاحيات.'),
         ]));
   }
 

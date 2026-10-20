@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class SubscriptionBulkChange extends Model
 {
     /** The subscription fields a bulk change may set. */
-    public const FIELDS = ['minimum_charge', 'status'];
+    public const FIELDS = ['minimum_charge', 'status', 'meter_box_id'];
 
     protected function casts(): array
     {

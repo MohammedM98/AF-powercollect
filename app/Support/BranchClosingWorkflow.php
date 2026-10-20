@@ -69,7 +69,7 @@ class BranchClosingWorkflow
     /** @return array{frequency: string, arrangement: string, week_starts_on: int, cutoff_time: string} */
     public function settings(ClosingSetting $setting): array
     {
-        return ['frequency' => 'weekly', 'arrangement' => 'combined', 'week_starts_on' => $setting->week_starts_on, 'cutoff_time' => $setting->cutoff()];
+        return ['frequency' => 'weekly', 'arrangement' => 'combined', 'week_starts_on' => $setting->week_starts_on, 'cutoff_time' => ClosingSetting::DEFAULT_CUTOFF];
     }
 
     /** @param array<string, mixed> $settings @return array<string, mixed> */
@@ -77,7 +77,7 @@ class BranchClosingWorkflow
     {
         unset($settings['continuation']);
 
-        return [...$settings, 'frequency' => 'weekly', 'arrangement' => 'combined'];
+        return [...$settings, 'frequency' => 'weekly', 'arrangement' => 'combined', 'cutoff_time' => ClosingSetting::DEFAULT_CUTOFF];
     }
 
     /** @param array<string, mixed> $settings */
@@ -120,10 +120,17 @@ class BranchClosingWorkflow
                 return;
             }
             $latest = Closing::query()->where('branch_id', $branchId)->whereNotNull('workflow_settings')->orderByDesc('coverage_until')->orderBy('id')->firstOrFail();
+            if ((int) $latest->workflow_settings['week_starts_on'] !== $setting->week_starts_on || $latest->workflow_settings['cutoff_time'] !== ClosingSetting::DEFAULT_CUTOFF) {
+                $settings = $this->settings($setting);
+                $until = $this->nextEnd($latest->coverage_from, $settings);
+                $latest->update([
+                    'workflow_settings' => $settings, 'coverage_until' => $until, 'scheduled_until' => $until,
+                    'period_end' => $until->subSecond()->setTimezone(config('app.business_timezone'))->toDateString(),
+                ]);
+            }
             while ($latest->coverage_until->lessThanOrEqualTo(now())) {
-                $this->dropEmptyBoxes($latest, $latest->coverage_until);
                 $change = ClosingSettingChange::query()->where('branch_id', $branchId)->whereNull('applied_at')->where('effective_from', '<=', $latest->coverage_until)->latest('id')->first();
-                $settings = $this->weekly($latest->workflow_settings);
+                $settings = $this->settings($setting);
                 if ($change) {
                     $settings = $this->weekly($change->settings);
                     $setting->update([...$settings, 'updated_by' => $change->user_id]);
@@ -132,6 +139,7 @@ class BranchClosingWorkflow
                 $until = $latest->scheduled_until->greaterThan($latest->coverage_until) ? $latest->scheduled_until : $this->nextEnd($latest->coverage_until, $settings);
                 $latest = $this->createPeriod($branchId, $latest->coverage_until, $until, $settings);
             }
+            $this->closeExpiredBoxes($branchId);
             SubscriptionTransaction::query()->where('branch_id', $branchId)->whereIn('type', [SubscriptionTransaction::TYPE_PAYMENT, SubscriptionTransaction::TYPE_CLEARING])
                 ->where('status', SubscriptionTransaction::STATUS_ACTIVE)->where('created_at', '>=', $setting->workflow_started_at)
                 ->whereNotIn('id', CashBoxPayment::query()->select('subscription_transaction_id'))->orderBy('id')
@@ -203,13 +211,13 @@ class BranchClosingWorkflow
         $type = CashBoxType::for($payment);
         $occurred = ($originalTime ?? $payment->created_at->toImmutable())->utc();
         $closing = Closing::query()->where('branch_id', $payment->branch_id)->whereNotNull('workflow_settings')->where('coverage_from', '<=', $occurred)->where('coverage_until', '>', $occurred)->whereIn('book', [$type->book(), 'combined'])->orderBy('id')->first();
-        $late = $closing?->submitted_snapshot !== null;
+        $late = $closing !== null && ($closing->submitted_snapshot !== null || $closing->coverage_until->lessThanOrEqualTo(now()));
         if (! $closing || $late) {
             $closing = $this->current($payment->branch_id);
         } elseif ($closing->book === 'bank') {
             $closing = Closing::query()->where('branch_id', $payment->branch_id)->where('coverage_from', $closing->coverage_from)->where('book', 'cash')->firstOrFail();
         }
-        // A payment synced late joins its collector's open box of its type, as any other.
+        // Late syncs join the current period without reopening a completed week.
         $box = $this->openBox($closing, $payment->recorded_by, $type);
         $box->payments()->create(['subscription_transaction_id' => $payment->id, ...$this->entryAmount($payment), 'method' => $this->entryMethod($payment), 'status' => $type === CashBoxType::Cash ? 'cash' : 'pending', 'occurred_at' => $occurred, 'synced_at' => now(), 'is_late' => $late]);
     }
@@ -285,17 +293,38 @@ class BranchClosingWorkflow
     }
 
     /**
-     * At the end of each week, remove the open boxes left without an entry
-     * (their payments moved or deleted). A box that holds entries stays open
-     * across the weeks until the branch confirms it closed: no cutoff closes
-     * it on its own.
+     * Seal expired periods without attributing receipt or audit approval to
+     * a person. Empty boxes are discarded as before; entries stay in place.
      */
-    private function dropEmptyBoxes(Closing $closing, CarbonImmutable $at): void
+    private function closeExpiredBoxes(int $branchId): void
     {
-        foreach (CashBox::query()->where('branch_id', $closing->branch_id)->where('status', 'open')->where('opened_at', '<', $at)->whereDoesntHave('payments')->get() as $box) {
-            $box->update(['closing_id' => $closing->id, 'opened_at' => $at]);
-            $box->delete();
-        }
+        CashBox::query()->where('branch_id', $branchId)->whereIn('status', ['open', 'pending'])
+            ->whereHas('closing', fn ($query) => $query->whereNotNull('workflow_settings')->where('coverage_until', '<=', now()))
+            ->with('closing')->withExists('payments')->withMax('payments', 'occurred_at')->chunkById(100, function ($boxes): void {
+                foreach ($boxes as $box) {
+                    if (! $box->payments_exists) {
+                        $box->delete();
+
+                        continue;
+                    }
+                    $lastEntryAt = CarbonImmutable::parse($box->payments_max_occurred_at, 'UTC');
+                    if ($lastEntryAt->greaterThanOrEqualTo($box->closing->coverage_until)) {
+                        $period = Closing::query()->where('branch_id', $box->branch_id)->whereNotNull('workflow_settings')
+                            ->where('coverage_from', '<=', $lastEntryAt)->where('coverage_until', '>', $lastEntryAt)->orderBy('id')->firstOrFail();
+                        $box->update(['closing_id' => $period->id]);
+                        $box->setRelation('closing', $period);
+                        if ($period->coverage_until->greaterThan(now())) {
+                            continue;
+                        }
+                    }
+                    $box->update([
+                        'status' => 'received', 'closed_at' => $box->closing->coverage_until,
+                        'close_reason' => CashBox::CLOSE_REASON_PERIOD_END, 'open_key' => null,
+                        'expected_counts' => $this->expected($box),
+                        'reason' => trim(($box->reason ? $box->reason."\n" : '').'أُغلق تلقائيًا لانتهاء الفترة الأسبوعية.'),
+                    ]);
+                }
+            });
     }
 
     /**
@@ -389,7 +418,7 @@ class BranchClosingWorkflow
 
     public function confirmBox(CashBox $box, User $actor): void
     {
-        $this->require($box->type->isCounted() && $actor->id === $box->user_id && $box->status === 'received' && ! $box->confirmed_at, 'التأكيد متاح لصاحب الصندوق بعد الاستلام فقط.');
+        $this->require($box->type->isCounted() && $actor->id === $box->user_id && $box->status === 'received' && $box->close_reason !== CashBox::CLOSE_REASON_PERIOD_END && ! $box->confirmed_at, 'التأكيد متاح لصاحب الصندوق بعد الاستلام فقط.');
         $box->update(['confirmed_at' => now()]);
     }
 

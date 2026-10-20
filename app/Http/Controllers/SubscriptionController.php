@@ -67,6 +67,7 @@ class SubscriptionController extends Controller
             'bulkActions' => [
                 'minimumCharge' => $actor->can('bulkUpdate', [Subscription::class, 'minimum_charge']),
                 'status' => $actor->can('bulkUpdate', [Subscription::class, 'status']),
+                'meterBox' => $actor->can('bulkUpdate', [Subscription::class, 'meter_box_id']),
                 'message' => $actor->can('create', MessageBatch::class),
             ],
             'statusOptions' => SubscriptionStatus::options(),
@@ -244,6 +245,7 @@ class SubscriptionController extends Controller
             'canUpdate' => $actor->can('update', $subscription),
             'canDelete' => $actor->can('delete', $subscription),
             'canRecordPayment' => $actor->can('recordPayment', $subscription),
+            'canRecordSplitPayment' => $actor->can('recordSplitPayment', Subscription::class) && $actor->can('recordPayment', $subscription),
             'canAddCharge' => $actor->can('addCharge', $subscription),
             'canAddDiscount' => $actor->can('addDiscount', $subscription),
             'canAddClearing' => $actor->can('addClearing', $subscription),

@@ -29,6 +29,12 @@ function byId(rows) {
     return Object.fromEntries(rows.map((row) => [row.id, row]));
 }
 
+/** Keep large selections in the request body, rather than in the URL. */
+function loadRecipients(http, data) {
+    http.transform(() => data);
+    return http.post('/messages/recipients');
+}
+
 function Section({ title, hint, children }) {
     const titleId = useId();
 
@@ -54,7 +60,7 @@ function Section({ title, hint, children }) {
  * phone...) is shown with why. SMS go out and the page stays; WhatsApp
  * messages open on their send's page, to be sent one by one.
  */
-export default function QuickMessageModal({ subscriptionIds = [], onClose }) {
+export default function QuickMessageModal({ subscriptionIds = [], selection = null, onClose }) {
     const id = useId();
     const setupHttp = useHttp();
     const detailsHttp = useHttp();
@@ -71,7 +77,8 @@ export default function QuickMessageModal({ subscriptionIds = [], onClose }) {
     const [pickedIds, setPickedIds] = useState(subscriptionIds);
     // Each picked subscription's details, as any message reaches them.
     const [people, setPeople] = useState({});
-    const [detailsLoaded, setDetailsLoaded] = useState(subscriptionIds.length === 0);
+    const [detailsLoaded, setDetailsLoaded] = useState(subscriptionIds.length === 0 && !selection?.all);
+    const [selectionError, setSelectionError] = useState('');
     // The picked subscriptions the chosen kind reaches, with its details, and what they were asked for with.
     const [kindRows, setKindRows] = useState({});
     const [kindLoadedKey, setKindLoadedKey] = useState(null);
@@ -98,11 +105,15 @@ export default function QuickMessageModal({ subscriptionIds = [], onClose }) {
             })
             .catch(() => setSetupFailed(true));
 
-        if (subscriptionIds.length > 0) {
-            detailsHttp
-                .get(recipientsUrl({ kind: 'custom' }, subscriptionIds))
-                .then((loaded) => setPeople((current) => ({ ...byId(loaded.recipients), ...current })))
-                .catch(() => setSetupFailed(true))
+        if (subscriptionIds.length > 0 || selection?.all) {
+            loadRecipients(detailsHttp, { kind: 'custom', status: '', subscription_ids: subscriptionIds, selection })
+                .then((loaded) => {
+                    setPeople((current) => ({ ...byId(loaded.recipients), ...current }));
+                    if (selection?.all) {
+                        setPickedIds(loaded.recipients.map((person) => person.id));
+                    }
+                })
+                .catch(() => setSelectionError('تعذّر تحميل المستلمين. تأكد أن النتائج لا تتجاوز 5,000 اشتراك، ثم أغلق النافذة وحدّدهم مجددًا.'))
                 .finally(() => setDetailsLoaded(true));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,8 +138,7 @@ export default function QuickMessageModal({ subscriptionIds = [], onClose }) {
 
         let current = true;
         const timer = setTimeout(() => {
-            kindHttp
-                .get(recipientsUrl(kindParams, pickedIds))
+            loadRecipients(kindHttp, { ...kindParams, status: '', subscription_ids: pickedIds })
                 .then((loaded) => {
                     if (current) {
                         setKindRows(byId(loaded.recipients));
@@ -213,7 +223,7 @@ export default function QuickMessageModal({ subscriptionIds = [], onClose }) {
     const reachedIds = kindReady ? pickedIds.filter((subscriptionId) => people[subscriptionId]?.phone && reachedRows[subscriptionId]) : [];
     const previewRow = reachedRows[previewId] && reachedIds.includes(previewId) ? reachedRows[previewId] : reachedRows[reachedIds[0]];
     const previewText = previewRow ? renderMessage(body, previewRow.variables) : body;
-    const canSend = setup !== null && reachedIds.length > 0 && body.trim() !== '' && !sending;
+    const canSend = setup !== null && !selectionError && reachedIds.length > 0 && body.trim() !== '' && !sending;
     const sendBlocker =
         pickedIds.length === 0
             ? 'ابحث عن مشترك وأضفه.'
@@ -380,8 +390,9 @@ export default function QuickMessageModal({ subscriptionIds = [], onClose }) {
 
                             <Section
                                 title={`المستلمون${pickedIds.length > 0 ? ` (${pickedIds.length.toLocaleString('en')})` : ''}`}
-                                hint="مشترك واحد أو أكثر: ابحث بالاسم أو الهاتف أو رقم الاشتراك وأضفه."
+                                hint={selection?.all ? 'الاشتراكات المطابقة لفلاتر صفحة المشتركين عند فتح النافذة. راجع المستلمين ومعاينة الرسالة قبل الإرسال.' : 'مشترك واحد أو أكثر: ابحث بالاسم أو الهاتف أو رقم الاشتراك وأضفه.'}
                             >
+                                {selectionError && <p role="alert" className="text-sm text-red-600">{selectionError}</p>}
                                 <div>
                                     <label htmlFor={`${id}-search`} className="sr-only">
                                         بحث عن مشترك
@@ -611,7 +622,7 @@ export default function QuickMessageModal({ subscriptionIds = [], onClose }) {
                     )}
 
                     <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-7 py-4">
-                        {setup !== null && pickedIds.length <= maxRecipients && (
+                        {setup !== null && pickedIds.length <= 400 && (
                             <Link
                                 href={fullPageUrl}
                                 className={`me-auto inline-flex items-center gap-1 rounded text-sm font-semibold text-gray-600 hover:text-gray-900 ${FOCUS_RING}`}

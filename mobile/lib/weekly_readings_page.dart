@@ -104,13 +104,16 @@ class _WeeklyReadingsPageState extends State<WeeklyReadingsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-          body: SafeArea(
-              child: Column(children: [
+  Widget build(BuildContext context) => AppKeyboardBackScope(
+          child: Scaffold(
+              body: SafeArea(
+                  child: Column(children: [
         AppHeader(
             title: 'القراءات الأسبوعية',
             subtitle: 'قراءات المشتركين · عرض فقط',
-            onBack: () => Navigator.pop(context)),
+            onBack: () {
+              if (!dismissAppKeyboard(context)) Navigator.pop(context);
+            }),
         Expanded(
             child: RefreshIndicator(
                 color: AppIdentity.brand,
@@ -172,7 +175,7 @@ class _WeeklyReadingsPageState extends State<WeeklyReadingsPage> {
                                 ? null
                                 : () => unawaited(load(more: true))),
                     ]))),
-      ])));
+      ]))));
 
   Widget weekPicker() => Container(
         height: 48,

@@ -55,6 +55,7 @@ class MessageComposer
     {
         $query = Subscription::query()
             ->visibleTo($actor)
+            ->whereNull('subscriptions.archived_at')
             ->with(['branch', 'meterBox'])
             ->withSum('transactions as balance', 'amount')
             ->orderByRaw("COALESCE(NULLIF(subscription_name, ''), full_name)")

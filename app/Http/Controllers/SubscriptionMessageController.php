@@ -19,6 +19,9 @@ class SubscriptionMessageController extends Controller
         $this->authorize('viewAny', MessageBatch::class);
         $actor = $request->user();
         abort_unless(Subscription::query()->visibleTo($actor)->whereKey($subscription->id)->exists(), 404);
+        if ($subscription->archived_at !== null) {
+            $this->authorize('view', $subscription);
+        }
 
         $filters = $request->validate([
             'kind' => ['nullable', Rule::enum(MessageKind::class)],

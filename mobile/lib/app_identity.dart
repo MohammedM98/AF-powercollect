@@ -9,6 +9,38 @@ import 'app_icons.dart';
 
 export 'app_icons.dart';
 
+bool dismissAppKeyboard(BuildContext context) {
+  if (MediaQuery.viewInsetsOf(context).bottom <= 0) return false;
+  FocusManager.instance.primaryFocus?.unfocus();
+  return true;
+}
+
+/// A back gesture dismisses the keyboard before leaving a screen.
+class AppKeyboardBackScope extends StatelessWidget {
+  const AppKeyboardBackScope(
+      {required this.child, this.canPop = true, this.onBack, super.key});
+
+  final Widget child;
+  final bool canPop;
+  final VoidCallback? onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return PopScope(
+        canPop: canPop && !keyboardVisible,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          if (keyboardVisible) {
+            FocusManager.instance.primaryFocus?.unfocus();
+            return;
+          }
+          onBack?.call();
+        },
+        child: child);
+  }
+}
+
 /// Colours, type and numbers used everywhere. The palette follows the
 /// phone's light or dark setting: [dark] is set once per frame by the app
 /// root, so every colour here is a getter rather than a constant.
@@ -665,6 +697,7 @@ class AppHeader extends StatelessWidget {
       this.subtitle,
       this.onBack,
       this.onSync,
+      this.syncLabel = 'حالة الإرسال',
       this.online = true,
       this.syncing = false,
       this.pending = 0,
@@ -673,6 +706,7 @@ class AppHeader extends StatelessWidget {
   final String? subtitle;
   final VoidCallback? onBack;
   final VoidCallback? onSync;
+  final String syncLabel;
   final bool online;
   final bool syncing;
   final int pending;
@@ -690,8 +724,8 @@ class AppHeader extends StatelessWidget {
                   children: [
                 Text(title,
                     style: AppIdentity.heading(22),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 if (subtitle != null && subtitle!.isNotEmpty)
                   Text(subtitle!,
                       style: AppIdentity.body(12.5,
@@ -707,7 +741,7 @@ class AppHeader extends StatelessWidget {
                     : online
                         ? 'cloud'
                         : 'cloudoff',
-                label: 'حالة الإرسال',
+                label: syncLabel,
                 spinning: syncing,
                 badge: pending,
                 dot: online ? AppIdentity.good : AppIdentity.warning,
@@ -1230,7 +1264,7 @@ class AppSearchField extends StatelessWidget {
   final Key? fieldKey;
   @override
   Widget build(BuildContext context) => TextFieldTapRegion(
-      child: Container(
+          child: Container(
         height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(

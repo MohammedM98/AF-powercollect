@@ -23,8 +23,12 @@ trait FiltersSubscriptionList
      * plus `?filter[ids]=1,2,3` to keep only the given subscriptions (a
      * printout of the selected ones).
      */
-    protected function applySubscriptionListFilters(Builder $query, Request $request): Builder
+    protected function applySubscriptionListFilters(Builder $query, Request $request, bool $includeArchived = false): Builder
     {
+        if (! $includeArchived) {
+            $query->whereNull('subscriptions.archived_at');
+        }
+
         $subscriberNumber = DB::raw('(select subscriber_number from subscriber_profiles where subscriber_profiles.id = subscriptions.subscriber_profile_id)');
         $this->applyDataTableFilters($query, $request, ['full_name', 'subscription_name', 'phone', 'subscription_phone', 'account_number', 'legacy_number', $subscriberNumber], self::SUBSCRIPTION_SORTABLE, 'display_name');
         $this->applyDataTableFilterSelects($query, $request, ['status', 'branch_id', 'tariff_id', 'tariff_segment_id', 'meter_box_id']);

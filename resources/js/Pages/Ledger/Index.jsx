@@ -3,6 +3,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Pagination from '@/Components/DataTable/Pagination';
 import Icon from '@/Components/Icon';
+import LatePaymentDetails from '@/Components/LatePaymentDetails';
 import SearchableSelect from '@/Components/SearchableSelect';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
@@ -199,6 +200,7 @@ function TransactionRow({ entry, grouped, onOpen, rowClick }) {
     return (
         <tr className={`row ${entry.isCancelled ? 'cx' : ''}`} {...rowClick(onOpen)}>
             <td className="t"><bdi className="desktop-time">{time}</bdi>
+                <LatePaymentDetails paidOn={entry.paidOn} recordedAt={`${entry.day} ${entry.time}`} reason={entry.lateReason} />
                 <div className="meta">
                     <span><Icon name="clock" />{time}</span>
                     {entry.voucherNumber && <span>سند <bdi>{entry.voucherNumber}</bdi>{entry.isManualVoucher && ' · يدوي'}</span>}
@@ -232,9 +234,9 @@ function TransactionRow({ entry, grouped, onOpen, rowClick }) {
     );
 }
 
-export default function Index({ entries, period, side, summary, ledgerTotals, dateRange, dayTotals, today, scopeLabel, filters, filterOptions, statement }) {
+export default function Index({ entries, period, dateBasis = 'recorded', side, summary, ledgerTotals, dateRange, dayTotals, today, scopeLabel, filters, filterOptions, statement }) {
     const { can, errors = {} } = usePage().props;
-    const extraParams = { period, ...(period === 'custom' ? dateRange : {}) };
+    const extraParams = { period, date_basis: dateBasis, ...(period === 'custom' ? dateRange : {}) };
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/ledger', filters, extraParams);
     const [filtersOpen, setFiltersOpen] = useState(false);
     const rowClick = useRowClick();
@@ -243,7 +245,7 @@ export default function Index({ entries, period, side, summary, ledgerTotals, da
     const activeFilters = Object.values(filterValues).filter((value) => value !== '' && value !== null && value !== undefined).length;
 
     function changePeriod(next, dates = {}) {
-        router.get('/ledger', { search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page, filter: filterValues, period: next, ...dates }, { preserveState: true, preserveScroll: true, replace: true });
+        router.get('/ledger', { search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page, filter: filterValues, date_basis: dateBasis, period: next, ...dates }, { preserveState: true, preserveScroll: true, replace: true });
     }
 
     function exportCsv() {
@@ -277,7 +279,11 @@ export default function Index({ entries, period, side, summary, ledgerTotals, da
                         {can?.printAuditReports !== false && <a className="btn tone-print" href={printUrl('السجل المالي')} target="_blank" rel="noopener noreferrer"><Icon name="printer" />طباعة</a>}
                     </div>
                 </div>
-                <DateRange period={period} range={dateRange} today={today} onChange={changePeriod} errors={errors} />
+                <div className="mb-4 flex flex-wrap items-end gap-3">
+                    <div className="w-56"><label htmlFor="ledger-date-basis" className="mb-1.5 block text-sm font-semibold text-gray-700">تصفية الفترة حسب</label><SearchableSelect id="ledger-date-basis" clearable={false} searchable={false} value={dateBasis} options={[{value: 'recorded', label: 'تاريخ التسجيل بالنظام'}, {value: 'paid', label: 'تاريخ الدفع الفعلي'}]} onChange={(value) => changePeriod(period, { ...(period === 'custom' ? dateRange : {}), date_basis: value })} /></div>
+                    <DateRange period={period} range={dateRange} today={today} onChange={changePeriod} errors={errors} />
+                </div>
+                <p className="mb-4 text-sm leading-6 text-gray-500">{dateBasis === 'paid' ? 'عرض حسب تاريخ الدفع الفعلي للدفعات المتأخرة، وتاريخ التسجيل لبقية الحركات. الأرصدة وترتيب الحركات يبقيان حسب التسجيل.' : 'الأرصدة والفترات تُحتسب حسب تاريخ التسجيل. تاريخ الدفع السابق محفوظ للتدقيق.'}</p>
                 {!errors.from && !errors.to ? null : <p role="alert" className="err">{errors.from || errors.to}</p>}
                 <SummaryCards totals={ledgerTotals} summary={summary} side={side} />
                 <section className="pn" aria-label="القيود المالية">

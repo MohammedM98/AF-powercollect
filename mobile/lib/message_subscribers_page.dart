@@ -96,13 +96,16 @@ class _MessageSubscribersPageState extends State<MessageSubscribersPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-          body: SafeArea(
-              child: Column(children: [
+  Widget build(BuildContext context) => AppKeyboardBackScope(
+          child: Scaffold(
+              body: SafeArea(
+                  child: Column(children: [
         AppHeader(
             title: 'إرسال الرسائل',
             subtitle: 'اختر المشترك لكتابة رسالة نصية',
-            onBack: () => Navigator.pop(context)),
+            onBack: () {
+              if (!dismissAppKeyboard(context)) Navigator.pop(context);
+            }),
         Expanded(
             child: RefreshIndicator(
                 color: AppIdentity.brand,
@@ -175,5 +178,5 @@ class _MessageSubscribersPageState extends State<MessageSubscribersPage> {
                           child: const Text('عرض مشتركين آخرين')),
                   ],
                 ))),
-      ])));
+      ]))));
 }

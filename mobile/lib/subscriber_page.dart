@@ -240,12 +240,19 @@ class _SubscriberPageState extends State<SubscriberPage> {
       ];
 
   List<(String, String, String)> subscriptionFacts() {
-    final box = [
-      text(subscriber['meter_box_number']),
-      text(subscriber['meter_box_name']),
-    ].whereType<String>().join(' · ');
+    final boxName = text(subscriber['meter_box_name']);
+    final boxNumber = text(subscriber['meter_box_number']);
+    final box = [boxName, if (boxNumber != null) '($boxNumber)']
+        .whereType<String>()
+        .join(' ');
     final previousReading =
-        lastReading?['current_reading'] ?? subscriber['initial_reading'];
+        lastReading?['previous_reading'] ?? subscriber['initial_reading'];
+    final currentReading = lastReading?['current_reading'];
+    final previousValue = double.tryParse('$previousReading');
+    final currentValue = double.tryParse('$currentReading');
+    final difference = previousValue != null && currentValue != null
+        ? currentValue - previousValue
+        : null;
     return [
       if (text(subscriber['status_label']) case final status?)
         (
@@ -276,16 +283,32 @@ class _SubscriberPageState extends State<SubscriberPage> {
         ('cash', 'الحد الأدنى الأسبوعي', '${AppIdentity.grouped(minimum)} ₪'),
       if (text(subscriber['circuit_breaker_ampere']) case final ampere?)
         ('breaker', 'القاطع', '${AppIdentity.reading(ampere)} أمبير'),
+      if (text(subscriber['area_name']) case final area?)
+        ('pin', 'المنطقة', area),
       if (box.isNotEmpty) ('meter', 'الطبلون', box),
       if (text(subscriber['meter_box_location']) case final location?)
         ('pin', 'موقع الطبلون', location),
       if (details != null)
         (
           'meter',
-          'قراءة سابقة',
+          'القراءة السابقة',
           previousReading == null
               ? 'غير متوفرة'
               : AppIdentity.reading(previousReading)
+        ),
+      if (details != null)
+        (
+          'meter',
+          'القراءة الحالية',
+          currentReading == null
+              ? 'غير متوفرة'
+              : AppIdentity.reading(currentReading)
+        ),
+      if (details != null)
+        (
+          'bolt',
+          'الفرق (كيلوواط)',
+          difference == null ? 'غير متوفر' : AppIdentity.reading(difference)
         ),
     ];
   }

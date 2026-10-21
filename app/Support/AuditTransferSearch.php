@@ -7,6 +7,7 @@ use App\Models\CashBoxPayment;
 use App\Models\Closing;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -30,7 +31,25 @@ class AuditTransferSearch
         abort_unless($actor->auditIncludesBranch($branchId), 404);
         $search = trim((string) $request->query('transfer_search', ''));
         $state = (string) $request->query('transfer_state', '');
+        $dates = $request->validate([
+            'transfer_date_basis' => ['sometimes', 'in:recorded,paid'],
+            'transfer_from' => ['nullable', 'required_with:transfer_to', 'date_format:Y-m-d'],
+            'transfer_to' => ['nullable', 'required_with:transfer_from', 'date_format:Y-m-d', 'after_or_equal:transfer_from'],
+        ]);
+        $basis = $dates['transfer_date_basis'] ?? 'recorded';
         $query = $this->entries($branchId, $week);
+        if (! empty($dates['transfer_from']) && ! empty($dates['transfer_to'])) {
+            $from = CarbonImmutable::parse($dates['transfer_from'], config('app.business_timezone'))->startOfDay()->utc();
+            $until = CarbonImmutable::parse($dates['transfer_to'], config('app.business_timezone'))->addDay()->startOfDay()->utc();
+            $query->whereHas('transaction', function (Builder $payment) use ($from, $until, $dates, $basis): void {
+                if ($basis === 'recorded') {
+                    $payment->where('created_at', '>=', $from)->where('created_at', '<', $until);
+                } else {
+                    $payment->where(fn (Builder $actual) => $actual->where('paid_on', '>=', $dates['transfer_from'])->where('paid_on', '<', $until->setTimezone(config('app.business_timezone'))->toDateString())
+                        ->orWhere(fn (Builder $normal) => $normal->whereNull('paid_on')->where('created_at', '>=', $from)->where('created_at', '<', $until)));
+                }
+            });
+        }
         if ($search !== '') {
             $number = strtr($search, array_combine(preg_split('//u', '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', -1, PREG_SPLIT_NO_EMPTY), str_split('01234567890123456789')));
             $references = array_filter([SubscriptionTransaction::normalizeReference($number), SubscriptionTransaction::normalizeReference($search)]);
@@ -53,7 +72,7 @@ class AuditTransferSearch
             'missing', 'short', 'over', 'matched' => $query->whereHas('audit', fn (Builder $audit) => $audit->where('outcome', $state)),
             default => null,
         };
-        if ($search === '' && $state === '') {
+        if ($search === '' && $state === '' && empty($dates['transfer_from'])) {
             $query->whereRaw('1 = 0');
         }
         $results = $query->with(['transaction.subscription:id,full_name,subscription_name', 'transaction.recordedBy:id,name', 'box.user:id,name', 'box.audit', 'audit.auditor:id,name'])
@@ -78,6 +97,7 @@ class AuditTransferSearch
 
         return [
             'search' => $search, 'state' => $state, 'results' => $results,
+            'dateBasis' => $basis, 'from' => $dates['transfer_from'] ?? '', 'to' => $dates['transfer_to'] ?? '',
             'summary' => ['transfers' => (int) $totals->transfers, 'automaticMatches' => (int) $totals->automatic_matches, 'exceptions' => (int) $totals->exceptions,
                 'debit' => Closing::money(Closing::cents($totals->debit ?? 0)), 'credit' => Closing::money(Closing::cents($totals->credit ?? 0))],
         ];

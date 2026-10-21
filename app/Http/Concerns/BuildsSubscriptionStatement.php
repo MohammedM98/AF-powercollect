@@ -159,7 +159,11 @@ trait BuildsSubscriptionStatement
                 'lastConsumption' => $subscription->latestMeterReading?->consumption,
                 'standingDiscount' => $this->statementStandingDiscount($subscription->standingDiscount),
                 'status' => $subscription->status->value,
-                'statusLabel' => __($subscription->status->label()),
+                'statusLabel' => $subscription->archived_at !== null ? 'مؤرشف' : __($subscription->status->label()),
+                'archivedAt' => $subscription->archived_at?->toIso8601String(),
+                'serviceEndedOn' => $subscription->service_ended_on?->format('Y-m-d'),
+                'archiveReason' => $subscription->archive_reason,
+                'archiveHistory' => $subscription->archive_history ?? [],
             ],
             'subscriptions' => $this->profileSubscriptions($actor, $subscription),
             'entries' => $entries,
@@ -174,6 +178,8 @@ trait BuildsSubscriptionStatement
                 'clearingsCount' => $clearings->count(),
             ],
             'canRecordPayment' => $actor->can('recordPayment', $subscription),
+            'canRecordLatePayment' => $actor->can('recordLatePayment', $subscription),
+            'paymentToday' => now(config('app.business_timezone'))->toDateString(),
             'canRecordSplitPayment' => $actor->can('recordSplitPayment', Subscription::class) && $actor->can('recordPayment', $subscription),
             'canAdjustBalance' => $actor->can('adjustBalance', $subscription),
             'canAddCharge' => $actor->can('addCharge', $subscription),
@@ -214,6 +220,7 @@ trait BuildsSubscriptionStatement
 
         return Subscription::query()
             ->readableTo($actor)
+            ->when(! $actor->can('viewArchived', Subscription::class), fn ($query) => $query->whereNull('archived_at'))
             ->where('subscriber_profile_id', $subscription->subscriber_profile_id)
             ->with(['branch.area', 'tariff', 'tariffSegment', 'meterBox.subArea'])
             ->withSum('transactions as balance', 'amount')
@@ -231,7 +238,7 @@ trait BuildsSubscriptionStatement
                 'areaName' => $sibling->branch->area?->name,
                 'subAreaName' => $sibling->meterBox?->subArea?->name,
                 'status' => $sibling->status->value,
-                'statusLabel' => __($sibling->status->label()),
+                'statusLabel' => $sibling->archived_at !== null ? 'مؤرشف' : __($sibling->status->label()),
                 'balance' => $this->money($this->cents((string) ($sibling->balance ?? '0'))),
             ])
             ->all();
@@ -337,6 +344,8 @@ trait BuildsSubscriptionStatement
             'lineNumber' => $lineNumbers[$transaction->id],
             'groupId' => $groupId,
             'date' => $this->businessTime($transaction->created_at),
+            'paidOn' => $transaction->paid_on?->toDateString(),
+            'lateReason' => $transaction->late_reason,
             'voucherNumber' => $receipt->displayVoucherNumber(),
             'systemVoucherNumber' => $receipt->printedVoucherNumber(),
             'manualVoucherNumber' => $receipt->manual_voucher_number,

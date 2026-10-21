@@ -45,7 +45,7 @@ class MeterReadingPolicy
      */
     public function update(User $user, MeterReading $meterReading): bool
     {
-        if (! $user->hasPermission(PermissionKey::CorrectMeterReadings)) {
+        if ($meterReading->subscription->archived_at !== null || ! $user->hasPermission(PermissionKey::CorrectMeterReadings)) {
             return false;
         }
 
@@ -65,7 +65,7 @@ class MeterReadingPolicy
      */
     public function updateAsLastReading(User $user, MeterReading $meterReading): bool
     {
-        if (! $user->hasPermission(PermissionKey::CorrectLastMeterReadings)) {
+        if ($meterReading->subscription->archived_at !== null || ! $user->hasPermission(PermissionKey::CorrectLastMeterReadings)) {
             return false;
         }
 
@@ -101,7 +101,7 @@ class MeterReadingPolicy
 
     private function pricingIsEditable(User $user, MeterReading $meterReading): bool
     {
-        return ! $meterReading->requires_reentry
+        return $meterReading->subscription->archived_at === null && ! $meterReading->requires_reentry
             && ($user->isSuperAdmin() || $user->workBranchId() === $meterReading->branch_id)
             && $meterReading->week_start->equalTo(MeterReading::latestEndedWeekStart($meterReading->branch_id))
             && ! $meterReading->subscription->meterReadings()->where('week_start', '>', $meterReading->week_start)->exists();

@@ -10,6 +10,8 @@ export const ACTION_MESSAGES = {
     'user-updated': 'تم تحديث المستخدم بنجاح.',
     'subscription-created': 'تم إنشاء المشترك بنجاح.',
     'subscription-updated': 'تم تحديث المشترك بنجاح.',
+    'subscription-archived': 'تمت أرشفة الاشتراك مع الاحتفاظ بملفه وسجله المالي.',
+    'subscription-restored': 'تمت استعادة الاشتراك إلى القائمة. يبقى مفصولًا حتى إعادة تفعيل الخدمة.',
     'branch-created': 'تم إنشاء الفرع بنجاح.',
     'branch-updated': 'تم تحديث الفرع بنجاح.',
     'meter-box-created': 'تم إنشاء الطبلون بنجاح.',

@@ -8,6 +8,7 @@ import { StandingDiscountBadge } from './AccountSummary';
 import StopStandingDiscountButton from './StopStandingDiscountButton';
 import { StatementActions, StatementForms } from './StatementForms';
 import SubscriptionSwitcher from './SubscriptionSwitcher';
+import ArchiveNotice from './ArchiveNotice';
 
 const STATUS_TONES = {
     active: 'green',
@@ -98,6 +99,7 @@ export default function StatementModal({ subscription, statement, initialForm = 
                             {statement && (
                                 <StatementActions
                                     canRecordPayment={statement.canRecordPayment}
+                                    canRecordLatePayment={statement.canRecordLatePayment}
                                     canRecordSplitPayment={statement.canRecordSplitPayment}
                                     canAddCharge={statement.canAddCharge}
                                     canAddDiscount={statement.canAddDiscount}
@@ -128,6 +130,7 @@ export default function StatementModal({ subscription, statement, initialForm = 
                     </div>
 
                     <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-5 sm:px-8 sm:py-6" aria-busy={!statement}>
+                        <ArchiveNotice subscription={header} />
                         {statement ? (
                             <>
                                 <SubscriptionSwitcher

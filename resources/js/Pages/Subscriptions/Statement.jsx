@@ -6,6 +6,7 @@ import { StandingDiscountBadge } from './AccountSummary';
 import StopStandingDiscountButton from './StopStandingDiscountButton';
 import { StatementActions, StatementForms } from './StatementForms';
 import SubscriptionSwitcher from './SubscriptionSwitcher';
+import ArchiveNotice from './ArchiveNotice';
 
 /**
  * A subscription's account statement: every charge (عليه), payment and
@@ -45,6 +46,7 @@ export default function Statement(statement) {
                     </div>
                     <StatementActions
                         canRecordPayment={canRecordPayment}
+                        canRecordLatePayment={statement.canRecordLatePayment}
                         canRecordSplitPayment={statement.canRecordSplitPayment}
                         canAddCharge={canAddCharge}
                         canAddDiscount={canAddDiscount}
@@ -55,6 +57,7 @@ export default function Statement(statement) {
             }
         >
             <Head title={`كشف حساب ${subscription.fullName}`} />
+            <ArchiveNotice subscription={subscription} />
 
             <SubscriptionSwitcher
                 subscriberNumber={subscription.subscriberNumber}

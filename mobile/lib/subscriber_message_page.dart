@@ -63,11 +63,12 @@ class _SubscriberMessagePageState extends State<SubscriberMessagePage> {
   }
 
   void close() {
+    if (dismissAppKeyboard(context)) return;
     if (!busy) Navigator.pop(context);
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
+  Widget build(BuildContext context) => AppKeyboardBackScope(
       canPop: !busy,
       child: Scaffold(
           body: SafeArea(

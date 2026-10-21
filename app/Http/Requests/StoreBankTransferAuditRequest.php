@@ -26,6 +26,11 @@ class StoreBankTransferAuditRequest extends FormRequest
         return [
             'bank_amount' => ['required', 'numeric', 'min:0', 'max:1000000', 'decimal:0,2'],
             'reason' => ['nullable', 'string', 'max:1000'],
+            'revision' => ['nullable', 'string', 'size:64'],
+            'parts' => ['sometimes', 'array', 'min:1', 'max:'.StoreSplitPaymentRequest::MAX_PARTS],
+            'parts.*' => ['array:transaction_id,bank_amount'],
+            'parts.*.transaction_id' => ['required', 'integer', 'distinct'],
+            'parts.*.bank_amount' => ['required', 'numeric', 'min:0', 'max:1000000', 'decimal:0,2'],
         ];
     }
 }

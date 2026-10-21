@@ -58,6 +58,103 @@ Future<void> openCollections(WidgetTester tester, SearchApi api) async {
 }
 
 void main() {
+  testWidgets('back dismisses the keyboard before leaving the search page',
+      (tester) async {
+    final api = SearchApi();
+    await openCollections(tester, api);
+    api.requests.single.complete('Initial Subscriber');
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Keep this search');
+    await tester.pump(const Duration(milliseconds: 300));
+    api.requests.last.complete('Filtered Subscriber');
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 250);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(find.text('Filtered Subscriber'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'Keep this search');
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('الإجراءات السريعة'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('leaving the page resets search and ignores outstanding replies',
+      (tester) async {
+    final api = SearchApi();
+    await openCollections(tester, api);
+    api.requests.single.complete('Initial Subscriber');
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Old search');
+    await tester.pump(const Duration(milliseconds: 300));
+    final staleRequest = api.requests.last;
+    await tester.tap(find.text('الرئيسية'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تسجيل الدفعات'));
+    await tester.pump();
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty);
+    expect(api.requests.last.query, isEmpty);
+    expect(api.requests.last.page, 1);
+    api.requests.last.complete('Fresh Subscriber');
+    await tester.pumpAndSettle();
+    staleRequest.complete('Stale Subscriber', lastPage: 2);
+    await tester.pumpAndSettle();
+    expect(find.text('Fresh Subscriber'), findsOneWidget);
+    expect(find.text('Stale Subscriber'), findsNothing);
+    expect(find.text('عرض المزيد'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('leaving before the search delay cancels the pending search',
+      (tester) async {
+    final api = SearchApi();
+    await openCollections(tester, api);
+    api.requests.single.complete('Initial Subscriber');
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Cancelled search');
+    await tester.tap(find.text('الرئيسية'));
+    await tester.pumpAndSettle();
+    expect(api.requests, hasLength(1));
+    await tester.tap(find.text('تسجيل الدفعات'));
+    await tester.pump();
+    expect(api.requests.last.query, isEmpty);
+    api.requests.last.complete('Fresh Subscriber');
+    await tester.pumpAndSettle();
+    expect(find.text('Fresh Subscriber'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('returning from subscriber details starts with an empty search',
+      (tester) async {
+    final api = SearchApi();
+    await openCollections(tester, api);
+    api.requests.single.complete('Initial Subscriber');
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Selected');
+    await tester.pump(const Duration(milliseconds: 300));
+    api.requests.last.complete('Selected Subscriber');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Selected Subscriber'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('رجوع'));
+    await tester.pump();
+    expect(api.requests.last.query, isEmpty);
+    api.requests.last.complete('All Subscribers');
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty);
+    expect(find.text('All Subscribers'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('subscribers load on entry and more pages remain accessible',
       (tester) async {
     final api = SearchApi();

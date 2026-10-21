@@ -28,13 +28,15 @@ class MobileCollectionController extends Controller
 
     public function subscriptions(Request $request): JsonResponse
     {
-        $this->authorize('recordAnyPayment', Subscription::class);
+        abort_unless($request->user()->can('recordAnyPayment', Subscription::class)
+            || $request->user()->can('viewAny', Subscription::class), 403);
 
         $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
         $search = trim($validated['search'] ?? '');
         // Any subscription of the branch can pay, as on the website: a
         // suspended or disconnected one may still be settling their debt.
         $subscriptions = Subscription::query()
+            ->whereNull('subscriptions.archived_at')
             ->visibleTo($request->user())
             ->with('meterBox:id,box_number')
             ->withSum('transactions as balance', 'amount')
@@ -67,11 +69,13 @@ class MobileCollectionController extends Controller
      */
     public function show(Request $request, string $subscription): JsonResponse
     {
-        $this->authorize('recordAnyPayment', Subscription::class);
+        abort_unless($request->user()->can('recordAnyPayment', Subscription::class)
+            || $request->user()->can('viewAny', Subscription::class), 403);
 
         $subscription = Subscription::query()
+            ->whereNull('subscriptions.archived_at')
             ->visibleTo($request->user())
-            ->with(['meterBox:id,box_number,name,name_suffix,location', 'tariff', 'circuitBreaker', 'latestMeterReading'])
+            ->with(['branch.area', 'meterBox.subArea', 'tariff', 'circuitBreaker', 'latestMeterReading'])
             ->findOrFail($subscription);
         $lastReading = $subscription->latestMeterReading;
         $balanceInCents = Closing::cents($subscription->balance());
@@ -107,6 +111,8 @@ class MobileCollectionController extends Controller
                 'meter_box_location' => $subscription->meterBox?->location,
                 'phone' => $subscription->contactPhone(),
                 'address' => $subscription->address,
+                'area_name' => $subscription->branch?->area?->name,
+                'sub_area_name' => $subscription->meterBox?->subArea?->name,
                 'balance' => Closing::money($balanceInCents),
                 'status' => $subscription->status->value,
                 'status_label' => __($subscription->status->label()),
@@ -150,7 +156,6 @@ class MobileCollectionController extends Controller
 
     public function transactions(Request $request, string $subscription): JsonResponse
     {
-        abort_unless($request->user()->hasPermission(PermissionKey::RecordCollections), 403);
         $request->validate(['page' => ['sometimes', 'integer', 'min:1']]);
         $subscription = Subscription::query()->visibleTo($request->user())->findOrFail($subscription);
         $this->authorize('view', $subscription);
@@ -168,6 +173,7 @@ class MobileCollectionController extends Controller
 
         return response()->json([
             'data' => $lines->all(),
+            'balance' => Closing::money(Closing::cents($subscription->balance())),
             'current_page' => $transactions->currentPage(),
             'last_page' => $transactions->lastPage(),
             'total' => $transactions->total(),
@@ -179,10 +185,14 @@ class MobileCollectionController extends Controller
     {
         $entry = [
             'id' => $transaction->id,
-            'date' => $transaction->created_at->toDateString(),
+            'date' => $transaction->created_at->copy()->setTimezone(config('app.business_timezone'))->toDateString(),
+            'recorded_at' => $transaction->created_at->copy()->setTimezone(config('app.business_timezone'))->format('Y-m-d H:i'),
             'type' => $transaction->type,
             'type_label' => $transaction->typeLabel(),
             'description' => $transaction->description(),
+            'notes' => $transaction->notes,
+            'voucher_number' => $transaction->displayVoucherNumber(),
+            'reference_number' => $transaction->reference_number,
             'amount' => Closing::money(abs(Closing::cents($transaction->amount))),
             'is_credit' => (float) $transaction->amount < 0,
             'is_cancelled' => $transaction->isCancelled(),

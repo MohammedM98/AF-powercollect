@@ -171,6 +171,7 @@ class _SplitPaymentPageState extends State<SplitPaymentPage> {
   }
 
   Future<void> close() async {
+    if (dismissAppKeyboard(context)) return;
     if (busy) return;
     if (receipt == null &&
         (submission != null ||

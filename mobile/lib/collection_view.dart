@@ -16,6 +16,8 @@ class CollectionView extends StatefulWidget {
       required this.onLoadMore,
       required this.onSearch,
       required this.onOpen,
+      this.canRecordPayments = true,
+      this.initiallyShowingToday = false,
       this.onWeeklyReadings,
       this.onRefresh,
       super.key});
@@ -30,6 +32,8 @@ class CollectionView extends StatefulWidget {
   final VoidCallback onLoadMore;
   final VoidCallback onSearch;
   final ValueChanged<Map<String, dynamic>> onOpen;
+  final bool canRecordPayments;
+  final bool initiallyShowingToday;
   final VoidCallback? onWeeklyReadings;
   final Future<void> Function()? onRefresh;
   @override
@@ -37,9 +41,10 @@ class CollectionView extends StatefulWidget {
 }
 
 class _CollectionViewState extends State<CollectionView> {
-  bool showingToday = false;
+  late bool showingToday = widget.initiallyShowingToday;
   @override
   Widget build(BuildContext context) {
+    final showingPayments = widget.canRecordPayments && showingToday;
     final total = widget.today
         .fold<double>(0, (sum, payment) => sum + inShekels(payment));
     final cash = widget.today
@@ -50,24 +55,25 @@ class _CollectionViewState extends State<CollectionView> {
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
         children: [
-          AppSegment(
-              selected: showingToday ? 1 : 0,
-              onChanged: (index) => setState(() => showingToday = index == 1),
-              labels: [
-                (color) => Text('المشتركون',
-                    style: AppIdentity.body(14.5,
-                        weight: FontWeight.w700, color: color)),
-                (color) => Text.rich(
-                    TextSpan(children: [
-                      const TextSpan(text: 'دفعاتي اليوم '),
-                      TextSpan(
-                          text: '${widget.today.length}',
-                          style: AppIdentity.number(12,
-                              color: color.withValues(alpha: .7))),
-                    ]),
-                    style: AppIdentity.body(14.5,
-                        weight: FontWeight.w700, color: color)),
-              ]),
+          if (widget.canRecordPayments)
+            AppSegment(
+                selected: showingToday ? 1 : 0,
+                onChanged: (index) => setState(() => showingToday = index == 1),
+                labels: [
+                  (color) => Text('المشتركون',
+                      style: AppIdentity.body(14.5,
+                          weight: FontWeight.w700, color: color)),
+                  (color) => Text.rich(
+                      TextSpan(children: [
+                        const TextSpan(text: 'دفعاتي اليوم '),
+                        TextSpan(
+                            text: '${widget.today.length}',
+                            style: AppIdentity.number(12,
+                                color: color.withValues(alpha: .7))),
+                      ]),
+                      style: AppIdentity.body(14.5,
+                          weight: FontWeight.w700, color: color)),
+                ]),
           if (widget.onWeeklyReadings != null)
             InkWell(
               onTap: widget.onWeeklyReadings,
@@ -85,7 +91,7 @@ class _CollectionViewState extends State<CollectionView> {
                 ]),
               ),
             ),
-          if (!showingToday) ...[
+          if (!showingPayments) ...[
             const SizedBox(height: 10),
             AppSearchField(
                 controller: widget.search,
@@ -169,8 +175,9 @@ class _CollectionViewState extends State<CollectionView> {
             ]),
           ],
           const SizedBox(height: 12),
-          const AppNotice(
-              'تسجيل الدفعات يتطلب اتصالًا بالإنترنت. تُسجّل مباشرة في السجل المالي بعد تأكيد استلامها.'),
+          AppNotice(widget.canRecordPayments
+              ? 'تسجيل الدفعات يتطلب اتصالًا بالإنترنت. تُسجّل مباشرة في السجل المالي بعد تأكيد استلامها.'
+              : 'عرض كشوف الحساب يتطلب اتصالًا بالإنترنت. تسجيل الدفعات يحتاج صلاحية منفصلة.'),
         ]);
     return widget.onRefresh == null
         ? list

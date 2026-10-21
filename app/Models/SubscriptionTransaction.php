@@ -74,6 +74,10 @@ use Illuminate\Validation\ValidationException;
     'discount_base',
     'billed_consumption',
     'notes',
+    'paid_on',
+    'late_reason',
+    'late_payment_token',
+    'late_payment_fingerprint',
     'cancelled_at',
     'cancelled_by',
     'cancellation_reason',
@@ -81,6 +85,8 @@ use Illuminate\Validation\ValidationException;
 ])]
 class SubscriptionTransaction extends Model
 {
+    protected $hidden = ['late_payment_token', 'late_payment_fingerprint'];
+
     /** @use HasFactory<SubscriptionTransactionFactory> */
     use HasFactory;
 
@@ -176,6 +182,7 @@ class SubscriptionTransaction extends Model
             'discount_base' => 'decimal:2',
             'billed_consumption' => 'decimal:2',
             'cancelled_at' => 'datetime',
+            'paid_on' => 'date',
             'cancellation_reason' => CorrectionReason::class,
         ];
     }
@@ -268,6 +275,23 @@ class SubscriptionTransaction extends Model
         $activeReference = self::normalizeReference($referenceNumber);
 
         return app(BranchClosingWorkflow::class)->locked($subscription->branch_id, function () use ($subscription, $collector, $payment, $currency, $method, $exchangeRate, $inShekels, $referenceNumber, $activeReference): self {
+            $lateToken = $payment['late_payment_token'] ?? null;
+            $lateFingerprint = $lateToken ? hash('sha256', json_encode([
+                'amount' => number_format((float) $payment['amount'], 2, '.', ''),
+                'currency' => $currency->value, 'method' => $method->value,
+                'paid_on' => $payment['paid_on'], 'late_reason' => $payment['late_reason'],
+                'bank' => $payment['bank_name'] ?? null, 'sender_bank' => $payment['sender_bank_name'] ?? null,
+                'sender' => $payment['sender_name'] ?? null, 'reference' => $activeReference,
+                'voucher' => $payment['manual_voucher_number'] ?? null, 'notes' => $payment['notes'] ?? null,
+            ], JSON_THROW_ON_ERROR)) : null;
+            if ($lateToken && $existing = self::query()->where('late_payment_token', $lateToken)->first()) {
+                if ($existing->subscription_id !== $subscription->id || $existing->recorded_by !== $collector->id
+                    || ! hash_equals($existing->late_payment_fingerprint, $lateFingerprint)) {
+                    throw ValidationException::withMessages(['late_payment_token' => 'تم استخدام طلب التسجيل هذا مسبقًا ببيانات مختلفة. أعد فتح النموذج لدفعة جديدة.']);
+                }
+
+                return $existing;
+            }
             if (! ($payment['confirm_duplicate_reference'] ?? false)) {
                 self::ensureReferenceIsAvailable($activeReference, $payment['split_payment_id'] ?? null);
             }
@@ -295,6 +319,10 @@ class SubscriptionTransaction extends Model
                 'manual_voucher_number' => $method === PaymentMethod::Cash ? ($payment['manual_voucher_number'] ?? null) : null,
                 'cash_box' => $method === PaymentMethod::Cash ? ($payment['cash_box'] ?? null) : null,
                 'notes' => $payment['notes'] ?? null,
+                'paid_on' => $lateToken ? $payment['paid_on'] : null,
+                'late_reason' => $lateToken ? $payment['late_reason'] : null,
+                'late_payment_token' => $lateToken,
+                'late_payment_fingerprint' => $lateFingerprint,
             ]);
         });
     }
@@ -526,7 +554,13 @@ class SubscriptionTransaction extends Model
             $this->cancelSingle($actor, $reason, $notes);
 
             $replacement = $record($this->subscription);
-            $replacement->update(['corrects_id' => $this->id]);
+            $replacement->update([
+                'corrects_id' => $this->id,
+                ...($this->isPayment() && $replacement->isPayment() ? [
+                    'paid_on' => $this->paid_on,
+                    'late_reason' => $this->late_reason,
+                ] : []),
+            ]);
 
             return $replacement;
         });
@@ -1704,6 +1738,8 @@ class SubscriptionTransaction extends Model
             'bankName' => $this->bank_name,
             'senderBankName' => $this->sender_bank_name,
             'date' => $this->created_at->copy()->setTimezone(config('app.business_timezone'))->format('Y-m-d H:i'),
+            'paidOn' => $this->paid_on?->toDateString(),
+            'lateReason' => $this->late_reason,
             'description' => $this->description(),
             'typeLabel' => $this->typeLabel(),
             'isCredit' => $this->isCredit(),

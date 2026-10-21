@@ -13,6 +13,7 @@ import SplitPaymentModal from '@/Pages/Payments/SplitPaymentModal';
 
 const ACTION_ICON_TONES = {
     payment: 'text-emerald-600 group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
+    late_payment: 'text-amber-600 group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
     split_payment: 'text-brand-600 group-hover/item:bg-brand-600 group-focus-visible/item:bg-brand-600',
     charge: 'text-amber-600 group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
     discount: 'text-violet-600 group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
@@ -24,7 +25,7 @@ const ACTION_ICON_TONES = {
  * shown only to users allowed to use it (each is its own permission).
  * `onOpen` gets 'charge', 'discount', 'clearing' or 'payment'.
  */
-export function StatementActions({ canRecordPayment, canRecordSplitPayment, canAddCharge, canAddDiscount, canAddClearing, onOpen }) {
+export function StatementActions({ canRecordPayment, canRecordLatePayment, canRecordSplitPayment, canAddCharge, canAddDiscount, canAddClearing, onOpen }) {
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
     const triggerRef = useRef(null);
@@ -60,6 +61,7 @@ export function StatementActions({ canRecordPayment, canRecordSplitPayment, canA
 
     const actions = [
         canRecordPayment && { action: 'payment', label: 'تسجيل دفعة', icon: 'banknotes' },
+        canRecordLatePayment && { action: 'late_payment', label: 'تسجيل دفعة بتاريخ سابق', icon: 'calendar' },
         canRecordSplitPayment && { action: 'split_payment', label: 'تسجيل دفعة مقسّمة', icon: 'layers' },
         canAddCharge && { action: 'charge', label: 'تحميل حركة', icon: 'document-plus' },
         canAddDiscount && { action: 'discount', label: 'إضافة خصم', icon: 'discount' },
@@ -205,7 +207,10 @@ export function StatementForms({ statement, openForm, onClose, onOpen = null }) 
 
             {canRecordPayment && (
                 <PaymentModal
-                    show={openForm === 'payment'}
+                    key={openForm === 'late_payment' ? 'late-payment' : 'payment'}
+                    show={openForm === 'payment' || (openForm === 'late_payment' && statement.canRecordLatePayment)}
+                    latePayment={openForm === 'late_payment'}
+                    today={statement.paymentToday}
                     onClose={onClose}
                     subscription={subscription}
                     balance={summary.balance}

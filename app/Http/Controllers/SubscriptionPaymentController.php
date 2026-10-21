@@ -73,10 +73,12 @@ class SubscriptionPaymentController extends Controller
     {
         $payment = SubscriptionTransaction::recordPayment($subscription, $request->user(), $request->validated());
 
-        $request->user()->notify(new ActionCompleted(
-            'payment-recorded',
-            sprintf('%s — %s شيكل', $subscription->displayName(), SubscriptionTransaction::formatAmount(ltrim($payment->amount, '-'))),
-        ));
+        if ($payment->wasRecentlyCreated) {
+            $request->user()->notify(new ActionCompleted(
+                'payment-recorded',
+                sprintf('%s — %s شيكل', $subscription->displayName(), SubscriptionTransaction::formatAmount(ltrim($payment->amount, '-'))),
+            ));
+        }
 
         Inertia::flash('recordedPayment', [
             'amount' => $payment->currency_amount,
@@ -126,6 +128,8 @@ class SubscriptionPaymentController extends Controller
                 'manualVoucherNumber' => $transaction->manual_voucher_number,
                 'date' => DailySeries::localDate($transaction->created_at),
                 'time' => DailySeries::localTime($transaction->created_at),
+                'paidOn' => $transaction->paid_on?->toDateString(),
+                'lateReason' => $transaction->late_reason,
                 'amount' => SubscriptionTransaction::formatAmount($transaction->currency_amount ?? ltrim($transaction->amount, '-')),
                 'currencyLabel' => __($transaction->currency->label()),
                 'isShekel' => $transaction->currency === Currency::Shekel,

@@ -22,6 +22,8 @@ class _SubscriberHistoryPageState extends State<SubscriberHistoryPage> {
   int total = 0;
   String? error;
   bool refreshFailed = false;
+  double? currentBalance;
+  bool accessDenied = false;
 
   @override
   void initState() {
@@ -41,6 +43,9 @@ class _SubscriberHistoryPageState extends State<SubscriberHistoryPage> {
           page: refresh ? 1 : page + 1);
       if (!mounted) return;
       setState(() {
+        accessDenied = false;
+        currentBalance = double.tryParse(
+            '${result['balance'] ?? widget.subscriber['balance']}');
         if (refresh) lines.clear();
         lines.addAll((result['data'] as List)
             .map((line) => Map<String, dynamic>.from(line as Map)));
@@ -51,6 +56,14 @@ class _SubscriberHistoryPageState extends State<SubscriberHistoryPage> {
     } on ApiException catch (exception) {
       if (mounted)
         setState(() {
+          if ([401, 403, 404].contains(exception.statusCode)) {
+            accessDenied = true;
+            currentBalance = null;
+            lines.clear();
+            page = 0;
+            lastPage = 1;
+            total = 0;
+          }
           error = exception.message;
           refreshFailed = refresh;
         });
@@ -75,6 +88,28 @@ class _SubscriberHistoryPageState extends State<SubscriberHistoryPage> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                     children: [
+                      if (!accessDenied && currentBalance != null)
+                        AppHero(
+                            padding: const EdgeInsets.all(18),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('الرصيد الحالي',
+                                      style: AppIdentity.body(14,
+                                          color: AppIdentity.heroFaint)),
+                                  const SizedBox(height: 6),
+                                  Text(balanceText(currentBalance!),
+                                      key: const ValueKey(
+                                          'statement-current-balance'),
+                                      style: AppIdentity.number(26,
+                                          weight: FontWeight.w800,
+                                          color: balanceColor(currentBalance!,
+                                              onHero: true))),
+                                  Text(
+                                      'حساب ${widget.subscriber['account_number'] ?? '—'}',
+                                      style: AppIdentity.body(13,
+                                          color: AppIdentity.heroFaint)),
+                                ])),
                       AppSection('جميع الحركات',
                           note: page > 0 ? '$total حركة' : null),
                       if (lines.isNotEmpty)
@@ -141,15 +176,43 @@ class SubscriberTransactionRow extends StatelessWidget {
         adaptiveTrailing: true,
         crossAxisAlignment: CrossAxisAlignment.start,
         leading: AppIconTile(icon, iconColor, tint, size: 38, iconSize: 18),
-        title: Text('${line['description'] ?? line['type_label']}',
-            style: AppIdentity.body(14,
+        title: Text(
+            '${line['type_label'] ?? line['description'] ?? 'حركة مالية'}',
+            style: AppIdentity.body(15,
                 weight: FontWeight.w600,
                 color: cancelled ? AppIdentity.faint : null)),
-        subtitle: AppRowNote(
-            '${line['date']} · الرصيد بعدها ${balanceText(double.tryParse('${line['balance_after']}') ?? 0)}'),
+        subtitle:
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const SizedBox(height: 5),
+          Text('${line['recorded_at'] ?? line['date'] ?? '—'}',
+              textDirection: TextDirection.ltr,
+              style: AppIdentity.number(12.5,
+                  weight: FontWeight.w500, color: AppIdentity.faint)),
+          if (line['description'] != null &&
+              line['description'] != line['type_label']) ...[
+            const SizedBox(height: 7),
+            Text('${line['description']}',
+                style: AppIdentity.body(14, color: AppIdentity.muted)),
+          ],
+          if ('${line['notes'] ?? ''}'.trim().isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text('ملاحظات: ${line['notes']}',
+                style: AppIdentity.body(13.5, color: AppIdentity.muted)),
+          ],
+          if ('${line['voucher_number'] ?? ''}'.trim().isNotEmpty)
+            Padding(
+                padding: const EdgeInsets.only(top: 5),
+                child: Text('السند: ${line['voucher_number']}',
+                    style: AppIdentity.body(12.5, color: AppIdentity.faint))),
+          if ('${line['reference_number'] ?? ''}'.trim().isNotEmpty)
+            Padding(
+                padding: const EdgeInsets.only(top: 5),
+                child: Text('المرجع: ${line['reference_number']}',
+                    style: AppIdentity.body(12.5, color: AppIdentity.faint))),
+        ]),
         trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text('${AppIdentity.grouped(line['amount'])} ₪',
-              style: AppIdentity.number(14.5, color: color)),
+              style: AppIdentity.number(16, color: color)),
           Text(
               cancelled
                   ? 'ملغاة'

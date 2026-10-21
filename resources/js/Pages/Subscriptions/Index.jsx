@@ -32,6 +32,8 @@ import Balance from '@/Components/Balance';
 import SubscriptionDetailsModal from './SubscriptionDetailsModal';
 import ReadingHistoryModal from './ReadingHistoryModal';
 import StatementModal from './StatementModal';
+import ArchiveSubscriptionModal from './ArchiveSubscriptionModal';
+import SegmentedTabs from '@/Components/SegmentedTabs';
 
 const STATUS_TONES = {
     active: 'green',
@@ -75,6 +77,9 @@ function needsPermission(permission) {
 export default function Index({
     subscriptions,
     canCreate,
+    canViewArchived,
+    showArchived = false,
+    archiveToday,
     canRecordReadings,
     branches,
     tariffs,
@@ -105,6 +110,7 @@ export default function Index({
     const [readingSubscription, setReadingSubscription] = useState(null);
     const [historySubscriptionId, setHistorySubscriptionId] = useState(null);
     const [messageSubscription, setMessageSubscription] = useState(null);
+    const [archiveSubscription, setArchiveSubscription] = useState(null);
     const historySubscription = subscriptions.data.find((subscription) => subscription.id === historySubscriptionId) ?? null;
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/subscriptions', filters);
     const rowClick = useRowClick();
@@ -123,8 +129,8 @@ export default function Index({
     const filtersKey = JSON.stringify([search.trim(), localFilterKey, filters.search, serverFilterKey]);
     const filtersPending = search.trim() !== (filters.search ?? '') || localFilterKey !== serverFilterKey;
     const balanceLabel = balanceFilterLabel(filters.filter);
-    const standardFilterValues = Object.fromEntries(Object.entries(filterValues).filter(([key]) => !BALANCE_FILTER_KEYS.includes(key)));
-    const canSelect = bulkActions.minimumCharge || bulkActions.status || bulkActions.message || bulkActions.meterBox;
+    const standardFilterValues = Object.fromEntries(Object.entries(filterValues).filter(([key]) => key !== 'archived' && !BALANCE_FILTER_KEYS.includes(key)));
+    const canSelect = !showArchived && (bulkActions.minimumCharge || bulkActions.status || bulkActions.message || bulkActions.meterBox);
 
     // A new search or filter is a new list: start the choice over.
     useEffect(() => {
@@ -301,6 +307,10 @@ export default function Index({
                         },
                     ],
                 },
+                {
+                    label: 'إنهاء الخدمة والأرشفة',
+                    items: subscription.archivedAt ? [{ label: 'استعادة الاشتراك من الأرشيف', icon: 'history', tone: 'graphite', onSelect: () => setArchiveSubscription(subscription), lockedReason: subscription.canRestore ? null : needsPermission('استعادة الاشتراكات المؤرشفة') }] : [{ label: 'أرشفة الاشتراك المنتهي', icon: 'folder', tone: 'brand', onSelect: () => setArchiveSubscription(subscription), lockedReason: subscription.canArchive ? null : needsPermission('أرشفة الاشتراكات المنتهية'), disabled: Boolean(subscription.archiveBlocker), hint: subscription.archiveBlocker }],
+                },
             ],
         };
     }
@@ -326,13 +336,15 @@ export default function Index({
                         <h2 className="text-3xl font-bold text-gray-900">المشتركون</h2>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <BulkActionsMenu abilities={bulkActions} onChoose={chooseBulkAction} />
+                        {!showArchived && <BulkActionsMenu abilities={bulkActions} onChoose={chooseBulkAction} />}
                         {canCreate && <AddButton onClick={() => setCreating(true)}>مشترك جديد</AddButton>}
                     </div>
                 </>
             }
         >
             <Head title="المشتركون" />
+
+            {canViewArchived && <div className="mb-5 flex flex-wrap items-center justify-between gap-4"><SegmentedTabs label="قائمة الاشتراكات" value={showArchived ? 'archived' : 'current'} options={[{ value: 'current', label: 'الاشتراكات الحالية' }, { value: 'archived', label: 'الاشتراكات المؤرشفة' }]} onChange={(value) => setFilter('archived', value === 'archived' ? '1' : '')} /><p className="text-sm text-gray-500">{showArchived ? 'ملفات محفوظة بعد إنهاء الخدمة؛ الأرصدة والحركات السابقة باقية.' : 'أرشفة الاشتراك المنتهي متاحة من قائمة إجراءاته حسب الصلاحية.'}</p></div>}
 
             <DataTableToolbar
                 search={search}
@@ -348,7 +360,7 @@ export default function Index({
                         values={standardFilterValues}
                         onChange={setFilter}
                         onChangeMany={setFilters}
-                        onClear={clearFilters}
+                        onClear={() => showArchived ? setFilters(Object.fromEntries(Object.keys(filterValues).filter((key) => key !== 'archived').map((key) => [key, '']))) : clearFilters()}
                     >
                         <BalanceFilter values={filterValues} onChange={setFilters} errors={errors} />
                     </DataTableFilterMenu>
@@ -463,6 +475,7 @@ export default function Index({
                                     </td>
                                     <td>
                                         <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
+                                        {subscription.archivedAt && <span className="mt-1 block text-xs text-gray-500">إنهاء الخدمة {subscription.serviceEndedOn}</span>}
                                     </td>
                                     <td className="text-end">
                                         <RowActionsMenu
@@ -617,6 +630,7 @@ export default function Index({
             )}
 
             {deleteDialog}
+            {archiveSubscription && <ArchiveSubscriptionModal key={archiveSubscription.id} subscription={archiveSubscription} today={archiveToday} onClose={() => setArchiveSubscription(null)} />}
         </AuthenticatedLayout>
     );
 }

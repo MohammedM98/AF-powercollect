@@ -84,6 +84,7 @@ class MobileSessionController extends Controller
             'can_record_readings' => $user->hasPermission(PermissionKey::RecordMeterReadings),
             'can_view_readings' => $user->can('viewAny', MeterReading::class),
             'can_record_collections' => $user->can('recordAnyPayment', Subscription::class),
+            'can_view_subscriptions' => $user->can('viewAny', Subscription::class),
             'can_record_split_payments' => $user->can('recordSplitPayment', Subscription::class),
             'can_send_messages' => $user->can('create', MessageBatch::class),
             'can_view_messages' => $user->can('viewAny', MessageBatch::class),

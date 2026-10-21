@@ -11,7 +11,7 @@ function CurrencyEditor({ currency }) {
 
     function save(event) {
         event.preventDefault();
-        form.put(currency.updateUrl, { preserveScroll: true, onSuccess: () => form.defaults() });
+        form.put(currency.updateUrl, { preserveScroll: true, onSuccess: () => form.setDefaults() });
     }
 
     return (

@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - master
+      - claude/confident-archimedes-9rwkuc
       - '*.x'
   pull_request:
+  workflow_dispatch:
   schedule:
     - cron: '0 0 * * *'
 
@@ -47,3 +49,54 @@ jobs:
 
       - name: Execute tests
         run: php artisan test
+
+  frontend:
+    name: Frontend tests and production build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Test frontend behavior
+        run: npm test
+
+      - name: Build production assets
+        run: npm run build
+
+  mobile:
+    name: Mobile collector workflows
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Flutter SDK matching the app
+        run: |
+          git clone --depth 1 --branch 3.47.5 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "6a19cca56475dbfba1478ee68d7bd0c2ef891da1"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+
+      - name: Install mobile dependencies
+        run: flutter pub get
+
+      - name: Analyze mobile code
+        run: flutter analyze
+
+      - name: Exercise collector, permission, retry, search and layout workflows
+        run: flutter test --reporter expanded

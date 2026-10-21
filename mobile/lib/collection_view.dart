@@ -17,6 +17,7 @@ class CollectionView extends StatefulWidget {
       required this.onSearch,
       required this.onOpen,
       this.canRecordPayments = true,
+      this.paymentMethods = const [],
       this.initiallyShowingToday = false,
       this.onWeeklyReadings,
       this.onRefresh,
@@ -33,6 +34,7 @@ class CollectionView extends StatefulWidget {
   final VoidCallback onSearch;
   final ValueChanged<Map<String, dynamic>> onOpen;
   final bool canRecordPayments;
+  final List<String> paymentMethods;
   final bool initiallyShowingToday;
   final VoidCallback? onWeeklyReadings;
   final Future<void> Function()? onRefresh;
@@ -50,6 +52,18 @@ class _CollectionViewState extends State<CollectionView> {
     final cash = widget.today
         .where((payment) => payment['payment_method'] == 'cash')
         .fold<double>(0, (sum, payment) => sum + inShekels(payment));
+    final transfers = widget.today
+        .where((payment) => payment['payment_method'] == 'bank_transfer')
+        .fold<double>(0, (sum, payment) => sum + inShekels(payment));
+    final methodStats = <Widget>[
+      if (widget.paymentMethods.contains('cash'))
+        AppStat('نقدًا اليوم', '${AppIdentity.grouped(cash)} ₪',
+            color: AppIdentity.brand),
+      if (widget.paymentMethods.contains('bank_transfer'))
+        AppStat('تحويلات اليوم', '${AppIdentity.grouped(transfers)} ₪',
+            color: AppIdentity.good),
+    ];
+    final totalStat = AppStat('حُصّل اليوم', '${AppIdentity.grouped(total)} ₪');
     final list = ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -150,16 +164,23 @@ class _CollectionViewState extends State<CollectionView> {
                       onPressed: widget.busy ? null : widget.onLoadMore)),
           ] else ...[
             const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                  child: AppStat(
-                      'حُصّل اليوم', '${AppIdentity.grouped(total)} ₪')),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: AppStat(
-                      'نقدًا اليوم', '${AppIdentity.grouped(cash)} ₪',
-                      color: AppIdentity.brand)),
-            ]),
+            if (methodStats.length < 2)
+              Row(children: [
+                Expanded(child: totalStat),
+                if (methodStats.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Expanded(child: methodStats.single),
+                ],
+              ])
+            else ...[
+              totalStat,
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: methodStats.first),
+                const SizedBox(width: 8),
+                Expanded(child: methodStats.last),
+              ]),
+            ],
             const AppSection('الدفعات المسجّلة'),
             AppRows(children: [
               if (widget.today.isEmpty)
@@ -170,7 +191,7 @@ class _CollectionViewState extends State<CollectionView> {
                         textAlign: TextAlign.center,
                         style: AppIdentity.body(13, color: AppIdentity.faint)))
               else
-                for (final payment in widget.today.reversed)
+                for (final payment in widget.today)
                   paymentRow(payment),
             ]),
           ],
@@ -191,7 +212,9 @@ class _CollectionViewState extends State<CollectionView> {
     return Opacity(
       opacity: widget.online ? 1 : .6,
       child: AppRow(
-        onTap: widget.online ? () => widget.onOpen(subscriber) : null,
+        onTap: widget.online && !widget.busy
+            ? () => widget.onOpen(subscriber)
+            : null,
         leading: AppAvatar('${subscriber['full_name']}'),
         title: Text('${subscriber['full_name']}',
             style: AppIdentity.body(15, weight: FontWeight.w700)),

@@ -28,6 +28,9 @@ enum PermissionKey: string
     case CreateSubscriptions = 'subscriptions.create';
     case UpdateSubscriptions = 'subscriptions.update';
     case DeleteSubscriptions = 'subscriptions.delete';
+    case ArchiveSubscriptions = 'subscriptions.archive';
+    case ViewArchivedSubscriptions = 'subscriptions.view_archived';
+    case RestoreArchivedSubscriptions = 'subscriptions.restore_archived';
     case UpdateSubscriptionMinimumCharge = 'subscriptions.update_minimum_charge';
     case UpdateSubscriptionKilowattPrice = 'subscriptions.update_kilowatt_price';
     case BulkUpdateSubscriptions = 'subscriptions.bulk_update';
@@ -76,6 +79,7 @@ enum PermissionKey: string
     case ReviewReadingSubmissions = 'reading_assignments.review';
 
     case RecordCollections = 'collections.record';
+    case RecordLatePayments = 'collections.record_late';
     case RecordCashPayments = 'collections.record_cash';
     case RecordTransferPayments = 'collections.record_transfer';
     case CloseCashBoxes = 'collections.close_boxes';
@@ -139,6 +143,9 @@ enum PermissionKey: string
             self::CreateSubscriptions => 'Add Subscriptions',
             self::UpdateSubscriptions => 'Edit Subscriptions',
             self::DeleteSubscriptions => 'Delete Subscriptions',
+            self::ArchiveSubscriptions => 'أرشفة الاشتراكات المنتهية',
+            self::ViewArchivedSubscriptions => 'عرض الاشتراكات المؤرشفة',
+            self::RestoreArchivedSubscriptions => 'استعادة الاشتراكات المؤرشفة',
             self::UpdateSubscriptionMinimumCharge => 'Edit Subscription Minimum Charge',
             self::UpdateSubscriptionKilowattPrice => 'Edit Subscription Kilo Price',
             self::BulkUpdateSubscriptions => 'Bulk Edit Subscriptions',
@@ -178,6 +185,7 @@ enum PermissionKey: string
             self::PrintReadingSheets => 'Print Paper Reading Sheets',
             self::ReviewReadingSubmissions => 'Review Field Readings',
             self::RecordCollections => 'Add Payments',
+            self::RecordLatePayments => 'تسجيل دفعات بتاريخ سابق',
             self::RecordCashPayments => 'Take Cash Payments',
             self::RecordTransferPayments => 'Take Bank Transfer Payments',
             self::CloseCashBoxes => 'Close Cash Boxes',
@@ -266,6 +274,9 @@ enum PermissionKey: string
                     'create' => self::CreateSubscriptions,
                     'update' => self::UpdateSubscriptions,
                     'delete' => self::DeleteSubscriptions,
+                    'archive' => self::ArchiveSubscriptions,
+                    'view_archived' => self::ViewArchivedSubscriptions,
+                    'restore_archived' => self::RestoreArchivedSubscriptions,
                     'minimum_charge' => self::UpdateSubscriptionMinimumCharge,
                     'kilowatt_price' => self::UpdateSubscriptionKilowattPrice,
                     'bulk_update' => self::BulkUpdateSubscriptions,
@@ -309,6 +320,7 @@ enum PermissionKey: string
                 'actions' => [
                     'view' => self::ViewCollections,
                     'record' => self::RecordCollections,
+                    'record_late' => self::RecordLatePayments,
                     'record_cash' => self::RecordCashPayments,
                     'record_transfer' => self::RecordTransferPayments,
                     'close_boxes' => self::CloseCashBoxes,

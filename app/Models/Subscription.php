@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AccountingType;
+use App\Enums\MeterReadingStatus;
 use App\Enums\SubscriptionStatus;
 use App\Models\Concerns\BelongsToBranch;
 use App\Support\ArabicSearch;
@@ -147,6 +148,9 @@ class Subscription extends Model
             'subscription_date' => 'date',
             'reconnected_at' => 'date',
             'activated_at' => 'datetime',
+            'archived_at' => 'datetime',
+            'service_ended_on' => 'date',
+            'archive_history' => 'array',
             'subscription_fee' => 'decimal:2',
             'kilowatt_price' => 'decimal:2',
             'initial_reading' => 'float',
@@ -287,6 +291,10 @@ class Subscription extends Model
      */
     public function deletionBlocker(): ?string
     {
+        if ($this->archived_at !== null || ! empty($this->archive_history)) {
+            return 'لا يمكن حذف اشتراك مؤرشف؛ يبقى ملفه وسجله المالي محفوظين في الأرشيف.';
+        }
+
         return DeletionBlocker::describe('المشترك', [
             'القراءات' => $this->meterReadings()->count(),
             'قوائم القطع' => $this->disconnectionItems()->count(),
@@ -296,6 +304,26 @@ class Subscription extends Model
                     ->orWhere('source_key', 'like', 'charge:%');
             })->count(),
         ], 'يمكنك تغيير حالته إلى «مفصول» بدلًا من حذفه.');
+    }
+
+    /** Archive eligibility is checked again under a row lock when saving. */
+    public function archiveBlocker(): ?string
+    {
+        return match (true) {
+            $this->archived_at !== null => 'هذا الاشتراك مؤرشف بالفعل.',
+            $this->status !== SubscriptionStatus::Disconnected => 'الأرشفة متاحة فقط للاشتراك المفصول بعد إنهاء خدمته.',
+            $this->hasUnfinishedReadings() => 'أكمل القراءات المعلّقة وإعادة إدخال القراءات المطلوبة قبل الأرشفة.',
+            default => null,
+        };
+    }
+
+    private function hasUnfinishedReadings(): bool
+    {
+        if ($this->relationLoaded('meterReadings')) {
+            return $this->meterReadings->contains(fn (MeterReading $reading): bool => $reading->status === MeterReadingStatus::Pending || $reading->requires_reentry);
+        }
+
+        return $this->meterReadings()->where(fn (Builder $readings): Builder => $readings->where('status', MeterReadingStatus::Pending)->orWhere('requires_reentry', true))->exists();
     }
 
     /**

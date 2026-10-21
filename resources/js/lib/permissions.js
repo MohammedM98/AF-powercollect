@@ -29,6 +29,9 @@ const NO_LADDER = ['reports', 'financial_audit'];
  * service outright and must be acknowledged before they are saved.
  */
 export const SENSITIVE = {
+    'subscriptions.archive': { label: 'أرشفة الاشتراكات المنتهية', hint: 'للاشتراك المفصول فقط، بعد استكمال القراءات، مع سبب وتاريخ إنهاء الخدمة؛ لا يحذف السجل أو يصفّر الرصيد', risk: 'danger' },
+    'subscriptions.view_archived': { label: 'عرض الاشتراكات المؤرشفة', hint: 'يعرض الملف والقراءات وكشف الحساب وسجل الأرشفة ضمن نطاق الفرع', risk: 'sensitive' },
+    'subscriptions.restore_archived': { label: 'استعادة الاشتراكات المؤرشفة', hint: 'يعيد الاشتراك إلى القائمة بحالة مفصول؛ إعادة تشغيل الخدمة إجراء مستقل', risk: 'danger' },
     'financial_audit.audit': { label: 'تفعيل التدقيق المالي', hint: 'يمنحها السوبر أدمن لأشخاص محددين، مع تحديد الفروع وإجراءات مراجعة البنك واعتماد الصناديق والفترات', risk: 'sensitive' },
     'financial_audit.view_all_boxes': { label: 'عرض الصناديق المغلقة لجميع الفروع', hint: 'عرض فقط؛ لا يمنح تسجيل مبلغ البنك أو ترحيل فروق التدقيق أو اعتمادها', risk: 'sensitive' },
     'print_templates.print_company_forms': { label: 'طباعة وأرشفة نماذج الشركة', hint: 'يصدر نماذج فارغة أو معبأة ويؤرشف الطلبات الورقية في فرعه؛ تخصيص القوالب يحتاج صلاحية الإدارة', risk: 'sensitive' },
@@ -71,7 +74,7 @@ export const RISK_LABELS = { sensitive: 'حساس', danger: 'خطير' };
  * of related work, in order; anything not named falls in a last group.
  */
 const EXTRA_GROUPS = {
-    subscriptions: [['تعديلات خاصة', ['minimum_charge', 'kilowatt_price', 'bulk_update']], ['الحذف', ['delete']]],
+    subscriptions: [['تعديلات خاصة', ['minimum_charge', 'kilowatt_price', 'bulk_update']], ['الأرشفة وإنهاء الخدمة', ['view_archived', 'archive', 'restore_archived']], ['الحذف', ['delete']]],
     meter_readings: [['العمل على القراءات', ['browse_weeks', 'correct', 'correct_last']], ['الاعتماد', ['approve']]],
     collections: [
         ['طرق الدفع المسموحة', ['record_cash', 'record_transfer']],
@@ -90,6 +93,9 @@ const EXTRA_GROUPS = {
  * option is offered off; lowering the level below it takes it away.
  */
 const NEEDS = {
+    'subscriptions.archive': 'view',
+    'subscriptions.view_archived': 'view',
+    'subscriptions.restore_archived': 'view',
     'subscriptions.minimum_charge': 'update',
     'subscriptions.kilowatt_price': 'update',
     'subscriptions.bulk_update': 'update',
@@ -99,6 +105,7 @@ const NEEDS = {
     'meter_readings.approve': 'view',
     'collections.record_cash': 'record',
     'collections.record_transfer': 'record',
+    'collections.record_late': 'record',
     'disconnections.warn': 'view',
     'disconnections.execute': 'manage',
     'disconnections.change_fee': 'manage',

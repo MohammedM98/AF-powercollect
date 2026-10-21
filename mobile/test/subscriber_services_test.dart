@@ -8,7 +8,10 @@ import 'package:power_collect/subscriber_history_page.dart';
 import 'package:power_collect/subscriber_message_page.dart';
 import 'package:power_collect/subscriber_message_history_page.dart';
 import 'package:power_collect/payment_page.dart';
+import 'package:power_collect/main.dart';
+import 'package:power_collect/split_payment_page.dart';
 
+import 'field_app_test.dart' show MemoryStore;
 import 'subscriber_page_test.dart' show SubscriberApi, listed, openSubscriber;
 
 class ServicesApi extends SubscriberApi {
@@ -19,6 +22,8 @@ class ServicesApi extends SubscriberApi {
   };
   bool failOlder = true;
   bool emptyHistory = false;
+  bool historyDenied = false;
+  String statementBalance = '120.00';
   bool failRefresh = false;
   bool failSend = true;
   bool messageOlderFails = true;
@@ -70,6 +75,7 @@ class ServicesApi extends SubscriberApi {
   Future<Map<String, dynamic>> subscriberTransactions(int id,
       {int page = 1}) async {
     expectSync(id, 42);
+    if (historyDenied) throw const ApiException('Forbidden', 403);
     if (page == 1 && failRefresh) {
       failRefresh = false;
       throw const ApiException('تعذر تحديث السجل', 0);
@@ -87,6 +93,11 @@ class ServicesApi extends SubscriberApi {
                 'date': '2026-10-01',
                 'description': page == 1 ? 'دفعة حديثة' : 'قراءة قديمة',
                 'type': page == 1 ? 'payment' : 'meter_reading',
+                'type_label': page == 1 ? 'دفعة' : 'قراءة أسبوعية',
+                'recorded_at': '2026-10-01 12:30',
+                'notes': 'تسديد جزء من المستحق',
+                'voucher_number': 'V-123',
+                'reference_number': 'REF-456',
                 'amount': page == 1 ? '30.00' : '150.00',
                 'is_credit': page == 1,
                 'is_cancelled': false,
@@ -96,6 +107,7 @@ class ServicesApi extends SubscriberApi {
       'current_page': page,
       'last_page': emptyHistory ? 1 : 2,
       'total': emptyHistory ? 0 : 2,
+      'balance': statementBalance,
     };
   }
 
@@ -117,6 +129,53 @@ class ServicesApi extends SubscriberApi {
   }
 }
 
+class StatementViewerApi extends ServicesApi {
+  bool allowed = true;
+  final searches = <String>[];
+
+  @override
+  Future<Map<String, dynamic>> me() async => {
+        'user': {
+          'id': 2,
+          'name': 'موظف كشوف الحساب',
+          'can_view_subscriptions': allowed,
+          'can_record_collections': false,
+        }
+      };
+
+  @override
+  Future<Map<String, dynamic>> findCollectionSubscribers(String search,
+      {int page = 1}) async {
+    searches.add(search);
+    return {
+      'data': [listed],
+      'current_page': 1,
+      'last_page': 1
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> collectionsToday() async =>
+      throw StateError('Viewing statements must not require collection access');
+}
+
+class CollectorServicesApi extends StatementViewerApi {
+  @override
+  Future<Map<String, dynamic>> me() async => {
+        'user': {
+          'id': 2,
+          'name': 'محصل',
+          'can_view_subscriptions': true,
+          'can_record_collections': true,
+          'can_record_split_payments': true,
+          'can_record_readings': false,
+        }
+      };
+
+  @override
+  Future<Map<String, dynamic>> collectionsToday() async => {'data': []};
+}
+
 Future<void> showMessage(WidgetTester tester, ServicesApi api,
     {Size size = const Size(320, 480)}) async {
   await tester.binding.setSurfaceSize(size);
@@ -131,6 +190,175 @@ Future<void> showMessage(WidgetTester tester, ServicesApi api,
 }
 
 void main() {
+  testWidgets('back closes the message keyboard and preserves the unsent text',
+      (tester) async {
+    final api = ServicesApi();
+    await openSubscriber(tester, api);
+    await tester.tap(find.byKey(const ValueKey('subscriber-messaging')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'رسالة لم ترسل بعد');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 200);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(SubscriberMessagePage), findsOneWidget);
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(find.text('رسالة لم ترسل بعد'), findsOneWidget);
+    expect(api.requests, isEmpty);
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(SubscriberMessagePage), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('collectors have action shortcuts and no offline reading page',
+      (tester) async {
+    final store = MemoryStore();
+    store.state = {
+      'token': 'test-token',
+      'user': {'id': 2}
+    };
+    final api = CollectorServicesApi();
+    await tester.pumpWidget(PowerCollectApp(apiClient: api, fieldStore: store));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<AppNavBar>(find.byType(AppNavBar))
+            .items
+            .any((item) => item.id == 'sync'),
+        isFalse);
+    expect(find.byTooltip('حالة الإرسال'), findsNothing);
+    expect(find.byTooltip('تحديث البيانات'), findsOneWidget);
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('collector-today-payments')));
+    await tester.tap(find.byKey(const ValueKey('collector-today-payments')));
+    await tester.pumpAndSettle();
+    expect(find.text('الدفعات المسجّلة'), findsOneWidget);
+    await tester.tap(find.text('الرئيسية'));
+    await tester.pumpAndSettle();
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('collector-split-payment')));
+    await tester.tap(find.byKey(const ValueKey('collector-split-payment')));
+    await tester.pumpAndSettle();
+    expect(find.text('اختر أول مشترك للحوالة المقسّمة'), findsOneWidget);
+    await tester.tap(find.text('أحمد علي'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SplitPaymentPage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'statement shows current balance and readable transaction details on small screens',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = ServicesApi()..statementBalance = '-25.00';
+    await tester.pumpWidget(MaterialApp(
+        theme: AppIdentity.theme,
+        builder: (_, child) =>
+            Directionality(textDirection: TextDirection.rtl, child: child!),
+        home: SubscriberHistoryPage(api: api, subscriber: listed)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('statement-current-balance')),
+        findsOneWidget);
+    expect(find.text('\u2066-25 ₪\u2069 له'), findsOneWidget);
+    for (final text in [
+      'دفعة',
+      '2026-10-01 12:30',
+      'دفعة حديثة',
+      'ملاحظات: تسديد جزء من المستحق',
+      'السند: V-123',
+      'المرجع: REF-456',
+      '30.00 ₪'
+    ]) {
+      await tester.ensureVisible(find.text(text));
+      expect(find.text(text), findsOneWidget);
+    }
+    expect(find.textContaining('الرصيد بعدها'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'view-only staff reach subscriber statements without collection access',
+      (tester) async {
+    final api = StatementViewerApi()
+      ..permissionDetails = {
+        'view_history': true,
+        'record_payment': false,
+        'record_split_payment': false,
+        'payment_methods': <String>[],
+      };
+    final store = MemoryStore();
+    store.state = {
+      'token': 'test-token',
+      'user': {'id': 2}
+    };
+    await tester.pumpWidget(PowerCollectApp(apiClient: api, fieldStore: store));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+        find.byKey(const ValueKey('subscriber-statements-service')));
+    await tester
+        .tap(find.byKey(const ValueKey('subscriber-statements-service')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('دفعاتي اليوم'), findsNothing);
+    await tester.enterText(find.byType(TextField), 'أحمد');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(api.searches.last, 'أحمد');
+    await tester.tap(find.text('أحمد علي'));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<AppAction>(
+                find.byKey(const ValueKey('subscriber-record-payment')))
+            .onPressed,
+        isNull);
+    await tester
+        .tap(find.byKey(const ValueKey('subscriber-financial-history')));
+    await tester.pumpAndSettle();
+    expect(find.text('دفعة حديثة'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'statement service is hidden without subscription view permission',
+      (tester) async {
+    final store = MemoryStore();
+    store.state = {
+      'token': 'test-token',
+      'user': {'id': 2}
+    };
+    await tester.pumpWidget(PowerCollectApp(
+        apiClient: StatementViewerApi()..allowed = false, fieldStore: store));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('subscriber-statements-service')),
+        findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'revoked statement access clears previously loaded financial lines',
+      (tester) async {
+    final api = ServicesApi();
+    await openSubscriber(tester, api);
+    await tester
+        .tap(find.byKey(const ValueKey('subscriber-financial-history')));
+    await tester.pumpAndSettle();
+    expect(find.text('دفعة حديثة'), findsOneWidget);
+    api.historyDenied = true;
+    unawaited(tester
+        .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+        .show());
+    await tester.pumpAndSettle();
+    expect(find.text('دفعة حديثة'), findsNothing);
+    expect(find.text('Forbidden'), findsOneWidget);
+  });
+
   testWidgets(
       'message cards share one row and history remains available without SMS or a phone',
       (tester) async {
@@ -261,6 +489,9 @@ void main() {
         .show());
     await tester.pumpAndSettle();
     expect(find.text('تعذر تحديث السجل'), findsOneWidget);
+    await tester
+        .ensureVisible(find.widgetWithText(TextButton, 'إعادة المحاولة'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('إعادة المحاولة'));
     await tester.pumpAndSettle();
     expect(find.text('دفعة حديثة'), findsOneWidget);

@@ -3,6 +3,8 @@ import Icon from '@/Components/Icon';
 import SecondaryButton from '@/Components/SecondaryButton';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import InputError from '@/Components/InputError';
+import LatePaymentDetails from '@/Components/LatePaymentDetails';
+import SearchableSelect from '@/Components/SearchableSelect';
 import { formatMoney } from '@/lib/format';
 import './financial-boxes.css';
 
@@ -17,7 +19,7 @@ function Result({ entry, branchName, onEdit, disabled }) {
     const [label, tone] = outcomes[audit?.outcome] ?? ['لم تُراجع', 'gray'];
     const fields = [
         ['المشترك', <span className="font-semibold text-gray-900">{entry.transaction.subscription.subscription_name || entry.transaction.subscription.full_name}</span>],
-        ['تاريخ الحركة', <bdi dir="ltr" className="font-display text-sm">{ledger.date}</bdi>],
+        ['تاريخ الحركة', ledger.paidOn ? <LatePaymentDetails paidOn={ledger.paidOn} recordedAt={ledger.date} reason={ledger.lateReason} /> : <bdi dir="ltr" className="font-display text-sm">{ledger.date}</bdi>],
         ['رقم السند', <bdi dir="ltr" className="font-display font-semibold">{ledger.voucherNumber || '—'}</bdi>],
         ['الرقم المرجعي', <span className="break-all"><bdi dir="ltr" className="font-display font-semibold">{ledger.referenceNumber || '—'}</bdi><span className="mt-1 block text-sm text-gray-500">{ledger.bankName}</span></span>],
         ['مبلغ الدفعة', <Amount value={ledger.paidAmount} currency={ledger.currencyLabel} />],
@@ -38,18 +40,26 @@ function Result({ entry, branchName, onEdit, disabled }) {
 export default function AuditTransferSearch({ data, branchName, busy = false, errors = {}, onSearch, onPage, onEdit }) {
     const [search, setSearch] = useState(data.search);
     const [state, setState] = useState(data.state);
+    const [dates, setDates] = useState({ transfer_date_basis: data.dateBasis ?? 'recorded', transfer_from: data.from ?? '', transfer_to: data.to ?? '' });
     const [waiting, setWaiting] = useState(false);
     const searchTimer = useRef(null);
     useEffect(() => () => clearTimeout(searchTimer.current), []);
     const updating = waiting || busy;
-    const stale = search.trim() !== data.search || state !== data.state;
-    const attempted = Boolean(data.search || data.state);
+    const stale = search.trim() !== data.search || state !== data.state || dates.transfer_date_basis !== (data.dateBasis ?? 'recorded') || dates.transfer_from !== (data.from ?? '') || dates.transfer_to !== (data.to ?? '');
+    const attempted = Boolean(data.search || data.state || data.from);
     const results = data.results;
 
-    function submitSearch(value = search, nextState = state) {
+    function submitSearch(value = search, nextState = state, nextDates = dates) {
         clearTimeout(searchTimer.current);
         setWaiting(false);
-        onSearch({ transfer_search: value.trim(), transfer_state: nextState });
+        onSearch({ transfer_search: value.trim(), transfer_state: nextState, ...nextDates });
+    }
+
+    function changeDate(field, value) {
+        const next = { ...dates, [field]: value };
+        setDates(next);
+        clearTimeout(searchTimer.current);
+        if ((next.transfer_from && next.transfer_to && next.transfer_from <= next.transfer_to) || (!next.transfer_from && !next.transfer_to)) submitSearch(search, state, next);
     }
 
     function changeSearch(value, composing = false) {
@@ -67,9 +77,14 @@ export default function AuditTransferSearch({ data, branchName, busy = false, er
             <form onSubmit={(event) => { event.preventDefault(); submitSearch(); }} className="flex flex-wrap items-end gap-3">
                 <div className="min-w-0 flex-1 basis-72"><label htmlFor="audit-transfer-search" className="mb-2 block text-base font-semibold text-gray-900">رقم السند أو الرقم المرجعي</label><input id="audit-transfer-search" type="search" maxLength="100" autoComplete="off" dir="auto" value={search} onChange={(event) => changeSearch(event.target.value, event.nativeEvent.isComposing)} onCompositionEnd={(event) => changeSearch(event.target.value)} aria-describedby="audit-transfer-search-hint" placeholder="مثال: 000125 أو BANK-2026-125" className="block w-full rounded-control border-gray-200 px-4 py-3 text-base" /><InputError message={errors.transfer_search} /></div>
                 <div className="w-full sm:w-56"><label htmlFor="audit-transfer-state" className="mb-2 block text-base font-semibold text-gray-900">حالة التدقيق</label><select id="audit-transfer-state" value={state} onChange={(event) => { setState(event.target.value); submitSearch(search, event.target.value); }} className="block w-full rounded-control border-gray-200 py-3 text-base"><option value="">كل الحالات</option><option value="differences">الحوالات غير المطابقة</option><option value="missing">غير موجودة</option><option value="short">نقص في المبلغ</option><option value="over">زيادة في المبلغ</option><option value="draft">مسودات محفوظة</option><option value="unreviewed">لم تُراجع</option><option value="matched">مطابقة</option></select><InputError message={errors.transfer_state} /></div>
-                {(search || state || attempted) && <SecondaryButton onClick={() => { setSearch(''); setState(''); submitSearch('', ''); }}>مسح البحث</SecondaryButton>}
+                {(search || state || attempted) && <SecondaryButton onClick={() => { const cleared = {transfer_date_basis:'recorded',transfer_from:'',transfer_to:''}; setSearch(''); setState(''); setDates(cleared); submitSearch('', '', cleared); }}>مسح البحث</SecondaryButton>}
             </form>
-            <p id="audit-transfer-search-hint" className="mt-3 text-sm text-gray-500">تظهر النتائج تلقائيًا بعد توقف الكتابة.</p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div><label htmlFor="audit-date-basis" className="mb-1.5 block text-sm font-semibold text-gray-700">تصفية حسب</label><SearchableSelect id="audit-date-basis" clearable={false} searchable={false} value={dates.transfer_date_basis} options={[{value:'recorded',label:'تاريخ التسجيل بالنظام'},{value:'paid',label:'تاريخ الدفع الفعلي'}]} onChange={value => changeDate('transfer_date_basis', value)} /></div>
+                <div><label htmlFor="audit-date-from" className="mb-1.5 block text-sm font-semibold text-gray-700">من</label><input id="audit-date-from" type="date" className="h-11 w-full rounded-control border-gray-200 bg-surface" value={dates.transfer_from} onChange={event => changeDate('transfer_from', event.target.value)} /><InputError message={errors.transfer_from} /></div>
+                <div><label htmlFor="audit-date-to" className="mb-1.5 block text-sm font-semibold text-gray-700">إلى</label><input id="audit-date-to" type="date" className="h-11 w-full rounded-control border-gray-200 bg-surface" min={dates.transfer_from || undefined} value={dates.transfer_to} onChange={event => changeDate('transfer_to', event.target.value)} /><InputError message={errors.transfer_to} /></div>
+            </div>
+            <p id="audit-transfer-search-hint" className="mt-3 text-sm text-gray-500">تظهر النتائج تلقائيًا بعد توقف الكتابة. التواريخ تُصفّي الحوالات داخل فترة الصناديق المختارة أعلاه؛ لا تغيّر أرصدة الفترة.</p>
         </div>
         <div className="rounded-card border border-gray-100 bg-surface shadow-card" aria-busy={updating}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-5 py-4"><h3 className="text-lg font-bold text-gray-900">نتائج البحث <span className="font-display text-gray-500">({results.total})</span></h3><p role="status" aria-live="polite" className="text-sm text-gray-500">{updating ? 'جارٍ تحديث النتائج…' : stale ? 'النتائج المعروضة تخص البحث السابق.' : 'الحوالات السارية في الصناديق المغلقة'}</p></div>

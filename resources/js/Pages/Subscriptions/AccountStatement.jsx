@@ -3,6 +3,7 @@ import { usePage } from '@inertiajs/react';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Balance from '@/Components/Balance';
+import LatePaymentDetails from '@/Components/LatePaymentDetails';
 import Icon from '@/Components/Icon';
 import StatementViewTabs from './StatementViewTabs';
 import { COMPANY_NAME } from '@/Layouts/GuestLayout';
@@ -445,7 +446,7 @@ function StatementRow({
                 ) : <Dash />}
             </td>
             <td data-label="تاريخ الحركة" className="whitespace-nowrap tabular-nums text-gray-600">
-                <span dir="ltr">{entry.date}</span>
+                {entry.paidOn ? <LatePaymentDetails paidOn={entry.paidOn} recordedAt={entry.date} reason={entry.lateReason} /> : <span dir="ltr">{entry.date}</span>}
             </td>
             <td data-label="البيان" className="font-medium text-gray-900">
                 <div className="ledger-description">

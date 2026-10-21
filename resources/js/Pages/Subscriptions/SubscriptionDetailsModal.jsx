@@ -8,6 +8,7 @@ import { hasLatestWeekReading, readingOptionFor } from '@/lib/readings';
 import MeterReadingModal from '@/Pages/MeterReadings/MeterReadingModal';
 import StopStandingDiscountButton from './StopStandingDiscountButton';
 import StatementViewTabs from './StatementViewTabs';
+import ArchiveNotice from './ArchiveNotice';
 import './SubscriptionDetailsModal.css';
 
 const TABS = [['details', 'البيانات'], ['transactions', 'الحساب'], ['consumption', 'الاستهلاك']];
@@ -203,7 +204,8 @@ export default function SubscriptionDetailsModal({ subscription, onClose, onEdit
                 <div className="sp-body" ref={bodyRef}>
                     <div id={`${tabsId}-details-panel`} role="tabpanel" aria-labelledby={`${tabsId}-details`} hidden={activeTab !== 'details'}>
                         <div className="sp-columns">
-                            {subscription.status !== 'active' && <div className="sp-notice"><Icon name="warning" /><div><b>الاشتراك {subscription.statusLabel}</b><span>{`الرصيد \u2066${balance.signed} ₪\u2069.`} راجع بيانات الاشتراك وحالته قبل تسجيل قراءة جديدة.</span></div></div>}
+                            <ArchiveNotice subscription={subscription} />
+                            {!subscription.archivedAt && subscription.status !== 'active' && <div className="sp-notice"><Icon name="warning" /><div><b>الاشتراك {subscription.statusLabel}</b><span>{`الرصيد \u2066${balance.signed} ₪\u2069.`} راجع بيانات الاشتراك وحالته قبل تسجيل قراءة جديدة.</span></div></div>}
                             <Section title="البيانات الشخصية" icon="user" onEdit={canUpdate ? onEditPersonal : undefined}><dl className="sp-fields">
                                 <Field label="الاسم" value={subscription.full_name} /><Field label="رقم المشترك" value={subscription.subscriber_number} numeric copy />
                                 <Field label="رقم الهوية" value={subscription.national_id} numeric copy /><Field label="رقم الجوال" value={subscription.phone ?? subscription.contact_phone} numeric copy />

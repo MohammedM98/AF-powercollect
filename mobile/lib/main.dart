@@ -8,6 +8,7 @@ import 'app_identity.dart';
 import 'collection_view.dart';
 import 'payment_page.dart';
 import 'subscriber_page.dart';
+import 'split_payment_page.dart';
 import 'field_store.dart';
 import 'queued_readings.dart';
 import 'reading_flow.dart';
@@ -199,7 +200,8 @@ class _LoginPageState extends State<LoginPage> {
       borderSide: BorderSide(color: color, width: 1.5));
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => AppKeyboardBackScope(
+          child: Scaffold(
         body: SafeArea(
             child: Center(
                 child: ConstrainedBox(
@@ -270,7 +272,7 @@ class _LoginPageState extends State<LoginPage> {
                             AppIdentity.body(12.5, color: AppIdentity.faint))),
               ]),
         ))),
-      );
+      ));
 }
 
 enum FieldSection { home, readings, collections, sync, account }
@@ -314,6 +316,15 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
 
   bool get canRead => currentUser['can_record_readings'] == true;
   bool get canCollect => currentUser['can_record_collections'] == true;
+  bool get canViewSubscriptions =>
+      currentUser['can_view_subscriptions'] == true;
+  bool get canBrowseSubscribers => canCollect || canViewSubscriptions;
+  bool get canRecordSplitPayments =>
+      canCollect && currentUser['can_record_split_payments'] == true;
+  bool get canUseReadingSync =>
+      canRead || widget.store.queuedReadings.isNotEmpty;
+  bool collectionShowToday = false;
+  bool collectionForSplit = false;
   bool get canViewReadings => currentUser['can_view_readings'] == true;
   bool get canSendMessages => currentUser['can_send_messages'] == true;
   bool get canViewMessages => currentUser['can_view_messages'] == true;
@@ -447,7 +458,9 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   }
 
   Future<void> searchCollections({bool loadMore = false}) async {
-    if (!canCollect || !mounted) return;
+    if (!canBrowseSubscribers ||
+        !mounted ||
+        section != FieldSection.collections) return;
     if (loadMore && (collectionBusy || collectionPage >= collectionLastPage)) {
       return;
     }
@@ -503,9 +516,11 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   Future<void> openSubscriber(Map<String, dynamic> subscriber) async {
     FocusScope.of(context).unfocus();
     if (!online) {
-      showAppToast(context, 'التحصيل يتطلب اتصالًا بالخادم.', icon: 'cloudoff');
+      showAppToast(context, 'عرض حساب المشترك يتطلب اتصالًا بالخادم.',
+          icon: 'cloudoff');
       return;
     }
+    setState(resetCollectionSearch);
     final recorded = await Navigator.of(context).push<bool>(MaterialPageRoute(
       builder: (_) => SubscriberPage(
           api: widget.api,
@@ -520,9 +535,9 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
               ? List<String>.from(currentUser['sender_banks'] as List)
               : const []),
     ));
-    if (!mounted || recorded != true) return;
+    if (!mounted || section != FieldSection.collections) return;
     try {
-      await refreshCollections();
+      if (recorded == true) await refreshCollections();
       if (mounted) await searchCollections();
     } on ApiException catch (_) {
       // The payment is already recorded; a failed refresh must not obscure it.
@@ -575,17 +590,36 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     }
   }
 
-  void navigate(FieldSection destination) {
+  void resetCollectionSearch() {
+    collectionDebounce?.cancel();
+    collectionRequest++;
+    collectionSearch.clear();
+    collectionResults = [];
+    collectionPage = 0;
+    collectionLastPage = 1;
+    collectionBusy = false;
+    collectionError = null;
+  }
+
+  void navigate(FieldSection destination,
+      {bool showToday = false, bool forSplit = false}) {
     FocusScope.of(context).unfocus();
     setState(() {
+      if (section != destination &&
+          (section == FieldSection.collections ||
+              destination == FieldSection.collections)) {
+        resetCollectionSearch();
+      }
       section = destination;
+      collectionShowToday = showToday;
+      collectionForSplit = forSplit;
       message = null;
       if (destination != FieldSection.readings) {
         readingFocus = false;
         focusSubscriberId = null;
       }
     });
-    if (destination == FieldSection.collections && canCollect) {
+    if (destination == FieldSection.collections && canBrowseSubscribers) {
       unawaited(searchCollections());
     }
   }
@@ -612,23 +646,42 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
         builder: (_) => WeeklyReadingsPage(api: widget.api)));
   }
 
+  Future<void> openSplitPayment(Map<String, dynamic> subscriber) async {
+    if (!canRecordSplitPayments || !online) return;
+    setState(resetCollectionSearch);
+    final recorded = await Navigator.of(context).push<bool>(MaterialPageRoute(
+        builder: (_) => SplitPaymentPage(
+            api: widget.api,
+            subscriber: subscriber,
+            transferBanks: currentUser['transfer_banks'] is List
+                ? List<String>.from(currentUser['transfer_banks'] as List)
+                : defaultTransferBanks,
+            senderBanks: currentUser['sender_banks'] is List
+                ? List<String>.from(currentUser['sender_banks'] as List)
+                : const [])));
+    if (!mounted || section != FieldSection.collections) return;
+    if (recorded == true) await synchronize();
+    if (mounted) await searchCollections();
+  }
+
   List<AppNavItem> get destinations => [
         const AppNavItem('home', 'الرئيسية', 'home'),
         if (canRead) const AppNavItem('readings', 'القراءات', 'bolt'),
-        if (canCollect) const AppNavItem('collections', 'التحصيل', 'cash'),
-        AppNavItem('sync', 'الإرسال', 'cloud',
-            badge: widget.store.queuedReadings.length),
+        if (canBrowseSubscribers)
+          AppNavItem(
+              'collections', canCollect ? 'التحصيل' : 'كشوف الحساب', 'cash'),
+        if (canUseReadingSync)
+          AppNavItem('sync', 'الإرسال', 'cloud',
+              badge: widget.store.queuedReadings.length),
         const AppNavItem('account', 'حسابي', 'user'),
       ];
 
   @override
   Widget build(BuildContext context) {
     final inReadings = section == FieldSection.readings && canRead;
-    return PopScope(
+    return AppKeyboardBackScope(
       canPop: section == FieldSection.home,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !inReadings) navigate(FieldSection.home);
-      },
+      onBack: inReadings ? null : () => navigate(FieldSection.home),
       child: Scaffold(
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
@@ -669,7 +722,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
 
   String get offlineText => switch (section) {
         FieldSection.collections =>
-          'لا يوجد اتصال. اتصل بالإنترنت لتسجيل الدفعات.',
+          'لا يوجد اتصال. اتصل بالإنترنت لعرض حسابات المشتركين.',
         FieldSection.sync =>
           'لا يوجد اتصال. ستُرسل القراءات تلقائيًا عند عودته.',
         _ => canRead
@@ -680,7 +733,8 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   Widget sectionBody() {
     final firstName = '${widget.user['name'] ?? ''}'.trim().split(' ').first;
     final title = switch (section) {
-      FieldSection.collections => 'التحصيل',
+      FieldSection.collections =>
+        canCollect ? 'التحصيل' : 'كشوف حساب المشتركين',
       FieldSection.sync => 'حالة الإرسال',
       FieldSection.account => 'حسابي',
       _ => 'مرحبًا، $firstName',
@@ -691,13 +745,20 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           subtitle: switch (section) {
             FieldSection.home =>
               '${widget.user['branch_name'] ?? 'جميع الفروع'}',
-            FieldSection.collections => 'ابحث عن مشترك لتسجيل دفعة',
+            FieldSection.collections => collectionForSplit
+                ? 'اختر أول مشترك للحوالة المقسّمة'
+                : canCollect
+                    ? 'ابحث عن مشترك لتسجيل دفعة'
+                    : 'ابحث عن مشترك لعرض كشف حسابه',
             FieldSection.sync => 'القراءات المحفوظة على الجهاز',
             _ => null,
           },
           onSync: section == FieldSection.sync
               ? null
-              : () => navigate(FieldSection.sync),
+              : canUseReadingSync
+                  ? () => navigate(FieldSection.sync)
+                  : synchronize,
+          syncLabel: canUseReadingSync ? 'حالة الإرسال' : 'تحديث البيانات',
           online: online,
           syncing: syncing,
           pending: widget.store.queuedReadings.length),
@@ -724,7 +785,11 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
             child: const Text('تسجيل الدخول مجددًا')),
       Expanded(
           child: switch (section) {
-        FieldSection.collections when canCollect => CollectionView(
+        FieldSection.collections when canBrowseSubscribers => CollectionView(
+            key: ValueKey(
+                'collections-$collectionShowToday-$collectionForSplit'),
+            initiallyShowingToday: collectionShowToday,
+            canRecordPayments: canCollect,
             search: collectionSearch,
             results: collectionResults,
             today: today,
@@ -740,8 +805,10 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
               await searchCollections();
             },
             onWeeklyReadings: canViewReadings ? openWeeklyReadings : null,
-            onOpen: openSubscriber),
-        FieldSection.sync => syncView(),
+            onOpen: collectionForSplit && canRecordSplitPayments
+                ? openSplitPayment
+                : openSubscriber),
+        FieldSection.sync when canUseReadingSync => syncView(),
         FieldSection.account => account(),
         _ => home(),
       }),
@@ -817,7 +884,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                   ]),
                 ),
                 const Spacer(),
-                if (weekStart != null)
+                if (canRead && weekStart != null)
                   Flexible(
                       child: Text.rich(
                           TextSpan(children: [
@@ -875,7 +942,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                 text: '${AppIdentity.readingsCount(drafts)} مكتوبة ولم تُحفظ',
                 action: 'متابعة',
                 onTap: () => navigate(FieldSection.readings)),
-          const AppSection('ماذا تريد أن تسجّل اليوم؟'),
+          AppSection(canCollect ? 'الإجراءات السريعة' : 'خدماتك'),
           if (canRead)
             AppServiceCard(
                 title: 'إدخال القراءات',
@@ -893,6 +960,38 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                 icon: 'cash',
                 color: AppIdentity.good,
                 tint: AppIdentity.goodTint,
+                onTap: () => navigate(FieldSection.collections)),
+          if (canRecordSplitPayments)
+            AppServiceCard(
+                key: const ValueKey('collector-split-payment'),
+                title: 'حوالة مقسّمة',
+                subtitle: 'اختر المشتركين ووزّع حوالة واحدة بينهم',
+                summary: 'إضافة حوالة',
+                icon: 'cash',
+                color: AppIdentity.brand,
+                tint: AppIdentity.brandTint,
+                onTap: () =>
+                    navigate(FieldSection.collections, forSplit: true)),
+          if (canCollect)
+            AppServiceCard(
+                key: const ValueKey('collector-today-payments'),
+                title: 'دفعاتي اليوم',
+                subtitle: 'مراجعة الدفعات التي سجّلتها اليوم',
+                summary: paymentsCount(today.length),
+                icon: 'cash',
+                color: AppIdentity.good,
+                tint: AppIdentity.goodTint,
+                onTap: () =>
+                    navigate(FieldSection.collections, showToday: true)),
+          if (canViewSubscriptions)
+            AppServiceCard(
+                key: const ValueKey('subscriber-statements-service'),
+                title: 'كشوف حساب المشتركين',
+                subtitle: 'الدفعات والقراءات والحركات المالية',
+                summary: 'عرض السجل المالي',
+                icon: 'hist',
+                color: AppIdentity.info,
+                tint: AppIdentity.infoTint,
                 onTap: () => navigate(FieldSection.collections)),
           if (canViewReadings)
             AppServiceCard(
@@ -919,6 +1018,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                             MessageSubscribersPage(api: widget.api)))),
           if (!canRead &&
               !canCollect &&
+              !canViewSubscriptions &&
               !canViewReadings &&
               !canSendMessages &&
               !canViewMessages)
@@ -1048,22 +1148,27 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
             for (final (allowed, label, icon) in [
               (canRead, 'إدخال القراءات', 'bolt'),
               (canCollect, 'تسجيل الدفعات', 'cash'),
+              (canRecordSplitPayments, 'الحوالات المقسّمة', 'cash'),
+              (canViewSubscriptions, 'كشوف حساب المشتركين', 'hist'),
               (canViewReadings, 'عرض القراءات الأسبوعية', 'hist'),
+              (canSendMessages, 'إرسال الرسائل', 'message'),
+              (canViewMessages, 'سجل الرسائل', 'message'),
             ])
-              AppRow(
-                  leading: AppIconTile(
-                      icon,
-                      allowed ? AppIdentity.ink : AppIdentity.faint,
-                      AppIdentity.sunken,
-                      size: 40,
-                      iconSize: 20),
-                  title: Text(label,
-                      style: AppIdentity.body(15,
-                          weight: FontWeight.w700,
-                          color:
-                              allowed ? AppIdentity.ink : AppIdentity.faint)),
-                  trailing: AppTag(allowed ? 'مفعّلة' : 'غير مفعّلة',
-                      allowed ? AppTone.good : AppTone.muted)),
+              if (allowed)
+                AppRow(
+                    leading: AppIconTile(
+                        icon,
+                        allowed ? AppIdentity.ink : AppIdentity.faint,
+                        AppIdentity.sunken,
+                        size: 40,
+                        iconSize: 20),
+                    title: Text(label,
+                        style: AppIdentity.body(15,
+                            weight: FontWeight.w700,
+                            color:
+                                allowed ? AppIdentity.ink : AppIdentity.faint)),
+                    trailing: AppTag(allowed ? 'مفعّلة' : 'غير مفعّلة',
+                        allowed ? AppTone.good : AppTone.muted)),
           ]),
           if (widget.store.queuedReadings.isNotEmpty)
             Padding(

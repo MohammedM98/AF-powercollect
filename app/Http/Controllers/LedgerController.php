@@ -62,13 +62,12 @@ class LedgerController extends Controller
 
         $actor = $request->user();
         $period = $this->period($request);
+        $dateBasis = $request->validate(['date_basis' => ['sometimes', 'in:recorded,paid']])['date_basis'] ?? 'recorded';
         [$from, $until, $days] = $this->dateWindow($request, $period);
         $side = $this->headlineSide($request);
 
         $ledger = fn (): Builder => $this->filteredLedger($request, $actor);
-        $inPeriod = fn (): Builder => $ledger()
-            ->when($from, fn (Builder $query) => $query->where('subscription_transactions.created_at', '>=', $from))
-            ->where('subscription_transactions.created_at', '<', $until);
+        $inPeriod = fn (): Builder => $this->dateFiltered($ledger(), $from, $until, $dateBasis);
         $onSide = fn (Builder $query): Builder => $side === self::CREDIT ? $query->credits() : $query->charges();
 
         if ($request->query('format') === 'csv') {
@@ -85,15 +84,16 @@ class LedgerController extends Controller
         return Inertia::render('Ledger/Index', [
             'entries' => $entries,
             'period' => $period,
+            'dateBasis' => $dateBasis,
             'dateRange' => [
                 'from' => $from?->setTimezone(config('app.business_timezone'))->toDateString(),
                 'to' => $until->setTimezone(config('app.business_timezone'))->subDay()->toDateString(),
             ],
             'ledgerTotals' => $this->ledgerTotals($inPeriod()),
             'side' => $side,
-            'summary' => $this->summary($onSide($inPeriod()), $from && $days ? $onSide($ledger()) : null, $from, $days, $inPeriod()),
+            'summary' => $this->summary($onSide($inPeriod()), $from && $days ? $onSide($ledger()) : null, $from, $days, $inPeriod(), $dateBasis),
             'dayTotals' => $groupedByDay ? $this->dayTotals($inPeriod(), collect($entries->items())->pluck('day')->unique()->all()) : [],
-            'dailyTotals' => in_array($period, ['yesterday', 'month', 'custom'], true) ? [] : DailySeries::sums(
+            'dailyTotals' => $dateBasis === 'paid' || in_array($period, ['yesterday', 'month', 'custom'], true) ? [] : DailySeries::sums(
                 $onSide($ledger()),
                 'subscription_transactions.created_at',
                 'subscription_transactions.amount',
@@ -182,16 +182,14 @@ class LedgerController extends Controller
      * @param  Builder<SubscriptionTransaction>  $inPeriod  every line of the period, both sides
      * @return array{total: float, count: int, average: float, largest: float, previousTotal: float|null, changePct: int|null, collected: float}
      */
-    private function summary(Builder $headline, ?Builder $ledger, ?CarbonImmutable $from, ?int $days, Builder $inPeriod): array
+    private function summary(Builder $headline, ?Builder $ledger, ?CarbonImmutable $from, ?int $days, Builder $inPeriod, string $dateBasis = 'recorded'): array
     {
         $totals = $headline->toBase()->selectRaw('count(*) as entries, coalesce(sum(abs(amount)), 0) as total, coalesce(max(abs(amount)), 0) as largest')->first();
         $total = round((float) $totals->total, 2);
         $count = (int) $totals->entries;
 
         $previousTotal = $ledger && $from && $days
-            ? round((float) $ledger
-                ->where('subscription_transactions.created_at', '>=', $from->subDays($days))
-                ->where('subscription_transactions.created_at', '<', $from)
+            ? round((float) $this->dateFiltered($ledger, $from->subDays($days), $from, $dateBasis)
                 ->toBase()
                 ->selectRaw('coalesce(sum(abs(amount)), 0) as total')
                 ->value('total'), 2)
@@ -274,12 +272,34 @@ class LedgerController extends Controller
     /**
      * @return array<string, mixed>
      */
+    private function dateFiltered(Builder $query, ?CarbonImmutable $from, CarbonImmutable $until, string $dateBasis): Builder
+    {
+        if ($dateBasis === 'recorded') {
+            return $query->when($from, fn (Builder $lines) => $lines->where('subscription_transactions.created_at', '>=', $from))
+                ->where('subscription_transactions.created_at', '<', $until);
+        }
+
+        return $query->where(function (Builder $dates) use ($from, $until): void {
+            $dates->where(function (Builder $paid) use ($from, $until): void {
+                $paid->whereNotNull('subscription_transactions.paid_on')
+                    ->when($from, fn (Builder $lines) => $lines->where('subscription_transactions.paid_on', '>=', $from->setTimezone(config('app.business_timezone'))->toDateString()))
+                    ->where('subscription_transactions.paid_on', '<', $until->setTimezone(config('app.business_timezone'))->toDateString());
+            })->orWhere(function (Builder $recorded) use ($from, $until): void {
+                $recorded->whereNull('subscription_transactions.paid_on')
+                    ->when($from, fn (Builder $lines) => $lines->where('subscription_transactions.created_at', '>=', $from))
+                    ->where('subscription_transactions.created_at', '<', $until);
+            });
+        });
+    }
+
     private function row(SubscriptionTransaction $transaction): array
     {
         return [
             'id' => $transaction->id,
             'day' => DailySeries::localDate($transaction->created_at),
             'time' => DailySeries::localTime($transaction->created_at),
+            'paidOn' => $transaction->paid_on?->toDateString(),
+            'lateReason' => $transaction->late_reason,
             'subscriptionId' => $transaction->subscription_id,
             'subscriptionName' => $transaction->subscription->displayName(),
             'subscriptionAccountNumber' => $transaction->subscription->account_number,
@@ -437,11 +457,13 @@ class LedgerController extends Controller
         return response()->streamDownload(function () use ($lines): void {
             $file = fopen('php://output', 'w');
             fwrite($file, "\xEF\xBB\xBF");
-            fputcsv($file, ['التاريخ', 'الوقت', 'المشترك', 'الحساب', 'الفرع', 'النوع', 'السند', 'الطريقة', 'البنك', 'المرجع', 'سجّله', 'عليه', 'له', 'الرصيد بعده', 'حالة الرصيد', 'ملغاة']);
+            fputcsv($file, ['التاريخ', 'الوقت', 'المشترك', 'الحساب', 'الفرع', 'النوع', 'السند', 'الطريقة', 'البنك', 'المرجع', 'سجّله', 'عليه', 'له', 'الرصيد بعده', 'حالة الرصيد', 'ملغاة', 'تاريخ الدفع الفعلي', 'سبب تأخر التسجيل']);
 
             foreach ($lines->lazy(500) as $transaction) {
                 $row = $this->row($transaction);
                 $cells = [$row['day'], $row['time'], $row['subscriptionName'], $row['subscriptionAccountNumber'], $row['branchName'], $row['typeLabel'], $row['voucherNumber'], $row['paymentMethodLabel'], $row['bankName'], $row['referenceNumber'], $row['recordedByName'], $row['isCredit'] ? '' : (float) $row['amount'], $row['isCredit'] ? (float) $row['amount'] : '', $row['balanceAfter'] === null ? '' : (float) $row['balanceAfter'], $this->balanceWord($row['balanceAfter']), $row['isCancelled'] ? 'نعم' : 'لا'];
+                $cells[] = $row['paidOn'];
+                $cells[] = $row['lateReason'];
                 fputcsv($file, array_map(fn ($cell) => is_string($cell) && preg_match('/^[=+@\-\t\r]/u', $cell) ? "'".$cell : $cell, $cells));
             }
 

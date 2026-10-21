@@ -123,6 +123,30 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('back hides the split form keyboard before asking to discard',
+      (tester) async {
+    final api = SplitApi();
+    final list = await open(tester, api);
+    await enter(tester, list, 'split-sender', 'اسم محفوظ');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 220);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(find.text('إغلاق الحوالة المقسّمة؟'), findsNothing);
+    expect(find.text('اسم محفوظ'), findsOneWidget);
+    expect(api.requests, isEmpty);
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('إغلاق الحوالة المقسّمة؟'), findsOneWidget);
+    await tester.tap(find.text('متابعة'));
+    await tester.pumpAndSettle();
+    expect(find.text('اسم محفوظ'), findsOneWidget);
+  });
+
   testWidgets('a complete reviewed transfer submits both shares together',
       (tester) async {
     final api = SplitApi();

@@ -11,6 +11,7 @@ use App\Support\Messaging\SmsGateway;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Vite;
 use Tests\TestCase;
 
 /**
@@ -48,6 +49,21 @@ class SmsSettingTest extends TestCase
                 ->where('setting.to_param', 'to')
                 ->where('delivery.delivers', false)
                 ->where('delivery.source', 'none'));
+    }
+
+    public function test_a_local_vite_preview_does_not_send_ssr_requests_during_provider_tests(): void
+    {
+        $hotFile = tempnam(sys_get_temp_dir(), 'sms-ssr-');
+        file_put_contents($hotFile, 'http://127.0.0.1:5176');
+        Vite::useHotFile($hotFile);
+
+        try {
+            $this->actingAs($this->superAdmin)->get(route('settings.sms.edit'))
+                ->assertInertia(fn ($page) => $page->component('Settings/Sms'));
+            Http::assertNothingSent();
+        } finally {
+            unlink($hotFile);
+        }
     }
 
     public function test_the_password_is_kept_encrypted_and_never_sent_back_to_the_page(): void

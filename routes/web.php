@@ -44,6 +44,7 @@ use App\Http\Controllers\SmsSettingController;
 use App\Http\Controllers\SplitPaymentController;
 use App\Http\Controllers\SubAreaController;
 use App\Http\Controllers\SubscriberProfileHistoryController;
+use App\Http\Controllers\SubscriptionArchiveController;
 use App\Http\Controllers\SubscriptionBulkChangeController;
 use App\Http\Controllers\SubscriptionChargeController;
 use App\Http\Controllers\SubscriptionClearingController;
@@ -80,6 +81,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments/cash-boxes', [PaymentController::class, 'cashBoxes'])->name('payments.cash-boxes');
     Route::get('/payments/cash-boxes/report', CashBoxReportController::class)->name('payments.cash-boxes.report');
     Route::post('/payments/cash-boxes/audit-period', [PeriodAuditController::class, 'store'])->name('payments.period-audits.store');
+    Route::get('/payments/cash-boxes/entries/{entry}/audit', [BankTransferAuditController::class, 'show'])->whereNumber('entry')->name('payments.bank-audits.show');
     Route::post('/payments/cash-boxes/entries/{entry}/audit', [BankTransferAuditController::class, 'store'])->whereNumber('entry')->name('payments.bank-audits.store');
     Route::post('/payments/cash-boxes/{cashBox}/audit', [CashBoxAuditController::class, 'store'])->whereNumber('cashBox')->name('payments.box-audits.store');
     Route::get('/payments/cash-boxes/entries', [PaymentController::class, 'entries'])->name('payments.cash-boxes.entries');
@@ -126,6 +128,8 @@ Route::middleware('auth')->group(function () {
     Route::patch('/subscriptions/{subscription}/phone', [SubscriptionPhoneController::class, 'update'])->name('subscriptions.phone.update');
     Route::patch('/subscriptions/{subscription}/personal-details', [SubscriptionPersonalDetailsController::class, 'update'])->name('subscriptions.personal-details.update');
     Route::get('/subscriptions/{subscription}/personal-details/history', [SubscriberProfileHistoryController::class, 'show'])->name('subscriptions.personal-details.history');
+    Route::post('/subscriptions/{subscription}/archive', [SubscriptionArchiveController::class, 'store'])->name('subscriptions.archive.store');
+    Route::delete('/subscriptions/{subscription}/archive', [SubscriptionArchiveController::class, 'destroy'])->name('subscriptions.archive.destroy');
     Route::resource('subscriptions', SubscriptionController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('/subscriptions/statement-print', [SubscriptionStatementController::class, 'preview'])->name('subscriptions.statement.print');
     Route::get('/subscriptions/{subscription}/statement', [SubscriptionStatementController::class, 'show'])->name('subscriptions.statement');

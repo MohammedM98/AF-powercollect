@@ -30,6 +30,10 @@ class StoreSubscriptionPaymentRequest extends FormRequest
      */
     public function authorize(): bool
     {
+        if ($this->boolean('late_payment') || $this->filled('paid_on') || $this->filled('late_reason') || $this->filled('late_payment_token')) {
+            return $this->user()->can('recordLatePayment', $this->route('subscription'));
+        }
+
         return $this->user()->can('recordPayment', $this->route('subscription'));
     }
 
@@ -44,6 +48,11 @@ class StoreSubscriptionPaymentRequest extends FormRequest
     {
         $rules = self::paymentRules($this->input('payment_method'));
         $rules['payment_method'][] = self::allowedMethodRule($this->user());
+        $late = $this->boolean('late_payment');
+        $rules['late_payment'] = ['sometimes', 'boolean'];
+        $rules['paid_on'] = [Rule::requiredIf($late), Rule::prohibitedIf(! $late), 'nullable', 'date_format:Y-m-d', 'before:'.now(config('app.business_timezone'))->toDateString()];
+        $rules['late_reason'] = [Rule::requiredIf($late), Rule::prohibitedIf(! $late), 'nullable', 'string', 'max:1000'];
+        $rules['late_payment_token'] = [Rule::requiredIf($late), Rule::prohibitedIf(! $late), 'nullable', 'uuid'];
 
         return $rules;
     }
@@ -77,6 +86,12 @@ class StoreSubscriptionPaymentRequest extends FormRequest
             function (Validator $validator): void {
                 /** @var Subscription $subscription */
                 $subscription = $this->route('subscription');
+
+                if ($validator->errors()->isEmpty() && $this->boolean('late_payment') && SubscriptionTransaction::query()
+                    ->where('late_payment_token', $this->input('late_payment_token'))
+                    ->where('subscription_id', $subscription->id)->where('recorded_by', $this->user()->id)->exists()) {
+                    return;
+                }
 
                 self::checkOverpayment($validator, self::amountInShekels($this->input('amount'), $this->input('currency'), $this->input('exchange_rate')), max($subscription->balance(), 0.0), $this->boolean('confirm_overpayment'));
             },
@@ -143,7 +158,13 @@ class StoreSubscriptionPaymentRequest extends FormRequest
      */
     public function messages(): array
     {
-        return self::paymentMessages();
+        return [...self::paymentMessages(),
+            'paid_on.required' => 'حدد تاريخ الدفع الفعلي.',
+            'paid_on.date_format' => 'أدخل تاريخ دفع صحيحًا.',
+            'paid_on.before' => 'تاريخ الدفع يجب أن يكون قبل اليوم؛ استخدم الدفعة العادية لدفعات اليوم.',
+            'late_reason.required' => 'وضح سبب تأخر تسجيل الدفعة.',
+            'late_reason.max' => 'سبب التأخير يجب ألا يتجاوز 1000 حرف.',
+        ];
     }
 
     /**

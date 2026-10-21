@@ -3,12 +3,15 @@
 namespace Tests\Feature;
 
 use App\Enums\PermissionKey;
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
+use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\MobileAccessToken;
 use App\Models\Permission;
 use App\Models\ReadingEntrySetting;
+use App\Models\SubArea;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
@@ -794,6 +797,94 @@ class MobileApiTest extends TestCase
         $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector))
             ->getJson(route('mobile.collections.index'))->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $active->id)->assertJsonPath('total', 20)->assertJsonPath('cash_total', 20);
+    }
+
+    public function test_view_only_staff_can_open_their_branch_statements_without_payment_permissions(): void
+    {
+        $viewer = $this->collectorWithPermission(PermissionKey::ViewSubscriptions);
+        $own = Subscription::factory()->create(['branch_id' => $viewer->branch_id]);
+        $other = Subscription::factory()->create();
+        $charge = SubscriptionTransaction::factory()->for($own)->create(['amount' => '40.00']);
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($viewer));
+
+        $this->getJson(route('mobile.me'))->assertOk()
+            ->assertJsonPath('user.can_view_subscriptions', true)
+            ->assertJsonPath('user.can_record_collections', false);
+        $this->getJson(route('mobile.collections.subscriptions'))->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $own->id);
+        $this->getJson(route('mobile.collections.subscriptions.show', $own))->assertOk()
+            ->assertJsonPath('subscription.balance', '40.00')
+            ->assertJsonPath('permissions.view_history', true)
+            ->assertJsonPath('permissions.record_payment', false)
+            ->assertJsonPath('permissions.record_split_payment', false);
+        $this->getJson(route('mobile.collections.subscriptions.transactions', $own))->assertOk()
+            ->assertJsonPath('data.0.id', $charge->id)->assertJsonPath('data.0.balance_after', '40.00');
+        $this->getJson(route('mobile.collections.subscriptions.show', $other))->assertNotFound();
+        $this->getJson(route('mobile.collections.subscriptions.transactions', $other))->assertNotFound();
+        $this->postJson(route('mobile.collections.store'), [
+            'subscription_id' => $own->id,
+            'mobile_operation_id' => Str::uuid()->toString(),
+            'amount' => '10', 'currency' => 'ILS', 'payment_method' => 'cash', 'collector_confirmed' => true,
+        ])->assertForbidden();
+        $this->assertDatabaseCount('subscription_transactions', 1);
+
+        $viewer->permissions()->detach();
+        $this->getJson(route('mobile.me'))->assertJsonPath('user.can_view_subscriptions', false);
+        $this->getJson(route('mobile.collections.subscriptions'))->assertForbidden();
+        $this->getJson(route('mobile.collections.subscriptions.show', $own))->assertForbidden();
+        $this->getJson(route('mobile.collections.subscriptions.transactions', $own))->assertForbidden();
+    }
+
+    public function test_mobile_statement_has_the_current_balance_and_local_transaction_details(): void
+    {
+        config(['app.business_timezone' => 'Asia/Hebron']);
+        $viewer = $this->collectorWithPermission(PermissionKey::ViewSubscriptions);
+        $subscription = Subscription::factory()->create(['branch_id' => $viewer->branch_id]);
+        SubscriptionTransaction::factory()->for($subscription)->create([
+            'amount' => '50.00', 'created_at' => '2026-10-19 10:00:00',
+        ]);
+        $payment = SubscriptionTransaction::factory()->for($subscription)->create([
+            'type' => 'payment', 'payment_method' => 'bank_transfer', 'amount' => '-20.00',
+            'source_key' => 'statement-payment-details',
+            'created_at' => '2026-10-20 22:30:00', 'notes' => 'تسديد جزء من المستحق',
+            'reference_number' => 'REF-456', 'manual_voucher_number' => 'V-123',
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($viewer))
+            ->getJson(route('mobile.collections.subscriptions.transactions', $subscription))->assertOk()
+            ->assertJsonPath('balance', '30.00')
+            ->assertJsonPath('data.0.id', $payment->id)
+            ->assertJsonPath('data.0.amount', '20.00')
+            ->assertJsonPath('data.0.date', '2026-10-21')
+            ->assertJsonPath('data.0.recorded_at', '2026-10-21 01:30')
+            ->assertJsonPath('data.0.type_label', 'دفعة')
+            ->assertJsonPath('data.0.notes', 'تسديد جزء من المستحق')
+            ->assertJsonPath('data.0.reference_number', 'REF-456')
+            ->assertJsonPath('data.0.voucher_number', 'V-123');
+    }
+
+    public function test_mobile_subscriber_summary_includes_the_address_area_and_meter_box_location(): void
+    {
+        $area = Area::factory()->create(['name' => 'مخيم 2']);
+        $branch = Branch::factory()->inArea($area)->create();
+        $viewer = $this->collectorWithPermission(PermissionKey::ViewSubscriptions);
+        $viewer->update(['branch_id' => $branch->id]);
+        $subArea = SubArea::factory()->create(['name' => 'الحي الشرقي']);
+        $box = MeterBox::factory()->create([
+            'branch_id' => $branch->id, 'sub_area_id' => $subArea->id,
+            'name' => 'أبو ذر', 'name_suffix' => '8', 'box_number' => 'B-42',
+        ]);
+        $subscription = Subscription::factory()->create([
+            'branch_id' => $branch->id, 'meter_box_id' => $box->id, 'address' => 'بجانب المدرسة',
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($viewer))
+            ->getJson(route('mobile.collections.subscriptions.show', $subscription))->assertOk()
+            ->assertJsonPath('subscription.address', 'بجانب المدرسة')
+            ->assertJsonPath('subscription.area_name', 'مخيم 2')
+            ->assertJsonPath('subscription.sub_area_name', 'الحي الشرقي')
+            ->assertJsonPath('subscription.meter_box_name', 'أبو ذر 8')
+            ->assertJsonPath('subscription.meter_box_number', 'B-42');
     }
 
     private function collectorWithPermission(PermissionKey ...$permissions): User

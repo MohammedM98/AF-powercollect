@@ -22,6 +22,7 @@ use App\Models\Tariff;
 use App\Models\TariffSegment;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
+use App\Support\DailySeries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,6 +44,11 @@ class SubscriptionController extends Controller
         $this->authorize('viewAny', Subscription::class);
 
         $actor = auth()->user();
+        $showArchived = $request->boolean('filter.archived');
+
+        if ($showArchived) {
+            $this->authorize('viewArchived', Subscription::class);
+        }
 
         $query = Subscription::query()
             ->select('subscriptions.*')
@@ -52,7 +58,8 @@ class SubscriptionController extends Controller
             ->with(['profile' => fn ($query) => $query->withCount(['subscriptions' => fn ($subscriptions) => $subscriptions->readableTo($actor)])])
             ->withSum('transactions as outstanding_balance', 'amount')
             ->withExists(['transactions as has_subscription_fee' => fn (Builder $transactions) => $transactions->where('type', SubscriptionTransaction::TYPE_SUBSCRIPTION_FEE)]);
-        $this->applySubscriptionListFilters($query, $request);
+        $showArchived ? $query->whereNotNull('subscriptions.archived_at') : $query->whereNull('subscriptions.archived_at');
+        $this->applySubscriptionListFilters($query, $request, includeArchived: true);
 
         $canRecordReadings = $actor->can('create', MeterReading::class);
 
@@ -63,6 +70,9 @@ class SubscriptionController extends Controller
         return Inertia::render('Subscriptions/Index', [
             'subscriptions' => $subscriptions,
             'canCreate' => $actor->can('create', Subscription::class),
+            'canViewArchived' => $actor->can('viewArchived', Subscription::class),
+            'showArchived' => $showArchived,
+            'archiveToday' => DailySeries::today()->toDateString(),
             'canRecordReadings' => $canRecordReadings,
             'bulkActions' => [
                 'minimumCharge' => $actor->can('bulkUpdate', [Subscription::class, 'minimum_charge']),
@@ -185,6 +195,9 @@ class SubscriptionController extends Controller
         }
 
         DB::transaction(function () use ($subscription, $data, $chargeSubscriptionFee, $request): void {
+            Subscription::query()->whereKey($subscription->id)->lockForUpdate()->firstOrFail();
+            $subscription->refresh();
+            $this->authorize('update', $subscription);
             $subscription->profile()->lockForUpdate()->firstOrFail();
             $subscription->update($data);
 
@@ -232,7 +245,14 @@ class SubscriptionController extends Controller
             'circuitBreakerAmpere' => $subscription->circuitBreaker?->ampere,
             'standingDiscountSummary' => $subscription->standingDiscount?->summary(),
             'standingDiscount' => $subscription->standingDiscount ? ['method' => $subscription->standingDiscount->method->value, 'value' => $subscription->standingDiscount->value] : null,
-            'statusLabel' => __($subscription->status->label()),
+            'statusLabel' => $subscription->archived_at !== null ? 'مؤرشف' : __($subscription->status->label()),
+            'archivedAt' => $subscription->archived_at?->toIso8601String(),
+            'serviceEndedOn' => $subscription->service_ended_on?->format('Y-m-d'),
+            'archiveReason' => $subscription->archive_reason,
+            'archiveHistory' => $subscription->archive_history ?? [],
+            'canArchive' => $actor->can('archive', $subscription),
+            'archiveBlocker' => $subscription->archiveBlocker(),
+            'canRestore' => $subscription->archived_at !== null && $actor->can('restore', $subscription),
             'registeredByName' => $subscription->registeredBy?->name,
             'outstandingBalance' => $subscription->outstanding_balance ?? '0.00',
             'weeklyMinimumPayment' => $subscription->weeklyMinimumPayment(),

@@ -116,6 +116,11 @@ class SubscriptionBulkChangeController extends Controller
         }
 
         $bulkChange = DB::transaction(function () use ($actor, $field, $byCircuitBreaker, $request, $changes): SubscriptionBulkChange {
+            $locked = Subscription::query()->whereKey($changes->pluck('subscription.id'))->orderBy('id')->lockForUpdate()->get();
+            if ($locked->contains(fn (Subscription $subscription): bool => $subscription->archived_at !== null)) {
+                throw ValidationException::withMessages(['ids' => 'تمت أرشفة أحد الاشتراكات المختارة؛ حدّث القائمة قبل إعادة المحاولة.']);
+            }
+
             $branchIds = $changes->pluck('subscription.branch_id')->unique();
             $bulkChange = SubscriptionBulkChange::create([
                 'field' => $field,
@@ -136,7 +141,7 @@ class SubscriptionBulkChangeController extends Controller
                     && $change['old'] !== SubscriptionStatus::Active->value;
                 $sideEffects = $becomesActive ? $this->activationEffects($subscription) : [];
 
-                Subscription::query()->whereKey($subscription->id)->update([
+                Subscription::query()->whereNull('archived_at')->whereKey($subscription->id)->update([
                     $field => $change['new'],
                     ...collect($sideEffects)->map(fn (array $effect): ?string => $effect['new'])->all(),
                 ]);
@@ -184,12 +189,11 @@ class SubscriptionBulkChangeController extends Controller
         DB::transaction(function () use ($change, $actor): void {
             $restored = 0;
             $change->items()->with('subscription')->lockForUpdate()->get()->each(function (SubscriptionBulkChangeItem $item) use ($change, &$restored): void {
-                if ($item->subscription !== null && $this->currentValue($item->subscription, $change->field) === $item->new_value) {
-                    Subscription::query()->whereKey($item->subscription_id)->update([
+                if ($item->subscription !== null && $item->subscription->archived_at === null && $this->currentValue($item->subscription, $change->field) === $item->new_value) {
+                    $restored += Subscription::query()->whereNull('archived_at')->whereKey($item->subscription_id)->update([
                         $change->field => $item->old_value,
                         ...$this->effectsToPutBack($item),
                     ]);
-                    $restored++;
                 }
             });
 
@@ -209,6 +213,7 @@ class SubscriptionBulkChangeController extends Controller
         $query = Subscription::query()
             ->select('subscriptions.*')
             ->selectRaw("COALESCE(NULLIF(subscription_name, ''), full_name) as display_name")
+            ->whereNull('subscriptions.archived_at')
             ->visibleTo($actor);
 
         return $request->boolean('all')
@@ -279,7 +284,7 @@ class SubscriptionBulkChangeController extends Controller
 
             $items = $change->items()->get();
             $oldBoxes = MeterBox::query()->visibleTo($actor)->whereKey($items->pluck('old_value')->filter()->unique())->orderBy('id')->lockForUpdate()->get()->keyBy('id');
-            $subscriptions = Subscription::query()->visibleTo($actor)->whereKey($items->pluck('subscription_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $subscriptions = Subscription::query()->visibleTo($actor)->whereNull('archived_at')->whereKey($items->pluck('subscription_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $restored = 0;
 
             foreach ($items as $item) {

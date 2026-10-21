@@ -15,18 +15,39 @@ use Illuminate\Database\Eloquent\Builder;
 
 class BankTransferAuditing
 {
-    public function __construct(private BranchClosingWorkflow $workflow, private BranchBoxes $boxes) {}
+    public function __construct(private BranchClosingWorkflow $workflow, private BranchBoxes $boxes, private SplitTransferAuditing $splits) {}
 
     public static function allowed(User $actor, AuditAction $action = AuditAction::ReviewTransfers): bool
     {
         return $actor->is_active && $actor->canAuditAction($action);
     }
 
-    public function record(CashBoxPayment $entry, User $actor, string $bankAmount, ?string $reason): BankTransferAudit
+    /** @param list<array{transaction_id: int, bank_amount: string|int|float}> $parts */
+    public function record(CashBoxPayment $entry, User $actor, string $bankAmount, ?string $reason, array $parts = [], ?string $revision = null): BankTransferAudit
     {
         abort_unless(self::allowed($actor), 403);
         abort_unless($actor->auditIncludesBranch($entry->box->branch_id), 404);
 
+        if ($entry->transaction->split_payment_id !== null) {
+            $this->workflow->require($entry->transaction->isPayment() && ! $entry->transaction->isCancelled(), 'لا يمكن تدقيق حركة ملغاة أو غير مالية.');
+
+            return $this->splits->record($entry, $actor, $bankAmount, $reason, $parts, $revision, $this->recordSingle(...));
+        }
+
+        return $this->recordSingle($entry, $actor, $bankAmount, $reason);
+    }
+
+    /** @return array<string, mixed>|null */
+    public function details(CashBoxPayment $entry, User $actor): ?array
+    {
+        abort_unless(self::allowed($actor), 403);
+        abort_unless($actor->auditIncludesBranch($entry->box->branch_id), 404);
+
+        return $entry->transaction->split_payment_id === null ? null : $this->splits->details($entry, $actor);
+    }
+
+    private function recordSingle(CashBoxPayment $entry, User $actor, string $bankAmount, ?string $reason): BankTransferAudit
+    {
         return $this->workflow->locked($entry->box->branch_id, function () use ($entry, $actor, $bankAmount, $reason): BankTransferAudit {
             $current = CashBoxPayment::query()->with(['box', 'transaction'])->lockForUpdate()->findOrFail($entry->id);
             $box = $current->box;
@@ -87,6 +108,11 @@ class BankTransferAuditing
                     ->lockForUpdate()->get();
                 foreach ($entries as $entry) {
                     $payment = $entry->transaction;
+                    if ($payment->split_payment_id !== null) {
+                        $this->splits->complete($entry, $actor, $this->postDecision(...));
+
+                        continue;
+                    }
                     $recorded = Closing::money(abs(Closing::cents($payment->currency_amount ?? $payment->amount)));
                     $audit = $entry->audit ?? BankTransferAudit::query()->create([
                         'cash_box_payment_id' => $entry->id, 'audited_by' => $actor->id,

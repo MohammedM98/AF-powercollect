@@ -115,6 +115,30 @@ Future<List<bool?>> openSubscriber(WidgetTester tester, ApiClient api) async {
 }
 
 void main() {
+  testWidgets(
+      'summary shows the branch area and formatted box without area two',
+      (tester) async {
+    final api = SubscriberApi()
+      ..subscriptionDetails = {
+        'address': 'بجانب المدرسة',
+        'area_name': 'مخيم 2',
+        'sub_area_name': 'الحي الشرقي',
+        'meter_box_name': 'أبو ذر 8',
+      };
+    await openSubscriber(tester, api);
+    final scrollable = find.byType(Scrollable).first;
+    for (final value in ['بجانب المدرسة', 'مخيم 2', 'أبو ذر 8 (B7)']) {
+      await tester.scrollUntilVisible(find.text(value), 130,
+          scrollable: scrollable);
+      expect(find.text(value), findsOneWidget);
+    }
+    expect(tester.getTopLeft(find.text('مخيم 2')).dy,
+        lessThan(tester.getTopLeft(find.text('أبو ذر 8 (B7)')).dy));
+    expect(find.text('الحي الشرقي'), findsNothing);
+    expect(find.text('منطقة 2'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('English accounting types from older servers are shown in Arabic',
       (tester) async {
     final api = SubscriberApi()
@@ -168,9 +192,9 @@ void main() {
             .data,
         '\u2066120 ₪\u2069 عليه');
     final scrollable = find.byType(Scrollable).first;
-    await tester.scrollUntilVisible(find.text('B7'), 250,
+    await tester.scrollUntilVisible(find.text('(B7)'), 250,
         scrollable: scrollable);
-    expect(find.text('B7'), findsOneWidget);
+    expect(find.text('(B7)'), findsOneWidget);
     expect(find.text('رقم تواصل الاشتراك'), findsNothing);
     expect(find.text('0599000111'), findsOneWidget);
     expect(find.text('آخر دفعة'), findsNothing);
@@ -230,8 +254,12 @@ void main() {
       '2.50 ₪ / ك.و.س',
       '25.00 ₪',
       '20 أمبير',
-      'قراءة سابقة',
+      'القراءة السابقة',
+      '1200',
+      'القراءة الحالية',
       '1250.5',
+      'الفرق (كيلوواط)',
+      '50.5',
     ]) {
       await tester.scrollUntilVisible(find.text(value), 150,
           scrollable: scrollable);
@@ -249,10 +277,14 @@ void main() {
     final api = SubscriberApi()..subscriptionDetails = {'initial_reading': 0};
     await openSubscriber(tester, api);
 
-    await tester.scrollUntilVisible(find.text('قراءة سابقة'), 150,
+    await tester.scrollUntilVisible(find.text('القراءة السابقة'), 150,
         scrollable: find.byType(Scrollable).first);
-    expect(find.text('قراءة سابقة'), findsOneWidget);
+    expect(find.text('القراءة السابقة'), findsOneWidget);
     expect(find.text('0'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('الفرق (كيلوواط)'), 150,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('القراءة الحالية'), findsOneWidget);
+    expect(find.text('غير متوفر'), findsOneWidget);
     expect(find.byKey(const ValueKey('subscriber-last-reading')), findsNothing);
     expect(find.textContaining('null'), findsNothing);
     await tester.pumpWidget(const SizedBox());

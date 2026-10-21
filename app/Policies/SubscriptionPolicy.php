@@ -30,6 +30,10 @@ class SubscriptionPolicy
      */
     public function view(User $user, Subscription $subscription): bool
     {
+        if ($subscription->archived_at !== null && ! $this->viewArchived($user)) {
+            return false;
+        }
+
         if ($user->canViewAllSubscriberAccounts()) {
             return $user->auditIncludesBranch($subscription->branch_id);
         }
@@ -50,6 +54,10 @@ class SubscriptionPolicy
      */
     public function update(User $user, Subscription $subscription): bool
     {
+        if ($subscription->archived_at !== null) {
+            return false;
+        }
+
         if ($user->isSuperAdmin()) {
             return true;
         }
@@ -97,6 +105,11 @@ class SubscriptionPolicy
         return $this->recordAnyPayment($user) && $user->hasPermission(PermissionKey::RecordTransferPayments);
     }
 
+    public function recordLatePayment(User $user, Subscription $subscription): bool
+    {
+        return $this->recordPayment($user, $subscription) && $user->hasPermission(PermissionKey::RecordLatePayments);
+    }
+
     public function viewOwnCashBoxes(User $user): bool
     {
         return $user->hasAnyPermission(PermissionKey::RecordCollections, PermissionKey::AddCharges, PermissionKey::AddDiscounts, PermissionKey::AddClearings);
@@ -110,7 +123,8 @@ class SubscriptionPolicy
      */
     public function recordPayment(User $user, Subscription $subscription): bool
     {
-        return $this->recordAnyPayment($user) && $this->inBranch($user, $subscription);
+        return $this->recordAnyPayment($user) && $this->inBranch($user, $subscription)
+            && ($subscription->archived_at === null || $this->viewArchived($user));
     }
 
     /**
@@ -129,7 +143,7 @@ class SubscriptionPolicy
      */
     public function addCharge(User $user, Subscription $subscription): bool
     {
-        return $user->hasPermission(PermissionKey::AddCharges) && $this->inBranch($user, $subscription);
+        return $subscription->archived_at === null && $user->hasPermission(PermissionKey::AddCharges) && $this->inBranch($user, $subscription);
     }
 
     /**
@@ -139,7 +153,8 @@ class SubscriptionPolicy
      */
     public function addDiscount(User $user, Subscription $subscription): bool
     {
-        return $user->hasPermission(PermissionKey::AddDiscounts) && $this->inBranch($user, $subscription);
+        return $user->hasPermission(PermissionKey::AddDiscounts) && $this->inBranch($user, $subscription)
+            && ($subscription->archived_at === null || $this->viewArchived($user));
     }
 
     /**
@@ -148,7 +163,8 @@ class SubscriptionPolicy
      */
     public function addClearing(User $user, Subscription $subscription): bool
     {
-        return $user->hasPermission(PermissionKey::AddClearings) && $this->inBranch($user, $subscription);
+        return $user->hasPermission(PermissionKey::AddClearings) && $this->inBranch($user, $subscription)
+            && ($subscription->archived_at === null || $this->viewArchived($user));
     }
 
     private function inBranch(User $user, Subscription $subscription): bool
@@ -162,7 +178,7 @@ class SubscriptionPolicy
      */
     public function delete(User $user, Subscription $subscription): bool
     {
-        return $user->hasPermission(PermissionKey::DeleteSubscriptions)
+        return $subscription->archived_at === null && empty($subscription->archive_history) && $user->hasPermission(PermissionKey::DeleteSubscriptions)
             && ($user->isSuperAdmin() || $subscription->branch_id === $user->workBranchId());
     }
 
@@ -171,7 +187,21 @@ class SubscriptionPolicy
      */
     public function restore(User $user, Subscription $subscription): bool
     {
-        return false;
+        return $this->viewArchived($user)
+            && $user->hasPermission(PermissionKey::RestoreArchivedSubscriptions)
+            && $this->inBranch($user, $subscription);
+    }
+
+    public function viewArchived(User $user): bool
+    {
+        return $this->hasBaseAccess($user) && $user->hasPermission(PermissionKey::ViewArchivedSubscriptions);
+    }
+
+    public function archive(User $user, Subscription $subscription): bool
+    {
+        return $this->hasBaseAccess($user)
+            && $user->hasPermission(PermissionKey::ArchiveSubscriptions)
+            && $this->inBranch($user, $subscription);
     }
 
     /**

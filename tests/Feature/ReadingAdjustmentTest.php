@@ -6,9 +6,11 @@ use App\Enums\MeterReadingStatus;
 use App\Enums\PermissionKey;
 use App\Models\MeterReading;
 use App\Models\Permission;
+use App\Models\ReadingEntrySetting;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
@@ -278,6 +280,100 @@ class ReadingAdjustmentTest extends TestCase
         $payload = ['adjustment_type' => 'correction', 'current_reading' => 205, 'expected_reading' => 210];
         $this->put(route('meter-readings.adjust-last', $last), $payload)->assertRedirect(route('login'));
         $this->actingAs(User::factory()->financialAuditor()->create())->put(route('meter-readings.adjust-last', $last), $payload)->assertForbidden();
+    }
+
+    #[TestWith(['meter-readings.update', 'put'])]
+    #[TestWith(['meter-readings.last-reading-preview', 'postJson'])]
+    #[TestWith(['meter-readings.adjustment-preview', 'postJson'])]
+    #[TestWith(['meter-readings.adjust-last', 'put'])]
+    public function test_even_the_super_admin_cannot_edit_an_older_reading_when_later_weeks_are_missing(string $routeName, string $method): void
+    {
+        $actor = User::factory()->superAdmin()->create();
+        $subscription = Subscription::factory()->create();
+        $old = $this->reading($subscription, '2026-09-04', 200, 210, $actor);
+        $readingBefore = $old->getAttributes();
+        $transactionsBefore = $subscription->transactions()->get()->map->getAttributes()->all();
+
+        $this->actingAs($actor)->{$method}(route($routeName, $old), [
+            'adjustment_type' => 'correction', 'current_reading' => 205, 'expected_reading' => 210,
+            'reason' => 'استبدال العداد', 'as_last_reading' => true,
+        ])->assertForbidden();
+
+        $this->assertSame($readingBefore, $old->fresh()->getAttributes());
+        $this->assertSame($transactionsBefore, $subscription->transactions()->get()->map->getAttributes()->all());
+        $this->assertSame(5.0, $subscription->fresh()->balance());
+    }
+
+    #[TestWith(['2026-09-04', false, false])]
+    #[TestWith(['2026-09-11', true, false])]
+    #[TestWith(['2026-09-18', false, true])]
+    #[TestWith(['2026-09-25', false, false])]
+    public function test_super_admin_edit_permissions_follow_the_branch_week_instead_of_overriding_it(string $week, bool $canEditPrevious, bool $canEditCurrent): void
+    {
+        $actor = User::factory()->superAdmin()->create();
+        $subscription = Subscription::factory()->create();
+        $reading = $this->reading($subscription, $week, 200, 210, $actor);
+
+        $this->assertSame($canEditCurrent, $actor->can('update', $reading));
+        $this->assertSame($canEditPrevious, $actor->can('updateAsLastReading', $reading));
+        $this->assertSame($canEditPrevious, $actor->can('adjustLastReading', $reading));
+        $this->assertTrue($actor->can('view', $reading));
+    }
+
+    public function test_the_previous_reading_window_rolls_forward_for_the_super_admin_without_reopening_older_bills(): void
+    {
+        [, $subscription, $last] = $this->context();
+        $actor = User::factory()->superAdmin()->create();
+        $current = $this->reading($subscription, '2026-09-18', 210, 230, $actor);
+        $lastBefore = $last->getAttributes();
+        $transactionsBefore = $subscription->transactions()->get()->map->getAttributes()->all();
+
+        $this->travelTo('2026-10-01 10:00:00');
+
+        $this->actingAs($actor)->put(route('meter-readings.adjust-last', $last), [
+            'adjustment_type' => 'meter_change', 'current_reading' => 0, 'expected_reading' => 210,
+            'reason' => 'استبدال العداد',
+        ])->assertForbidden();
+
+        $this->put(route('meter-readings.adjust-last', $current), [
+            'adjustment_type' => 'meter_change', 'current_reading' => 0, 'expected_reading' => 230,
+            'reason' => 'استبدال العداد',
+        ])->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->assertSame($lastBefore, $last->fresh()->getAttributes());
+        $this->assertSame(0.0, $current->fresh()->nextPreviousReading());
+        $this->assertSame($transactionsBefore, $subscription->transactions()->get()->map->getAttributes()->all());
+        $this->assertSame(15.0, $subscription->fresh()->balance());
+    }
+
+    public function test_an_older_reading_is_viewable_but_not_offered_for_editing_to_the_super_admin(): void
+    {
+        $actor = User::factory()->superAdmin()->create();
+        $subscription = Subscription::factory()->create();
+        $old = $this->reading($subscription, '2026-09-04', 200, 210, $actor);
+
+        $this->actingAs($actor)->get(route('subscriptions.index'))->assertInertia(fn ($page) => $page
+            ->where('subscriptions.data.0.editableLastReadingId', null)
+            ->where('subscriptions.data.0.meterReadings.0.id', $old->id));
+
+        $this->get(route('meter-readings.index', ['week' => '2026-09-04']))->assertInertia(fn ($page) => $page
+            ->where('week', '2026-09-04')
+            ->where('rows.data.0.reading.id', $old->id)
+            ->where('rows.data.0.canEdit', false));
+    }
+
+    public function test_the_super_admins_previous_reading_limit_uses_the_subscriptions_branch_schedule(): void
+    {
+        $actor = User::factory()->superAdmin()->create();
+        $subscription = Subscription::factory()->create();
+        ReadingEntrySetting::factory()->forBranch($subscription->branch)->forcedOpen()->create(['reading_day' => CarbonInterface::SATURDAY]);
+        $last = $this->reading($subscription, '2026-09-06', 200, 210, $actor);
+        $older = $this->reading($subscription, '2026-08-30', 190, 200, $actor);
+
+        $this->assertTrue($actor->can('adjustLastReading', $last));
+        $this->assertFalse($actor->can('update', $last));
+        $this->assertFalse($actor->can('updateAsLastReading', $older));
+        $this->assertFalse($actor->can('adjustLastReading', $older));
     }
 
     /** @return array{User, Subscription, MeterReading} */

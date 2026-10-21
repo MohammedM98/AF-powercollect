@@ -13,7 +13,7 @@ The `.env.example` file is the *development* template; its first lines list what
 
 **Security headers.** The app itself sends `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS (over HTTPS) and, in production, a Content-Security-Policy (`CSP_MODE=report-only` tries it without blocking, `off` disables it). Also hide the server's own banners: `server_tokens off;` and `fastcgi_hide_header X-Powered-By;` in nginx (or `expose_php = Off` in `php.ini`).
 
-**Scheduler (cron).** Closings open every 15 minutes and the backup runs nightly from Laravel's scheduler, so one cron line must call it every minute:
+**Scheduler (cron).** Laravel checks the weekly box cutoff every minute and runs the backup nightly. A single cron entry must invoke the scheduler every minute:
 
 ```
 * * * * * cd /var/www/powercollect && php artisan schedule:run >> /dev/null 2>&1
@@ -33,11 +33,15 @@ stdout_logfile=/var/www/powercollect/storage/logs/worker.log
 
 Run `php artisan queue:restart` after each deploy so the worker picks up the new code.
 
-**Backups.** `php artisan backup:run` (scheduled daily at 02:30) saves the database (a `mysqldump`, or a snapshot for SQLite) and the stored files (`storage/app/private`, which holds the cash hand-over proof images) into `storage/app/private/backups`, opens both again to check them, and removes backups older than `BACKUP_KEEP_DAYS` (14). Those copies are on the same server, so set `BACKUP_DISK` to a filesystem disk that is *not* this server (an S3 bucket, say, defined in `config/filesystems.php`): every backup is copied there too. The server needs the `mysqldump` tool installed. To restore into a scratch database and check it (do this once before launch, and now and then after):
+**Backups.** `php artisan backup:run` (scheduled daily at 02:30 UTC, following `app.timezone`) creates three checked files in `storage/app/private/backups`: the database dump (`mysqldump`, or a SQLite snapshot), the private uploads archive (`storage/app/private`, including proofs and imported company forms), and a separate public uploads archive (`storage/app/public`, including bank logos). The existing private archive layout is unchanged. Backups older than `BACKUP_KEEP_DAYS` (14) are removed only after all archives are checked and every configured upload succeeds. A failed upload returns failure, preserves the older backups, and is reported by the scheduler.
+
+These copies are on the same server, so set `BACKUP_DISK` to a configured off-server filesystem disk. Its driver must be installed: the optional S3 driver requires `league/flysystem-aws-s3-v3:^3.0` and valid bucket credentials; setting `BACKUP_DISK=s3` alone does not install it. If `FILESYSTEM_DISK` points to external storage, also back up that storage separately: this command archives the local private and public disks. Preserve the production `APP_KEY` and deployment configuration securely outside these archives. The server needs `mysqldump` installed. To restore into a scratch database and separate empty directories (do this before launch, and periodically afterward):
 
 ```
 gunzip -c powercollect-YYYYMMDD-HHMMSS-database.sql.gz | mysql -u root -p powercollect_restore
-tar -xzf powercollect-YYYYMMDD-HHMMSS-files.tar.gz -C /tmp/restored-files
+mkdir -p /tmp/restored-private /tmp/restored-public
+tar -xzf powercollect-YYYYMMDD-HHMMSS-files.tar.gz -C /tmp/restored-private
+tar -xzf powercollect-YYYYMMDD-HHMMSS-public-files.tar.gz -C /tmp/restored-public
 ```
 
 then compare a few counts (`select count(*) from subscriptions`, the latest `closings` row) with the live system.

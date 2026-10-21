@@ -224,10 +224,15 @@ class MobileCollectionController extends Controller
             ->get();
 
         // Totals are in shekels, as the account is, whatever currency each payment came in.
+        $methods = $request->user()->allowedPaymentMethods();
+
         return response()->json([
             'total' => $collections->sum(fn (SubscriptionTransaction $transaction): float => -(float) $transaction->amount),
-            'cash_total' => $collections->filter(fn (SubscriptionTransaction $transaction): bool => $transaction->payment_method === PaymentMethod::Cash)
-                ->sum(fn (SubscriptionTransaction $transaction): float => -(float) $transaction->amount),
+            'payment_methods' => array_map(fn (PaymentMethod $method): string => $method->value, $methods),
+            ...(in_array(PaymentMethod::Cash, $methods, true) ? ['cash_total' => $collections->filter(fn (SubscriptionTransaction $transaction): bool => $transaction->payment_method === PaymentMethod::Cash)
+                ->sum(fn (SubscriptionTransaction $transaction): float => -(float) $transaction->amount)] : []),
+            ...(in_array(PaymentMethod::BankTransfer, $methods, true) ? ['bank_transfer_total' => $collections->filter(fn (SubscriptionTransaction $transaction): bool => $transaction->payment_method === PaymentMethod::BankTransfer)
+                ->sum(fn (SubscriptionTransaction $transaction): float => -(float) $transaction->amount)] : []),
             'data' => $collections->map(fn (SubscriptionTransaction $transaction): array => $this->collectionData($transaction))->all(),
         ]);
     }

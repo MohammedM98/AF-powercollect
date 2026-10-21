@@ -22,6 +22,7 @@ import { formatAmount } from '@/lib/currency';
 import { notify } from '@/lib/notify';
 import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 import { statementPrintUrl, statementRowTotals } from '@/lib/statementPrint';
+import './AccountStatement.css';
 
 export const STATEMENT_COLUMNS = [
     '#',
@@ -39,6 +40,8 @@ export const STATEMENT_COLUMNS = [
     'الرصيد (شيكل)',
     'اسم المستخدم',
 ];
+
+const COLUMN_WIDTHS = [4, 4, 6, 18, 9, 8, 14, 5, 4, 7, 6, 3, 6, 6];
 
 const EMPTY_FILTERS = { search: '', type: '', method: '', dateFrom: '', dateTo: '' };
 
@@ -64,6 +67,18 @@ function withLtrDates(text) {
 
 function Dash() {
     return <span className="text-gray-300">—</span>;
+}
+
+/** Keeps the date and time together on separate, right-aligned lines. */
+function StatementDate({ value }) {
+    const [date, ...time] = String(value ?? '—').split(' ');
+
+    return (
+        <span className="statement-date">
+            <bdi dir="ltr">{date}</bdi>
+            {time.length > 0 && <bdi dir="ltr" className="statement-time">{time.join(' ')}</bdi>}
+        </span>
+    );
 }
 
 /** Under a corrected or cancelled line: why, who did it and when. */
@@ -403,6 +418,7 @@ function StatementRow({
     onToggleHistory,
     onJump,
     onAction,
+    fullPaymentDetails = false,
 }) {
     const showsHistory = isCompact && !isHistory && entry.history?.length > 0;
     const color = chainColor(chain);
@@ -433,7 +449,7 @@ function StatementRow({
             </td>
             <td data-label="الرقم المرجعي" className="tabular-nums text-gray-700">
                 <div className="flex min-w-0 flex-col items-start gap-1">
-                    {entry.referenceNumber ? <bdi dir="ltr">{entry.referenceNumber}</bdi> : <Dash />}
+                    {entry.referenceNumber ? <bdi dir="ltr" className="statement-reference" title={entry.referenceNumber} tabIndex={0}>{entry.referenceNumber}</bdi> : <Dash />}
                     {entry.splitPayment && <SplitPaymentBadge split={entry.splitPayment} compact />}
                 </div>
             </td>
@@ -446,17 +462,29 @@ function StatementRow({
                 ) : <Dash />}
             </td>
             <td data-label="تاريخ الحركة" className="whitespace-nowrap tabular-nums text-gray-600">
-                {entry.paidOn ? <LatePaymentDetails paidOn={entry.paidOn} recordedAt={entry.date} reason={entry.lateReason} /> : <span dir="ltr">{entry.date}</span>}
+                {entry.paidOn ? (
+                    fullPaymentDetails ? <LatePaymentDetails paidOn={entry.paidOn} recordedAt={entry.date} reason={entry.lateReason} /> : (
+                        <>
+                            <span className="statement-screen-only statement-late-dates">
+                                <StatusPill tone="amber" label="متأخرة" />
+                                <span className="statement-date-label">الدفع الفعلي</span>
+                                <StatementDate value={entry.paidOn} />
+                                <span className="statement-date-label">التسجيل بالنظام</span>
+                                <StatementDate value={entry.date} />
+                            </span>
+                            <span className="statement-print-only"><LatePaymentDetails paidOn={entry.paidOn} recordedAt={entry.date} reason={entry.lateReason} /></span>
+                        </>
+                    )
+                ) : <StatementDate value={entry.date} />}
             </td>
             <td data-label="البيان" className="font-medium text-gray-900">
-                <div className="ledger-description">
+                <div className="ledger-description statement-description-title">
                     {(isHistory || followsLineAbove(entry)) && <span className="me-1 text-blue-600">↲</span>}
                     <span className="ledger-struck">{withLtrDates(entry.description)}</span>
                 </div>
-                {entry.details && (
-                    <p className="ledger-description mt-1 text-xs font-normal text-gray-500">
-                        {withLtrDates(entry.details)}
-                    </p>
+                {entry.details && <p className="ledger-description statement-description-details">{withLtrDates(entry.details)}</p>}
+                {!fullPaymentDetails && entry.lateReason && !entry.details?.includes(entry.lateReason) && (
+                    <p className="ledger-description statement-description-details statement-screen-only">سبب التأخير: {entry.lateReason}</p>
                 )}
                 {entry.discountLine && <ReadingDiscountNote discountLine={entry.discountLine} />}
                 {entry.cancellation && <CancellationNote cancellation={entry.cancellation} onJump={onJump} />}
@@ -746,183 +774,189 @@ export default function AccountStatement({ subscription, entries, summary, payme
                 />
             </div>
 
-            <div className="data-table-toolbar">
-                <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-                    <div className="me-auto">
-                        <StatementViewTabs value={view} onChange={chooseView} />
+            <section className="statement-ledger-panel">
+                <div className="data-table-toolbar">
+                    <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+                        <div className="me-auto">
+                            <StatementViewTabs value={view} onChange={chooseView} />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={exportEntries}
+                            disabled={visibleEntries.length === 0}
+                            title="تنزيل الحركات المعروضة بصيغة CSV المتوافقة مع Excel"
+                            className={`${TOOL_BUTTON} tone-excel`}
+                        >
+                            <Icon name="excel" className="h-4 w-4" />
+                            تصدير Excel
+                        </button>
+                        {subscription.canPrint !== false && <button
+                            type="button"
+                            onClick={() => window.open(statementPrintUrl(subscription.id, { view, filters, openHistories }), '_blank', 'noopener')}
+                            disabled={visibleEntries.length === 0}
+                            title="تخصيص وطباعة الحركات المعروضة مع رأس الكشف وملخّصه"
+                            className={`${TOOL_BUTTON} tone-print`}
+                        >
+                            <Icon name="printer" className="h-4 w-4" />
+                            طباعة وتخصيص
+                        </button>}
                     </div>
-                    <button
-                        type="button"
-                        onClick={exportEntries}
-                        disabled={visibleEntries.length === 0}
-                        title="تنزيل الحركات المعروضة بصيغة CSV المتوافقة مع Excel"
-                        className={`${TOOL_BUTTON} tone-excel`}
-                    >
-                        <Icon name="excel" className="h-4 w-4" />
-                        تصدير Excel
-                    </button>
-                    {subscription.canPrint !== false && <button
-                        type="button"
-                        onClick={() => window.open(statementPrintUrl(subscription.id, { view, filters, openHistories }), '_blank', 'noopener')}
-                        disabled={visibleEntries.length === 0}
-                        title="تخصيص وطباعة الحركات المعروضة مع رأس الكشف وملخّصه"
-                        className={`${TOOL_BUTTON} tone-print`}
-                    >
-                        <Icon name="printer" className="h-4 w-4" />
-                        طباعة وتخصيص
-                    </button>}
-                </div>
-                <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-6">
-                    <label className="block text-sm text-gray-600 sm:col-span-2">
-                        بحث
-                        <input
-                            type="search"
-                            value={filters.search}
-                            onChange={(e) => setFilter('search', e.target.value)}
-                            placeholder="البيان والتفاصيل، رقم السند، المبلغ، البنك أو اسم الموظف..."
-                            className="mt-1 block w-full text-sm"
-                        />
-                    </label>
-                    <label className="block text-sm text-gray-600">
-                        نوع الحركة
-                        <select value={filters.type} onChange={(e) => setFilter('type', e.target.value)} className="mt-1 block w-full text-sm">
-                            <option value="">الكل</option>
-                            <option value="debit">كل ما عليه (تحميل)</option>
-                            <option value="credit">كل ما له (تسديد وخصم)</option>
-                            {transactionTypes.map((type) => (
-                                <option key={type.value} value={type.value}>
-                                    {type.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="block text-sm text-gray-600">
-                        طريقة الدفع
-                        <select value={filters.method} onChange={(e) => setFilter('method', e.target.value)} className="mt-1 block w-full text-sm">
-                            <option value="">الكل</option>
-                            {paymentMethods.map((method) => (
-                                <option key={method.value} value={method.value}>
-                                    {method.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="block text-sm text-gray-600">
-                        من تاريخ
-                        <input
-                            type="date"
-                            value={filters.dateFrom}
-                            max={filters.dateTo || undefined}
-                            onChange={(e) => setFilter('dateFrom', e.target.value)}
-                            className="mt-1 block w-full min-w-0 text-sm"
-                        />
-                    </label>
-                    <label className="block text-sm text-gray-600">
-                        إلى تاريخ
-                        <input
-                            type="date"
-                            value={filters.dateTo}
-                            min={filters.dateFrom || undefined}
-                            onChange={(e) => setFilter('dateTo', e.target.value)}
-                            className="mt-1 block w-full min-w-0 text-sm"
-                        />
-                    </label>
-                </div>
-                {invalidDates && (
-                    <p role="alert" className="mt-2 text-sm text-red-600">
-                        تاريخ البداية يجب أن يسبق تاريخ النهاية.
-                    </p>
-                )}
-            </div>
-
-            <div className="data-table-container">
-                <table className="data-table data-table-ledger w-full text-start text-sm">
-                    <thead>
-                        <tr>
-                            {columns.map((column) => (
-                                <th key={column} className={column === '' ? 'statement-screen-only' : undefined}>
-                                    {column}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.length === 0 ? (
-                            <tr>
-                                <td colSpan={columns.length}>
-                                    {!entries.length ? (
-                                        'لا توجد حركات على هذا الحساب بعد.'
-                                    ) : isCompact && !compact.entries.length ? (
-                                        <>
-                                            كل حركات هذا الحساب ملغاة مع قيودها العكسية (مجموعها صفر) فلا شيء يُعرض في العرض المختصر.{' '}
-                                            <button type="button" onClick={() => chooseView('full')} className="font-medium text-brand-600 hover:underline">
-                                                عرض كل الحركات
-                                            </button>
-                                        </>
-                                    ) : (
-                                        'لا توجد حركات تطابق البحث والتصفية.'
-                                    )}
-                                </td>
-                            </tr>
-                        ) : (
-                            rows.map((entry) => {
-                                const historyOpen = isCompact && openHistories.has(entry.id);
-                                const rowProps = { isCompact, hasLineMenus, hoveredChain, onHoverChain: setHoveredChain, onJump: jumpToLine, onAction: actOn };
-
-                                return (
-                                    <Fragment key={entry.id}>
-                                        <StatementRow
-                                            {...rowProps}
-                                            entry={entry}
-                                            chain={chains.get(entry.id) ?? null}
-                                            highlighted={highlightedLineId === entry.id}
-                                            focused={focusedLineId === entry.id || entry.discountLine?.id === focusedLineId}
-                                            historyOpen={historyOpen}
-                                            onToggleHistory={() => toggleHistory(entry.id)}
-                                        />
-                                        {historyOpen &&
-                                            entry.history.map((folded) => (
-                                                <StatementRow
-                                                    key={folded.id}
-                                                    {...rowProps}
-                                                    entry={folded}
-                                                    chain={chains.get(folded.id) ?? null}
-                                                    isHistory
-                                                    highlighted={highlightedLineId === folded.id}
-                                                    focused={focusedLineId === folded.id}
-                                                />
-                                            ))}
-                                    </Fragment>
-                                );
-                            })
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
-                <p aria-live="polite">
-                    الحركات المعروضة: {visibleEntries.length} من {entries.length} · الأقدم أولًا، والرصيد بعد كل حركة
-                    {isCompact && compact.hiddenCount > 0 && (
-                        <>
-                            {' '}
-                            · أُخفيت {compact.hiddenCount} حركة ملغاة مع قيودها العكسية (مجموعها صفر){' '}
-                            <button type="button" onClick={() => chooseView('full')} className="statement-screen-only font-medium text-brand-600 hover:underline">
-                                عرض كل الحركات
-                            </button>
-                        </>
+                    <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                        <label className="block text-sm text-gray-600 sm:col-span-2">
+                            بحث
+                            <input
+                                type="search"
+                                value={filters.search}
+                                onChange={(e) => setFilter('search', e.target.value)}
+                                placeholder="البيان والتفاصيل، رقم السند، المبلغ، البنك أو اسم الموظف..."
+                                className="mt-1 block w-full text-sm"
+                            />
+                        </label>
+                        <label className="block text-sm text-gray-600">
+                            نوع الحركة
+                            <select value={filters.type} onChange={(e) => setFilter('type', e.target.value)} className="mt-1 block w-full text-sm">
+                                <option value="">الكل</option>
+                                <option value="debit">كل ما عليه (تحميل)</option>
+                                <option value="credit">كل ما له (تسديد وخصم)</option>
+                                {transactionTypes.map((type) => (
+                                    <option key={type.value} value={type.value}>
+                                        {type.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="block text-sm text-gray-600">
+                            طريقة الدفع
+                            <select value={filters.method} onChange={(e) => setFilter('method', e.target.value)} className="mt-1 block w-full text-sm">
+                                <option value="">الكل</option>
+                                {paymentMethods.map((method) => (
+                                    <option key={method.value} value={method.value}>
+                                        {method.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="block text-sm text-gray-600">
+                            من تاريخ
+                            <input
+                                type="date"
+                                value={filters.dateFrom}
+                                max={filters.dateTo || undefined}
+                                onChange={(e) => setFilter('dateFrom', e.target.value)}
+                                className="mt-1 block w-full min-w-0 text-sm"
+                            />
+                        </label>
+                        <label className="block text-sm text-gray-600">
+                            إلى تاريخ
+                            <input
+                                type="date"
+                                value={filters.dateTo}
+                                min={filters.dateFrom || undefined}
+                                onChange={(e) => setFilter('dateTo', e.target.value)}
+                                className="mt-1 block w-full min-w-0 text-sm"
+                            />
+                        </label>
+                    </div>
+                    {invalidDates && (
+                        <p role="alert" className="mt-2 text-sm text-red-600">
+                            تاريخ البداية يجب أن يسبق تاريخ النهاية.
+                        </p>
                     )}
-                </p>
-                {isFiltered && (
-                    <button
-                        type="button"
-                        onClick={() => setFilters(EMPTY_FILTERS)}
-                        className="statement-screen-only font-medium text-brand-600 hover:underline"
-                    >
-                        مسح عوامل التصفية
-                    </button>
-                )}
-            </div>
+                </div>
+
+                <div className="data-table-container">
+                    <table className="data-table data-table-ledger w-full text-start text-sm">
+                        <colgroup>
+                            {COLUMN_WIDTHS.map((width, index) => <col key={index} style={{ width: `${width * (hasLineMenus ? 0.97 : 1)}%` }} />)}
+                            {hasLineMenus && <col className="statement-screen-only" style={{ width: '3%' }} />}
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                {columns.map((column) => (
+                                    <th key={column} className={column === '' ? 'statement-screen-only' : undefined}>
+                                        {column}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.length === 0 ? (
+                                <tr>
+                                    <td colSpan={columns.length}>
+                                        {!entries.length ? (
+                                            'لا توجد حركات على هذا الحساب بعد.'
+                                        ) : isCompact && !compact.entries.length ? (
+                                            <>
+                                                كل حركات هذا الحساب ملغاة مع قيودها العكسية (مجموعها صفر) فلا شيء يُعرض في العرض المختصر.{' '}
+                                                <button type="button" onClick={() => chooseView('full')} className="font-medium text-brand-600 hover:underline">
+                                                    عرض كل الحركات
+                                                </button>
+                                            </>
+                                        ) : (
+                                            'لا توجد حركات تطابق البحث والتصفية.'
+                                        )}
+                                    </td>
+                                </tr>
+                            ) : (
+                                rows.map((entry) => {
+                                    const historyOpen = isCompact && openHistories.has(entry.id);
+                                    const rowProps = { isCompact, hasLineMenus, hoveredChain, onHoverChain: setHoveredChain, onJump: jumpToLine, onAction: actOn, fullPaymentDetails: printOptions !== null };
+
+                                    return (
+                                        <Fragment key={entry.id}>
+                                            <StatementRow
+                                                {...rowProps}
+                                                entry={entry}
+                                                chain={chains.get(entry.id) ?? null}
+                                                highlighted={highlightedLineId === entry.id}
+                                                focused={focusedLineId === entry.id || entry.discountLine?.id === focusedLineId}
+                                                historyOpen={historyOpen}
+                                                onToggleHistory={() => toggleHistory(entry.id)}
+                                            />
+                                            {historyOpen &&
+                                                entry.history.map((folded) => (
+                                                    <StatementRow
+                                                        key={folded.id}
+                                                        {...rowProps}
+                                                        entry={folded}
+                                                        chain={chains.get(folded.id) ?? null}
+                                                        isHistory
+                                                        highlighted={highlightedLineId === folded.id}
+                                                        focused={focusedLineId === folded.id}
+                                                    />
+                                                ))}
+                                        </Fragment>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="statement-ledger-footer flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
+                    <p aria-live="polite">
+                        الحركات المعروضة: {visibleEntries.length} من {entries.length} · الأقدم أولًا، والرصيد بعد كل حركة
+                        {isCompact && compact.hiddenCount > 0 && (
+                            <>
+                                {' '}
+                                · أُخفيت {compact.hiddenCount} حركة ملغاة مع قيودها العكسية (مجموعها صفر){' '}
+                                <button type="button" onClick={() => chooseView('full')} className="statement-screen-only font-medium text-brand-600 hover:underline">
+                                    عرض كل الحركات
+                                </button>
+                            </>
+                        )}
+                    </p>
+                    {isFiltered && (
+                        <button
+                            type="button"
+                            onClick={() => setFilters(EMPTY_FILTERS)}
+                            className="statement-screen-only font-medium text-brand-600 hover:underline"
+                        >
+                            مسح عوامل التصفية
+                        </button>
+                    )}
+                </div>
+            </section>
         </div>
     );
 }

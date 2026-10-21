@@ -25,11 +25,11 @@ class RunBackup extends Command
     protected $description = 'Back up the database and the stored files (cash hand-over proofs), check the copies, send them off the server and remove the old ones';
 
     /**
-     * Two files per run, named by the time: the database dump (gzipped SQL
-     * for MySQL, a snapshot for SQLite) and a gzipped tar of the local
-     * disk (storage/app/private, the cash hand-over proof images). Each is
+     * Three files per run: the database dump (gzipped SQL for MySQL, a
+     * snapshot for SQLite), the private files and the public uploads.
+     * Private and public files have separate gzipped tar archives. Each is
      * opened again to check it is whole before anything is sent or deleted.
-     * With `BACKUP_DISK` set to an off-server disk (S3, say) both are
+     * With `BACKUP_DISK` set to an off-server disk (S3, say) all are
      * copied there too; backups older than the retention are removed from
      * both places.
      */
@@ -40,7 +40,7 @@ class RunBackup extends Command
         $stamp = now()->format('Ymd-His');
 
         try {
-            $made = [$this->backUpDatabase($stamp), $this->backUpFiles($stamp)];
+            $made = [$this->backUpDatabase($stamp), $this->backUpFiles($stamp), $this->backUpFiles($stamp, 'public')];
 
             foreach ($made as $file) {
                 $this->verify($file);
@@ -52,8 +52,18 @@ class RunBackup extends Command
             if ($disk !== null && $disk !== '') {
                 foreach ($made as $file) {
                     $stream = fopen($file, 'r');
-                    Storage::disk($disk)->writeStream(self::DIRECTORY.'/'.basename($file), $stream);
-                    is_resource($stream) && fclose($stream);
+                    if ($stream === false) {
+                        throw new RuntimeException('Could not open '.basename($file).' for upload.');
+                    }
+                    try {
+                        if (! Storage::disk($disk)->writeStream(self::DIRECTORY.'/'.basename($file), $stream)) {
+                            throw new RuntimeException('Could not upload '.basename($file).' to '.$disk.'.');
+                        }
+                    } finally {
+                        if (is_resource($stream)) {
+                            fclose($stream);
+                        }
+                    }
                 }
 
                 $this->components->twoColumnDetail('Sent to', $disk);
@@ -130,11 +140,16 @@ class RunBackup extends Command
         return $this->gzip($dump, "{$dump}.gz");
     }
 
-    /** The local disk (without the backups themselves) as a gzipped tar. */
-    private function backUpFiles(string $stamp): string
+    /** Archive a local uploads disk, keeping private and public restore paths separate. */
+    private function backUpFiles(string $stamp, string $sourceDisk = 'local'): string
     {
-        $root = Storage::disk('local')->path('');
-        $tar = Storage::disk('local')->path(self::DIRECTORY."/powercollect-{$stamp}-files.tar");
+        $source = Storage::disk($sourceDisk);
+        if (! $source->exists('/')) {
+            $source->makeDirectory('/');
+        }
+        $root = $source->path('');
+        $suffix = $sourceDisk === 'local' ? 'files' : 'public-files';
+        $tar = Storage::disk('local')->path(self::DIRECTORY."/powercollect-{$stamp}-{$suffix}.tar");
         $archive = new PharData($tar);
         $archive->buildFromDirectory(rtrim($root, '/'), '#^(?!.*/'.self::DIRECTORY.'(/|$)).*$#');
 

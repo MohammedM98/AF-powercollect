@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\DB;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use PDO;
 use PharData;
+use PHPUnit\Framework\Attributes\TestWith;
+use RuntimeException;
 use Tests\TestCase;
 
 class BackupCommandTest extends TestCase
@@ -24,6 +27,7 @@ class BackupCommandTest extends TestCase
         parent::setUp();
 
         Storage::fake('local');
+        Storage::fake('public');
         $this->travelTo('2026-10-07 02:30:00');
     }
 
@@ -70,7 +74,7 @@ class BackupCommandTest extends TestCase
 
         $names = array_map('basename', $this->backups());
         sort($names);
-        $this->assertSame(['powercollect-20261007-023000-database.sqlite.gz', 'powercollect-20261007-023000-files.tar.gz'], $names);
+        $this->assertSame(['powercollect-20261007-023000-database.sqlite.gz', 'powercollect-20261007-023000-files.tar.gz', 'powercollect-20261007-023000-public-files.tar.gz'], $names);
 
         // The restore test: open the database copy as a database and the archive as files.
         $copy = tempnam(sys_get_temp_dir(), 'restore-');
@@ -98,7 +102,7 @@ class BackupCommandTest extends TestCase
         $this->assertFileExists($target.'/cash-transfers/proof.jpg');
         $this->assertDirectoryDoesNotExist($target.'/backups');
         File::deleteDirectory($target);
-        $this->assertCount(4, $this->backups());
+        $this->assertCount(6, $this->backups());
     }
 
     public function test_an_empty_disk_still_gives_an_archive(): void
@@ -123,7 +127,7 @@ class BackupCommandTest extends TestCase
         $disk->assertMissing('backups/powercollect-20260901-020000-database.sqlite.gz');
         $disk->assertExists('backups/powercollect-20261005-020000-database.sqlite.gz');
         $disk->assertExists('backups/notes.txt');
-        $this->assertCount(4, $this->backups());
+        $this->assertCount(5, $this->backups());
     }
 
     public function test_the_backup_is_copied_to_the_off_server_disk_and_old_ones_there_are_removed_too(): void
@@ -137,6 +141,7 @@ class BackupCommandTest extends TestCase
 
         Storage::disk('offsite')->assertExists('backups/powercollect-20261007-023000-database.sqlite.gz');
         Storage::disk('offsite')->assertExists('backups/powercollect-20261007-023000-files.tar.gz');
+        Storage::disk('offsite')->assertExists('backups/powercollect-20261007-023000-public-files.tar.gz');
         Storage::disk('offsite')->assertMissing('backups/powercollect-20260801-020000-database.sqlite.gz');
         $this->assertSame(
             md5_file(Storage::disk('local')->path('backups/powercollect-20261007-023000-files.tar.gz')),
@@ -152,7 +157,52 @@ class BackupCommandTest extends TestCase
         $this->artisan('backup:run', ['--no-upload' => true])->assertSuccessful();
 
         $this->assertSame([], Storage::disk('offsite')->allFiles());
-        $this->assertCount(2, $this->backups());
+        $this->assertCount(3, $this->backups());
+    }
+
+    #[TestWith([false])]
+    #[TestWith([true])]
+    public function test_a_failed_upload_preserves_older_backups_and_closes_the_stream(bool $throws): void
+    {
+        $local = Storage::disk('local');
+        $old = 'backups/powercollect-20260801-020000-database.sqlite.gz';
+        $local->put($old, 'last-known-backup');
+        touch($local->path($old), now()->subDays(60)->getTimestamp());
+        $streams = [];
+        $offsite = \Mockery::mock(FilesystemAdapter::class);
+        $offsite->shouldReceive('writeStream')->once()->andReturnUsing(function (string $path, $stream) use (&$streams, $throws): bool {
+            $streams[] = $stream;
+            if ($throws) {
+                throw new RuntimeException('Offsite unavailable');
+            }
+
+            return false;
+        });
+        $offsite->shouldNotReceive('files');
+        Storage::set('offsite', $offsite);
+        config(['powercollect.backup.disk' => 'offsite']);
+
+        $this->artisan('backup:run')->assertFailed();
+
+        $this->assertSame('last-known-backup', $local->get($old));
+        $this->assertCount(1, $streams);
+        $this->assertFalse(is_resource($streams[0]), 'The upload stream must close even when the disk fails.');
+    }
+
+    public function test_public_bank_logos_are_backed_up_and_can_be_restored_separately(): void
+    {
+        Storage::disk('public')->put('bank-logos/bank.webp', 'public-bank-logo');
+
+        $this->artisan('backup:run')->assertSuccessful();
+
+        $archive = 'backups/powercollect-20261007-023000-public-files.tar.gz';
+        Storage::disk('local')->assertExists($archive);
+        $target = $this->restoreFiles($archive);
+        try {
+            $this->assertSame('public-bank-logo', file_get_contents($target.'/bank-logos/bank.webp'));
+        } finally {
+            File::deleteDirectory($target);
+        }
     }
 
     public function test_a_mysql_database_is_dumped_with_the_password_kept_out_of_the_command_line(): void

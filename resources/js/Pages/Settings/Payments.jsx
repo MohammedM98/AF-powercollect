@@ -15,7 +15,7 @@ export default function Payments({ currencies, banks, storeUrl, boxPeriod, canMa
 
     function savePeriod(event) {
         event.preventDefault();
-        form.put(boxPeriod.updateUrl, { preserveScroll: true, onSuccess: () => form.defaults() });
+        form.put(boxPeriod.updateUrl, { preserveScroll: true, onSuccess: () => form.setDefaults() });
     }
 
     return <SettingsLayout header={<h2 className="text-3xl font-bold text-gray-900">إعدادات الدفعات</h2>}>

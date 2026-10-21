@@ -16,6 +16,9 @@ before(async () => {
         resolve: { alias: { '@': path.resolve(import.meta.dirname, '../../resources/js') } },
         plugins: [{ name: 'use-installed-react', resolveId(id) {
             if (/^react(?:-dom)?(?:\/|$)/.test(id)) return { id: import.meta.resolve(id), external: true };
+            if (id.endsWith('.css')) return '\0css';
+        }, load(id) {
+            if (id === '\0css') return '';
         } }],
     });
     try {
@@ -36,10 +39,11 @@ const entries = [
     { ...base, id: 4, lineNumber: 4, type: 'payment', description: 'دفعة البنك', referenceNumber: 'REF-4', isCredit: true, amount: '10.00', balance: '20.00', paymentMethod: 'bank_transfer' },
 ];
 
-function render(options = {}) {
+function render(options = {}, props = {}) {
     return renderToStaticMarkup(createElement(AccountStatement, {
         subscription, entries, summary: { balance: '20', charged: '30', paid: '10', discounted: '0', cleared: '0', paymentsCount: 1, discountsCount: 0, clearingsCount: 0 },
         paymentMethods: [], transactionTypes: [], printOptions: { view: 'full', filters, openHistories: [], ...options },
+        ...props,
     }));
 }
 const lineIds = (html) => [...html.matchAll(/id="statement-line-(\d+)"/g)].map((match) => Number(match[1]));
@@ -110,4 +114,29 @@ test('statement metadata comes from the current subscriber and presents filter l
     assert.equal(details.find((field) => field.key === 'branch').value, 'الفرع الأول');
     assert.equal(details.find((field) => field.key === 'filters').value, 'دفعة · تحويل بنكي');
     assert.deepEqual(statementPrintDetails({ subscription: null }), []);
+});
+
+test('print keeps the complete description, long reference and both late-payment dates without a details dialog', () => {
+    const reference = 'BANK2026101800328945761234567890';
+    const details = 'هذا البيان طويل ويجب أن يبقى كاملًا في الطباعة والتصدير. '.repeat(12);
+    const entry = { ...entries[3], description: 'دفعة <اختبار>', details, referenceNumber: reference, senderBankName: 'بنك فلسطين', bankName: 'محفظة بال باي', paidOn: '2026-10-10', lateReason: 'نسي المحصّل تسجيلها' };
+    const html = render({}, { entries: [entry] });
+
+    assert.match(html, /دفعة &lt;اختبار&gt;/);
+    assert.ok(html.includes(details));
+    assert.ok(html.includes(reference));
+    assert.match(html, /من: بنك فلسطين/);
+    assert.match(html, /إلى: محفظة بال باي/);
+    assert.match(html, /2026-10-10/);
+    assert.match(html, /2026-10-19 10:00/);
+    assert.match(html, /نسي المحصّل تسجيلها/);
+    assert.doesNotMatch(html, /عرض البيان كاملًا|role="dialog"/);
+});
+
+test('a focused cash-box entry keeps its marker and related correction chain in the statement', () => {
+    const html = render({ view: 'full' }, { focusLineId: 3 });
+    assert.match(html, /id="statement-line-3"[^>]*class="[^"]*ledger-focused/);
+    assert.match(html, /id="statement-line-3"[^>]*data-chain="1"/);
+    assert.match(html, /تصحيح للحركة/);
+    assert.deepEqual(lineIds(html), [1, 2, 3, 4]);
 });

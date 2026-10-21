@@ -605,7 +605,7 @@ export default function PaymentModal({
                 form.resetAndClearErrors();
                 if (latePayment) {
                     const token = operationId();
-                    form.defaults('late_payment_token', token);
+                    form.setDefaults('late_payment_token', token);
                     form.setData('late_payment_token', token);
                 }
                 setSenderIsSubscriber(true);

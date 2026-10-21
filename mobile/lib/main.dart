@@ -316,6 +316,11 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
 
   bool get canRead => currentUser['can_record_readings'] == true;
   bool get canCollect => currentUser['can_record_collections'] == true;
+  List<String> get paymentMethods => currentUser['payment_methods'] is List
+      ? List<String>.from(currentUser['payment_methods'] as List)
+      : const [];
+  String get collectionIcon =>
+      paymentMethods.contains('cash') ? 'cash' : 'bank';
   bool get canViewSubscriptions =>
       currentUser['can_view_subscriptions'] == true;
   bool get canBrowseSubscribers => canCollect || canViewSubscriptions;
@@ -407,7 +412,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           online = false;
           requiresLogin = error.statusCode == 401;
           message = error.statusCode == 401
-              ? 'انتهت جلسة الدخول. سجّل الدخول مجددًا لمزامنة القراءات.'
+              ? 'انتهت جلسة الدخول. سجّل الدخول مجددًا لمتابعة العمل.'
               : error.message;
         });
     } finally {
@@ -525,9 +530,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
       builder: (_) => SubscriberPage(
           api: widget.api,
           subscriber: subscriber,
-          paymentMethods: currentUser['payment_methods'] is List
-              ? List<String>.from(currentUser['payment_methods'] as List)
-              : const [],
+          paymentMethods: paymentMethods,
           transferBanks: currentUser['transfer_banks'] is List
               ? List<String>.from(currentUser['transfer_banks'] as List)
               : defaultTransferBanks,
@@ -668,8 +671,8 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
         const AppNavItem('home', 'الرئيسية', 'home'),
         if (canRead) const AppNavItem('readings', 'القراءات', 'bolt'),
         if (canBrowseSubscribers)
-          AppNavItem(
-              'collections', canCollect ? 'التحصيل' : 'كشوف الحساب', 'cash'),
+          AppNavItem('collections', canCollect ? 'التحصيل' : 'كشوف الحساب',
+              canCollect ? collectionIcon : 'hist'),
         if (canUseReadingSync)
           AppNavItem('sync', 'الإرسال', 'cloud',
               badge: widget.store.queuedReadings.length),
@@ -790,6 +793,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                 'collections-$collectionShowToday-$collectionForSplit'),
             initiallyShowingToday: collectionShowToday,
             canRecordPayments: canCollect,
+            paymentMethods: paymentMethods,
             search: collectionSearch,
             results: collectionResults,
             today: today,
@@ -957,7 +961,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                 title: 'تسجيل الدفعات',
                 subtitle: 'تحصيل دفعات المشتركين',
                 summary: 'اليوم ${AppIdentity.grouped(total)} ₪',
-                icon: 'cash',
+                icon: collectionIcon,
                 color: AppIdentity.good,
                 tint: AppIdentity.goodTint,
                 onTap: () => navigate(FieldSection.collections)),
@@ -967,7 +971,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                 title: 'حوالة مقسّمة',
                 subtitle: 'اختر المشتركين ووزّع حوالة واحدة بينهم',
                 summary: 'إضافة حوالة',
-                icon: 'cash',
+                icon: 'bank',
                 color: AppIdentity.brand,
                 tint: AppIdentity.brandTint,
                 onTap: () =>
@@ -978,7 +982,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                 title: 'دفعاتي اليوم',
                 subtitle: 'مراجعة الدفعات التي سجّلتها اليوم',
                 summary: paymentsCount(today.length),
-                icon: 'cash',
+                icon: collectionIcon,
                 color: AppIdentity.good,
                 tint: AppIdentity.goodTint,
                 onTap: () =>
@@ -1147,8 +1151,8 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           AppRows(children: [
             for (final (allowed, label, icon) in [
               (canRead, 'إدخال القراءات', 'bolt'),
-              (canCollect, 'تسجيل الدفعات', 'cash'),
-              (canRecordSplitPayments, 'الحوالات المقسّمة', 'cash'),
+              (canCollect, 'تسجيل الدفعات', collectionIcon),
+              (canRecordSplitPayments, 'الحوالات المقسّمة', 'bank'),
               (canViewSubscriptions, 'كشوف حساب المشتركين', 'hist'),
               (canViewReadings, 'عرض القراءات الأسبوعية', 'hist'),
               (canSendMessages, 'إرسال الرسائل', 'message'),

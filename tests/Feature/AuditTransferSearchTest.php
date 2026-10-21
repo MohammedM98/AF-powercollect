@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Support\BankTransferAuditing;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
@@ -128,8 +129,13 @@ class AuditTransferSearchTest extends TestCase
             ->has('transferSearch.results.data', 2)->where('transferSearch.summary.transfers', 22));
     }
 
-    public function test_search_draft_survives_full_period_approval_and_final_results_are_locked(): void
+    #[TestWith([null])]
+    #[TestWith(['release-test-version'])]
+    public function test_search_draft_survives_full_period_approval_and_final_results_are_locked(?string $assetVersion): void
     {
+        $this->partialMock(HandleInertiaRequests::class, function (MockInterface $middleware) use ($assetVersion): void {
+            $middleware->shouldReceive('version')->andReturn($assetVersion);
+        });
         $entry = $this->entry();
         $matched = $this->entry($entry->box, ['reference_number' => 'BANK-126', 'active_reference' => 'BANK126']);
         $auditor = User::factory()->financialAuditor()->create();
@@ -140,7 +146,7 @@ class AuditTransferSearchTest extends TestCase
         $this->get($url)->assertInertia(fn ($page) => $page->where('transferSearch.results.data.0.audit.bank_amount', '0.00')
             ->where('transferSearch.summary.exceptions', 1)->where('transferSearch.summary.debit', '100.00')->where('transferSearch.summary.automaticMatches', 1));
         $version = app(HandleInertiaRequests::class)->version(request());
-        $preview = $this->get($url, ['X-Inertia' => 'true', 'X-Inertia-Version' => $version, 'X-Inertia-Partial-Component' => 'Payments/BranchCashBoxes', 'X-Inertia-Partial-Data' => 'periodAudit'])->assertOk()->json('props.periodAudit');
+        $preview = $this->get($url, ['X-Inertia' => 'true', 'X-Inertia-Version' => (string) $version, 'X-Inertia-Partial-Component' => 'Payments/BranchCashBoxes', 'X-Inertia-Partial-Data' => 'periodAudit'])->assertOk()->json('props.periodAudit');
         $this->assertSame(2, $preview['transfers']);
         $this->assertSame(1, $preview['exceptions']);
         $this->post(route('payments.period-audits.store'), [...array_intersect_key($preview, array_flip(['branch_id', 'week', 'box_ids', 'snapshot'])), 'confirmed' => true])->assertSessionHasNoErrors();

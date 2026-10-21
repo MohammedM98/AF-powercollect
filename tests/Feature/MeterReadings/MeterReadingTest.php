@@ -747,11 +747,9 @@ class MeterReadingTest extends TestCase
         $this->recordedReading('2026-09-11', 1250, 1280);
         $this->recordedReading('2026-09-18', 1280, 1300);
 
-        // Only the Super Admin may correct an earlier week at all, and only the week right before the
-        // subscription's latest carries that week along (see LastReadingTest).
         $this->actingAs(User::factory()->superAdmin()->create())
             ->put(route('meter-readings.update', $earlier), ['current_reading' => 1260])
-            ->assertSessionHasErrors(['current_reading' => 'لا يمكن تعديل هذه القراءة لوجود قراءة لأسبوع لاحق.']);
+            ->assertForbidden();
 
         $this->assertSame(1250.0, $earlier->fresh()->current_reading);
     }
@@ -768,7 +766,7 @@ class MeterReadingTest extends TestCase
         $this->assertSame(1250.0, $reading->fresh()->current_reading);
     }
 
-    public function test_the_super_admin_can_correct_a_reading_from_an_earlier_week(): void
+    public function test_the_super_admin_can_correct_only_the_immediately_previous_week_as_the_last_reading(): void
     {
         $reading = $this->recordedReading('2026-09-11', 1200, 1250);
 

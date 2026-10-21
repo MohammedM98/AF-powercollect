@@ -49,7 +49,7 @@ class MeterReadingPolicy
             return false;
         }
 
-        if (! $this->weekIsOpenFor($user, $meterReading->week_start, $meterReading->branch_id)) {
+        if (! MeterReading::weekStartFor($meterReading->week_start, $meterReading->branch_id)->equalTo(MeterReading::latestEndedWeekStart($meterReading->branch_id))) {
             return false;
         }
 
@@ -59,8 +59,8 @@ class MeterReadingPolicy
     /**
      * The reading the latest week starts from — the one of the week before
      * it, shown as the sheet's last reading — stays editable with its own
-     * permission, in the actor's own branch; the Super Admin may edit any
-     * week's last reading. The week after it, once entered, is recalculated
+     * permission, in the actor's own branch (any branch for the Super Admin).
+     * The week limit applies to everyone. The week after it is recalculated
      * from it (MeterReadingController::update()).
      */
     public function updateAsLastReading(User $user, MeterReading $meterReading): bool
@@ -69,11 +69,7 @@ class MeterReadingPolicy
             return false;
         }
 
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $meterReading->branch_id === $user->workBranchId()
+        return ($user->isSuperAdmin() || $meterReading->branch_id === $user->workBranchId())
             && MeterReading::weekStartFor($meterReading->week_start, $meterReading->branch_id)->equalTo($this->lastWeekStart($meterReading->branch_id));
     }
 
@@ -172,9 +168,9 @@ class MeterReadingPolicy
     }
 
     /**
-     * Only the latest week of the branch is entered or corrected; once the
-     * next week starts, earlier weeks are view-only for everyone but the
-     * Super Admin.
+     * New readings belong to the latest week of the branch, except when
+     * the Super Admin enters a missing historical reading. This exception
+     * does not authorize corrections to existing historical readings.
      */
     private function weekIsOpenFor(User $user, CarbonInterface $weekStart, ?int $branchId): bool
     {

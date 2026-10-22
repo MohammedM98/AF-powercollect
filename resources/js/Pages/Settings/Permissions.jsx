@@ -7,7 +7,6 @@ import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import ConfirmDialog from '@/Components/ConfirmDialog';
-import PermissionPanel from './PermissionPanel';
 import PermissionGuide, { PermissionExplanation } from './PermissionGuide';
 import EmployeeList, { EmployeeAvatar, RoleChip } from './PermissionPeople';
 import { MatrixHead, MatrixLegend, RiskBadge, SectionRow, TriToggle } from './PermissionMatrix';
@@ -223,7 +222,6 @@ export function PermissionEditor({
     scopedToOwnBranch,
     onDirtyChange,
     auditOptions,
-    workBranchOptions = null,
     colorOf = defaultColorOf,
     onSaved,
 }) {
@@ -232,14 +230,10 @@ export function PermissionEditor({
         auditOptions && !saved.includes(auditOptions.permissionId) && employee.auditSettingsConfigured === false
             ? { scope: 'selected', branch_ids: employee.branchId ? [employee.branchId] : [], actions: [] }
             : employee.auditSettings;
-    const savedWorkBranches = employee.workBranchIds ?? [];
     const { data, setData, put, processing, errors } = useForm({
         permissions: { [employee.id]: [...saved] },
         ...(auditOptions ? { audit_settings: { [employee.id]: savedAudit } } : {}),
-        ...(workBranchOptions ? { work_branches: { [employee.id]: [...savedWorkBranches] } } : {}),
     });
-    const workBranches = data.work_branches?.[employee.id] ?? savedWorkBranches;
-    const workBranchesChanged = !samePermissions(savedWorkBranches, workBranches);
     const selected = data.permissions[employee.id];
     const auditValue = data.audit_settings?.[employee.id];
     const auditEnabled = Boolean(auditOptions && selected.includes(auditOptions.permissionId));
@@ -263,12 +257,8 @@ export function PermissionEditor({
             : auditEnabled
               ? auditChanges
               : [];
-    const dangerousGrants = [
-        ...changes,
-        ...auditGrants,
-        ...(workBranches.some((id) => !savedWorkBranches.includes(id)) ? [{ added: true, risk: 'danger', label: 'العمل في فروع إضافية' }] : []),
-    ].filter((change) => change.added && change.risk === 'danger');
-    const dirty = !samePermissions(saved, selected) || auditChanges.length > 0 || workBranchesChanged;
+    const dangerousGrants = [...changes, ...auditGrants].filter((change) => change.added && change.risk === 'danger');
+    const dirty = !samePermissions(saved, selected) || auditChanges.length > 0;
     const template = templates.find((item) => item.role === employee.role);
     const deviations = template ? individualChanges(sections, template.permissionIds, selected).length : null;
     const color = colorOf(employee.roleLabel);
@@ -340,7 +330,6 @@ export function PermissionEditor({
             ...current,
             permissions: { [employee.id]: [...saved] },
             ...(auditOptions ? { audit_settings: { [employee.id]: savedAudit } } : {}),
-            ...(workBranchOptions ? { work_branches: { [employee.id]: [...savedWorkBranches] } } : {}),
         }));
     }
 
@@ -383,7 +372,6 @@ export function PermissionEditor({
             const previous = {
                 permissions: { [employee.id]: [...saved] },
                 ...(auditOptions ? { audit_settings: { [employee.id]: savedAudit } } : {}),
-                ...(workBranchOptions ? { work_branches: { [employee.id]: [...savedWorkBranches] } } : {}),
             };
             put('/settings/permissions', {
                 preserveScroll: true,
@@ -577,44 +565,6 @@ export function PermissionEditor({
 
             {tab === 'matrix' && (
                 <div id="permission-view-matrix" role="tabpanel" aria-labelledby="permission-tab-matrix" className="space-y-4">
-                    {workBranchOptions && (
-                        <PermissionPanel
-                            title="فروع العمل المسموحة"
-                            summary={`${employee.branchName ?? 'بلا فرع'} · فروع إضافية: ${workBranches.length}`}
-                            icon="pin"
-                            open={openSections.has('work-branches')}
-                            onToggle={(next) => toggleSection('work-branches', next)}
-                            changed={workBranchesChanged}
-                        >
-                            <div className="space-y-3 p-4">
-                                {explaining && (
-                                    <p className="text-sm leading-7 text-gray-500">
-                                        الفرع الإداري: <b className="text-gray-900">{employee.branchName ?? 'غير محدد'}</b>. اختر فروعًا إضافية يستطيع
-                                        الموظف العمل فيها بنفس صلاحياته عبر رابط كل فرع. نطاق التدقيق مستقل عنها، ونسخ صلاحيات موظف آخر لا يغيّرها.
-                                    </p>
-                                )}
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                    {workBranchOptions.map((branch) => (
-                                        <div key={branch.id} className="flex items-center gap-2 rounded-control border border-gray-200 bg-surface p-3">
-                                            <Switch
-                                                checked={branch.id === employee.branchId || workBranches.includes(branch.id)}
-                                                disabled={processing || branch.id === employee.branchId}
-                                                onChange={(checked) =>
-                                                    setData('work_branches', {
-                                                        [employee.id]: withToggled(workBranches, branch.id, checked),
-                                                    })
-                                                }
-                                                label={branch.name}
-                                                ariaLabel={`العمل في ${branch.name}`}
-                                            />
-                                            {branch.id === employee.branchId && <span className="ms-auto text-xs text-gray-500">الفرع الإداري</span>}
-                                        </div>
-                                    ))}
-                                </div>
-                                {errors.work_branches && <p className="text-sm text-red-600">{errors.work_branches}</p>}
-                            </div>
-                        </PermissionPanel>
-                    )}
 
                     <section className="pm-card pm-matrix" aria-label="جدول الصلاحيات">
                         <div className="pm-tools">
@@ -900,7 +850,7 @@ export function PermissionEditor({
                 )}
                 <p className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-sm" role="status">
                     <span className="flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-white px-2 font-display text-sm font-bold text-gray-900">
-                        {changes.length + auditChanges.length + Number(workBranchesChanged)}
+                        {changes.length + auditChanges.length}
                     </span>
                     <span>تغييرات لم تُحفظ لـ {firstName}</span>
                     {changes.length > 0 && <Delta added={added} removed={removed} />}
@@ -966,25 +916,6 @@ export function PermissionEditor({
                             </span>
                             <span className={`pm-review-level is-${heroRisk.level}`}>خطورة {heroRisk.label}</span>
                         </div>
-                        {workBranchesChanged && (
-                            <div className="mt-3 rounded-control bg-amber-500/10 p-3 text-sm leading-7 text-gray-900">
-                                <b>تغيير فروع العمل الإضافية</b>
-                                <p>
-                                    قبل:{' '}
-                                    {workBranchOptions
-                                        ?.filter((branch) => savedWorkBranches.includes(branch.id))
-                                        .map((branch) => branch.name)
-                                        .join('، ') || 'لا توجد'}
-                                </p>
-                                <p>
-                                    بعد:{' '}
-                                    {workBranchOptions
-                                        ?.filter((branch) => workBranches.includes(branch.id))
-                                        .map((branch) => branch.name)
-                                        .join('، ') || 'لا توجد'}
-                                </p>
-                            </div>
-                        )}
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto">
                         <PermissionChangeReview employee={employee} changes={changes} />
@@ -1042,7 +973,6 @@ export default function Permissions({
     filterOptions,
     scopedToOwnBranch,
     auditOptions = null,
-    workBranchOptions = null,
 }) {
     const hasUnsavedChanges = useRef(false);
     const [selectedDirty, setSelectedDirty] = useState(false);
@@ -1185,10 +1115,9 @@ export default function Permissions({
                     {selectedUser ? (
                         <PermissionEditor
                             // A fresh editor per employee and per saved state, so the levels always start from what's stored.
-                            key={`${selectedUser.id}:${selectedUser.permissionIds.join(',')}:${JSON.stringify(selectedUser.auditSettings)}:${JSON.stringify(selectedUser.workBranchIds)}`}
+                            key={`${selectedUser.id}:${selectedUser.permissionIds.join(',')}:${JSON.stringify(selectedUser.auditSettings)}`}
                             employee={selectedUser}
                             auditOptions={auditOptions}
-                            workBranchOptions={workBranchOptions}
                             sections={sections}
                             templates={roleTemplates}
                             copySources={users.data.filter((user) => user.id !== selectedUser.id)}

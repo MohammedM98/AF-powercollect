@@ -43,7 +43,7 @@ class PermissionController extends Controller
         $actor = $request->user();
         $grantablePermissionIds = $this->grantablePermissionIds($actor);
 
-        $query = $this->manageableUsers($actor)->with(['branch', 'permissions', 'userType', 'workBranches']);
+        $query = $this->manageableUsers($actor)->with(['branch', 'permissions', 'userType']);
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
         $this->applyDataTableFilterSelects($query, $request, ['user_type_id', 'branch_id']);
 
@@ -51,7 +51,7 @@ class PermissionController extends Controller
             ->withQueryString()
             ->through(fn (User $user) => $this->employeeSummary($user, $grantablePermissionIds));
 
-        $findManageable = fn (int $id) => $this->manageableUsers($actor)->with(['branch', 'permissions', 'userType', 'workBranches'])->find($id);
+        $findManageable = fn (int $id) => $this->manageableUsers($actor)->with(['branch', 'permissions', 'userType'])->find($id);
         $selectedUser = $findManageable($request->integer('selected')) ?? $findManageable($users->first()['id'] ?? 0);
 
         return Inertia::render('Settings/Permissions', [
@@ -59,7 +59,6 @@ class PermissionController extends Controller
             'selectedUser' => $selectedUser ? $this->employeeSummary($selectedUser, $grantablePermissionIds) : null,
             'permissionGroups' => $this->permissionGroups($actor),
             'roleTemplates' => [],
-            'workBranchOptions' => $actor->isSuperAdmin() ? Branch::orderBy('name')->get(['id', 'name']) : null,
             'scopedToOwnBranch' => ! $actor->isSuperAdmin(),
             'auditOptions' => $actor->isSuperAdmin() ? [
                 'permissionId' => Permission::query()->where('key', PermissionKey::AuditClosings->value)->value('id'),
@@ -104,9 +103,6 @@ class PermissionController extends Controller
                 $selected = array_intersect((array) ($payload[$user->id] ?? []), $grantablePermissionIds);
                 $keptAsTheyWere = array_diff($user->permissions->modelKeys(), $grantablePermissionIds);
                 $user->permissions()->sync([...$selected, ...$keptAsTheyWere]);
-                if ($request->user()->isSuperAdmin() && $request->has("work_branches.{$user->id}")) {
-                    $user->workBranches()->sync($request->validated("work_branches.{$user->id}"));
-                }
                 if ($request->user()->isSuperAdmin() && $request->has("audit_settings.{$user->id}")) {
                     $settings = $request->validated("audit_settings.{$user->id}");
                     $settings['branch_ids'] = $settings['scope'] === 'all' ? [] : array_values(array_unique(array_map(intval(...), $settings['branch_ids'])));
@@ -143,7 +139,6 @@ class PermissionController extends Controller
             'userTypeName' => $user->userType?->name,
             'branchName' => $user->branch?->name,
             'branchId' => $user->branch_id,
-            'workBranchIds' => $user->workBranches->modelKeys(),
             'auditSettings' => $user->auditSettings(),
             'auditSettingsConfigured' => $user->audit_settings !== null,
             'isActive' => $user->is_active,

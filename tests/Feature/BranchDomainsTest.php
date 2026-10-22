@@ -93,25 +93,15 @@ class BranchDomainsTest extends TestCase
         $this->get('https://admin.company.test/subscriptions')->assertInertia(fn ($page) => $page->where('subscriptions.total', 2));
     }
 
-    public function test_multi_branch_work_uses_domain_context_without_moving_the_employee(): void
+    public function test_an_employee_works_only_in_their_own_branch(): void
     {
         $employee = User::factory()->dataEntry()->create(['branch_id' => $this->south->id]);
-        $employee->workBranches()->attach($this->north);
-        $own = Subscription::factory()->create(['branch_id' => $this->north->id]);
-        Subscription::factory()->create(['branch_id' => $this->south->id]);
-        $this->actingAs($employee)->get('https://north.company.test/subscriptions')->assertInertia(fn ($page) => $page
-            ->where('subscriptions.data', fn ($rows): bool => collect($rows)->pluck('id')->all() === [$own->id]));
-        $this->get('https://north.company.test/subscriptions/'.$own->id.'/edit')->assertOk();
-        $this->assertDatabaseHas('users', ['id' => $employee->id, 'branch_id' => $this->south->id]);
-        $employee->workBranches()->detach($this->north);
-        $this->get('https://north.company.test/subscriptions')->assertForbidden();
-    }
+        $own = Subscription::factory()->create(['branch_id' => $this->south->id]);
+        Subscription::factory()->create(['branch_id' => $this->north->id]);
 
-    public function test_an_assigned_branch_does_not_grant_operational_permissions(): void
-    {
-        $employee = User::factory()->collector()->withPermissions([])->create(['branch_id' => $this->south->id]);
-        $employee->workBranches()->attach($this->north);
-        $this->actingAs($employee)->get('https://north.company.test/subscriptions')->assertForbidden();
+        $this->actingAs($employee)->get('https://south.example.test/subscriptions')->assertInertia(fn ($page) => $page
+            ->where('subscriptions.data', fn ($rows): bool => collect($rows)->pluck('id')->all() === [$own->id]));
+        $this->get('https://north.company.test/subscriptions')->assertForbidden();
     }
 
     public function test_domain_rejects_foreign_branch_payload_and_company_management_routes(): void
@@ -175,14 +165,14 @@ class BranchDomainsTest extends TestCase
             ->has('branches', 1)->where('branches.0.url', 'https://south.example.test/dashboard'));
     }
 
-    public function test_only_super_admin_can_assign_additional_work_branches(): void
+    public function test_saving_permissions_cannot_open_another_branch_to_an_employee(): void
     {
         $employee = User::factory()->collector()->create(['branch_id' => $this->south->id]);
-        $manager = User::factory()->branchAdmin()->create(['branch_id' => $this->south->id]);
-        $payload = ['permissions' => [$employee->id => []], 'work_branches' => [$employee->id => [$this->north->id]]];
-        $this->actingAs($manager)->put('https://admin.company.test/settings/permissions', $payload)->assertSessionHasErrors('work_branches');
+        $payload = ['permissions' => [$employee->id => $employee->permissions->modelKeys()], 'work_branches' => [$employee->id => [$this->north->id]]];
+
         $this->actingAs($this->admin)->put('https://admin.company.test/settings/permissions', $payload)->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('branch_user', ['user_id' => $employee->id, 'branch_id' => $this->north->id]);
+
+        $this->actingAs($employee->fresh())->get('https://north.company.test/subscriptions')->assertForbidden();
     }
 
     public function test_api_requests_on_a_branch_domain_cannot_bypass_the_web_boundary(): void
@@ -196,17 +186,15 @@ class BranchDomainsTest extends TestCase
         $this->actingAs($this->admin)->get('http://localhost/dashboard')->assertOk();
     }
 
-    public function test_assigned_employee_records_payment_in_the_work_branch_and_foreign_receipts_remain_hidden(): void
+    public function test_an_employee_records_payments_in_their_branch_and_foreign_receipts_remain_hidden(): void
     {
-        $employee = User::factory()->collector()->create(['branch_id' => $this->south->id]);
-        $employee->workBranches()->attach($this->north);
+        $employee = User::factory()->collector()->create(['branch_id' => $this->north->id]);
         $own = Subscription::factory()->create(['branch_id' => $this->north->id]);
         $foreign = Subscription::factory()->create(['branch_id' => $this->south->id]);
         $foreignPayment = SubscriptionTransaction::recordPayment($foreign, $employee, ['amount' => '40', 'currency' => 'ILS', 'payment_method' => 'cash']);
 
         $this->actingAs($employee)->post('https://north.company.test/subscriptions/'.$own->id.'/payments', ['amount' => '25', 'currency' => 'ILS', 'payment_method' => 'cash'])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('subscription_transactions', ['subscription_id' => $own->id, 'recorded_by' => $employee->id, 'amount' => '-25.00']);
-        $this->assertDatabaseHas('users', ['id' => $employee->id, 'branch_id' => $this->south->id]);
         $this->get('https://north.company.test/subscriptions/'.$foreign->id.'/payments/'.$foreignPayment->id.'/receipt')->assertNotFound();
     }
 

@@ -8,7 +8,6 @@ use App\Enums\PermissionKey;
 use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToBranch;
 use App\Support\BranchDomainContext;
-use App\Support\BranchDomainScope;
 use App\Support\DeletionBlocker;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -136,15 +135,9 @@ class User extends Authenticatable
         return BranchDomainContext::branch() ?? $this->branch;
     }
 
-    public function workBranches(): BelongsToMany
-    {
-        return $this->belongsToMany(Branch::class, 'branch_user');
-    }
-
     public function canEnterBranch(Branch $branch): bool
     {
         return $this->is_active && ($this->isSuperAdmin() || $this->branch_id === $branch->id
-            || $this->workBranches()->withoutGlobalScope(BranchDomainScope::class)->whereKey($branch->id)->exists()
             || ($this->hasFinancialAuditAccess() && $this->auditIncludesBranch($branch->id)));
     }
 

@@ -60,14 +60,14 @@ function Mark({ text, query }) {
 }
 
 /** One cell of the grid: a check that shows the permission's risk and whether it changed since saving. */
-function MatrixCheck({ checked, dirty, risk, label, hint, disabled, onChange, hit }) {
+function MatrixCheck({ checked, dirty, risk, label, disabled, onChange, hit }) {
     return (
         <button
             type="button"
             role="checkbox"
             aria-checked={checked}
             aria-label={label}
-            title={[label, hint, risk ? RISK_LABELS[risk] : '', dirty ? 'لم يُحفظ بعد' : ''].filter(Boolean).join(' · ')}
+            title={[label, risk ? RISK_LABELS[risk] : '', dirty ? 'لم يُحفظ بعد' : ''].filter(Boolean).join(' · ')}
             disabled={disabled}
             onClick={() => onChange(!checked)}
             className={`pm-check ${checked ? 'is-on' : ''} ${risk ? `is-${risk}` : ''} ${dirty ? 'is-dirty' : ''} ${hit ? 'is-hit' : ''}`}
@@ -99,7 +99,7 @@ export function TriToggle({ ids, selected, onChange, disabled, label }) {
     );
 }
 
-/** One option off the grid: its switch, name and risk, what it opens, and the step it needs first (off until that step is granted). */
+/** One option off the grid: its switch, name and risk, the step it needs first (off until that step is granted) and «ⓘ» for what it does. */
 function OptionItem({ section, item, selected, saved, onChange, disabled, onExplain, query }) {
     const on = selected.includes(item.id);
     const needed = item.needs > 0 && section.ladder ? section.ladder.ids[item.needs - 1] : null;
@@ -119,7 +119,6 @@ function OptionItem({ section, item, selected, saved, onChange, disabled, onExpl
                     <Mark text={item.label} query={query} />
                     <RiskBadge risk={item.risk} />
                 </p>
-                {item.hint && <p className="mt-0.5 text-[13.5px] leading-6 text-gray-500">{item.hint}</p>}
                 {locked && (
                     <p className="mt-0.5 text-[13px] text-blue-700 dark:text-blue-500">
                         يتطلب «{section.ladder.labels[item.needs - 1]}» أولًا
@@ -196,7 +195,7 @@ export function SectionRow({
             </div>
 
             {cells.map((cell) => (
-                <div key={cell.column.key} className={`pm-cell ${cell.kind ? '' : 'is-empty'}`}>
+                <div key={cell.column.key} className={`pm-cell ${cell.kind ? '' : 'is-empty'}`} title={cell.kind ? undefined : `${cell.column.label}: غير متاحة لهذا القسم`}>
                     {cell.kind ? (
                         <>
                             <MatrixCheck
@@ -204,7 +203,6 @@ export function SectionRow({
                                 dirty={selected.includes(cell.id) !== saved.includes(cell.id)}
                                 risk={cell.risk}
                                 label={`${section.label}: ${cell.label}`}
-                                hint={cell.hint ?? describe(cell.id)?.description}
                                 disabled={disabled}
                                 hit={needle && matchesQuery(cell.label, needle)}
                                 onChange={(on) => toggleCell(cell, on)}
@@ -257,7 +255,7 @@ export function SectionRow({
                     {children && <div className="pm-body-wide">{children}</div>}
                     {!children && cellItems.length > 0 && (
                         <section className="pm-option-group">
-                            <h5>ما تعنيه خانات الجدول</h5>
+                            <h5>خانات الجدول</h5>
                             {cellItems.map((cell) => (
                                 <div key={cell.id} className="pm-explained">
                                     <i className={`pm-held-dot ${selected.includes(cell.id) ? 'is-held' : ''}`} aria-hidden="true" />
@@ -266,7 +264,6 @@ export function SectionRow({
                                             <span className="text-gray-500">{cell.column.label}:</span> {describe(cell.id)?.label ?? cell.label}
                                             <RiskBadge risk={cell.risk} />
                                         </p>
-                                        <p className="mt-0.5 text-[13.5px] leading-6 text-gray-500">{describe(cell.id)?.description ?? cell.hint}</p>
                                     </div>
                                     {onExplain && (
                                         <button type="button" aria-label={`شرح ${cell.label}`} onClick={explain(cell.id)} className="pm-icon-button">

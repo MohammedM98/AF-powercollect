@@ -227,6 +227,54 @@
 .pm-legend .pm-legend-check{width:16px;height:16px;border-radius:5px;box-shadow:none}
 .pm-note{display:flex;gap:10px;margin:0 16px 16px;padding:12px 16px;border-radius:12px;border:1px solid rgb(var(--gray-100));background:rgb(var(--gray-50));font-size:14px;line-height:1.8;color:rgb(var(--gray-600))}
 
+/*
+ * Depth and orientation, in the site's burgundy, graphite and greys: each
+ * group is a raised card on a soft floor, its heading stays in view while
+ * its sections scroll, and the row and column under the pointer are lit,
+ * so it is always clear which section and which action a check is.
+ */
+.pm-grid{padding-bottom:14px;background:rgb(var(--gray-50))}
+.pm-group{margin:14px 14px 0;overflow:clip;border:1px solid rgb(var(--gray-200));border-radius:18px;background:rgb(var(--surface));box-shadow:0 1px 2px rgb(16 24 40/.04),0 14px 34px -18px rgb(16 24 40/.18)}
+.pm-group+.pm-group{border-top:1px solid rgb(var(--gray-200))}
+.pm-group-head{position:sticky;top:130px;z-index:4;padding-block:12px;border-bottom:1px solid rgb(var(--gray-200));border-inline-start:4px solid rgb(var(--brand-500));background:rgb(var(--surface))}
+.pm-group-head h4{font-size:16px}
+.pm-group-icon{width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,#262c33,#1b2026 60%,#111519);color:#fff;box-shadow:inset 0 -2px #c4303a}
+.dark .pm-group-icon{box-shadow:0 0 0 1px #ffffff14,inset 0 -2px #c4303a}
+.pm-group-count{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;background:rgb(var(--gray-100));font-size:13px;color:rgb(var(--gray-500))}
+.pm-group-count b{color:rgb(var(--gray-900))}
+.pm-group-count i{display:block;width:40px;height:5px;margin-inline-start:4px;border-radius:99px;background:linear-gradient(to left,rgb(var(--brand-500)) var(--fill),rgb(var(--gray-300)) var(--fill))}
+[dir=ltr] .pm-group-count i{background:linear-gradient(to right,rgb(var(--brand-500)) var(--fill),rgb(var(--gray-300)) var(--fill))}
+
+.pm-row:hover,.pm-row:focus-within{background:rgb(var(--brand-50)/.7)}
+.pm-row.is-open{background:rgb(var(--brand-50));box-shadow:inset 0 1px rgb(var(--brand-500)/.15),inset 0 -1px rgb(var(--brand-500)/.15)}
+.pm-row:focus-within .pm-section-icon{background:linear-gradient(135deg,#2b3138,#11171c);color:#fff}
+.pm-row:hover .pm-section-icon,.pm-row:focus-within .pm-section-icon,.pm-row.is-open .pm-section-icon{box-shadow:inset 0 -2px #c4303a}
+.pm-row:hover .pm-section-copy b,.pm-row.is-open .pm-section-copy b{color:rgb(var(--brand-700))}
+.pm-cell:not(.is-empty){border-radius:12px;transition:background .16s}
+.pm-cell:not(.is-empty):hover{background:rgb(var(--brand-500)/.08)}
+.pm-head>span{border-radius:8px;padding-block:2px;transition:background .16s,color .16s}
+.pm-grid:has(.pm-row>.pm-cell:nth-child(2):hover) .pm-head>span:nth-child(2),
+.pm-grid:has(.pm-row>.pm-cell:nth-child(3):hover) .pm-head>span:nth-child(3),
+.pm-grid:has(.pm-row>.pm-cell:nth-child(4):hover) .pm-head>span:nth-child(4),
+.pm-grid:has(.pm-row>.pm-cell:nth-child(5):hover) .pm-head>span:nth-child(5),
+.pm-grid:has(.pm-row>.pm-cell:nth-child(6):hover) .pm-head>span:nth-child(6),
+.pm-grid:has(.pm-row>.pm-cell:nth-child(7):hover) .pm-head>span:nth-child(7),
+.pm-grid:has(.pm-row>.pm-cell:nth-child(8):hover) .pm-head>span:nth-child(8){background:linear-gradient(135deg,#2b3138,#11171c);color:#fff;box-shadow:inset 0 -2px #c4303a}
+
+/* A check not granted is an empty white box; hovering it previews the check it would get, hovering a granted one deepens it. */
+.pm-check:not(.is-on){background:rgb(var(--surface))}
+.pm-check:not(.is-on):hover:not(:disabled){border-color:rgb(var(--brand-500));background:rgb(var(--brand-50));color:rgb(var(--brand-600));transform:translateY(-1px);box-shadow:0 0 0 4px rgb(var(--brand-500)/.12)}
+.pm-check:not(.is-on):hover:not(:disabled) svg{transform:scale(.85);opacity:.45}
+.pm-check.is-on:hover:not(:disabled){background:linear-gradient(180deg,#9c1c25,#5f0d14);transform:translateY(-1px);box-shadow:0 0 0 4px rgb(var(--brand-500)/.16),0 10px 18px -9px rgb(165 29 38/.95)}
+.pm-check:active:not(:disabled){transform:scale(.92)}
+/* An action the section does not have: a faint dash, never a box, so it cannot be mistaken for one not granted. */
+.pm-cell.is-empty{color:rgb(var(--gray-200));cursor:default}
+.pm-tri:hover:not(:disabled){background:rgb(var(--brand-50));box-shadow:0 0 0 4px rgb(var(--brand-500)/.12)}
+.pm-tri.is-on:hover:not(:disabled){background:rgb(var(--gray-700))}
+.pm-option,.pm-explained{align-items:center}
+.pm-option>label{margin-top:0}
+.pm-held-dot{margin-top:0}
+
 /* The grid in a narrow column: each section becomes a card of labelled checks. */
 @container (max-width:760px){
 .pm-head{display:none}
@@ -238,7 +286,9 @@
 .pm-more-cell{padding:0;background:transparent}
 .pm-more{width:100%;height:44px;justify-content:center}
 .pm-body{padding-inline-start:0}
-.pm-group-head{padding-inline:12px}
+.pm-group-head{padding-inline:12px;top:84px}
+.pm-group{margin:10px 10px 0}
+.pm-cell:not(.is-empty){background:rgb(var(--gray-50))}
 .pm-row.is-changed:before{inset-block:16px}
 }
 @container (max-width:420px){

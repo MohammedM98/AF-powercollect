@@ -1,11 +1,11 @@
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
+import PageHeader from '@/Components/PageHeader';
 
 export default function Access({ branches, routingEnabled }) {
-    return <AuthenticatedLayout header={<h2 className="text-3xl font-bold text-gray-900">اختيار فرع العمل</h2>}>
+    return <AuthenticatedLayout header={<PageHeader title="اختيار فرع العمل" info="تظهر الفروع المسموحة لك فقط. كل رابط يفتح بيانات فرعه، وقد يتطلب تسجيل الدخول مجددًا لأن جلسة كل دومين مستقلة." />}>
         <Head title="فروع العمل" />
-        <p className="mb-5 text-sm leading-7 text-gray-500">تظهر الفروع المسموحة لك فقط. كل رابط يفتح بيانات فرعه، وقد يتطلب تسجيل الدخول مجددًا لأن جلسة كل دومين مستقلة.</p>
         {!routingEnabled && <p className="mb-5 rounded-control bg-amber-500/10 p-4 text-sm text-amber-800">الروابط مجهّزة، وتوجيه الدومينات يحتاج التفعيل عند النشر.</p>}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{branches.map((branch) => <div key={branch.id} className="space-y-4 rounded-card border border-gray-200 bg-surface p-5 shadow-card">
             <div className="flex items-center gap-3"><span className="rounded-xl bg-brand-500/10 p-3 text-brand-600"><Icon name="building" /></span><h3 className="text-lg font-bold text-gray-900">{branch.name}</h3></div>

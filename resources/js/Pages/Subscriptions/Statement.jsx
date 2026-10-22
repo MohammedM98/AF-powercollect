@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AccountStatement from './AccountStatement';
 import { StandingDiscountBadge } from './AccountSummary';
@@ -7,6 +7,7 @@ import StopStandingDiscountButton from './StopStandingDiscountButton';
 import { StatementActions, StatementForms } from './StatementForms';
 import SubscriptionSwitcher from './SubscriptionSwitcher';
 import ArchiveNotice from './ArchiveNotice';
+import { BackLink } from '@/Components/PageHeader';
 
 /**
  * A subscription's account statement: every charge (عليه), payment and
@@ -22,10 +23,10 @@ export default function Statement(statement) {
             header={
                 <>
                     <div className="min-w-0">
-                        <Link href="/subscriptions" className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-900">
-                            → المشتركون
-                        </Link>
-                        <h2 className="mt-1 text-3xl font-bold text-gray-900">كشف حساب المشترك</h2>
+                        <div className="mb-1 text-sm font-semibold text-gray-500">
+                            <BackLink href="/subscriptions">المشتركون</BackLink>
+                        </div>
+                        <h2 className="text-3xl font-bold text-gray-900">كشف حساب المشترك</h2>
                         <p className="mt-1 text-sm text-gray-500">
                             {subscription.fullName} · حساب <span dir="ltr">{subscription.accountNumber}</span> · {subscription.tariffCategoryLabel}
                             {subscription.tariffSegmentName && ` (${subscription.tariffSegmentName})`}

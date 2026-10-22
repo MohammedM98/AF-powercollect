@@ -55,13 +55,13 @@ function BankModal({ bank, storeUrl, onClose }) {
     return <FormModal show onClose={onClose} form={resourceForm} title={bank ? 'تعديل البنك' : 'إضافة بنك أو محفظة'} icon="bank" maxWidth="3xl">
         <div className="space-y-4">
             <FormPreview avatar={<Icon name="bank" className="h-6 w-6 text-white/70" />} dotClass={form.data.is_active ? 'bg-emerald-500' : 'bg-gray-400'} title={form.data.name.trim() || 'بنك أو محفظة جديدة'} chips={[form.data.is_receiver && 'البنك المستلم', form.data.is_sender && 'البنك المرسل', form.data.is_active ? 'نشط' : 'غير نشط'].filter(Boolean)} filled={countFilled(form.data, ['name'])} total={1} />
-            <FormSection icon="bank" title="بيانات البنك أو المحفظة" description="الاسم والشعار اللذان يظهران عند تسجيل الدفعات." columns={1}>
+            <FormSection icon="bank" title="بيانات البنك أو المحفظة" columns={1}>
                 <FormField id="bank-name" label="الاسم" required error={form.errors.name}><TextInput name="name" required maxLength={255} className="w-full" value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} /></FormField>
-                <FormField id="bank-logo" label="الشعار" hint="PNG أو JPG أو WebP، بحد أقصى 2 ميجابايت. الشعار اختياري." error={form.errors.logo}>
+                <FormField id="bank-logo" label="الشعار" hint="PNG أو JPG أو WebP، بحد أقصى 2 ميجابايت." error={form.errors.logo}>
                     <BankLogoInput file={form.data.logo} currentLogo={bank?.logoUrl} bankName={form.data.name} disabled={form.processing} onChange={(file) => form.setData('logo', file)} />
                 </FormField>
             </FormSection>
-            <FormSection icon="card" title="الاستخدام والحالة" description="حدّد أين يظهر البنك أو المحفظة عند تسجيل الدفعات." columns={2}>
+            <FormSection icon="card" title="الاستخدام والحالة" columns={2}>
                 <FormField id="bank-receiver" label="البنك المستلم" error={form.errors.is_receiver}><Switch checked={form.data.is_receiver} onChange={(value) => form.setData('is_receiver', value)} label="متاح لاستلام دفعات المشتركين" /></FormField>
                 <FormField id="bank-sender" label="البنك المرسل" error={form.errors.is_sender}><Switch checked={form.data.is_sender} onChange={(value) => form.setData('is_sender', value)} label="متاح كبنك مرسل" /></FormField>
                 <FormField id="bank-active" label="الحالة" span="sm:col-span-2" error={form.errors.is_active}><Switch checked={form.data.is_active} onChange={(value) => form.setData('is_active', value)} label="نشط ويظهر عند تسجيل دفعة جديدة" /></FormField>
@@ -83,7 +83,7 @@ export default function BanksSection({ banks, storeUrl }) {
     const meta = { current_page: currentPage, last_page: lastPage, from: (currentPage - 1) * perPage + 1, to: Math.min(currentPage * perPage, filtered.length), total: filtered.length };
 
     return <section aria-labelledby="payment-banks-title" className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 id="payment-banks-title" className="text-xl font-bold text-gray-900">البنوك والمحافظ</h3><p className="mt-1 text-sm text-gray-500">أسماء وشعارات بنوك الاستلام والإرسال.</p></div><AddButton onClick={() => setCreating(true)}>إضافة بنك أو محفظة</AddButton></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><h3 id="payment-banks-title" className="text-xl font-bold text-gray-900">البنوك والمحافظ</h3><AddButton onClick={() => setCreating(true)}>إضافة بنك أو محفظة</AddButton></div>
         <DataTableToolbar search={search} onSearchChange={(value) => { setSearch(value); setPage(1); }} perPage={perPage} onPerPageChange={(value) => { setPerPage(value); setPage(1); }} placeholder="ابحث باسم البنك أو المحفظة" total={filtered.length} printable={false} />
         <div className="data-table-container"><table className="data-table w-full text-start text-sm">
             <thead><tr><th>البنك أو المحفظة</th><th>الاستخدام</th><th>الحالة</th><ActionsTh /></tr></thead>

@@ -11,6 +11,8 @@ import ActionsTh from '@/Components/DataTable/ActionsTh';
 import { printUrl } from '@/lib/print';
 import { PAPER_SIZES } from '@/lib/printLayout';
 import { timeAgo } from '@/lib/format';
+import PageHeader from '@/Components/PageHeader';
+import AddButton from '@/Components/AddButton';
 
 const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900';
 
@@ -166,18 +168,11 @@ export default function PrintTemplates({ pages }) {
     return (
         <SettingsLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">قوالب الطباعة</h2>
-                        <p className="mt-1 text-sm text-gray-500">تصاميم طباعة محفوظة لكل الشركة — {total.toLocaleString('en')} قالب.</p>
-                    </div>
-                    <div className="shrink-0">
-                        <PrimaryButton type="button" onClick={() => setCreating(true)}>
-                            <Icon name="plus" className="h-4 w-4" strokeWidth={2} />
-                            قالب جديد
-                        </PrimaryButton>
-                    </div>
-                </>
+                <PageHeader
+                    title="قوالب الطباعة"
+                    meta={`${total.toLocaleString('en')} قالب محفوظ لكل الشركة`}
+                    actions={<AddButton onClick={() => setCreating(true)}>قالب جديد</AddButton>}
+                />
             }
         >
             <Head title="قوالب الطباعة" />

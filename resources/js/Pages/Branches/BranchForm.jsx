@@ -43,7 +43,7 @@ export default function BranchForm({ data, setData, errors, governorates, areas 
                 total={1}
             />
 
-            <FormSection icon="building" title="بيانات الفرع" description="اسمه ورقم هاتفه وحالته" columns={2}>
+            <FormSection icon="building" title="بيانات الفرع" columns={2}>
                 <FormField id="name" label="الاسم" required error={errors.name}>
                     <TextInput className="block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
                 </FormField>
@@ -53,13 +53,12 @@ export default function BranchForm({ data, setData, errors, governorates, areas 
                 </FormField>
 
                 <div className="sm:col-span-2">
-                    <Switch checked={data.is_active} onChange={(checked) => setData('is_active', checked)} label="فرع نشط" ariaLabel="فرع نشط" />
-                    <p className="mt-1 text-xs text-gray-500">الفرع المتوقف لا يظهر بين الفروع الفعالة.</p>
+                    <Switch checked={data.is_active} onChange={(checked) => setData('is_active', checked)} label="فرع نشط" ariaLabel="فرع نشط" hint="الفرع المتوقف لا يظهر بين الفروع الفعالة." />
                     <InputError message={errors.is_active} className="mt-1" />
                 </div>
             </FormSection>
 
-            <FormSection icon="pin" title="الموقع" description="المحافظة والمنطقة التي يخدمها الفرع" columns={2}>
+            <FormSection icon="pin" title="الموقع" columns={2}>
                 <FormSelect
                     id="governorate_id"
                     label="المحافظة"

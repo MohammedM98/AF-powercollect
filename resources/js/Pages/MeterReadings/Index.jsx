@@ -23,6 +23,7 @@ import ReadingContextBar from './ReadingContextBar';
 import ReadingApprovalDialog from './ReadingApprovalDialog';
 import './ReadingEntry.css';
 import { WEEK_DAYS, formatWeekDay } from '@/lib/weekDays';
+import InfoTip from '@/Components/InfoTip';
 
 /**
  * What each sort is by, and how its two directions read: names go أ – ي or
@@ -540,7 +541,7 @@ export default function Index({
             <Head title="القراءات الأسبوعية" />
             <div className="reading-entry" dir="rtl">
                 <div className="re-heading">
-                    <div><h1>القراءات الأسبوعية</h1><p>أدخل القراءة الجديدة بجانب القراءة السابقة، واضغط Enter أو السهم لأسفل للحفظ والانتقال للمشترك التالي، والسهم لأعلى للرجوع.</p></div>
+                    <div className="flex items-center gap-1"><h1>القراءات الأسبوعية</h1><InfoTip label="طريقة الإدخال">أدخل القراءة الجديدة بجانب القراءة السابقة، واضغط Enter أو السهم لأسفل للحفظ والانتقال للمشترك التالي، والسهم لأعلى للرجوع.</InfoTip></div>
                     <div className="re-actions">
                         <span className={`re-open ${entryWindow.isOpen ? 'is-open' : ''}`}><i />الإدخال {entryWindow.isOpen ? 'مفتوح' : 'مغلق'}</span>
                         <div className="re-week">

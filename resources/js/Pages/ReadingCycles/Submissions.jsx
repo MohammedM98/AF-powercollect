@@ -7,6 +7,7 @@ import SortableTh from '@/Components/DataTable/SortableTh';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import Pagination from '@/Components/DataTable/Pagination';
 import { useDataTable } from '@/hooks/useDataTable';
+import PageHeader from '@/Components/PageHeader';
 
 const TONES = { accepted: 'green', needs_review: 'amber', rejected: 'red' };
 
@@ -27,13 +28,11 @@ export default function Submissions({ cycle, submissions, canReview, filters, fi
     return (
         <AuthenticatedLayout
             header={
-                <div className="min-w-0">
-                    <p className="text-sm text-gray-500">
-                        <Link href="/reading-cycles" className="hover:underline">توزيع القراءات</Link> / <Link href={`/reading-cycles/${cycle.id}`} className="hover:underline">{cycle.branchName} · {cycle.readingDate}</Link>
-                    </p>
-                    <h2 className="text-3xl font-bold text-gray-900">القراءات الميدانية</h2>
-                    <p className="mt-1 text-sm text-gray-500">كل قراءة رفعها التطبيق ومصيرها. المحفوظة للمراجعة لا تُحتسب حتى يقبلها مشرف.</p>
-                </div>
+                <PageHeader
+                    eyebrow={<><Link href="/reading-cycles" className="hover:underline">توزيع القراءات</Link> / <Link href={`/reading-cycles/${cycle.id}`} className="hover:underline">{cycle.branchName} · {cycle.readingDate}</Link></>}
+                    title="القراءات الميدانية"
+                    info="كل قراءة رفعها التطبيق ومصيرها. المحفوظة للمراجعة لا تُحتسب حتى يقبلها مشرف."
+                />
             }
         >
             <Head title="القراءات الميدانية" />

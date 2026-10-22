@@ -7,6 +7,8 @@ import UserModal from '@/Pages/Users/UserModal';
 import StatRing from '@/Components/StatRing';
 import CountUp from '@/Components/CountUp';
 import Icon from '@/Components/Icon';
+import PageHeader from '@/Components/PageHeader';
+import { secondaryButtonClass } from '@/Components/SecondaryButton';
 
 const ICONS = {
     branches: (
@@ -106,24 +108,24 @@ export default function Dashboard({ greeting, sections, fieldApp, scopedToBranch
     return (
         <AuthenticatedLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">
-                            {greeting}، <span className="text-brand-600">{auth.user.name}</span>
-                        </h2>
-                        {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                        {can?.viewUserTypes && (
-                            <Link href="/users?tab=types" className="text-sm font-semibold text-brand-600 hover:underline">أنواع المستخدمين</Link>
-                        )}
-                        {canCreateBranch ? (
-                            <AddButton onClick={() => openCreateForm('branch')}>فرع جديد</AddButton>
-                        ) : canCreateUser ? (
-                            <AddButton onClick={() => openCreateForm('user')}>مستخدم جديد</AddButton>
-                        ) : null}
-                    </div>
-                </>
+                <PageHeader
+                    title={<>{greeting}، <span className="text-brand-600">{auth.user.name}</span></>}
+                    meta={subtitle}
+                    actions={
+                        <>
+                            {can?.viewUserTypes && (
+                                <Link href="/users?tab=types" prefetch className={secondaryButtonClass}>
+                                    أنواع المستخدمين
+                                </Link>
+                            )}
+                            {canCreateBranch ? (
+                                <AddButton onClick={() => openCreateForm('branch')}>فرع جديد</AddButton>
+                            ) : canCreateUser ? (
+                                <AddButton onClick={() => openCreateForm('user')}>مستخدم جديد</AddButton>
+                            ) : null}
+                        </>
+                    }
+                />
             }
         >
             <Head title="لوحة التحكم" />
@@ -163,11 +165,11 @@ export default function Dashboard({ greeting, sections, fieldApp, scopedToBranch
                             />
                             <div className="relative flex flex-wrap items-center justify-between gap-8">
                                 <div>
-                                    <p className="text-sm font-semibold text-gray-300">{SECTION_LABELS[heroKey].statLabel}</p>
+                                    <p className="text-sm font-semibold text-white/75">{SECTION_LABELS[heroKey].statLabel}</p>
                                     <div className="mt-2 bg-gradient-to-b from-white to-[#9aa3ae] bg-clip-text font-display text-6xl font-bold leading-none text-transparent sm:text-7xl">
                                         <CountUp value={hero.active} />
                                     </div>
-                                    <p className="mt-3 text-sm text-[#9aa3ae]">
+                                    <p className="mt-3 text-sm text-white/60">
                                         من {hero.total} · {hero.total - hero.active} غير نشط
                                     </p>
                                 </div>
@@ -180,7 +182,6 @@ export default function Dashboard({ greeting, sections, fieldApp, scopedToBranch
                                 />
                             </div>
                             <div className="brand-spectrum relative mt-7 w-40" />
-                            <p className="relative mt-3 text-xs text-[#9aa3ae]">وصول قائم على الأدوار · بيانات مقسّمة حسب الفرع · بلا جداول بيانات</p>
                         </div>
                     )}
 

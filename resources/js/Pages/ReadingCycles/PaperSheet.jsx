@@ -2,6 +2,8 @@ import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import { formatNumber } from '@/lib/format';
+import { secondaryButtonClass } from '@/Components/SecondaryButton';
+import PageHeader from '@/Components/PageHeader';
 
 /**
  * A paper reading sheet as printed: its number and cycle, and for each box
@@ -19,19 +21,17 @@ export default function PaperSheet({ sheet, cycle, boxes }) {
         <AuthenticatedLayout
             header={
                 <>
-                    <div className="min-w-0">
-                        <p className="text-sm text-gray-500">
-                            <Link href="/reading-cycles" className="hover:underline">توزيع القراءات</Link> / <Link href={`/reading-cycles/${cycle.id}`} className="hover:underline">{cycle.readingDate}</Link>
-                        </p>
-                        <h2 className="text-3xl font-bold text-gray-900">كشف قراءة ورقي <span dir="ltr" className="font-display">{sheet.number}</span></h2>
-                        <p className="mt-1 text-sm text-gray-500">{sheet.printCount > 0 ? `طُبع ${formatNumber(sheet.printCount)} مرة، آخرها ${sheet.lastPrintedAt}` : 'لم يُطبع بعد'}</p>
-                    </div>
+                    <PageHeader
+                        eyebrow={<><Link href="/reading-cycles" className="hover:underline">توزيع القراءات</Link> / <Link href={`/reading-cycles/${cycle.id}`} className="hover:underline">{cycle.readingDate}</Link></>}
+                        title={<>كشف قراءة ورقي <span dir="ltr" className="font-display">{sheet.number}</span></>}
+                        meta={sheet.printCount > 0 ? `طُبع ${formatNumber(sheet.printCount)} مرة، آخرها ${sheet.lastPrintedAt}` : 'لم يُطبع بعد'}
+                    />
                     <div className="flex shrink-0 gap-2">
-                        <Link href={`/meter-readings`} className="inline-flex items-center gap-1.5 rounded-control border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                        <Link href={`/meter-readings`} className={secondaryButtonClass}>
                             <Icon name="pencil" className="h-4 w-4" />
                             إدخال القراءات من الكشف
                         </Link>
-                        <button type="button" onClick={print} className="tone-print inline-flex items-center gap-1.5 rounded-control border px-4 py-2 text-sm font-semibold">
+                        <button type="button" onClick={print} className={`${secondaryButtonClass} tone-print`}>
                             <Icon name="printer" className="h-4 w-4" />
                             طباعة
                         </button>

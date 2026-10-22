@@ -26,7 +26,7 @@ export default function AreaForm({ data, setData, errors, governorates }) {
                 total={1}
             />
 
-            <FormSection icon="map" title="بيانات المنطقة" description="اسمها والمحافظة التي تتبعها" columns={2}>
+            <FormSection icon="map" title="بيانات المنطقة" columns={2}>
                 <FormField id="name" label="الاسم" required error={errors.name}>
                     <TextInput className="block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
                 </FormField>

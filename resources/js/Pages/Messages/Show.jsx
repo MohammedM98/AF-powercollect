@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import SecondaryButton from '@/Components/SecondaryButton';
@@ -8,6 +8,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
 import { useDataTable } from '@/hooks/useDataTable';
 import { ChannelLabel, DeliveryCounts, KIND_ICONS, MessageStatusPill, MessageText } from './MessageParts';
+import PageHeader, { BackLink } from '@/Components/PageHeader';
 
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -38,33 +39,20 @@ export default function Show({ batch, messages, canUpdate, filters, filterOption
         <AuthenticatedLayout
             header={
                 <>
-                    <div className="min-w-0">
-                        <Link
-                            href="/messages"
-                            className="mb-1 inline-flex items-center gap-1 rounded text-sm text-gray-500 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
-                        >
-                            <Icon name="chevron-right" className="h-4 w-4" />
-                            رجوع إلى الرسائل
-                        </Link>
-                        <h2 className="flex flex-wrap items-center gap-3 text-3xl font-bold text-gray-900">
-                            <Icon name={KIND_ICONS[batch.kind] ?? 'note'} className="h-7 w-7 shrink-0 text-gray-500" />
-                            {batch.kindLabel}
-                            <span className="text-base font-semibold">
-                                <ChannelLabel channel={batch.channel} label={batch.channelLabel} />
-                            </span>
-                        </h2>
-                        <p className="mt-1 text-sm text-gray-500">
-                            {DATE_TIME_FORMAT.format(new Date(batch.createdAt))} — {batch.createdBy ?? '—'} — {batch.branchName}
-                        </p>
-                    </div>
-                    {canUpdate && !isWhatsApp && batch.failed > 0 && (
-                        <div className="shrink-0">
-                            <SecondaryButton onClick={retry}>
-                                <Icon name="repeat" className="h-4 w-4" />
-                                إعادة إرسال ما فشل ({batch.failed})
-                            </SecondaryButton>
-                        </div>
-                    )}
+                    <PageHeader
+                        eyebrow={<BackLink href="/messages">الرسائل</BackLink>}
+                        title={<span className="inline-flex items-center gap-3"><Icon name={KIND_ICONS[batch.kind] ?? 'note'} className="h-7 w-7 shrink-0 text-gray-500" />{batch.kindLabel}</span>}
+                        titleAddon={<span className="text-base font-semibold"><ChannelLabel channel={batch.channel} label={batch.channelLabel} /></span>}
+                        meta={`${DATE_TIME_FORMAT.format(new Date(batch.createdAt))} — ${batch.createdBy ?? '—'} — ${batch.branchName}`}
+                        actions={
+                            canUpdate && !isWhatsApp && batch.failed > 0 && (
+                                <SecondaryButton onClick={retry}>
+                                    <Icon name="repeat" className="h-4 w-4" />
+                                    إعادة إرسال ما فشل ({batch.failed})
+                                </SecondaryButton>
+                            )
+                        }
+                    />
                 </>
             }
         >

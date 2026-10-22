@@ -217,7 +217,7 @@ export default function ChargeModal({ show, onClose, subscription, balance, char
 
                                 <div>
                                     <div className="flex items-center justify-between gap-3">
-                                        <FieldLabel htmlFor="amount" required hint="بالشيكل">المبلغ</FieldLabel>
+                                        <FieldLabel htmlFor="amount" required>المبلغ</FieldLabel>
                                         {isMinimumCharge && <button type="button" aria-pressed={data.override_minimum_amount} onClick={() => {
                                             if (data.override_minimum_amount) {
                                                 setData((current) => ({ ...current, amount: String(subscription.minimumPayment ?? '0'), override_minimum_amount: false }));
@@ -264,7 +264,7 @@ export default function ChargeModal({ show, onClose, subscription, balance, char
                                     <FieldLabel
                                         htmlFor="charge_notes"
                                         required={type?.needsReason}
-                                        hint={type?.needsReason ? 'مطلوب — يظهر في كشف الحساب' : 'اختياري'}
+                                        hint={type?.needsReason ? 'يظهر في كشف الحساب' : undefined}
                                     >
                                         {type?.needsReason ? 'سبب الغرامة' : 'ملاحظات'}
                                     </FieldLabel>

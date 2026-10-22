@@ -16,6 +16,7 @@ import Icon from '@/Components/Icon';
 import Balance from '@/Components/Balance';
 import { useDataTable } from '@/hooks/useDataTable';
 import ResultReport from './ResultReport';
+import PageHeader from '@/Components/PageHeader';
 
 /** The reason, note and date for the chosen subscribers, after saying how many. */
 function AddModal({ list, selection, count, reasonOptions, today, onClose, onDone }) {
@@ -129,13 +130,11 @@ export default function Candidates({ list, subscriptions, reasonOptions, today, 
     return (
         <AuthenticatedLayout
             header={
-                <div className="min-w-0">
-                    <p className="text-sm text-gray-500">
-                        <Link href="/disconnection-lists" className="hover:underline">قوائم القطع</Link> / <Link href={`/disconnection-lists/${list.id}`} className="hover:underline">{list.title}</Link>
-                    </p>
-                    <h2 className="text-3xl font-bold text-gray-900">إضافة مشتركين إلى القائمة</h2>
-                    <p className="mt-1 text-sm text-gray-500">مشتركو {list.branchName} الفعّالون. اختر واحدًا أو أكثر، أو كل النتائج المطابقة للفلاتر.</p>
-                </div>
+                <PageHeader
+                    eyebrow={<><Link href="/disconnection-lists" className="hover:underline">قوائم القطع</Link> / <Link href={`/disconnection-lists/${list.id}`} className="hover:underline">{list.title}</Link></>}
+                    title="إضافة مشتركين إلى القائمة"
+                    info={`مشتركو ${list.branchName} الفعّالون. اختر واحدًا أو أكثر، أو كل النتائج المطابقة للفلاتر.`}
+                />
             }
         >
             <Head title={`إضافة مشتركين — ${list.title}`} />

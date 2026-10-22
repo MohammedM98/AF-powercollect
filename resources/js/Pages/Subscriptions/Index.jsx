@@ -34,6 +34,8 @@ import ReadingHistoryModal from './ReadingHistoryModal';
 import StatementModal from './StatementModal';
 import ArchiveSubscriptionModal from './ArchiveSubscriptionModal';
 import SegmentedTabs from '@/Components/SegmentedTabs';
+import PageHeader from '@/Components/PageHeader';
+import InfoTip from '@/Components/InfoTip';
 
 const STATUS_TONES = {
     active: 'green',
@@ -331,20 +333,20 @@ export default function Index({
     return (
         <AuthenticatedLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">المشتركون</h2>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        {!showArchived && <BulkActionsMenu abilities={bulkActions} onChoose={chooseBulkAction} />}
-                        {canCreate && <AddButton onClick={() => setCreating(true)}>مشترك جديد</AddButton>}
-                    </div>
-                </>
+                <PageHeader
+                    title="المشتركون"
+                    actions={
+                        <>
+                            {!showArchived && <BulkActionsMenu abilities={bulkActions} onChoose={chooseBulkAction} />}
+                            {canCreate && <AddButton onClick={() => setCreating(true)}>مشترك جديد</AddButton>}
+                        </>
+                    }
+                />
             }
         >
             <Head title="المشتركون" />
 
-            {canViewArchived && <div className="mb-5 flex flex-wrap items-center justify-between gap-4"><SegmentedTabs label="قائمة الاشتراكات" value={showArchived ? 'archived' : 'current'} options={[{ value: 'current', label: 'الاشتراكات الحالية' }, { value: 'archived', label: 'الاشتراكات المؤرشفة' }]} onChange={(value) => setFilter('archived', value === 'archived' ? '1' : '')} /><p className="text-sm text-gray-500">{showArchived ? 'ملفات محفوظة بعد إنهاء الخدمة؛ الأرصدة والحركات السابقة باقية.' : 'أرشفة الاشتراك المنتهي متاحة من قائمة إجراءاته حسب الصلاحية.'}</p></div>}
+            {canViewArchived && <div className="mb-5 flex flex-wrap items-center gap-1"><SegmentedTabs label="قائمة الاشتراكات" value={showArchived ? 'archived' : 'current'} options={[{ value: 'current', label: 'الاشتراكات الحالية' }, { value: 'archived', label: 'الاشتراكات المؤرشفة' }]} onChange={(value) => setFilter('archived', value === 'archived' ? '1' : '')} /><InfoTip label="عن الأرشيف">{showArchived ? 'ملفات محفوظة بعد إنهاء الخدمة؛ الأرصدة والحركات السابقة باقية.' : 'أرشفة الاشتراك المنتهي متاحة من قائمة إجراءاته حسب الصلاحية.'}</InfoTip></div>}
 
             <DataTableToolbar
                 search={search}

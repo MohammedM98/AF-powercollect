@@ -5,6 +5,7 @@ import TextInput from '@/Components/TextInput';
 import PrimaryButton from '@/Components/PrimaryButton';
 import Icon from '@/Components/Icon';
 import { formatMoney } from '@/lib/format';
+import StatusPill from '@/Components/DataTable/StatusPill';
 
 function CurrencyEditor({ currency }) {
     const form = useForm({ rate: currency.rate ?? '' });
@@ -20,18 +21,19 @@ function CurrencyEditor({ currency }) {
                 <bdi className="flex h-12 w-16 shrink-0 items-center justify-center rounded-control bg-gray-50 font-display text-sm font-semibold text-gray-700">{currency.code}</bdi>
                 <div className="min-w-0">
                     <h3 id={`currency-${currency.code}`} className="font-bold text-gray-900">{currency.label}</h3>
-                    <p className="text-xs text-gray-500">قيمة 1 {currency.label} بالشيكل</p>
                 </div>
             </div>
             <FormField id={`rate-${currency.code}`} label="سعر الصرف بالشيكل" required error={form.errors.rate}>
                 <TextInput name="rate" type="number" min="0.0001" max="10000" step="0.0001" required dir="ltr" className="w-full font-display tabular-nums" value={form.data.rate} onChange={(event) => form.setData('rate', event.target.value)} />
             </FormField>
             <div className="mt-auto flex flex-col items-start gap-4 border-t border-gray-100 pt-4">
-                <p className="text-xs leading-relaxed text-gray-500">
-                    {Number(form.data.rate) > 0
-                        ? <>10 {currency.label} = <bdi className="font-display font-semibold text-gray-700">{formatMoney(Number(form.data.rate) * 10)}</bdi> شيكل</>
-                        : 'أدخل سعر الصرف لتفعيل الدفع بهذه العملة.'}
-                </p>
+                {Number(form.data.rate) > 0 ? (
+                    <p className="text-xs leading-relaxed text-gray-500">
+                        10 {currency.label} = <bdi className="font-display font-semibold text-gray-700">{formatMoney(Number(form.data.rate) * 10)}</bdi> شيكل
+                    </p>
+                ) : (
+                    <StatusPill tone="amber" label="غير مفعّلة للدفع" />
+                )}
                 <PrimaryButton type="submit" className="self-end" disabled={form.processing || !form.isDirty}>
                     <Icon name="check" className="h-4 w-4" />
                     {form.processing ? 'جارٍ الحفظ…' : 'حفظ السعر'}
@@ -45,7 +47,7 @@ export default function CurrencyRatesSection({ currencies }) {
     const baseCurrency = currencies.find((currency) => currency.code === 'ILS');
 
     return (
-        <FormSection icon="currency" title="العملات وأسعار الصرف" description="تُطبّق الأسعار تلقائيًا عند تسجيل الدفعات الجديدة. تبقى الدفعات السابقة بسعر الصرف المسجّل وقت الدفع." columns={1}>
+        <FormSection icon="currency" title="العملات وأسعار الصرف" info="تُطبّق الأسعار تلقائيًا عند تسجيل الدفعات الجديدة. تبقى الدفعات السابقة بسعر الصرف المسجّل وقت الدفع." columns={1}>
             {baseCurrency && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-control border border-gray-100 bg-gray-50 px-4 py-3">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

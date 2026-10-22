@@ -17,6 +17,7 @@ import { useRowClick } from '@/hooks/useRowClick';
 import MeterBoxModal from './MeterBoxModal';
 import MeterBoxSubscriptions from './MeterBoxSubscriptions';
 import './meter-boxes.css';
+import PageHeader from '@/Components/PageHeader';
 
 function MeterBoxSummary({ summary }) {
     return (
@@ -67,17 +68,7 @@ export default function Index({
     return (
         <SettingsLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">الطبلونات</h2>
-                        <p className="mt-1 text-sm text-gray-500">{canViewSubscriptions ? 'كل طبلون برقمه وموقعه. افتح الصف لعرض المشتركين والأرصدة.' : 'طبلونات الفرع وأرقامها ومواقعها.'}</p>
-                    </div>
-                    {canCreate && (
-                        <div className="shrink-0">
-                            <AddButton onClick={() => setCreating(true)}>طبلون جديد</AddButton>
-                        </div>
-                    )}
-                </>
+                <PageHeader title="الطبلونات" info={canViewSubscriptions ? 'كل طبلون برقمه وموقعه. افتح الصف لعرض المشتركين والأرصدة.' : null} actions={canCreate && <AddButton onClick={() => setCreating(true)}>طبلون جديد</AddButton>} />
             }
         >
             <Head title="الطبلونات" />

@@ -7,6 +7,7 @@ import KpiTile from '@/Components/KpiTile';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import { formatMoney, formatNumber, percentOf, timeAgo } from '@/lib/format';
 import BranchMark, { branchPlace } from './BranchMark';
+import PageHeader from '@/Components/PageHeader';
 
 const SORTS = [
     { value: 'revenue', label: 'الإيرادات' },
@@ -115,19 +116,17 @@ export default function Index({ sort, summary, branches }) {
     return (
         <AuthenticatedLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-500">
-                            {formatNumber(summary.branches)} فروع · {formatNumber(summary.activeBranches)} نشطة
-                        </p>
-                        <h2 className="mt-1 text-3xl font-bold text-gray-900">أداء الفروع</h2>
-                        <p className="mt-1 text-sm text-gray-500">إيرادات ونشاط وفريق كل فرع، اضغط على أي فرع لتفاصيل عمله اليومية.</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2.5">
-                        <span className="text-sm text-gray-500">ترتيب:</span>
-                        <SegmentedTabs options={SORTS} value={sort} onChange={changeSort} label="ترتيب الفروع" />
-                    </div>
-                </>
+                <PageHeader
+                    eyebrow={`${formatNumber(summary.branches)} فروع · ${formatNumber(summary.activeBranches)} نشطة`}
+                    title="أداء الفروع"
+                    info="إيرادات ونشاط وفريق كل فرع. اضغط على أي فرع لتفاصيل عمله اليومية."
+                    actions={
+                        <>
+                            <span className="text-sm text-gray-500">ترتيب:</span>
+                            <SegmentedTabs options={SORTS} value={sort} onChange={changeSort} label="ترتيب الفروع" />
+                        </>
+                    }
+                />
             }
         >
             <Head title="أداء الفروع" />

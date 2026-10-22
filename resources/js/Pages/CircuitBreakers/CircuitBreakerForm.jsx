@@ -26,7 +26,7 @@ export default function CircuitBreakerForm({ data, setData, errors }) {
                 total={2}
             />
 
-            <FormSection icon="bolt" title="بيانات القاطع" description="قدرته والحد الأدنى الذي يُحمَّل على اشتراكه" columns={2}>
+            <FormSection icon="bolt" title="بيانات القاطع" columns={2}>
                 <FormField id="ampere" label="الأمبير" required error={errors.ampere}>
                     <TextInput type="number" min={2} step={1} required className="block w-full" value={data.ampere} onChange={(event) => setData('ampere', event.target.value)} />
                 </FormField>

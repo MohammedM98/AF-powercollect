@@ -8,6 +8,7 @@ import Icon from '@/Components/Icon';
 import KpiTile from '@/Components/KpiTile';
 import { formatDayLabel, formatMoney, formatNumber, timeAgo } from '@/lib/format';
 import { branchPlace } from './BranchMark';
+import PageHeader, { BackLink } from '@/Components/PageHeader';
 
 /** Status colors, fixed because the card behind them is always graphite; each comes with its word and count. */
 const STATUS_BARS = { active: 'bg-emerald-400', suspended: 'bg-amber-400', disconnected: 'bg-white/40' };
@@ -251,31 +252,20 @@ export default function Show({ branch, canCompareBranches, dailyRegistrations, d
         <AuthenticatedLayout
             header={
                 <>
-                    <div className="min-w-0">
-                        {canCompareBranches && (
-                            <Link
-                                href="/branch-performance"
-                                className="inline-flex items-center gap-1 text-sm font-semibold text-gray-500 transition hover:text-gray-900"
-                            >
-                                <Icon name="chevron-right" className="h-4 w-4" />
-                                أداء الفروع
-                            </Link>
-                        )}
-                        <div className="mt-1 flex flex-wrap items-center gap-3">
-                            <h2 className="text-3xl font-bold text-gray-900">{branch.name}</h2>
-                            <StatusPill tone={branch.isActive ? 'green' : 'gray'} label={branch.isActive ? 'فرع نشط' : 'فرع متوقف'} />
-                        </div>
-                        {details.length > 0 && (
-                            <p className="mt-1 text-sm text-gray-500">
-                                {details.map((detail, index) => (
-                                    <span key={detail}>
-                                        {index > 0 && ' · '}
-                                        <span dir={detail === branch.phone ? 'ltr' : undefined}>{detail}</span>
-                                    </span>
-                                ))}
-                            </p>
-                        )}
-                    </div>
+                    <PageHeader
+                        eyebrow={canCompareBranches && <BackLink href="/branch-performance">أداء الفروع</BackLink>}
+                        title={branch.name}
+                        titleAddon={<StatusPill tone={branch.isActive ? 'green' : 'gray'} label={branch.isActive ? 'فرع نشط' : 'فرع متوقف'} />}
+                        meta={
+                            details.length > 0 &&
+                            details.map((detail, index) => (
+                                <span key={detail}>
+                                    {index > 0 && ' · '}
+                                    <span dir={detail === branch.phone ? 'ltr' : undefined}>{detail}</span>
+                                </span>
+                            ))
+                        }
+                    />
                     <Link
                         href={ledgerHref}
                         className="inline-flex shrink-0 items-center gap-2 self-start rounded-control bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 sm:self-center"

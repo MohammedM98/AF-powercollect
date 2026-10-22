@@ -20,6 +20,7 @@ import ClearingModal from '@/Pages/Subscriptions/ClearingModal';
 import DiscountModal from '@/Pages/Subscriptions/DiscountModal';
 import PaymentModal from '@/Pages/Subscriptions/PaymentModal';
 import SplitPaymentModal from './SplitPaymentModal';
+import PageHeader from '@/Components/PageHeader';
 
 const STATUS_TONES = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
@@ -81,20 +82,18 @@ export default function Index({
         <AuthenticatedLayout
             badges={{ '/payments/summary': pendingCount }}
             header={
-                <>
-                    <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-500">{scopeLabel}</p>
-                        <h2 className="mt-1 text-3xl font-bold text-gray-900">تسجيل الدفعات</h2>
-                    </div>
-                    {canSplitPayments && (
-                        <div className="flex shrink-0 flex-wrap items-center gap-2">
-                            <PrimaryButton type="button" onClick={() => setSplitting({})} className="h-11 px-5">
-                                <Icon name="layers" className="h-[18px] w-[18px]" />
+                <PageHeader
+                    eyebrow={scopeLabel}
+                    title="تسجيل الدفعات"
+                    actions={
+                        canSplitPayments && (
+                            <PrimaryButton type="button" onClick={() => setSplitting({})}>
+                                <Icon name="layers" className="h-4 w-4" />
                                 دفعة مقسّمة على عدة مشتركين
                             </PrimaryButton>
-                        </div>
-                    )}
-                </>
+                        )
+                    }
+                />
             }
         >
             <Head title="تسجيل الدفعات" />
@@ -173,10 +172,12 @@ export default function Index({
                                         </td>
                                         <td className="text-end">
                                             <div className="inline-flex items-center gap-2">
-                                                <PrimaryButton type="button" onClick={() => setPaying(subscription)} className="px-3.5 py-2">
-                                                    <Icon name="banknotes" className="h-4 w-4" />
-                                                    تسجيل دفعة
-                                                </PrimaryButton>
+                                                <span className="row-action-view">
+                                                    <button type="button" onClick={() => setPaying(subscription)}>
+                                                        <Icon name="banknotes" className="h-4 w-4" />
+                                                        تسجيل دفعة
+                                                    </button>
+                                                </span>
                                                 <RowActionsMenu menu={rowMenu(subscription)} />
                                             </div>
                                         </td>

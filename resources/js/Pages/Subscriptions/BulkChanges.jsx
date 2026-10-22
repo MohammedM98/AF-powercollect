@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import Modal from '@/Components/Modal';
@@ -11,6 +11,7 @@ import ActionsTh from '@/Components/DataTable/ActionsTh';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import { useDataTable } from '@/hooks/useDataTable';
 import { timeAgo } from '@/lib/format';
+import PageHeader, { BackLink } from '@/Components/PageHeader';
 
 const FIELD_ICONS = { minimum_charge: 'wallet', status: 'flag', meter_box_id: 'grid' };
 
@@ -91,14 +92,7 @@ export default function BulkChanges({ changes, filters, details }) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="min-w-0">
-                    <Link href="/subscriptions" className={`mb-1 inline-flex items-center gap-1 rounded text-sm text-gray-500 hover:text-gray-900 ${FOCUS_RING}`}>
-                        <Icon name="chevron-right" className="h-4 w-4" />
-                        رجوع إلى المشتركين
-                    </Link>
-                    <h2 className="text-3xl font-bold text-gray-900">سجل التعديلات الجماعية</h2>
-                    <p className="mt-1 text-sm text-gray-500">كل تعديل طُبّق على عدة مشتركين معًا، مع إمكانية التراجع عنه.</p>
-                </div>
+                <PageHeader eyebrow={<BackLink href="/subscriptions">المشتركون</BackLink>} title="سجل التعديلات الجماعية" info="كل تعديل طُبّق على عدة مشتركين معًا، مع إمكانية التراجع عنه." />
             }
         >
             <Head title="سجل التعديلات الجماعية" />

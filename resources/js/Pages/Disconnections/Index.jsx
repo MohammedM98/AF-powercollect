@@ -20,6 +20,7 @@ import Icon from '@/Components/Icon';
 import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
 import { formatMoney, formatNumber } from '@/lib/format';
+import PageHeader from '@/Components/PageHeader';
 
 /** A new list: its name and notes, and its branch for the Super Admin. */
 function NewListModal({ branchOptions, onClose }) {
@@ -74,17 +75,7 @@ export default function Index({ lists, summary, canCreate, branchOptions, filter
     return (
         <AuthenticatedLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">قوائم القطع</h2>
-                        <p className="mt-1 text-sm text-gray-500">قوائم يديرها كل فرع يدويًا: الإدراج والمواعيد والإنذارات وتأكيد القطع الفعلي.</p>
-                    </div>
-                    {canCreate && (
-                        <div className="shrink-0">
-                            <AddButton onClick={() => setCreating(true)}>قائمة جديدة</AddButton>
-                        </div>
-                    )}
-                </>
+                <PageHeader title="قوائم القطع" info="قوائم يديرها كل فرع يدويًا: الإدراج والمواعيد والإنذارات وتأكيد القطع الفعلي." actions={canCreate && <AddButton onClick={() => setCreating(true)}>قائمة جديدة</AddButton>} />
             }
         >
             <Head title="قوائم القطع" />

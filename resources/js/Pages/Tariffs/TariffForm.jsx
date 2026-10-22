@@ -25,7 +25,7 @@ export default function TariffForm({ data, setData, errors, categoryOptions }) {
                 total={2}
             />
 
-            <FormSection icon="bolt" title="سعر الكيلو" description="فئة الاشتراك وسعر الكيلو واط لها" columns={2}>
+            <FormSection icon="bolt" title="سعر الكيلو" columns={2}>
                 <FormField id="category" label="الفئة" required error={errors.category}>
                     <select className="block w-full" value={data.category} onChange={(e) => setData('category', e.target.value)}>
                         {categoryOptions.map((option) => (

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import KpiTile from '@/Components/KpiTile';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -7,6 +7,7 @@ import Icon from '@/Components/Icon';
 import { formatMoney } from '@/lib/format';
 import { isPrintMode, printUrl } from '@/lib/print';
 import { boxTypes, currencies, dateTime, BoxEntriesTable, BoxStage, BoxTypeChip, BoxTypeIcon, CountSummary, CashBoxAction, boxAction, actionLabel } from './CollectorCashBox';
+import PageHeader, { BackLink } from '@/Components/PageHeader';
 
 /** A link that looks like the quiet outlined button. */
 /** The report links' shape; each takes its colour (tone-print, tone-excel). */
@@ -37,9 +38,12 @@ export default function CashBoxShow({ box, entries, collectionUrls, pendingCount
     // A cash box the branch counted under the old two-step receipt still waits on the collector's confirmation.
     const timeline = [['فُتح', box.openedAt, 'unlock'], ['أُغلق', box.closedAt, 'lock'], ['أكّد الفرع الإغلاق', box.receivedAt, 'office'], ...(box.stage === 'awaiting_confirmation' ? [['تأكيد التسليم', box.confirmedAt, 'check']] : [])];
 
-    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<div className="flex items-center gap-3"><BoxTypeIcon type={box.type} className="h-12 w-12" /><div><h2 className="text-2xl font-bold text-gray-900">{boxTypes[box.type]}</h2><p className="mt-1 text-sm text-gray-500">صندوق رقم <bdi dir="ltr" className="font-display">{box.number}</bdi></p></div></div>}>
+    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<PageHeader
+        eyebrow={<BackLink href={collectionUrls.cashBoxes}>الصناديق المالية</BackLink>}
+        title={<span className="inline-flex items-center gap-3"><BoxTypeIcon type={box.type} className="h-11 w-11" />{boxTypes[box.type]}</span>}
+        meta={<>صندوق رقم <bdi dir="ltr" className="font-display">{box.number}</bdi></>}
+    />}>
         <Head title={`${boxTypes[box.type]} ${box.number}`} />
-        <Link href={collectionUrls.cashBoxes} prefetch className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600"><Icon name="chevron-right" className="h-4 w-4" />العودة إلى الصناديق المالية</Link>
         <div className="financial-surface space-y-5">
             {saved && <p role="status" className="rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">{saved}</p>}
             <section className="space-y-5 rounded-panel border border-gray-100 bg-surface p-5 shadow-card">

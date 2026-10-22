@@ -7,6 +7,7 @@ import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import AreaModal from '../Areas/AreaModal';
 import SubAreaModal from '../SubAreas/SubAreaModal';
 import HierarchyColumn from './HierarchyColumn';
+import PageHeader from '@/Components/PageHeader';
 
 /** "منطقة واحدة", "منطقتان", "3 مناطق", "12 منطقة". */
 function areasCountLabel(count) {
@@ -86,14 +87,10 @@ export default function Index({
     return (
         <SettingsLayout
             header={
-                <div className="min-w-0">
-                    <h2 className="font-luxe text-3xl font-bold text-gray-900">{pageTitle}</h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                        {scopedToBranch
-                            ? 'منطقة 2 داخل منطقة فرعك. الإضافة والتعديل في مكانهما.'
-                            : 'اختر محافظة ثم منطقة لتظهر منطقة 2 داخلها. الإضافة والتعديل في مكانهما.'}
-                    </p>
-                </div>
+                <PageHeader
+                    title={pageTitle}
+                    info={scopedToBranch ? 'منطقة 2 داخل منطقة فرعك. الإضافة والتعديل في مكانهما.' : 'اختر محافظة ثم منطقة لتظهر منطقة 2 داخلها. الإضافة والتعديل في مكانهما.'}
+                />
             }
         >
             <Head title={pageTitle} />

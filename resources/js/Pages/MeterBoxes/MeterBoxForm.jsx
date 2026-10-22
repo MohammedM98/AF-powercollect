@@ -64,7 +64,7 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
                 total={requiredFields.length}
             />
 
-            <FormSection icon="grid" title="بيانات الطبلون" description="اسمه ورقمه كما يظهران في القوائم" columns={2}>
+            <FormSection icon="grid" title="بيانات الطبلون" columns={2}>
                 <div className="flex items-start gap-3 sm:col-span-2">
                     <FormField id="name" label="اسم الطبلون" required error={errors.name} span="min-w-0 flex-1">
                         <TextInput className="block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
@@ -102,7 +102,7 @@ export default function MeterBoxForm({ data, setData, errors, branches, canChoos
             <FormSection
                 icon="pin"
                 title="الموقع"
-                description={canChooseBranch ? 'المحافظة فالمنطقة فالفرع، ثم منطقة 2 إن وُجدت' : 'يتبع الطبلون فرعك، اختر منطقة 2 إن وُجدت'}
+               
                 columns={2}
             >
                 {canChooseBranch ? (

@@ -9,6 +9,7 @@ import { financialBoxesTotals } from '@/lib/financialBoxes';
 import { FinancialBoxCard, FinancialBoxSummary, financialAmountsLine } from './FinancialBoxComponents';
 import FinancialBoxList from './FinancialBoxList';
 import { boxTypeStyles, BoxReportActions } from './CollectorCashBox';
+import PageHeader from '@/Components/PageHeader';
 
 const typeFilters = [{ value: '', label: 'الكل' }, ...Object.entries(boxTypeStyles).map(([value, style]) => ({ value, label: style.label }))];
 const stateFilters = [{ value: '', label: 'الكل' }, { value: 'open', label: 'مفتوح' }, { value: 'closed', label: 'مغلق' }];
@@ -27,7 +28,7 @@ export default function CashBoxes({ started, branchName, boxes, filters, pending
         router.get(collectionUrls.cashBoxes, { ...filters, [key]: value }, { preserveState: true, preserveScroll: true, replace: true });
     }
 
-    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-gray-500">{branchName ?? 'حسابك الحالي'}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">الصناديق المالية</h2></div></div>}>
+    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<PageHeader eyebrow={branchName ?? 'حسابك الحالي'} title="الصناديق المالية" />}>
         <Head title="الصناديق المالية" />
         {started ? <div className="financial-boxes financial-surface space-y-5">
             <FinancialBoxSummary boxes={presentedBoxes} pageOnly />

@@ -20,6 +20,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
 import { formatNumber } from '@/lib/format';
 import { STAGES } from '@/lib/readingBoard';
+import PageHeader from '@/Components/PageHeader';
 
 /** A new cycle: one of the branch's weeks and the day it is read. */
 function NewCycleModal({ branchOptions, weekOptions, defaultBranchId, onClose }) {
@@ -92,17 +93,11 @@ export default function Index({ cycles, canCreate, branchOptions, weekOptions, d
     return (
         <AuthenticatedLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">توزيع القراءات</h2>
-                        <p className="mt-1 text-sm text-gray-500">دورات القراءة لكل فرع: توزيع الطبلونات على القرّاء الميدانيين والكشوف الورقية واعتمادها.</p>
-                    </div>
-                    {canCreate && (
-                        <div className="shrink-0">
-                            <AddButton onClick={() => setCreating(true)}>دورة قراءة جديدة</AddButton>
-                        </div>
-                    )}
-                </>
+                <PageHeader
+                    title="توزيع القراءات"
+                    info="دورات القراءة لكل فرع: توزيع الطبلونات على القرّاء الميدانيين والكشوف الورقية واعتمادها."
+                    actions={canCreate && <AddButton onClick={() => setCreating(true)}>دورة قراءة جديدة</AddButton>}
+                />
             }
         >
             <Head title="توزيع القراءات" />

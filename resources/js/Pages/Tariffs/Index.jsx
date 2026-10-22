@@ -7,6 +7,7 @@ import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { formatMoney, formatNumber, normalizeDecimalInput } from '@/lib/format';
 import { rateChange, stepRate } from '@/lib/tariffs';
 import TariffModal from './TariffModal';
+import PageHeader from '@/Components/PageHeader';
 
 const CATEGORY_ICONS = { residential: 'home', commercial: 'shop' };
 const RATE_STEPS = [-0.25, -0.1, 0.1, 0.25];
@@ -478,19 +479,11 @@ export default function Index({ tariffs, segments, canCreate, canCreateSegment, 
     return (
         <SettingsLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">التعرفات</h2>
-                        <p className="mt-1 text-[14.5px] text-gray-500">
-                            سعر الكيلو لكل فئة. تُحسب كل قراءة على السعر الساري وقتها، فتغيير السعر لا يمسّ القراءات السابقة.
-                        </p>
-                    </div>
-                    {canCreate && (
-                        <div className="shrink-0">
-                            <AddButton onClick={() => setCreating(true)}>تعرفة جديدة</AddButton>
-                        </div>
-                    )}
-                </>
+                <PageHeader
+                    title="التعرفات"
+                    info="سعر الكيلو لكل فئة. تُحسب كل قراءة على السعر الساري وقتها، فتغيير السعر لا يمسّ القراءات السابقة."
+                    actions={canCreate && <AddButton onClick={() => setCreating(true)}>تعرفة جديدة</AddButton>}
+                />
             }
         >
             <Head title="التعرفات" />

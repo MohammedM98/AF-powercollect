@@ -15,6 +15,7 @@ import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import BranchModal from './BranchModal';
 import DomainModal from './DomainModal';
+import PageHeader from '@/Components/PageHeader';
 
 export default function Index({ branches, canCreate, filters, filterOptions, governorates, areas, canManageDomains = false, domainRoutingEnabled = false }) {
     const [domainBranch, setDomainBranch] = useState(null);
@@ -27,16 +28,7 @@ export default function Index({ branches, canCreate, filters, filterOptions, gov
     return (
         <SettingsLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">الفروع</h2>
-                    </div>
-                    {canCreate && (
-                        <div className="shrink-0">
-                            <AddButton onClick={() => setCreating(true)}>فرع جديد</AddButton>
-                        </div>
-                    )}
-                </>
+                <PageHeader title="الفروع" actions={canCreate && <AddButton onClick={() => setCreating(true)}>فرع جديد</AddButton>} />
             }
         >
             <Head title="الفروع" />

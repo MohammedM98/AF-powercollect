@@ -30,7 +30,7 @@ export default function SubAreaForm({ data, setData, errors, areas, allowNoArea 
                 total={1}
             />
 
-            <FormSection icon="pin" title="بيانات منطقة 2" description="اسمها والمنطقة التي تتبعها" columns={2}>
+            <FormSection icon="pin" title="بيانات منطقة 2" columns={2}>
                 <FormField id="name" label="الاسم" required error={errors.name}>
                     <TextInput className="block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
                 </FormField>

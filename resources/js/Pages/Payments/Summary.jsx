@@ -18,6 +18,8 @@ import {
     actionLabel,
 } from './CollectorCashBox';
 import OpenEntriesTable from './OpenEntriesTable';
+import PageHeader from '@/Components/PageHeader';
+import InfoTip from '@/Components/InfoTip';
 
 /** What the user collected today, in one wide card at the top of the page: the total, and how much in cash and by transfer. */
 function TodaysSummary({ today }) {
@@ -118,7 +120,7 @@ export default function Summary({ today, cashBox, current, entries, filters, cou
         document.getElementById('open-entries')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
     }
 
-    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<div><p className="text-sm font-semibold text-gray-500">{cashBox.branchName ?? 'حسابك الحالي'}</p><h2 className="mt-1 text-3xl font-bold text-gray-900">ملخص التحصيل</h2></div>}>
+    return <AuthenticatedLayout badges={{ '/payments/summary': pendingCount }} header={<PageHeader eyebrow={cashBox.branchName ?? 'حسابك الحالي'} title="ملخص التحصيل" />}>
         <Head title="ملخص التحصيل" />
         {saved && <p role="status" className="mb-4 rounded-control bg-emerald-500/10 p-4 text-sm text-emerald-700">{saved}</p>}
         <TodaysSummary today={today} />
@@ -131,9 +133,9 @@ export default function Summary({ today, cashBox, current, entries, filters, cou
             <CollectorDebts debts={cashBox.debts} />
 
             <section aria-labelledby="open-boxes" className="space-y-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="flex items-center gap-1">
                     <h3 id="open-boxes" className="text-lg font-bold text-gray-900">صناديقي المفتوحة</h3>
-                    <p className="text-xs text-gray-500">لكل نوع صندوق خاص به؛ يراجعه الفرع ويؤكد إغلاقه، أو يُغلق عند القطع الأسبوعي.</p>
+                    <InfoTip label="عن صناديقي المفتوحة">لكل نوع صندوق خاص به؛ يراجعه الفرع ويؤكد إغلاقه، أو يُغلق عند القطع الأسبوعي.</InfoTip>
                 </div>
                 <div className="grid gap-4 lg:grid-cols-3">
                     {Object.keys(boxTypes).map((type) => <BoxCard key={type} type={type} box={current[type]} selected={shownType === type && Boolean(current[type])} onSelect={() => showBoxType(type)} />)}
@@ -141,9 +143,9 @@ export default function Summary({ today, cashBox, current, entries, filters, cou
             </section>
 
             <section id="open-entries" aria-labelledby="open-entries-title" className="scroll-mt-24 space-y-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="flex items-center gap-1">
                     <h3 id="open-entries-title" className="text-lg font-bold text-gray-900">حركاتي المفتوحة</h3>
-                    <p className="text-xs text-gray-500">كل ما سجّلته في صناديقك المفتوحة؛ حركات الصناديق المغلقة تجدها داخل <Link href={collectionUrls.cashBoxes} className="font-semibold text-brand-600 hover:underline">كل صندوق</Link>.</p>
+                    <InfoTip label="عن حركاتي المفتوحة">كل ما سجّلته في صناديقك المفتوحة؛ حركات الصناديق المغلقة تجدها داخل كل صندوق في صفحة الصناديق المالية.</InfoTip>
                 </div>
                 <OpenEntriesTable table={table} entries={entries} filters={filters} counts={counts} url={collectionUrls.summary} label="حركاتي المفتوحة" />
             </section>

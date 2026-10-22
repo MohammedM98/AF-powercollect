@@ -1,5 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
+import InfoTip from '@/Components/InfoTip';
+import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import { describeBalance } from '@/lib/accountStatement';
@@ -46,14 +48,15 @@ export function balanceText(balance) {
     return balanceInText(balance.signed);
 }
 
+/** A field's label, as FormField draws it: the star when required, the guidance (`hint`) behind an "!". */
 export function FieldLabel({ htmlFor, required = false, hint, children }) {
     return (
-        <div className="mb-2 flex items-baseline justify-between gap-2.5">
-            <label htmlFor={htmlFor} className="text-[14.5px] font-semibold text-gray-700">
+        <div className="mb-2 flex items-center gap-1">
+            <InputLabel htmlFor={htmlFor}>
                 {children}
-                {required && <span className="text-brand-600"> *</span>}
-            </label>
-            {hint && <span className="text-[13px] text-gray-500">{hint}</span>}
+                {required && <span className="text-brand-500"> *</span>}
+            </InputLabel>
+            {hint && <InfoTip label={`عن حقل ${typeof children === 'string' ? children : ''}`.trim()}>{hint}</InfoTip>}
         </div>
     );
 }

@@ -13,6 +13,8 @@ import Icon from '@/Components/Icon';
 import { timeAgo } from '@/lib/format';
 import { openQuickMessage } from '@/lib/quickMessage';
 import { ChannelLabel, DeliveryCounts, KindPill, MessageText } from './MessageParts';
+import { secondaryButtonClass } from '@/Components/SecondaryButton';
+import PageHeader from '@/Components/PageHeader';
 
 /**
  * Every send of messages to subscriptions, newest first; a send opens to
@@ -29,26 +31,25 @@ export default function Index({ batches, canSend, filters, filterOptions }) {
     return (
         <AuthenticatedLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">الرسائل</h2>
-                        <p className="mt-1 text-sm text-gray-500">القراءات الأسبوعية وتذكير الدفع والإعلانات للمشتركين.</p>
-                    </div>
-                    {canSend && (
-                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <PageHeader
+                    title="الرسائل"
+                    actions={
+                        canSend && (
+                            <>
                             <button
                                 type="button"
                                 onClick={() => openQuickMessage()}
                                 aria-keyshortcuts="M"
-                                className="inline-flex items-center gap-2 rounded-control border border-gray-200 bg-surface px-4 py-2.5 text-sm font-semibold text-gray-900 transition hover:border-gray-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+                                className={secondaryButtonClass}
                             >
                                 <Icon name="send" className="h-4 w-4" />
                                 رسالة سريعة
                             </button>
                             <AddButton href="/messages/create">رسالة جديدة</AddButton>
-                        </div>
-                    )}
-                </>
+                            </>
+                        )
+                    }
+                />
             }
         >
             <Head title="الرسائل" />

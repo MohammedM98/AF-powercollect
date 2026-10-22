@@ -517,7 +517,7 @@ export default function DiscountModal({
                                 )}
 
                                 <div>
-                                    <FieldLabel htmlFor="discount_notes" hint="اختياري">
+                                    <FieldLabel htmlFor="discount_notes">
                                         ملاحظات
                                     </FieldLabel>
                                     <textarea

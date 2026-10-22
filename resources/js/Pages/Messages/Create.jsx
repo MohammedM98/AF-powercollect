@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import ChoiceChips from '@/Components/ChoiceChips';
@@ -10,6 +10,7 @@ import ConfirmDialog from '@/Components/ConfirmDialog';
 import InputError from '@/Components/InputError';
 import { CHANNEL_ICONS, KIND_HINTS, KIND_ICONS, MessageText, renderMessage, withIcons } from './MessageParts';
 import { scopedOptions, withStaleCleared } from '@/lib/filterGroups';
+import PageHeader, { BackLink } from '@/Components/PageHeader';
 
 /** Arabic text goes out as Unicode SMS: 70 letters in one message, 67 in each part of a longer one. */
 function smsParts(length) {
@@ -275,13 +276,7 @@ export default function Create({
     return (
         <AuthenticatedLayout
             header={
-                <div className="min-w-0">
-                    <Link href="/messages" className={`mb-1 inline-flex items-center gap-1 rounded text-sm text-gray-500 hover:text-gray-900 ${FOCUS_RING}`}>
-                        <Icon name="chevron-right" className="h-4 w-4" />
-                        رجوع إلى الرسائل
-                    </Link>
-                    <h2 className="text-3xl font-bold text-gray-900">رسالة جديدة</h2>
-                </div>
+                <PageHeader eyebrow={<BackLink href="/messages">الرسائل</BackLink>} title="رسالة جديدة" />
             }
         >
             <Head title="رسالة جديدة" />

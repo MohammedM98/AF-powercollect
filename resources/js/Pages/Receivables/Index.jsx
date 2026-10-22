@@ -12,6 +12,7 @@ import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { formatMoney, formatNumber, formatShortDay } from '@/lib/format';
 import StatementModal from '@/Pages/Subscriptions/StatementModal';
+import PageHeader from '@/Components/PageHeader';
 
 const STATUS_DOTS = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
@@ -111,11 +112,7 @@ export default function Index({ debtors, summary, buckets, scopeLabel, filters, 
     return (
         <AuthenticatedLayout
             header={
-                <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-500">{scopeLabel}</p>
-                    <h2 className="mt-1 text-3xl font-bold text-gray-900">أعمار الديون</h2>
-                    <p className="mt-1 text-sm text-gray-500">المشتركون المدينون، وكم يمضي على ما عليهم منذ تحميله. المبالغ بالشيكل والأعمار بالأيام.</p>
-                </div>
+                <PageHeader eyebrow={scopeLabel} title="أعمار الديون" info="المشتركون المدينون، وكم يمضي على ما عليهم منذ تحميله. المبالغ بالشيكل والأعمار بالأيام." />
             }
         >
             <Head title="أعمار الديون" />

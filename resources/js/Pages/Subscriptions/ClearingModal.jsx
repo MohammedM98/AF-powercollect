@@ -172,7 +172,7 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                                 {correcting && <OriginalLine entry={correcting} />}
 
                                 <div>
-                                    <FieldLabel htmlFor="clearing_service" required hint="مطلوب — تظهر في كشف الحساب">
+                                    <FieldLabel htmlFor="clearing_service" required hint="تظهر في كشف الحساب">
                                         الخدمة التي قدّمها المشترك للشركة
                                     </FieldLabel>
                                     <textarea
@@ -191,7 +191,7 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                                 </div>
 
                                 <div>
-                                    <FieldLabel htmlFor="amount" required hint="بالشيكل">
+                                    <FieldLabel htmlFor="amount" required>
                                         قيمة الخدمة
                                     </FieldLabel>
                                     <AmountBox
@@ -235,7 +235,7 @@ export default function ClearingModal({ show, onClose, subscription, balance, co
                                 </div>
 
                                 <div>
-                                    <FieldLabel htmlFor="clearing_manual_voucher_number" hint="اختياري — رقم السند الورقي إن وُجد">
+                                    <FieldLabel htmlFor="clearing_manual_voucher_number" hint="رقم السند الورقي إن وُجد">
                                         رقم السند اليدوي
                                     </FieldLabel>
                                     <input

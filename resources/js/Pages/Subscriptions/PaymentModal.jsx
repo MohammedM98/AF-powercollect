@@ -693,7 +693,7 @@ export default function PaymentModal({
                                 </section>}
 
                                 <div>
-                                    <FieldLabel htmlFor="amount" required hint="اختر عملة الدفع">
+                                    <FieldLabel htmlFor="amount" required>
                                         المبلغ المستلم
                                     </FieldLabel>
                                     <div
@@ -857,7 +857,7 @@ export default function PaymentModal({
                                             </fieldset>
 
                                             <div>
-                                                <FieldLabel htmlFor="sender_bank_name" hint="اختياري">
+                                                <FieldLabel htmlFor="sender_bank_name">
                                                     البنك المرسل
                                                 </FieldLabel>
                                                 <BankDropdown
@@ -896,7 +896,7 @@ export default function PaymentModal({
                                                     <InputError message={errors.sender_name} className="mt-2" />
                                                 </div>
                                                 <div>
-                                                    <FieldLabel htmlFor="reference_number" hint="اختياري · من إشعار الحوالة">
+                                                    <FieldLabel htmlFor="reference_number" hint="من إشعار الحوالة">
                                                         الرقم المرجعي
                                                     </FieldLabel>
                                                     <input

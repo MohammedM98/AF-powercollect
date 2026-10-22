@@ -10,6 +10,7 @@ import { ACTION_MESSAGES } from '@/lib/actionMessages';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import './Profile.css';
+import PageHeader from '@/Components/PageHeader';
 
 const THEMES = [
     { value: 'light', label: 'فاتح', colors: ['#eff1f4', '#fff'] },
@@ -96,10 +97,10 @@ export default function Edit({ user, permissionGroups, devices, businessTimezone
     const dateLabel = (value) => value ? new Intl.DateTimeFormat('ar-u-nu-latn', { timeZone: businessTimezone, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value)) : '—';
 
     return (
-        <AuthenticatedLayout>
+        <AuthenticatedLayout header={<PageHeader title="الملف الشخصي" />}>
             <Head title="الملف الشخصي" />
             <div className="profile-page" dir="rtl">
-                <div className="pp-heading"><h1>الملف الشخصي</h1><p>بيانات حسابك، وكلمة المرور، والأجهزة المسجّل دخولك منها.</p></div>
+                
                 <section className="pp-hero">
                     <span className="pp-avatar">{initials}</span>
                     <div><h2>{user.name}</h2><span className="pp-username">@{user.username}</span>

@@ -273,7 +273,7 @@ export default function Index({ entries, period, dateBasis = 'recorded', side, s
             <Head title="السجل المالي" />
             <div className="ledger-page">
                 <div className="ph">
-                    <div><p className="scope">{scopeLabel}</p><h1>السجل المالي</h1><p>كل قيد على المشتركين، مرتبة حسب اليوم.</p></div>
+                    <div><p className="scope">{scopeLabel}</p><h1>السجل المالي</h1></div>
                     <div className="acts">
                         <button type="button" className="btn tone-excel" title="تنزيل ملف CSV يفتح في Excel" onClick={exportCsv}><Icon name="excel" />تصدير Excel</button>
                         {can?.printAuditReports !== false && <a className="btn tone-print" href={printUrl('السجل المالي')} target="_blank" rel="noopener noreferrer"><Icon name="printer" />طباعة</a>}

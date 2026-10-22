@@ -47,7 +47,7 @@ export default function UserForm({ data, setData, errors, isEdit, branches, canC
                 total={requiredFields.length}
             />
 
-            <FormSection icon="user" title="بيانات الحساب" description="الاسم واسم الدخول وكلمة المرور" columns={2}>
+            <FormSection icon="user" title="بيانات الحساب" columns={2}>
                 <FormField id="name" label="الاسم" required error={errors.name}>
                     <TextInput className="block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
                 </FormField>
@@ -85,8 +85,8 @@ export default function UserForm({ data, setData, errors, isEdit, branches, canC
                 )}
             </FormSection>
 
-            <FormSection icon="badge" title="النوع والفرع والحالة" description="المسمى الوظيفي ومكان العمل وحالة الحساب" columns={2}>
-                <FormField id="user_type_id" label="نوع المستخدم / المسمى الوظيفي" hint="للتصنيف فقط؛ الصلاحيات تُحدّد للموظف من صفحة الصلاحيات." error={errors.user_type_id}>
+            <FormSection icon="badge" title="النوع والفرع والحالة" columns={2}>
+                <FormField id="user_type_id" label="نوع المستخدم / المسمى الوظيفي" hint="للتصنيف فقط. الصلاحيات مستقلة عنه: بعد الحفظ حدّدها من صفحة الصلاحيات أو انسخ صلاحيات موظف آخر." error={errors.user_type_id}>
                     <SearchableSelect
                         value={data.user_type_id}
                         onChange={(value) => setData('user_type_id', value)}
@@ -110,11 +110,8 @@ export default function UserForm({ data, setData, errors, isEdit, branches, canC
                     />
                 )}
 
-                <p className="rounded-control border border-gray-100 bg-gray-50 p-3 text-sm leading-7 text-gray-600 sm:col-span-2">الصلاحيات مستقلة عن المسمى الوظيفي. بعد حفظ المستخدم، حدّد ما يستطيع عمله من صفحة الصلاحيات أو انسخ صلاحيات موظف آخر.</p>
-
                 <div className="sm:col-span-2">
-                    <Switch checked={data.is_active} onChange={(checked) => setData('is_active', checked)} label="حساب نشط" ariaLabel="حساب نشط" />
-                    <p className="mt-1 text-xs text-gray-500">الحساب الموقوف لا يستطيع تسجيل الدخول.</p>
+                    <Switch checked={data.is_active} onChange={(checked) => setData('is_active', checked)} label="حساب نشط" ariaLabel="حساب نشط" hint="الحساب الموقوف لا يستطيع تسجيل الدخول." />
                     <InputError message={errors.is_active} className="mt-1" />
                 </div>
             </FormSection>

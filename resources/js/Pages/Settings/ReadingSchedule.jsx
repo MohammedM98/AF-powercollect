@@ -3,11 +3,13 @@ import { Head, useForm } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import InputError from '@/Components/InputError';
 import Icon from '@/Components/Icon';
+import InfoTip from '@/Components/InfoTip';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import BranchScopeBar from './BranchScopeBar';
 import { WEEK_DAYS, formatWeekDay, weekDayName } from '@/lib/weekDays';
 import { businessClock, isEntryOpen, nextScheduleChange, upcomingWeeks, validEntryHours, weekDates } from '@/lib/readingSchedule';
 import './ReadingSchedule.css';
+import PageHeader from '@/Components/PageHeader';
 
 const MODES = {
     automatic: { label: 'تلقائي', icon: 'clock' },
@@ -18,8 +20,9 @@ const shortDate = (date) => date.slice(5).split('-').reverse().join('/');
 const dayLabel = (value) => WEEK_DAYS.find((day) => day.value === value).label;
 const dayCount = (count) => count === 1 ? 'يوم واحد' : count === 2 ? 'يومان' : count <= 10 ? `${count} أيام` : `${count} يومًا`;
 
-function PanelTitle({ icon, children }) {
-    return <h2><span className="rs-panel-icon"><Icon name={icon} /></span>{children}</h2>;
+/** A panel's title, with what the user must know about it (`info`) behind an "!". */
+function PanelTitle({ icon, info = null, children }) {
+    return <h2><span className="rs-panel-icon"><Icon name={icon} /></span>{children}{info && <InfoTip label={`عن ${children}`}>{info}</InfoTip>}</h2>;
 }
 
 function DayChip({ day, selected, type, name, disabled = false, subtitle, onChange }) {
@@ -114,14 +117,9 @@ export default function ReadingSchedule({ setting, branch, branches, followsComp
     ].filter(Boolean).join(' ');
 
     return (
-        <SettingsLayout>
+        <SettingsLayout header={<PageHeader title="مواعيد القراءات" info="متى ينتهي أسبوع القراءة، ومتى يُسمح للقرّاء ومدخلي البيانات بإدخال القراءات. لكل فرع مواعيده." />}>
             <Head title="مواعيد القراءات" />
             <form onSubmit={submit} className="reading-schedule" dir="rtl">
-                <div className="rs-heading">
-                    <h1>مواعيد القراءات</h1>
-                    <p>متى ينتهي أسبوع القراءة، ومتى يُسمح للقرّاء ومدخلي البيانات بإدخال القراءات. لكل فرع مواعيده.</p>
-                </div>
-
                 <BranchScopeBar
                     path="/settings/reading-schedule"
                     branch={branch}
@@ -150,8 +148,7 @@ export default function ReadingSchedule({ setting, branch, branches, followsComp
                 <div className="rs-grid">
                     <div className="rs-column">
                         <section className="rs-panel">
-                            <PanelTitle icon="flag">يوم القراءة الأسبوعي</PanelTitle>
-                            <p>ينتهي كل أسبوع قراءة في هذا اليوم، ويبدأ الأسبوع التالي في اليوم الذي يليه.</p>
+                            <PanelTitle icon="flag" info="ينتهي كل أسبوع قراءة في هذا اليوم، ويبدأ الأسبوع التالي في اليوم الذي يليه.">يوم القراءة الأسبوعي</PanelTitle>
                             <div className="rs-days" role="radiogroup" aria-label="يوم القراءة الأسبوعي">
                                 {WEEK_DAYS.map((day) => (
                                     <DayChip key={day.value} day={day} type="radio" name="reading_day" selected={data.reading_day === day.value}

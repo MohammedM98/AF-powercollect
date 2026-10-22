@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { SaveConfirmDialog } from '@/Components/ConfirmDialog';
+import PageHeader from '@/Components/PageHeader';
 import PrimaryButton from '@/Components/PrimaryButton';
+import { secondaryButtonClass } from '@/Components/SecondaryButton';
 import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/formValidation';
 
 /**
- * The standalone Create/Edit page every resource uses: a titled card
- * holding the form fields (children), with Save and Cancel. Saving asks
- * for confirmation first; Ctrl + Enter saves from any field.
+ * The standalone Create/Edit page every resource uses: the form's sections
+ * (children, each its own card) and, under them, a bar that stays in view
+ * holding Cancel and Save, laid out like a dialog's footer. Saving asks for
+ * confirmation first; Ctrl + Enter saves from any field.
  *
  * `form` comes from useResourceForm(); `cancelHref` is where Cancel goes.
  * Pass `layout={SettingsLayout}` for pages under the Settings tabs.
@@ -30,23 +33,19 @@ export default function FormPage({ title, form, cancelHref, layout: Layout = Aut
     }
 
     return (
-        <Layout header={<h2 className="text-3xl font-bold text-gray-900">{title}</h2>}>
+        <Layout header={<PageHeader title={title} />}>
             <Head title={title} />
 
-            <div className={widthClass}>
-                <div className="rise-in rounded-card border border-gray-100 bg-surface p-6 shadow-card">
-                    <form noValidate onSubmit={submit} onInput={(e) => clearErrorOnInput(e, form)} onKeyDown={submitOnCtrlEnter}>
-                        {children}
+            <form noValidate onSubmit={submit} onInput={(e) => clearErrorOnInput(e, form)} onKeyDown={submitOnCtrlEnter} className={`rise-in ${widthClass}`}>
+                {children}
 
-                        <div className="mt-6 flex items-center gap-4">
-                            <PrimaryButton disabled={form.processing}>حفظ</PrimaryButton>
-                            <Link href={cancelHref} prefetch className="text-sm font-semibold text-gray-500 transition hover:text-gray-900">
-                                إلغاء
-                            </Link>
-                        </div>
-                    </form>
+                <div className="sticky bottom-4 z-10 mt-6 flex items-center justify-end gap-3 rounded-card border border-gray-100 bg-surface/90 px-5 py-4 shadow-lift backdrop-blur">
+                    <Link href={cancelHref} prefetch className={secondaryButtonClass}>
+                        إلغاء
+                    </Link>
+                    <PrimaryButton disabled={form.processing}>{form.processing ? 'جارٍ الحفظ...' : 'حفظ'}</PrimaryButton>
                 </div>
-            </div>
+            </form>
 
             <SaveConfirmDialog show={confirmingSave} isEdit={form.isEdit} onConfirm={save} onCancel={() => setConfirmingSave(false)} />
         </Layout>

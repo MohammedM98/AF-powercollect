@@ -5,10 +5,11 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
 import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
-import SecondaryButton from '@/Components/SecondaryButton';
+import SecondaryButton, { secondaryButtonClass } from '@/Components/SecondaryButton';
 import InputError from '@/Components/InputError';
 import { formatNumber } from '@/lib/format';
 import { STAGES, boardColumns, boardCounters, boxMatches, columnTotals, draggedBoxIds, movePayload } from '@/lib/readingBoard';
+import PageHeader from '@/Components/PageHeader';
 
 
 function Counter({ label, value, tone = 'text-gray-900' }) {
@@ -218,41 +219,34 @@ export default function Show({ cycle, boards, readers, subAreaOptions, paperShee
         <AuthenticatedLayout
             header={
                 <>
-                    <div className="min-w-0">
-                        <p className="text-sm text-gray-500">
-                            <Link href="/reading-cycles" className="hover:underline">توزيع القراءات</Link> / {cycle.branchName}
-                        </p>
-                        <h2 className="flex flex-wrap items-center gap-3 text-3xl font-bold text-gray-900">
-                            قراءة {cycle.readingDayName} <span dir="ltr" className="font-display">{cycle.readingDate}</span>
-                            <StatusPill tone={stage.tone} label={stage.label} />
-                        </h2>
-                        <p className="mt-1 text-sm text-gray-500">
-                            أسبوع القراءة <span dir="ltr">{cycle.weekStart}</span> — <span dir="ltr">{cycle.weekEnd}</span>
-                            {cycle.readingDate !== cycle.weekEnd && ' · يوم القراءة مؤجل لهذه الدورة'}
-                        </p>
-                    </div>
+                    <PageHeader
+                        eyebrow={<><Link href="/reading-cycles" className="hover:underline">توزيع القراءات</Link> / {cycle.branchName}</>}
+                        title={<>قراءة {cycle.readingDayName} <span dir="ltr" className="font-display">{cycle.readingDate}</span></>}
+                        titleAddon={<StatusPill tone={stage.tone} label={stage.label} />}
+                        meta={<>أسبوع القراءة <span dir="ltr">{cycle.weekStart}</span> — <span dir="ltr">{cycle.weekEnd}</span>{cycle.readingDate !== cycle.weekEnd && ' · يوم القراءة مؤجل لهذه الدورة'}</>}
+                    />
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                         {abilities.review && (
-                            <Link href={`/reading-cycles/${cycle.id}/submissions`} className="inline-flex items-center gap-1.5 rounded-control border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                            <Link href={`/reading-cycles/${cycle.id}/submissions`} className={secondaryButtonClass}>
                                 <Icon name="list" className="h-4 w-4" />
                                 القراءات الميدانية
                                 {reviewCount > 0 && <span className="rounded-full bg-amber-500 px-2 text-xs font-bold text-white">{formatNumber(reviewCount)}</span>}
                             </Link>
                         )}
                         {abilities.manage && (
-                            <button type="button" onClick={() => setEditingDay(true)} className="inline-flex items-center gap-1.5 rounded-control border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                            <button type="button" onClick={() => setEditingDay(true)} className={secondaryButtonClass}>
                                 <Icon name="calendar" className="h-4 w-4" />
                                 يوم القراءة
                             </button>
                         )}
                         {abilities.manage && cycle.hasPrevious && (
-                            <button type="button" onClick={() => router.post(`/reading-cycles/${cycle.id}/copy-previous`, {}, { preserveScroll: true })} title={cycle.previousLabel} className="inline-flex items-center gap-1.5 rounded-control border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                            <button type="button" onClick={() => router.post(`/reading-cycles/${cycle.id}/copy-previous`, {}, { preserveScroll: true })} title={cycle.previousLabel} className={secondaryButtonClass}>
                                 <Icon name="repeat" className="h-4 w-4" />
                                 نسخ توزيع الدورة السابقة
                             </button>
                         )}
                         {abilities.manageCycle && (
-                            <button type="button" onClick={() => router.patch(`/reading-cycles/${cycle.id}`, { closed: !cycle.isClosed }, { preserveScroll: true })} className="inline-flex items-center gap-1.5 rounded-control border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                            <button type="button" onClick={() => router.patch(`/reading-cycles/${cycle.id}`, { closed: !cycle.isClosed }, { preserveScroll: true })} className={secondaryButtonClass}>
                                 <Icon name={cycle.isClosed ? 'unlock' : 'lock'} className="h-4 w-4" />
                                 {cycle.isClosed ? 'إعادة فتح الدورة' : 'إغلاق الدورة'}
                             </button>

@@ -33,6 +33,7 @@ import {
     withSectionsAll,
     withToggled,
 } from '@/lib/permissions';
+import PageHeader from '@/Components/PageHeader';
 
 export { SectionRow, PermissionSummary };
 
@@ -1110,10 +1111,7 @@ export default function Permissions({
     return (
         <SettingsLayout
             header={
-                <div>
-                    <h2 className="text-3xl font-bold text-gray-900">إدارة صلاحيات الموظفين</h2>
-                    <p className="mt-1 text-sm text-gray-500">اختر موظفًا، وحدّد ما يستطيع فعله في كل قسم، ثم راجع التغييرات وأكّد حفظها.</p>
-                </div>
+                <PageHeader title="إدارة صلاحيات الموظفين" info="اختر موظفًا، وحدّد ما يستطيع فعله في كل قسم، ثم راجع التغييرات وأكّد حفظها." />
             }
         >
             <Head title="الصلاحيات" />

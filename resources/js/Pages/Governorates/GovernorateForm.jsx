@@ -22,7 +22,7 @@ export default function GovernorateForm({ data, setData, errors }) {
                 total={1}
             />
 
-            <FormSection icon="map" title="بيانات المحافظة" description="اسمها كما يظهر في القوائم" columns={1}>
+            <FormSection icon="map" title="بيانات المحافظة" columns={1}>
                 <FormField id="name" label="الاسم" required error={errors.name}>
                     <TextInput className="block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
                 </FormField>

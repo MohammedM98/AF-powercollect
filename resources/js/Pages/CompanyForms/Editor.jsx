@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import FormSection from '@/Components/Form/FormSection';
 import FormField from '@/Components/Form/FormField';
@@ -14,6 +14,7 @@ import ConfirmDialog from '@/Components/ConfirmDialog';
 import CompanyFormPaper from './CompanyFormPaper';
 import useCompanySource from './useCompanySource';
 import { MAX_FORM_PAGES, moveFormItem } from '@/lib/companyForms';
+import PageHeader, { BackLink } from '@/Components/PageHeader';
 
 const TYPES = [{ value: 'heading', label: 'عنوان', icon: 'document' }, { value: 'paragraph', label: 'نص', icon: 'note' }, { value: 'fields', label: 'حقول بيانات', icon: 'grid' }, { value: 'signatures', label: 'توقيعات', icon: 'pencil' }, { value: 'spacer', label: 'مسافة', icon: 'expand' }];
 const newBlock = (type) => ({ id: crypto.randomUUID(), type, text: type === 'heading' ? 'عنوان جديد' : type === 'signatures' ? 'توقيع المشترك|توقيع الموظف' : '', align: type === 'heading' ? 'center' : 'right', bold: type === 'heading', fontSize: null, height: 8, fields: [] });
@@ -99,7 +100,7 @@ export default function Editor({ template, defaultLayout, fields }) {
     }
     const previewPages = source?.url ? sourceState.pages : layout.pages.map(() => null);
 
-    return <AuthenticatedLayout header={<><div><Link href="/company-forms" className="text-sm text-gray-500 hover:text-gray-900">نماذج الشركة</Link><h2 className="mt-1 text-3xl font-bold text-gray-900">{template ? 'تخصيص النموذج' : 'نموذج جديد'}</h2></div><div className="flex items-center gap-2"><SecondaryButton onClick={() => window.history.back()}>رجوع</SecondaryButton><PrimaryButton type="submit" form="company-form-editor" disabled={processing || sourceState.loading || Boolean(sourceState.error)}><Icon name="check" className="h-4 w-4" />{processing ? 'جارٍ الحفظ…' : 'حفظ النموذج'}</PrimaryButton></div></>}>
+    return <AuthenticatedLayout header={<PageHeader eyebrow={<BackLink href="/company-forms">نماذج الشركة</BackLink>} title={template ? 'تخصيص النموذج' : 'نموذج جديد'} actions={<><SecondaryButton onClick={() => window.history.back()}>رجوع</SecondaryButton><PrimaryButton type="submit" form="company-form-editor" disabled={processing || sourceState.loading || Boolean(sourceState.error)}><Icon name="check" className="h-4 w-4" />{processing ? 'جارٍ الحفظ…' : 'حفظ النموذج'}</PrimaryButton></>} />}>
         <Head title="تخصيص نماذج الشركة" />
         <form id="company-form-editor" onSubmit={save} className="space-y-5">
             <div className="grid gap-4 rounded-card border border-gray-100 bg-surface p-5 shadow-card sm:grid-cols-2">
@@ -133,7 +134,7 @@ export default function Editor({ template, defaultLayout, fields }) {
                         </FormSection>
                     </>}
                     {tab === 'content' && <>
-                        <FormSection columns={1} icon="document-plus" title="محتوى الصفحة" description="أضف عنصرًا ثم عدّل نصه أو بياناته. الأسهم تغيّر ترتيب العناصر.">
+                        <FormSection columns={1} icon="document-plus" title="محتوى الصفحة" info="أضف عنصرًا ثم عدّل نصه أو بياناته. الأسهم تغيّر ترتيب العناصر.">
                             <div className="flex flex-wrap gap-2">{TYPES.map((item) => <SecondaryButton key={item.value} onClick={() => addBlock(item.value)} disabled={page.blocks.length >= 35}><Icon name={item.icon} className="h-4 w-4" />{item.label}</SecondaryButton>)}</div>
                             <div className="space-y-2">{page.blocks.map((item, index) => <div key={item.id} className={`flex items-center gap-1 rounded-control border p-2 ${item.id === blockId ? 'border-brand-500/40 bg-brand-500/5' : 'border-gray-200'}`}><button type="button" className="min-w-0 flex-1 truncate px-1 text-start text-sm font-semibold text-gray-800" onClick={() => setBlockId(item.id)}>{index + 1}. {TYPES.find((type) => type.value === item.type)?.label} {item.text?.slice(0, 24)}</button><button type="button" disabled={index === 0} aria-label="نقل العنصر للأعلى" className="rounded p-1 text-gray-500 disabled:opacity-30" onClick={() => setLayout({ ...layout, pages: layout.pages.map((p, i) => i === pageIndex ? { ...p, blocks: moveFormItem(p.blocks, index, -1) } : p) })}><Icon name="arrow-up" className="h-4 w-4" /></button><button type="button" disabled={index === page.blocks.length - 1} aria-label="نقل العنصر للأسفل" className="rounded p-1 text-gray-500 disabled:opacity-30" onClick={() => setLayout({ ...layout, pages: layout.pages.map((p, i) => i === pageIndex ? { ...p, blocks: moveFormItem(p.blocks, index, 1) } : p) })}><Icon name="arrow-down" className="h-4 w-4" /></button><button type="button" aria-label="حذف العنصر" className="rounded p-1 text-brand-600" onClick={() => { setLayout({ ...layout, pages: layout.pages.map((p, i) => i === pageIndex ? { ...p, blocks: p.blocks.filter((b) => b.id !== item.id) } : p) }); setBlockId(null); }}><Icon name="trash" className="h-4 w-4" /></button></div>)}</div>
                         </FormSection>
@@ -155,12 +156,12 @@ export default function Editor({ template, defaultLayout, fields }) {
                         </FormSection>}
                     </>}
                     {tab === 'import' && <>
-                        <FormSection columns={1} icon="document-plus" title="استيراد نموذج قديم" description="PDF أو صورة، حتى 10 ميجابايت و10 صفحات. يبقى التصميم الأصلي خلف الحقول التي تضيفها.">
+                        <FormSection columns={1} icon="document-plus" title="استيراد نموذج قديم" info="PDF أو صورة، حتى 10 ميجابايت و10 صفحات. يبقى التصميم الأصلي خلف الحقول التي تضيفها.">
                             <input ref={fileInput} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" className="sr-only" onChange={(event) => { chooseFile(event.target.files?.[0]); event.target.value = ''; }} />
                             <SecondaryButton onClick={() => fileInput.current.click()}><Icon name="document-plus" className="h-4 w-4" />{source ? 'اختيار ملف بديل' : 'اختيار الملف'}</SecondaryButton>
                             {source && <p className="break-words rounded-control bg-gray-50 px-3 py-2 text-sm text-gray-700">{source.name}</p>}<InputError message={fileError || sourceState.error} />
                         </FormSection>
-                        {source?.url && <FormSection columns={1} icon="pin" title="الحقول فوق الملف" description="اختر الحقل، ثم اضغط تحديد مكانه وانقر على الورقة. تستطيع تعديل الموضع بالأرقام.">
+                        {source?.url && <FormSection columns={1} icon="pin" title="الحقول فوق الملف" info="اختر الحقل، ثم اضغط تحديد مكانه وانقر على الورقة. تستطيع تعديل الموضع بالأرقام.">
                             <SearchableSelect options={[...fieldOptions, { value: 'custom', label: 'حقل يدوي مخصص' }]} value={fieldKey} onChange={setFieldKey} clearable={false} />
                             {fieldKey === 'custom' && <input aria-label="اسم الحقل اليدوي" value={customLabel} onChange={(event) => setCustomLabel(event.target.value)} className="w-full" placeholder="اسم الحقل" maxLength={100} />}
                             <SecondaryButton onClick={() => setPlacing(!placing)} disabled={sourceState.loading || Boolean(sourceState.error) || layout.overlays.length >= 100 || (fieldKey === 'custom' && !customLabel.trim())}><Icon name="pin" className="h-4 w-4" />{placing ? 'إلغاء التحديد على الورقة' : 'تحديد مكان الحقل'}</SecondaryButton>

@@ -21,6 +21,8 @@ import { itemTone } from '@/lib/disconnections';
 import ActionModal from './ActionModal';
 import HistoryModal from './HistoryModal';
 import ResultReport from './ResultReport';
+import { secondaryButtonClass } from '@/Components/SecondaryButton';
+import PageHeader from '@/Components/PageHeader';
 
 const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white';
 
@@ -176,19 +178,15 @@ export default function Show({ list, items, summary, abilities, reasonOptions, c
         <AuthenticatedLayout
             header={
                 <>
-                    <div className="min-w-0">
-                        <p className="text-sm text-gray-500">
-                            <Link href="/disconnection-lists" className="hover:underline">قوائم القطع</Link> / {list.branchName}
-                        </p>
-                        <h2 className="flex flex-wrap items-center gap-3 text-3xl font-bold text-gray-900">
-                            {list.title}
-                            {list.isClosed && <StatusPill tone="gray" label="مغلقة" />}
-                        </h2>
-                        {list.notes && <p className="mt-1 text-sm text-gray-500">{list.notes}</p>}
-                    </div>
+                    <PageHeader
+                        eyebrow={<><Link href="/disconnection-lists" className="hover:underline">قوائم القطع</Link> / {list.branchName}</>}
+                        title={list.title}
+                        titleAddon={list.isClosed && <StatusPill tone="gray" label="مغلقة" />}
+                        meta={list.notes}
+                    />
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                         {abilities.manageList && (
-                            <button type="button" onClick={toggleClosed} className="inline-flex items-center gap-1.5 rounded-control border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                            <button type="button" onClick={toggleClosed} className={secondaryButtonClass}>
                                 <Icon name={list.isClosed ? 'unlock' : 'lock'} className="h-4 w-4" />
                                 {list.isClosed ? 'إعادة فتح القائمة' : 'إغلاق القائمة'}
                             </button>

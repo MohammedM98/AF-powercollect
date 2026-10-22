@@ -3,11 +3,13 @@ import { Head, router, useForm, usePage } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import InputError from '@/Components/InputError';
 import Icon from '@/Components/Icon';
+import InfoTip from '@/Components/InfoTip';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import { notify } from '@/lib/notify';
 import { SAMPLE_LOCAL_PHONE, missingForSending, phoneAs, requestPreview } from '@/lib/smsSettings';
 import './ReadingSchedule.css';
 import './SmsSettings.css';
+import PageHeader from '@/Components/PageHeader';
 
 const TEST_MESSAGE = 'رسالة تجربة من نظام التحصيل: إذا وصلتك فالربط يعمل.';
 const FIELDS = [
@@ -15,15 +17,16 @@ const FIELDS = [
     'sender_param', 'sender', 'phone_format', 'country_code', 'extra_params', 'success_match',
 ];
 
-function PanelTitle({ icon, children }) {
-    return <h2><span className="rs-panel-icon"><Icon name={icon} /></span>{children}</h2>;
+/** A panel's title, with what the user must know about it (`info`) behind an "!". */
+function PanelTitle({ icon, info = null, children }) {
+    return <h2><span className="rs-panel-icon"><Icon name={icon} /></span>{children}{info && <InfoTip label={`عن ${children}`}>{info}</InfoTip>}</h2>;
 }
 
 /** A labelled text field of the page; `code` sets it left to right in a fixed-width face, as API values are written. */
 function Field({ id, label, hint, error, wide = false, code = false, value, onChange, ...input }) {
     return (
         <div className={`sm-field ${wide ? 'is-wide' : ''}`}>
-            <label htmlFor={id}>{label}{hint && <small>{hint}</small>}</label>
+            <span className="sm-label"><label htmlFor={id}>{label}</label>{hint && <InfoTip label={`عن حقل ${label}`}>{hint}</InfoTip>}</span>
             <input id={id} className={`sm-input ${code ? 'is-code' : ''}`} value={value ?? ''} onChange={(event) => onChange(event.target.value)}
                 aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} {...input} />
             {error && <span id={`${id}-error`}><InputError message={error} /></span>}
@@ -56,7 +59,7 @@ function SecretField({ id, label, hint, saved, cleared, value, error, onChange, 
         <div className="sm-field">
             <span className="sm-label">
                 <label htmlFor={id}>{label}</label>
-                {hint && !saved && <small>{hint}</small>}
+                {hint && !saved && <InfoTip label={`عن حقل ${label}`}>{hint}</InfoTip>}
                 {state === 'is-saved' && <span className="sm-secret-state"><Icon name="lock" />محفوظة ومشفّرة</span>}
                 {state === 'is-cleared' && <span className="sm-secret-state is-cleared"><Icon name="warning" />تُزال عند الحفظ</span>}
                 {saved && !cleared && !value && <button type="button" className="sm-link" onClick={onClear}>إزالة</button>}
@@ -166,14 +169,9 @@ export default function Sms({ setting, delivery, week }) {
     ].filter(Boolean).join(' ');
 
     return (
-        <SettingsLayout>
+        <SettingsLayout header={<PageHeader title="إعدادات الرسائل" info="اربط مزوّد الرسائل القصيرة (SMS)، مثل جوال، لتصل الرسائل التي ترسلها من النظام إلى جوالات المشتركين. كل البيانات من وثيقة الربط (API) التي يعطيها المزوّد." />}>
             <Head title="إعدادات الرسائل" />
             <form onSubmit={submit} className="sms-settings" dir="rtl" autoComplete="off">
-                <div className="rs-heading">
-                    <h1>إعدادات الرسائل</h1>
-                    <p>اربط مزوّد الرسائل القصيرة (SMS)، مثل جوال، لتصل الرسائل التي ترسلها من النظام إلى جوالات المشتركين. كل البيانات من وثيقة الربط (API) التي يعطيها المزوّد.</p>
-                </div>
-
                 <section className={`rs-status ${sending ? 'is-open' : ''}`} aria-live="polite">
                     <span className="rs-status-dot" aria-hidden="true"><i /></span>
                     <div className="rs-status-copy">
@@ -202,8 +200,7 @@ export default function Sms({ setting, delivery, week }) {
                 <div className="rs-grid">
                     <div className="rs-column">
                         <section className="rs-panel">
-                            <PanelTitle icon="send">المزوّد ورابط الإرسال</PanelTitle>
-                            <p>رابط الإرسال وطريقته كما في وثيقة الربط. تُرسل كل رسالة طلبًا واحدًا إلى هذا الرابط.</p>
+                            <PanelTitle icon="send" info="رابط الإرسال وطريقته كما في وثيقة الربط. تُرسل كل رسالة طلبًا واحدًا إلى هذا الرابط.">المزوّد ورابط الإرسال</PanelTitle>
                             <div className="sm-fields">
                                 <Field id="provider-name" label="اسم المزوّد" hint="للعرض فقط" placeholder="جوال" value={data.provider_name} error={errors.provider_name} onChange={(value) => setData('provider_name', value)} />
                                 <div className="sm-field">
@@ -217,8 +214,7 @@ export default function Sms({ setting, delivery, week }) {
                         </section>
 
                         <section className="rs-panel">
-                            <PanelTitle icon="key">بيانات الدخول</PanelTitle>
-                            <p>من حساب شركتكم عند المزوّد. تُحفظ كلمة المرور والمفتاح مشفّرين، ولا يظهران بعد الحفظ لأحد.</p>
+                            <PanelTitle icon="key" info="من حساب شركتكم عند المزوّد. تُحفظ كلمة المرور والمفتاح مشفّرين، ولا يظهران بعد الحفظ لأحد.">بيانات الدخول</PanelTitle>
                             <div className="sm-fields">
                                 <div className="sm-field is-wide">
                                     <span className="sm-label">اسم المستخدم<small>اسم الحقل كما في الوثيقة، ثم القيمة</small></span>
@@ -245,8 +241,7 @@ export default function Sms({ setting, delivery, week }) {
                         </section>
 
                         <section className="rs-panel">
-                            <PanelTitle icon="chat">حقول الرسالة</PanelTitle>
-                            <p>أسماء الحقول التي يقرأ منها المزوّد رقم المشترك ونص الرسالة واسم المرسل، كما تُكتب في وثيقة الربط حرفيًا.</p>
+                            <PanelTitle icon="chat" info="أسماء الحقول التي يقرأ منها المزوّد رقم المشترك ونص الرسالة واسم المرسل، كما تُكتب في وثيقة الربط حرفيًا.">حقول الرسالة</PanelTitle>
                             <div className="sm-fields">
                                 <Field id="to-param" label="حقل رقم الجوال" code placeholder="to" value={data.to_param} error={errors.to_param} onChange={(value) => setData('to_param', value)} />
                                 <Field id="message-param" label="حقل نص الرسالة" code placeholder="message" value={data.message_param} error={errors.message_param} onChange={(value) => setData('message_param', value)} />
@@ -283,8 +278,7 @@ export default function Sms({ setting, delivery, week }) {
 
                     <div className="rs-column">
                         <section className="rs-panel">
-                            <PanelTitle icon="eye">الطلب الذي يُرسل</PanelTitle>
-                            <p>هكذا يصل كل طلب إلى المزوّد بالإعدادات الحالية. قارنه بالمثال في وثيقة الربط.</p>
+                            <PanelTitle icon="eye" info="هكذا يصل كل طلب إلى المزوّد بالإعدادات الحالية. قارنه بالمثال في وثيقة الربط.">الطلب الذي يُرسل</PanelTitle>
                             <div className="sm-request" aria-label="معاينة الطلب">
                                 <div className="sm-request-line"><span className="sm-method">{preview.method}</span><span>{preview.url}</span></div>
                                 <ul>
@@ -301,8 +295,7 @@ export default function Sms({ setting, delivery, week }) {
                         </section>
 
                         <section className="rs-panel">
-                            <PanelTitle icon="phone">رسالة تجربة</PanelTitle>
-                            <p>تُرسل بالإعدادات المكتوبة الآن، حتى قبل الحفظ، إلى رقمك فقط. تُحتسب على رصيد حسابكم عند المزوّد.</p>
+                            <PanelTitle icon="phone" info="تُرسل بالإعدادات المكتوبة الآن، حتى قبل الحفظ، إلى رقمك فقط. تُحتسب على رصيد حسابكم عند المزوّد.">رسالة تجربة</PanelTitle>
                             <div className="sm-fields">
                                 <Field id="test-phone" label="رقم الجوال" wide code type="tel" inputMode="tel" placeholder={SAMPLE_LOCAL_PHONE} value={testPhone} error={testErrors.test_phone} onChange={setTestPhone} />
                                 <div className="sm-field is-wide">

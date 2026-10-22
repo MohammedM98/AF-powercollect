@@ -329,7 +329,7 @@ export default function SubscriptionForm({
                 </div>
             )}
 
-            <FormSection icon="user" title="بيانات المشترك" description="الاسم والهوية ورقم الجوال">
+            <FormSection icon="user" title="بيانات المشترك">
                 <FormField
                     id={nameField}
                     label="الاسم"
@@ -400,7 +400,7 @@ export default function SubscriptionForm({
                 </FormField>
             </FormSection>
 
-            <FormSection icon="bolt" title="نوع الاشتراك والقاطع" description="سعر الكيلو والحد الأدنى يُحسبان تلقائيًا من اختيارك">
+            <FormSection icon="bolt" title="نوع الاشتراك والقاطع" info="سعر الكيلو والحد الأدنى يُحسبان تلقائيًا من اختيارك">
                 <FormField id="accounting_type" label="نوع المحاسبة" error={errors.accounting_type} span="sm:col-span-2 lg:col-span-3">
                     <ChoiceChips label="نوع المحاسبة" value={data.accounting_type} onChange={(value) => setData('accounting_type', value)} options={ACCOUNTING_TYPE_OPTIONS} />
                 </FormField>
@@ -543,7 +543,7 @@ export default function SubscriptionForm({
                 )}
             </FormSection>
 
-            <FormSection icon="pin" title="الموقع والعداد" description="الفرع ومنطقته والطبلون الذي يتغذّى منه">
+            <FormSection icon="pin" title="الموقع والعداد">
                 <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:col-span-2 sm:grid-cols-2 lg:col-span-3">
                     {canChooseBranch && (
                         <FormField id="branch_id" label="الفرع" required error={errors.branch_id}>
@@ -604,7 +604,7 @@ export default function SubscriptionForm({
                 </div>
             </FormSection>
 
-            <FormSection icon="calendar" title="معلومات الاشتراك" description="القراءة التي يبدأ منها حسابه، ورسوم الاشتراك وتاريخه">
+            <FormSection icon="calendar" title="معلومات الاشتراك">
                 <FormField
                     id="initial_reading"
                     label="القراءة السابقة"
@@ -661,18 +661,18 @@ export default function SubscriptionForm({
                             onChange={(checked) => choose('charge_subscription_fee', checked)}
                             label="تحميل رسوم اشتراك"
                             ariaLabel="تحميل رسوم اشتراك"
+                            hint={
+                                data.charge_subscription_fee
+                                    ? 'تُضاف رسوم الاشتراك إلى الرصيد وسجل المعاملات عند حفظ المشترك.'
+                                    : 'لن تُضاف الرسوم إلى الرصيد أو سجل المعاملات. يمكنك تحميلها لاحقًا من سجل المعاملات.'
+                            }
                         />
-                        <p className="mt-2 text-sm text-gray-500">
-                            {data.charge_subscription_fee
-                                ? 'تُضاف رسوم الاشتراك إلى الرصيد وسجل المعاملات عند حفظ المشترك.'
-                                : 'لن تُضاف الرسوم إلى الرصيد أو سجل المعاملات. يمكنك تحميلها لاحقًا من سجل المعاملات.'}
-                        </p>
                         <InputError message={errors.charge_subscription_fee} className="mt-1" />
                     </div>
                 )}
             </FormSection>
 
-            <FormSection icon="note" title="معلومات إضافية" description="العنوان وأي ملاحظات عن المشترك">
+            <FormSection icon="note" title="معلومات إضافية">
                 <FormField id="address" label="العنوان" error={errors.address} span="sm:col-span-2 lg:col-span-3">
                     <textarea
                         rows={2}

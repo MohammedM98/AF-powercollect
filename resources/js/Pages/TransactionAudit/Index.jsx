@@ -13,6 +13,7 @@ import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { formatClock, formatDayLabel, formatNumber } from '@/lib/format';
 import StatementModal from '@/Pages/Subscriptions/StatementModal';
+import PageHeader from '@/Components/PageHeader';
 
 const STATUS_DOTS = { active: 'green', suspended: 'amber', disconnected: 'gray' };
 
@@ -105,14 +106,12 @@ export default function Index({ events, period, counts, today, scopeLabel, filte
     return (
         <AuthenticatedLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-500">{scopeLabel}</p>
-                        <h2 className="mt-1 text-3xl font-bold text-gray-900">سجل التدقيق</h2>
-                        <p className="mt-1 text-sm text-gray-500">كل تعديل أو إلغاء أو حذف على حركات المشتركين: من قام به، ومتى، ولماذا.</p>
-                    </div>
-                    <PeriodTabs period={period} onChange={changePeriod} />
-                </>
+                <PageHeader
+                    eyebrow={scopeLabel}
+                    title="سجل التدقيق"
+                    info="كل تعديل أو إلغاء أو حذف على حركات المشتركين: من قام به، ومتى، ولماذا."
+                    actions={<PeriodTabs period={period} onChange={changePeriod} />}
+                />
             }
         >
             <Head title="سجل التدقيق" />

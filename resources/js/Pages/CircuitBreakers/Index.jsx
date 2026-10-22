@@ -14,6 +14,7 @@ import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import { formatCurrency } from '@/lib/currency';
 import CircuitBreakerModal from './CircuitBreakerModal';
+import PageHeader from '@/Components/PageHeader';
 
 export default function Index({ circuitBreakers, canCreate, filters, filterOptions }) {
     const [modalCircuitBreaker, setModalCircuitBreaker] = useState(null);
@@ -25,16 +26,7 @@ export default function Index({ circuitBreakers, canCreate, filters, filterOptio
     return (
         <SettingsLayout
             header={
-                <>
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold text-gray-900">القواطع</h2>
-                    </div>
-                    {canCreate && (
-                        <div className="shrink-0">
-                            <AddButton onClick={() => setCreating(true)}>قاطع جديد</AddButton>
-                        </div>
-                    )}
-                </>
+                <PageHeader title="القواطع" actions={canCreate && <AddButton onClick={() => setCreating(true)}>قاطع جديد</AddButton>} />
             }
         >
             <Head title="القواطع" />

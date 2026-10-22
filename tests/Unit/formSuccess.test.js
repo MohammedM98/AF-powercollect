@@ -51,6 +51,7 @@ before(async () => {
                 if (id === '\0forms') return `
                     export const state = {forms: [], renderedForms: [], confirmations: [], requests: []};
                     export const Head = () => null;
+                    export const Link = () => null;
                     export const router = {};
                     export const usePage = () => ({props: {auth: {user: {name: 'Collector'}}}});
                     export const useHttp = () => ({data: {}, errors: {}, processing: false});

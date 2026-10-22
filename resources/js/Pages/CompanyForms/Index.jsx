@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
 import AddButton from '@/Components/AddButton';
-import SecondaryButton from '@/Components/SecondaryButton';
+import SecondaryButton, { secondaryButtonClass } from '@/Components/SecondaryButton';
 import ChoiceChips from '@/Components/ChoiceChips';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
@@ -11,6 +11,7 @@ import Pagination from '@/Components/DataTable/Pagination';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import IssueModal from './IssueModal';
 import { timeAgo } from '@/lib/format';
+import PageHeader from '@/Components/PageHeader';
 
 const MODES = { blank: 'نموذج فارغ', filled: 'نسخة معبأة', archive: 'طلب ورقي مؤرشف' };
 
@@ -27,12 +28,12 @@ export default function Index({ templates, documents, filters, canManage, canIss
     }, [search, filters.search, filters.view, filters.per_page]);
     function visit(changes) { router.get('/company-forms', { ...filters, search, ...changes }, { preserveState: true, preserveScroll: true, replace: true }); }
 
-    return <AuthenticatedLayout header={<><div><h2 className="text-3xl font-bold text-gray-900">نماذج الشركة</h2><p className="mt-1 text-sm text-gray-500">نماذج جاهزة للطباعة، فارغة أو معبأة، مع أرشيف النسخ والطلبات الورقية.</p></div><div className="flex flex-wrap items-center gap-2">{canIssue && <SecondaryButton onClick={() => setIssuing({ mode: 'archive' })}><Icon name="history" className="h-4 w-4" />أرشفة طلب ورقي</SecondaryButton>}{canManage && <AddButton href="/company-forms/create">نموذج جديد أو مستورد</AddButton>}</div></>}>
+    return <AuthenticatedLayout header={<PageHeader title="نماذج الشركة" info="نماذج جاهزة للطباعة، فارغة أو معبأة، مع أرشيف النسخ والطلبات الورقية." actions={<>{canIssue && <SecondaryButton onClick={() => setIssuing({ mode: 'archive' })}><Icon name="history" className="h-4 w-4" />أرشفة طلب ورقي</SecondaryButton>}{canManage && <AddButton href="/company-forms/create">نموذج جديد أو مستورد</AddButton>}</>} />}>
         <Head title="نماذج الشركة" />
         <div className="mb-5"><ChoiceChips label="أقسام نماذج الشركة" options={[{ value: 'templates', label: 'مكتبة النماذج', icon: 'document' }, { value: 'documents', label: 'النسخ الصادرة والأرشيف', icon: 'history' }]} value={filters.view} onChange={(view) => visit({ view })} /></div>
         <DataTableToolbar search={search} onSearchChange={setSearch} placeholder={history ? 'بحث بعنوان المستند أو رقم الطلب الورقي…' : 'بحث باسم النموذج أو تصنيفه…'} perPage={filters.per_page} onPerPageChange={(per_page) => visit({ per_page })} total={history ? documents.total : templates.total} printable={false} />
         {history ? <>
-            <div className="data-table-container"><table className="data-table w-full text-start text-sm"><thead><tr><th>المستند</th><th>نوع النسخة</th><th>الاشتراك</th><th>الطلب الورقي</th><th>أصدره</th><th>التاريخ</th><th>عرض</th></tr></thead><tbody>{documents.data.length === 0 ? <tr><td colSpan={7} className="text-center text-gray-500">لا توجد مستندات مطابقة.</td></tr> : documents.data.map((document) => <tr key={document.id}><td><b className="text-gray-900">{document.title}</b><span className="mt-1 block font-display text-xs text-gray-500">#{document.id}</span></td><td><StatusPill tone={document.mode === 'archive' ? 'amber' : 'gray'} label={MODES[document.mode]} /></td><td>{document.subscriptionName ?? '—'}</td><td><bdi>{document.paperReference ?? '—'}</bdi>{document.paperDate && <span className="mt-1 block text-xs text-gray-500">{document.paperDate}</span>}</td><td>{document.createdBy ?? '—'}</td><td className="text-gray-500">{timeAgo(document.createdAt)}</td><td><Link href={`/company-documents/${document.id}`} className="inline-flex items-center gap-2 rounded-control border border-gray-200 bg-surface px-3 py-2 font-semibold text-gray-900 hover:bg-gray-50"><Icon name="eye" className="h-4 w-4" />عرض وطباعة</Link></td></tr>)}</tbody></table></div>
+            <div className="data-table-container"><table className="data-table w-full text-start text-sm"><thead><tr><th>المستند</th><th>نوع النسخة</th><th>الاشتراك</th><th>الطلب الورقي</th><th>أصدره</th><th>التاريخ</th><th>عرض</th></tr></thead><tbody>{documents.data.length === 0 ? <tr><td colSpan={7} className="text-center text-gray-500">لا توجد مستندات مطابقة.</td></tr> : documents.data.map((document) => <tr key={document.id}><td><b className="text-gray-900">{document.title}</b><span className="mt-1 block font-display text-xs text-gray-500">#{document.id}</span></td><td><StatusPill tone={document.mode === 'archive' ? 'amber' : 'gray'} label={MODES[document.mode]} /></td><td>{document.subscriptionName ?? '—'}</td><td><bdi>{document.paperReference ?? '—'}</bdi>{document.paperDate && <span className="mt-1 block text-xs text-gray-500">{document.paperDate}</span>}</td><td>{document.createdBy ?? '—'}</td><td className="text-gray-500">{timeAgo(document.createdAt)}</td><td><Link href={`/company-documents/${document.id}`} className={secondaryButtonClass}><Icon name="eye" className="h-4 w-4" />عرض وطباعة</Link></td></tr>)}</tbody></table></div>
             <Pagination meta={documents} filters={filters} baseUrl="/company-forms" pageParam="documents_page" />
         </> : <>
             <div className="rounded-b-panel border border-t-0 border-gray-100 bg-gray-50 p-5">

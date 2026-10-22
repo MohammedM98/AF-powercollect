@@ -8,7 +8,7 @@ import Switch from '@/Components/Switch';
 export default function DomainModal({ branch, onClose, routingEnabled }) {
     const form = useForm({ domain: branch.domain ?? '', domain_enabled: Boolean(branch.domain_enabled) });
     return <FormModal show onClose={onClose} form={{ ...form, isEdit: true, save: (options) => form.put(`/branch-domains/${branch.id}`, options) }} title={`رابط الفرع · ${branch.name}`} icon="building" maxWidth="2xl">
-        <FormSection icon="building" title="دومين الفرع" description="نطاق فرعي أو دومين مستقل، دون تغيير بيانات الفرع" columns={1}>
+        <FormSection icon="building" title="دومين الفرع" columns={1}>
             <FormField id="domain" label="اسم الدومين" error={form.errors.domain} hint="مثل jenin.company.com — دون https أو مسار.">
                 <TextInput dir="ltr" className="w-full" value={form.data.domain} onChange={(e) => form.setData('domain', e.target.value)} placeholder="jenin.company.com" autoComplete="off" />
             </FormField>

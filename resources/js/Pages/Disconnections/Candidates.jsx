@@ -17,6 +17,7 @@ import Balance from '@/Components/Balance';
 import { useDataTable } from '@/hooks/useDataTable';
 import ResultReport from './ResultReport';
 import PageHeader from '@/Components/PageHeader';
+import DateInput from '@/Components/DateInput';
 
 /** The reason, note and date for the chosen subscribers, after saying how many. */
 function AddModal({ list, selection, count, reasonOptions, today, onClose, onDone }) {
@@ -58,7 +59,7 @@ function AddModal({ list, selection, count, reasonOptions, today, onClose, onDon
                     </div>
                     <div>
                         <label htmlFor="add-date" className="mb-1.5 block text-sm font-semibold text-gray-700">موعد القطع المخطط</label>
-                        <input id="add-date" type="date" min={today} value={date} onChange={(event) => setDate(event.target.value)} className="block w-full text-sm" required />
+                        <DateInput id="add-date" name="scheduled_for" min={today} value={date} onChange={setDate} required />
                         <InputError message={errors.scheduled_for} className="mt-1" />
                         <p className="mt-1 text-xs text-gray-500">الموعد للتخطيط فقط: لا يُقطع أحد ولا تُرسل رسائل تلقائيًا.</p>
                     </div>

@@ -15,6 +15,7 @@ import TextInput from '@/Components/TextInput';
 import { formatAmount } from '@/lib/currency';
 import { initials } from '@/lib/format';
 import { plainDigits } from '@/lib/formValidation';
+import DateInput from '@/Components/DateInput';
 
 const STATUS_OPTIONS = [
     { value: 'active', label: 'نشط', dot: 'green' },
@@ -643,14 +644,12 @@ export default function SubscriptionForm({
                 </FormField>
 
                 <FormField id="subscription_date" label="تاريخ الاشتراك" error={errors.subscription_date}>
-                    <TextInput
-                        type="date"
-                        className="block w-full"
+                    <DateInput
                         // The server accepts no date before 2000 or after today.
                         min="2000-01-01"
                         max={new Date().toLocaleDateString('en-CA')}
                         value={data.subscription_date}
-                        onChange={(e) => setData('subscription_date', e.target.value)}
+                        onChange={(value) => setData('subscription_date', value)}
                     />
                 </FormField>
 

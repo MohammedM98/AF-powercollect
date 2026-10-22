@@ -23,6 +23,7 @@ import { notify } from '@/lib/notify';
 import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 import { statementPrintUrl, statementRowTotals } from '@/lib/statementPrint';
 import './AccountStatement.css';
+import DateInput from '@/Components/DateInput';
 
 export const STATEMENT_COLUMNS = [
     '#',
@@ -836,26 +837,14 @@ export default function AccountStatement({ subscription, entries, summary, payme
                                 ))}
                             </select>
                         </label>
-                        <label className="block text-sm text-gray-600">
+                        <div className="block text-sm text-gray-600">
                             من تاريخ
-                            <input
-                                type="date"
-                                value={filters.dateFrom}
-                                max={filters.dateTo || undefined}
-                                onChange={(e) => setFilter('dateFrom', e.target.value)}
-                                className="mt-1 block w-full min-w-0 text-sm"
-                            />
-                        </label>
-                        <label className="block text-sm text-gray-600">
+                            <DateInput aria-label="من تاريخ" className="mt-1" value={filters.dateFrom} max={filters.dateTo || undefined} onChange={(value) => setFilter('dateFrom', value)} />
+                        </div>
+                        <div className="block text-sm text-gray-600">
                             إلى تاريخ
-                            <input
-                                type="date"
-                                value={filters.dateTo}
-                                min={filters.dateFrom || undefined}
-                                onChange={(e) => setFilter('dateTo', e.target.value)}
-                                className="mt-1 block w-full min-w-0 text-sm"
-                            />
-                        </label>
+                            <DateInput aria-label="إلى تاريخ" className="mt-1" value={filters.dateTo} min={filters.dateFrom || undefined} onChange={(value) => setFilter('dateTo', value)} />
+                        </div>
                     </div>
                     {invalidDates && (
                         <p role="alert" className="mt-2 text-sm text-red-600">

@@ -16,6 +16,7 @@ import { formatClock, formatMoney, normalizeDecimalInput } from '@/lib/format';
 import { clearErrorOnInput, submitOnCtrlEnter, validateFormFields } from '@/lib/formValidation';
 import { balanceText, FieldLabel, SubscriptionStrip } from './AccountFormParts';
 import { CorrectionReasonFields, EMPTY_CORRECTION, OriginalLine } from './CorrectionFields';
+import DateInput from '@/Components/DateInput';
 
 const QUICK_AMOUNTS = [50, 100, 200];
 
@@ -681,7 +682,7 @@ export default function PaymentModal({
                                     <p className="text-sm leading-7 text-gray-700">تُحتسب الدفعة بتاريخ تسجيلها اليوم وتدخل صندوقك المفتوح الحالي. نحفظ تاريخ الدفع الفعلي للتدقيق دون تغيير الأرصدة أو الصناديق السابقة.</p>
                                     <div>
                                         <FieldLabel htmlFor="payment_paid_on" required>تاريخ الدفع الفعلي</FieldLabel>
-                                        <input id="payment_paid_on" name="paid_on" type="date" required max={latestPastDate} value={data.paid_on} onChange={(event) => setData('paid_on', event.target.value)} className={inputClass} />
+                                        <DateInput id="payment_paid_on" name="paid_on" required max={latestPastDate} value={data.paid_on} onChange={(value) => setData('paid_on', value)} />
                                         <InputError message={errors.paid_on} className="mt-2" />
                                     </div>
                                     <div>

@@ -7,6 +7,7 @@ use App\Enums\PermissionKey;
 use App\Enums\SubscriptionStatus;
 use App\Models\SubscriberProfile;
 use App\Models\Subscription;
+use App\Support\DailySeries;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -71,7 +72,7 @@ class StoreSubscriptionRequest extends FormRequest
             'initial_reading' => [Rule::requiredIf($this->input('status') === SubscriptionStatus::Active->value), 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999.99'],
             'subscription_fee' => ['nullable', 'numeric', 'min:0', 'max:'.config('powercollect.limits.subscription_fee')],
             // Nobody registered before 2000, or on a day still to come.
-            'subscription_date' => ['nullable', 'date', 'after_or_equal:2000-01-01', 'before_or_equal:today'],
+            'subscription_date' => ['nullable', 'date', 'after_or_equal:2000-01-01', 'before_or_equal:'.DailySeries::today()->toDateString()],
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
 

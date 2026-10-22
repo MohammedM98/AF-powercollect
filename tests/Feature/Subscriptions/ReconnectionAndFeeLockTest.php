@@ -91,6 +91,23 @@ class ReconnectionAndFeeLockTest extends TestCase
         $this->assertSame('2026-10-12', $subscription->reconnected_at->toDateString());
     }
 
+    public function test_a_subscription_registered_after_midnight_business_time_can_be_saved_again_with_its_date(): void
+    {
+        $this->travelTo('2026-10-05 22:30:00');
+        $this->actingAs($this->admin)->post(route('subscriptions.store'), [
+            'full_name' => 'مشترك بعد منتصف الليل', 'national_id' => '412345679', 'phone' => '0599123456',
+            'tariff_id' => Subscription::factory()->make()->tariff_id, 'status' => 'active', 'initial_reading' => 0, 'minimum_charge' => 0,
+        ])->assertSessionHasNoErrors();
+        $subscription = Subscription::sole();
+
+        $this->put(route('subscriptions.update', $subscription), $this->editPayload($subscription, ['status' => 'disconnected']))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('2026-10-06', $subscription->fresh()->subscription_date->toDateString());
+        $this->put(route('subscriptions.update', $subscription), $this->editPayload($subscription->fresh(), ['subscription_date' => '2026-10-07']))
+            ->assertSessionHasErrors('subscription_date');
+    }
+
     public function test_reconnecting_a_subscription_with_no_recorded_date_keeps_the_day_it_was_first_activated(): void
     {
         $subscription = Subscription::factory()->create([

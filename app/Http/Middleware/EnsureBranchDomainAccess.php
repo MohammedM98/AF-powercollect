@@ -34,7 +34,9 @@ class EnsureBranchDomainAccess
             $request->attributes->set('branch_domain_authorized', true);
             abort_if(! $request->isMethodSafe() && $request->routeIs('settings.banks.*', 'settings.currencies.*', 'settings.sms.*', 'user-types.*', 'governorates.*', 'areas.*', 'tariffs.*', 'tariff-segments.*', 'circuit-breakers.*', 'print-templates.*'), 403, 'تعديل البيانات المشتركة للشركة متاح من اللوحة المركزية.');
             abort_if($request->routeIs('branches.*', 'branch-domains.*') || ($actor->isSuperAdmin() && $request->routeIs('settings.permissions.*')), 403, 'إدارة الفروع وصلاحيات الشركة متاحة من اللوحة المركزية.');
-            if ($request->exists('branch_id') && (int) $request->input('branch_id') !== $branch->id) {
+            // A form without a branch choice (anyone but the Super Admin) sends it empty: the domain decides the branch.
+            $branchChosen = $request->filled('branch_id') || ($request->exists('branch_id') && $actor->isSuperAdmin());
+            if ($branchChosen && (int) $request->input('branch_id') !== $branch->id) {
                 throw ValidationException::withMessages(['branch_id' => 'اختر الفرع المطابق لرابط الموقع الحالي.']);
             }
         }

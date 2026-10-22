@@ -9,6 +9,7 @@ use App\Models\ClosingSetting;
 use App\Models\Permission;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
+use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\TestWith;
@@ -118,6 +119,25 @@ class BranchDomainsTest extends TestCase
         $this->actingAs($this->admin)->post('https://north.company.test/subscriptions', ['branch_id' => $this->south->id])->assertSessionHasErrors('branch_id');
         $this->get('https://north.company.test/settings/permissions')->assertForbidden();
         $this->put('https://north.company.test/branch-domains/'.$this->south->id, ['domain' => 'new.company.test', 'domain_enabled' => true])->assertForbidden();
+    }
+
+    public function test_a_branch_manager_adds_a_subscription_on_the_branch_domain_without_choosing_a_branch(): void
+    {
+        $manager = User::factory()->branchAdmin()->create(['branch_id' => $this->north->id]);
+        $payload = [
+            'full_name' => 'أحمد محمود',
+            'national_id' => '012345678',
+            'phone' => '0591234567',
+            'tariff_id' => Tariff::factory()->residential()->create()->id,
+            'status' => 'active',
+            'minimum_charge' => 0,
+            'initial_reading' => 0,
+            'branch_id' => '',
+        ];
+
+        $this->actingAs($manager)->post('https://north.company.test/subscriptions', $payload)->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('subscriptions', ['national_id' => '012345678', 'branch_id' => $this->north->id]);
     }
 
     public function test_a_delegated_manager_can_manage_only_their_branch_employees_from_the_branch_domain(): void

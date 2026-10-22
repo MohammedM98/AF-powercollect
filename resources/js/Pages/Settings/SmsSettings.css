@@ -1,6 +1,6 @@
 /* The SMS settings page, on the settings pages' shared look (ReadingSchedule.css: tokens, rs-panel, rs-status, rs-savebar). */
 .sm-stats { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-.sm-stat { display: inline-flex; align-items: baseline; gap: 6px; padding: 3px 10px; border-radius: 10px; background: #ffffff12; border: 1px solid #ffffff1a; color: #c9ced5; font-size: 13px; }
+.sm-stat { display: inline-flex; align-items: baseline; gap: 6px; padding: 3px 10px; border-radius: 12px; background: #ffffff12; border: 1px solid #ffffff1a; color: #c9ced5; font-size: 13px; }
 .sm-stat b { font: 700 14px Alexandria, sans-serif; color: #fff; }
 .sm-stat.is-failed b { color: #fca5a5; }
 
@@ -30,11 +30,12 @@ textarea.sm-input { resize: vertical; min-height: 84px; line-height: 1.7; }
 .sm-icon-button:hover { color: var(--rs-ink); }
 .sm-icon-button svg { width: 18px; height: 18px; }
 
-.sm-segments { display: inline-flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--rs-sunken); border: 1px solid var(--rs-line2); width: fit-content; max-width: 100%; flex-wrap: wrap; }
-.sm-segments button { border: 0; background: transparent; color: var(--rs-faint); min-height: 36px; padding: 4px 14px; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.sm-segments { display: inline-flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--rs-surface); border: 1px solid var(--rs-line2); width: fit-content; max-width: 100%; flex-wrap: wrap; }
+.sm-segments button { border: 0; background: transparent; color: var(--rs-faint); min-height: 36px; padding: 4px 14px; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
 .sm-segments button small { font: 500 12px Alexandria, sans-serif; color: inherit; opacity: .85; direction: ltr; }
 .sm-segments button:hover { color: var(--rs-ink); }
-.sm-segments button[aria-pressed=true] { background: var(--rs-surface); color: var(--rs-brand); box-shadow: 0 1px 2px #10182814, 0 0 0 1px var(--rs-line2); }
+.sm-segments button[aria-pressed=true] { background: var(--rs-ink); color: var(--rs-surface); }
+.sm-segments button[aria-pressed=true] small { color: inherit; opacity: .7; }
 
 .sm-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--rs-line2); }
 .sm-section h3 { display: flex; align-items: center; gap: 8px; margin: 0; font: 700 17px 'El Messiri', serif; }
@@ -46,9 +47,9 @@ textarea.sm-input { resize: vertical; min-height: 84px; line-height: 1.7; }
 .sm-advanced[open] > summary svg { transform: rotate(180deg); }
 .sm-advanced > summary small { font: 500 12.5px 'IBM Plex Sans Arabic', sans-serif; color: var(--rs-faint); }
 
-.sm-request { margin-top: 14px; border-radius: 16px; overflow: hidden; border: 1px solid var(--rs-line2); background: #111820; color: #e6e9ed; direction: ltr; text-align: left; font: 13px/1.7 'IBM Plex Mono', ui-monospace, Menlo, monospace; }
+.sm-request { margin-top: 14px; border-radius: 18px; overflow: hidden; border: 1px solid var(--rs-line2); background: #111820; color: #e6e9ed; direction: ltr; text-align: left; font: 13px/1.7 'IBM Plex Mono', ui-monospace, Menlo, monospace; }
 .sm-request-line { display: flex; gap: 10px; align-items: center; padding: 10px 14px; background: #ffffff0d; border-bottom: 1px solid #ffffff14; overflow-x: auto; white-space: nowrap; }
-.sm-method { flex: none; padding: 1px 8px; border-radius: 6px; font-weight: 700; font-size: 12px; background: #a51d26; color: #fff; }
+.sm-method { flex: none; padding: 1px 8px; border-radius: 8px; font-weight: 700; font-size: 12px; background: var(--ui-brand); color: #fff; }
 .sm-request ul { list-style: none; margin: 0; padding: 10px 14px 12px; display: grid; gap: 2px; }
 .sm-request li { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 10px; }
 .sm-request li span:first-child { color: #9aa3ae; }
@@ -61,14 +62,13 @@ textarea.sm-input { resize: vertical; min-height: 84px; line-height: 1.7; }
 .sm-request-legend i { width: 10px; height: 10px; border-radius: 3px; }
 
 .sm-test-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
-.sm-send { height: 42px; border: 0; border-radius: 12px; padding: 0 18px; display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14.5px; color: #fff; background: linear-gradient(180deg, #b8232c, #7d121b); cursor: pointer; box-shadow: 0 10px 22px -12px #a51d26; }
+.sm-send { height: 44px; border: 0; border-radius: 12px; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 16px; color: #fff; background: linear-gradient(180deg, #b8232c, #7d121b); cursor: pointer; box-shadow: 0 10px 22px -12px #a51d26; }
 .sm-send svg { width: 17px; height: 17px; }
 .sm-test-note { font-size: 12.5px; color: var(--rs-faint); }
-.sm-result { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 10px 12px; border-radius: 14px; font-size: 14px; line-height: 1.7; }
+.sm-result { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 10px 12px; border-radius: 18px; font-size: 14px; line-height: 1.7; }
 .sm-result svg { width: 17px; height: 17px; flex: none; margin-top: 3px; }
 .sm-result.is-ok { background: var(--rs-success-t); color: var(--rs-success); border: 1px solid color-mix(in srgb, var(--rs-success) 25%, transparent); }
-.sm-result.is-failed { background: color-mix(in srgb, #dc2626 9%, transparent); color: #b91c1c; border: 1px solid color-mix(in srgb, #dc2626 25%, transparent); }
-.dark .sm-result.is-failed { color: #fca5a5; }
+.sm-result.is-failed { background: var(--ui-danger-t); color: var(--ui-danger); border: 1px solid color-mix(in srgb, var(--ui-danger) 25%, transparent); }
 .sm-result code { display: block; margin-top: 4px; direction: ltr; text-align: left; font: 12.5px/1.6 'IBM Plex Mono', ui-monospace, Menlo, monospace; overflow-wrap: anywhere; color: var(--rs-ink2); }
 
 .sm-checklist { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; counter-reset: ask; }

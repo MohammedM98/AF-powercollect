@@ -1,30 +1,30 @@
 /* The financial reports palette and layout, preserved in light and dark mode. */
 .financial-report {
-    --cl-page: #eff1f4;
-    --cl-surface: #fff;
-    --cl-raised: #f7f8fa;
-    --cl-sunken: #f2f3f5;
-    --cl-line: #e2e5e9;
-    --cl-line2: #eceef1;
-    --cl-ink: #111820;
-    --cl-ink2: #353c46;
-    --cl-muted: #4c5460;
-    --cl-faint: #5e6773;
-    --cl-brand: #a51d26;
-    --cl-brand-hi: #b8232c;
-    --cl-brand-lo: #7d121b;
-    --cl-success: #047857;
-    --cl-success-t: #0478571a;
-    --cl-info: #1d5bcc;
-    --cl-info-t: #1d5bcc14;
-    --cl-warn: #b45309;
-    --cl-warn-t: #b453091a;
-    --cl-danger: #c81e1e;
-    --cl-danger-t: #c81e1e14;
-    --cl-focus: #111820;
-    --cl-shadow: 0 1px 2px #10182808, 0 14px 34px -18px #1018282e;
-    --cl-pop: 0 30px 60px -24px #10182866, 0 2px 6px #1018280d;
-    --cl-hero: linear-gradient(135deg, #262c34, #1c2127 55%, #111418);
+    --cl-page: var(--ui-page);
+    --cl-surface: var(--ui-surface);
+    --cl-raised: var(--ui-raised);
+    --cl-sunken: var(--ui-sunken);
+    --cl-line: var(--ui-line);
+    --cl-line2: var(--ui-line2);
+    --cl-ink: var(--ui-ink);
+    --cl-ink2: var(--ui-ink2);
+    --cl-muted: var(--ui-muted);
+    --cl-faint: var(--ui-faint);
+    --cl-brand: var(--ui-brand);
+    --cl-brand-hi: var(--ui-brand-hi);
+    --cl-brand-lo: var(--ui-brand-lo);
+    --cl-success: var(--ui-success);
+    --cl-success-t: var(--ui-success-t);
+    --cl-info: var(--ui-info);
+    --cl-info-t: var(--ui-info-t);
+    --cl-warn: var(--ui-warn);
+    --cl-warn-t: var(--ui-warn-t);
+    --cl-danger: var(--ui-danger);
+    --cl-danger-t: var(--ui-danger-t);
+    --cl-focus: var(--ui-focus);
+    --cl-shadow: var(--ui-shadow);
+    --cl-pop: var(--ui-pop);
+    --cl-hero: var(--ui-hero);
     container: closing / inline-size;
     max-width: 1320px;
     margin: 0 auto;
@@ -44,30 +44,6 @@
 .financial-report .branch-notes { width: 100%; min-height: 100px; border: 1px solid var(--cl-line); border-radius: 12px; background: var(--cl-raised); padding: 12px; }
 .financial-report .branch-error { color: var(--cl-danger); }
 .financial-report.closing-review { padding: 24px; }
-.dark .financial-report {
-    --cl-page: #0b0d10;
-    --cl-surface: #14171c;
-    --cl-raised: #1b1f25;
-    --cl-sunken: #101317;
-    --cl-line: #343a44;
-    --cl-line2: #252a32;
-    --cl-ink: #f4f5f7;
-    --cl-ink2: #e0e3e7;
-    --cl-muted: #9ea6b1;
-    --cl-faint: #8b94a0;
-    --cl-success: #34d399;
-    --cl-success-t: #34d3991a;
-    --cl-info: #7dafe8;
-    --cl-info-t: #7dafe81a;
-    --cl-warn: #fbbf24;
-    --cl-warn-t: #fbbf241a;
-    --cl-danger: #fc7d7d;
-    --cl-danger-t: #fc7d7d1a;
-    --cl-focus: #c9ced5;
-    --cl-shadow: 0 20px 40px -24px #000;
-    --cl-pop: 0 30px 60px -20px #000;
-    --cl-hero: linear-gradient(135deg, #1c2127, #161a1f 55%, #0b0d10);
-}
 .financial-report button,
 .financial-report input,
 .financial-report select,
@@ -90,29 +66,12 @@
         display: none;
     }
 }
-.financial-report .ph {
-    display: flex;
-    align-items: flex-end;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-.financial-report .ph h1 {
-    margin: 0;
-    font:
-        700 34px/1.2 'El Messiri',
-        serif;
-}
-.financial-report .ph p {
-    margin: 4px 0 0;
-    color: var(--cl-faint);
-    font-size: 14.5px;
-}
 .financial-report .btn {
     height: 44px;
-    border-radius: 13px;
+    border-radius: 12px;
     padding: 0 16px;
-    font-weight: 700;
-    font-size: 15px;
+    font-weight: 600;
+    font-size: 16px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -139,9 +98,7 @@
     border: 0;
     color: #fff;
     background: linear-gradient(180deg, var(--cl-brand-hi), var(--cl-brand-lo));
-    box-shadow:
-        0 12px 26px -12px #a51d26,
-        inset 0 1px 0 #ffffff33;
+    box-shadow: 0 10px 24px -12px rgb(165 29 38 / 0.9);
 }
 .financial-report .btn.pr:hover {
     filter: brightness(1.07);
@@ -155,7 +112,7 @@
     width: 64px;
     height: 64px;
     margin: 0 auto 12px;
-    border-radius: 20px;
+    border-radius: 18px;
     display: grid;
     place-items: center;
     background: var(--cl-sunken);
@@ -185,7 +142,7 @@
     gap: 4px;
     margin-top: 18px;
     padding: 4px;
-    border-radius: 15px;
+    border-radius: 18px;
     background: var(--cl-surface);
     border: 1px solid var(--cl-line2);
     box-shadow: var(--cl-shadow);
@@ -195,7 +152,7 @@
     background: transparent;
     height: 42px;
     padding: 0 16px;
-    border-radius: 11px;
+    border-radius: 12px;
     cursor: pointer;
     font-weight: 700;
     font-size: 15px;
@@ -217,7 +174,7 @@
 }
 .financial-report .tabs .n {
     font: 700 11.5px Alexandria;
-    border-radius: 7px;
+    border-radius: 8px;
     padding: 0 7px;
     background: var(--cl-brand);
     color: #fff;
@@ -230,16 +187,16 @@
     margin-top: 16px;
 }
 .financial-report .ctl .cb {
-    height: 44px;
+    height: 42px;
     display: inline-flex;
     align-items: center;
     gap: 8px;
     border: 1px solid var(--cl-line);
-    border-radius: 13px;
+    border-radius: 12px;
     background: var(--cl-surface);
     padding: 0 12px;
-    font-weight: 700;
-    font-size: 14.5px;
+    font-weight: 600;
+    font-size: 15px;
 }
 .financial-report .ctl .cb small {
     font: 500 12.5px 'IBM Plex Sans Arabic';
@@ -271,7 +228,7 @@
     height: 34px;
     border: 0;
     background: transparent;
-    border-radius: 10px;
+    border-radius: 12px;
     cursor: pointer;
     display: grid;
     place-items: center;
@@ -292,7 +249,7 @@
     margin-top: 14px;
     position: relative;
     overflow: hidden;
-    border-radius: 26px;
+    border-radius: 28px;
     background: var(--cl-hero);
     color: #fff;
     padding: 20px 24px;
@@ -308,7 +265,7 @@
     inset-inline: 0;
     top: 0;
     height: 3px;
-    background: linear-gradient(90deg, #5c0d14, #a51d26 40%, #9aa3ae 75%, #dfe3e8);
+    background: var(--spectrum);
 }
 .financial-report .hero::after {
     content: '';
@@ -495,7 +452,7 @@
     align-items: flex-start;
     margin-top: 14px;
     padding: 12px 16px;
-    border-radius: 16px;
+    border-radius: 18px;
     font-size: 14px;
     line-height: 1.75;
     border: 1px solid;
@@ -555,7 +512,7 @@
 .financial-report .ac {
     background: var(--cl-surface);
     border: 1px solid var(--cl-line2);
-    border-radius: 20px;
+    border-radius: 18px;
     padding: 14px 16px;
     box-shadow: var(--cl-shadow);
     position: relative;
@@ -568,7 +525,7 @@
 .financial-report .ac .lg {
     width: 36px;
     height: 36px;
-    border-radius: 11px;
+    border-radius: 12px;
     display: grid;
     place-items: center;
     background: var(--cl-sunken);
@@ -579,7 +536,7 @@
     width: 30px;
     height: 30px;
     object-fit: contain;
-    border-radius: 7px;
+    border-radius: 8px;
     background: #fff;
 }
 .financial-report .ac .lg svg {
@@ -654,7 +611,7 @@
 .financial-report .pn {
     background: var(--cl-surface);
     border: 1px solid var(--cl-line2);
-    border-radius: 22px;
+    border-radius: 24px;
     box-shadow: var(--cl-shadow);
     padding: 16px 18px;
 }
@@ -670,7 +627,7 @@
 .financial-report .pn h3 .ix {
     width: 30px;
     height: 30px;
-    border-radius: 10px;
+    border-radius: 12px;
     display: grid;
     place-items: center;
     background: var(--cl-sunken);
@@ -762,7 +719,7 @@
 .financial-report .pacc img {
     width: 24px;
     height: 24px;
-    border-radius: 7px;
+    border-radius: 8px;
     object-fit: contain;
     background: #fff;
     border: 1px solid var(--cl-line2);
@@ -770,7 +727,7 @@
 .financial-report .pacc .ci {
     width: 24px;
     height: 24px;
-    border-radius: 7px;
+    border-radius: 8px;
     display: grid;
     place-items: center;
     background: var(--cl-success-t);
@@ -794,7 +751,7 @@
 }
 .financial-report .mt {
     height: 32px;
-    border-radius: 10px;
+    border-radius: 12px;
     border: 1.5px solid var(--cl-line);
     background: var(--cl-surface);
     padding: 0 10px;
@@ -844,7 +801,7 @@
 .financial-report .pendl {
     margin-top: 14px;
     border: 1px dashed var(--cl-line);
-    border-radius: 16px;
+    border-radius: 18px;
     padding: 10px 12px;
     background: var(--cl-raised);
 }
@@ -885,7 +842,7 @@
 }
 .financial-report .formula {
     margin-top: 10px;
-    border-radius: 14px;
+    border-radius: 18px;
     background: var(--cl-raised);
     border: 1px solid var(--cl-line2);
     padding: 10px 12px;
@@ -943,7 +900,7 @@
     display: flex;
     align-items: center;
     border: 1.5px solid var(--cl-line);
-    border-radius: 11px;
+    border-radius: 12px;
     background: var(--cl-surface);
     overflow: hidden;
     transition: 0.15s;
@@ -991,7 +948,7 @@
     justify-content: space-between;
     margin-top: 12px;
     padding: 12px 14px;
-    border-radius: 14px;
+    border-radius: 18px;
     border: 1.5px solid var(--cl-line2);
 }
 .financial-report .cnt span {
@@ -1035,7 +992,7 @@
 }
 .financial-report .reason .chips button {
     height: 32px;
-    border-radius: 10px;
+    border-radius: 12px;
     border: 1.5px solid var(--cl-line);
     background: var(--cl-surface);
     padding: 0 10px;
@@ -1145,7 +1102,7 @@
     display: block;
     margin-top: 3px;
     padding: 6px 9px;
-    border-radius: 9px;
+    border-radius: 8px;
     background: var(--cl-raised);
     border: 1px solid var(--cl-line2);
     font-size: 12.5px;
@@ -1163,7 +1120,7 @@
     background: color-mix(in srgb, var(--cl-surface) 92%, transparent);
     backdrop-filter: blur(10px);
     border: 1px solid var(--cl-line);
-    border-radius: 20px;
+    border-radius: 18px;
     padding: 10px 12px 10px 14px;
     box-shadow: var(--cl-pop);
 }
@@ -1220,10 +1177,10 @@
     filter: none;
     box-shadow: none;
 }
-.financial-report .btn:not(.pr):not(.ok2):not(.dg):hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--cl-brand) 40%, var(--cl-line));
-    color: var(--cl-brand);
-    background: color-mix(in srgb, var(--cl-brand) 5%, var(--cl-surface));
+.financial-report .btn:not(.pr):not(.ok2):not(.dg):not(.tone-print):not(.tone-excel):hover:not(:disabled) {
+    border-color: rgb(var(--gray-300));
+    color: var(--cl-ink);
+    background: var(--cl-raised);
 }
 .financial-report .btn.ok2 {
     border: 0;
@@ -1262,7 +1219,7 @@
 .financial-report .node {
     background: var(--cl-surface);
     border: 1.5px solid var(--cl-line2);
-    border-radius: 20px;
+    border-radius: 18px;
     padding: 14px 16px;
     box-shadow: var(--cl-shadow);
     text-align: center;
@@ -1444,7 +1401,7 @@
 }
 .financial-report .rec div {
     border: 1px solid var(--cl-line2);
-    border-radius: 14px;
+    border-radius: 18px;
     padding: 9px 12px;
     background: var(--cl-raised);
 }
@@ -1474,11 +1431,14 @@
     background: transparent;
     height: 36px;
     padding: 0 14px;
-    border-radius: 9px;
+    border-radius: 8px;
     cursor: pointer;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 15px;
+    font-weight: 600;
     color: var(--cl-muted);
+}
+.financial-report .segx button:hover:not([aria-pressed='true']) {
+    color: var(--cl-ink);
 }
 .financial-report .segx button[aria-pressed='true'] {
     background: var(--cl-ink);
@@ -1583,7 +1543,7 @@
 .financial-report .cell {
     width: 30px;
     height: 30px;
-    border-radius: 9px;
+    border-radius: 8px;
     display: inline-grid;
     place-items: center;
     border: 0;
@@ -1648,7 +1608,7 @@
 .financial-report .lgd .cell {
     width: 20px;
     height: 20px;
-    border-radius: 6px;
+    border-radius: 8px;
 }
 .financial-report .lgd .cell svg {
     width: 11px;
@@ -1667,7 +1627,7 @@
     align-items: flex-start;
     font-size: 13.5px;
     padding: 9px 11px;
-    border-radius: 13px;
+    border-radius: 12px;
     border: 1px solid var(--cl-line2);
 }
 .financial-report .chl li .d {
@@ -1709,7 +1669,7 @@
 }
 .financial-report .nest .in {
     margin-top: 10px;
-    border-radius: 14px;
+    border-radius: 18px;
     border: 1.5px solid color-mix(in srgb, var(--cl-info) 35%, var(--cl-line));
     padding: 10px;
     background: var(--cl-surface);
@@ -1777,7 +1737,7 @@
     width: min(500px, 100%);
     background: var(--cl-surface);
     border: 1px solid var(--cl-line2);
-    border-radius: 22px;
+    border-radius: 24px;
     box-shadow: var(--cl-pop);
     padding: 22px;
     animation: cl-pop 0.16s ease;
@@ -1787,7 +1747,7 @@
 .financial-report .mdl .ic {
     width: 46px;
     height: 46px;
-    border-radius: 14px;
+    border-radius: 18px;
     display: grid;
     place-items: center;
     margin-bottom: 10px;

@@ -177,6 +177,45 @@ class SubscriptionReadingLedgerLifecycleTest extends TestCase
             ->where('summary.balance', '130.00')->where('summary.paid', '20.00')->where('summary.discounted', '60.00'));
     }
 
+    public function test_a_bill_that_replaced_a_corrected_bill_can_be_cancelled_but_never_deleted_or_erased(): void
+    {
+        [$actor, $subscription, $reading, $charge] = $this->approvedWeek();
+        $this->actingAs($actor)->put(route('meter-readings.update', $reading), ['current_reading' => 1206, 'approve' => true])->assertSessionHasNoErrors();
+        $replacement = $subscription->transactions()->where('corrects_id', $charge->id)->sole();
+        $this->get(route('subscriptions.statement', $subscription))->assertInertia(fn ($page) => $page
+            ->where('entries.2.id', $replacement->id)
+            ->where('entries.2.available_actions', ['cancel'])
+            ->where('entries.2.canForceDelete', false));
+
+        $this->post(route('subscriptions.transactions.actions.store', [$subscription, $replacement]), ['action' => 'delete', 'correction_notes' => 'محاولة حذف'])->assertSessionHasErrors('action');
+        $this->delete(route('subscriptions.transactions.force-destroy', [$subscription, $replacement]), ['correction_notes' => 'محاولة حذف نهائي'])->assertForbidden();
+
+        $this->assertModelExists($replacement);
+        $this->assertSame('180.00', $reading->fresh()->amount_due);
+        $this->assertSame(180.0, $subscription->balance());
+        $this->assertDatabaseCount('transaction_deletions', 0);
+    }
+
+    public function test_a_cancelled_bill_is_not_brought_back_once_its_reading_was_corrected(): void
+    {
+        [$actor, $subscription, $reading, $charge] = $this->approvedWeek();
+        $this->actingAs($actor)->delete(route('subscriptions.transactions.destroy', [$subscription, $charge]), [
+            'correction_reason' => 'wrong_reading', 'correction_notes' => 'قراءة خاطئة', 'reopen_reading' => true,
+        ])->assertSessionHasNoErrors();
+        $this->put(route('meter-readings.update', $reading), ['current_reading' => 1206])->assertSessionHasNoErrors();
+        $cancellation = $subscription->transactions()->where('reverses_id', $charge->id)->sole();
+        $this->get(route('subscriptions.statement', $subscription))->assertInertia(fn ($page) => $page
+            ->where('entries.1.id', $cancellation->id)
+            ->where('entries.1.available_actions', []));
+
+        $this->post(route('subscriptions.transactions.actions.store', [$subscription, $cancellation]), ['action' => 'delete_reversal', 'correction_notes' => 'إعادة المبلغ'])->assertSessionHasErrors('action');
+
+        $this->assertModelExists($cancellation);
+        $this->assertTrue($charge->fresh()->isCancelled());
+        $this->assertSame(MeterReadingStatus::Pending, $reading->fresh()->status);
+        $this->assertSame(0.0, $subscription->balance());
+    }
+
     public function test_a_stale_delete_request_is_rejected_after_a_newer_payment_is_added(): void
     {
         [$actor, $subscription, $reading, $charge] = $this->approvedWeek(2);

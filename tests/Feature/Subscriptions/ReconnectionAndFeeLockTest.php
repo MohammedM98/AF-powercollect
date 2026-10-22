@@ -72,6 +72,43 @@ class ReconnectionAndFeeLockTest extends TestCase
         $this->assertSame('2026-10-05', $subscription->reconnected_at->toDateString());
     }
 
+    public function test_a_subscription_registered_as_active_starts_today_and_keeps_that_day_when_reconnected(): void
+    {
+        $this->actingAs($this->admin)->post(route('subscriptions.store'), [
+            'full_name' => 'مشترك جديد', 'national_id' => '412345678', 'phone' => '0599123456',
+            'tariff_id' => Subscription::factory()->make()->tariff_id, 'status' => 'active', 'initial_reading' => 0, 'minimum_charge' => 0,
+        ])->assertSessionHasNoErrors();
+        $subscription = Subscription::sole();
+        $subscription->update(['status' => SubscriptionStatus::Disconnected]);
+        $this->travelTo('2026-10-12 10:00:00');
+
+        $this->actingAs($this->admin)
+            ->put(route('subscriptions.update', $subscription), $this->editPayload($subscription->fresh(), ['status' => 'active']))
+            ->assertSessionHasNoErrors();
+
+        $subscription->refresh();
+        $this->assertSame('2026-10-05', $subscription->subscription_date->toDateString());
+        $this->assertSame('2026-10-12', $subscription->reconnected_at->toDateString());
+    }
+
+    public function test_reconnecting_a_subscription_with_no_recorded_date_keeps_the_day_it_was_first_activated(): void
+    {
+        $subscription = Subscription::factory()->create([
+            'branch_id' => $this->admin->branch_id, 'status' => SubscriptionStatus::Active,
+            'subscription_date' => null, 'initial_reading' => 100,
+        ]);
+        $subscription->update(['status' => SubscriptionStatus::Disconnected]);
+        $this->travelTo('2026-10-12 10:00:00');
+
+        $this->actingAs($this->admin)
+            ->put(route('subscriptions.update', $subscription), $this->editPayload($subscription->fresh(), ['status' => 'active']))
+            ->assertSessionHasNoErrors();
+
+        $subscription->refresh();
+        $this->assertSame('2026-10-05', $subscription->subscription_date->toDateString());
+        $this->assertSame('2026-10-12', $subscription->reconnected_at->toDateString());
+    }
+
     public function test_a_first_activation_still_starts_the_subscription_today_and_is_not_a_reconnection(): void
     {
         $waiting = Subscription::factory()->create([

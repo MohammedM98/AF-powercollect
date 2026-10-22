@@ -8,6 +8,7 @@ use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\CashBoxPayment;
+use App\Models\Permission;
 use App\Models\SplitPayment;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
@@ -134,16 +135,10 @@ class SplitPaymentGroupActionsTest extends TestCase
     #[TestWith(['refund'])]
     #[TestWith(['delete'])]
     #[TestWith(['legacy-cancel'])]
-    #[TestWith(['legacy-delete'])]
     public function test_a_closed_sibling_blocks_the_whole_operation_even_when_the_selected_share_is_open(string $action): void
     {
         $parts = $this->split->payments;
-        $closedBox = CashBox::factory()->bankTransfer()->create([
-            'branch_id' => $this->branch->id, 'closing_id' => $parts[0]->boxEntry->box->closing_id,
-            'user_id' => User::factory()->collector()->for($this->branch)->create()->id,
-        ]);
-        $parts[2]->boxEntry->update(['cash_box_id' => $closedBox->id]);
-        app(BranchClosingWorkflow::class)->receive($closedBox, $this->actor);
+        $this->closeBoxOf($parts[2]);
         $before = $parts->map(fn (SubscriptionTransaction $part): array => $part->fresh()->getAttributes())->all();
 
         $this->actOn($parts[0], $action)->assertSessionHasErrors('action');
@@ -152,6 +147,29 @@ class SplitPaymentGroupActionsTest extends TestCase
         $this->assertSame('600.00', $this->split->standingTotal());
         $this->assertDatabaseCount('subscription_transactions', 6);
         $this->assertDatabaseCount('cash_box_payments', 3);
+        $this->assertDatabaseCount('transaction_deletions', 0);
+    }
+
+    public function test_a_closed_sibling_takes_every_transfer_wide_action_off_an_open_shares_menu(): void
+    {
+        $this->actor->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ForceDeleteTransactions]));
+        $parts = $this->split->payments;
+        $this->assertSame(['edit_metadata', 'delete', 'refund'], $parts[0]->fresh()->availableActions($this->actor));
+
+        $this->closeBoxOf($parts[2]);
+
+        $this->actingAs($this->actor)->get(route('subscriptions.statement', $parts[0]->subscription))
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('entries', fn ($entries): bool => $entries->firstWhere('id', $parts[0]->id)['available_actions'] === []));
+    }
+
+    public function test_a_closed_sibling_forbids_erasing_the_selected_open_share(): void
+    {
+        $parts = $this->split->payments;
+        $this->closeBoxOf($parts[2]);
+
+        $this->actOn($parts[0], 'legacy-delete')->assertForbidden();
+
+        $this->assertSame('600.00', $this->split->standingTotal());
         $this->assertDatabaseCount('transaction_deletions', 0);
     }
 
@@ -165,6 +183,21 @@ class SplitPaymentGroupActionsTest extends TestCase
         $this->assertSame('600.00', $this->split->standingTotal());
         $this->assertDatabaseCount('cash_box_payments', 3);
         $this->assertDatabaseCount('transaction_deletions', 0);
+    }
+
+    public function test_the_statement_offers_deleting_or_erasing_a_share_only_while_every_share_can_be_deleted(): void
+    {
+        $this->actor->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ForceDeleteTransactions]));
+        $parts = $this->split->payments;
+        $entry = fn (): array => collect($this->actingAs($this->actor)->get(route('subscriptions.statement', $parts[0]->subscription))->inertiaProps('entries'))
+            ->firstWhere('id', $parts[0]->id);
+        $this->assertSame([['edit_metadata', 'delete', 'refund'], true], [$entry()['available_actions'], $entry()['canForceDelete']]);
+
+        SubscriptionTransaction::recordCharge($parts[2]->subscription, $this->actor, ChargeType::Penalty, '25', null);
+
+        $this->assertSame([['edit_metadata', 'refund'], false], [$entry()['available_actions'], $entry()['canForceDelete']]);
+        $this->actOn($parts[0], 'legacy-delete')->assertForbidden();
+        $this->assertSame('600.00', $this->split->standingTotal());
     }
 
     #[TestWith(['refund'])]
@@ -295,6 +328,17 @@ class SplitPaymentGroupActionsTest extends TestCase
         $this->actOn($refund, 'delete_reversal')->assertSessionHasErrors('action');
         $this->assertSame('0.00', $this->split->standingTotal());
         $this->assertSame(500.0, $part->subscription->balance());
+    }
+
+    /** Move the share into a box of its own and close that box. */
+    private function closeBoxOf(SubscriptionTransaction $part): void
+    {
+        $closedBox = CashBox::factory()->bankTransfer()->create([
+            'branch_id' => $this->branch->id, 'closing_id' => $part->boxEntry->box->closing_id,
+            'user_id' => User::factory()->collector()->for($this->branch)->create()->id,
+        ]);
+        $part->boxEntry->update(['cash_box_id' => $closedBox->id]);
+        app(BranchClosingWorkflow::class)->receive($closedBox, $this->actor);
     }
 
     private function actOn(SubscriptionTransaction $part, string $action): TestResponse

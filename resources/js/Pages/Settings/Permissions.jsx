@@ -688,9 +688,9 @@ export function PermissionEditor({
                                                     <Icon name={group.icon} className="h-4 w-4" />
                                                 </span>
                                                 <h4>{group.label}</h4>
-                                                <span className="text-[13px] text-gray-500">
-                                                    <b className="font-display text-gray-700">{held}</b> من{' '}
-                                                    <b className="font-display text-gray-700">{ids.length}</b>
+                                                <span className="pm-group-count" style={{ '--fill': `${ids.length ? Math.round((held / ids.length) * 100) : 0}%` }}>
+                                                    <b className="font-display">{held}</b> من <b className="font-display">{ids.length}</b>
+                                                    <i aria-hidden="true" />
                                                 </span>
                                                 <span className="flex-1" />
                                                 {group.sections.some(

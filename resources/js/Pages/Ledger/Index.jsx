@@ -14,6 +14,9 @@ import { printUrl } from '@/lib/print';
 import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 import StatementModal from '@/Pages/Subscriptions/StatementModal';
 import './Ledger.css';
+import PageHeader from '@/Components/PageHeader';
+import InfoTip from '@/Components/InfoTip';
+import { secondaryButtonClass } from '@/Components/SecondaryButton';
 
 const PERIODS = [['today', 'اليوم'], ['yesterday', 'أمس'], ['7', '7 أيام'], ['30', '30 يوم'], ['month', 'هذا الشهر'], ['custom', 'مخصص']];
 const BANK_LOGOS = {
@@ -269,21 +272,26 @@ export default function Index({ entries, period, dateBasis = 'recorded', side, s
     }
 
     return (
-        <AuthenticatedLayout>
+        <AuthenticatedLayout
+            header={
+                <PageHeader
+                    eyebrow={scopeLabel}
+                    title="السجل المالي"
+                    actions={
+                        <>
+                            <button type="button" className={`${secondaryButtonClass} tone-excel`} title="تنزيل ملف CSV يفتح في Excel" onClick={exportCsv}><Icon name="excel" className="h-4 w-4" />تصدير Excel</button>
+                            {can?.printAuditReports !== false && <a className={`${secondaryButtonClass} tone-print`} href={printUrl('السجل المالي')} target="_blank" rel="noopener noreferrer"><Icon name="printer" className="h-4 w-4" />طباعة</a>}
+                        </>
+                    }
+                />
+            }
+        >
             <Head title="السجل المالي" />
             <div className="ledger-page">
-                <div className="ph">
-                    <div><p className="scope">{scopeLabel}</p><h1>السجل المالي</h1></div>
-                    <div className="acts">
-                        <button type="button" className="btn tone-excel" title="تنزيل ملف CSV يفتح في Excel" onClick={exportCsv}><Icon name="excel" />تصدير Excel</button>
-                        {can?.printAuditReports !== false && <a className="btn tone-print" href={printUrl('السجل المالي')} target="_blank" rel="noopener noreferrer"><Icon name="printer" />طباعة</a>}
-                    </div>
-                </div>
                 <div className="mb-4 flex flex-wrap items-end gap-3">
-                    <div className="w-56"><label htmlFor="ledger-date-basis" className="mb-1.5 block text-sm font-semibold text-gray-700">تصفية الفترة حسب</label><SearchableSelect id="ledger-date-basis" clearable={false} searchable={false} value={dateBasis} options={[{value: 'recorded', label: 'تاريخ التسجيل بالنظام'}, {value: 'paid', label: 'تاريخ الدفع الفعلي'}]} onChange={(value) => changePeriod(period, { ...(period === 'custom' ? dateRange : {}), date_basis: value })} /></div>
+                    <div className="w-56"><div className="mb-1.5 flex items-center gap-1"><label htmlFor="ledger-date-basis" className="block text-sm font-semibold text-gray-700">تصفية الفترة حسب</label><InfoTip label="عن تصفية الفترة">{dateBasis === 'paid' ? 'عرض حسب تاريخ الدفع الفعلي للدفعات المتأخرة، وتاريخ التسجيل لبقية الحركات. الأرصدة وترتيب الحركات يبقيان حسب التسجيل.' : 'الأرصدة والفترات تُحتسب حسب تاريخ التسجيل. تاريخ الدفع السابق محفوظ للتدقيق.'}</InfoTip></div><SearchableSelect id="ledger-date-basis" clearable={false} searchable={false} value={dateBasis} options={[{value: 'recorded', label: 'تاريخ التسجيل بالنظام'}, {value: 'paid', label: 'تاريخ الدفع الفعلي'}]} onChange={(value) => changePeriod(period, { ...(period === 'custom' ? dateRange : {}), date_basis: value })} /></div>
                     <DateRange period={period} range={dateRange} today={today} onChange={changePeriod} errors={errors} />
                 </div>
-                <p className="mb-4 text-sm leading-6 text-gray-500">{dateBasis === 'paid' ? 'عرض حسب تاريخ الدفع الفعلي للدفعات المتأخرة، وتاريخ التسجيل لبقية الحركات. الأرصدة وترتيب الحركات يبقيان حسب التسجيل.' : 'الأرصدة والفترات تُحتسب حسب تاريخ التسجيل. تاريخ الدفع السابق محفوظ للتدقيق.'}</p>
                 {!errors.from && !errors.to ? null : <p role="alert" className="err">{errors.from || errors.to}</p>}
                 <SummaryCards totals={ledgerTotals} summary={summary} side={side} />
                 <section className="pn" aria-label="القيود المالية">

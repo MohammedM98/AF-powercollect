@@ -85,7 +85,7 @@
     grid-column: 1 / -1;
     display: block;
     height: 6px;
-    border-radius: 6px;
+    border-radius: 8px;
     background: var(--cl-brand);
     opacity: 0.75;
 }
@@ -133,14 +133,6 @@
     }
 }
 
-.financial-report .report-period-tabs {
-    border: 1px solid var(--cl-line);
-    background: var(--cl-raised);
-}
-.financial-report .report-period-tabs button[aria-pressed='true'] {
-    background: var(--cl-brand);
-    color: #fff;
-}
 .financial-report .report-period-bar {
     display: flex;
     align-items: center;
@@ -149,7 +141,7 @@
     margin-top: 12px;
     padding: 10px 14px;
     border: 1px solid var(--cl-line);
-    border-radius: 14px;
+    border-radius: 18px;
     background: var(--cl-surface);
 }
 .financial-report .report-period-bar > span {

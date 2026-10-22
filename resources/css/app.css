@@ -112,6 +112,58 @@
         --spectrum: linear-gradient(90deg, #5c0d14, #b8232c 40%, #6b7480 75%, #252a32);
     }
 
+    /*
+     * The same tokens as named colours, for the pages that keep a stylesheet
+     * of their own (reports, the ledger, reading entry, the profile, reading
+     * schedule, SMS settings). Each page names its colours (--ledger-ink…)
+     * and points them here, so they follow the tokens above in both themes.
+     * Errors and danger share the brand's red, as everywhere else.
+     */
+    :root {
+        --ui-page: rgb(var(--gray-50));
+        --ui-surface: rgb(var(--surface));
+        --ui-raised: color-mix(in srgb, rgb(var(--gray-50)) 45%, rgb(var(--surface)));
+        --ui-sunken: rgb(var(--gray-50));
+        --ui-line: rgb(var(--gray-200));
+        --ui-line2: rgb(var(--gray-100));
+        --ui-ink: rgb(var(--gray-900));
+        --ui-ink2: rgb(var(--gray-700));
+        --ui-muted: rgb(var(--gray-500));
+        --ui-faint: rgb(var(--gray-400));
+        --ui-brand: rgb(var(--brand-500));
+        --ui-brand-ink: rgb(var(--brand-600));
+        --ui-brand-hi: #b8232c;
+        --ui-brand-lo: #7d121b;
+        --ui-success: #047857;
+        --ui-success-t: rgb(4 120 87 / 0.1);
+        --ui-info: rgb(var(--blue-600));
+        --ui-info-t: rgb(var(--blue-600) / 0.08);
+        --ui-warn: #b45309;
+        --ui-warn-t: rgb(180 83 9 / 0.1);
+        --ui-danger: rgb(var(--brand-600));
+        --ui-danger-t: rgb(var(--brand-500) / 0.08);
+        --ui-focus: rgb(var(--gray-900));
+        --ui-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 14px 34px -18px rgb(16 24 40 / 0.18);
+        --ui-pop: 0 2px 6px rgb(16 24 40 / 0.06), 0 24px 44px -20px rgb(16 24 40 / 0.32);
+        --ui-hero: linear-gradient(135deg, #262c33, #1b2026 60%, #111519);
+    }
+
+    .dark {
+        --ui-raised: rgb(var(--gray-100));
+        --ui-line: rgb(var(--gray-300));
+        --ui-line2: rgb(var(--gray-200));
+        --ui-ink2: rgb(var(--gray-800));
+        --ui-success: #34d399;
+        --ui-success-t: rgb(52 211 153 / 0.1);
+        --ui-warn: #fbbf24;
+        --ui-warn-t: rgb(251 191 36 / 0.1);
+        --ui-danger-t: rgb(var(--brand-600) / 0.12);
+        --ui-focus: rgb(var(--gray-700));
+        --ui-shadow: 0 20px 40px -24px #000;
+        --ui-pop: 0 30px 60px -20px #000;
+        --ui-hero: linear-gradient(135deg, #1c2127, #161a1f 55%, #0b0d10);
+    }
+
     /* Text with no size of its own takes the base size, with looser lines than the browser's 1.5. */
     body {
         font-size: 1.0625rem;

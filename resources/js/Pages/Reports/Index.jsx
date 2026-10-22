@@ -6,6 +6,8 @@ import { weekDayName } from '@/lib/weekDays';
 import { reportMoney, shortDate } from '@/lib/reportFormatting';
 import './ReportBase.css';
 import './Report.css';
+import PageHeader from '@/Components/PageHeader';
+import { secondaryButtonClass } from '@/Components/SecondaryButton';
 
 
 /** Cents of a money string, so totals add up exactly. */
@@ -39,19 +41,30 @@ export default function Index({ branches, filters, scopeLabel, presets, today, k
     const periodText = oneDay ? `${weekDayName(filters.from)} ${shortDate(filters.from, true)}` : `${shortDate(filters.from, true)} – ${shortDate(filters.to, true)}`;
 
     return (
-        <AuthenticatedLayout>
+        <AuthenticatedLayout
+            header={
+                <PageHeader
+                    title="التقارير"
+                    meta={`${scopeLabel} · ${periodLabel(period?.mode, period)} · ${periodText}${oneDay && filters.from === today ? ' · اليوم الجاري' : ''}`}
+                    actions={
+                        <>
+                            {canExport && (
+                                <a className={`${secondaryButtonClass} tone-excel`} href={`/reports/lines.csv?${query}`}>
+                                    <Icon name="excel" className="h-4 w-4" />
+                                    تنزيل Excel (CSV)
+                                </a>
+                            )}
+                            <button type="button" className={`${secondaryButtonClass} tone-print`} onClick={() => window.print()}>
+                                <Icon name="printer" className="h-4 w-4" />
+                                طباعة
+                            </button>
+                        </>
+                    }
+                />
+            }
+        >
             <Head title="التقارير" />
             <div className="financial-report report-page" dir="rtl">
-                <div className="ph">
-                    <div>
-                        <h1>التقارير</h1>
-                        <p>
-                            {scopeLabel} · {periodLabel(period?.mode, period)} · {periodText}
-                            {oneDay && filters.from === today && ' · اليوم الجاري'}
-                        </p>
-                    </div>
-                </div>
-
                 <div className="ctl">
                     <label className="cb">
                         <Icon name="pin" />
@@ -107,37 +120,28 @@ export default function Index({ branches, filters, scopeLabel, presets, today, k
                             </button>
                         ))}
                     </div>
-                    <label className="cb">
+                    <div className="cb" role="group" aria-label="الفترة">
                         <Icon name="calendar" />
                         <small>من</small>
                         <input
                             type="date"
+                            aria-label="من تاريخ"
                             value={filters.from}
                             max={filters.to}
                             onChange={(event) => event.target.value && visit({ from: event.target.value, page: undefined })}
                             style={{ border: 0, fontWeight: 600 }}
                         />
-                    </label>
-                    <label className="cb">
                         <small>إلى</small>
                         <input
                             type="date"
+                            aria-label="إلى تاريخ"
                             value={filters.to}
                             min={filters.from}
                             max={today}
                             onChange={(event) => event.target.value && visit({ to: event.target.value, page: undefined })}
                             style={{ border: 0, fontWeight: 600 }}
                         />
-                    </label>
-                    <span className="sp" />
-                    {canExport && <a className="btn tone-excel" href={`/reports/lines.csv?${query}`}>
-                        <Icon name="excel" />
-                        تنزيل Excel (CSV)
-                    </a>}
-                    <button type="button" className="btn tone-print" onClick={() => window.print()}>
-                        <Icon name="printer" />
-                        طباعة
-                    </button>
+                    </div>
                 </div>
 
                 <div className="report-period-bar" aria-label="التنقل بين الفترات">

@@ -166,9 +166,23 @@ class PermissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where(
             'permissionGroups',
             fn ($groups): bool => collect(collect($groups)->firstWhere('key', 'collections')['actions'])->pluck('action')->all() === [
-                'view', 'record', 'record_late', 'record_cash', 'record_transfer', 'close_boxes', 'manage_box_periods', 'manage_branch_closings', 'confirm', 'charge', 'discount', 'clearing', 'correct', 'amend', 'refund', 'delete', 'force_delete',
+                'view', 'record', 'record_late', 'record_cash', 'record_transfer', 'close_boxes', 'manage_box_periods', 'manage_branch_closings', 'charge', 'discount', 'clearing', 'correct', 'amend', 'refund', 'delete', 'force_delete',
             ],
         ));
+    }
+
+    public function test_the_unused_confirm_collections_permission_is_removed_with_its_grants(): void
+    {
+        $this->seedPermissions();
+        $confirm = Permission::create(['key' => 'collections.confirm', 'label' => 'Confirm Collections']);
+        $branchAdmin = User::factory()->branchAdmin()->create();
+        $branchAdmin->permissions()->syncWithoutDetaching([$confirm->id, Permission::where('key', PermissionKey::ViewCollections->value)->value('id')]);
+
+        (require database_path('migrations/2026_10_22_113315_remove_confirm_collections_permission.php'))->up();
+
+        $this->assertDatabaseMissing('permissions', ['key' => 'collections.confirm']);
+        $this->assertDatabaseMissing('permission_user', ['permission_id' => $confirm->id]);
+        $this->assertTrue($branchAdmin->fresh()->hasPermission(PermissionKey::ViewCollections));
     }
 
     public function test_report_scope_is_granted_without_closing_controls(): void

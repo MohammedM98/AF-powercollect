@@ -86,9 +86,10 @@ test('the editor has keyboard-addressable tabs and keeps an unchanged save bar i
     const html = renderToStaticMarkup(createElement(PermissionEditor, { employee: { ...employee, permissionIds: [1] }, sections: [payments], templates: [], copySources: [], scopedToOwnBranch: true, onDirtyChange() {} }));
 
     assert.match(html, /role="tablist" aria-label="عرض صلاحيات الموظف"/);
-    assert.match(html, /id="permission-tab-matrix" aria-controls="permission-view-matrix" aria-selected="true"/);
-    assert.match(html, /id="permission-view-summary" aria-labelledby="permission-tab-summary" hidden=""/);
-    assert.match(html, /id="permission-view-compare" aria-labelledby="permission-tab-compare" hidden=""/);
+    assert.match(html, /id="permission-tab-matrix" type="button" role="tab" aria-selected="true" aria-controls="permission-view-matrix" tabindex="0"/);
+    assert.match(html, /id="permission-tab-summary" type="button" role="tab" aria-selected="false" aria-controls="permission-view-summary" tabindex="-1"/);
+    assert.match(html, /id="permission-view-matrix" role="tabpanel" aria-labelledby="permission-tab-matrix"/);
+    assert.doesNotMatch(html, /id="permission-view-summary"/);
     assert.match(html, /aria-label="تغييرات لم تُحفظ"[^>]*aria-hidden="true" inert=""/);
 });
 
@@ -122,4 +123,23 @@ test('full review names every removed and added action by section, with its cons
     assert.match(html, /خطير/);
     assert.match(html, /لا يحذف القراءة/);
     assert.match(html, /جميع تغييرات الصلاحيات/);
+});
+
+test('the grid shows each action as its own check, the options behind «خيارات», and the risk in the header', () => {
+    const subscriptions = sectionModel({ key: 'subscriptions', label: 'المشتركون', actions: [
+        { action: 'view', permission: { id: 11, label: 'عرض المشتركين' } },
+        { action: 'create', permission: { id: 12, label: 'إضافة المشتركين' } },
+        { action: 'update', permission: { id: 13, label: 'تعديل المشتركين' } },
+        { action: 'delete', permission: { id: 14, label: 'حذف المشتركين' } },
+        { action: 'minimum_charge', permission: { id: 15, label: 'الحد الأدنى' } },
+    ] });
+    const user = { ...employee, id: 7, username: 'collector', role: 'collector', permissionIds: [13, 14] };
+    const html = renderToStaticMarkup(createElement(PermissionEditor, { employee: user, sections: [subscriptions, payments], templates: [], copySources: [], scopedToOwnBranch: false, onDirtyChange() {} }));
+
+    assert.match(html, /role="checkbox" aria-checked="false" aria-label="المشتركون: عرض المشتركين"/);
+    assert.match(html, /role="checkbox" aria-checked="true" aria-label="المشتركون: تعديل المشتركين"/);
+    assert.match(html, /role="checkbox" aria-checked="true" aria-label="المشتركون: الحذف"/);
+    assert.match(html, /aria-expanded="false"[^>]*aria-label="خيارات المشتركون"/);
+    assert.match(html, />1<\/b> خطيرة/);
+    assert.doesNotMatch(html, /aria-expanded="true"/);
 });

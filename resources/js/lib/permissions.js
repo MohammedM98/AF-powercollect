@@ -44,7 +44,6 @@ export const SENSITIVE = {
     minimum_charge: { label: 'تعديل الحد الأدنى للدفع', hint: 'يغيّر الحد الأدنى الأسبوعي لمشترك', risk: 'sensitive' },
     kilowatt_price: { label: 'تعديل سعر الكيلو للمشترك', hint: 'يعطي المشترك سعرًا غير سعر تعرفته، أعلى أو أقل', risk: 'danger' },
     approve: { label: 'اعتماد القراءات', hint: 'تُضاف مبالغها إلى حسابات المشتركين', risk: 'danger' },
-    confirm: { label: 'تأكيد التحصيل', hint: 'يؤكد استلام المبالغ من المحصّلين', risk: 'danger' },
     'collections.charge': { label: 'إضافة تحميل', hint: 'غرامة أو رسوم تُضاف على حساب المشترك', risk: 'sensitive' },
     'collections.discount': { label: 'إضافة خصم', hint: 'خصم مرة واحدة، أو خصم دائم على القراءات الأسبوعية وإيقافه', risk: 'sensitive' },
     'collections.clearing': { label: 'إضافة مقاصة', hint: 'تسوية رصيد المشترك بقيد مقاصة', risk: 'sensitive' },
@@ -80,7 +79,7 @@ const EXTRA_GROUPS = {
         ['طرق الدفع المسموحة', ['record_cash', 'record_transfer']],
         ['حركات على الرصيد', ['charge', 'discount', 'clearing']],
         ['تصحيح الحركات', ['amend', 'correct', 'refund', 'delete', 'force_delete']],
-        ['الصناديق', ['close_boxes', 'manage_box_periods', 'confirm']],
+        ['الصناديق', ['close_boxes', 'manage_box_periods']],
     ],
     reading_assignments: [['الطباعة', ['print_sheets']], ['الاعتماد والمراجعة', ['approve', 'review']]],
     disconnections: [['التنفيذ', ['warn', 'execute', 'change_fee']]],
@@ -302,11 +301,6 @@ export function copyWorkPermissions(sections, selectedIds, sourceIds) {
     ])];
 }
 
-function normalizedSearch(value) {
-    return String(value ?? '').toLocaleLowerCase()
-        .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
-        .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
-}
 
 /** Each actual grant added or removed; a swap always produces both changes. */
 export function individualChanges(sections, saved, current) {
@@ -338,13 +332,34 @@ export function withGroupAccess(sections, selected, viewOnly) {
     return next;
 }
 
+/**
+ * Text for matching Arabic the way people type it: hamza forms of alef,
+ * alef maqsura and taa marbuta fold together, and diacritics and tatweel
+ * are dropped, so «اعتماد» finds «إعتماد» and «رد» finds «ردّ».
+ */
+export function normalizeArabic(text) {
+    return String(text ?? '')
+        .toLocaleLowerCase()
+        .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
+        .replace(/[أإآٱ]/g, 'ا')
+        .replace(/ى/g, 'ي')
+        .replace(/ة/g, 'ه');
+}
+
+/** Whether `text` contains `query` once both are normalized (an empty query matches everything). */
+export function matchesQuery(text, query) {
+    const needle = normalizeArabic(query.trim());
+
+    return !needle || normalizeArabic(text).includes(needle);
+}
+
 export function filterSections(sections, selected, saved, query, mode = 'all') {
-    const needle = normalizedSearch(query.trim());
+    const needle = normalizeArabic(query.trim());
 
     return sections.filter((section) => {
         const entries = permissionEntries([section]);
         const matchesQuery = !needle || [section.label, ...entries.flatMap((item) => [item.label, item.hint])]
-            .filter(Boolean).some((text) => normalizedSearch(text).includes(needle));
+            .filter(Boolean).some((text) => normalizeArabic(text).includes(needle));
         const matchesMode = mode === 'all'
             || (mode === 'enabled' && sectionIds(section).some((id) => selected.includes(id)))
             || (mode === 'sensitive' && section.sensitive.length > 0)
@@ -440,4 +455,121 @@ export function changesBetween(sections, saved, current) {
     }
 
     return changes;
+}
+
+/** The matrix's everyday columns, the same as the site's independent grants. */
+export const MATRIX_COLUMNS = PERMISSION_COLUMNS;
+
+/**
+ * A section's matrix cells, one per column: the permission behind it
+ * (`kind: 'permission'`, with its risk) or
+ * `null` when the section has no such action. Each cell is its own grant,
+ * so an employee may edit without adding.
+ */
+export function matrixCells(section) {
+    const extras = new Map(sectionExtras(section).flatMap((group) => group.items).map((item) => [item.id, item]));
+
+    return permissionCells(section).map(({ permission, ...column }) => (permission
+        ? { column, kind: 'permission', ...permission, ...extras.get(permission.id), needs: 0 }
+        : { column, kind: null }));
+}
+
+/** The section's options that have no column of their own, in their groups (shown when the row is opened). */
+export function matrixExtras(section) {
+    const inCells = new Set(matrixCells(section).filter((cell) => cell.kind).map((cell) => cell.id));
+
+    return sectionExtras(section)
+        .map((group) => ({ ...group, items: group.items.filter((item) => !inCells.has(item.id)) }))
+        .filter((group) => group.items.length > 0);
+}
+
+/** Every permission of the given sections granted (`on`) or taken away, leaving other sections alone. */
+export function withSectionsAll(sections, selectedIds, on) {
+    const ids = sections.flatMap(sectionIds);
+
+    return on ? [...new Set([...selectedIds, ...ids])] : selectedIds.filter((id) => !ids.includes(id));
+}
+
+/** How many of the given permissions are held, and how many of those are sensitive or dangerous. */
+export function riskCounts(sections, selectedIds) {
+    const held = permissionEntries(sections).filter((item) => selectedIds.includes(item.id));
+
+    return {
+        total: held.length,
+        sensitive: held.filter((item) => item.risk === 'sensitive').length,
+        danger: held.filter((item) => item.risk === 'danger').length,
+    };
+}
+
+/** The job-title colours, in the order the titles are listed; an unset title is grey. */
+export const ROLE_COLORS = ['#2f66d6', '#1f8750', '#c27803', '#7c3aed', '#0e8a8a', '#c2410c', '#be185d', '#4f46e5'];
+export const UNSET_ROLE_COLOR = '#6b7480';
+
+/**
+ * Each job title's colour: the titles as listed get the palette in turn, so
+ * the same title has the same colour across the page, and a title not
+ * listed falls back to one picked from its name.
+ */
+export function roleColors(labels) {
+    const colors = new Map();
+
+    labels.filter((label) => label && label !== 'غير محدد').forEach((label) => {
+        if (!colors.has(label)) {
+            colors.set(label, ROLE_COLORS[colors.size % ROLE_COLORS.length]);
+        }
+    });
+
+    return (label) => {
+        if (!label || label === 'غير محدد') {
+            return UNSET_ROLE_COLOR;
+        }
+
+        if (colors.has(label)) {
+            return colors.get(label);
+        }
+
+        let hash = 0;
+        for (const char of String(label)) {
+            hash = (hash * 31 + char.codePointAt(0)) >>> 0;
+        }
+
+        return ROLE_COLORS[hash % ROLE_COLORS.length];
+    };
+}
+
+const RISK_WEIGHTS = { sensitive: 3, danger: 6 };
+
+/**
+ * How much the held permissions can move money or the service, from 0 to
+ * 100: each permission weighs by its risk, against all of them. Any
+ * dangerous permission makes it at least «متوسطة», three or more «مرتفعة».
+ */
+export function riskLevel(sections, selectedIds) {
+    const entries = permissionEntries(sections);
+    const weight = (item) => RISK_WEIGHTS[item.risk] ?? 1;
+    const max = entries.reduce((sum, item) => sum + weight(item), 0);
+    const held = entries.filter((item) => selectedIds.includes(item.id));
+    const score = max ? Math.round((held.reduce((sum, item) => sum + weight(item), 0) / max) * 100) : 0;
+    const danger = held.filter((item) => item.risk === 'danger').length;
+    const level = danger >= 3 || score >= 45 ? 'high' : danger > 0 || score >= 15 ? 'mid' : 'low';
+
+    return { score, level, label: { low: 'منخفضة', mid: 'متوسطة', high: 'مرتفعة' }[level] };
+}
+
+/** Two employees' permissions side by side: what only the first holds, what only the second holds, and what both hold. */
+export function comparePermissions(sections, mine, theirs) {
+    const entries = permissionEntries(sections);
+
+    return {
+        onlyMine: entries.filter((item) => mine.includes(item.id) && !theirs.includes(item.id)),
+        onlyTheirs: entries.filter((item) => theirs.includes(item.id) && !mine.includes(item.id)),
+        shared: entries.filter((item) => mine.includes(item.id) && theirs.includes(item.id)),
+    };
+}
+
+/** «صلاحية» or «صلاحيات», as Arabic counts them: 3 to 10 take the plural. */
+export function permissionsWord(count) {
+    const rest = Math.abs(count) % 100;
+
+    return rest >= 3 && rest <= 10 ? 'صلاحيات' : 'صلاحية';
 }

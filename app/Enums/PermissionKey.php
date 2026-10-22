@@ -85,7 +85,6 @@ enum PermissionKey: string
     case CloseCashBoxes = 'collections.close_boxes';
     case ManageBoxPeriods = 'collections.manage_box_periods';
     case SendCashBoxesToAudit = 'collections.send_boxes';
-    case ConfirmCollections = 'collections.confirm';
     case ViewCollections = 'collections.view';
     case AddCharges = 'collections.charge';
     case AddDiscounts = 'collections.discount';
@@ -191,7 +190,6 @@ enum PermissionKey: string
             self::CloseCashBoxes => 'Close Cash Boxes',
             self::ManageBoxPeriods => 'Edit Box Period Start Day',
             self::SendCashBoxesToAudit => 'Send Cash Boxes to Audit',
-            self::ConfirmCollections => 'Confirm Collections',
             self::ViewCollections => 'View Collections',
             self::AddCharges => 'Add Charges',
             self::AddDiscounts => 'Add Discounts',
@@ -326,7 +324,6 @@ enum PermissionKey: string
                     'close_boxes' => self::CloseCashBoxes,
                     'manage_box_periods' => self::ManageBoxPeriods,
                     'manage_branch_closings' => self::ManageBranchClosings,
-                    'confirm' => self::ConfirmCollections,
                     'charge' => self::AddCharges,
                     'discount' => self::AddDiscounts,
                     'clearing' => self::AddClearings,

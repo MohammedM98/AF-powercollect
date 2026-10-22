@@ -76,7 +76,6 @@ class BranchDomainScope implements Scope
             $builder->whereKey($branchId);
         } elseif ($name === 'User') {
             $builder->where(fn (Builder $users) => $users->where($model->qualifyColumn('branch_id'), $branchId)
-                ->orWhereHas('workBranches', fn (Builder $branches) => $branches->whereKey($branchId))
                 ->orWhere($model->qualifyColumn('id'), request()->user()?->id));
         } elseif ($name === 'SplitPayment') {
             $builder->whereHas('payments');

@@ -20,9 +20,11 @@ export const SECTION_DETAILS = {
     circuit_breakers: { icon: 'bolt', description: 'القواطع وأمبيراتها', page: 'القواطع' },
     tariffs: { icon: 'dollar', description: 'أسعار الكيلو والحد الأدنى', page: 'التعرفات' },
     meter_readings: { icon: 'gauge', description: 'قراءات العدادات الأسبوعية', page: 'القراءات الأسبوعية' },
+    reading_assignments: { icon: 'layers', description: 'توزيع الطبلونات على القرّاء الميدانيين والكشوف الورقية', page: 'توزيع القراءات' },
     collections: { icon: 'card', description: 'السجل المالي والدفعات وحركات الحسابات', page: 'تسجيل الدفعات والسجل المالي' },
     financial_audit: { icon: 'shield', description: 'مراجعة الصناديق المغلقة ومبالغ البنك واعتماد فروق التدقيق', page: 'التدقيق المالي' },
     reports: { icon: 'trend', description: 'تقارير المال، كل تقرير بصلاحيته', page: 'التقارير' },
+    disconnections: { icon: 'power', description: 'قوائم القطع والإنذارات وتأكيد القطع', page: 'قوائم القطع' },
     messages: { icon: 'messages', description: 'رسائل المشتركين', page: 'الرسائل' },
     print_templates: { icon: 'printer', description: 'قوالب الطباعة المشتركة لكل الشركة', page: 'قوالب الطباعة' },
     users: { icon: 'user', description: 'حسابات الموظفين', page: 'المستخدمون' },
@@ -142,7 +144,9 @@ function OptionItem({ section, item, selected, saved, onChange, disabled, onExpl
  * Opening the row (never changing anything) shows the options
  * by kind, with what each one opens; `children` take their place for a
  * section with its own card (the financial audit), with its own `summary`
- * line and `changed` for what changed in that card.
+ * line and `changed` for what changed in that card. With `explaining`
+ * on, the row also says what the section covers and which page it opens,
+ * and each check gets an «ⓘ» that opens what that permission does.
  */
 export function SectionRow({
     section,
@@ -156,6 +160,7 @@ export function SectionRow({
     query = '',
     summary,
     changed: alsoChanged = false,
+    explaining = false,
     children,
 }) {
     const ids = sectionIds(section);
@@ -187,6 +192,11 @@ export function SectionRow({
                         <Mark text={section.label} query={needle} />
                         {changed && <span className="permission-change-label">تغيّر</span>}
                     </b>
+                    {explaining && SECTION_DETAILS[section.key] && (
+                        <span className="pm-section-what">
+                            {SECTION_DETAILS[section.key].description} · صفحة «{SECTION_DETAILS[section.key].page}»
+                        </span>
+                    )}
                     <small>{summary ?? sectionSentence(section, selected)}</small>
                 </span>
                 <bdi dir="ltr" className="pm-count" title="الممنوح من صلاحيات القسم">
@@ -208,6 +218,11 @@ export function SectionRow({
                                 onChange={(on) => toggleCell(cell, on)}
                             />
                             <span className="pm-cell-label">{cell.label}</span>
+                            {explaining && onExplain && (
+                                <button type="button" aria-label={`ماذا تتيح «${cell.label}» في ${section.label}`} onClick={explain(cell.id)} className="pm-cell-why">
+                                    <Icon name="info" className="h-4 w-4" />
+                                </button>
+                            )}
                         </>
                     ) : (
                         <span aria-hidden="true">—</span>

@@ -30,9 +30,6 @@ class UpdatePermissionsRequest extends FormRequest
             'permissions' => ['present', 'array'],
             'permissions.*' => ['present', 'array'],
             'permissions.*.*' => ['integer', 'exists:permissions,id'],
-            'work_branches' => ['sometimes', Rule::prohibitedIf(! $this->user()->isSuperAdmin()), 'array'],
-            'work_branches.*' => ['array'],
-            'work_branches.*.*' => ['integer', 'exists:branches,id'],
             'audit_settings' => ['sometimes', Rule::prohibitedIf(! $this->user()->isSuperAdmin()), 'array'],
             'audit_settings.*' => ['array:scope,branch_ids,actions'],
             'audit_settings.*.scope' => ['required', Rule::in(['all', 'selected'])],
@@ -59,11 +56,6 @@ class UpdatePermissionsRequest extends FormRequest
                 if (in_array(AuditAction::ApprovePeriods->value, $settings['actions'], true)
                     && ! in_array(AuditAction::ApproveBoxes->value, $settings['actions'], true)) {
                     $validator->errors()->add('audit_settings', 'اعتماد الفترة يتطلب صلاحية اعتماد الصناديق.');
-                }
-            }
-            foreach (array_keys($this->input('work_branches', [])) as $id) {
-                if (! array_key_exists($id, $this->input('permissions', []))) {
-                    $validator->errors()->add('work_branches', 'احفظ فروع العمل مع صلاحيات الموظف نفسه.');
                 }
             }
         }];

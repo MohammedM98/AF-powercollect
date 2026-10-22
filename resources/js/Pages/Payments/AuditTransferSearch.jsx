@@ -7,6 +7,7 @@ import LatePaymentDetails from '@/Components/LatePaymentDetails';
 import SearchableSelect from '@/Components/SearchableSelect';
 import { formatMoney } from '@/lib/format';
 import './financial-boxes.css';
+import DateInput from '@/Components/DateInput';
 
 const outcomes = { matched: ['مطابقة', 'green'], missing: ['غير موجودة', 'red'], short: ['نقص في المبلغ', 'amber'], over: ['زيادة في المبلغ', 'amber'] };
 
@@ -81,8 +82,8 @@ export default function AuditTransferSearch({ data, branchName, busy = false, er
             </form>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div><label htmlFor="audit-date-basis" className="mb-1.5 block text-sm font-semibold text-gray-700">تصفية حسب</label><SearchableSelect id="audit-date-basis" clearable={false} searchable={false} value={dates.transfer_date_basis} options={[{value:'recorded',label:'تاريخ التسجيل بالنظام'},{value:'paid',label:'تاريخ الدفع الفعلي'}]} onChange={value => changeDate('transfer_date_basis', value)} /></div>
-                <div><label htmlFor="audit-date-from" className="mb-1.5 block text-sm font-semibold text-gray-700">من</label><input id="audit-date-from" type="date" className="h-11 w-full rounded-control border-gray-200 bg-surface" value={dates.transfer_from} onChange={event => changeDate('transfer_from', event.target.value)} /><InputError message={errors.transfer_from} /></div>
-                <div><label htmlFor="audit-date-to" className="mb-1.5 block text-sm font-semibold text-gray-700">إلى</label><input id="audit-date-to" type="date" className="h-11 w-full rounded-control border-gray-200 bg-surface" min={dates.transfer_from || undefined} value={dates.transfer_to} onChange={event => changeDate('transfer_to', event.target.value)} /><InputError message={errors.transfer_to} /></div>
+                <div><label htmlFor="audit-date-from" className="mb-1.5 block text-sm font-semibold text-gray-700">من</label><DateInput id="audit-date-from" max={dates.transfer_to || undefined} value={dates.transfer_from} onChange={(value) => changeDate('transfer_from', value)} /><InputError message={errors.transfer_from} /></div>
+                <div><label htmlFor="audit-date-to" className="mb-1.5 block text-sm font-semibold text-gray-700">إلى</label><DateInput id="audit-date-to" min={dates.transfer_from || undefined} value={dates.transfer_to} onChange={(value) => changeDate('transfer_to', value)} /><InputError message={errors.transfer_to} /></div>
             </div>
             <p id="audit-transfer-search-hint" className="mt-3 text-sm text-gray-500">تظهر النتائج تلقائيًا بعد توقف الكتابة. التواريخ تُصفّي الحوالات داخل فترة الصناديق المختارة أعلاه؛ لا تغيّر أرصدة الفترة.</p>
         </div>

@@ -10,6 +10,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import CompanyFormPaper from './CompanyFormPaper';
 import useCompanySource from './useCompanySource';
+import DateInput from '@/Components/DateInput';
 
 const MODE_OPTIONS = [{ value: 'blank', label: 'نموذج فارغ', icon: 'document' }, { value: 'filled', label: 'نسخة معبأة', icon: 'user' }];
 const ARCHIVE_LAYOUT = { paper: 'A4', orientation: 'portrait', margin: 16, fontSize: 15, header: { enabled: false }, watermark: { enabled: false }, footer: '', pages: [{ id: 'archive', blocks: [] }], overlays: [] };
@@ -99,7 +100,7 @@ export default function IssueModal({ templateId = null, mode = 'blank', onClose 
                         {archive && <>
                             <FormField id="company-archive-title" label="عنوان المستند" required error={errors.title}><input value={data.title} onChange={(event) => setData('title', event.target.value)} className="w-full" maxLength={150} required /></FormField>
                             <FormField id="company-paper-reference" label="رقم الطلب الورقي" required error={errors.paper_reference}><input value={data.paper_reference} onChange={(event) => setData('paper_reference', event.target.value)} className="w-full" maxLength={100} required /></FormField>
-                            <FormField id="company-paper-date" label="تاريخ الطلب الورقي" required error={errors.paper_date}><input type="date" value={data.paper_date} onChange={(event) => setData('paper_date', event.target.value)} className="w-full" required /></FormField>
+                            <FormField id="company-paper-date" label="تاريخ الطلب الورقي" required error={errors.paper_date}><DateInput name="paper_date" value={data.paper_date} onChange={(value) => setData('paper_date', value)} required /></FormField>
                             <input ref={fileInput} type="file" className="sr-only" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(event) => { selectAttachment(event.target.files?.[0]); event.target.value = ''; }} />
                             <SecondaryButton onClick={() => fileInput.current.click()}><Icon name="document-plus" className="h-4 w-4" />{data.attachment ? 'استبدال الملف' : 'اختيار صورة الطلب أو PDF'}</SecondaryButton>
                             <p className="break-words text-xs text-gray-500">{data.attachment?.name ?? 'حتى 10 ميجابايت و10 صفحات.'}</p><InputError message={errors.attachment || fileError} />

@@ -10,6 +10,7 @@ import InputError from '@/Components/InputError';
 import { formatNumber } from '@/lib/format';
 import { STAGES, boardColumns, boardCounters, boxMatches, columnTotals, draggedBoxIds, movePayload } from '@/lib/readingBoard';
 import PageHeader from '@/Components/PageHeader';
+import DateInput from '@/Components/DateInput';
 
 
 function Counter({ label, value, tone = 'text-gray-900' }) {
@@ -102,7 +103,7 @@ function ReadingDayModal({ cycle, onClose }) {
             <form onSubmit={submit} className="space-y-4 p-7" aria-labelledby="reading-day-title">
                 <h3 id="reading-day-title" className="text-lg font-bold text-gray-900">تغيير يوم القراءة لهذه الدورة</h3>
                 <p className="text-sm text-gray-600">نهاية الأسبوع {cycle.weekEnd}. يمكن تأخير القراءة حتى {cycle.maxReadingDate} إذا واجه الفرع مشكلة، ولا يمكن تقديمها قبل نهاية الأسبوع.</p>
-                <input type="date" min={cycle.weekEnd} max={cycle.maxReadingDate} value={date} onChange={(event) => setDate(event.target.value)} className="block w-full text-sm" required />
+                <DateInput name="reading_date" aria-label="يوم القراءة" min={cycle.weekEnd} max={cycle.maxReadingDate} value={date} onChange={setDate} required />
                 <InputError message={errors.reading_date} />
                 <p className="text-xs text-gray-500">القرّاء الذين نزّلوا مهامهم ينزّلونها من جديد ليعرفوا اليوم الجديد؛ القراءات في غير يوم القراءة تُحفظ للمراجعة.</p>
                 <div className="flex justify-end gap-3">

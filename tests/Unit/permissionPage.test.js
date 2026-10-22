@@ -143,3 +143,12 @@ test('the grid shows each action as its own check, the options behind «خيار
     assert.match(html, />1<\/b> خطيرة/);
     assert.doesNotMatch(html, /aria-expanded="true"/);
 });
+
+test('a row explains its section and each check only while explanations are on', () => {
+    const quiet = renderToStaticMarkup(createElement(SectionRow, { section: payments, selected: [1], saved: [1], onChange() {}, onExplain() {} }));
+    assert.doesNotMatch(quiet, /pm-section-what|pm-cell-why/);
+
+    const explained = renderToStaticMarkup(createElement(SectionRow, { section: payments, selected: [1], saved: [1], onChange() {}, onExplain() {}, explaining: true }));
+    assert.match(explained, /السجل المالي والدفعات وحركات الحسابات/);
+    assert.match(explained, /ماذا تتيح «عرض السجل المالي» في الدفعات والحركات المالية/);
+});

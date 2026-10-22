@@ -12,6 +12,7 @@ import InputError from '@/Components/InputError';
 import { formatMoney } from '@/lib/format';
 import { feeError, fillPlaceholders, itemTone, operationId, smsParts, totalFees } from '@/lib/disconnections';
 import HoldToConfirm from './HoldToConfirm';
+import DateInput from '@/Components/DateInput';
 
 const ACTIONS = {
     reschedule: { title: 'تغيير موعد القطع', icon: 'calendar', tone: 'bg-blue-500/10 text-blue-600', url: 'reschedule' },
@@ -233,7 +234,7 @@ export default function ActionModal({ action, list, selection, count, reasonOpti
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                                 <label htmlFor={`${id}-date`} className="mb-1.5 block text-sm font-semibold text-gray-700">موعد القطع الجديد</label>
-                                <input id={`${id}-date`} type="date" min={today} value={date} onChange={(event) => setDate(event.target.value)} className="block w-full text-sm" required />
+                                <DateInput id={`${id}-date`} name="scheduled_for" min={today} value={date} onChange={setDate} required />
                                 <InputError message={errors.scheduled_for} className="mt-1" />
                             </div>
                             <div>

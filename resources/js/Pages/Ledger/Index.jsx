@@ -17,6 +17,7 @@ import './Ledger.css';
 import PageHeader from '@/Components/PageHeader';
 import InfoTip from '@/Components/InfoTip';
 import { secondaryButtonClass } from '@/Components/SecondaryButton';
+import DateInput from '@/Components/DateInput';
 
 const PERIODS = [['today', 'اليوم'], ['yesterday', 'أمس'], ['7', '7 أيام'], ['30', '30 يوم'], ['month', 'هذا الشهر'], ['custom', 'مخصص']];
 const BANK_LOGOS = {
@@ -69,7 +70,7 @@ function DateRange({ period, range, today, onChange, errors }) {
             if (event.type === 'keydown' && event.key === 'Escape') {
                 setOpen(false);
                 trigger.current?.focus();
-            } else if (event.type === 'pointerdown' && !root.current?.contains(event.target)) {
+            } else if (event.type === 'pointerdown' && !root.current?.contains(event.target) && !event.target.closest?.('[data-date-picker]')) {
                 setOpen(false);
             }
         }
@@ -133,8 +134,8 @@ function DateRange({ period, range, today, onChange, errors }) {
                     <form id="ledger-date-range" className="rpop" onSubmit={apply}>
                         <h3>فترة مخصصة</h3>
                         <div className="two">
-                            <label htmlFor="ledger-from">من<input id="ledger-from" ref={firstInput} type="date" required value={from} onChange={(event) => setFrom(event.target.value)} /></label>
-                            <label htmlFor="ledger-to">إلى<input id="ledger-to" type="date" required min={from || undefined} value={to} onChange={(event) => setTo(event.target.value)} /></label>
+                            <label htmlFor="ledger-from">من<DateInput id="ledger-from" buttonRef={firstInput} required max={to || undefined} value={from} onChange={setFrom} /></label>
+                            <label htmlFor="ledger-to">إلى<DateInput id="ledger-to" required min={from || undefined} value={to} onChange={setTo} /></label>
                         </div>
                         <div className="qk">
                             <button type="button" onClick={() => quickRange('7')}>آخر 7 أيام</button>

@@ -8,6 +8,7 @@ import './ReportBase.css';
 import './Report.css';
 import PageHeader from '@/Components/PageHeader';
 import { secondaryButtonClass } from '@/Components/SecondaryButton';
+import DateInput from '@/Components/DateInput';
 
 
 /** Cents of a money string, so totals add up exactly. */
@@ -120,27 +121,10 @@ export default function Index({ branches, filters, scopeLabel, presets, today, k
                             </button>
                         ))}
                     </div>
-                    <div className="cb" role="group" aria-label="الفترة">
-                        <Icon name="calendar" />
-                        <small>من</small>
-                        <input
-                            type="date"
-                            aria-label="من تاريخ"
-                            value={filters.from}
-                            max={filters.to}
-                            onChange={(event) => event.target.value && visit({ from: event.target.value, page: undefined })}
-                            style={{ border: 0, fontWeight: 600 }}
-                        />
-                        <small>إلى</small>
-                        <input
-                            type="date"
-                            aria-label="إلى تاريخ"
-                            value={filters.to}
-                            min={filters.from}
-                            max={today}
-                            onChange={(event) => event.target.value && visit({ to: event.target.value, page: undefined })}
-                            style={{ border: 0, fontWeight: 600 }}
-                        />
+                    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="الفترة">
+                        <DateInput aria-label="من تاريخ" className="w-56" required value={filters.from} max={filters.to} onChange={(value) => value && visit({ from: value, page: undefined })} />
+                        <span className="text-sm text-gray-500">إلى</span>
+                        <DateInput aria-label="إلى تاريخ" className="w-56" required value={filters.to} min={filters.from} max={today} onChange={(value) => value && visit({ to: value, page: undefined })} />
                     </div>
                 </div>
 

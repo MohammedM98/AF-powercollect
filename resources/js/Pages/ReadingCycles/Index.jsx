@@ -21,6 +21,7 @@ import { useRowClick } from '@/hooks/useRowClick';
 import { formatNumber } from '@/lib/format';
 import { STAGES } from '@/lib/readingBoard';
 import PageHeader from '@/Components/PageHeader';
+import DateInput from '@/Components/DateInput';
 
 /** A new cycle: one of the branch's weeks and the day it is read. */
 function NewCycleModal({ branchOptions, weekOptions, defaultBranchId, onClose }) {
@@ -66,7 +67,7 @@ function NewCycleModal({ branchOptions, weekOptions, defaultBranchId, onClose })
                         error={form.errors.week_start}
                     />
                     <FormField id="cycle-date" label="يوم القراءة" required error={form.errors.reading_date} hint={week ? `يوم القراءة المعتاد ${week.end}؛ يمكن تأخيره حتى ${week.maxReadingDate} إذا كان للفرع ظرف خاص.` : undefined}>
-                        <input type="date" min={week?.defaultReadingDate} max={week?.maxReadingDate} value={form.data.reading_date} onChange={(event) => form.setData('reading_date', event.target.value)} className="block w-full text-sm" disabled={!week} />
+                        <DateInput min={week?.defaultReadingDate} max={week?.maxReadingDate} value={form.data.reading_date} onChange={(value) => form.setData('reading_date', value)} disabled={!week} />
                     </FormField>
                     <FormField id="cycle-notes" label="ملاحظات" error={form.errors.notes}>
                         <textarea rows={2} value={form.data.notes} onChange={(event) => form.setData('notes', event.target.value)} className="block w-full text-sm" />

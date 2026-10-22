@@ -170,9 +170,10 @@
 
 .pm-check{position:relative;display:grid;flex:none;place-items:center;width:30px;height:30px;border-radius:9px;border:1.5px solid rgb(var(--gray-300));background:rgb(var(--gray-50));color:transparent;transition:background .16s,border-color .16s,transform .12s,box-shadow .16s}
 .pm-check svg{transform:scale(.4);opacity:0;transition:transform .22s cubic-bezier(.3,1.6,.5,1),opacity .15s}
-.pm-check:hover:not(:disabled){border-color:rgb(var(--brand-500));transform:scale(1.07)}
-.pm-check:focus-visible{outline:2px solid rgb(var(--brand-500));outline-offset:2px}
-.pm-check.is-on{border-color:transparent;background:linear-gradient(180deg,#b8232c,#7d121b);color:#fff;box-shadow:0 8px 16px -9px rgb(165 29 38/.95)}
+.pm-check:hover:not(:disabled){border-color:rgb(5 150 105);transform:scale(1.07)}
+.pm-check:focus-visible{outline:2px solid rgb(var(--gray-900));outline-offset:2px}
+/* Granted is green, as a switch that is on: burgundy stays for actions and errors. */
+.pm-check.is-on{border-color:transparent;background:linear-gradient(180deg,#10a074,#047857);color:#fff;box-shadow:0 8px 16px -9px rgb(4 120 87/.9)}
 .pm-check.is-on svg{transform:scale(1);opacity:1}
 .pm-check:disabled{cursor:not-allowed;opacity:.5}
 .pm-check.is-danger:not(.is-on){border-color:rgb(239 68 68/.55)}
@@ -188,12 +189,12 @@
 .pm-dot.is-dirty{background:rgb(var(--blue-500))}
 
 .pm-tri{display:grid;flex:none;place-items:center;width:26px;height:26px;border-radius:8px;border:1.5px solid rgb(var(--gray-300));color:rgb(var(--surface));transition:background .16s,border-color .16s}
-.pm-tri:hover:not(:disabled){border-color:rgb(var(--brand-500))}
-.pm-tri.is-on{background:rgb(var(--gray-900));border-color:rgb(var(--gray-900))}
-.pm-tri.is-mixed{border-color:rgb(var(--gray-500))}
-.pm-tri-dash{display:block;width:11px;height:2.5px;border-radius:2px;background:rgb(var(--gray-700))}
+.pm-tri:hover:not(:disabled){border-color:rgb(5 150 105)}
+.pm-tri.is-on{background:#059669;border-color:#059669;color:#fff}
+.pm-tri.is-mixed{border-color:#059669}
+.pm-tri-dash{display:block;width:11px;height:2.5px;border-radius:2px;background:#059669}
 .pm-tri:disabled{opacity:.35;cursor:not-allowed}
-.pm-tri:focus-visible{outline:2px solid rgb(var(--brand-500));outline-offset:2px}
+.pm-tri:focus-visible{outline:2px solid rgb(var(--gray-900));outline-offset:2px}
 
 .pm-more{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:10px;border:1px solid rgb(var(--gray-200));font-size:13px;font-weight:600;color:rgb(var(--gray-600));transition:background .16s,border-color .16s,color .16s}
 .pm-more bdi{font-family:Alexandria,'IBM Plex Sans Arabic',sans-serif}
@@ -263,14 +264,14 @@
 
 /* A check not granted is an empty white box; hovering it previews the check it would get, hovering a granted one deepens it. */
 .pm-check:not(.is-on){background:rgb(var(--surface))}
-.pm-check:not(.is-on):hover:not(:disabled){border-color:rgb(var(--brand-500));background:rgb(var(--brand-50));color:rgb(var(--brand-600));transform:translateY(-1px);box-shadow:0 0 0 4px rgb(var(--brand-500)/.12)}
+.pm-check:not(.is-on):hover:not(:disabled){border-color:#059669;background:rgb(5 150 105/.08);color:#047857;transform:translateY(-1px);box-shadow:0 0 0 4px rgb(5 150 105/.12)}
 .pm-check:not(.is-on):hover:not(:disabled) svg{transform:scale(.85);opacity:.45}
-.pm-check.is-on:hover:not(:disabled){background:linear-gradient(180deg,#9c1c25,#5f0d14);transform:translateY(-1px);box-shadow:0 0 0 4px rgb(var(--brand-500)/.16),0 10px 18px -9px rgb(165 29 38/.95)}
+.pm-check.is-on:hover:not(:disabled){background:linear-gradient(180deg,#059669,#065f46);transform:translateY(-1px);box-shadow:0 0 0 4px rgb(5 150 105/.16),0 10px 18px -9px rgb(4 120 87/.9)}
 .pm-check:active:not(:disabled){transform:scale(.92)}
 /* An action the section does not have: a faint dash, never a box, so it cannot be mistaken for one not granted. */
 .pm-cell.is-empty{color:rgb(var(--gray-200));cursor:default}
-.pm-tri:hover:not(:disabled){background:rgb(var(--brand-50));box-shadow:0 0 0 4px rgb(var(--brand-500)/.12)}
-.pm-tri.is-on:hover:not(:disabled){background:rgb(var(--gray-700))}
+.pm-tri:hover:not(:disabled){background:rgb(5 150 105/.08);box-shadow:0 0 0 4px rgb(5 150 105/.12)}
+.pm-tri.is-on:hover:not(:disabled){background:#047857}
 .pm-option,.pm-explained{align-items:center}
 .pm-option>label{margin-top:0}
 .pm-held-dot{margin-top:0}
@@ -377,3 +378,16 @@
 .permission-panel,.permission-panel-heading,.permission-design-tab,.permission-help-header,.pm-person,.pm-check,.pm-check svg,.pm-tri,.pm-more,.pm-chevron,.pm-gauge-value,.pm-reach i,.pm-savebar,.pm-tab:after{transition:none!important}
 .pm-body,.pm-toast{animation:none!important}
 }
+
+/* The explanations, shown only while «الشرح» is on. */
+.pm-explain-note{display:grid;gap:8px;margin:12px 16px 0;padding:14px 16px;border-radius:12px;border:1px solid rgb(var(--gray-100));background:rgb(var(--gray-50));font-size:14px;line-height:1.8;color:rgb(var(--gray-600))}
+.pm-explain-note dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0}
+.pm-explain-note dt{font-weight:700;color:rgb(var(--gray-900));white-space:nowrap}
+.pm-explain-note dd{margin:0}
+.pm-group-note{flex-basis:100%;font-size:13.5px;line-height:1.7;color:rgb(var(--gray-500))}
+.pm-cell-why{display:grid;place-items:center;width:22px;height:22px;margin-top:2px;border-radius:999px;color:rgb(var(--gray-400));transition:background .16s,color .16s}
+.pm-cell-why:hover{background:rgb(var(--gray-100));color:rgb(var(--gray-900))}
+.pm-cell-why:focus-visible{outline:2px solid rgb(var(--gray-900));outline-offset:1px}
+@container (min-width:761px){.pm-grid.is-explaining .pm-cell:not(.is-empty):not(.pm-more-cell):not(.pm-master-cell){flex-direction:column;gap:2px;padding-block:6px}}
+@container (max-width:760px){.pm-cell-why{margin:0 auto 0 0}}
+.pm-section-copy .pm-section-what{display:block;margin-top:1px;font-size:13.5px;line-height:1.6;color:rgb(var(--gray-600))}

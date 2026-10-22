@@ -115,6 +115,10 @@ class SubscriptionController extends Controller
         }
 
         $data['registered_by'] = $actor->id;
+        // A subscription connected when registered starts today, unless a date was picked.
+        if ($data['status'] === SubscriptionStatus::Active->value && blank($data['subscription_date'] ?? null)) {
+            $data['subscription_date'] = DailySeries::today()->toDateString();
+        }
         $data = $this->enforceMinimumChargePermission($actor, $data);
         $data = $this->enforceKilowattPricePermission($actor, $data);
 

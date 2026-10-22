@@ -735,7 +735,7 @@ class SubscriptionTransaction extends Model
      *
      * @return array<int, string>
      */
-    public function availableActions(User $actor, ?bool $isLast = null, ?bool $hasPayment = null, bool $lockForUpdate = false): array
+    public function availableActions(User $actor, ?bool $isLast = null, ?bool $hasPayment = null, bool $lockForUpdate = false, bool $withSplitParts = true): array
     {
         if ($this->type === self::TYPE_BANK_AUDIT_ADJUSTMENT || $this->isInClosedDay($lockForUpdate)) {
             return [];
@@ -763,8 +763,12 @@ class SubscriptionTransaction extends Model
             ));
         }
 
+        // An action on a part of a split transfer is applied to all its parts (applyAction()), so only when each of them may take it.
+        $splitPaymentId = $withSplitParts ? $this->mutationSplitPayment()?->id : null;
+
         return collect(TransactionAction::ordered())
-            ->filter(fn (TransactionAction $action): bool => in_array($action, $businessActions, true) && $this->actorMay($actor, $action))
+            ->filter(fn (TransactionAction $action): bool => in_array($action, $businessActions, true) && $this->actorMay($actor, $action)
+                && ($splitPaymentId === null || self::splitPartsAllow($splitPaymentId, $actor, $action, $lockForUpdate)))
             ->map(fn (TransactionAction $action): string => $action->value)
             ->values()
             ->all();
@@ -848,22 +852,85 @@ class SubscriptionTransaction extends Model
     private function deleteSplitParts(User $actor, Collection $parts, array $data, bool $legacy = false): void
     {
         foreach ($parts as $part) {
-            $reversals = self::query()->where('subscription_id', $part->subscription_id)
-                ->where(fn (Builder $query): Builder => $query->where('reverses_id', $part->id)->orWhere('reference_transaction_id', $part->id))
-                ->whereIn('type', self::REVERSAL_TYPES)->orderBy('id')->lockForUpdate()->get();
-            $hasReplacement = $parts->contains('corrects_id', $part->id);
-            $canDelete = $hasReplacement || ($part->isCancelled()
-                ? ($legacy ? ($reversals->last()?->isErasable(lockForUpdate: true) ?? false) : $part->isFullyReversed(lockForUpdate: true))
-                : $part->isLastTransaction(lockForUpdate: true));
-            if (! $actor->hasPermission(PermissionKey::ForceDeleteTransactions) || ! $canDelete
-                || $part->isInClosedDay(lockForUpdate: true) || $part->isPermanentDeletionLocked(lockForUpdate: true)
-                || $reversals->contains(fn (self $reversal): bool => $reversal->isInClosedDay(lockForUpdate: true))) {
+            if (! $actor->hasPermission(PermissionKey::ForceDeleteTransactions) || ! self::isDeletableSplitPart($part, $parts, $legacy, lockForUpdate: true)) {
                 throw ValidationException::withMessages(['action' => 'لا يمكن حذف الحوالة المقسّمة: أحد أجزائها مغلق أو غير مسموح بحذفه.']);
             }
         }
         foreach ($parts as $part) {
             $part->refresh()->applyTreeDelete($actor, $data);
         }
+    }
+
+    /**
+     * Whether one part of a split transfer may be deleted with the others:
+     * replaced by a correction, fully reversed when cancelled (its last
+     * reversal erasable, for the legacy erase), otherwise the last line of
+     * its own statement, with nothing of it in a closed box or a sent
+     * closing.
+     *
+     * @param  Collection<int, self>  $parts
+     */
+    private static function isDeletableSplitPart(self $part, Collection $parts, bool $legacy, bool $lockForUpdate): bool
+    {
+        $reversals = self::query()->where('subscription_id', $part->subscription_id)
+            ->where(fn (Builder $query): Builder => $query->where('reverses_id', $part->id)->orWhere('reference_transaction_id', $part->id))
+            ->whereIn('type', self::REVERSAL_TYPES)->orderBy('id')
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())->get();
+        $canDelete = $parts->contains('corrects_id', $part->id) || ($part->isCancelled()
+            ? ($legacy ? ($reversals->last()?->isErasable($lockForUpdate, withSplitParts: false) ?? false) : $part->isFullyReversed($lockForUpdate))
+            : $part->isLastTransaction($lockForUpdate));
+
+        return $canDelete
+            && ! $part->isInClosedDay($lockForUpdate) && ! $part->isPermanentDeletionLocked($lockForUpdate)
+            && ! $reversals->contains(fn (self $reversal): bool => $reversal->isInClosedDay($lockForUpdate));
+    }
+
+    /**
+     * Whether every part of the split transfer can take the action applied
+     * to all of them from one part, as applyAction() applies it: refunded,
+     * its details edited, its refund deleted or deleted with the others.
+     */
+    private static function splitPartsAllow(int $splitPaymentId, User $actor, TransactionAction $action, bool $lockForUpdate): bool
+    {
+        $parts = self::withoutGlobalScope(BranchDomainScope::class)
+            ->where('split_payment_id', $splitPaymentId)->where('type', self::TYPE_PAYMENT)->orderBy('id')
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())->get();
+        $standing = $parts->reject(fn (self $part): bool => $part->isCancelled());
+        $replaced = fn (self $part): bool => $parts->contains('corrects_id', $part->id);
+        $offers = fn (self $line): bool => in_array($action->value, $line->availableActions($actor, lockForUpdate: $lockForUpdate, withSplitParts: false), true);
+
+        if ($parts->contains(fn (self $part): bool => ! $actor->isSuperAdmin() && $part->branch_id !== $actor->workBranchId())) {
+            return false;
+        }
+
+        return match ($action) {
+            TransactionAction::EditMetadata => ! $parts->contains(fn (self $part): bool => $part->isCancelled() && ! $replaced($part))
+                && $standing->every(fn (self $part): bool => $part->isAmendable($lockForUpdate) && $actor->can('amend', $part)),
+            TransactionAction::Refund, TransactionAction::Cancel => $standing->every($offers),
+            TransactionAction::DeleteReversal => $parts->filter(fn (self $part): bool => $part->isCancelled() && ! $replaced($part))
+                ->every(function (self $part) use ($offers): bool {
+                    $reversals = self::query()->where('subscription_id', $part->subscription_id)
+                        ->where(fn (Builder $query): Builder => $query->where('reverses_id', $part->id)->orWhere('reference_transaction_id', $part->id))
+                        ->whereIn('type', self::REVERSAL_TYPES)->get();
+
+                    return $reversals->count() === 1 && $offers($reversals->first());
+                }),
+            TransactionAction::Delete, TransactionAction::DeleteTree => $parts->every(fn (self $part): bool => self::isDeletableSplitPart($part, $parts, legacy: false, lockForUpdate: $lockForUpdate)),
+            default => true,
+        };
+    }
+
+    /**
+     * Whether erasing this payment for good can take every part of its
+     * split transfer with it, as erasing one part does.
+     */
+    private function splitPartsAreErasable(bool $lockForUpdate): bool
+    {
+        $parts = self::withoutGlobalScope(BranchDomainScope::class)
+            ->where('split_payment_id', $this->split_payment_id)->where('type', self::TYPE_PAYMENT)->orderBy('id')
+            ->when($lockForUpdate, fn (Builder $query): Builder => $query->lockForUpdate())->get();
+
+        return $parts->every(fn (self $part): bool => self::isDeletableSplitPart($part, $parts, legacy: true, lockForUpdate: $lockForUpdate));
     }
 
     private function mutationSplitPayment(): ?SplitPayment
@@ -914,7 +981,7 @@ class SubscriptionTransaction extends Model
             // A weekly reading's charge changes only by correcting the reading, so the two always agree.
             $amountEdit = $this->isBilledByReading() ? [] : [TransactionAction::Edit];
 
-            return $isLast && ! $hasPayment
+            return $isLast && ! $hasPayment && ! $this->replacesReadingBill()
                 ? [...$amountEdit, ...$metadataActions, TransactionAction::Delete]
                 : [...$metadataActions, TransactionAction::Cancel];
         }
@@ -946,7 +1013,8 @@ class SubscriptionTransaction extends Model
         }
 
         if (in_array($this->type, self::REVERSAL_TYPES, true)) {
-            return $isLast && $this->reverses?->type !== self::TYPE_READING_DISCOUNT ? [TransactionAction::DeleteReversal] : [];
+            return $isLast && $this->reverses?->type !== self::TYPE_READING_DISCOUNT && ! ($this->reverses?->isStaleReadingBill() ?? false)
+                ? [TransactionAction::DeleteReversal] : [];
         }
 
         return $metadataActions;
@@ -1032,6 +1100,31 @@ class SubscriptionTransaction extends Model
     private function isBilledByReading(): bool
     {
         return $this->meter_reading_id !== null;
+    }
+
+    /**
+     * Whether this is a weekly reading's bill for another amount than its
+     * reading now costs: the reading was corrected after it was billed, so
+     * the bill may not stand again.
+     */
+    private function isStaleReadingBill(): bool
+    {
+        $reading = $this->type === self::TYPE_METER_READING && $this->isBilledByReading()
+            ? MeterReading::query()->find($this->meter_reading_id)
+            : null;
+
+        // A reading awaiting its current reading again is refused on its own, by reinstate().
+        return $reading !== null && ! $reading->requires_reentry && Closing::cents($this->amount) !== Closing::cents($reading->amountBeforeDiscount());
+    }
+
+    /**
+     * Whether a reading billed this line again in place of an earlier bill
+     * of it. It can be cancelled, but never deleted or erased: that would
+     * bring back the bill it replaced, which no longer matches the reading.
+     */
+    private function replacesReadingBill(): bool
+    {
+        return $this->isBilledByReading() && $this->corrects_id !== null;
     }
 
     private function isPermanentDeletionLocked(bool $lockForUpdate = false): bool
@@ -1135,6 +1228,10 @@ class SubscriptionTransaction extends Model
     {
         if ($this->isBilledByReading() && $this->meterReading?->requires_reentry) {
             throw ValidationException::withMessages([$errorKey => 'أدخل القراءة الحالية من جديد قبل إعادة مبلغ القراءة السابق.']);
+        }
+
+        if ($this->isStaleReadingBill()) {
+            throw ValidationException::withMessages([$errorKey => 'صُحّحت القراءة بعد هذا المبلغ؛ لا يمكن إعادته. صحّح القراءة واعتمدها بدلًا من ذلك.']);
         }
 
         $updates = [
@@ -1456,9 +1553,11 @@ class SubscriptionTransaction extends Model
      * Whether a line may be erased for good: only the last line of the
      * statement, and not one a closing has counted. When that is a
      * reversal, the cancelled line it reverses goes with it. Never a
-     * weekly reading's discount, which goes only with its reading.
+     * weekly reading's discount, which goes only with its reading. A part
+     * of a split transfer goes with all its parts, so only when each of
+     * them may (unless `$withSplitParts` is false, as when checking them).
      */
-    public function isErasable(bool $lockForUpdate = false): bool
+    public function isErasable(bool $lockForUpdate = false, bool $withSplitParts = true): bool
     {
         if ($this->type === self::TYPE_BANK_AUDIT_ADJUSTMENT) {
             return false;
@@ -1466,8 +1565,12 @@ class SubscriptionTransaction extends Model
 
         $erased = $this->isReversal() ? $this->reverses : $this;
 
-        if ($erased?->type === self::TYPE_READING_DISCOUNT) {
+        if ($erased?->type === self::TYPE_READING_DISCOUNT || $erased?->replacesReadingBill()) {
             return false;
+        }
+
+        if ($withSplitParts && $erased?->isPayment() && $erased->split_payment_id !== null) {
+            return $erased->splitPartsAreErasable($lockForUpdate);
         }
 
         return $this->isLastOnStatement($lockForUpdate)

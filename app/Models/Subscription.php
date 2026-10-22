@@ -329,8 +329,9 @@ class Subscription extends Model
     /**
      * The dates that being activated sets on this subscription, who is not
      * active now. A first connection starts the subscription today; a
-     * reconnection keeps the day they first subscribed and notes today as the
-     * day they were connected again.
+     * reconnection keeps the day they first subscribed (the day they were
+     * first activated, when none was recorded) and notes today as the day
+     * they were connected again.
      *
      * @return array{subscription_date?: string, reconnected_at?: string}
      */
@@ -341,7 +342,7 @@ class Subscription extends Model
 
         return [
             ...($wasActiveBefore ? ['reconnected_at' => $today] : []),
-            ...(! $wasActiveBefore || $this->subscription_date === null ? ['subscription_date' => $today] : []),
+            ...(! $wasActiveBefore || $this->subscription_date === null ? ['subscription_date' => $wasActiveBefore ? DailySeries::localDate($this->activated_at) : $today] : []),
         ];
     }
 

@@ -150,7 +150,7 @@ export default function SearchableSelect({
                     open || active ? 'border-gray-400' : 'border-gray-200 hover:border-gray-300'
                 }`}
             >
-                <span className={`flex min-w-0 items-baseline gap-2 ${selected ? 'text-gray-900' : 'text-gray-400'}`}>
+                <span className={`flex min-w-0 items-baseline gap-2 ${selected ? 'text-gray-900' : 'text-gray-400/60'}`}>
                     <span className="truncate">{selected ? selected.label : placeholder}</span>
                     {selected?.hint && <span className="shrink-0 text-sm text-gray-500">{selected.hint}</span>}
                 </span>

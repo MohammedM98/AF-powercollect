@@ -195,7 +195,27 @@
     [type='date'],
     select,
     textarea {
-        @apply rounded-control border-gray-200 bg-surface text-gray-900 placeholder:text-gray-400;
+        @apply rounded-control border-gray-200 bg-surface text-gray-900;
+    }
+
+    /*
+     * A field's example text (a placeholder) is only a faint suggestion of
+     * what goes in it, light and never bold, so it is never mistaken for a
+     * value already typed. The label above the field names it.
+     */
+    ::placeholder {
+        color: rgb(var(--gray-400) / 0.55);
+        font-weight: 400;
+        opacity: 1;
+    }
+
+    /*
+     * A field written left to right (a username, a phone, an amount, a
+     * code) keeps its characters in that order but sits on the right like
+     * every other field, its example text with it.
+     */
+    :is(input:not([type='checkbox'], [type='radio']), textarea)[dir='ltr'] {
+        text-align: right;
     }
 
     input:where(:not([type])):focus,

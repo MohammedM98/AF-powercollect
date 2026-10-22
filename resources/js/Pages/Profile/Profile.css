@@ -56,8 +56,8 @@
 .profile-page .pp-input input:hover:not(:disabled){border-color:rgb(var(--gray-300))}
 .profile-page .pp-input input:focus{outline:none;border-color: rgb(var(--gray-900)); box-shadow: 0 0 0 4px rgb(var(--gray-900) / 0.1);}
 .profile-page .pp-input input:disabled{background:var(--pp-sunken);color:var(--pp-muted);border-style:dashed;cursor:not-allowed}
-.profile-page .pp-input input[dir=ltr]{text-align:left;font-family:Alexandria}
-.profile-page .pp-input input[type=password],.profile-page .pp-input input.pw{padding-left:48px;padding-right:14px;direction:ltr;text-align:left;font-family:Alexandria;letter-spacing:.5px}
+.profile-page .pp-input input[dir=ltr]{text-align:right;font-family:Alexandria}
+.profile-page .pp-input input[type=password],.profile-page .pp-input input.pw{padding-left:48px;padding-right:14px;direction:ltr;text-align:right;font-family:Alexandria;letter-spacing:.5px}
 .profile-page .pp-input .eye{position:absolute;inset-inline-end:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;background:transparent;border-radius:12px;display:grid;place-items:center;color:var(--pp-faint);cursor:pointer}
 .profile-page .pp-input .eye:hover{background:var(--pp-sunken);color:var(--pp-ink)}
 .profile-page .pp-input .eye svg{width:18px;height:18px}

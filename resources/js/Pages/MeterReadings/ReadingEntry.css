@@ -92,7 +92,7 @@
 .re-step:hover:not(:disabled) { background: var(--re-ink); color: var(--re-surface); border-color: var(--re-ink); }
 .re-step:disabled { opacity: .4; cursor: not-allowed; }
 .re-input input { flex: 1; min-width: 0; height: 44px; border: 1.5px solid var(--re-line); border-radius: 12px; background: var(--re-surface); padding: 0 12px; font: 600 16px Alexandria, sans-serif; text-align: center; -moz-appearance: textfield; appearance: textfield; color: var(--re-ink); }
-.re-input input::placeholder { font: 500 14px 'IBM Plex Sans Arabic', sans-serif; text-align: center; direction: rtl; color: var(--re-faint); }
+.re-input input::placeholder { font: 400 14px 'IBM Plex Sans Arabic', sans-serif; text-align: center; direction: rtl; color: rgb(var(--gray-400) / 0.55); }
 .re-input input::-webkit-outer-spin-button, .re-input input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .re-input input:focus { outline: none; border-color: var(--re-brand); box-shadow: 0 0 0 4px color-mix(in srgb, var(--re-brand) 12%, transparent); }
 .re-input input:disabled { background: var(--re-sunken); border-style: dashed; cursor: not-allowed; }

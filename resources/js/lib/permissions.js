@@ -304,19 +304,40 @@ export function withGroupAccess(sections, selected, viewOnly) {
     return next;
 }
 
+/**
+ * Text for matching Arabic the way people type it: hamza forms of alef,
+ * alef maqsura and taa marbuta fold together, and diacritics and tatweel
+ * are dropped, so «اعتماد» finds «إعتماد» and «رد» finds «ردّ».
+ */
+export function normalizeArabic(text) {
+    return String(text ?? '')
+        .toLocaleLowerCase()
+        .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
+        .replace(/[أإآٱ]/g, 'ا')
+        .replace(/ى/g, 'ي')
+        .replace(/ة/g, 'ه');
+}
+
+/** Whether `text` contains `query` once both are normalized (an empty query matches everything). */
+export function matchesQuery(text, query) {
+    const needle = normalizeArabic(query.trim());
+
+    return !needle || normalizeArabic(text).includes(needle);
+}
+
 export function filterSections(sections, selected, saved, query, mode = 'all') {
-    const needle = query.trim().toLocaleLowerCase();
+    const needle = normalizeArabic(query.trim());
 
     return sections.filter((section) => {
         const entries = permissionEntries([section]);
-        const matchesQuery = !needle || [section.label, ...entries.flatMap((item) => [item.label, item.hint])]
-            .filter(Boolean).some((text) => text.toLocaleLowerCase().includes(needle));
+        const found = !needle || [section.label, ...entries.flatMap((item) => [item.label, item.hint])]
+            .filter(Boolean).some((text) => normalizeArabic(text).includes(needle));
         const matchesMode = mode === 'all'
             || (mode === 'enabled' && sectionIds(section).some((id) => selected.includes(id)))
             || (mode === 'sensitive' && section.sensitive.length > 0)
             || (mode === 'changed' && sectionIds(section).some((id) => saved.includes(id) !== selected.includes(id)));
 
-        return matchesQuery && matchesMode;
+        return found && matchesMode;
     });
 }
 
@@ -406,4 +427,174 @@ export function changesBetween(sections, saved, current) {
     }
 
     return changes;
+}
+
+/**
+ * The matrix's everyday columns. Each maps to the actions a section may
+ * use for it (a payment is «recorded», a message «sent», a list «managed»),
+ * so one grid reads the same across sections; a section without that
+ * action shows an empty cell.
+ */
+export const MATRIX_COLUMNS = [
+    { key: 'view', label: 'عرض', actions: ['view'] },
+    { key: 'add', label: 'إضافة', actions: ['create', 'record', 'send'] },
+    { key: 'edit', label: 'تعديل', actions: ['update', 'manage'] },
+    { key: 'delete', label: 'حذف', actions: ['delete'] },
+    { key: 'export', label: 'تصدير', actions: ['export'] },
+];
+
+/**
+ * A section's matrix cells, one per column: a step on its ladder
+ * (`kind: 'ladder'`, with its index), an option off the ladder
+ * (`kind: 'extra'`, with its risk and the level it needs), or `null`.
+ */
+export function matrixCells(section) {
+    const extras = sectionExtras(section).flatMap((group) => group.items);
+
+    return MATRIX_COLUMNS.map((column) => {
+        const index = section.ladder ? section.ladder.actions.findIndex((action) => column.actions.includes(action)) : -1;
+
+        if (index !== -1) {
+            return { column, kind: 'ladder', index, id: section.ladder.ids[index], action: section.ladder.actions[index], label: section.ladder.labels[index], risk: null, needs: 0 };
+        }
+
+        const extra = extras.find((item) => column.actions.includes(item.action));
+
+        return extra ? { column, kind: 'extra', ...extra } : { column, kind: null };
+    });
+}
+
+/** The section's options that have no column of their own, in their groups (shown when the row is opened). */
+export function matrixExtras(section) {
+    const inCells = new Set(matrixCells(section).filter((cell) => cell.kind === 'extra').map((cell) => cell.id));
+
+    return sectionExtras(section)
+        .map((group) => ({ ...group, items: group.items.filter((item) => !inCells.has(item.id)) }))
+        .filter((group) => group.items.length > 0);
+}
+
+/**
+ * The selected permissions after ticking or clearing one step of a
+ * section's ladder. Every level includes the ones before it, so ticking a
+ * step also grants the steps below it, and clearing one takes away the
+ * steps above it — along with options that need them, as setting the
+ * level would. A combination off the ladder that ticking leaves in place
+ * (say, edit without add) is kept exactly as it is.
+ */
+export function withLadderStep(section, selectedIds, index, on) {
+    if (!on) {
+        return withSectionLevel(section, selectedIds, index);
+    }
+
+    const next = [...new Set([...selectedIds, ...section.ladder.ids.slice(0, index + 1)])];
+    const level = levelOf(section.ladder, next);
+
+    return level === null ? next : withSectionLevel(section, next, level);
+}
+
+/**
+ * The selected permissions after switching one option on or off. An
+ * option that needs a level first brings the ladder up to that level with
+ * it, instead of refusing; switching it off leaves the level alone.
+ */
+export function withOption(section, selectedIds, item, on) {
+    if (!on) {
+        return withToggled(selectedIds, item.id, false);
+    }
+
+    const needed = item.needs > 0 && section.ladder ? section.ladder.ids[item.needs - 1] : null;
+    const base = needed !== null && !selectedIds.includes(needed) ? withLadderStep(section, selectedIds, item.needs - 1, true) : selectedIds;
+
+    return withToggled(base, item.id, true);
+}
+
+/** Every permission of the given sections granted (`on`) or taken away, leaving other sections alone. */
+export function withSectionsAll(sections, selectedIds, on) {
+    const ids = sections.flatMap(sectionIds);
+
+    return on ? [...new Set([...selectedIds, ...ids])] : selectedIds.filter((id) => !ids.includes(id));
+}
+
+/** How many of the given permissions are held, and how many of those are sensitive or dangerous. */
+export function riskCounts(sections, selectedIds) {
+    const held = permissionEntries(sections).filter((item) => selectedIds.includes(item.id));
+
+    return {
+        total: held.length,
+        sensitive: held.filter((item) => item.risk === 'sensitive').length,
+        danger: held.filter((item) => item.risk === 'danger').length,
+    };
+}
+
+/** The job-title colours, in the order the titles are listed; an unset title is grey. */
+export const ROLE_COLORS = ['#2f66d6', '#1f8750', '#c27803', '#7c3aed', '#0e8a8a', '#c2410c', '#be185d', '#4f46e5'];
+export const UNSET_ROLE_COLOR = '#6b7480';
+
+/**
+ * Each job title's colour: the titles as listed get the palette in turn, so
+ * the same title has the same colour across the page, and a title not
+ * listed falls back to one picked from its name.
+ */
+export function roleColors(labels) {
+    const colors = new Map();
+
+    labels.filter((label) => label && label !== 'غير محدد').forEach((label) => {
+        if (!colors.has(label)) {
+            colors.set(label, ROLE_COLORS[colors.size % ROLE_COLORS.length]);
+        }
+    });
+
+    return (label) => {
+        if (!label || label === 'غير محدد') {
+            return UNSET_ROLE_COLOR;
+        }
+
+        if (colors.has(label)) {
+            return colors.get(label);
+        }
+
+        let hash = 0;
+        for (const char of String(label)) {
+            hash = (hash * 31 + char.codePointAt(0)) >>> 0;
+        }
+
+        return ROLE_COLORS[hash % ROLE_COLORS.length];
+    };
+}
+
+const RISK_WEIGHTS = { sensitive: 3, danger: 6 };
+
+/**
+ * How much the held permissions can move money or the service, from 0 to
+ * 100: each permission weighs by its risk, against all of them. Any
+ * dangerous permission makes it at least «متوسطة», three or more «مرتفعة».
+ */
+export function riskLevel(sections, selectedIds) {
+    const entries = permissionEntries(sections);
+    const weight = (item) => RISK_WEIGHTS[item.risk] ?? 1;
+    const max = entries.reduce((sum, item) => sum + weight(item), 0);
+    const held = entries.filter((item) => selectedIds.includes(item.id));
+    const score = max ? Math.round((held.reduce((sum, item) => sum + weight(item), 0) / max) * 100) : 0;
+    const danger = held.filter((item) => item.risk === 'danger').length;
+    const level = danger >= 3 || score >= 45 ? 'high' : danger > 0 || score >= 15 ? 'mid' : 'low';
+
+    return { score, level, label: { low: 'منخفضة', mid: 'متوسطة', high: 'مرتفعة' }[level] };
+}
+
+/** Two employees' permissions side by side: what only the first holds, what only the second holds, and what both hold. */
+export function comparePermissions(sections, mine, theirs) {
+    const entries = permissionEntries(sections);
+
+    return {
+        onlyMine: entries.filter((item) => mine.includes(item.id) && !theirs.includes(item.id)),
+        onlyTheirs: entries.filter((item) => theirs.includes(item.id) && !mine.includes(item.id)),
+        shared: entries.filter((item) => mine.includes(item.id) && theirs.includes(item.id)),
+    };
+}
+
+/** «صلاحية» or «صلاحيات», as Arabic counts them: 3 to 10 take the plural. */
+export function permissionsWord(count) {
+    const rest = Math.abs(count) % 100;
+
+    return rest >= 3 && rest <= 10 ? 'صلاحيات' : 'صلاحية';
 }

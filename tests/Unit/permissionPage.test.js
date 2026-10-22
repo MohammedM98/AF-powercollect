@@ -99,3 +99,24 @@ test('full review names every removed and added action by section, with its cons
     assert.match(html, /لا يحذف القراءة/);
     assert.match(html, /جميع تغييرات الصلاحيات/);
 });
+
+test('the grid shows each action as a check in its column, the options behind «خيارات», and the risk in the header', () => {
+    const subscriptions = sectionModel({ key: 'subscriptions', label: 'المشتركون', actions: [
+        { action: 'view', permission: { id: 11, label: 'عرض المشتركين' } },
+        { action: 'create', permission: { id: 12, label: 'إضافة المشتركين' } },
+        { action: 'update', permission: { id: 13, label: 'تعديل المشتركين' } },
+        { action: 'delete', permission: { id: 14, label: 'حذف المشتركين' } },
+        { action: 'minimum_charge', permission: { id: 15, label: 'الحد الأدنى' } },
+    ] });
+    const user = { ...employee, id: 7, username: 'collector', role: 'collector', permissionIds: [11, 12, 14] };
+    const html = renderToStaticMarkup(createElement(PermissionEditor, { employee: user, sections: [subscriptions, payments], templates: [], copySources: [], scopedToOwnBranch: false, onDirtyChange() {} }));
+
+    assert.match(html, /role="checkbox" aria-checked="true" aria-label="المشتركون: عرض المشتركين"/);
+    assert.match(html, /role="checkbox" aria-checked="false" aria-label="المشتركون: تعديل المشتركين"/);
+    assert.match(html, /role="checkbox" aria-checked="true" aria-label="المشتركون: الحذف"/);
+    assert.match(html, /aria-expanded="false"[^>]*aria-label="خيارات المشتركون"/);
+    assert.match(html, /role="tab" aria-selected="true"/);
+    assert.match(html, />1<\/b> خطيرة/);
+    assert.match(html, /يرى ويضيف/);
+    assert.doesNotMatch(html, /aria-expanded="true"/);
+});

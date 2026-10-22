@@ -274,6 +274,40 @@ export function permissionEntries(sections) {
     ].map((item) => ({ risk: null, ...item, section: section.label, sectionKey: section.key })));
 }
 
+export const PERMISSION_COLUMNS = [
+    { key: 'view', label: 'عرض', actions: ['view'] },
+    { key: 'create', label: 'إضافة', actions: ['create', 'record', 'send'] },
+    { key: 'update', label: 'تعديل', actions: ['update', 'manage'] },
+    { key: 'delete', label: 'حذف', actions: ['delete'] },
+    { key: 'export', label: 'تصدير', actions: ['export'] },
+];
+
+/** Matrix cells are independent grants, even when the legacy model groups them into levels. */
+export function permissionCells(section) {
+    const entries = permissionEntries([section]);
+
+    return PERMISSION_COLUMNS.map((column) => ({
+        ...column,
+        permission: entries.find((entry) => column.actions.includes(entry.action)) ?? null,
+    }));
+}
+
+/** Copy work permissions only; financial audit access and its scope remain a separate decision. */
+export function copyWorkPermissions(sections, selectedIds, sourceIds) {
+    const workIds = sections.filter((section) => section.key !== 'financial_audit').flatMap(sectionIds);
+
+    return [...new Set([
+        ...selectedIds.filter((id) => !workIds.includes(id)),
+        ...sourceIds.filter((id) => workIds.includes(id)),
+    ])];
+}
+
+function normalizedSearch(value) {
+    return String(value ?? '').toLocaleLowerCase()
+        .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
+        .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
+}
+
 /** Each actual grant added or removed; a swap always produces both changes. */
 export function individualChanges(sections, saved, current) {
     return permissionEntries(sections)
@@ -305,12 +339,12 @@ export function withGroupAccess(sections, selected, viewOnly) {
 }
 
 export function filterSections(sections, selected, saved, query, mode = 'all') {
-    const needle = query.trim().toLocaleLowerCase();
+    const needle = normalizedSearch(query.trim());
 
     return sections.filter((section) => {
         const entries = permissionEntries([section]);
         const matchesQuery = !needle || [section.label, ...entries.flatMap((item) => [item.label, item.hint])]
-            .filter(Boolean).some((text) => text.toLocaleLowerCase().includes(needle));
+            .filter(Boolean).some((text) => normalizedSearch(text).includes(needle));
         const matchesMode = mode === 'all'
             || (mode === 'enabled' && sectionIds(section).some((id) => selected.includes(id)))
             || (mode === 'sensitive' && section.sensitive.length > 0)

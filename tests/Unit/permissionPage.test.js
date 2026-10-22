@@ -68,6 +68,30 @@ test('reports and custom permission combinations start collapsed while retaining
     assert.doesNotMatch(opened, /class="permission-panel-body" hidden/);
 });
 
+test('matrix shows an edit-only employee with independent accessible checkboxes', () => {
+    const section = sectionModel({ key: 'subscriptions', label: 'المشتركون', actions: [
+        { action: 'view', permission: { id: 10, label: 'عرض المشتركين' } },
+        { action: 'create', permission: { id: 11, label: 'إضافة المشتركين' } },
+        { action: 'update', permission: { id: 12, label: 'تعديل المشتركين' } },
+    ] });
+    const html = renderToStaticMarkup(createElement(SectionRow, { section, selected: [12], saved: [12], onChange() {} }));
+
+    assert.match(html, /role="checkbox" aria-checked="true" aria-label="المشتركون: تعديل المشتركين"/);
+    assert.match(html, /role="checkbox" aria-checked="false" aria-label="المشتركون: عرض المشتركين"/);
+    assert.match(html, /role="checkbox" aria-checked="false" aria-label="المشتركون: إضافة المشتركين"/);
+    assert.doesNotMatch(html, /role="radiogroup"/);
+});
+
+test('the editor has keyboard-addressable tabs and keeps an unchanged save bar inert', () => {
+    const html = renderToStaticMarkup(createElement(PermissionEditor, { employee: { ...employee, permissionIds: [1] }, sections: [payments], templates: [], copySources: [], scopedToOwnBranch: true, onDirtyChange() {} }));
+
+    assert.match(html, /role="tablist" aria-label="عرض صلاحيات الموظف"/);
+    assert.match(html, /id="permission-tab-matrix" aria-controls="permission-view-matrix" aria-selected="true"/);
+    assert.match(html, /id="permission-view-summary" aria-labelledby="permission-tab-summary" hidden=""/);
+    assert.match(html, /id="permission-view-compare" aria-labelledby="permission-tab-compare" hidden=""/);
+    assert.match(html, /aria-label="تغييرات لم تُحفظ"[^>]*aria-hidden="true" inert=""/);
+});
+
 test('an employee without configured audit work starts with their own branch and no audit actions selected', () => {
     const audit = sectionModel({ key: 'financial_audit', label: 'التدقيق المالي', actions: [{ action: 'audit', permission: { id: 999, key: 'closings.audit', label: 'التدقيق المالي', centralOnly: true } }] });
     const actor = { ...employee, id: 1, branchId: 1, username: 'employee', permissionIds: [], auditSettingsConfigured: false, auditSettings: { scope: 'all', branch_ids: [], actions: ['approve_boxes'] } };

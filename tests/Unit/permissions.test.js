@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { changesBetween, filterSections, individualChanges, levelOf, samePermissions, sectionExtras, sectionIds, sectionModel, sectionSentence, withGroupAccess, withLevel, withSectionLevel, withToggled } from '../../resources/js/lib/permissions.js';
+import { changesBetween, copyWorkPermissions, filterSections, individualChanges, levelOf, permissionCells, samePermissions, sectionExtras, sectionIds, sectionModel, sectionSentence, withGroupAccess, withLevel, withSectionLevel, withToggled } from '../../resources/js/lib/permissions.js';
 
 const entry = (action, id, label = action) => ({ action, permission: id === null ? null : { id, label } });
 
@@ -8,6 +8,34 @@ const subscriptions = sectionModel({
     key: 'subscriptions',
     label: 'المشتركون',
     actions: [entry('view', 1), entry('create', 2), entry('update', 3), entry('delete', 4), entry('minimum_charge', 5)],
+});
+
+test('matrix actions preserve edit-only access without granting view or create', () => {
+    const edit = permissionCells(subscriptions).find((cell) => cell.key === 'update').permission;
+    const selected = withToggled([99], edit.id, true);
+
+    assert.deepEqual(selected, [99, 3]);
+    assert.deepEqual(individualChanges([subscriptions], [], selected).map((change) => change.action), ['update']);
+    assert.equal(permissionCells(subscriptions).find((cell) => cell.key === 'delete').permission.risk, 'danger');
+    assert.equal(permissionCells(subscriptions).find((cell) => cell.key === 'export').permission, null);
+});
+
+test('copying work grants preserves the target audit access and ignores unavailable source permissions', () => {
+    const audit = sectionModel({ key: 'financial_audit', label: 'التدقيق', actions: [entry('audit', 8), entry('view_all_boxes', 9)] });
+    const sections = [subscriptions, audit];
+
+    assert.deepEqual(copyWorkPermissions(sections, [1, 8, 100], [2, 3, 9, 999]), [8, 100, 2, 3]);
+    assert.deepEqual(copyWorkPermissions(sections, [1], [2, 8, 9]), [2]);
+    assert.deepEqual(copyWorkPermissions(sections, [1, 8], []), [8]);
+});
+
+test('matrix search ignores Arabic diacritics and hamza variants without changing grants', () => {
+    const selected = [3];
+    const original = [...selected];
+    const section = sectionModel({ key: 'users', label: 'إدارة المُوظّفين', actions: [entry('view', 7)] });
+
+    assert.deepEqual(filterSections([section], selected, [], 'اداره الموظفين').map((item) => item.key), ['users']);
+    assert.deepEqual(selected, original);
 });
 
 test('a section climbs view, add, edit, with delete and special permissions set apart', () => {

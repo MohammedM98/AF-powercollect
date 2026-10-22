@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>إدارة صلاحيات الموظفين — تصوّر مقترح</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alexandria:wght@500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<script>
+(()=>{try{let t='light';try{t=JSON.parse(localStorage.getItem('af-tw-mode'))||'light'}catch(e){}document.documentElement.classList.toggle('dark',t==='dark'||(t==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches))}catch(e){}})();
+</script>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+/* ألوان النظام نفسها (resources/css/app.css) */
+const tok=v=>`rgb(var(--${v}) / <alpha-value>)`,scale=(n,ks)=>Object.fromEntries(ks.map(k=>[k,tok(n+'-'+k)]));
+tailwind.config={darkMode:'class',theme:{extend:{
+ colors:{gray:scale('gray',[50,100,200,300,400,500,600,700,800,900]),brand:scale('brand',[50,100,400,500,600]),surface:tok('surface')},
+ fontFamily:{sans:['"IBM Plex Sans Arabic"','"Segoe UI"','Tahoma','Arial','sans-serif'],display:['Alexandria','"IBM Plex Sans Arabic"','Tahoma','Arial','sans-serif']},
+ borderRadius:{control:'12px',row:'18px',card:'24px',panel:'28px'},
+ boxShadow:{card:'0 1px 2px rgb(16 24 40/.04),0 14px 34px -18px rgb(16 24 40/.18)',lift:'0 2px 6px rgb(16 24 40/.06),0 24px 44px -20px rgb(16 24 40/.32)'}
+}}};
+</script>
+<style>
+:root{
+ --brand-50:251 241 241;--brand-100:244 214 216;--brand-400:196 81 90;--brand-500:165 29 38;--brand-600:143 24 32;
+ --gray-50:239 241 244;--gray-100:233 236 239;--gray-200:223 226 230;--gray-300:205 211 218;--gray-400:94 103 115;--gray-500:76 84 96;--gray-600:70 78 89;--gray-700:53 60 70;--gray-800:35 42 51;--gray-900:17 24 32;
+ --surface:255 255 255;--ease:cubic-bezier(.2,.8,.2,1);color-scheme:light}
+.dark{color-scheme:dark;
+ --brand-50:42 16 19;--brand-100:58 20 24;--brand-400:196 70 78;--brand-500:184 35 44;--brand-600:240 114 122;
+ --gray-50:11 13 16;--gray-100:27 31 37;--gray-200:37 42 50;--gray-300:52 58 67;--gray-400:128 137 149;--gray-500:158 166 177;--gray-600:184 190 199;--gray-700:205 210 217;--gray-800:226 229 233;--gray-900:244 245 247;
+ --surface:20 23 28}
+html{scrollbar-gutter:stable}
+html.locked{overflow:hidden}
+body{background:rgb(var(--gray-50));color:rgb(var(--gray-900));font-family:'IBM Plex Sans Arabic','Segoe UI',Tahoma,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(42% 38% at 8% 0%,rgb(var(--brand-500)/.10),transparent 70%),radial-gradient(38% 34% at 96% 6%,rgb(var(--gray-400)/.12),transparent 70%)}
+svg{flex-shrink:0}
+:focus-visible{outline:2px solid rgb(var(--gray-900));outline-offset:2px;border-radius:12px}
+.font-display{font-variant-numeric:tabular-nums}
+input[type=text],input[type=search],textarea{border:1px solid rgb(var(--gray-200));border-radius:12px;background:rgb(var(--surface));color:rgb(var(--gray-900))}
+input[type=text]:focus,input[type=search]:focus,textarea:focus{outline:none;border-color:rgb(var(--gray-400));box-shadow:0 0 0 3px rgb(var(--gray-900)/.08)}
+.proposal{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700;line-height:18px;background:rgb(37 99 235/.10);color:rgb(29 78 216);border:1px dashed rgb(37 99 235/.45);white-space:nowrap}
+.dark .proposal{color:rgb(147 197 253);background:rgb(37 99 235/.16)}
+.proposal-frame{outline:2px dashed rgb(37 99 235/.35);outline-offset:4px}
+.check{width:28px;height:28px;border-radius:9px;border:1.5px solid rgb(var(--gray-300));display:grid;place-items:center;background:rgb(var(--surface));transition:all .15s var(--ease);cursor:pointer}
+.check[aria-checked=true]{background:rgb(var(--brand-500));border-color:rgb(var(--brand-500));color:#fff}
+.check.changed{box-shadow:0 0 0 3px rgb(245 158 11/.35)}
+.check:disabled{cursor:not-allowed;opacity:.45}
+.tab[aria-selected=true]{background:rgb(var(--gray-900));color:rgb(var(--surface));box-shadow:inset 0 -3px 0 rgb(var(--brand-500))}
+.fade-in{animation:fade .2s var(--ease)}@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body class="min-h-screen pb-28">
+
+<!-- شريط التنقل كما في الموقع -->
+<header class="sticky top-0 z-30 px-4 pt-3 sm:px-8">
+ <div class="mx-auto flex max-w-[1400px] items-center justify-between gap-4 rounded-panel border border-gray-200 bg-surface/90 px-4 py-3 shadow-card backdrop-blur sm:px-6">
+  <div class="flex items-center gap-3">
+   <div class="grid h-10 w-10 place-items-center rounded-control bg-gradient-to-b from-[#b8232c] to-[#7d121b] font-display text-sm font-bold text-white">AF</div>
+   <div class="leading-tight"><p class="font-display text-base font-bold">Powercollect</p><p class="text-xs text-gray-500">مكتب مخيم 2</p></div>
+  </div>
+  <nav class="hidden items-center gap-1 text-sm font-semibold text-gray-700 lg:flex">
+   <span class="rounded-control px-3 py-2">الرئيسية</span><span class="rounded-control px-3 py-2">المشتركون</span><span class="rounded-control px-3 py-2">المالية</span><span class="rounded-control px-3 py-2">التقارير</span><span class="rounded-control px-3 py-2">الشبكة</span><span class="rounded-control bg-gray-900 px-3 py-2 text-surface">الإدارة</span>
+  </nav>
+  <div class="flex items-center gap-2">
+   <button id="themeToggle" type="button" class="rounded-control border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50" aria-label="تبديل الوضع الداكن">الوضع الداكن</button>
+   <div class="grid h-10 w-10 place-items-center rounded-control bg-gray-900 font-display font-bold text-surface">M</div>
+  </div>
+ </div>
+</header>
+
+<main class="mx-auto max-w-[1400px] px-4 pt-6 sm:px-8">
+ <!-- مفتاح التصوّر -->
+ <div class="mb-6 flex flex-wrap items-start gap-3 rounded-card border border-blue-500/25 bg-blue-500/[.05] px-5 py-4 text-sm leading-7 text-gray-700">
+  <span class="proposal">مقترح</span>
+  <p class="min-w-[220px] flex-1">هذا تصوّر للصفحة الحالية بعد التحسينات المقترحة. كل جزء جديد معلَّم بشارة <b>«مقترح»</b> وإطار متقطّع؛ وما عداه موجود اليوم في الموقع. الأسماء والصلاحيات مأخوذة من النظام الفعلي، والبيانات تجريبية.</p>
+  <button id="simulateConflict" type="button" class="rounded-control border border-gray-200 bg-surface px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">جرّب: مدير آخر عدّل الموظف نفسه</button>
+ </div>
+
+ <nav class="mb-2 text-xs text-gray-500">الرئيسية ‹ الإدارة والإعدادات ‹ <b class="text-gray-700">الصلاحيات</b></nav>
+ <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+  <div><h1 class="font-display text-3xl font-bold">إدارة صلاحيات الموظفين</h1><p class="mt-2 text-sm text-gray-500">اختر موظفًا، وحدّد الإجراءات المسموحة، ثم راجع التغييرات وأكّد حفظها.</p></div>
+  <span class="rounded-full border border-gray-200 bg-surface px-3 py-1 text-xs text-gray-500">أنت: <b class="text-gray-700">مدير فرع مكتب مخيم 2</b> — تُمنح فقط صلاحيات تملكها</span>
+ </div>
+
+ <div class="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+  <!-- قائمة الموظفين -->
+  <aside class="h-fit rounded-panel border border-gray-200 bg-surface p-4 shadow-card lg:sticky lg:top-28">
+   <div class="mb-3 flex items-center justify-between"><h2 class="font-display text-lg font-bold">الموظفون</h2><span id="employeeCount" class="font-display text-sm text-gray-500"></span></div>
+   <input id="employeeSearch" type="search" placeholder="ابحث عن موظف…" class="mb-3 w-full px-3 py-2.5 text-sm" aria-label="ابحث عن موظف">
+   <ul id="employeeList" class="grid gap-2"></ul>
+   <p class="mt-4 flex flex-wrap items-center gap-2 text-xs leading-6 text-gray-500"><span class="proposal">مقترح</span>يظهر دور الموظف (مدير فرع، محصّل…) عندما لا يكون له «نوع مستخدم»، بدل «غير محدد».</p>
+  </aside>
+
+  <!-- المحرر -->
+  <section class="min-w-0">
+   <div id="conflictBanner" class="proposal-frame mb-4 hidden rounded-card border border-amber-500/40 bg-amber-500/[.08] px-5 py-4 text-sm leading-7 fade-in" role="alert">
+    <div class="flex flex-wrap items-start gap-3">
+     <span class="proposal">مقترح</span>
+     <div class="min-w-[220px] flex-1"><p class="font-semibold text-gray-900">عدّل «محمد الأحمد» صلاحيات هذا الموظف قبل دقيقة، بعد أن فتحتَ الصفحة.</p><p class="text-gray-600">منح: <b>ردّ الدفعات</b>. حفظك الآن كان سيمحو تعديله دون أن تعلم؛ حدّث الموظف لترى صلاحياته الحالية، ثم أعد تعديلك.</p></div>
+     <button id="reloadEmployee" type="button" class="rounded-control bg-gray-900 px-4 py-2 text-xs font-semibold text-surface">تحديث الموظف</button>
+    </div>
+   </div>
+
+   <!-- بطاقة الموظف -->
+   <div class="overflow-hidden rounded-panel bg-gray-900 text-surface shadow-lift dark:bg-gray-100 dark:text-gray-900">
+    <div class="flex flex-wrap items-center justify-between gap-4 p-6">
+     <div class="flex min-w-0 items-center gap-4">
+      <div id="avatar" class="grid h-14 w-14 place-items-center rounded-row bg-white/10 font-display text-xl font-bold"></div>
+      <div class="min-w-0">
+       <p id="employeeName" class="truncate font-display text-2xl font-bold"></p>
+       <p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-white/70 dark:text-gray-600"><span id="employeeRole" class="rounded-full border border-white/20 px-2.5 py-0.5 text-xs dark:border-gray-300"></span><span id="employeeBranch"></span><bdi id="employeeUsername" dir="ltr"></bdi></p>
+       <p class="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60 dark:text-gray-500"><span class="proposal">مقترح</span><span id="lastChange"></span></p>
+      </div>
+     </div>
+     <div class="flex flex-wrap gap-2 text-sm">
+      <button type="button" class="rounded-control border border-white/20 px-3 py-2 font-semibold hover:bg-white/10 dark:border-gray-300">دليل الموظف</button>
+      <button type="button" class="rounded-control border border-white/20 px-3 py-2 font-semibold hover:bg-white/10 dark:border-gray-300">نسخ من موظف</button>
+     </div>
+    </div>
+    <div class="grid grid-cols-3 border-t border-white/10 text-center dark:border-gray-300">
+     <div class="p-4"><p id="statEnabled" class="font-display text-2xl font-bold"></p><p class="text-xs text-white/60 dark:text-gray-500">صلاحية مفعّلة</p></div>
+     <div class="border-x border-white/10 p-4 dark:border-gray-300"><p id="statSensitive" class="font-display text-2xl font-bold text-amber-300 dark:text-amber-700"></p><p class="text-xs text-white/60 dark:text-gray-500">صلاحيات حساسة</p></div>
+     <div class="p-4"><p id="statDanger" class="font-display text-2xl font-bold text-red-300 dark:text-red-700"></p><p class="text-xs text-white/60 dark:text-gray-500">صلاحيات خطيرة</p></div>
+    </div>
+   </div>
+
+   <!-- مراجعة الصلاحيات الخطيرة الافتراضية -->
+   <div id="dangerReview" class="proposal-frame mt-4 hidden rounded-card border border-red-500/30 bg-red-500/[.05] px-5 py-4 text-sm leading-7">
+    <div class="flex flex-wrap items-center gap-3">
+     <span class="proposal">مقترح</span>
+     <p class="min-w-[220px] flex-1 text-gray-700"><b id="dangerReviewCount"></b> صلاحية خطيرة جاءت مع دور «مدير فرع» افتراضيًا ولم يراجعها أحد بعد. راجعها وأبقِ ما يحتاجه هذا الموظف فعلًا.</p>
+     <button id="showDanger" type="button" class="rounded-control border border-red-500/40 bg-surface px-3 py-1.5 text-xs font-semibold text-red-700 dark:text-red-300">عرض الخطيرة فقط</button>
+    </div>
+   </div>
+
+   <!-- التبويبات -->
+   <div class="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="أقسام المحرر">
+    <button class="tab rounded-control px-4 py-2.5 text-sm font-semibold" role="tab" data-tab="matrix" aria-selected="true">الصلاحيات</button>
+    <button class="tab rounded-control px-4 py-2.5 text-sm font-semibold text-gray-600" role="tab" data-tab="can" aria-selected="false">ماذا يستطيع؟</button>
+    <button class="tab rounded-control px-4 py-2.5 text-sm font-semibold text-gray-600" role="tab" data-tab="branches" aria-selected="false">فروع العمل والروابط <span class="proposal">مقترح</span></button>
+    <button class="tab rounded-control px-4 py-2.5 text-sm font-semibold text-gray-600" role="tab" data-tab="history" aria-selected="false">سجل التغييرات <span class="proposal">مقترح</span></button>
+   </div>
+
+   <!-- المصفوفة -->
+   <div id="tab-matrix" class="mt-4 rounded-panel border border-gray-200 bg-surface shadow-card">
+    <div class="flex flex-wrap items-center gap-3 border-b border-gray-100 p-4">
+     <input id="permissionSearch" type="search" placeholder="ابحث بكلمة: دفعة، خصم، اعتماد، حذف…" class="min-w-[220px] flex-1 px-3 py-2.5 text-sm" aria-label="ابحث في الصلاحيات">
+     <div id="modeFilters" class="flex flex-wrap gap-1.5 text-xs font-semibold"></div>
+    </div>
+    <div id="groups" class="divide-y divide-gray-100"></div>
+   </div>
+
+   <!-- ماذا يستطيع -->
+   <div id="tab-can" class="mt-4 hidden rounded-panel border border-gray-200 bg-surface p-6 shadow-card">
+    <h3 class="font-display text-lg font-bold">ما يستطيع هذا الموظف فعله اليوم</h3>
+    <ul id="canList" class="mt-4 grid gap-2 text-sm leading-7 text-gray-700 sm:grid-cols-2"></ul>
+   </div>
+
+   <!-- فروع العمل والروابط -->
+   <div id="tab-branches" class="proposal-frame mt-4 hidden rounded-panel border border-gray-200 bg-surface p-6 shadow-card">
+    <div class="flex flex-wrap items-center gap-2"><h3 class="font-display text-lg font-bold">فروع العمل وروابطها</h3><span class="proposal">مقترح</span></div>
+    <p class="mt-2 text-sm leading-7 text-gray-500">كل فرع يعمل على رابطه الخاص بجلسة دخول مستقلة. يرى الموظف هنا أين يستطيع الدخول، ويرى المدير العام ما ينقص قبل تفعيل الرابط.</p>
+    <div id="branchList" class="mt-4 grid gap-3"></div>
+    <p class="mt-4 rounded-row bg-gray-50 px-4 py-3 text-xs leading-6 text-gray-600">إضافة فرع عمل للموظف يحددها المدير العام فقط. لا تمنح صلاحيات تشغيلية بذاتها: يعمل الموظف في الفرع الإضافي بصلاحياته نفسها.</p>
+   </div>
+
+   <!-- سجل التغييرات -->
+   <div id="tab-history" class="proposal-frame mt-4 hidden rounded-panel border border-gray-200 bg-surface p-6 shadow-card">
+    <div class="flex flex-wrap items-center gap-2"><h3 class="font-display text-lg font-bold">سجل تغييرات صلاحيات الموظف</h3><span class="proposal">مقترح</span></div>
+    <p class="mt-2 text-sm leading-7 text-gray-500">من منح أو سحب كل صلاحية، ومتى، ولماذا. لا يُعدَّل ولا يُحذف، ويظهر أيضًا في سجل التدقيق.</p>
+    <ol id="historyList" class="mt-5 grid gap-3"></ol>
+   </div>
+  </section>
+ </div>
+</main>
+
+<!-- شريط الحفظ -->
+<div id="saveBar" class="fixed inset-x-0 bottom-0 z-30 hidden px-4 pb-4 sm:px-8">
+ <div class="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 rounded-panel border border-gray-200 bg-surface/95 px-5 py-3 shadow-lift backdrop-blur fade-in">
+  <p class="text-sm"><b id="changeCount" class="font-display"></b> تغيير لم يُحفظ بعد على صلاحيات <b id="saveBarName"></b></p>
+  <div class="flex gap-2"><button id="discard" type="button" class="rounded-control border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">إلغاء</button><button id="review" type="button" class="rounded-control bg-gradient-to-b from-[#b8232c] to-[#7d121b] px-5 py-2 text-sm font-semibold text-white shadow-card">مراجعة وحفظ</button></div>
+ </div>
+</div>
+
+<!-- نافذة المراجعة -->
+<div id="reviewModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-gray-900/50 p-4" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+ <div class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-panel bg-surface shadow-lift fade-in">
+  <div class="border-b border-gray-100 px-6 py-5"><h3 id="reviewTitle" class="font-display text-xl font-bold">مراجعة التغييرات قبل الحفظ</h3><p id="reviewSubtitle" class="mt-1 text-sm text-gray-500"></p></div>
+  <div class="space-y-4 px-6 py-5">
+   <ul id="reviewList" class="grid gap-2 text-sm"></ul>
+   <div id="reasonBox" class="proposal-frame hidden rounded-row border border-red-500/30 bg-red-500/[.05] p-4">
+    <div class="mb-2 flex flex-wrap items-center gap-2"><label for="reason" class="text-sm font-semibold text-gray-900">سبب منح الصلاحيات الخطيرة</label><span class="proposal">مقترح</span></div>
+    <textarea id="reason" rows="2" class="w-full px-3 py-2 text-sm" placeholder="مثال: يتولى إغلاق الصناديق أثناء إجازة المدير حتى 30 أكتوبر"></textarea>
+    <p class="mt-2 text-xs leading-6 text-gray-500">يُحفظ السبب في سجل التغييرات بجانب اسمك ووقت الحفظ.</p>
+    <label class="mt-3 flex items-start gap-2 text-sm text-gray-700"><input id="acknowledge" type="checkbox" class="mt-1"> أفهم أن هذه الصلاحيات تغيّر أموال المشتركين أو تحذفها.</label>
+   </div>
+  </div>
+  <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4"><button id="backToEdit" type="button" class="rounded-control border border-gray-200 bg-surface px-4 py-2 text-sm font-semibold text-gray-700">العودة للتعديل</button><button id="confirmSave" type="button" class="rounded-control bg-gray-900 px-5 py-2 text-sm font-semibold text-surface disabled:opacity-40">تأكيد وحفظ الصلاحيات</button></div>
+ </div>
+</div>
+
+<div id="toast" class="fixed bottom-24 left-1/2 z-[70] hidden -translate-x-1/2 rounded-control bg-gray-900 px-4 py-2.5 text-sm font-semibold text-surface shadow-lift fade-in" role="status"></div>
+
+<script>
+/* الصلاحيات كما يعرّفها النظام (PermissionKey::resourceGroups)؛ الخطورة كما في resources/js/lib/permissions.js */
+const GROUPS = [
+ {key:'subscriptions', label:'المشتركون', hint:'بيانات المشتركين', items:[
+  ['view','عرض المشتركين'],['create','إضافة المشتركين'],['update','تعديل المشتركين'],['delete','حذف المشتركين','danger'],
+  ['archive','أرشفة الاشتراكات المنتهية','danger'],['view_archived','عرض الاشتراكات المؤرشفة','sensitive'],['restore_archived','استعادة الاشتراكات المؤرشفة','danger'],
+  ['minimum_charge','تعديل الحد الأدنى للمشترك','sensitive'],['kilowatt_price','تعديل سعر الكيلو للمشترك','danger'],['bulk_update','تعديل المشتركين جماعيًا','sensitive']]},
+ {key:'meter_readings', label:'القراءات', hint:'القراءات الأسبوعية واعتمادها', items:[
+  ['view','عرض القراءات'],['record','تسجيل القراءات'],['browse_weeks','عرض أسابيع القراءات السابقة'],
+  ['correct','تصحيح القراءات الأسبوعية','sensitive'],['correct_last','تعديل القراءة السابقة','sensitive'],['approve','اعتماد القراءات','danger']]},
+ {key:'collections', label:'الدفعات والحركات المالية', hint:'التحصيل والصناديق وحركات الحساب', items:[
+  ['view','عرض التحصيلات'],['record','إضافة دفعة'],['record_late','تسجيل دفعات بتاريخ سابق','sensitive'],
+  ['close_boxes','إغلاق صناديق المحصّلين','sensitive'],['confirm','تأكيد التحصيلات','danger'],
+  ['charge','إضافة تحميل','sensitive'],['discount','إضافة خصم','sensitive'],['clearing','إضافة مقاصة','sensitive'],
+  ['amend','تعديل بيانات الدفعة','sensitive'],['correct','تعديل الحركات المالية','danger'],['refund','ردّ الدفعات','danger'],
+  ['delete','إلغاء الحركات المالية','danger'],['force_delete','الحذف النهائي للحركات المالية','danger']]},
+ {key:'disconnections', label:'قوائم القطع', hint:'الإنذار والتنفيذ ورسوم القطع', items:[
+  ['view','عرض قوائم القطع'],['manage','إدارة قوائم القطع'],['warn','إرسال إنذارات القطع','sensitive'],['execute','تأكيد تنفيذ القطع','danger'],['change_fee','تغيير رسوم القطع','danger']]},
+ {key:'reports', label:'التقارير', hint:'التقارير المالية وأداء الفرع', items:[
+  ['branch_performance','عرض أداء الفروع'],['debt_aging','عرض أعمار الديون'],['transaction_audit','عرض سجل التدقيق'],['export','تنزيل التقارير المالية','sensitive']]},
+];
+const ALL = GROUPS.flatMap(g => g.items.map(([a,label,risk]) => ({id:`${g.key}.${a}`, group:g.key, label, risk:risk||null})));
+const byId = Object.fromEntries(ALL.map(p => [p.id, p]));
+const ids = (...keys) => keys.flatMap(k => k.endsWith('*') ? ALL.filter(p => p.group === k.slice(0,-1)).map(p => p.id) : [k]);
+
+const EMPLOYEES = [
+ {id:2, name:'محمود ناصر', username:'mahmoud', userType:null, role:'محصّل', branch:'مكتب مخيم 2', perms:ids('collections.view','collections.record','subscriptions.view'), workBranches:[1], defaultsReviewed:true,
+  history:[{at:'2026-10-12 10:24', by:'محمد الأحمد', changes:[['+','collections.record']], reason:null}]},
+ {id:3, name:'أحمد سليم', username:'ahmed', userType:'جابي ميداني', role:'محصّل', branch:'مكتب مخيم 2', perms:ids('collections.view','collections.record','collections.record_late','subscriptions.view'), workBranches:[1,3], defaultsReviewed:true,
+  history:[{at:'2026-10-20 13:05', by:'محمد الأحمد', changes:[['+','collections.record_late']], reason:'يسلّم سندات الأيام الماضية بعد العطلة'},{at:'2026-10-02 09:11', by:'المدير العام', changes:[['+','collections.record'],['+','collections.view']], reason:null}]},
+ {id:4, name:'خليل عودة', username:'khalil', userType:null, role:'مدخل بيانات', branch:'مكتب مخيم 2', perms:ids('subscriptions.view','subscriptions.create','subscriptions.update','meter_readings.view','meter_readings.record','meter_readings.correct','meter_readings.correct_last','meter_readings.browse_weeks'), workBranches:[1], defaultsReviewed:true, history:[]},
+ {id:5, name:'سامر حمدان', username:'samer', userType:'مساعد مدير', role:'مدير فرع', branch:'مكتب مخيم 2', perms:ids('subscriptions*','meter_readings*','collections.view','collections.record','collections.close_boxes','collections.confirm','collections.charge','collections.discount','collections.clearing','collections.amend','collections.correct','collections.refund','collections.delete','disconnections*','reports*'), workBranches:[1], defaultsReviewed:false,
+  history:[{at:'2026-09-30 08:40', by:'المدير العام', changes:[['+','collections.refund'],['+','collections.delete'],['+','collections.correct']], reason:'صلاحيات مدير الفرع الافتراضية'}]},
+];
+const BRANCHES = [
+ {id:1, name:'مكتب مخيم 2', domain:'camp2.powercollect.ps', state:'ready'},
+ {id:3, name:'مكتب النصيرات', domain:'nuseirat.powercollect.ps', state:'dns'},
+ {id:4, name:'مكتب البريج', domain:null, state:'none'},
+];
+
+const state = {selected:5, draft:{}, mode:'all', search:'', listSearch:'', tab:'matrix', conflict:false};
+const current = () => EMPLOYEES.find(e => e.id === state.selected);
+const draftOf = (e) => state.draft[e.id] ?? new Set(e.perms);
+const diff = (e) => { const d = draftOf(e), s = new Set(e.perms); return {added:[...d].filter(p => !s.has(p)), removed:[...s].filter(p => !d.has(p))}; };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const riskBadge = (risk) => risk === 'danger' ? '<span class="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-700 dark:text-red-300">خطير</span>'
+ : risk === 'sensitive' ? '<span class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-300">حساس</span>' : '';
+const checkIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
+function renderList() {
+ const term = state.listSearch.trim();
+ const people = EMPLOYEES.filter(e => !term || e.name.includes(term) || e.username.includes(term));
+ $('employeeCount').textContent = `${EMPLOYEES.length} موظفين`;
+ $('employeeList').innerHTML = people.map(e => {
+  const perms = draftOf(e), danger = [...perms].filter(p => byId[p]?.risk === 'danger').length, dirty = diff(e).added.length + diff(e).removed.length > 0;
+  return `<li><button type="button" data-employee="${e.id}" class="flex w-full items-center gap-3 rounded-row border px-3 py-2.5 text-start transition ${e.id === state.selected ? 'border-brand-400/50 bg-brand-50' : 'border-transparent hover:bg-gray-50'}">
+   <span class="grid h-10 w-10 place-items-center rounded-control bg-gray-900 font-display font-bold text-surface">${esc(e.name[0])}</span>
+   <span class="min-w-0 flex-1"><span class="block truncate font-semibold ${e.id === state.selected ? 'text-brand-600' : ''}">${esc(e.name)}${dirty ? ' <span class="text-amber-600" aria-label="تغييرات لم تُحفظ">●</span>' : ''}</span>
+   <span class="block truncate text-xs text-gray-500">${esc(e.userType ?? e.role)}${e.userType ? '' : ' <span class="text-[10px] text-blue-600 dark:text-blue-300">(الدور)</span>'}</span></span>
+   <span class="flex flex-col items-end gap-1"><span class="rounded-md bg-gray-100 px-1.5 font-display text-xs font-bold">${perms.size}</span>${danger ? `<span class="rounded-md bg-red-500/10 px-1.5 font-display text-[11px] font-bold text-red-700 dark:text-red-300" title="صلاحيات خطيرة">${danger} خطيرة</span>` : ''}</span>
+  </button></li>`;
+ }).join('') || '<li class="px-3 py-6 text-center text-sm text-gray-500">لا يوجد موظف بهذا الاسم.</li>';
+}
+
+function renderHeader() {
+ const e = current(), perms = draftOf(e), count = (risk) => [...perms].filter(p => byId[p]?.risk === risk).length;
+ $('avatar').textContent = e.name[0];
+ $('employeeName').textContent = e.name;
+ $('employeeRole').textContent = e.userType ?? `${e.role} · بلا نوع مستخدم`;
+ $('employeeBranch').textContent = e.branch;
+ $('employeeUsername').textContent = '@' + e.username;
+ const last = e.history[0];
+ $('lastChange').textContent = last ? `آخر تعديل على صلاحياته: ${last.by} · ${last.at}` : 'لم تُعدَّل صلاحياته منذ إنشاء حسابه';
+ $('statEnabled').textContent = perms.size; $('statSensitive').textContent = count('sensitive'); $('statDanger').textContent = count('danger');
+ $('dangerReview').classList.toggle('hidden', e.defaultsReviewed || count('danger') === 0);
+ $('dangerReviewCount').textContent = count('danger');
+ $('conflictBanner').classList.toggle('hidden', !state.conflict);
+}
+
+function visible(p, e) {
+ const d = draftOf(e), s = new Set(e.perms), term = state.search.trim();
+ if (term && !p.label.includes(term)) return false;
+ return state.mode === 'all' || (state.mode === 'enabled' && d.has(p.id)) || (state.mode === 'danger' && p.risk === 'danger') || (state.mode === 'changed' && d.has(p.id) !== s.has(p.id));
+}
+
+function renderMatrix() {
+ const e = current(), d = draftOf(e), s = new Set(e.perms);
+ const modes = [['all','الكل'],['enabled','المفعّلة'],['danger','الخطيرة'],['changed','المعدّلة']];
+ $('modeFilters').innerHTML = modes.map(([m,label]) => `<button type="button" data-mode="${m}" aria-pressed="${state.mode === m}" class="rounded-full border px-3 py-1.5 ${state.mode === m ? 'border-brand-400/50 bg-brand-50 text-brand-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}">${label} <span class="font-display">${ALL.filter(p => { const keep = state.mode; state.mode = m; const v = visible(p, e); state.mode = keep; return v; }).length}</span></button>`).join('');
+ $('groups').innerHTML = GROUPS.map(g => {
+  const items = ALL.filter(p => p.group === g.key && visible(p, e));
+  if (!items.length) return '';
+  const on = ALL.filter(p => p.group === g.key && d.has(p.id)).length, total = g.items.length;
+  return `<section class="p-4 sm:p-5">
+   <div class="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h3 class="font-display text-base font-bold">${g.label} <span class="font-display text-sm font-semibold text-gray-500">${on} / ${total}</span></h3><p class="text-xs text-gray-500">${g.hint}</p></div>
+   <div class="flex gap-2 text-xs font-semibold"><button type="button" data-group-all="${g.key}" class="rounded-control border border-gray-200 px-2.5 py-1 text-gray-600 hover:bg-gray-50">منح الكل</button><button type="button" data-group-none="${g.key}" class="rounded-control border border-gray-200 px-2.5 py-1 text-gray-600 hover:bg-gray-50">سحب الكل</button></div></div>
+   <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">${items.map(p => {
+    const checked = d.has(p.id), changed = checked !== s.has(p.id);
+    return `<label class="flex cursor-pointer items-center gap-3 rounded-row border px-3 py-2.5 transition ${changed ? 'border-amber-500/50 bg-amber-500/[.06]' : 'border-gray-100 hover:bg-gray-50'}">
+     <button type="button" role="checkbox" aria-checked="${checked}" data-perm="${p.id}" class="check ${changed ? 'changed' : ''}">${checked ? checkIcon : ''}</button>
+     <span class="min-w-0 flex-1 text-sm font-medium">${p.label}</span>${riskBadge(p.risk)}</label>`;
+   }).join('')}</div></section>`;
+ }).join('') || '<p class="p-8 text-center text-sm text-gray-500">لا توجد صلاحيات تطابق البحث.</p>';
+}
+
+function renderCan() {
+ const d = draftOf(current());
+ $('canList').innerHTML = ALL.filter(p => d.has(p.id)).map(p => `<li class="flex items-center gap-2 rounded-row bg-gray-50 px-3 py-2">${checkIcon.replace('currentColor','rgb(var(--brand-500))')}<span class="flex-1">${p.label}</span>${riskBadge(p.risk)}</li>`).join('') || '<li class="text-gray-500">لا يملك أي صلاحية بعد.</li>';
+}
+
+function renderBranches() {
+ const e = current();
+ const stateView = {
+  ready:['bg-emerald-500/10 text-emerald-700 dark:text-emerald-300','الرابط يعمل'],
+  dns:['bg-amber-500/10 text-amber-700 dark:text-amber-300','ينتظر ربط DNS وشهادة HTTPS'],
+  none:['bg-gray-100 text-gray-600','لم يُحدَّد رابط'],
+ };
+ $('branchList').innerHTML = BRANCHES.map(b => {
+  const works = e.workBranches.includes(b.id), [tone,label] = stateView[b.state];
+  return `<div class="flex flex-wrap items-center gap-3 rounded-row border ${works ? 'border-gray-200' : 'border-dashed border-gray-200 opacity-70'} px-4 py-3">
+   <div class="min-w-0 flex-1"><p class="font-semibold">${b.name} ${b.id === 1 ? '<span class="text-xs font-normal text-gray-500">· فرعه الأساسي</span>' : works ? '<span class="text-xs font-normal text-gray-500">· فرع عمل إضافي</span>' : ''}</p>
+   <p class="mt-0.5 text-xs text-gray-500"><bdi dir="ltr">${b.domain ?? '—'}</bdi></p></div>
+   <span class="rounded-full px-2.5 py-1 text-xs font-semibold ${tone}">${label}</span>
+   <span class="rounded-full px-2.5 py-1 text-xs font-semibold ${works ? 'bg-gray-900 text-surface' : 'bg-gray-100 text-gray-500'}">${works ? 'يستطيع الدخول' : 'غير مسموح'}</span>
+  </div>`;
+ }).join('');
+}
+
+function renderHistory() {
+ const e = current();
+ $('historyList').innerHTML = e.history.map(h => `<li class="rounded-row border border-gray-100 p-4">
+  <div class="flex flex-wrap items-center justify-between gap-2 text-sm"><b>${esc(h.by)}</b><span class="font-display text-xs text-gray-500">${h.at}</span></div>
+  <ul class="mt-2 flex flex-wrap gap-2">${h.changes.map(([sign,id]) => `<li class="rounded-full px-2.5 py-1 text-xs font-semibold ${sign === '+' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-red-500/10 text-red-700 dark:text-red-300'}">${sign === '+' ? 'منح' : 'سحب'}: ${byId[id]?.label ?? id}</li>`).join('')}</ul>
+  ${h.reason ? `<p class="mt-2 text-xs leading-6 text-gray-600">السبب: ${esc(h.reason)}</p>` : ''}</li>`).join('') || '<li class="rounded-row bg-gray-50 p-6 text-center text-sm text-gray-500">لا توجد تغييرات مسجّلة لهذا الموظف بعد.</li>';
+}
+
+function renderSaveBar() {
+ const e = current(), {added,removed} = diff(e), n = added.length + removed.length;
+ $('saveBar').classList.toggle('hidden', n === 0);
+ $('changeCount').textContent = n; $('saveBarName').textContent = e.name;
+}
+
+function render() {
+ renderList(); renderHeader(); renderSaveBar();
+ document.querySelectorAll('.tab').forEach(t => { const on = t.dataset.tab === state.tab; t.setAttribute('aria-selected', on); t.classList.toggle('text-gray-600', !on); });
+ ['matrix','can','branches','history'].forEach(t => $('tab-' + t).classList.toggle('hidden', state.tab !== t));
+ ({matrix:renderMatrix, can:renderCan, branches:renderBranches, history:renderHistory})[state.tab]();
+}
+
+function toggle(permId, on) {
+ const e = current(), d = new Set(draftOf(e));
+ (on ?? !d.has(permId)) ? d.add(permId) : d.delete(permId);
+ state.draft[e.id] = d; render();
+}
+
+function toast(text) { const t = $('toast'); t.textContent = text; t.classList.remove('hidden'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 2600); }
+
+function openReview() {
+ const e = current(), {added,removed} = diff(e), dangerous = added.filter(p => byId[p].risk === 'danger');
+ $('reviewSubtitle').textContent = `${e.name} · ${added.length} منح و${removed.length} سحب`;
+ $('reviewList').innerHTML = [...added.map(p => ['+',p]), ...removed.map(p => ['-',p])].map(([sign,p]) => `<li class="flex items-center gap-2 rounded-row px-3 py-2 ${sign === '+' ? 'bg-emerald-500/[.07]' : 'bg-red-500/[.06]'}"><b class="font-display ${sign === '+' ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}">${sign === '+' ? 'منح' : 'سحب'}</b><span class="flex-1">${byId[p].label}</span>${riskBadge(byId[p].risk)}</li>`).join('');
+ $('reasonBox').classList.toggle('hidden', dangerous.length === 0);
+ $('reason').value = ''; $('acknowledge').checked = false;
+ updateConfirm();
+ $('reviewModal').classList.replace('hidden','flex'); document.documentElement.classList.add('locked'); $('backToEdit').focus();
+}
+function closeReview() { $('reviewModal').classList.replace('flex','hidden'); document.documentElement.classList.remove('locked'); }
+function updateConfirm() {
+ const needsReason = !$('reasonBox').classList.contains('hidden');
+ $('confirmSave').disabled = needsReason && (!$('acknowledge').checked || $('reason').value.trim().length < 5);
+}
+
+document.addEventListener('click', (ev) => {
+ const t = ev.target.closest('button'); if (!t) return;
+ if (t.dataset.employee) { state.selected = Number(t.dataset.employee); state.conflict = false; render(); }
+ else if (t.dataset.perm) { ev.preventDefault(); toggle(t.dataset.perm); }
+ else if (t.dataset.mode) { state.mode = t.dataset.mode; render(); }
+ else if (t.dataset.tab) { state.tab = t.dataset.tab; render(); }
+ else if (t.dataset.groupAll || t.dataset.groupNone) {
+  const e = current(), d = new Set(draftOf(e)), key = t.dataset.groupAll ?? t.dataset.groupNone;
+  ALL.filter(p => p.group === key).forEach(p => t.dataset.groupAll ? d.add(p.id) : d.delete(p.id)); state.draft[e.id] = d; render();
+ }
+});
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !$('reviewModal').classList.contains('hidden')) closeReview(); });
+$('employeeSearch').addEventListener('input', (ev) => { state.listSearch = ev.target.value; renderList(); });
+$('permissionSearch').addEventListener('input', (ev) => { state.search = ev.target.value; renderMatrix(); });
+$('discard').addEventListener('click', () => { delete state.draft[current().id]; render(); });
+$('review').addEventListener('click', () => state.conflict ? toast('حدّث الموظف أولًا: تغيّرت صلاحياته منذ فتحت الصفحة') : openReview());
+$('backToEdit').addEventListener('click', closeReview);
+$('reason').addEventListener('input', updateConfirm); $('acknowledge').addEventListener('change', updateConfirm);
+$('confirmSave').addEventListener('click', () => {
+ const e = current(), {added,removed} = diff(e);
+ e.perms = [...draftOf(e)]; delete state.draft[e.id]; e.defaultsReviewed = true;
+ e.history.unshift({at:'الآن', by:'أنت (مدير فرع مكتب مخيم 2)', changes:[...added.map(p => ['+',p]), ...removed.map(p => ['-',p])], reason:$('reason').value.trim() || null});
+ closeReview(); render(); toast('حُفظت الصلاحيات وسُجّل التغيير في سجل التغييرات');
+});
+$('simulateConflict').addEventListener('click', () => { state.conflict = true; render(); $('conflictBanner').scrollIntoView({behavior:'smooth', block:'center'}); });
+$('reloadEmployee').addEventListener('click', () => {
+ const e = current(); if (!e.perms.includes('collections.refund')) e.perms.push('collections.refund');
+ e.history.unshift({at:'قبل دقيقة', by:'محمد الأحمد', changes:[['+','collections.refund']], reason:'يغطي الصندوق يوم الخميس'});
+ delete state.draft[e.id]; state.conflict = false; render(); toast('حُدّثت صلاحيات الموظف من الخادم');
+});
+$('showDanger').addEventListener('click', () => { state.tab = 'matrix'; state.mode = 'danger'; render(); });
+$('themeToggle').addEventListener('click', () => { const dark = document.documentElement.classList.toggle('dark'); try { localStorage.setItem('af-tw-mode', JSON.stringify(dark ? 'dark' : 'light')); } catch (e) {} });
+render();
+</script>
+</body>
+</html>

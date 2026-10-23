@@ -15,7 +15,7 @@ export default function UserModal({ show, onClose, user, branches, canChooseBran
                 canUpdatePassword={user?.canUpdatePassword}
                 userTypeOptions={userTypeOptions}
                 branches={branches}
-                canChooseBranch={canChooseBranch && !user?.isSuperAdmin}
+                canChooseBranch={canChooseBranch}
             />
         </FormModal>
     );

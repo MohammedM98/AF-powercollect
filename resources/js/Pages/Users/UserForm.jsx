@@ -1,3 +1,4 @@
+import ChoiceChips from '@/Components/ChoiceChips';
 import FormField from '@/Components/Form/FormField';
 import FormPreview, { countFilled } from '@/Components/Form/FormPreview';
 import FormSelect, { namedOptions } from '@/Components/Form/FormSelect';
@@ -23,6 +24,7 @@ export function userFormData(user) {
         password: '',
         password_confirmation: '',
         branch_id: user?.branch_id ?? '',
+        company_wide: user?.isSuperAdmin ?? false,
         is_active: user?.is_active ?? true,
     };
 }
@@ -42,7 +44,11 @@ export default function UserForm({ data, setData, errors, isEdit, branches, canC
                 title={name || 'مستخدم جديد'}
                 subtitle={data.username.trim() ? `@${data.username.trim()}` : null}
                 subtitleDir="ltr"
-                chips={[userType?.label, branch?.name, data.is_active ? null : 'موقوف'].filter(Boolean)}
+                chips={[
+                    data.company_wide ? 'مدير عام' : userType?.label,
+                    data.company_wide ? 'كل الفروع' : branch?.name,
+                    data.is_active ? null : 'موقوف',
+                ].filter(Boolean)}
                 filled={countFilled(data, requiredFields)}
                 total={requiredFields.length}
             />
@@ -98,6 +104,27 @@ export default function UserForm({ data, setData, errors, isEdit, branches, canC
                 </FormField>
 
                 {canChooseBranch && (
+                    <FormField
+                        id="company_wide"
+                        label="نطاق العمل"
+                        hint="«كل الفروع» يجعله مديرًا عامًا مثلك: كل الصلاحيات في كل الفروع، ويدير الشركة كلها. «فرع واحد» موظف في فرعه بالصلاحيات التي تمنحها له."
+                        error={errors.company_wide}
+                        span="sm:col-span-2"
+                    >
+                        <ChoiceChips
+                            id="company_wide"
+                            label="نطاق العمل"
+                            value={data.company_wide ? 'company' : 'branch'}
+                            onChange={(value) => setData('company_wide', value === 'company')}
+                            options={[
+                                { value: 'branch', label: 'فرع واحد', icon: 'pin' },
+                                { value: 'company', label: 'كل الفروع · مدير عام', icon: 'shield' },
+                            ]}
+                        />
+                    </FormField>
+                )}
+
+                {canChooseBranch && !data.company_wide && (
                     <FormSelect
                         id="branch_id"
                         label="الفرع"

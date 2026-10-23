@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\UserRole;
+use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -41,16 +43,32 @@ class UpdateUserRequest extends FormRequest
             'role' => ['prohibited'],
         ];
 
-        if ($actor->isSuperAdmin() && ! $target->isSuperAdmin()) {
-            $rules['branch_id'] = ['required', Rule::exists('branches', 'id')];
+        // Only a Super Admin moves an account to another branch, or between one branch and every branch.
+        if ($actor->isSuperAdmin()) {
+            $rules['company_wide'] = ['sometimes', 'boolean'];
+            if (! $this->companyWide()) {
+                $rules['branch_id'] = ['required', Rule::exists('branches', 'id')];
+            }
         }
 
         return $rules;
     }
 
     /**
-     * Nobody stops their own account: whoever does so would be shut out
-     * with no one left to turn it back on.
+     * Whether the account is to work over every branch as a Super Admin:
+     * as asked by a Super Admin, otherwise as it is now.
+     */
+    public function companyWide(): bool
+    {
+        return $this->user()->isSuperAdmin() && $this->has('company_wide')
+            ? $this->boolean('company_wide')
+            : $this->route('user')->isSuperAdmin();
+    }
+
+    /**
+     * Nobody stops their own account or changes their own reach: whoever
+     * does so could be shut out with no one left to undo it. Nor is the
+     * last working Super Admin stopped or sent to one branch.
      *
      * @return array<int, callable>
      */
@@ -58,8 +76,21 @@ class UpdateUserRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                if ($this->has('is_active') && ! $this->boolean('is_active') && $this->route('user')->is($this->user())) {
+                $target = $this->route('user');
+                $stopping = $this->has('is_active') && ! $this->boolean('is_active');
+
+                if ($stopping && $target->is($this->user())) {
                     $validator->errors()->add('is_active', 'لا يمكنك إيقاف حسابك بنفسك.');
+                }
+
+                if ($target->isSuperAdmin() && ! $this->companyWide() && $target->is($this->user())) {
+                    $validator->errors()->add('company_wide', 'لا يمكنك نقل حسابك إلى فرع بنفسك.');
+                }
+
+                $leavesNoSuperAdmin = $target->isSuperAdmin() && $target->is_active && ($stopping || ! $this->companyWide())
+                    && ! User::query()->where('role', UserRole::SuperAdmin)->where('is_active', true)->whereKeyNot($target->id)->exists();
+                if ($leavesNoSuperAdmin) {
+                    $validator->errors()->add('company_wide', 'هذا آخر مدير عام نشط، فأبقِه على كل الفروع ونشطًا.');
                 }
             },
         ];

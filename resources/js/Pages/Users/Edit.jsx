@@ -15,7 +15,7 @@ export default function Edit({ user, branches, canChooseBranch, userTypeOptions 
                 canUpdatePassword={user.canUpdatePassword}
                 userTypeOptions={userTypeOptions}
                 branches={branches}
-                canChooseBranch={canChooseBranch && !user.isSuperAdmin}
+                canChooseBranch={canChooseBranch}
             />
         </FormPage>
     );

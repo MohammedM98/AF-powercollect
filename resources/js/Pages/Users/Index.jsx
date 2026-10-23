@@ -146,7 +146,7 @@ export default function Index({
                                                 {user.username}
                                             </td>
                                             <td className="text-gray-600">{user.userTypeName ?? '—'}</td>
-                                            <td className="text-gray-600">{user.branchName ?? '—'}</td>
+                                            <td className="text-gray-600">{user.isSuperAdmin ? 'كل الفروع' : (user.branchName ?? '—')}</td>
                                             <td>
                                                 <StatusPill tone={user.is_active ? 'green' : 'gray'} label={user.is_active ? 'نشط' : 'متوقف'} />
                                             </td>

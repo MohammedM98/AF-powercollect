@@ -173,8 +173,8 @@ export default function DateInput({
                         openCalendar();
                     }
                 }}
-                className={`flex h-[42px] w-full items-center justify-between gap-2 rounded-control border bg-surface px-3 text-start text-base leading-6 transition focus:outline-none focus-visible:border-gray-900 focus-visible:ring-4 focus-visible:ring-gray-900/10 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-gray-50 disabled:text-gray-500 ${
-                    open ? 'border-gray-900 ring-4 ring-gray-900/10' : 'border-gray-200 hover:border-gray-300'
+                className={`flex h-[42px] w-full items-center justify-between gap-2 rounded-control border bg-surface px-3 text-start text-base leading-6 transition focus:outline-none focus-visible:border-brand-500 focus-visible:ring-4 focus-visible:ring-brand-500/15 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-gray-50 disabled:text-gray-500 ${
+                    open ? 'border-brand-500 ring-4 ring-brand-500/15' : 'border-gray-200 hover:border-brand-500/45'
                 }`}
             >
                 <span className={`truncate ${hasValue ? 'text-gray-900' : 'text-gray-400/60'}`}>{hasValue ? formatWeekDay(value) : placeholder}</span>

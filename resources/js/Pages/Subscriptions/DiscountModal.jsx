@@ -47,7 +47,7 @@ const QUICK_VALUES = {
 const WEEKS_PER_MONTH = 4.3;
 
 const inputClass =
-    'block h-[50px] w-full rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-4 text-base text-gray-900 transition placeholder:text-gray-400 hover:border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-900/10';
+    'block h-[50px] w-full rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-4 text-base text-gray-900 transition placeholder:text-gray-400 hover:border-brand-500/45 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15';
 
 /** What the value field asks for: shekels off the balance once, or by method for the weekly readings discount. */
 function fieldFor(kind, method, kiloPrice) {

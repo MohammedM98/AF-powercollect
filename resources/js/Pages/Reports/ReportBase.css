@@ -1312,6 +1312,9 @@
     padding: 9px 12px;
     resize: vertical;
 }
+.financial-report :is(.fld input, .fld select, .fld textarea, .reason textarea):hover:not(:disabled, :focus) {
+    border-color: rgb(var(--brand-500) / 0.45);
+}
 .financial-report .fld input:focus,
 .financial-report .fld select:focus,
 .financial-report .fld textarea:focus {

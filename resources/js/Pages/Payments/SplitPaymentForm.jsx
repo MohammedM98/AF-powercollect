@@ -322,7 +322,7 @@ export default function SplitPaymentForm({ transferBanks, senderBanks, bare = fa
                     className={`rounded-[22px] border-[1.5px] bg-surface px-[18px] py-4 transition ${
                         errors.total_amount
                             ? 'border-brand-500 shadow-[0_0_0_5px_rgb(var(--brand-500)/0.08)]'
-                            : 'border-gray-200 focus-within:border-gray-900 focus-within:shadow-[0_0_0_5px_rgb(var(--gray-900)/0.08)]'
+                            : 'border-gray-200 focus-within:border-brand-500 focus-within:shadow-[0_0_0_5px_rgb(var(--brand-500)/0.12)]'
                     }`}
                 >
                     <div className="flex items-center gap-3.5">

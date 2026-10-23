@@ -81,7 +81,7 @@ function RateEditor({ tariff, dark, onDone }) {
                     className={`flex min-w-[210px] flex-1 items-center gap-2 rounded-2xl border-[1.5px] px-3.5 py-1.5 focus-within:ring-4 ${
                         dark
                             ? 'border-white/20 bg-gray-950/60 focus-within:border-white focus-within:ring-white/10'
-                            : 'border-gray-200 bg-surface focus-within:border-gray-900 focus-within:ring-gray-900/10'
+                            : 'border-gray-200 bg-surface focus-within:border-brand-500 focus-within:ring-brand-500/15'
                     }`}
                 >
                     <input
@@ -303,7 +303,7 @@ function QuickCalculator({ tariffs }) {
                 <h3 className="font-luxe text-lg font-bold text-gray-900">حاسبة سريعة</h3>
                 <p className="text-[13.5px] text-gray-500">كم يدفع المشترك عن استهلاك معيّن؟</p>
             </div>
-            <label className="flex items-center gap-2 rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-3 py-1 focus-within:border-gray-900">
+            <label className="flex items-center gap-2 rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-3 py-1 focus-within:border-brand-500">
                 <input
                     value={kilos}
                     inputMode="decimal"

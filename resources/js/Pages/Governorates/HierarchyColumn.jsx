@@ -90,7 +90,7 @@ export default function HierarchyColumn({
                                 onChange={(event) => (searchesOnServer ? onSearchChange : setLocalSearch)(event.target.value)}
                                 placeholder="بحث"
                                 aria-label={`بحث في ${title}`}
-                                className="h-10 w-full rounded-control border-gray-200 bg-gray-50 px-3 text-sm focus:border-gray-900 focus:bg-surface focus:ring-0"
+                                className="h-10 w-full rounded-control border-gray-200 bg-gray-50 px-3 text-sm focus:border-brand-500 focus:bg-surface focus:ring-0"
                             />
                         </div>
                     )}

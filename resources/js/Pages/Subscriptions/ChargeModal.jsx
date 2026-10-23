@@ -38,7 +38,7 @@ const TYPE_LOOKS = {
 const LARGE_CHARGE = 500;
 
 const notesClass =
-    'block min-h-[76px] w-full resize-y rounded-[14px] border-[1.5px] bg-surface px-4 py-3 text-base leading-relaxed text-gray-900 transition placeholder:text-gray-400 hover:border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-900/10';
+    'block min-h-[76px] w-full resize-y rounded-[14px] border-[1.5px] bg-surface px-4 py-3 text-base leading-relaxed text-gray-900 transition placeholder:text-gray-400 hover:border-brand-500/45 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15';
 
 /**
  * Charge a subscription by hand (تحميل): a financial penalty (which must say

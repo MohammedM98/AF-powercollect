@@ -30,7 +30,7 @@ const QUICK_AMOUNTS = [50, 100, 200];
 const LARGE_CLEARING = 500;
 
 const notesClass =
-    'block min-h-[76px] w-full resize-y rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-4 py-3 text-base leading-relaxed text-gray-900 transition placeholder:text-gray-400 hover:border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-900/10';
+    'block min-h-[76px] w-full resize-y rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-4 py-3 text-base leading-relaxed text-gray-900 transition placeholder:text-gray-400 hover:border-brand-500/45 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15';
 
 /**
  * Record a clearing (مقاصة): a service for a service. The subscription gets

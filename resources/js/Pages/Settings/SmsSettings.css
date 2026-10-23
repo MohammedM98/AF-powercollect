@@ -7,13 +7,15 @@
 .sm-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; margin-top: 14px; }
 .sm-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .sm-field.is-wide { grid-column: 1 / -1; }
-.sm-field > label, .sm-field > .sm-label { color: var(--rs-ink2); font-size: 14px; font-weight: 600; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+/* Every label is one height, with or without its "!", so the fields of a row line up. */
+.sm-field > label, .sm-field > .sm-label { color: var(--rs-ink2); font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 28px; }
 .sm-field small { color: var(--rs-faint); font-size: 12.5px; font-weight: 500; }
-/* Fields as everywhere in the app (app.css): a white field, a quiet border, an ink focus ring; grey and dashed only when disabled. */
+/* Fields as everywhere in the app (app.css): a white field, a quiet border, burgundy under the pointer and while typing; grey and dashed only when disabled. */
 .sm-input { width: 100%; min-width: 0; border: 1px solid var(--rs-line); border-radius: 12px; padding: 10px 12px; background: var(--rs-surface); color: var(--rs-ink); font-size: 15px; box-shadow: 0 1px 2px #1018280a; transition: border-color .15s, box-shadow .15s; }
+input.sm-input { height: 44px; }
 .sm-input::placeholder { color: rgb(var(--gray-400) / 0.55); font-weight: 400; }
-.sm-input:hover:not(:disabled):not(:focus) { border-color: color-mix(in srgb, var(--rs-ink) 22%, var(--rs-line)); }
-.sm-input:focus, .sms-settings .sm-input:focus-visible { border-color: var(--rs-ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--rs-ink) 10%, transparent); outline: none; }
+.sm-input:hover:not(:disabled):not(:focus) { border-color: rgb(var(--brand-500) / 0.45); }
+.sm-input:focus, .sms-settings .sm-input:focus-visible { border-color: rgb(var(--brand-500)); box-shadow: 0 0 0 4px rgb(var(--brand-500) / 0.15); outline: none; }
 .sm-input[aria-invalid=true] { border-color: var(--rs-brand); }
 .sm-input:disabled { border-style: dashed; background: var(--rs-raised); color: var(--rs-faint); }
 .sm-input.is-code { direction: ltr; text-align: right; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 14px; }

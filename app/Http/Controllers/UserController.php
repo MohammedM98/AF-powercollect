@@ -100,12 +100,11 @@ class UserController extends Controller
     {
         $actor = auth()->user();
         $data = $request->validated();
-        $data['role'] = UserRole::Collector;
-
-        /** Non-Super-Admins can add employees only to their own branch. */
-        if (! $actor->isSuperAdmin()) {
-            $data['branch_id'] = $actor->workBranchId();
-        }
+        $companyWide = $actor->isSuperAdmin() && $request->boolean('company_wide');
+        unset($data['company_wide']);
+        // A Super Admin works over every branch, with no branch of their own.
+        $data['role'] = $companyWide ? UserRole::SuperAdmin : UserRole::Collector;
+        $data['branch_id'] = $companyWide ? null : ($actor->isSuperAdmin() ? $data['branch_id'] : $actor->workBranchId());
 
         $data['password'] = Hash::make($data['password']);
 
@@ -134,6 +133,15 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
         $data = $request->validated();
+        unset($data['company_wide']);
+
+        if ($request->user()->isSuperAdmin() && $request->companyWide() !== $user->isSuperAdmin()) {
+            // Made a Super Admin over every branch, or sent to one branch as an employee.
+            $data['role'] = $request->companyWide() ? UserRole::SuperAdmin : UserRole::Collector;
+        }
+        if ($request->user()->isSuperAdmin() && $request->companyWide()) {
+            $data['branch_id'] = null;
+        }
 
         if (! empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);

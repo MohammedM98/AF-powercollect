@@ -38,8 +38,10 @@ class StoreUserRequest extends FormRequest
             'role' => ['prohibited'],
         ];
 
+        // Only a Super Admin chooses the branch, or makes the account another Super Admin over every branch.
         if ($actor->isSuperAdmin()) {
-            $rules['branch_id'] = ['required', Rule::exists('branches', 'id')];
+            $rules['company_wide'] = ['sometimes', 'boolean'];
+            $rules['branch_id'] = ['exclude_if:company_wide,true', 'required', Rule::exists('branches', 'id')];
         }
 
         return $rules;

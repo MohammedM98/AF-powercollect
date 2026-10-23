@@ -39,7 +39,7 @@ function useBankLook(bank) {
 }
 
 export const inputClass =
-    'block h-[50px] w-full rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-4 text-base text-gray-900 transition placeholder:text-gray-400 hover:border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-900/10 read-only:bg-gray-50 read-only:text-gray-500';
+    'block h-[50px] w-full rounded-[14px] border-[1.5px] border-gray-200 bg-surface px-4 text-base text-gray-900 transition placeholder:text-gray-400 hover:border-brand-500/45 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15 read-only:bg-gray-50 read-only:text-gray-500';
 
 /** One way of paying, as a big radio tile. */
 function MethodTile({ value, checked, onChange, icon, title, hint }) {
@@ -168,8 +168,8 @@ export function BankDropdown({ banks, id, name, onChange, value }) {
                 aria-expanded={open}
                 aria-haspopup="listbox"
                 onClick={() => setOpen((current) => !current)}
-                className={`flex min-h-[58px] w-full items-center gap-3 rounded-[14px] border-[1.5px] bg-surface px-3 py-2 text-start transition focus:outline-none focus-visible:ring-4 focus-visible:ring-gray-900/10 ${
-                    open ? 'border-gray-900' : 'border-gray-200 hover:border-gray-300'
+                className={`flex min-h-[58px] w-full items-center gap-3 rounded-[14px] border-[1.5px] bg-surface px-3 py-2 text-start transition focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/15 ${
+                    open ? 'border-brand-500 ring-4 ring-brand-500/15' : 'border-gray-200 hover:border-brand-500/45'
                 }`}
             >
                 {value ? (
@@ -701,7 +701,7 @@ export default function PaymentModal({
                                         className={`rounded-[22px] border-[1.5px] bg-surface px-[18px] pb-3.5 pt-4 transition ${
                                             errors.amount
                                                 ? 'border-brand-500 shadow-[0_0_0_5px_rgb(var(--brand-500)/0.08)]'
-                                                : 'border-gray-200 hover:border-gray-300 focus-within:border-gray-900 focus-within:shadow-[0_0_0_5px_rgb(var(--gray-900)/0.08)]'
+                                                : 'border-gray-200 hover:border-brand-500/45 focus-within:border-brand-500 focus-within:shadow-[0_0_0_5px_rgb(var(--brand-500)/0.12)]'
                                         }`}
                                     >
                                         <div className="flex items-center gap-3">

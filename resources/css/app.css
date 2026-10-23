@@ -181,9 +181,10 @@
     }
 
     /*
-     * Fields: 12px corners, a quiet border, an ink focus ring (never red, so
-     * focus never looks like an error). Selectors are kept as weak as the
-     * forms plugin's, so a utility class on a field still wins.
+     * Fields: 12px corners and a quiet border that turns burgundy under the
+     * pointer and, with a soft ring, while typing in it, so the user always
+     * sees which field they are on. Selectors are kept as weak as the forms
+     * plugin's, so a utility class on a field still wins.
      */
     input:where(:not([type])),
     [type='text'],
@@ -228,7 +229,22 @@
     [type='date']:focus,
     select:focus,
     textarea:focus {
-        @apply border-gray-900 ring-4 ring-gray-900/10;
+        @apply border-brand-500 ring-4 ring-brand-500/15;
+    }
+
+    :is(
+            input:where(:not([type])),
+            [type='text'],
+            [type='email'],
+            [type='password'],
+            [type='number'],
+            [type='search'],
+            [type='tel'],
+            [type='date'],
+            select,
+            textarea
+        ):hover:not(:disabled, [readonly], :focus) {
+        border-color: rgb(var(--brand-500) / 0.45);
     }
 
     /* A field with an error shown under it gets a red border. */

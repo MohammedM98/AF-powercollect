@@ -4,7 +4,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 
 /** The text input style inside an inline add row. */
 export const inlineInputClass =
-    'h-11 w-full rounded-xl border-[1.5px] border-gray-200 bg-surface px-3 text-[15px] text-gray-900 transition placeholder:text-gray-400 focus:border-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-900/10';
+    'h-11 w-full rounded-xl border-[1.5px] border-gray-200 bg-surface px-3 text-[15px] text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15';
 
 /** One labelled field in an inline add row, with its error under it. */
 export function InlineField({ id, label, error, className = '', children }) {

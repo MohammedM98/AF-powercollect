@@ -105,6 +105,8 @@ class PaymentController extends Controller
             'scopeLabel' => $actor->isSuperAdmin() ? 'كل الفروع' : ($actor->workBranch()?->name ?? '—'),
             'filters' => $this->dataTableState($request, 'display_name'),
             'filterOptions' => $this->filterOptions($actor, $request),
+            // A subscriber's statement, opened over the list from their row.
+            'statement' => fn () => $this->requestedStatement($request, $actor),
             ...$this->collectionCounts($actor),
             'collectionUrls' => $this->collectionUrls(),
             // The ways this user may take a payment: what the payment form offers.
@@ -847,6 +849,7 @@ class PaymentController extends Controller
             'subscriberNumber' => $subscription->profile?->subscriber_number,
             'phone' => $subscription->contactPhone(),
             'meterBoxNumber' => $subscription->meterBox?->box_number,
+            'meterBoxName' => $subscription->meterBox?->displayName(),
             'subAreaName' => $subscription->meterBox?->subArea?->name,
             'branchName' => $subscription->branch->name,
             'status' => $subscription->status->value,

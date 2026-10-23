@@ -391,3 +391,25 @@
 @container (min-width:761px){.pm-grid.is-explaining .pm-cell:not(.is-empty):not(.pm-more-cell):not(.pm-master-cell){flex-direction:column;gap:2px;padding-block:6px}}
 @container (max-width:760px){.pm-cell-why{margin:0 auto 0 0}}
 .pm-section-copy .pm-section-what{display:block;margin-top:1px;font-size:13.5px;line-height:1.6;color:rgb(var(--gray-600))}
+
+/* ═════ The right to hand permissions on: a green box beside each held permission ═════ */
+.pm-grant-button{border-radius:12px;border:1px solid rgb(var(--gray-200));background:rgb(var(--surface));padding:7px 14px;font-size:14px;font-weight:600;color:rgb(var(--gray-700));transition:background .16s}
+.pm-grant-button:hover:not(:disabled){background:rgb(var(--gray-50))}
+.pm-grant-button:disabled{cursor:not-allowed;opacity:.4}
+.pm-grant-legend{display:flex;flex-wrap:wrap;gap:8px 20px;margin:18px 0 4px;padding:10px 14px;border-radius:12px;background:rgb(var(--gray-50));font-size:13px;color:rgb(var(--gray-500))}
+.pm-grant-legend span{display:inline-flex;align-items:center;gap:8px}
+.pm-grant-legend-check{width:22px!important;height:22px!important;border-radius:7px!important}
+.pm-grant-dot{width:8px;height:8px;border-radius:50%;background:rgb(var(--gray-400))}
+.pm-grant-given{border-radius:999px;background:rgb(var(--brand-500)/.08);color:rgb(var(--brand-600));padding:1px 8px;font:700 12px Alexandria,sans-serif}
+.pm-grant-row{width:100%;text-align:start;display:flex;align-items:center;gap:12px;min-height:58px;padding:8px 12px;border-radius:16px;border:1px solid rgb(var(--gray-100));background:rgb(var(--surface));cursor:pointer;transition:border-color .15s,background .15s}
+.pm-grant-row:hover:not(:disabled){border-color:rgb(var(--brand-500)/.45)}
+.pm-grant-row:hover:not(:disabled) .pm-check:not(.is-on){border-color:#059669}
+.pm-grant-row:focus-visible{outline:2px solid rgb(var(--gray-900));outline-offset:2px}
+.pm-grant-row:disabled{cursor:not-allowed;opacity:.6}
+.pm-grant-row.is-on{border-color:rgb(16 160 116/.35);background:rgb(16 160 116/.05)}
+.pm-grant-state{font-size:12.5px;font-weight:600;color:rgb(var(--gray-400));white-space:nowrap}
+.pm-grant-row.is-on .pm-grant-state{color:#047857}
+.dark .pm-grant-row.is-on .pm-grant-state{color:#34d399}
+.pm-grant-risk{width:7px;height:7px;border-radius:50%}
+.pm-grant-risk.is-danger{background:#dc2626}
+.pm-grant-risk.is-sensitive{background:#f59e0b}

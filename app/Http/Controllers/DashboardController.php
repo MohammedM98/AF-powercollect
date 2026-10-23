@@ -53,14 +53,14 @@ class DashboardController extends Controller
             : Branch::query()->with('governorate')->whereKey($actor->workBranchId())->get();
         $overview = new DashboardOverview($actor, $branches, $days);
 
-        $sections = array_filter([
+        $sections = fn (): array => once(fn (): array => array_filter([
             'collections' => $overview->collections(),
             'subscriptions' => $overview->subscriptions(),
             'meterBoxes' => $overview->meterBoxes(),
             'readings' => $overview->readings(),
             'disconnections' => $overview->disconnections(),
             'boxes' => $overview->boxes(),
-        ], fn (?array $section): bool => $section !== null);
+        ], fn (?array $section): bool => $section !== null));
 
         $hour = now(config('app.business_timezone'))->hour;
 
@@ -92,7 +92,7 @@ class DashboardController extends Controller
             'debts' => Inertia::defer(fn () => $overview->debts()),
             'latestPayments' => fn () => $overview->latestPayments($validated['method'] ?? null, trim((string) ($validated['search'] ?? '')), (int) ($validated['page'] ?? 1)),
             // Someone whose work is in the field app and who has nothing to see here is told so.
-            'fieldApp' => $sections === [] && ! $actor->can('viewDebtAging', SubscriptionTransaction::class) && ($actor->hasPermission(PermissionKey::RecordCollections) || $actor->hasPermission(PermissionKey::RecordMeterReadings))
+            'fieldApp' => fn () => $sections() === [] && ! $actor->can('viewDebtAging', SubscriptionTransaction::class) && ($actor->hasPermission(PermissionKey::RecordCollections) || $actor->hasPermission(PermissionKey::RecordMeterReadings))
                 ? ['url' => config('powercollect.mobile_app_url')]
                 : null,
             'canCreateSubscription' => $actor->can('create', Subscription::class),

@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'api_client.dart';
+import 'adjustment_page.dart';
 import 'app_balance.dart';
 import 'app_identity.dart';
 import 'payment_page.dart';
@@ -30,11 +33,13 @@ class SubscriberPage extends StatefulWidget {
   State<SubscriberPage> createState() => _SubscriberPageState();
 }
 
-class _SubscriberPageState extends State<SubscriberPage> {
+class _SubscriberPageState extends State<SubscriberPage>
+    with WidgetsBindingObserver {
   Map<String, dynamic>? details;
   bool loading = true;
   String? error;
   bool recordedAny = false;
+  Timer? permissionTimer;
 
   Map<String, dynamic> get subscriber => {
         ...widget.subscriber,
@@ -47,8 +52,9 @@ class _SubscriberPageState extends State<SubscriberPage> {
       ? List<String>.from(permissions['payment_methods'] as List)
       : widget.paymentMethods;
   bool get canRecordPayment =>
-      permissions['record_payment'] as bool? ?? paymentMethods.isNotEmpty;
-  bool get canRecordSplitPayment => permissions['record_split_payment'] == true;
+      !loading && error == null && permissions['record_payment'] == true;
+  bool get canRecordSplitPayment =>
+      !loading && error == null && permissions['record_split_payment'] == true;
   Map<String, dynamic>? get lastReading => details?['last_reading'] is Map
       ? Map<String, dynamic>.from(details!['last_reading'] as Map)
       : null;
@@ -56,7 +62,94 @@ class _SubscriberPageState extends State<SubscriberPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    permissionTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted &&
+          (WidgetsBinding.instance.lifecycleState == null ||
+              WidgetsBinding.instance.lifecycleState ==
+                  AppLifecycleState.resumed) &&
+          ModalRoute.of(context)?.isCurrent == true &&
+          !loading) load();
+    });
     load();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        ModalRoute.of(context)?.isCurrent == true &&
+        !loading) load();
+  }
+
+  @override
+  void dispose() {
+    permissionTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  bool get canAdjust =>
+      !loading &&
+      error == null &&
+      (permissions['add_charge'] == true ||
+          permissions['add_discount'] == true ||
+          permissions['add_clearing'] == true ||
+          canRecordSplitPayment);
+
+  Future<void> openAdjustments() async {
+    if (!canAdjust) return;
+    final selected = await showAppSheet<Map<String, dynamic>>(context,
+        title: 'إجراءات الحساب',
+        children: [
+          Builder(
+              builder: (sheetContext) => Column(children: [
+                    if (canRecordSplitPayment)
+                      ListTile(
+                          title: const Text('تسجيل دفعة مقسّمة'),
+                          onTap: () =>
+                              Navigator.pop(sheetContext, {'action': 'split'})),
+                    if (permissions['add_charge'] == true)
+                      for (final type
+                          in (details?['charge_types'] as List? ?? const []))
+                        ListTile(
+                            title: Text('تحميل ${type['label']}'),
+                            onTap: () => Navigator.pop(sheetContext, {
+                                  'action': 'charge',
+                                  'title': 'تحميل ${type['label']}',
+                                  'type': type
+                                })),
+                    if (permissions['add_discount'] == true)
+                      ListTile(
+                          title: const Text('إضافة خصم'),
+                          onTap: () => Navigator.pop(sheetContext,
+                              {'action': 'discount', 'title': 'إضافة خصم'})),
+                    if (permissions['add_clearing'] == true)
+                      ListTile(
+                          title: const Text('إضافة مقاصة'),
+                          onTap: () => Navigator.pop(sheetContext,
+                              {'action': 'clearing', 'title': 'إضافة مقاصة'})),
+                  ])),
+        ]);
+    if (!mounted || selected == null) return;
+    if (selected['action'] == 'split') {
+      await recordSplitPayment();
+      return;
+    }
+    final recorded = await Navigator.of(context).push<bool>(MaterialPageRoute(
+        builder: (_) => AdjustmentPage(
+            api: widget.api,
+            subscriber: subscriber,
+            action: selected['action'] as String,
+            title: selected['title'] as String,
+            chargeType: selected['type'] == null
+                ? null
+                : Map<String, dynamic>.from(selected['type'] as Map))));
+    if (!mounted) return;
+    if (recorded == true) {
+      recordedAny = true;
+      showAppToast(context, 'سُجّلت الحركة بنجاح.');
+    }
+    await load();
   }
 
   Future<void> load() async {
@@ -83,9 +176,11 @@ class _SubscriberPageState extends State<SubscriberPage> {
             subscriber: subscriber,
             paymentMethods: paymentMethods,
             transferBanks: widget.transferBanks)));
-    if (!mounted || submitted != true) return;
-    recordedAny = true;
-    showAppToast(context, 'سُجلت الدفعة مباشرة في السجل المالي.');
+    if (!mounted) return;
+    if (submitted == true) {
+      recordedAny = true;
+      showAppToast(context, 'سُجلت الدفعة مباشرة في السجل المالي.');
+    }
     await load();
   }
 
@@ -99,9 +194,11 @@ class _SubscriberPageState extends State<SubscriberPage> {
             subscriber: subscriber,
             transferBanks: widget.transferBanks,
             senderBanks: widget.senderBanks)));
-    if (!mounted || recorded != true) return;
-    recordedAny = true;
-    showAppToast(context, 'سُجلت الحوالة المقسّمة لجميع الاشتراكات.');
+    if (!mounted) return;
+    if (recorded == true) {
+      recordedAny = true;
+      showAppToast(context, 'سُجلت الحوالة المقسّمة لجميع الاشتراكات.');
+    }
     await load();
   }
 
@@ -126,10 +223,12 @@ class _SubscriberPageState extends State<SubscriberPage> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                       children: [
-                        Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Text('${subscriber['full_name']}',
-                                style: AppIdentity.heading(22))),
+                        if (text(subscriber['subscription_name'])
+                            case final name?)
+                          Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child:
+                                  Text(name, style: AppIdentity.heading(22))),
                         balanceCard(),
                         if (loading)
                           Padding(
@@ -151,10 +250,16 @@ class _SubscriberPageState extends State<SubscriberPage> {
                           const AppSection('خدمات المشترك'),
                           subscriberActions(),
                           const AppSection('البيانات الشخصية'),
-                          factRows(personalFacts()),
+                          KeyedSubtree(
+                              key:
+                                  const ValueKey('subscriber-personal-details'),
+                              child: factRows(personalFacts())),
                         ],
                         const AppSection('معلومات الاشتراك'),
-                        factRows(subscriptionFacts()),
+                        KeyedSubtree(
+                            key: const ValueKey(
+                                'subscriber-subscription-details'),
+                            child: factRows(subscriptionFacts())),
                       ]),
                 ),
               ),
@@ -165,11 +270,24 @@ class _SubscriberPageState extends State<SubscriberPage> {
                     color: AppIdentity.background,
                     border:
                         Border(top: BorderSide(color: AppIdentity.lineSoft))),
-                child: AppAction(
-                    key: const ValueKey('subscriber-record-payment'),
-                    label: 'تسجيل دفعة',
-                    icon: 'cash',
-                    onPressed: canRecordPayment ? recordPayment : null),
+                child: Row(children: [
+                  Expanded(
+                      child: AppAction(
+                          key: const ValueKey('subscriber-record-payment'),
+                          label: 'تسجيل دفعة',
+                          icon: 'cash',
+                          onPressed: canRecordPayment ? recordPayment : null)),
+                  if (canAdjust) ...[
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                        key: const ValueKey('subscriber-account-actions'),
+                        tooltip: 'إجراءات الحساب',
+                        constraints:
+                            const BoxConstraints(minWidth: 54, minHeight: 54),
+                        onPressed: openAdjustments,
+                        icon: const Icon(Icons.keyboard_arrow_down)),
+                  ],
+                ]),
               ),
             ]),
           ),
@@ -224,17 +342,42 @@ class _SubscriberPageState extends State<SubscriberPage> {
   Widget factRows(List<(String, String, String)> facts) => AppRows(children: [
         for (final (icon, label, value) in facts)
           AppRow(
+              key: icon == 'phone' ? ValueKey('subscriber-phone-$value') : null,
+              onLongPress: icon == 'phone'
+                  ? () async {
+                      try {
+                        await Clipboard.setData(ClipboardData(text: value));
+                        if (mounted)
+                          showAppToast(context, 'تم نسخ رقم الهاتف.');
+                      } on PlatformException {
+                        if (mounted)
+                          showAppToast(
+                              context, 'تعذر نسخ رقم الهاتف. أعد المحاولة.',
+                              icon: 'err');
+                      }
+                    }
+                  : null,
               leading: detailIcon(icon),
               title: Text(label,
                   style: AppIdentity.body(12.5, color: AppIdentity.faint)),
               subtitle: Text(value,
+                  textDirection: icon == 'phone' ? TextDirection.ltr : null,
                   style: AppIdentity.body(15, weight: FontWeight.w700))),
       ]);
 
   List<(String, String, String)> personalFacts() => [
-        if (text(subscriber['phone']) ?? text(subscriber['personal_phone'])
+        if (text(subscriber['subscriber_name']) ?? text(subscriber['full_name'])
+            case final name?)
+          ('user', 'اسم المشترك', name),
+        if (text(subscriber['national_id']) case final nationalId?)
+          ('tag', 'رقم الهوية', nationalId),
+        if (text(subscriber['personal_phone']) ?? text(subscriber['phone'])
             case final phone?)
           ('phone', 'رقم الهاتف', phone),
+        if (text(subscriber['personal_phone']) != null &&
+            text(subscriber['phone']) != null &&
+            text(subscriber['personal_phone']) != text(subscriber['phone']))
+          ('phone', 'هاتف التواصل', text(subscriber['phone'])!),
         if (text(subscriber['address']) case final address?)
           ('home', 'العنوان', address),
       ];
@@ -283,8 +426,8 @@ class _SubscriberPageState extends State<SubscriberPage> {
         ('cash', 'الحد الأدنى الأسبوعي', '${AppIdentity.grouped(minimum)} ₪'),
       if (text(subscriber['circuit_breaker_ampere']) case final ampere?)
         ('breaker', 'القاطع', '${AppIdentity.reading(ampere)} أمبير'),
-      if (text(subscriber['area_name']) case final area?)
-        ('pin', 'المنطقة', area),
+      if (text(subscriber['sub_area_name']) case final area?)
+        ('pin', 'المنطقة 2', area),
       if (box.isNotEmpty) ('meter', 'الطبلون', box),
       if (text(subscriber['meter_box_location']) case final location?)
         ('pin', 'موقع الطبلون', location),

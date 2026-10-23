@@ -33,6 +33,11 @@ class _PowerCollectAppState extends State<PowerCollectApp>
   bool loading = true;
   Map<String, dynamic>? user;
   String? startupError;
+  ThemeMode appearance = ThemeMode.system;
+
+  bool get isDark =>
+      appearance == ThemeMode.dark ||
+      (appearance == ThemeMode.system && _systemIsDark);
 
   @override
   void initState() {
@@ -49,7 +54,7 @@ class _PowerCollectAppState extends State<PowerCollectApp>
 
   @override
   void didChangePlatformBrightness() {
-    AppIdentity.dark = _systemIsDark;
+    AppIdentity.dark = isDark;
     rebuildEverything();
   }
 
@@ -60,6 +65,9 @@ class _PowerCollectAppState extends State<PowerCollectApp>
   Future<void> restore() async {
     try {
       await store.load();
+      appearance = ThemeMode.values.firstWhere(
+          (mode) => mode.name == store.state['appearance'],
+          orElse: () => ThemeMode.system);
       api.token = store.token;
       if (mounted) setState(() => user = store.user);
     } catch (_) {
@@ -100,6 +108,7 @@ class _PowerCollectAppState extends State<PowerCollectApp>
     }
     await api.logout();
     store.state.clear();
+    store.state['appearance'] = appearance.name;
     await store.save();
     if (mounted) setState(() => user = null);
   }
@@ -109,9 +118,28 @@ class _PowerCollectAppState extends State<PowerCollectApp>
     if (mounted) setState(() => user = null);
   }
 
+  Future<void> setAppearance(ThemeMode mode) async {
+    final previous = store.state['appearance'];
+    store.state['appearance'] = mode.name;
+    try {
+      await store.save();
+    } catch (_) {
+      if (previous == null) {
+        store.state.remove('appearance');
+      } else {
+        store.state['appearance'] = previous;
+      }
+      rethrow;
+    }
+    if (!mounted) return;
+    setState(() => appearance = mode);
+    AppIdentity.dark = isDark;
+    rebuildEverything();
+  }
+
   @override
   Widget build(BuildContext context) {
-    AppIdentity.dark = _systemIsDark;
+    AppIdentity.dark = isDark;
     return MaterialApp(
       title: 'PowerCollect',
       debugShowCheckedModeBanner: false,
@@ -136,6 +164,8 @@ class _PowerCollectAppState extends State<PowerCollectApp>
                       store: store,
                       user: user!,
                       onLogout: logout,
+                      appearance: appearance,
+                      onAppearanceChanged: setAppearance,
                       onReauthenticate: requireLogin),
     );
   }
@@ -284,12 +314,16 @@ class FieldShell extends StatefulWidget {
       required this.user,
       required this.onLogout,
       required this.onReauthenticate,
+      this.appearance = ThemeMode.system,
+      this.onAppearanceChanged,
       super.key});
   final ApiClient api;
   final FieldStore store;
   final Map<String, dynamic> user;
   final Future<void> Function() onLogout;
   final VoidCallback onReauthenticate;
+  final ThemeMode appearance;
+  final Future<void> Function(ThemeMode)? onAppearanceChanged;
   @override
   State<FieldShell> createState() => _FieldShellState();
 }
@@ -323,7 +357,10 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
       paymentMethods.contains('cash') ? 'cash' : 'bank';
   bool get canViewSubscriptions =>
       currentUser['can_view_subscriptions'] == true;
-  bool get canBrowseSubscribers => canCollect || canViewSubscriptions;
+  bool get canBrowseSubscribers =>
+      canCollect ||
+      canViewSubscriptions ||
+      currentUser['can_adjust_balances'] == true;
   bool get canRecordSplitPayments =>
       canCollect && currentUser['can_record_split_payments'] == true;
   bool get canUseReadingSync =>
@@ -338,7 +375,12 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    timer = Timer.periodic(const Duration(seconds: 30), (_) => synchronize());
+    timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if ((WidgetsBinding.instance.lifecycleState == null ||
+              WidgetsBinding.instance.lifecycleState ==
+                  AppLifecycleState.resumed) &&
+          ModalRoute.of(context)?.isCurrent == true) synchronize();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => synchronize());
   }
 
@@ -397,14 +439,15 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
       }
       final lastRosterUpdate =
           DateTime.tryParse('${widget.store.state['roster_updated_at'] ?? ''}');
-      if (canRead &&
+      final shouldRefreshRoster = canRead &&
           (sentAnyReading ||
               lastRosterUpdate == null ||
               DateTime.now().difference(lastRosterUpdate) >
-                  const Duration(minutes: 5))) {
-        await refreshRoster();
-      }
-      if (canCollect) await refreshCollections();
+                  const Duration(minutes: 5));
+      await Future.wait([
+        if (shouldRefreshRoster) refreshRoster(),
+        if (canCollect) refreshCollections(),
+      ]);
       if (mounted) setState(() => message = null);
     } on ApiException catch (error) {
       if (mounted)
@@ -525,7 +568,6 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           icon: 'cloudoff');
       return;
     }
-    setState(resetCollectionSearch);
     final recorded = await Navigator.of(context).push<bool>(MaterialPageRoute(
       builder: (_) => SubscriberPage(
           api: widget.api,
@@ -540,8 +582,8 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     ));
     if (!mounted || section != FieldSection.collections) return;
     try {
-      if (recorded == true) await refreshCollections();
-      if (mounted) await searchCollections();
+      if (recorded == true && canCollect) await refreshCollections();
+      if (mounted && recorded == true) await searchCollections();
     } on ApiException catch (_) {
       // The payment is already recorded; a failed refresh must not obscure it.
     }
@@ -987,10 +1029,13 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                 tint: AppIdentity.goodTint,
                 onTap: () =>
                     navigate(FieldSection.collections, showToday: true)),
-          if (canViewSubscriptions)
+          if (canViewSubscriptions ||
+              currentUser['can_adjust_balances'] == true)
             AppServiceCard(
                 key: const ValueKey('subscriber-statements-service'),
-                title: 'كشوف حساب المشتركين',
+                title: canViewSubscriptions
+                    ? 'كشوف حساب المشتركين'
+                    : 'حركات المشتركين',
                 subtitle: 'الدفعات والقراءات والحركات المالية',
                 summary: 'عرض السجل المالي',
                 icon: 'hist',
@@ -1023,6 +1068,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           if (!canRead &&
               !canCollect &&
               !canViewSubscriptions &&
+              currentUser['can_adjust_balances'] != true &&
               !canViewReadings &&
               !canSendMessages &&
               !canViewMessages)
@@ -1147,11 +1193,46 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                       ])),
                 ])),
           ])),
+          if (widget.onAppearanceChanged != null) ...[
+            const AppSection('مظهر التطبيق'),
+            AppRows(children: [
+              for (final (mode, label) in [
+                (ThemeMode.light, 'فاتح'),
+                (ThemeMode.dark, 'داكن'),
+                (ThemeMode.system, 'حسب إعداد الهاتف'),
+              ])
+                AppRow(
+                  key: ValueKey('appearance-${mode.name}'),
+                  title: AppRowTitle(label),
+                  trailing: Icon(
+                      widget.appearance == mode
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      color: widget.appearance == mode
+                          ? AppIdentity.brand
+                          : AppIdentity.faint),
+                  onTap: () async {
+                    try {
+                      await widget.onAppearanceChanged!(mode);
+                    } catch (_) {
+                      if (mounted)
+                        showAppToast(context, 'تعذر حفظ المظهر. أعد المحاولة.',
+                            icon: 'err');
+                    }
+                  },
+                ),
+            ]),
+          ],
           const AppSection('الصلاحيات المتاحة'),
           AppRows(children: [
             for (final (allowed, label, icon) in [
               (canRead, 'إدخال القراءات', 'bolt'),
               (canCollect, 'تسجيل الدفعات', collectionIcon),
+              (
+                currentUser['can_adjust_balances'] == true,
+                'إضافة الحركات المالية',
+                'cash'
+              ),
               (canRecordSplitPayments, 'الحوالات المقسّمة', 'bank'),
               (canViewSubscriptions, 'كشوف حساب المشتركين', 'hist'),
               (canViewReadings, 'عرض القراءات الأسبوعية', 'hist'),

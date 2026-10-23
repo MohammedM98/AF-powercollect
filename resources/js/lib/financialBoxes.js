@@ -7,6 +7,31 @@ export const boxPersonName = (box) => box.user?.name ?? '—';
 
 const searchableText = (value) => String(value ?? '').replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660)).toLocaleLowerCase('ar').trim();
 
+/** The receiving bank or wallet, including entries saved before ledger details were available. */
+export const boxEntryBank = (entry) => String(entry.ledger?.bankName ?? entry.transaction?.bank_name ?? '').trim() || 'بنك غير محدد';
+
+export function boxBankOptions(entries) {
+    const counts = new Map();
+    entries.forEach((entry) => {
+        const bank = boxEntryBank(entry);
+        counts.set(bank, (counts.get(bank) ?? 0) + 1);
+    });
+
+    return [...counts].sort(([a], [b]) => a.localeCompare(b, 'ar')).map(([value, count]) => ({ value, count }));
+}
+
+/** Bank, status and text filters narrow the same set of entries together. */
+export function filterBoxEntries(entries, { bank = '', state = 'all', search = '' } = {}) {
+    return entries.filter((entry) => {
+        const active = (entry.transactionStatus ?? entry.transaction?.status ?? 'active') === 'active';
+        const matchesState = state === 'active' ? active && !isFlaggedEntry(entry)
+            : state === 'rejected' ? active && isFlaggedEntry(entry)
+                : state === 'cancelled' ? !active : true;
+
+        return (!bank || boxEntryBank(entry) === bank) && matchesState && boxEntryMatches(entry, search);
+    });
+}
+
 export function boxEntryMatches(entry, search) {
     const query = searchableText(search);
     const transaction = entry.transaction ?? {};
@@ -49,12 +74,23 @@ export function sortFinancialBoxes(boxes, { key = 'status', direction = 'asc' } 
     const values = {
         number: (box) => Number(box.number),
         total: (box) => financialBoxTotals(box).ILS,
-        dates: (box) => new Date(box.closed_at ?? box.opened_at).getTime() || 0,
+        dates: (box) => new Date(box.closedAt ?? box.closed_at ?? box.opened_at).getTime() || 0,
+        audited: (box) => box.audit?.audited_at ? new Date(box.audit.audited_at).getTime() || null : null,
         status: (box) => statusOrder.indexOf(boxState(box)),
     };
     const value = values[key] ?? values.status;
-    return [...boxes].sort((a, b) => (value(a) - value(b)) * (direction === 'asc' ? 1 : -1)
-        || statusOrder.indexOf(boxState(a)) - statusOrder.indexOf(boxState(b)) || Number(a.number) - Number(b.number));
+    return [...boxes].sort((a, b) => {
+        const first = value(a);
+        const second = value(b);
+        if (first === null || second === null) {
+            if (first !== second) {
+                return first === null ? 1 : -1;
+            }
+        }
+
+        return (first - second) * (direction === 'asc' ? 1 : -1)
+            || statusOrder.indexOf(boxState(a)) - statusOrder.indexOf(boxState(b)) || Number(a.number) - Number(b.number);
+    });
 }
 
 /**

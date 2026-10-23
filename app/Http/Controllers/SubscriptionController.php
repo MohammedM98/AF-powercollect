@@ -63,7 +63,7 @@ class SubscriptionController extends Controller
 
         $canRecordReadings = $actor->can('create', MeterReading::class);
 
-        $subscriptions = $query->paginate($this->dataTablePerPage($request))
+        $subscriptions = fn () => $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()
             ->through(fn (Subscription $subscription) => $this->indexRow($subscription, $actor, $canRecordReadings));
 
@@ -82,9 +82,9 @@ class SubscriptionController extends Controller
             ],
             'statusOptions' => SubscriptionStatus::options(),
             'filters' => $this->dataTableState($request, 'display_name'),
-            'filterOptions' => $this->filterOptions($actor, $request),
+            'filterOptions' => fn () => $this->filterOptions($actor, $request),
             // Only the Super Admin may enter a reading for an earlier week.
-            'readingWeekOptions' => MeterReading::recentWeekOptionsFor($actor, $actor->isSuperAdmin() ? 8 : 1),
+            'readingWeekOptions' => fn () => MeterReading::recentWeekOptionsFor($actor, $actor->isSuperAdmin() ? 8 : 1),
             'statement' => fn () => $this->requestedStatement($request, $actor),
             ...$this->formOptions(),
         ]);
@@ -463,9 +463,9 @@ class SubscriptionController extends Controller
         $actor = auth()->user();
         $canChooseBranch = $actor->isSuperAdmin();
 
-        $branches = $canChooseBranch ? Branch::with('area')->orderBy('name')->get() : collect();
+        $branches = fn () => $canChooseBranch ? Branch::with('area')->orderBy('name')->get() : collect();
 
-        $tariffs = Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => [
+        $tariffs = fn () => Tariff::orderBy('category')->get()->map(fn (Tariff $tariff) => [
             'id' => $tariff->id,
             'categoryLabel' => __($tariff->category->label()),
             'rate' => $tariff->rate,
@@ -475,9 +475,9 @@ class SubscriptionController extends Controller
             'branches' => $branches,
             'tariffs' => $tariffs,
             // Any subscription can be given any customer segment, whatever their tariff.
-            'segments' => TariffSegment::orderBy('name')->get(['id', 'name']),
-            'subAreas' => SubArea::orderBy('name')->get(),
-            'circuitBreakers' => CircuitBreaker::orderBy('ampere')->get(),
+            'segments' => fn () => TariffSegment::orderBy('name')->get(['id', 'name']),
+            'subAreas' => fn () => SubArea::orderBy('name')->get(),
+            'circuitBreakers' => fn () => CircuitBreaker::orderBy('ampere')->get(),
             'canChooseBranch' => $canChooseBranch,
             'currentBranchAreaId' => $canChooseBranch ? null : $actor->workBranch()?->area_id,
             'currentBranchAreaName' => $canChooseBranch ? null : $actor->workBranch()?->area?->name,

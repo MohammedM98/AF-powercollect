@@ -132,7 +132,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('returning from subscriber details starts with an empty search',
+  testWidgets('returning from subscriber details preserves search and results',
       (tester) async {
     final api = SearchApi();
     await openCollections(tester, api);
@@ -146,12 +146,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('رجوع'));
     await tester.pump();
-    expect(api.requests.last.query, isEmpty);
-    api.requests.last.complete('All Subscribers');
+    expect(api.requests.last.query, 'Selected');
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
-        isEmpty);
-    expect(find.text('All Subscribers'), findsOneWidget);
+        'Selected');
+    expect(find.text('Selected Subscriber'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

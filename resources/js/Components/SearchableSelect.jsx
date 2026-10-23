@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Icon from '@/Components/Icon';
 
 /**
- * A drop-down with a search box. Each option is `{ value, label, hint? }`:
+ * A drop-down with a search box. Each option is `{ value, label, hint?, icon? }`:
  * `hint` is a quiet second part (a price, say) shown beside the label,
  * in the list and on the closed field, and searched with it. `required`
  * (with `name`) makes the form's own check report a missing choice.
@@ -32,6 +33,7 @@ export default function SearchableSelect({
     loadOptions = null,
     clearable = true,
     searchable = true,
+    portal = false,
 }) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
@@ -45,6 +47,36 @@ export default function SearchableSelect({
     const containerRef = useRef(null);
     const searchRef = useRef(null);
     const buttonRef = useRef(null);
+    const popupRef = useRef(null);
+    const [popupStyle, setPopupStyle] = useState({});
+
+    useLayoutEffect(() => {
+        if (!open || !portal) {
+            return;
+        }
+
+        function positionPopup() {
+            const field = buttonRef.current.getBoundingClientRect();
+            const below = window.innerHeight - field.bottom - 12;
+            const above = field.top - 12;
+            const opensBelow = below >= 290 || below >= above;
+            const width = Math.min(field.width, window.innerWidth - 24);
+            setPopupStyle({
+                position: 'fixed', zIndex: 80, marginTop: 0, width,
+                left: Math.max(12, Math.min(field.left, window.innerWidth - width - 12)),
+                ...(opensBelow ? { top: field.bottom + 8 } : { bottom: window.innerHeight - field.top + 8 }),
+                maxHeight: Math.max(80, (opensBelow ? below : above) - 8),
+            });
+        }
+
+        positionPopup();
+        window.addEventListener('resize', positionPopup);
+        window.addEventListener('scroll', positionPopup, true);
+        return () => {
+            window.removeEventListener('resize', positionPopup);
+            window.removeEventListener('scroll', positionPopup, true);
+        };
+    }, [open, portal]);
 
     const isMatch = (option) => String(option.value) === String(value);
     const selected = options.find(isMatch) ?? found?.find(isMatch) ?? (chosen && isMatch(chosen) ? chosen : undefined);
@@ -102,7 +134,7 @@ export default function SearchableSelect({
         }
 
         function onPointerDown(event) {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
+            if (containerRef.current && !containerRef.current.contains(event.target) && !popupRef.current?.contains(event.target)) {
                 setOpen(false);
                 setQuery('');
             }
@@ -110,16 +142,19 @@ export default function SearchableSelect({
 
         function onKeyDown(event) {
             if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
                 setOpen(false);
                 setQuery('');
+                buttonRef.current?.focus();
             }
         }
 
         document.addEventListener('mousedown', onPointerDown);
-        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keydown', onKeyDown, true);
         return () => {
             document.removeEventListener('mousedown', onPointerDown);
-            document.removeEventListener('keydown', onKeyDown);
+            document.removeEventListener('keydown', onKeyDown, true);
         };
     }, [open]);
 
@@ -134,7 +169,10 @@ export default function SearchableSelect({
         onChange(option ? String(option.value) : '', option);
         setOpen(false);
         setQuery('');
+        buttonRef.current?.focus();
     }
+
+    const renderPopup = (content) => portal ? createPortal(content, document.body) : content;
 
     return (
         <div ref={containerRef} className={`relative ${className}`}>
@@ -150,7 +188,8 @@ export default function SearchableSelect({
                     open ? 'border-brand-500 ring-4 ring-brand-500/15' : active ? 'border-brand-500/60' : 'border-gray-200 hover:border-brand-500/45'
                 }`}
             >
-                <span className={`flex min-w-0 items-baseline gap-2 ${selected ? 'text-gray-900' : 'text-gray-400/60'}`}>
+                <span className={`flex min-w-0 gap-2 ${selected?.icon ? 'items-center' : 'items-baseline'} ${selected ? 'text-gray-900' : 'text-gray-400/60'}`}>
+                    {selected?.icon && <span aria-hidden="true" className="inline-flex shrink-0">{selected.icon}</span>}
                     <span className="truncate">{selected ? selected.label : placeholder}</span>
                     {selected?.hint && <span className="shrink-0 text-sm text-gray-500">{selected.hint}</span>}
                 </span>
@@ -172,10 +211,10 @@ export default function SearchableSelect({
                 />
             )}
 
-            {open && (
-                <div className="animate-modal-panel absolute z-20 mt-2 w-full min-w-[12rem] overflow-hidden rounded-2xl border border-gray-100 bg-surface shadow-lift">
+            {open && renderPopup(
+                <div ref={popupRef} style={portal ? popupStyle : undefined} className="animate-modal-panel absolute z-20 mt-2 flex w-full min-w-[12rem] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-surface shadow-lift">
                     {searchable && (
-                        <div className="border-b border-gray-100 p-2">
+                        <div className="shrink-0 border-b border-gray-100 p-2">
                             <input
                                 ref={searchRef}
                                 type="text"
@@ -186,7 +225,7 @@ export default function SearchableSelect({
                             />
                         </div>
                     )}
-                    <ul className="max-h-56 overflow-y-auto p-1.5 text-sm">
+                    <ul className="min-h-0 max-h-56 overflow-y-auto p-1.5 text-sm">
                         {clearable && (
                             <li>
                                 <button
@@ -217,7 +256,10 @@ export default function SearchableSelect({
                                                 isSelected ? 'font-semibold text-gray-900' : 'text-gray-700'
                                             }`}
                                         >
-                                            <span className="min-w-0 truncate">{option.label}</span>
+                                            <span className="flex min-w-0 items-center gap-2">
+                                                {option.icon && <span aria-hidden="true" className="inline-flex shrink-0">{option.icon}</span>}
+                                                <span className="truncate">{option.label}</span>
+                                            </span>
                                             <span className="flex shrink-0 items-center gap-2">
                                                 {option.hint && <span className="text-xs text-gray-500">{option.hint}</span>}
                                                 {isSelected && <Icon name="check" className="h-4 w-4 shrink-0 text-brand-500" strokeWidth={2} />}

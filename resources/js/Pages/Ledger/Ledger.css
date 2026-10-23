@@ -21,15 +21,25 @@
 .ledger-page .rbtn{height:42px;border-radius:12px;border:1px solid var(--ledger-line);background:var(--ledger-surface);padding:0 14px;display:inline-flex;align-items:center;gap:10px;font-weight:700;color:var(--ledger-ink2);cursor:pointer;box-shadow:var(--ledger-shadow)}
 .ledger-page .rbtn small{color:var(--ledger-faint);font-weight:500;font-size:12.5px}
 .ledger-page .rbtn[aria-expanded=true],.ledger-page .rbtn.on{border-color:var(--ledger-ink)}
-.ledger-page .rpop{position:absolute;top:calc(100% + 8px);inset-inline-start:0;z-index:30;width:330px;background:var(--ledger-surface);border:1px solid var(--ledger-line);border-radius:18px;box-shadow:var(--ledger-pop);padding:16px}
-.ledger-page .rpop .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.ledger-page .rpop label{font-size:12.5px;color:var(--ledger-faint);font-weight:600;display:grid;gap:4px}
-.ledger-page .rpop input{height:42px;border:1px solid var(--ledger-line);border-radius:12px;background:var(--ledger-surface);padding:0 10px;color:var(--ledger-ink);font:600 14px Alexandria}
-.ledger-page .rpop .qk{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
-.ledger-page .rpop .qk button{height:32px;border-radius:12px;border:1px solid var(--ledger-line);background:var(--ledger-raised);padding:0 10px;font-size:12.5px;font-weight:600;color:var(--ledger-ink2);cursor:pointer}
+.ledger-page .rpop{position:absolute;top:calc(100% + 10px);inset-inline-start:0;z-index:30;width:520px;max-width:calc(100vw - 48px);background:var(--ledger-surface);border:1px solid var(--ledger-line);border-radius:20px;box-shadow:var(--ledger-pop);padding:20px;display:grid;gap:18px}
+.ledger-page .rpop .range-heading{display:flex;align-items:center;gap:12px;min-width:0}
+.ledger-page .rpop .range-heading-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;border:1px solid var(--ledger-line2);border-radius:13px;background:var(--ledger-raised);color:var(--ledger-brand)}
+.ledger-page .rpop .range-heading h3{margin:0;font-size:17px;line-height:1.5;color:var(--ledger-ink)}
+.ledger-page .rpop .range-heading p{margin:3px 0 0;font-size:13px;line-height:1.6;color:var(--ledger-muted)}
+.ledger-page .rpop .range-close{display:grid;place-items:center;flex:none;width:36px;height:36px;margin-inline-start:auto;border:0;border-radius:10px;background:transparent;color:var(--ledger-muted);cursor:pointer}
+.ledger-page .rpop .range-close:hover{background:var(--ledger-raised);color:var(--ledger-ink)}
+.ledger-page .rpop .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ledger-page .rpop label{min-width:0;font-size:13px;color:var(--ledger-muted);font-weight:600;display:grid;gap:8px}
+.ledger-page .rpop .range-date-input{min-width:0}
+.ledger-page .rpop .range-date-input>button{min-width:0;height:48px;padding-inline:12px;border-color:var(--ledger-line);border-radius:12px;background:var(--ledger-raised);color:var(--ledger-ink);font-size:14px}
+.ledger-page .rpop .range-date-input>button:hover{border-color:var(--ledger-brand)}
+.ledger-page .rpop .range-presets-label{font-size:12px;font-weight:600;color:var(--ledger-muted);margin-bottom:-10px}
+.ledger-page .rpop .qk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ledger-page .rpop .qk button{min-height:40px;border-radius:10px;border:1px solid var(--ledger-line);background:var(--ledger-surface);padding:6px;font-size:13px;font-weight:600;color:var(--ledger-ink2);cursor:pointer;transition:background .15s,border-color .15s}
 .ledger-page .rpop .qk button:hover{border-color:var(--ledger-brand);color:var(--ledger-brand)}
-.ledger-page .rpop .ft{display:flex;gap:8px;justify-content:flex-end}
-.ledger-page .rpop .err{color:var(--ledger-danger);font-size:12.5px;min-height:18px}
+.ledger-page .rpop .ft{display:grid;grid-template-columns:minmax(0,1fr) minmax(84px,.45fr);gap:10px;border-top:1px solid var(--ledger-line2);padding-top:16px}
+.ledger-page .rpop .ft .btn{height:46px}
+.ledger-page .rpop .err{display:flex;align-items:flex-start;gap:8px;margin:0;border-radius:10px;padding:10px;background:var(--ledger-danger-t);color:var(--ledger-danger);font-size:13px;line-height:1.7}
 /* kpis */
 .ledger-page .kp{display:grid;grid-template-columns:1.35fr 1fr 1fr 1fr;gap:14px;margin-top:18px}
 .ledger-page .k{background:var(--ledger-surface);border:1px solid var(--ledger-line2);border-radius:24px;padding:18px 20px;box-shadow:var(--ledger-shadow);min-width:0}
@@ -118,6 +128,13 @@
  .ledger-page .btn.fbtn{display:inline-flex}
  .ledger-page .foot{gap:12px}.ledger-page .foot .r{width:100%;margin:0}
  .ledger-page .day .sum{width:100%;margin:0}
+}
+@container ledger (max-width:560px){
+ .ledger-page .rpop{padding:16px;gap:16px;max-width:100%}
+ .ledger-page .rpop .two{grid-template-columns:minmax(0,1fr)}
+ .ledger-page .rpop .range-heading-icon{width:36px;height:36px}
+ .ledger-page .rpop .range-heading{gap:9px}
+ .ledger-page .rpop .range-heading p{font-size:12px}
 }
 
 .ledger-page { container: ledger / inline-size; width: 100%; color: var(--ledger-ink); font: 16px/1.6 'IBM Plex Sans Arabic', system-ui, sans-serif; }

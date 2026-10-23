@@ -66,6 +66,14 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
     const inPlace = boxes.filter((box) => box.place === place);
     const people = [...new Map(inPlace.filter((box) => box.user).map((box) => [box.user.id, box.user.name])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar'));
     const currentPeriod = periods.find((period) => period.start === week);
+    const sortOptions = [
+        ['dates:desc', `${place === 'closed' ? 'الإضافة للتدقيق' : 'فتح الصندوق'} · الأحدث أولًا`],
+        ['dates:asc', `${place === 'closed' ? 'الإضافة للتدقيق' : 'فتح الصندوق'} · الأقدم أولًا`],
+        ...(place === 'closed' ? [['audited:desc', 'اعتماد التدقيق · الأحدث أولًا'], ['audited:asc', 'اعتماد التدقيق · الأقدم أولًا']] : []),
+        ['number:desc', 'رقم الصندوق · الأكبر أولًا'], ['number:asc', 'رقم الصندوق · الأصغر أولًا'],
+        ['total:desc', 'الإجمالي · الأعلى أولًا'], ['total:asc', 'الإجمالي · الأقل أولًا'],
+        ['status:asc', 'الحالة · تصاعديًا'], ['status:desc', 'الحالة · تنازليًا'],
+    ];
     const reviewedBoxes = currentPeriod?.reviewed ?? 0;
     const periodBoxes = currentPeriod?.count ?? 0;
     const shown = inPlace.filter((box) => (!type || box.type === type) && (!person || String(box.user?.id) === person) && (!auditState || Boolean(box.audit) === (auditState === 'reviewed')) && financialBoxMatches(box, search));
@@ -128,6 +136,7 @@ export default function BranchCashBoxes({ branch, branches, started, place, tabs
                     <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
                         <div className="relative w-full sm:w-72"><Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" /><input type="text" aria-label="ابحث بالصندوق أو المشترك أو السند أو مرجع الحوالة" placeholder="ابحث بالصندوق أو المشترك أو السند أو مرجع الحوالة" value={search} onChange={(event) => setSearch(event.target.value)} className="block w-full py-2.5 pe-4 ps-10 text-sm" /></div>
                         <select aria-label="الموظف" value={person} onChange={(event) => setPerson(event.target.value)} className="w-full py-2.5 text-sm sm:w-56"><option value="">كل الموظفين</option>{people.map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}</select>
+                        <select aria-label="ترتيب الصناديق" value={`${sort.key}:${sort.direction}`} onChange={(event) => { const [key, direction] = event.target.value.split(':'); setSort({ key, direction }); }} className="w-full py-2.5 text-sm sm:w-72">{sortOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
                     </div>
                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
                         {place === 'closed' && <select aria-label="حالة التدقيق" value={auditState} onChange={(event) => setAuditState(event.target.value)} className="py-2.5 text-sm"><option value="">كل حالات التدقيق</option><option value="waiting">بانتظار التدقيق</option><option value="reviewed">تم التدقيق</option></select>}

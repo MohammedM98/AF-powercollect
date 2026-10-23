@@ -82,6 +82,7 @@ export function FinancialBoxTimes({ box }) {
     return <ul className="space-y-1 text-[13px]">
         <TimesLine icon="clock" tone="text-emerald-600 dark:text-emerald-400" label="فُتح" at={box.opened_at} />
         {closed ? <TimesLine icon="lock" tone="text-amber-600 dark:text-amber-400" label="أُغلق" at={box.closedAt ?? box.closed_at} by={box.closedBy} /> : <li className="flex items-center gap-1.5 text-gray-500"><Icon name="lock" className="h-3.5 w-3.5" />لم يُغلق بعد</li>}
+        {box.audit?.audited_at && <TimesLine icon="check" tone="text-emerald-600 dark:text-emerald-400" label="اعتُمد التدقيق" at={box.audit.audited_at} by={box.audit.auditor?.name} />}
     </ul>;
 }
 

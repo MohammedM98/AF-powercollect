@@ -242,7 +242,7 @@ void main() {
     await tester.tap(find.byTooltip('رجوع'));
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
-        isEmpty);
+        '202600042');
     await tester.tap(find.text('الرئيسية'));
     await tester.pumpAndSettle();
     final today = find.byKey(const ValueKey('collector-today-payments'));

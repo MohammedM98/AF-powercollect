@@ -93,7 +93,7 @@ class PaymentController extends Controller
         $this->applyTableFilters($query, $request);
 
         return Inertia::render('Payments/Index', [
-            'subscriptions' => $query->paginate($this->dataTablePerPage($request))
+            'subscriptions' => fn () => $query->paginate($this->dataTablePerPage($request))
                 ->withQueryString()
                 ->through(fn (Subscription $subscription): array => [
                     ...$this->row($subscription),
@@ -104,19 +104,19 @@ class PaymentController extends Controller
                 ]),
             'scopeLabel' => $actor->isSuperAdmin() ? 'كل الفروع' : ($actor->workBranch()?->name ?? '—'),
             'filters' => $this->dataTableState($request, 'display_name'),
-            'filterOptions' => $this->filterOptions($actor, $request),
+            'filterOptions' => fn () => $this->filterOptions($actor, $request),
             // A subscriber's statement, opened over the list from their row.
             'statement' => fn () => $this->requestedStatement($request, $actor),
-            ...$this->collectionCounts($actor),
+            'pendingCount' => fn () => $this->collectionCounts($actor)['pendingCount'],
             'collectionUrls' => $this->collectionUrls(),
             // The ways this user may take a payment: what the payment form offers.
             'paymentMethods' => PaymentMethod::options($actor->allowedPaymentMethods()),
             'canSplitPayments' => $actor->can('recordSplitPayment', Subscription::class),
-            'transferBanks' => Bank::receiverNames(),
-            'senderBanks' => Bank::senderNames(),
+            'transferBanks' => fn () => Bank::receiverNames(),
+            'senderBanks' => fn () => Bank::senderNames(),
             'chargeTypes' => ChargeType::formOptions(),
             'discountMethods' => DiscountMethod::options(),
-            'discountSegments' => $canAddDiscounts ? StandingDiscount::segmentSuggestions() : [],
+            'discountSegments' => fn () => $canAddDiscounts ? StandingDiscount::segmentSuggestions() : [],
         ]);
     }
 

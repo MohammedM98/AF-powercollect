@@ -555,7 +555,7 @@ function StatementRow({
             </td>
             {hasLineMenus && (
                 <td className="statement-screen-only text-end">
-                    {hasLineMenu(entry) && <RowActionsMenu menu={lineActionsMenu(entry, onAction)} menuLabel="إجراءات" />}
+                    {hasLineMenu(entry) && <RowActionsMenu menu={lineActionsMenu(entry, onAction)} coloredMenu />}
                 </td>
             )}
         </tr>

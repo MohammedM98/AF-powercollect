@@ -11,13 +11,14 @@ import DiscountModal from './DiscountModal';
 import PaymentModal from './PaymentModal';
 import SplitPaymentModal from '@/Pages/Payments/SplitPaymentModal';
 
-const ACTION_ICON_TONES = {
-    payment: 'text-emerald-600 group-hover/item:bg-emerald-600 group-focus-visible/item:bg-emerald-600',
-    late_payment: 'text-amber-600 group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
-    split_payment: 'text-brand-600 group-hover/item:bg-brand-600 group-focus-visible/item:bg-brand-600',
-    charge: 'text-amber-600 group-hover/item:bg-amber-600 group-focus-visible/item:bg-amber-600',
-    discount: 'text-violet-600 group-hover/item:bg-violet-600 group-focus-visible/item:bg-violet-600',
-    clearing: 'text-teal-600 group-hover/item:bg-teal-600 group-focus-visible/item:bg-teal-600',
+/** Each action's colours in the menu: its row softly tinted, its title in its colour, its icon tile filled. */
+const ACTION_TONES = {
+    payment: { row: 'bg-emerald-500/[0.07] hover:bg-emerald-500/[0.15] focus-visible:bg-emerald-500/[0.15]', label: 'text-emerald-700 dark:text-emerald-300', tile: 'bg-emerald-600' },
+    late_payment: { row: 'bg-amber-500/[0.08] hover:bg-amber-500/[0.16] focus-visible:bg-amber-500/[0.16]', label: 'text-amber-800 dark:text-amber-300', tile: 'bg-amber-500' },
+    split_payment: { row: 'bg-brand-500/[0.07] hover:bg-brand-500/[0.15] focus-visible:bg-brand-500/[0.15]', label: 'text-brand-600', tile: 'bg-brand-gradient' },
+    charge: { row: 'bg-orange-500/[0.07] hover:bg-orange-500/[0.15] focus-visible:bg-orange-500/[0.15]', label: 'text-orange-700 dark:text-orange-300', tile: 'bg-orange-500' },
+    discount: { row: 'bg-violet-500/[0.07] hover:bg-violet-500/[0.15] focus-visible:bg-violet-500/[0.15]', label: 'text-violet-700 dark:text-violet-300', tile: 'bg-violet-600' },
+    clearing: { row: 'bg-teal-500/[0.07] hover:bg-teal-500/[0.15] focus-visible:bg-teal-500/[0.15]', label: 'text-teal-700 dark:text-teal-300', tile: 'bg-teal-600' },
 };
 
 /**
@@ -93,21 +94,21 @@ export function StatementActions({ canRecordPayment, canRecordLatePayment, canRe
             </button>
 
             {open && (
-                <div role="menu" aria-label="إضافة حركة" className="animate-dropdown absolute end-0 top-full z-40 mt-2 flex w-56 flex-col gap-1 rounded-2xl border border-gray-100 bg-surface p-2 shadow-lift">
+                <div role="menu" aria-label="إضافة حركة" className="animate-dropdown absolute end-0 top-full z-40 mt-2 flex w-64 flex-col gap-1 rounded-2xl border border-gray-100 bg-surface p-2 shadow-lift">
                     {actions.map((item) => (
                         <button
                             key={item.action}
                             type="button"
                             role="menuitem"
                             onClick={() => choose(item.action)}
-                            className="group/item flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-start text-sm font-medium text-gray-900 outline-none transition hover:bg-gray-100 focus-visible:bg-gray-100"
+                            className={`group/item flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-start text-sm font-semibold outline-none transition ${ACTION_TONES[item.action].row}`}
                         >
                             <span
-                                className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] bg-gray-100 transition group-hover/item:text-white group-focus-visible/item:text-white ${ACTION_ICON_TONES[item.action]}`}
+                                className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] text-white shadow-sm ${ACTION_TONES[item.action].tile}`}
                             >
                                 <Icon name={item.icon} className="h-[17px] w-[17px]" />
                             </span>
-                            <span className="min-w-0 flex-1">{item.label}</span>
+                            <span className={`min-w-0 flex-1 ${ACTION_TONES[item.action].label}`}>{item.label}</span>
                         </button>
                     ))}
                 </div>

@@ -35,12 +35,14 @@ const TONES = {
  * - `onEdit`: a blue pencil button ("تعديل").
  * - `onDelete`: a burgundy trash button ("حذف").
  * - `menu`: more actions in groups (see RowMenu); opened from "عرض"'s
- *   arrow, or from a ⋯ button when there is no "عرض".
+ *   arrow, or from a ⋯ button when there is no "عرض". `menuLabel` makes
+ *   that ⋯ a coloured button with the word and how many actions it holds,
+ *   for a row whose actions are its main business (a statement's lines).
  * - children, e.g. <RowActionsMenu><button onClick={…}>تعديل</button></RowActionsMenu>:
  *   each becomes a same-size icon button with its word as the tooltip
  *   (and its color, for تعديل, حذف, طباعة and Excel).
  */
-export default function RowActionsMenu({ onView, viewLabel = 'عرض', viewIcon = 'eye', onEdit, onDelete, menu, children }) {
+export default function RowActionsMenu({ onView, viewLabel = 'عرض', viewIcon = 'eye', onEdit, onDelete, menu, menuLabel = null, children }) {
     const [menuAnchor, setMenuAnchor] = useState(null);
 
     const toggleMenu = useCallback((event) => {
@@ -87,7 +89,16 @@ export default function RowActionsMenu({ onView, viewLabel = 'عرض', viewIcon 
                     });
                 })}
 
-                {menu && !onView && (
+                {menu && !onView && menuLabel && (
+                    <button type="button" className="row-action-menu" {...menuProps(menuLabel)}>
+                        <Icon name="dots" className="h-4 w-4" strokeWidth={2} />
+                        {menuLabel}
+                        <span className="row-action-menu-count">{menu.groups.reduce((count, group) => count + group.items.length, 0)}</span>
+                        <Icon name="chevron-down" className="row-action-menu-chevron h-3.5 w-3.5" strokeWidth={2} />
+                    </button>
+                )}
+
+                {menu && !onView && !menuLabel && (
                     <button type="button" className="row-action" {...menuProps('إجراءات أخرى')}>
                         <Icon name="dots" className="h-[18px] w-[18px]" strokeWidth={2} />
                     </button>

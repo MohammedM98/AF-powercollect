@@ -39,7 +39,8 @@ export default function GrantRightPanel({ sections, selected, grantable, delegab
                         </InfoTip>
                     </h4>
                     <p className="text-sm text-gray-500">
-                        <b className="font-display text-gray-900">{keyed}</b> من <b className="font-display text-gray-900">{held.length}</b> يمنحها لموظفيه
+                        <b className="font-display text-gray-900">{keyed}</b> من <b className="font-display text-gray-900">{held.length}</b> يمنحها
+                        لموظفيه
                     </p>
                 </div>
                 <div className="ms-auto flex gap-2">
@@ -51,14 +52,21 @@ export default function GrantRightPanel({ sections, selected, grantable, delegab
                     >
                         منح الكل
                     </button>
-                    <button type="button" disabled={disabled || keyed === 0} onClick={() => onChange([])} className="rounded-control border border-gray-200 bg-surface px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">
+                    <button
+                        type="button"
+                        disabled={disabled || keyed === 0}
+                        onClick={() => onChange([])}
+                        className="rounded-control border border-gray-200 bg-surface px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
                         لا شيء
                     </button>
                 </div>
             </div>
 
             {bySection.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-500">لا يملك {firstName} صلاحيات يمكن منحها بعد. امنحه صلاحيات من تبويب «الصلاحيات» أولًا.</p>
+                <p className="py-8 text-center text-sm text-gray-500">
+                    لا يملك {firstName} صلاحيات يمكن منحها بعد. امنحه صلاحيات من تبويب «الصلاحيات» أولًا.
+                </p>
             ) : (
                 <div className="divide-y divide-gray-100">
                     {bySection.map((section) => (
@@ -84,7 +92,10 @@ export default function GrantRightPanel({ sections, selected, grantable, delegab
                                             <Icon name="key" className={`h-3.5 w-3.5 ${on ? '' : 'opacity-40'}`} />
                                             {entry.label}
                                             {grantsGiven[entry.id] > 0 && (
-                                                <span className="font-display text-[11px] font-bold text-gray-400" title={`منحها لـ ${grantsGiven[entry.id]} موظف`}>
+                                                <span
+                                                    className="font-display text-[11px] font-bold text-gray-400"
+                                                    title={`منحها لـ ${grantsGiven[entry.id]} موظف`}
+                                                >
                                                     · {grantsGiven[entry.id]}
                                                 </span>
                                             )}

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAIN_LINKS, SETTINGS_LINKS, allowedNavigationGroups, groupSummary, isActiveLink, isInsideAnyLink, pageTrail, topBarItems } from '../../resources/js/lib/navigation.js';
+import { MAIN_LINKS, SETTINGS_LINKS, allowedNavigationGroups, isActiveLink, navigationGroups, isInsideAnyLink, pageTrail, topBarItems } from '../../resources/js/lib/navigation.js';
 
 test('auditors see subscriber accounts and audit destinations without administration even with legacy grants', () => {
     const can = Object.fromEntries([...MAIN_LINKS, ...SETTINGS_LINKS].filter((link) => link.can).map((link) => [link.can, true]));
@@ -75,14 +75,20 @@ test('closing and reviewing boxes lives in the financial boxes link, whose tabs 
     assert.equal(isActiveLink(links[0], '/payments/cash-boxes/entries?branch_id=2'), true);
 });
 
-test('a section menu describes only the pages the user can open', () => {
+test('the top bar keeps every section and page for every user, locking those they may not open', () => {
     const everything = Object.fromEntries([...MAIN_LINKS, ...SETTINGS_LINKS].filter((link) => link.can).map((link) => [link.can, true]));
-    const daily = allowedNavigationGroups(everything).find((group) => group.id === 'daily');
-    const finance = allowedNavigationGroups({ recordPayments: true, viewCashBoxes: true, viewLedger: true, viewDebtAging: true, viewReports: true }).find((group) => group.id === 'finance');
+    const collector = navigationGroups({ recordPayments: true, viewOwnCashBoxes: true, viewCashBoxes: true });
+    const admin = navigationGroups(everything);
+    const shape = (groups) => groups.map((group) => [group.id, group.links.map((link) => link.href)]);
 
-    assert.equal(groupSummary(daily), 'المشتركون والقراءات والرسائل');
-    assert.equal(groupSummary(finance), 'تسجيل الدفعات والصناديق المالية والسجل المالي وغيرها');
-    assert.equal(groupSummary(allowedNavigationGroups({ viewMessages: true })[0]), 'الرسائل');
+    assert.deepEqual(shape(collector), shape(admin));
+    assert.deepEqual(shape(navigationGroups()), shape(admin));
+    assert.equal(admin.every((group) => group.links.every((link) => !link.locked)), true);
+    assert.deepEqual(
+        collector.flatMap((group) => group.links).filter((link) => !link.locked).map((link) => link.label),
+        ['تسجيل الدفعات', 'ملخص التحصيل', 'صناديقي'],
+    );
+    assert.equal(collector.find((group) => group.id === 'administration').links.every((link) => link.locked), true);
 });
 
 test('a collector who sees only their own boxes finds them named as theirs', () => {

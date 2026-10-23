@@ -11,12 +11,12 @@
 .sm-field small { color: var(--rs-faint); font-size: 12.5px; font-weight: 500; }
 /* Fields as everywhere in the app (app.css): a white field, a quiet border, an ink focus ring; grey and dashed only when disabled. */
 .sm-input { width: 100%; min-width: 0; border: 1px solid var(--rs-line); border-radius: 12px; padding: 10px 12px; background: var(--rs-surface); color: var(--rs-ink); font-size: 15px; box-shadow: 0 1px 2px #1018280a; transition: border-color .15s, box-shadow .15s; }
-.sm-input::placeholder { color: color-mix(in srgb, var(--rs-faint) 70%, transparent); }
+.sm-input::placeholder { color: rgb(var(--gray-400) / 0.55); font-weight: 400; }
 .sm-input:hover:not(:disabled):not(:focus) { border-color: color-mix(in srgb, var(--rs-ink) 22%, var(--rs-line)); }
 .sm-input:focus, .sms-settings .sm-input:focus-visible { border-color: var(--rs-ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--rs-ink) 10%, transparent); outline: none; }
 .sm-input[aria-invalid=true] { border-color: var(--rs-brand); }
 .sm-input:disabled { border-style: dashed; background: var(--rs-raised); color: var(--rs-faint); }
-.sm-input.is-code { direction: ltr; text-align: left; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 14px; }
+.sm-input.is-code { direction: ltr; text-align: right; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 14px; }
 textarea.sm-input { resize: vertical; min-height: 84px; line-height: 1.7; }
 .sm-pair { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 8px; }
 .sm-secret { position: relative; display: flex; gap: 8px; }

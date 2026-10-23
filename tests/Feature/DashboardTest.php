@@ -5,6 +5,10 @@ namespace Tests\Feature;
 use App\Enums\PermissionKey;
 use App\Models\Branch;
 use App\Models\Governorate;
+use App\Models\MeterReading;
+use App\Models\Permission;
+use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -13,40 +17,112 @@ class DashboardTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_super_admin_sees_stats_across_all_branches(): void
+    public function test_the_super_admin_sees_the_whole_company_and_each_branchs_collections(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
-        $branchA = Branch::factory()->create(['is_active' => true]);
-        $branchB = Branch::factory()->create(['is_active' => false]);
-        User::factory()->collector()->create(['branch_id' => $branchA->id, 'name' => 'Alpha Collector']);
-        User::factory()->collector()->create(['branch_id' => $branchB->id, 'name' => 'Beta Collector']);
+        [$north, $south] = Branch::factory()->count(2)->create();
+        $this->pay($north, 100);
+        $this->pay($south, 40);
 
-        $response = $this->actingAs($superAdmin)->get(route('dashboard'));
-
-        $response->assertOk();
-        $response->assertSee('Alpha Collector');
-        $response->assertSee('Beta Collector');
-        // Rendered via Inertia now: branch names sit inside the raw JSON
-        // page payload, not HTML-escaped Blade output — compare unescaped.
-        $response->assertSee($branchA->name, false);
-        $response->assertSee($branchB->name, false);
+        $this->actingAs($superAdmin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
+            ->where('scope.company', true)
+            ->where('scope.label', 'كل الفروع')
+            ->where('sections.collections.total', 140)
+            ->where('sections.collections.byBranch.0.name', $north->name)
+            ->where('sections.collections.byBranch.0.share', 71)
+            ->where('branchOptions', fn ($options): bool => collect($options)->pluck('value')->contains($south->id))
+            ->where('latestPayments.sum', 140));
     }
 
-    public function test_branch_admin_only_sees_their_own_branch_in_dashboard_stats(): void
+    public function test_the_super_admin_can_narrow_the_figures_to_one_branch(): void
     {
-        $ownBranch = Branch::factory()->create();
-        $otherBranch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id]);
-        User::factory()->collector()->create(['branch_id' => $ownBranch->id, 'name' => 'My Branch Collector']);
-        User::factory()->collector()->create(['branch_id' => $otherBranch->id, 'name' => 'Other Branch Collector']);
+        $superAdmin = User::factory()->superAdmin()->create();
+        [$north, $south] = Branch::factory()->count(2)->create();
+        $this->pay($north, 100);
+        $this->pay($south, 40);
 
-        $response = $this->actingAs($branchAdmin)->get(route('dashboard'));
+        $this->actingAs($superAdmin)->get(route('dashboard', ['branch' => $south->id, 'days' => 7]))->assertInertia(fn ($page) => $page
+            ->where('scope.label', $south->name)
+            ->where('filters.days', 7)
+            ->where('sections.collections.total', 40)
+            ->where('sections.collections.byBranch', null)
+            ->has('latestPayments.rows.data', 1));
+    }
 
-        $response->assertOk();
-        $response->assertSee('My Branch Collector');
-        $response->assertDontSee('Other Branch Collector');
-        $response->assertSee($ownBranch->name, false);
-        $response->assertDontSee($otherBranch->name, false);
+    public function test_a_branch_manager_sees_only_their_branch(): void
+    {
+        [$own, $other] = Branch::factory()->count(2)->create();
+        $manager = User::factory()->branchAdmin()->create(['branch_id' => $own->id]);
+        $this->pay($own, 75);
+        $this->pay($other, 500);
+
+        $this->actingAs($manager)->get(route('dashboard', ['branch' => $other->id]))->assertInertia(fn ($page) => $page
+            ->where('scope.company', false)
+            ->where('scope.label', $own->name)
+            ->where('branchOptions', null)
+            ->where('sections.collections.total', 75)
+            ->where('sections.subscriptions.active', 1)
+            ->has('latestPayments.rows.data', 1));
+    }
+
+    public function test_each_part_needs_the_permission_of_the_page_it_summarizes(): void
+    {
+        $branch = Branch::factory()->create();
+        $clerk = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        $clerk->permissions()->sync(Permission::idsFor([PermissionKey::ViewSubscriptions]));
+        $this->pay($branch, 30);
+
+        $this->actingAs($clerk)->get(route('dashboard'))->assertInertia(fn ($page) => $page
+            ->has('sections.subscriptions')
+            ->missing('sections.collections')
+            ->missing('sections.readings')
+            ->where('latestPayments', null));
+    }
+
+    public function test_the_latest_payments_are_searched_and_narrowed_to_cash_or_transfers(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $branch = Branch::factory()->create();
+        $this->pay($branch, 20, ['full_name' => 'Samir Haddad']);
+        $this->pay($branch, 35, ['full_name' => 'Rana Odeh']);
+
+        $this->actingAs($superAdmin)->get(route('dashboard', ['search' => 'Rana']))->assertInertia(fn ($page) => $page
+            ->has('latestPayments.rows.data', 1)
+            ->where('latestPayments.rows.data.0.subscriber', 'Rana Odeh'));
+        $this->get(route('dashboard', ['method' => 'transfer']))->assertInertia(fn ($page) => $page->has('latestPayments.rows.data', 0));
+    }
+
+    public function test_the_reading_week_counts_approved_waiting_and_missing_readings_and_debts_follow_the_page(): void
+    {
+        $branch = Branch::factory()->create();
+        $manager = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        [$read, $waiting] = Subscription::factory()->count(3)->create(['branch_id' => $branch->id, 'status' => 'active']);
+        $week = MeterReading::latestEndedWeekStart($branch);
+        MeterReading::factory()->approved()->create(['subscription_id' => $read->id, 'week_start' => $week]);
+        MeterReading::factory()->create(['subscription_id' => $waiting->id, 'week_start' => $week]);
+
+        $this->actingAs($manager)->get(route('dashboard'))->assertInertia(fn ($page) => $page
+            ->where('sections.readings.total', 3)
+            ->where('sections.readings.approved', 1)
+            ->where('sections.readings.pending', 1)
+            ->where('sections.readings.missing', 1)
+            ->missing('debts')
+            ->loadDeferredProps(fn ($reload) => $reload->has('debts.total')));
+    }
+
+    /**
+     * A cash payment of `$amount` on a new active subscription of the branch.
+     *
+     * @param  array<string, mixed>  $subscription
+     */
+    private function pay(Branch $branch, float $amount, array $subscription = []): void
+    {
+        $recorder = User::factory()->collector()->create(['branch_id' => $branch->id]);
+        SubscriptionTransaction::recordPayment(
+            Subscription::factory()->create(['branch_id' => $branch->id, 'status' => 'active', ...$subscription]),
+            $recorder,
+            ['amount' => (string) $amount, 'currency' => 'ILS', 'payment_method' => 'cash'],
+        );
     }
 
     public function test_guest_is_redirected_to_login(): void

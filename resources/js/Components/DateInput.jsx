@@ -177,7 +177,7 @@ export default function DateInput({
                     open ? 'border-gray-900 ring-4 ring-gray-900/10' : 'border-gray-200 hover:border-gray-300'
                 }`}
             >
-                <span className={`truncate ${hasValue ? 'text-gray-900' : 'text-gray-400'}`}>{hasValue ? formatWeekDay(value) : placeholder}</span>
+                <span className={`truncate ${hasValue ? 'text-gray-900' : 'text-gray-400/60'}`}>{hasValue ? formatWeekDay(value) : placeholder}</span>
                 <Icon name="calendar" className="h-[18px] w-[18px] shrink-0 text-gray-400" />
             </button>
 

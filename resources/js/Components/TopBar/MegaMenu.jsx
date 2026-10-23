@@ -1,6 +1,16 @@
 import { Link } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
-import { groupSummary, isActiveLink } from '@/lib/navigation';
+import { isActiveLink } from '@/lib/navigation';
+
+/** The small lock on a page the user may not open; it still opens, to the no-access page. */
+export function LockMark() {
+    return (
+        <span className="tn-lock" title="لا تملك صلاحية فتح هذه الصفحة">
+            <Icon name="lock" />
+            <span className="sr-only">(بلا صلاحية)</span>
+        </span>
+    );
+}
 
 /** A wide panel for a section with more than four plain pages, two columns of them. */
 export function megaWidth(group) {
@@ -34,17 +44,17 @@ export default function MegaMenu({ group, url, badges, width, shift, leaving, on
                         </span>
                         <div>
                             <b className="block text-[16px] font-bold leading-normal text-gray-900">{group.label}</b>
-                            <small className="block text-[12.5px] leading-normal text-gray-500">{groupSummary(group)}</small>
+                            <small className="block text-[12.5px] leading-normal text-gray-500">{group.description}</small>
                         </div>
                     </div>
 
                     {featured.length > 0 && (
                         <div className="mb-2 grid grid-cols-2 gap-2 px-1">
                             {featured.map((link) => (
-                                <Link key={link.href} href={link.href} prefetch className="tn-feature" aria-current={isActiveLink(link, url) ? 'page' : undefined} tabIndex={leaving ? -1 : undefined}>
+                                <Link key={link.href} href={link.href} prefetch={!link.locked} className="tn-feature" aria-current={isActiveLink(link, url) ? 'page' : undefined} tabIndex={leaving ? -1 : undefined}>
                                     <span className="tn-feature-icon"><Icon name={link.icon} /></span>
                                     <span className="relative z-[1]">
-                                        <b className="block leading-normal">{link.label}</b>
+                                        <b className="flex items-center gap-1.5 leading-normal">{link.label}{link.locked && <LockMark />}</b>
                                         <small className="block">{link.description}</small>
                                     </span>
                                 </Link>
@@ -55,15 +65,17 @@ export default function MegaMenu({ group, url, badges, width, shift, leaving, on
                     <ul className={`grid gap-0.5 ${twoColumns ? 'grid-cols-2' : ''}`}>
                         {rest.map((link) => (
                             <li key={link.href}>
-                                <Link href={link.href} prefetch className="tn-mega-link" aria-current={isActiveLink(link, url) ? 'page' : undefined} tabIndex={leaving ? -1 : undefined}>
+                                <Link href={link.href} prefetch={!link.locked} className="tn-mega-link" aria-current={isActiveLink(link, url) ? 'page' : undefined} tabIndex={leaving ? -1 : undefined}>
                                     <span className="tn-tile"><Icon name={link.icon} /></span>
                                     <span className="min-w-0">
                                         <b>{link.label}</b>
                                         <small>{link.description}</small>
                                     </span>
-                                    {badges[link.href] > 0
-                                        ? <span className="tn-badge">{badges[link.href]}</span>
-                                        : <Icon name="chevron-left" className="tn-go" />}
+                                    {link.locked
+                                        ? <LockMark />
+                                        : badges[link.href] > 0
+                                            ? <span className="tn-badge">{badges[link.href]}</span>
+                                            : <Icon name="chevron-left" className="tn-go" />}
                                 </Link>
                             </li>
                         ))}

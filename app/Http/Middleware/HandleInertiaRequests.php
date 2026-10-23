@@ -88,6 +88,7 @@ class HandleInertiaRequests extends Middleware
             ] : null,
             'can' => $user ? [
                 'auditOnly' => $user->isAuditOnly(),
+                'useCentralSite' => $user->canUseCentralSite(),
                 'printAuditReports' => (! $user->hasFinancialAuditAccess()) || $user->canAuditAction(AuditAction::PrintReports),
                 'viewBranches' => $user->can('viewAny', Branch::class),
                 'viewSubscriptions' => $user->can('viewAny', Subscription::class),

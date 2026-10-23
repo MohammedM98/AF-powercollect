@@ -3,13 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PermissionKey;
-use App\Enums\SubscriptionStatus;
 use App\Http\Concerns\ProvidesFormOptions;
 use App\Models\Branch;
-use App\Models\MeterBox;
+use App\Models\Governorate;
 use App\Models\Subscription;
-use App\Models\Tariff;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
+use App\Support\BranchDomainContext;
+use App\Support\DailySeries;
+use App\Support\DashboardOverview;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -18,53 +23,79 @@ class DashboardController extends Controller
     use ProvidesFormOptions;
 
     /**
-     * Every section is built only when the actor is allowed to view that
-     * table at all — the same policy checks the resource's own index page
-     * uses — so the dashboard naturally differs per user/role without any
-     * role name hardcoded here. A user granted nothing sees an empty state.
+     * The home page: the figures of the branches the user looks after —
+     * their own branch, or for the Super Admin the whole company, narrowed
+     * by governorate or branch — over the last 7, 30 or 90 days. Each part
+     * appears only for someone who may open the page it summarizes, so the
+     * dashboard differs per user without any role name hardcoded here.
      */
-    public function index(): InertiaResponse
+    public function index(Request $request): InertiaResponse
     {
-        $actor = auth()->user();
-        $scopedToBranch = ! $actor->isSuperAdmin();
+        $actor = $request->user();
+        $validated = $request->validate([
+            'days' => ['nullable', 'integer', Rule::in(DashboardOverview::PERIODS)],
+            'branch' => ['nullable', 'integer'],
+            'governorate' => ['nullable', 'integer'],
+            'method' => ['nullable', Rule::in(['cash', 'transfer'])],
+            'search' => ['nullable', 'string', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+        $days = (int) ($validated['days'] ?? 30);
+        $company = $actor->isSuperAdmin() && BranchDomainContext::id() === null;
+        $allBranches = $company ? Branch::query()->with('governorate')->orderBy('name')->get() : collect();
+        $governorateId = $company ? ($validated['governorate'] ?? null) : null;
+        $branchId = $company ? ($validated['branch'] ?? null) : null;
+        $branches = $company
+            ? $allBranches
+                ->when($governorateId, fn (Collection $branches) => $branches->where('governorate_id', $governorateId))
+                ->when($branchId, fn (Collection $branches) => $branches->where('id', $branchId))
+                ->values()
+            : Branch::query()->with('governorate')->whereKey($actor->workBranchId())->get();
+        $overview = new DashboardOverview($actor, $branches, $days);
 
-        $sections = [];
+        $sections = array_filter([
+            'collections' => $overview->collections(),
+            'subscriptions' => $overview->subscriptions(),
+            'meterBoxes' => $overview->meterBoxes(),
+            'readings' => $overview->readings(),
+            'disconnections' => $overview->disconnections(),
+            'boxes' => $overview->boxes(),
+        ], fn (?array $section): bool => $section !== null);
 
-        if ($actor->can('viewAny', Branch::class)) {
-            $sections['branches'] = $this->branchesSection();
-        }
-
-        if ($actor->can('viewAny', User::class)) {
-            $sections['users'] = $this->usersSection($actor);
-        }
-
-        if ($actor->can('viewAny', Subscription::class)) {
-            $sections['subscriptions'] = $this->subscriptionsSection($actor);
-        }
-
-        if ($actor->can('viewAny', MeterBox::class)) {
-            $sections['meterBoxes'] = $this->meterBoxesSection($actor);
-        }
-
-        if ($actor->can('viewAny', Tariff::class)) {
-            $sections['tariffs'] = ['total' => Tariff::count()];
-        }
-
-        $hour = now()->hour;
-        $greeting = match (true) {
-            $hour < 12 => __('Good morning'),
-            $hour < 18 => __('Good afternoon'),
-            default => __('Good evening'),
-        };
+        $hour = now(config('app.business_timezone'))->hour;
 
         return Inertia::render('Dashboard', [
-            'greeting' => $greeting,
-            'scopedToBranch' => $scopedToBranch,
+            'greeting' => match (true) {
+                $hour < 12 => __('Good morning'),
+                $hour < 18 => __('Good afternoon'),
+                default => __('Good evening'),
+            },
+            'scope' => [
+                'company' => $company,
+                'label' => $company && ! $branchId ? ($governorateId ? $allBranches->firstWhere('governorate_id', $governorateId)?->governorate?->name ?? 'كل الفروع' : 'كل الفروع') : $branches->first()?->name,
+                'branches' => $branches->count(),
+                'governorates' => $branches->pluck('governorate_id')->filter()->unique()->count(),
+                'today' => DailySeries::today()->toDateString(),
+            ],
+            'filters' => [
+                'days' => $days,
+                'branch' => $branchId,
+                'governorate' => $governorateId,
+                'method' => $validated['method'] ?? null,
+                'search' => $validated['search'] ?? '',
+            ],
+            'periods' => DashboardOverview::PERIODS,
+            'branchOptions' => $company ? $allBranches->map(fn (Branch $branch): array => ['value' => $branch->id, 'label' => $branch->name, 'governorate' => $branch->governorate_id])->values() : null,
+            'governorateOptions' => $company ? $allBranches->pluck('governorate')->filter()->unique('id')->sortBy('name')->map(fn (Governorate $governorate): array => ['value' => $governorate->id, 'label' => $governorate->name])->values() : null,
             'sections' => $sections,
+            // Aged one debtor at a time, so it follows the page instead of holding it up.
+            'debts' => Inertia::defer(fn () => $overview->debts()),
+            'latestPayments' => fn () => $overview->latestPayments($validated['method'] ?? null, trim((string) ($validated['search'] ?? '')), (int) ($validated['page'] ?? 1)),
             // Someone whose work is in the field app and who has nothing to see here is told so.
-            'fieldApp' => $sections === [] && ($actor->hasPermission(PermissionKey::RecordCollections) || $actor->hasPermission(PermissionKey::RecordMeterReadings))
+            'fieldApp' => $sections === [] && ! $actor->can('viewDebtAging', SubscriptionTransaction::class) && ($actor->hasPermission(PermissionKey::RecordCollections) || $actor->hasPermission(PermissionKey::RecordMeterReadings))
                 ? ['url' => config('powercollect.mobile_app_url')]
                 : null,
+            'canCreateSubscription' => $actor->can('create', Subscription::class),
             'canCreateBranch' => $actor->can('create', Branch::class),
             'canCreateUser' => $actor->can('create', User::class),
             // The "new branch/user" pop-up's dropdowns, loaded only when its button is clicked.
@@ -73,96 +104,5 @@ class DashboardController extends Controller
                 ? $this->userBranchOptions()
                 : null),
         ]);
-    }
-
-    /**
-     * @return array{total: int, active: int, activePct: int, recent: array<int, array{id: int, name: string, subtitle: ?string, active: bool}>}
-     */
-    private function branchesSection(): array
-    {
-        $total = Branch::count();
-        $active = Branch::where('is_active', true)->count();
-
-        return [
-            'total' => $total,
-            'active' => $active,
-            'activePct' => $this->percentage($active, $total),
-            'recent' => Branch::latest()->latest('id')->take(5)->get()->map(fn (Branch $branch) => [
-                'id' => $branch->id,
-                'name' => $branch->name,
-                'subtitle' => $branch->phone,
-                'active' => $branch->is_active,
-            ])->all(),
-        ];
-    }
-
-    /**
-     * @return array{total: int, active: int, activePct: int, branchAdmins: int, collectors: int, recent: array<int, array{id: int, name: string, subtitle: string}>}
-     */
-    private function usersSection(User $actor): array
-    {
-        $users = fn () => User::query()->visibleTo($actor);
-        $total = $users()->count();
-        $active = $users()->where('is_active', true)->count();
-
-        return [
-            'total' => $total,
-            'active' => $active,
-            'activePct' => $this->percentage($active, $total),
-            'branchAdmins' => $users()->whereHas('permissions', fn ($permissions) => $permissions->where('key', PermissionKey::ManagePermissions->value))->count(),
-            'collectors' => $users()->whereHas('permissions', fn ($permissions) => $permissions->where('key', PermissionKey::RecordCollections->value))->count(),
-            'recent' => $users()->with('userType')->latest()->latest('id')->take(5)->get()->map(fn (User $user) => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'subtitle' => $user->isSuperAdmin() ? __($user->role->label()) : ($user->userType?->name ?? 'موظف'),
-            ])->all(),
-        ];
-    }
-
-    /**
-     * @return array{total: int, active: int, activePct: int, recent: array<int, array{id: int, name: string, subtitle: ?string}>}
-     */
-    private function subscriptionsSection(User $actor): array
-    {
-        $subscriptions = fn () => Subscription::query()->visibleTo($actor);
-        $total = $subscriptions()->count();
-        $active = $subscriptions()->where('status', SubscriptionStatus::Active)->count();
-
-        return [
-            'total' => $total,
-            'active' => $active,
-            'activePct' => $this->percentage($active, $total),
-            'recent' => $subscriptions()->latest()->latest('id')->take(5)->get()->map(fn (Subscription $subscription) => [
-                'id' => $subscription->id,
-                'name' => $subscription->displayName(),
-                'subtitle' => $subscription->contactPhone(),
-            ])->all(),
-        ];
-    }
-
-    /**
-     * @return array{total: int, recent: array<int, array{id: int, name: ?string, subtitle: ?string}>}
-     */
-    private function meterBoxesSection(User $actor): array
-    {
-        $meterBoxes = fn () => MeterBox::query()->visibleTo($actor);
-
-        return [
-            'total' => $meterBoxes()->count(),
-            'recent' => $meterBoxes()->with('branch')->latest()->latest('id')->take(5)->get()->map(fn (MeterBox $meterBox) => [
-                'id' => $meterBox->id,
-                'name' => $meterBox->displayName(),
-                'subtitle' => $meterBox->branch->name,
-            ])->all(),
-        ];
-    }
-
-    /**
-     * `$part` as a whole-number percentage of `$total` (0 when there is
-     * nothing to count).
-     */
-    private function percentage(int $part, int $total): int
-    {
-        return $total > 0 ? (int) round($part / $total * 100) : 0;
     }
 }

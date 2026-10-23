@@ -4,6 +4,7 @@ import { Link, usePage } from '@inertiajs/react';
 import Icon from '@/Components/Icon';
 import { HOME_LINK, currentGroup, isActiveLink } from '@/lib/navigation';
 import { Avatar, LogoutForm } from './AccountMenu';
+import { LockMark } from './MegaMenu';
 import ThemeSegments from './ThemeSegments';
 import { shortAppName } from './TopBar';
 
@@ -146,9 +147,10 @@ export default function NavigationDrawer({ open, groups, badges, onClose, onOpen
                                         <div>
                                             <div className="grid gap-0.5 py-1 ps-3">
                                                 {group.links.map((link) => (
-                                                    <Link key={link.href} href={link.href} prefetch className="tn-drawer-link" aria-current={isActiveLink(link, url) ? 'page' : undefined}>
+                                                    <Link key={link.href} href={link.href} prefetch={!link.locked} className="tn-drawer-link" aria-current={isActiveLink(link, url) ? 'page' : undefined}>
                                                         <Icon name={link.icon} />
                                                         <span className="flex-1">{link.label}</span>
+                                                        {link.locked && <LockMark />}
                                                         {badges[link.href] > 0 && <span className="rounded-full bg-brand-500 px-1.5 text-[11px] font-bold leading-[18px] text-white">{badges[link.href]}</span>}
                                                     </Link>
                                                 ))}

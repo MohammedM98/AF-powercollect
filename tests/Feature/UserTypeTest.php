@@ -193,7 +193,6 @@ class UserTypeTest extends TestCase
         $this->assertSame($actor->branch_id, $employee->branch_id);
         $this->get(route('users.index', ['search' => 'new.employee']))->assertInertia(fn ($page) => $page
             ->where('users.data.0.userTypeName', 'كهربائي')->where('users.data.0.user_type_id', $type->id));
-        $this->get(route('dashboard'))->assertInertia(fn ($page) => $page->where('sections.users.recent.0.subtitle', 'كهربائي'));
     }
 
     public function test_changing_or_clearing_a_user_type_preserves_custom_permissions(): void

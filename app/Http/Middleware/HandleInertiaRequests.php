@@ -69,7 +69,6 @@ class HandleInertiaRequests extends Middleware
             'appName' => config('app.name'),
             'branchContext' => [
                 'current' => BranchDomainContext::branch()?->only(['id', 'name', 'domain']),
-                'centralUrl' => BranchDomainContext::centralUrl('/branch-access'),
                 'recoveryUrl' => $request->attributes->get('unavailable_branch_domain') ? BranchDomainContext::centralUrl($user ? '/dashboard' : '/login') : null,
                 'enabled' => (bool) config('powercollect.branch_domains_enabled'),
             ],
@@ -88,7 +87,6 @@ class HandleInertiaRequests extends Middleware
             ] : null,
             'can' => $user ? [
                 'auditOnly' => $user->isAuditOnly(),
-                'useCentralSite' => $user->canUseCentralSite(),
                 'printAuditReports' => (! $user->hasFinancialAuditAccess()) || $user->canAuditAction(AuditAction::PrintReports),
                 'viewBranches' => $user->can('viewAny', Branch::class),
                 'viewSubscriptions' => $user->can('viewAny', Subscription::class),

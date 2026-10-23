@@ -5,6 +5,8 @@ import ActionsTh from '@/Components/DataTable/ActionsTh';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import AreaChip from '@/Components/DataTable/AreaChip';
+import FarBehindMark from '@/Components/DataTable/FarBehindMark';
 import MeterBoxCell from '@/Components/DataTable/MeterBoxCell';
 import Pagination from '@/Components/DataTable/Pagination';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
@@ -16,6 +18,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { describeBalance } from '@/lib/accountStatement';
+import { isFarBehind } from '@/lib/balance';
 import { formatMoney } from '@/lib/format';
 import { balanceText, BALANCE_CHIPS } from '@/Pages/Subscriptions/AccountFormParts';
 import ChargeModal from '@/Pages/Subscriptions/ChargeModal';
@@ -165,7 +168,11 @@ export default function Index({
 
                                 return (
                                     // The row opens the subscriber's statement; «تسجيل دفعة» takes a payment.
-                                    <tr key={subscription.id} {...rowClick(can?.viewSubscriptions ? () => openStatement(subscription) : null)}>
+                                    <tr
+                                        key={subscription.id}
+                                        {...rowClick(can?.viewSubscriptions ? () => openStatement(subscription) : null)}
+                                        className={isFarBehind(subscription.balance, subscription.weeklyMinimumPayment) ? 'is-far-behind' : undefined}
+                                    >
                                         <td className="text-gray-600">
                                             <span dir="ltr">{subscription.accountNumber}</span>
                                             {subscription.subscriberNumber && (
@@ -182,7 +189,9 @@ export default function Index({
                                                 status={STATUS_TONES[subscription.status]}
                                             />
                                         </td>
-                                        <td className="text-gray-600">{subscription.subAreaName || '—'}</td>
+                                        <td>
+                                            <AreaChip id={subscription.subAreaId} name={subscription.subAreaName} />
+                                        </td>
                                         <td className="text-gray-600">
                                             <MeterBoxCell name={subscription.meterBoxName} number={subscription.meterBoxNumber} />
                                         </td>
@@ -190,6 +199,7 @@ export default function Index({
                                             <span className={`inline-block whitespace-nowrap rounded-[10px] px-2.5 py-0.5 font-display text-[14.5px] font-bold ${BALANCE_CHIPS[described.tone]}`}>
                                                 {balanceText(described)}
                                             </span>
+                                            {isFarBehind(subscription.balance, subscription.weeklyMinimumPayment) && <FarBehindMark />}
                                         </td>
                                         <td>
                                             <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />

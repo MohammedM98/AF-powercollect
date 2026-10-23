@@ -850,6 +850,7 @@ class PaymentController extends Controller
             'phone' => $subscription->contactPhone(),
             'meterBoxNumber' => $subscription->meterBox?->box_number,
             'meterBoxName' => $subscription->meterBox?->displayName(),
+            'subAreaId' => $subscription->meterBox?->sub_area_id,
             'subAreaName' => $subscription->meterBox?->subArea?->name,
             'branchName' => $subscription->branch->name,
             'status' => $subscription->status->value,

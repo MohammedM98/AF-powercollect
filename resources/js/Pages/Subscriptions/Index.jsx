@@ -4,8 +4,12 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
+import AreaChip from '@/Components/DataTable/AreaChip';
+import FarBehindMark from '@/Components/DataTable/FarBehindMark';
 import MeterBoxCell from '@/Components/DataTable/MeterBoxCell';
 import SortableTh from '@/Components/DataTable/SortableTh';
+import TariffTag from '@/Components/DataTable/TariffTag';
+import { isFarBehind } from '@/lib/balance';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
@@ -432,7 +436,11 @@ export default function Index({
                                     key={subscription.id}
                                     {...rowClick(() => setViewingSubscriptionId(subscription.id))}
                                     {...printRowProps(Object.fromEntries(PRINT_FIELDS.map((field) => [field.key, subscription[field.key]])))}
-                                    className={allMatching || selectedIds.has(subscription.id) ? 'bg-brand-50' : undefined}
+                                    className={
+                                        [allMatching || selectedIds.has(subscription.id) ? 'bg-brand-50' : '', isFarBehind(subscription.outstandingBalance, subscription.weeklyMinimumPayment) ? 'is-far-behind' : '']
+                                            .filter(Boolean)
+                                            .join(' ') || undefined
+                                    }
                                 >
                                     {canSelect && (
                                         <td>
@@ -467,17 +475,20 @@ export default function Index({
                                             <span className="mt-1 block text-xs text-gray-500">{subscription.subscriptionCount} اشتراكات</span>
                                         )}
                                     </td>
-                                    <td className="text-gray-600">{subscription.subAreaName || '—'}</td>
+                                    <td>
+                                        <AreaChip id={subscription.subAreaId} name={subscription.subAreaName} />
+                                    </td>
                                     <td className="text-gray-600">
                                         <MeterBoxCell name={subscription.meterBoxName} number={subscription.meterBoxNumber} />
                                     </td>
                                     <td className="text-gray-600">
-                                        {subscription.tariffCategoryLabel}
+                                        <TariffTag category={subscription.tariffCategory} label={subscription.tariffCategoryLabel} />
                                         {subscription.tariffSegmentName && <div className="text-xs text-gray-400">{subscription.tariffSegmentName}</div>}
                                     </td>
                                     <td className="whitespace-nowrap text-gray-600">{formatCurrency(subscription.weeklyMinimumPayment)}</td>
                                     <td className="whitespace-nowrap font-semibold">
-                                        <Balance value={subscription.outstandingBalance} />
+                                        <Balance value={subscription.outstandingBalance} chip />
+                                        {isFarBehind(subscription.outstandingBalance, subscription.weeklyMinimumPayment) && <FarBehindMark />}
                                     </td>
                                     <td>
                                         <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />

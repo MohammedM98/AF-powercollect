@@ -80,3 +80,14 @@ export function balanceWord(value) {
 export function balanceOnPaper(value, unit = '₪') {
     return `${balanceInText(value, unit)} ${balanceWord(value)}`;
 }
+
+/** How many weeks of their minimum a subscriber may owe before their row is marked as far behind. */
+export const FAR_BEHIND_WEEKS = 4;
+
+/** Whether a subscriber owes more than FAR_BEHIND_WEEKS weeks of their weekly minimum payment. */
+export function isFarBehind(balance, weeklyMinimum) {
+    const owed = Number(balance ?? 0);
+    const minimum = Number(weeklyMinimum ?? 0);
+
+    return minimum > 0 && owed > minimum * FAR_BEHIND_WEEKS;
+}

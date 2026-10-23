@@ -779,6 +779,23 @@ html.tn-locked {
     transition: opacity 0.2s, transform 0.2s;
 }
 
+/* A page the user may not open: a small lock where the arrow would be. */
+.tn-lock {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: rgb(var(--gray-400));
+}
+
+.tn-lock svg {
+    width: 14px !important;
+    height: 14px !important;
+    color: inherit !important;
+}
+
+.tn-feature .tn-lock {
+    color: rgb(255 255 255 / 0.55);
+}
+
 .tn-mega-link:hover .tn-go {
     opacity: 1;
     transform: none;

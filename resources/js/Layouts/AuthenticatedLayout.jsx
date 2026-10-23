@@ -10,7 +10,7 @@ import { Breadcrumb, SectionPages } from '@/Components/TopBar/PageTrail';
 import { pageWindowOpen } from '@/Components/TopBar/shortcuts';
 import { useTheme } from '@/hooks/useTheme';
 import { currentPrintSettings } from '@/lib/print';
-import { HOME_LINK, MAIN_LINKS, allowedNavigationGroups, pageTrail } from '@/lib/navigation';
+import { HOME_LINK, MAIN_LINKS, allowedNavigationGroups, navigationGroups, pageTrail } from '@/lib/navigation';
 import { useResponsiveTables } from '@/hooks/useResponsiveTables';
 import { QUICK_MESSAGE_EVENT, openQuickMessage } from '@/lib/quickMessage';
 import QuickMessageModal from '@/Pages/Messages/QuickMessageModal';
@@ -50,12 +50,12 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
     const [pastTitle, setPastTitle] = useState(false);
     useResponsiveTables();
 
-    const groups = allowedNavigationGroups(can);
+    const groups = navigationGroups(can);
     const trail = pageTrail(groups, url);
     const searchesSubscribers = Boolean(can?.recordPayments && can?.viewSubscriptions);
     const anyLayerOpen = drawerOpen || paletteOpen || shortcutsOpen || tourOpen;
 
-    const paletteSections = [[HOME_LINK.label, [MAIN_LINKS[0]]], ...groups.map((group) => [group.label, group.links])];
+    const paletteSections = [[HOME_LINK.label, [MAIN_LINKS[0]]], ...allowedNavigationGroups(can).map((group) => [group.label, group.links])];
     const commands = [
         ...(can?.recordPayments ? [{ id: 'pay', label: 'تسجيل دفعة', icon: 'banknotes', key: 'N' }] : []),
         ...(can?.sendMessages ? [{ id: 'message', label: 'رسالة سريعة لمشترك أو أكثر', icon: 'send', key: 'M' }] : []),
@@ -200,7 +200,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
             />
 
             <main id="main-content" tabIndex={-1} className="mx-auto max-w-[1720px] px-[var(--tn-gutter)] pb-16 pt-8 outline-none">
-                {props.branchContext?.enabled && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-gray-200 bg-surface px-4 py-3 text-sm text-gray-700"><span>مكان العمل: <b className="text-gray-900">{props.branchContext.current?.name ?? 'اللوحة المركزية'}</b></span><a href={props.branchContext.centralUrl} className="font-semibold text-brand-600 hover:underline">اختيار فرع</a></div>}
+                {props.branchContext?.enabled && props.can?.useCentralSite && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-gray-200 bg-surface px-4 py-3 text-sm text-gray-700"><span>مكان العمل: <b className="text-gray-900">{props.branchContext.current?.name ?? 'اللوحة المركزية'}</b></span><a href={props.branchContext.centralUrl} className="font-semibold text-brand-600 hover:underline">اختيار فرع</a></div>}
                 <Breadcrumb trail={trail} />
                 <SectionPages trail={trail} url={url} badges={badges} />
                 {header && <div className="rise-in mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">{header}</div>}

@@ -1,8 +1,9 @@
 /**
  * Every page in the top bar and the Ctrl+K search. `can` names the flag in
- * the shared `can` props (HandleInertiaRequests) that must be true for the
- * link to show; links without it are always shown. The top bar's sections
- * and the search share the same task groups and permission flags.
+ * the shared `can` props (HandleInertiaRequests) that must be true to open
+ * the page; links without it are open to all. The top bar shows every page
+ * to everyone, those not open to the user locked; the search lists only the
+ * pages they may open.
  */
 export const MAIN_LINKS = [
     { href: '/dashboard', label: 'لوحة التحكم', description: 'نظرة اليوم: التحصيل والمهام', icon: 'grid' },
@@ -60,29 +61,30 @@ export const NAVIGATION_GROUPS = [
     { id: 'administration', label: 'الإدارة والإعدادات', shortLabel: 'الإدارة', icon: 'cog', description: 'المستخدمون والصلاحيات والإعدادات', hrefs: ['/users', '/settings/permissions', '/tariffs', '/settings/payments', '/settings/reading-schedule', '/settings/print-templates', '/settings/sms'], featured: ['/users', '/settings/permissions'] },
 ];
 
-/** Task groups containing only the pages the current user may open. */
-export function allowedNavigationGroups(can) {
+/**
+ * The top bar's task groups, the same for every user: all of each group's
+ * pages, those the user may not open marked `locked` (they open the
+ * no-access page), so the bar keeps its shape whatever the permissions.
+ */
+export function navigationGroups(can) {
     return NAVIGATION_GROUPS.map(({ hrefs, ...group }) => {
-        const links = allowedLinks(hrefs.map((href) => linksByHref.get(href)), can)
-            .map((link) => (seesOwnBoxesOnly(can) && OWN_LABELS[link.href] ? { ...link, label: OWN_LABELS[link.href] } : link));
+        const links = hrefs.map((href) => linksByHref.get(href));
+        const open = new Set(allowedLinks(links, can));
 
-        return { ...group, links, complete: links.length === hrefs.length };
-    }).filter((group) => group.links.length > 0);
+        return { ...group, links: links.map((link) => ({ ...ownLabel(link, can), locked: !open.has(link) })) };
+    });
 }
 
-/**
- * What a group holds, for its menu heading: the group's own description when
- * the user sees all of its pages, otherwise the pages they do see, so it never
- * names a page hidden from them ("القراءات والرسائل", "… وغيرها" past three).
- */
-export function groupSummary(group) {
-    if (group.complete) {
-        return group.description;
-    }
+/** Task groups containing only the pages the current user may open, for the search. */
+export function allowedNavigationGroups(can) {
+    return navigationGroups(can)
+        .map((group) => ({ ...group, links: group.links.filter((link) => !link.locked) }))
+        .filter((group) => group.links.length > 0);
+}
 
-    const labels = group.links.map((link) => link.label);
-
-    return labels.slice(0, 3).map((label, index) => (index ? `و${label}` : label)).join(' ') + (labels.length > 3 ? ' وغيرها' : '');
+/** A collector's own boxes named as theirs. */
+function ownLabel(link, can) {
+    return seesOwnBoxesOnly(can) && OWN_LABELS[link.href] ? { ...link, label: OWN_LABELS[link.href] } : link;
 }
 
 /**

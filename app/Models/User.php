@@ -141,6 +141,18 @@ class User extends Authenticatable
             || ($this->hasFinancialAuditAccess() && $this->auditIncludesBranch($branch->id)));
     }
 
+    /**
+     * Whether the user may sign in on the central site while branch links
+     * are on: the Super Admin, the financial auditors (who work across
+     * branches) and whoever manages the branches themselves, which is done
+     * only there. Everyone else signs in from their branch's link.
+     */
+    public function canUseCentralSite(): bool
+    {
+        return $this->is_active && ($this->isSuperAdmin() || $this->hasFinancialAuditAccess()
+            || $this->hasAnyPermission(PermissionKey::CreateBranches, PermissionKey::UpdateBranches, PermissionKey::DeleteBranches, PermissionKey::ManageBranchDomains));
+    }
+
     /** Delegated administrators and auditors are managed by the Super Admin. */
     public function isProtectedFromBranchManagement(): bool
     {

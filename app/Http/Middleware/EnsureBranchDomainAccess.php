@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Support\BranchDomainContext;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,6 +20,15 @@ class EnsureBranchDomainAccess
     {
         $branch = BranchDomainContext::branch();
         $actor = $request->user();
+        // Staff work only from their branch's link: a session of theirs on the central site (one from before branch links were on) is ended.
+        if (! $branch && $actor && config('powercollect.branch_domains_enabled') && ! $actor->canUseCentralSite()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login');
+        }
+        // Those who manage the branches from the central site do the branches' own work from each branch's link.
         if (! $branch && $actor && config('powercollect.branch_domains_enabled') && ! $actor->isSuperAdmin() && ! $actor->hasFinancialAuditAccess()
             && ! $request->routeIs('branch-access.*', 'login', 'logout', 'profile.*', 'password.*', 'notifications.*', 'branches.*', 'branch-domains.*', 'settings.*', 'users.*', 'user-types.*', 'governorates.*', 'areas.*', 'sub-areas.*', 'tariffs.*', 'tariff-segments.*', 'circuit-breakers.*', 'print-templates.*')) {
             if ($request->isMethod('GET')) {

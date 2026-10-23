@@ -37,7 +37,10 @@ class LoginRequest extends FormRequest
 
     /**
      * Attempt to authenticate the request's credentials. A stopped
-     * account cannot sign in, even with the right password.
+     * account cannot sign in, even with the right password. A branch's
+     * link admits only those who may enter that branch, and with branch
+     * links on, the central site only the Super Admin and the auditors:
+     * anyone else is told the details are wrong, as for a wrong password.
      *
      * @throws ValidationException
      */
@@ -53,7 +56,15 @@ class LoginRequest extends FormRequest
 
                 $branch = BranchDomainContext::branch();
 
-                return ! $isStopped && ($branch === null || $user->canEnterBranch($branch));
+                if ($isStopped) {
+                    return false;
+                }
+
+                if ($branch !== null) {
+                    return $user->canEnterBranch($branch);
+                }
+
+                return ! config('powercollect.branch_domains_enabled') || $user->canUseCentralSite();
             },
             $this->boolean('remember'),
         );

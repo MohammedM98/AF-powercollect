@@ -39,6 +39,25 @@ class ErrorPagesTest extends TestCase
         $this->assertStringNotContainsString('This action is unauthorized', $response->getContent());
     }
 
+    /**
+     * The top bar shows every page to everyone (lib/navigation.js), so each
+     * one opens the no-access page, in the app's layout, for those who may
+     * not open it, rather than a broken or empty screen.
+     */
+    public function test_every_page_in_the_top_bar_opens_the_no_access_page_for_a_user_without_its_permission(): void
+    {
+        $user = User::factory()->collector()->create();
+        $user->permissions()->sync([]);
+        $this->actingAs($user);
+
+        foreach (['/payments', '/payments/summary', '/payments/cash-boxes', '/ledger', '/receivables', '/transaction-audit', '/branch-performance', '/reports', '/company-forms',
+            '/subscriptions', '/meter-readings', '/reading-cycles', '/disconnection-lists', '/messages', '/users', '/settings/payments', '/branches', '/tariffs',
+            '/circuit-breakers', '/meter-boxes', '/governorates', '/settings/permissions', '/settings/reading-schedule', '/settings/print-templates', '/settings/sms'] as $path) {
+            $this->get($path)->assertForbidden()
+                ->assertInertia(fn (AssertableInertia $page) => $page->component('Error')->where('status', 403)->has('auth.user'));
+        }
+    }
+
     public function test_an_inertia_visit_to_a_forbidden_page_gets_the_error_component_too(): void
     {
         $version = app(HandleInertiaRequests::class)->version(Request::create('/users'));

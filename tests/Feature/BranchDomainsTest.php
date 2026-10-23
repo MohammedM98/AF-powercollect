@@ -58,7 +58,8 @@ class BranchDomainsTest extends TestCase
         $employee = User::factory()->branchAdmin()->create(['branch_id' => $this->north->id]);
         $url = 'https://admin.company.test/branch-domains/'.$this->north->id;
         $payload = ['domain' => 'new.company.test', 'domain_enabled' => true];
-        $this->actingAs($employee)->put($url, $payload)->assertForbidden();
+        $this->actingAs($employee)->put($url, $payload)->assertRedirect('https://admin.company.test/login');
+        $this->assertDatabaseHas('branches', ['id' => $this->north->id, 'domain' => 'north.company.test']);
         $employee->permissions()->attach(Permission::idsFor([PermissionKey::ManageBranchDomains]));
         $this->actingAs($employee->fresh())->put($url, $payload)->assertSessionHasNoErrors();
     }
@@ -79,6 +80,45 @@ class BranchDomainsTest extends TestCase
         $this->post('https://north.company.test/login', $payload)->assertSessionHasErrors('username');
         $this->assertGuest();
         $this->post('https://south.example.test/login', $payload)->assertSessionHasNoErrors()->assertRedirect('/dashboard');
+        $this->assertAuthenticatedAs($employee);
+    }
+
+    public function test_branch_staff_cannot_sign_in_on_the_central_site_and_are_told_the_details_are_wrong(): void
+    {
+        $manager = User::factory()->branchAdmin()->create(['branch_id' => $this->north->id]);
+
+        $this->post('https://admin.company.test/login', ['username' => $manager->username, 'password' => 'password'])
+            ->assertSessionHasErrors(['username' => trans('auth.failed')]);
+        $this->assertGuest();
+    }
+
+    public function test_the_super_admin_and_auditors_sign_in_on_the_central_site(): void
+    {
+        $auditor = User::factory()->financialAuditor()->create(['branch_id' => null]);
+
+        foreach ([$this->admin, $auditor] as $user) {
+            $this->post('https://admin.company.test/login', ['username' => $user->username, 'password' => 'password'])->assertSessionHasNoErrors();
+            $this->assertAuthenticatedAs($user);
+            $this->post('https://admin.company.test/logout');
+        }
+    }
+
+    public function test_whoever_manages_the_branches_signs_in_centrally_but_works_branches_from_their_links(): void
+    {
+        $manager = User::factory()->branchAdmin()->create(['branch_id' => $this->north->id]);
+        $manager->permissions()->attach(Permission::idsFor([PermissionKey::ManageBranchDomains]));
+
+        $this->post('https://admin.company.test/login', ['username' => $manager->username, 'password' => 'password'])->assertSessionHasNoErrors();
+        $this->assertAuthenticatedAs($manager);
+        $this->get('https://admin.company.test/payments')->assertRedirect('https://admin.company.test/branch-access');
+    }
+
+    public function test_staff_sign_in_on_the_central_site_while_branch_links_are_off(): void
+    {
+        config(['powercollect.branch_domains_enabled' => false]);
+        $employee = User::factory()->collector()->create(['branch_id' => $this->north->id]);
+
+        $this->post('http://localhost/login', ['username' => $employee->username, 'password' => 'password'])->assertSessionHasNoErrors();
         $this->assertAuthenticatedAs($employee);
     }
 
@@ -160,8 +200,8 @@ class BranchDomainsTest extends TestCase
 
     public function test_branch_selector_lists_only_allowed_active_domains_and_supports_custom_domains(): void
     {
-        $employee = User::factory()->collector()->create(['branch_id' => $this->south->id]);
-        $this->actingAs($employee)->get('https://admin.company.test/branch-access')->assertInertia(fn ($page) => $page
+        $auditor = User::factory()->financialAuditor()->create(['branch_id' => null, 'audit_settings' => ['scope' => 'selected', 'branch_ids' => [$this->south->id], 'actions' => ['view_ledger']]]);
+        $this->actingAs($auditor)->get('https://admin.company.test/branch-access')->assertInertia(fn ($page) => $page
             ->has('branches', 1)->where('branches.0.url', 'https://south.example.test/dashboard'));
     }
 
@@ -247,11 +287,14 @@ class BranchDomainsTest extends TestCase
         $this->assertSame(now()->format('Y').'100000', Subscription::nextAccountNumber());
     }
 
-    public function test_regular_staff_use_the_branch_domain_instead_of_bypassing_it_through_the_central_site(): void
+    public function test_a_staff_session_on_the_central_site_is_ended_rather_than_sent_to_a_branch_picker(): void
     {
         $employee = User::factory()->collector()->create(['branch_id' => $this->north->id]);
-        $this->actingAs($employee)->get('https://admin.company.test/payments')->assertRedirect('https://admin.company.test/branch-access');
-        $this->post('https://admin.company.test/payments/split', [])->assertForbidden();
+        $this->actingAs($employee)->get('https://admin.company.test/payments')->assertRedirect('https://admin.company.test/login');
+        $this->assertGuest();
+
+        $this->actingAs($employee)->post('https://admin.company.test/payments/split', [])->assertRedirect('https://admin.company.test/login');
+        $this->assertGuest();
     }
 
     public function test_auditors_can_only_enter_domains_in_their_audit_scope(): void
@@ -294,9 +337,9 @@ class BranchDomainsTest extends TestCase
         $this->app->detectEnvironment(fn (): string => 'local');
         config(['app.url' => 'http://localhost:8000']);
         $this->north->forceFill(['domain' => 'camp2.localhost'])->save();
-        $employee = User::factory()->collector()->create(['branch_id' => $this->north->id]);
+        $auditor = User::factory()->financialAuditor()->create(['branch_id' => null, 'audit_settings' => ['scope' => 'selected', 'branch_ids' => [$this->north->id], 'actions' => ['view_ledger']]]);
 
-        $this->actingAs($employee)->get('http://localhost:8000/branch-access')->assertInertia(fn ($page) => $page
+        $this->actingAs($auditor)->get('http://localhost:8000/branch-access')->assertInertia(fn ($page) => $page
             ->where('branches.0.url', 'http://camp2.localhost:8000/dashboard'));
     }
 

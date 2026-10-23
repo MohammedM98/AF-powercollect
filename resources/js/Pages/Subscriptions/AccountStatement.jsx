@@ -322,6 +322,7 @@ function lineActionsMenu(entry, onAction) {
               title: entry.description,
               subtitle: entry.date,
               width: 410,
+              colorful: true,
               groups,
           }
         : null;
@@ -554,7 +555,7 @@ function StatementRow({
             </td>
             {hasLineMenus && (
                 <td className="statement-screen-only text-end">
-                    {hasLineMenu(entry) && <RowActionsMenu menu={lineActionsMenu(entry, onAction)} />}
+                    {hasLineMenu(entry) && <RowActionsMenu menu={lineActionsMenu(entry, onAction)} menuLabel="إجراءات" />}
                 </td>
             )}
         </tr>

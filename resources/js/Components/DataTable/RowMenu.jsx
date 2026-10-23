@@ -52,6 +52,23 @@ const TONES = {
         active: 'group-hover/item:bg-brand-gradient group-focus-visible/item:bg-brand-gradient',
     },
 };
+/**
+ * A colourful menu's items (`menu.colorful`): each row softly tinted in
+ * its tone with its title in that tone and its icon tile filled solid, so
+ * every action reads at a glance. Written out whole so Tailwind keeps them.
+ */
+const COLORFUL = {
+    graphite: { row: 'bg-gray-500/[0.06] hover:bg-gray-500/[0.14] focus-visible:bg-gray-500/[0.14]', label: 'text-gray-900', tile: 'bg-graphite-gradient text-white' },
+    blue: { row: 'bg-blue-500/[0.07] hover:bg-blue-500/[0.15] focus-visible:bg-blue-500/[0.15]', label: 'text-blue-700 dark:text-blue-500', tile: 'bg-blue-600 text-white' },
+    indigo: { row: 'bg-indigo-500/[0.07] hover:bg-indigo-500/[0.15] focus-visible:bg-indigo-500/[0.15]', label: 'text-indigo-700 dark:text-indigo-300', tile: 'bg-indigo-600 text-white' },
+    sky: { row: 'bg-sky-500/[0.07] hover:bg-sky-500/[0.15] focus-visible:bg-sky-500/[0.15]', label: 'text-sky-700 dark:text-sky-300', tile: 'bg-sky-600 text-white' },
+    emerald: { row: 'bg-emerald-500/[0.07] hover:bg-emerald-500/[0.15] focus-visible:bg-emerald-500/[0.15]', label: 'text-emerald-700 dark:text-emerald-300', tile: 'bg-emerald-600 text-white' },
+    amber: { row: 'bg-amber-500/[0.08] hover:bg-amber-500/[0.16] focus-visible:bg-amber-500/[0.16]', label: 'text-amber-800 dark:text-amber-300', tile: 'bg-amber-500 text-white' },
+    red: { row: 'bg-red-500/[0.07] hover:bg-red-500/[0.15] focus-visible:bg-red-500/[0.15]', label: 'text-red-700 dark:text-red-400', tile: 'bg-red-600 text-white' },
+    violet: { row: 'bg-violet-500/[0.07] hover:bg-violet-500/[0.15] focus-visible:bg-violet-500/[0.15]', label: 'text-violet-700 dark:text-violet-300', tile: 'bg-violet-600 text-white' },
+    teal: { row: 'bg-teal-500/[0.07] hover:bg-teal-500/[0.15] focus-visible:bg-teal-500/[0.15]', label: 'text-teal-700 dark:text-teal-300', tile: 'bg-teal-600 text-white' },
+    brand: { row: 'bg-brand-500/[0.07] hover:bg-brand-500/[0.15] focus-visible:bg-brand-500/[0.15]', label: 'text-brand-600', tile: 'bg-brand-gradient text-white' },
+};
 const GAP = 6;
 
 /** Phones get the menu as a sheet rising from the bottom of the screen. */
@@ -79,6 +96,7 @@ function placeBeside(anchor, menuElement, width) {
  * titled groups, each with its own icon. `menu` is
  * { title, subtitle, width?, groups: [{ label, items: [{ label, description?, icon, onSelect, tone?, shortcut?, hint?, disabled?, lockedReason? }] }] }.
  * `tone` (see TONES) tints the icon tile at rest, filling it solid on hover/focus; graphite by default.
+ * `colorful` tints each whole row in its tone instead (see COLORFUL), for menus whose actions differ a lot.
  * An item with `lockedReason` is shown faded with a lock ("بدون صلاحية")
  * and the reason as its tooltip; `disabled` with `hint` explains why it
  * can't be used now. Arrow keys move, Enter runs, a shortcut letter runs
@@ -216,6 +234,7 @@ export default function RowMenu({ anchor, menu, onClose }) {
                     {group.items.map((item) => {
                         const unavailable = Boolean(item.disabled || item.lockedReason);
                         const tone = TONES[item.tone] ?? TONES.graphite;
+                        const colorful = menu.colorful ? (COLORFUL[item.tone] ?? COLORFUL.graphite) : null;
 
                         return (
                             <button
@@ -228,20 +247,26 @@ export default function RowMenu({ anchor, menu, onClose }) {
                                 title={item.lockedReason ?? item.hint}
                                 onClick={() => run(item)}
                                 className={`group/item flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-start text-sm font-medium outline-none transition ${
-                                    unavailable ? 'cursor-not-allowed opacity-55' : 'text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100'
+                                    unavailable
+                                        ? 'cursor-not-allowed opacity-55'
+                                        : colorful
+                                          ? `${colorful.row} mb-1 last:mb-0`
+                                          : 'text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100'
                                 }`}
                             >
                                 <span
                                     className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] transition ${
                                         unavailable
                                             ? 'bg-gray-100 text-gray-500'
-                                            : `${tone.rest} ${tone.active} group-hover/item:text-white group-focus-visible/item:text-white`
+                                            : colorful
+                                              ? `${colorful.tile} shadow-sm`
+                                              : `${tone.rest} ${tone.active} group-hover/item:text-white group-focus-visible/item:text-white`
                                     }`}
                                 >
                                     <Icon name={item.icon} className="h-[17px] w-[17px]" />
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                    <span className="block truncate">{item.label}</span>
+                                    <span className={`block truncate ${colorful && !unavailable ? `font-semibold ${colorful.label}` : ''}`}>{item.label}</span>
                                     {item.description && <span className="block text-[12px] font-normal leading-tight text-gray-500">{item.description}</span>}
                                 </span>
                                 {item.lockedReason ? (

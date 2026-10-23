@@ -11,12 +11,14 @@ import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
+import SearchableSelect from '@/Components/SearchableSelect';
+import { BankMark } from '@/Pages/Subscriptions/PaymentModal';
 import { formatMoney } from '@/lib/format';
 import { printUrl } from '@/lib/print';
 import { boxTypes, currencies, dateTime, BoxTypeIcon } from './CollectorCashBox';
 import { ledgerColumns, ledgerOf, ledgerTableClass, BoxNumberCell, LedgerLeadCells, LedgerTrailCells } from './LedgerColumns';
 import BoxBreakdown, { breakdownEntry } from './BoxBreakdown';
-import { auditApprovalSummary, boxEntryMatches, boxStatus, entryStatus, isFlaggedEntry } from '@/lib/financialBoxes';
+import { auditApprovalSummary, boxBankOptions, filterBoxEntries, boxStatus, entryStatus, isFlaggedEntry } from '@/lib/financialBoxes';
 import './financial-boxes.css';
 
 
@@ -86,6 +88,7 @@ function Journey({ box }) {
 export default function BoxDetails({ box, onClose, perform, initialSearch = '' }) {
     const [search, setSearch] = useState(initialSearch);
     const [filter, setFilter] = useState('all');
+    const [bank, setBank] = useState('');
     const [confirmingClose, setConfirmingClose] = useState(false);
     const [confirmingAudit, setConfirmingAudit] = useState(false);
     const [auditingEntry, setAuditingEntry] = useState(null);
@@ -107,7 +110,8 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
         cancelled: ['ملغاة', (entry) => !isActive(entry)],
     };
     const filterOptions = Object.entries(groups).map(([value, [label, matches]]) => ({ value, label: `${label} · ${entries.filter(matches).length}`, count: entries.filter(matches).length })).filter((option) => option.value === 'all' || option.count > 0);
-    const shown = entries.filter(groups[filter]?.[1] ?? (() => true)).filter((entry) => boxEntryMatches(entry, search));
+    const banks = type === 'bank_transfer' ? boxBankOptions(entries) : [];
+    const shown = filterBoxEntries(entries, { bank, state: filter, search });
     const columns = [['الصندوق', 72], ...ledgerColumns.before, ['المشترك', 150], ...ledgerColumns.after, ['الحالة', 140], ...(bankAudit ? [['تدقيق البنك', 220]] : []), ['', 110]];
     const widths = columns.map(([, width]) => width);
 
@@ -151,9 +155,18 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
 
             <section aria-label="حركات الصندوق" className="space-y-4">
                 <div className="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
-                    <div className="relative w-full sm:max-w-sm">
-                        <Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" />
-                        <input type="text" aria-label="ابحث في حركات الصندوق" placeholder="ابحث بالمشترك أو رقم الحساب أو السند أو الحوالة" value={search} onChange={(event) => setSearch(event.target.value)} className="block w-full py-2.5 pe-4 ps-10 text-sm" />
+                    <div className="flex w-full min-w-0 flex-wrap items-end gap-3 sm:w-auto sm:flex-1">
+                        <div className="relative min-w-0 w-full sm:max-w-sm sm:flex-1">
+                            <Icon name="search" className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-gray-400" />
+                            <input type="text" aria-label="ابحث في حركات الصندوق" placeholder="ابحث بالمشترك أو رقم الحساب أو السند أو الحوالة" value={search} onChange={(event) => setSearch(event.target.value)} className="block w-full py-2.5 pe-4 ps-10 text-sm" />
+                        </div>
+                        {type === 'bank_transfer' && <div className="w-full sm:w-80">
+                            <label htmlFor="box-entry-bank" className="mb-1.5 block text-xs font-semibold text-gray-600">البنك أو المحفظة المستقبلة</label>
+                            <SearchableSelect id="box-entry-bank" value={bank} onChange={setBank} clearable={false} portal searchPlaceholder="ابحث عن بنك أو محفظة" options={[
+                                { value: '', label: 'كل البنوك والمحافظ', hint: String(entries.length), icon: <Icon name="bank" className="h-6 w-6 text-gray-500" /> },
+                                ...banks.map((option) => ({ value: option.value, label: option.value, hint: String(option.count), icon: <BankMark bank={option.value} className="h-6 w-6 rounded-md" /> })),
+                            ]} />
+                        </div>}
                     </div>
                     <SegmentedTabs label="حالة الحركة" value={filter} onChange={setFilter} options={filterOptions} />
                 </div>
@@ -163,7 +176,7 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
                         <thead><tr>{columns.map(([label], index) => index === columns.length - 1 ? <ActionsTh key={index} /> : <th key={index}>{label}</th>)}</tr></thead>
                         <tbody>
                             {shown.length === 0 ? (
-                                <tr><td colSpan={columns.length} className="text-center text-gray-500">{entries.length ? 'لا توجد حركات بهذا البحث.' : 'لا توجد حركات في هذا الصندوق.'}</td></tr>
+                                <tr><td colSpan={columns.length} className="text-center text-gray-500">{entries.length ? 'لا توجد حركات تطابق البحث والفلاتر المحددة.' : 'لا توجد حركات في هذا الصندوق.'}</td></tr>
                             ) : shown.map((entry) => {
                                 const [label, tone] = entryStatus(entry);
                                 const live = isActive(entry);
@@ -188,7 +201,7 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
                         </tbody>
                     </table>
                 </div>
-                <p className="data-table-totals text-sm text-gray-600">
+                <p className="data-table-totals text-sm text-gray-600" aria-live="polite" aria-atomic="true">
                     <span>المعروض <b className="font-display text-gray-900">{shown.length}</b> من <b className="font-display text-gray-900">{entries.length}</b> حركة</span>
                     <span>مجموع الحركات السارية المعروضة: <b className="text-gray-900">{amountsLine(sumByCurrency(shown.filter(isActive)))}</b></span>
                 </p>

@@ -119,7 +119,9 @@ export default function Index({
     const [messageSubscription, setMessageSubscription] = useState(null);
     const [archiveSubscription, setArchiveSubscription] = useState(null);
     const historySubscription = subscriptions.data.find((subscription) => subscription.id === historySubscriptionId) ?? null;
-    const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/subscriptions', filters);
+    const { search, setSearch, sort, setPage, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/subscriptions', filters, {}, {
+        only: ['subscriptions', 'filters', 'filterOptions', 'can', 'canCreate', 'canViewArchived', 'showArchived', 'archiveToday', 'canRecordReadings', 'bulkActions', 'canEditMinimumCharge', 'canEditKilowattPrice', 'readingWeekOptions'],
+    });
     const rowClick = useRowClick();
     // Subscriptions ticked for a bulk action (kept across pages), or every match of the filters.
     const [selectedIds, setSelectedIds] = useState(() => new Set());
@@ -513,7 +515,7 @@ export default function Index({
                 </table>
             </div>
 
-            <Pagination meta={subscriptions} filters={filters} baseUrl="/subscriptions" />
+            <Pagination meta={subscriptions} onPageChange={setPage} />
 
             {canSelect && (selectionCount > 0 || pendingAction) && !filtersPending && (
                 <>

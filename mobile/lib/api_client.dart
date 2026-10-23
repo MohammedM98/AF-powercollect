@@ -50,6 +50,10 @@ class ApiClient {
           query: {'search': search, 'page': '$page'});
   Future<Map<String, dynamic>> collectionSubscriber(int id) =>
       _request('GET', '/api/mobile/collections/subscriptions/$id');
+  Future<Map<String, dynamic>> sendAdjustment(
+          int id, Map<String, dynamic> adjustment) =>
+      _request('POST', '/api/mobile/collections/subscriptions/$id/adjustments',
+          body: adjustment);
   Future<Map<String, dynamic>> subscriberTransactions(int id, {int page = 1}) =>
       _request('GET', '/api/mobile/collections/subscriptions/$id/transactions',
           query: {'page': '$page'});

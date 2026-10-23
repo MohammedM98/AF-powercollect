@@ -131,21 +131,26 @@ function DateRange({ period, range, today, onChange, errors }) {
                     <Icon name="calendar" /><small>الفترة</small><bdi className="num" dir="ltr">{shortDate(range.from)} — {shortDate(range.to)}</bdi>
                 </button>
                 {open && (
-                    <form id="ledger-date-range" className="rpop" onSubmit={apply}>
-                        <h3>فترة مخصصة</h3>
-                        <div className="two">
-                            <label htmlFor="ledger-from">من<DateInput id="ledger-from" buttonRef={firstInput} required max={to || undefined} value={from} onChange={setFrom} /></label>
-                            <label htmlFor="ledger-to">إلى<DateInput id="ledger-to" required min={from || undefined} value={to} onChange={setTo} /></label>
+                    <form id="ledger-date-range" className="rpop" onSubmit={apply} aria-labelledby="ledger-range-title">
+                        <div className="range-heading">
+                            <span className="range-heading-icon"><Icon name="calendar" /></span>
+                            <div><h3 id="ledger-range-title">فترة مخصصة</h3><p>حدّد الفترة لعرض حركات السجل المالي.</p></div>
+                            <button type="button" className="range-close" aria-label="إغلاق اختيار الفترة" onClick={() => { setOpen(false); trigger.current?.focus(); }}><Icon name="close" /></button>
                         </div>
+                        <div className="two">
+                            <label htmlFor="ledger-from">تاريخ البداية<DateInput id="ledger-from" className="range-date-input" buttonRef={firstInput} required max={to || undefined} value={from} onChange={setFrom} /></label>
+                            <label htmlFor="ledger-to">تاريخ النهاية<DateInput id="ledger-to" className="range-date-input" required min={from || undefined} value={to} onChange={setTo} /></label>
+                        </div>
+                        <span className="range-presets-label">اختيار سريع</span>
                         <div className="qk">
                             <button type="button" onClick={() => quickRange('7')}>آخر 7 أيام</button>
                             <button type="button" onClick={() => quickRange('month')}>هذا الشهر</button>
                             <button type="button" onClick={() => quickRange('previous')}>الشهر الماضي</button>
                         </div>
-                        <p className="err" role="alert">{error || errors.from || errors.to}</p>
+                        {(error || errors.from || errors.to) && <p className="err" role="alert"><Icon name="info" />{error || errors.from || errors.to}</p>}
                         <div className="ft">
+                            <button type="submit" className="btn pr"><Icon name="check" />تطبيق الفترة</button>
                             <button type="button" className="btn" onClick={() => { setOpen(false); trigger.current?.focus(); }}>إلغاء</button>
-                            <button type="submit" className="btn pr">تطبيق</button>
                         </div>
                     </form>
                 )}

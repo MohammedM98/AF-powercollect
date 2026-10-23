@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Mobile;
 
 use App\Enums\AccountingType;
+use App\Enums\ChargeType;
 use App\Enums\PaymentMethod;
 use App\Enums\PermissionKey;
 use App\Http\Controllers\Controller;
@@ -29,7 +30,8 @@ class MobileCollectionController extends Controller
     public function subscriptions(Request $request): JsonResponse
     {
         abort_unless($request->user()->can('recordAnyPayment', Subscription::class)
-            || $request->user()->can('viewAny', Subscription::class), 403);
+            || $request->user()->can('viewAny', Subscription::class)
+            || $request->user()->hasAnyPermission(PermissionKey::AddCharges, PermissionKey::AddDiscounts, PermissionKey::AddClearings), 403);
 
         $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
         $search = trim($validated['search'] ?? '');
@@ -70,7 +72,8 @@ class MobileCollectionController extends Controller
     public function show(Request $request, string $subscription): JsonResponse
     {
         abort_unless($request->user()->can('recordAnyPayment', Subscription::class)
-            || $request->user()->can('viewAny', Subscription::class), 403);
+            || $request->user()->can('viewAny', Subscription::class)
+            || $request->user()->hasAnyPermission(PermissionKey::AddCharges, PermissionKey::AddDiscounts, PermissionKey::AddClearings), 403);
 
         $subscription = Subscription::query()
             ->whereNull('subscriptions.archived_at')
@@ -104,6 +107,8 @@ class MobileCollectionController extends Controller
                 'id' => $subscription->id,
                 'full_name' => $subscription->displayName(),
                 'subscriber_name' => $subscription->full_name,
+                'subscription_name' => $subscription->subscription_name,
+                'national_id' => $subscription->national_id,
                 'personal_phone' => $subscription->phone,
                 'account_number' => $subscription->account_number,
                 'meter_box_number' => $subscription->meterBox?->box_number,
@@ -144,8 +149,12 @@ class MobileCollectionController extends Controller
                 'view_history' => $canViewHistory,
                 'record_payment' => $request->user()->can('recordPayment', $subscription),
                 'record_split_payment' => $request->user()->can('recordSplitPayment', Subscription::class) && $request->user()->can('recordPayment', $subscription),
+                'add_charge' => $request->user()->can('addCharge', $subscription),
+                'add_discount' => $request->user()->can('addDiscount', $subscription),
+                'add_clearing' => $request->user()->can('addClearing', $subscription),
                 'payment_methods' => array_map(fn (PaymentMethod $method): string => $method->value, $request->user()->allowedPaymentMethods()),
             ],
+            'charge_types' => $request->user()->can('addCharge', $subscription) ? ChargeType::formOptions() : [],
             'messaging' => [
                 'can_send' => $request->user()->can('create', MessageBatch::class),
                 'can_view_history' => $request->user()->can('viewAny', MessageBatch::class),

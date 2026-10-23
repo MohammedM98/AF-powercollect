@@ -4,12 +4,14 @@ namespace Tests\Feature;
 
 use App\Enums\PermissionKey;
 use App\Enums\SubscriptionStatus;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
@@ -82,6 +84,28 @@ class PaymentsPageTest extends TestCase
                     ->where('subscriptions.data.0.accountNumber', $subscription->account_number)
                     ->where('subscriptions.data.0.meterBoxNumber', '7734'));
         }
+    }
+
+    public function test_opening_a_statement_does_not_query_the_subscriber_table_again(): void
+    {
+        $subscription = Subscription::factory()->create(['branch_id' => $this->branch->id]);
+        $this->collector->permissions()->syncWithoutDetaching(Permission::idsFor([PermissionKey::ViewSubscriptions]));
+        $version = app(HandleInertiaRequests::class)->version(request());
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $this->actingAs($this->collector)->getJson(route('payments.index', ['statement' => $subscription->id]), [
+            'X-Inertia' => 'true',
+            'X-Inertia-Version' => (string) $version,
+            'X-Inertia-Partial-Component' => 'Payments/Index',
+            'X-Inertia-Partial-Data' => 'statement',
+        ])->assertJsonPath('props.statement.subscription.id', $subscription->id)
+            ->assertJsonMissingPath('props.subscriptions')
+            ->assertJsonMissingPath('props.filterOptions');
+
+        $tableCounts = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'count(*) as aggregate from "subscriptions"'));
+        DB::disableQueryLog();
+        $this->assertCount(0, $tableCounts, 'Opening a statement must not paginate the underlying subscriber list.');
     }
 
     public function test_a_search_never_finds_a_subscription_of_another_branch_unless_the_user_is_the_super_admin(): void

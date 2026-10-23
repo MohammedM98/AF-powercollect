@@ -58,7 +58,9 @@ export default function Index({
     statement,
 }) {
     const { can } = usePage().props;
-    const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/payments', filters);
+    const { search, setSearch, sort, setPage, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/payments', filters, {}, {
+        only: ['subscriptions', 'filters', 'filterOptions', 'pendingCount', 'can', 'paymentMethods', 'canSplitPayments'],
+    });
     const rowClick = useRowClick();
     const statementWindow = useStatementWindow(statement);
     const [paying, setPaying] = useState(null);
@@ -91,12 +93,11 @@ export default function Index({
                     label: 'الحساب المالي',
                     items: [
                         ...(can?.viewSubscriptions ? [{ label: 'كشف الحساب', icon: 'ledger', tone: 'graphite', shortcut: 'S', onSelect: () => openStatement(subscription) }] : []),
-                        { label: 'تسجيل دفعة', icon: 'banknotes', tone: 'emerald', shortcut: 'P', onSelect: () => setPaying(subscription) },
                         { label: 'دفعة مقسّمة', icon: 'layers', tone: 'brand', hint: 'تحويل واحد لعدة مشتركين', onSelect: () => setSplitting({ subscription }), lockedReason: splitLock },
                         { label: 'تحميل حركة', icon: 'document-plus', tone: 'amber', hint: 'غرامة أو رسوم', onSelect: () => setAdjusting({ form: 'charge', subscription }), lockedReason: subscription.canAddCharge ? null : needsPermission('إضافة تحميل') },
                         { label: 'إضافة خصم', icon: 'discount', tone: 'violet', onSelect: () => setAdjusting({ form: 'discount', subscription }), lockedReason: subscription.canAddDiscount ? null : needsPermission('إضافة خصم') },
                         { label: 'مقاصة', icon: 'scale', tone: 'teal', onSelect: () => setAdjusting({ form: 'clearing', subscription }), lockedReason: subscription.canAddClearing ? null : needsPermission('إضافة مقاصة') },
-                    ],
+                    ].filter((item) => !item.lockedReason),
                 },
             ],
         };
@@ -205,15 +206,12 @@ export default function Index({
                                             <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
                                         </td>
                                         <td className="text-end">
-                                            <div className="inline-flex items-center gap-2">
-                                                <span className="row-action-view">
-                                                    <button type="button" onClick={() => setPaying(subscription)}>
-                                                        <Icon name="banknotes" className="h-4 w-4" />
-                                                        تسجيل دفعة
-                                                    </button>
-                                                </span>
-                                                <RowActionsMenu menu={rowMenu(subscription)} />
-                                            </div>
+                                            <RowActionsMenu
+                                                onView={() => setPaying(subscription)}
+                                                viewLabel="تسجيل دفعة"
+                                                viewIcon="banknotes"
+                                                menu={can?.viewSubscriptions || canSplitPayments || subscription.canAddCharge || subscription.canAddDiscount || subscription.canAddClearing ? rowMenu(subscription) : null}
+                                            />
                                         </td>
                                     </tr>
                                 );
@@ -223,7 +221,7 @@ export default function Index({
                 </table>
             </div>
 
-            <Pagination meta={subscriptions} filters={filters} baseUrl="/payments" />
+            <Pagination meta={subscriptions} onPageChange={setPage} />
 
             {paying && (
                 <PaymentModal

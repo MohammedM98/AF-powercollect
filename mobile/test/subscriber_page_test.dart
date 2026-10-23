@@ -115,8 +115,7 @@ Future<List<bool?>> openSubscriber(WidgetTester tester, ApiClient api) async {
 }
 
 void main() {
-  testWidgets(
-      'summary shows the branch area and formatted box without area two',
+  testWidgets('summary shows only area two and the formatted meter box',
       (tester) async {
     final api = SubscriberApi()
       ..subscriptionDetails = {
@@ -127,15 +126,15 @@ void main() {
       };
     await openSubscriber(tester, api);
     final scrollable = find.byType(Scrollable).first;
-    for (final value in ['بجانب المدرسة', 'مخيم 2', 'أبو ذر 8 (B7)']) {
+    for (final value in ['بجانب المدرسة', 'الحي الشرقي', 'أبو ذر 8 (B7)']) {
       await tester.scrollUntilVisible(find.text(value), 130,
           scrollable: scrollable);
       expect(find.text(value), findsOneWidget);
     }
-    expect(tester.getTopLeft(find.text('مخيم 2')).dy,
+    expect(tester.getTopLeft(find.text('الحي الشرقي')).dy,
         lessThan(tester.getTopLeft(find.text('أبو ذر 8 (B7)')).dy));
-    expect(find.text('الحي الشرقي'), findsNothing);
-    expect(find.text('منطقة 2'), findsNothing);
+    expect(find.text('مخيم 2'), findsNothing);
+    expect(find.text('المنطقة 2'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -290,7 +289,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('a failed load can be retried and payment stays available',
+  testWidgets('a failed load can be retried before payment becomes available',
       (tester) async {
     final api = SubscriberApi(failures: 1);
     await openSubscriber(tester, api);
@@ -300,11 +299,17 @@ void main() {
         reason: 'the balance from the search shows until the page loads');
     final record = tester.widget<AppAction>(
         find.byKey(const ValueKey('subscriber-record-payment')));
-    expect(record.onPressed, isNotNull);
+    expect(record.onPressed, isNull);
 
     await tester.tap(find.text('إعادة المحاولة'));
     await tester.pumpAndSettle();
     expect(api.loads, 2);
+    expect(
+        tester
+            .widget<AppAction>(
+                find.byKey(const ValueKey('subscriber-record-payment')))
+            .onPressed,
+        isNotNull);
     expect(find.text('لا يمكن الوصول إلى خادم Laravel.'), findsNothing);
     expect(find.text('\u2066120 ₪\u2069 عليه'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());

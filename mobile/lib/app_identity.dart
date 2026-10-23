@@ -460,6 +460,7 @@ class AppRow extends StatelessWidget {
       this.leading,
       this.trailing,
       this.onTap,
+      this.onLongPress,
       this.adaptiveTrailing = false,
       this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       this.crossAxisAlignment = CrossAxisAlignment.center,
@@ -469,12 +470,14 @@ class AppRow extends StatelessWidget {
   final Widget? leading;
   final Widget? trailing;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final bool adaptiveTrailing;
   final EdgeInsetsGeometry padding;
   final CrossAxisAlignment crossAxisAlignment;
   @override
   Widget build(BuildContext context) => InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: padding,
           child: LayoutBuilder(builder: (context, constraints) {

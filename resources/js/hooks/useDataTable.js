@@ -9,7 +9,7 @@ import { router } from '@inertiajs/react';
 // `extraParams` are merged into every request unchanged — e.g. a `selected`
 // id another part of the same page depends on, so it survives search/sort/
 // page-size/filter changes instead of being dropped.
-export function useDataTable(url, filters, extraParams = {}) {
+export function useDataTable(url, filters, extraParams = {}, visitOptions = {}) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [filterValues, setFilterValues] = useState(filters.filter ?? {});
     const isFirstRun = useRef(true);
@@ -40,7 +40,7 @@ export function useDataTable(url, filters, extraParams = {}) {
                 filter: filterValues,
                 ...overrides,
             },
-            { preserveState: true, preserveScroll: true, replace: true },
+            { preserveState: true, preserveScroll: true, replace: true, ...visitOptions },
         );
     }
 
@@ -55,6 +55,10 @@ export function useDataTable(url, filters, extraParams = {}) {
 
     function setPerPage(perPage) {
         visit({ per_page: perPage });
+    }
+
+    function setPage(page) {
+        visit({ page });
     }
 
     function setFilter(key, value) {
@@ -72,5 +76,5 @@ export function useDataTable(url, filters, extraParams = {}) {
         visit({ filter: {} });
     }
 
-    return { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, setFilters, clearFilters };
+    return { search, setSearch, sort, sortBy, setPage, setPerPage, filterValues, setFilter, setFilters, clearFilters };
 }

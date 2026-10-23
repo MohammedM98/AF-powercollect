@@ -250,7 +250,7 @@ class LastReadingTest extends TestCase
     public function test_a_branch_admin_takes_editing_the_last_reading_away_from_their_data_entry(): void
     {
         $lastWeek = $this->reading('2026-09-11', 1200, 1250);
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $this->branch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $this->branch->id]);
         $keptPermissions = $this->dataEntry->permissions()
             ->where('key', '!=', PermissionKey::CorrectLastMeterReadings->value)
             ->pluck('permissions.id')->all();

@@ -103,12 +103,12 @@ class DashboardOverview
                 'previous' => (float) ($previousDays[$index] ?? 0),
             ], $current->days(), array_keys($current->days())),
             'byBranch' => $this->branches->count() > 1 ? $this->collectionsByBranch((float) $now['total']) : null,
-            'collectorsToday' => $this->branches->count() === 1
-                ? collect($today['collectors'])->map(fn (array $collector): array => [
+            'byCollector' => $this->branches->count() === 1
+                ? collect($now['collectors'])->take(8)->map(fn (array $collector): array => [
                     'name' => $collector['name'],
                     'total' => (float) $collector['total'],
                     'count' => $collector['count'],
-                    'share' => (float) $today['total'] > 0 ? (int) round((float) $collector['total'] / (float) $today['total'] * 100) : 0,
+                    'share' => (float) $now['total'] > 0 ? (int) round((float) $collector['total'] / (float) $now['total'] * 100) : 0,
                 ])->all()
                 : null,
         ];
@@ -246,9 +246,10 @@ class DashboardOverview
 
     /**
      * What the subscriptions owe, aged as the debt aging report ages it:
-     * the total, the debtors, and the part older than 90 days.
+     * the total, the debtors, the part older than 90 days, and the five
+     * who owe the most.
      *
-     * @return array{total: float, count: int, older: float, olderShare: int}|null
+     * @return array{total: float, count: int, older: float, olderShare: int, top: array<int, array{subscriptionId: int, name: string, accountNumber: ?string, balance: float, oldestDays: int, lastPaymentDays: ?int}>}|null
      */
     public function debts(): ?array
     {
@@ -265,6 +266,14 @@ class DashboardOverview
             'count' => $debtors->count(),
             'older' => $older / 100,
             'olderShare' => $total > 0 ? (int) round($older / $total * 100) : 0,
+            'top' => $debtors->sortByDesc('balance')->take(5)->map(fn (array $debtor): array => [
+                'subscriptionId' => $debtor['subscription']->id,
+                'name' => $debtor['subscription']->displayName(),
+                'accountNumber' => $debtor['subscription']->account_number,
+                'balance' => $debtor['balance'] / 100,
+                'oldestDays' => $debtor['oldestDays'],
+                'lastPaymentDays' => $debtor['lastPaymentDays'],
+            ])->values()->all(),
         ];
     }
 

@@ -30,6 +30,10 @@ class UpdatePermissionsRequest extends FormRequest
             'permissions' => ['present', 'array'],
             'permissions.*' => ['present', 'array'],
             'permissions.*.*' => ['integer', 'exists:permissions,id'],
+            // The right to hand a permission on is the Super Admin's alone to give.
+            'grantable' => ['sometimes', Rule::prohibitedIf(! $this->user()->isSuperAdmin()), 'array'],
+            'grantable.*' => ['present', 'array'],
+            'grantable.*.*' => ['integer', 'exists:permissions,id'],
             'audit_settings' => ['sometimes', Rule::prohibitedIf(! $this->user()->isSuperAdmin()), 'array'],
             'audit_settings.*' => ['array:scope,branch_ids,actions'],
             'audit_settings.*.scope' => ['required', Rule::in(['all', 'selected'])],

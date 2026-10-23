@@ -20,8 +20,6 @@
     --pp-danger: var(--ui-danger);
     --pp-danger-t: var(--ui-danger-t);
     --pp-focus: var(--ui-focus);
-    max-width: 1320px;
-    margin: 0 auto;
     padding-bottom: 120px;
     color: var(--pp-ink);
     font: 16px/1.6 'IBM Plex Sans Arabic', system-ui, sans-serif;

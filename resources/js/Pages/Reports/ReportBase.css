@@ -26,8 +26,6 @@
     --cl-pop: var(--ui-pop);
     --cl-hero: var(--ui-hero);
     container: closing / inline-size;
-    max-width: 1320px;
-    margin: 0 auto;
     padding-bottom: 40px;
     color: var(--cl-ink);
     font:

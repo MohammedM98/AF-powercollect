@@ -110,6 +110,40 @@ class DashboardTest extends TestCase
             ->loadDeferredProps(fn ($reload) => $reload->has('debts.total')));
     }
 
+    public function test_a_branch_sees_what_each_employee_collected_over_the_period(): void
+    {
+        $branch = Branch::factory()->create();
+        $manager = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $this->pay($branch, 30);
+        $this->pay($branch, 90);
+
+        $this->actingAs($manager)->get(route('dashboard'))->assertInertia(fn ($page) => $page
+            ->has('sections.collections.byCollector', 2)
+            ->where('sections.collections.byCollector.0.total', 90)
+            ->where('sections.collections.byCollector.0.share', 75)
+            ->where('sections.collections.byBranch', null));
+    }
+
+    public function test_the_debts_name_the_subscribers_who_owe_the_most(): void
+    {
+        $branch = Branch::factory()->create();
+        $manager = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $small = Subscription::factory()->create(['branch_id' => $branch->id, 'full_name' => 'Small debtor']);
+        $large = Subscription::factory()->create(['branch_id' => $branch->id, 'full_name' => 'Large debtor']);
+        foreach ([[$small, '20.00'], [$large, '80.00']] as [$subscription, $amount]) {
+            SubscriptionTransaction::factory()->for($subscription)->create([
+                'type' => 'charge', 'source_key' => 'charge:'.$subscription->id, 'amount' => $amount, 'currency_amount' => $amount, 'recorded_by' => $manager->id,
+            ]);
+        }
+
+        $this->actingAs($manager)->get(route('dashboard'))->assertInertia(fn ($page) => $page
+            ->loadDeferredProps(fn ($reload) => $reload
+                ->where('debts.total', 100)
+                ->where('debts.top.0.subscriptionId', $large->id)
+                ->where('debts.top.0.balance', 80)
+                ->where('debts.top.1.subscriptionId', $small->id)));
+    }
+
     /**
      * A cash payment of `$amount` on a new active subscription of the branch.
      *

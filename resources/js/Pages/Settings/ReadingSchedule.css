@@ -17,8 +17,6 @@
     --rs-warn-t: var(--ui-warn-t);
     --rs-shadow: var(--ui-shadow);
     --rs-hero: var(--ui-hero);
-    max-width: 1320px;
-    margin: 0 auto;
     padding-bottom: 120px;
     color: var(--rs-ink);
     font: 16px/1.6 'IBM Plex Sans Arabic', system-ui, sans-serif;

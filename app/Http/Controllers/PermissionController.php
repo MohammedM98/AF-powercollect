@@ -47,16 +47,29 @@ class PermissionController extends Controller
         $this->applyDataTableFilters($query, $request, ['name', 'username'], self::SORTABLE, 'name');
         $this->applyDataTableFilterSelects($query, $request, ['user_type_id', 'branch_id']);
 
-        $users = $query->paginate($this->dataTablePerPage($request))
-            ->withQueryString()
-            ->through(fn (User $user) => $this->employeeSummary($user, $grantablePermissionIds));
+        $page = $query->paginate($this->dataTablePerPage($request))->withQueryString();
 
         $findManageable = fn (int $id) => $this->manageableUsers($actor)->with(['branch', 'permissions', 'userType'])->find($id);
-        $selectedUser = $findManageable($request->integer('selected')) ?? $findManageable($users->first()['id'] ?? 0);
+        $selectedUser = $findManageable($request->integer('selected')) ?? $findManageable($page->first()?->id ?? 0);
+        $granters = User::query()
+            ->whereIn('id', collect($page->items())->push($selectedUser)->filter()->flatMap(fn (User $user) => $user->permissions->pluck('pivot.granted_by'))->filter()->unique())
+            ->pluck('name', 'id')
+            ->all();
+        $users = $page->through(fn (User $user) => $this->employeeSummary($user, $grantablePermissionIds, $granters));
 
         return Inertia::render('Settings/Permissions', [
             'users' => $users,
-            'selectedUser' => $selectedUser ? $this->employeeSummary($selectedUser, $grantablePermissionIds) : null,
+            'selectedUser' => $selectedUser ? [
+                ...$this->employeeSummary($selectedUser, $grantablePermissionIds, $granters),
+                // How many staff hold each permission because this user handed it on: they lose it with them.
+                'grantsGiven' => DB::table('permission_user')->where('granted_by', $selectedUser->id)
+                    ->selectRaw('permission_id, count(*) as holders')->groupBy('permission_id')->pluck('holders', 'permission_id'),
+            ] : null,
+            // Only the Super Admin gives the right to hand permissions on, and only to whoever manages permissions.
+            'delegation' => $actor->isSuperAdmin() ? [
+                'managePermissionsId' => Permission::query()->where('key', PermissionKey::ManagePermissions->value)->value('id'),
+                'delegableIds' => Permission::all()->filter(fn (Permission $permission): bool => PermissionKey::tryFrom($permission->key)?->isDelegable() ?? false)->values()->modelKeys(),
+            ] : null,
             'permissionGroups' => $this->permissionGroups($actor),
             'roleTemplates' => [],
             'scopedToOwnBranch' => ! $actor->isSuperAdmin(),
@@ -95,14 +108,35 @@ class PermissionController extends Controller
         $actor = $request->user();
         $grantablePermissionIds = $this->grantablePermissionIds($actor);
         $payload = $request->validated('permissions');
+        $keys = $actor->isSuperAdmin() ? $request->validated('grantable', []) : [];
+        $permissionKeys = Permission::query()->pluck('key', 'id');
+        $handedOn = [];
 
         $users = $this->manageableUsers($actor)->with('permissions')->whereIn('id', array_keys($payload))->get();
 
-        DB::transaction(function () use ($users, $payload, $grantablePermissionIds, $request): void {
+        DB::transaction(function () use ($users, $payload, $keys, $permissionKeys, $grantablePermissionIds, $actor, $request, &$handedOn): void {
             foreach ($users as $user) {
-                $selected = array_intersect((array) ($payload[$user->id] ?? []), $grantablePermissionIds);
-                $keptAsTheyWere = array_diff($user->permissions->modelKeys(), $grantablePermissionIds);
-                $user->permissions()->sync([...$selected, ...$keptAsTheyWere]);
+                $held = $user->permissions->keyBy('id');
+                $selected = array_intersect(array_map(intval(...), (array) ($payload[$user->id] ?? [])), $grantablePermissionIds);
+                $keptAsTheyWere = array_diff($held->keys()->all(), $grantablePermissionIds);
+                $final = array_values(array_unique([...$selected, ...$keptAsTheyWere]));
+                $keyed = array_key_exists($user->id, $keys) ? array_map(intval(...), $keys[$user->id]) : null;
+
+                $user->permissions()->sync(collect($final)->mapWithKeys(fn (int $id): array => [$id => [
+                    'grantable' => $keyed === null
+                        ? (bool) $held->get($id)?->pivot->grantable
+                        : in_array($id, $keyed, true) && (PermissionKey::tryFrom($permissionKeys[$id] ?? '')?->isDelegable() ?? false),
+                    // Who handed it on stays as it was; a new one is the actor's, unless the Super Admin gave it.
+                    'granted_by' => $held->has($id) ? $held->get($id)->pivot->granted_by : ($actor->isSuperAdmin() ? null : $actor->id),
+                ]])->all());
+
+                $user->withdrawGrantsOf(array_values(array_diff($held->keys()->all(), $final)));
+
+                $added = array_diff($final, $held->keys()->all());
+                if (! $actor->isSuperAdmin() && $added !== []) {
+                    $handedOn[$user->name] = array_map(fn (int $id): string => __(PermissionKey::tryFrom($permissionKeys[$id])?->label() ?? $permissionKeys[$id]), $added);
+                }
+
                 if ($request->user()->isSuperAdmin() && $request->has("audit_settings.{$user->id}")) {
                     $settings = $request->validated("audit_settings.{$user->id}");
                     $settings['branch_ids'] = $settings['scope'] === 'all' ? [] : array_values(array_unique(array_map(intval(...), $settings['branch_ids'])));
@@ -115,6 +149,12 @@ class PermissionController extends Controller
 
         $actor->notify(new ActionCompleted('permissions-updated', $users->pluck('name')->join('، ')));
 
+        // What a branch manager hands on works at once; the Super Admins are told who got what.
+        foreach ($handedOn as $name => $labels) {
+            User::query()->where('role', UserRole::SuperAdmin)->get()
+                ->each(fn (User $superAdmin) => $superAdmin->notify(new ActionCompleted('permissions-delegated', "{$actor->name} منح {$name}: ".implode('، ', $labels))));
+        }
+
         return redirect()
             ->back(fallback: route('settings.permissions.edit'))
             ->with('status', 'permissions-updated');
@@ -126,9 +166,10 @@ class PermissionController extends Controller
      * editor shows, counts, and copies to another employee.
      *
      * @param  array<int, int>  $grantablePermissionIds
-     * @return array{id: int, name: string, username: string, role: string, roleLabel: string, branchName: ?string, permissionIds: array<int, int>, lockedPermissions: array<int, string>}
+     * @param  array<int, string>  $granters  the names of those who handed permissions on, by id
+     * @return array{id: int, name: string, username: string, role: string, roleLabel: string, branchName: ?string, permissionIds: array<int, int>, grantableIds: array<int, int>, grantedBy: array<int, string>, lockedPermissions: array<int, string>}
      */
-    private function employeeSummary(User $user, array $grantablePermissionIds): array
+    private function employeeSummary(User $user, array $grantablePermissionIds, array $granters = []): array
     {
         return [
             'id' => $user->id,
@@ -143,6 +184,11 @@ class PermissionController extends Controller
             'auditSettingsConfigured' => $user->audit_settings !== null,
             'isActive' => $user->is_active,
             'permissionIds' => array_values(array_intersect($user->permissions->modelKeys(), $grantablePermissionIds)),
+            'grantableIds' => $user->permissions->filter(fn (Permission $permission): bool => (bool) $permission->pivot->grantable)->values()->modelKeys(),
+            'grantedBy' => $user->permissions
+                ->filter(fn (Permission $permission): bool => isset($granters[$permission->pivot->granted_by]))
+                ->mapWithKeys(fn (Permission $permission): array => [$permission->id => $granters[$permission->pivot->granted_by]])
+                ->all(),
             'lockedPermissions' => $user->permissions
                 ->reject(fn (Permission $permission): bool => PermissionKey::tryFrom($permission->key)?->isRetired() ?? false)
                 ->reject(fn (Permission $permission): bool => in_array($permission->id, $grantablePermissionIds, true))
@@ -172,12 +218,12 @@ class PermissionController extends Controller
 
     /**
      * Whether the actor may hand out this permission: a Super Admin may
-     * grant anything; a Branch Admin only permissions they hold themselves,
-     * and never company-wide ones.
+     * grant anything; a branch manager only the ones the Super Admin gave
+     * them the right to hand on (see User::canGrantPermission()).
      */
     private function canGrant(User $actor, PermissionKey $permissionKey): bool
     {
-        return $actor->isSuperAdmin() || (! $permissionKey->isCompanyWide() && $actor->hasPermission($permissionKey));
+        return $actor->canGrantPermission($permissionKey);
     }
 
     /**

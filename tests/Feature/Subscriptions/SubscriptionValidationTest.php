@@ -75,6 +75,25 @@ class SubscriptionValidationTest extends TestCase
         ]);
     }
 
+    public function test_editing_needs_only_the_mobile_number_the_form_shows_when_the_person_has_none_of_their_own(): void
+    {
+        $payload = $this->validPayload();
+        $subscription = Subscription::factory()->create([
+            'branch_id' => auth()->user()->branch_id,
+            'national_id' => $payload['national_id'],
+            'phone' => null,
+            'subscription_phone' => null,
+        ]);
+
+        $this->put(route('subscriptions.update', $subscription), [...$payload, 'phone' => '', 'subscription_phone' => ''])
+            ->assertSessionHasErrors(['subscription_phone' => 'أدخل رقم الجوال.'])
+            ->assertSessionDoesntHaveErrors('phone');
+
+        $this->put(route('subscriptions.update', $subscription), [...$payload, 'phone' => '', 'subscription_phone' => '0599123456'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('0599123456', $subscription->fresh()->contactPhone());
+    }
+
     public function test_an_active_subscription_needs_their_initial_reading(): void
     {
         $payload = $this->validPayload();

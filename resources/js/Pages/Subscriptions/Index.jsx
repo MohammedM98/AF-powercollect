@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
+import MeterBoxCell from '@/Components/DataTable/MeterBoxCell';
 import SortableTh from '@/Components/DataTable/SortableTh';
 import StatusPill from '@/Components/DataTable/StatusPill';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
@@ -408,9 +409,9 @@ export default function Index({
                             )}
                             <SortableTh column="account_number" label="رقم الاشتراك" sortState={filters} onSort={sort} />
                             <SortableTh column="display_name" label="اسم الاشتراك" sortState={filters} onSort={sort} />
+                            <th>منطقة 2</th>
                             <th>الطبلون</th>
                             <th>نوع الاشتراك</th>
-                            <th>منطقة 2</th>
                             <th>الحد الأدنى</th>
                             <th>الرصيد</th>
                             <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
@@ -425,7 +426,7 @@ export default function Index({
                                 </td>
                             </tr>
                         ) : (
-                            // The row opens the subscriber's details (a quick look at their name and phone); «عرض» opens the financial statement.
+                            // The name opens the person's details, the rest of the row the subscription's, and «عرض» the financial statement.
                             subscriptions.data.map((subscription) => (
                                 <tr
                                     key={subscription.id}
@@ -455,6 +456,10 @@ export default function Index({
                                     <td>
                                         <RowIdentity
                                             name={subscription.display_name}
+                                            onNameClick={() =>
+                                                subscription.canUpdate ? setPersonalDetailsSubscription(subscription) : setViewingSubscriptionId(subscription.id)
+                                            }
+                                            nameTitle="البيانات الشخصية"
                                             subtitle={<PhoneQuickEdit subscription={subscription} />}
                                             status={STATUS_TONES[subscription.status]}
                                         />
@@ -462,15 +467,14 @@ export default function Index({
                                             <span className="mt-1 block text-xs text-gray-500">{subscription.subscriptionCount} اشتراكات</span>
                                         )}
                                     </td>
+                                    <td className="text-gray-600">{subscription.subAreaName || '—'}</td>
                                     <td className="text-gray-600">
-                                        {subscription.meterBoxNumber ? <span className="data-chip">{subscription.meterBoxNumber}</span> : '—'}
-                                        {subscription.meterBoxName && <div className="mt-1 text-xs text-gray-500">{subscription.meterBoxName}</div>}
+                                        <MeterBoxCell name={subscription.meterBoxName} number={subscription.meterBoxNumber} />
                                     </td>
                                     <td className="text-gray-600">
                                         {subscription.tariffCategoryLabel}
                                         {subscription.tariffSegmentName && <div className="text-xs text-gray-400">{subscription.tariffSegmentName}</div>}
                                     </td>
-                                    <td className="text-gray-600">{subscription.subAreaName || '—'}</td>
                                     <td className="whitespace-nowrap text-gray-600">{formatCurrency(subscription.weeklyMinimumPayment)}</td>
                                     <td className="whitespace-nowrap font-semibold">
                                         <Balance value={subscription.outstandingBalance} />

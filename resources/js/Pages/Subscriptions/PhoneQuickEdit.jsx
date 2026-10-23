@@ -1,12 +1,14 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { router } from '@inertiajs/react';
+import ConfirmDialog from '@/Components/ConfirmDialog';
 import Icon from '@/Components/Icon';
 
 const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900';
 
 /**
  * A subscription's mobile number in the list, changed in place: the pencil
- * turns it into a field — Enter (or ✓) saves, Esc (or ✕) cancels — without
+ * turns it into a field — Enter (or ✓) asks to confirm the change, old
+ * number beside the new, before saving; Esc (or ✕) cancels — without
  * opening their form. Without the right to edit them it is plain text.
  */
 export default function PhoneQuickEdit({ subscription }) {
@@ -16,6 +18,7 @@ export default function PhoneQuickEdit({ subscription }) {
     const [phone, setPhone] = useState(subscription.contact_phone ?? '');
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [confirming, setConfirming] = useState(false);
 
     useEffect(() => {
         if (editing) {
@@ -33,7 +36,18 @@ export default function PhoneQuickEdit({ subscription }) {
         setEditing(true);
     }
 
+    /** Asks before saving a changed number; an unchanged one just closes the field. */
+    function requestSave() {
+        if (phone.trim() === (subscription.contact_phone ?? '')) {
+            setEditing(false);
+            return;
+        }
+
+        setConfirming(true);
+    }
+
     function save() {
+        setConfirming(false);
         setSaving(true);
         router.patch(
             `/subscriptions/${subscription.id}/phone`,
@@ -80,7 +94,7 @@ export default function PhoneQuickEdit({ subscription }) {
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
-                            save();
+                            requestSave();
                         } else if (e.key === 'Escape') {
                             e.stopPropagation();
                             setEditing(false);
@@ -94,7 +108,7 @@ export default function PhoneQuickEdit({ subscription }) {
                 />
                 <button
                     type="button"
-                    onClick={save}
+                    onClick={requestSave}
                     disabled={saving}
                     aria-label="حفظ الرقم"
                     title="حفظ (Enter)"
@@ -117,6 +131,27 @@ export default function PhoneQuickEdit({ subscription }) {
                     {error}
                 </span>
             )}
+            <ConfirmDialog
+                show={confirming}
+                title="تأكيد تغيير رقم الجوال"
+                icon="phone"
+                confirmLabel="تأكيد التغيير"
+                onConfirm={save}
+                onCancel={() => setConfirming(false)}
+                message={
+                    <>
+                        يتغيّر رقم جوال <b>{subscription.display_name}</b> من{' '}
+                        <bdi dir="ltr" className="font-display font-semibold">
+                            {subscription.contact_phone || 'بلا رقم'}
+                        </bdi>{' '}
+                        إلى{' '}
+                        <bdi dir="ltr" className="font-display font-semibold text-gray-900">
+                            {phone.trim() || 'بلا رقم'}
+                        </bdi>
+                        . تصله الرسائل على الرقم الجديد.
+                    </>
+                }
+            />
         </span>
     );
 }

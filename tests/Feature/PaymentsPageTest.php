@@ -53,6 +53,19 @@ class PaymentsPageTest extends TestCase
                 ->where('scopeLabel', $this->branch->name));
     }
 
+    public function test_a_subscriber_s_statement_opens_over_the_list_only_for_their_own_branch(): void
+    {
+        $own = Subscription::factory()->create(['branch_id' => $this->branch->id]);
+        $foreign = Subscription::factory()->create(['branch_id' => Branch::factory()->create()->id]);
+        $reader = $this->userAllowedTo(PermissionKey::RecordCollections);
+        $reader->permissions()->syncWithoutDetaching(Permission::firstOrCreate(['key' => PermissionKey::ViewSubscriptions->value], ['label' => PermissionKey::ViewSubscriptions->label()]));
+
+        $this->actingAs($reader)->get(route('payments.index', ['statement' => $own->id]))
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('statement.subscription.id', $own->id)->where('subscriptions.data.0.meterBoxName', $own->meterBox?->displayName()));
+        $this->get(route('payments.index', ['statement' => $foreign->id]))
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('statement', null));
+    }
+
     public function test_a_search_finds_subscriptions_by_name_account_number_phone_or_meter_box_number(): void
     {
         $subscription = Subscription::factory()->create(['branch_id' => $this->branch->id, 'full_name' => 'Mohammed Hamdan', 'phone' => '0591234567']);

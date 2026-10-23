@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import ActionsTh from '@/Components/DataTable/ActionsTh';
 import RowActionsMenu from '@/Components/DataTable/RowActionsMenu';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import MeterBoxCell from '@/Components/DataTable/MeterBoxCell';
 import Pagination from '@/Components/DataTable/Pagination';
 import RowIdentity from '@/Components/DataTable/RowIdentity';
 import SortableTh from '@/Components/DataTable/SortableTh';
@@ -12,6 +13,8 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import Icon from '@/Components/Icon';
 import PrimaryButton from '@/Components/PrimaryButton';
 import { useDataTable } from '@/hooks/useDataTable';
+import { useRowClick } from '@/hooks/useRowClick';
+import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { describeBalance } from '@/lib/accountStatement';
 import { formatMoney } from '@/lib/format';
 import { balanceText, BALANCE_CHIPS } from '@/Pages/Subscriptions/AccountFormParts';
@@ -19,6 +22,7 @@ import ChargeModal from '@/Pages/Subscriptions/ChargeModal';
 import ClearingModal from '@/Pages/Subscriptions/ClearingModal';
 import DiscountModal from '@/Pages/Subscriptions/DiscountModal';
 import PaymentModal from '@/Pages/Subscriptions/PaymentModal';
+import StatementModal from '@/Pages/Subscriptions/StatementModal';
 import SplitPaymentModal from './SplitPaymentModal';
 import PageHeader from '@/Components/PageHeader';
 
@@ -48,13 +52,29 @@ export default function Index({
     chargeTypes,
     discountMethods,
     discountSegments,
+    statement,
 }) {
+    const { can } = usePage().props;
     const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/payments', filters);
+    const rowClick = useRowClick();
+    const statementWindow = useStatementWindow(statement);
     const [paying, setPaying] = useState(null);
     // The split transfer form, open: `{ subscription }` starts it with that subscriber, `{}` empty.
     const [splitting, setSplitting] = useState(null);
     // The account form open over the table: `{ form: 'charge' | 'discount' | 'clearing', subscription }`.
     const [adjusting, setAdjusting] = useState(null);
+
+    /** A subscriber's statement over the list, for whoever may read subscriber accounts. */
+    function openStatement(subscription) {
+        statementWindow.open({
+            id: subscription.id,
+            fullName: subscription.fullName,
+            accountNumber: subscription.accountNumber,
+            status: subscription.status,
+            statusLabel: subscription.statusLabel,
+            branchName: subscription.branchName,
+        });
+    }
 
     /** The row's ⋯ menu: the account's other lines, besides the payment button beside it. */
     function rowMenu(subscription) {
@@ -67,6 +87,7 @@ export default function Index({
                 {
                     label: 'الحساب المالي',
                     items: [
+                        ...(can?.viewSubscriptions ? [{ label: 'كشف الحساب', icon: 'ledger', tone: 'graphite', shortcut: 'S', onSelect: () => openStatement(subscription) }] : []),
                         { label: 'تسجيل دفعة', icon: 'banknotes', tone: 'emerald', shortcut: 'P', onSelect: () => setPaying(subscription) },
                         { label: 'دفعة مقسّمة', icon: 'layers', tone: 'brand', hint: 'تحويل واحد لعدة مشتركين', onSelect: () => setSplitting({ subscription }), lockedReason: splitLock },
                         { label: 'تحميل حركة', icon: 'document-plus', tone: 'amber', hint: 'غرامة أو رسوم', onSelect: () => setAdjusting({ form: 'charge', subscription }), lockedReason: subscription.canAddCharge ? null : needsPermission('إضافة تحميل') },
@@ -124,8 +145,8 @@ export default function Index({
                         <tr>
                             <SortableTh column="account_number" label="رقم الاشتراك" sortState={filters} onSort={sort} />
                             <SortableTh column="display_name" label="اسم الاشتراك" sortState={filters} onSort={sort} />
-                            <th>الطبلون</th>
                             <th>منطقة 2</th>
+                            <th>الطبلون</th>
                             <SortableTh column="outstanding_balance" label="الرصيد" sortState={filters} onSort={sort} />
                             <SortableTh column="status" label="الحالة" sortState={filters} onSort={sort} />
                             <ActionsTh />
@@ -143,7 +164,8 @@ export default function Index({
                                 const described = describeBalance(subscription.balance);
 
                                 return (
-                                    <tr key={subscription.id}>
+                                    // The row opens the subscriber's statement; «تسجيل دفعة» takes a payment.
+                                    <tr key={subscription.id} {...rowClick(can?.viewSubscriptions ? () => openStatement(subscription) : null)}>
                                         <td className="text-gray-600">
                                             <span dir="ltr">{subscription.accountNumber}</span>
                                             {subscription.subscriberNumber && (
@@ -160,8 +182,10 @@ export default function Index({
                                                 status={STATUS_TONES[subscription.status]}
                                             />
                                         </td>
-                                        <td className="text-gray-600">{subscription.meterBoxNumber ? <span className="data-chip">{subscription.meterBoxNumber}</span> : '—'}</td>
                                         <td className="text-gray-600">{subscription.subAreaName || '—'}</td>
+                                        <td className="text-gray-600">
+                                            <MeterBoxCell name={subscription.meterBoxName} number={subscription.meterBoxNumber} />
+                                        </td>
                                         <td>
                                             <span className={`inline-block whitespace-nowrap rounded-[10px] px-2.5 py-0.5 font-display text-[14.5px] font-bold ${BALANCE_CHIPS[described.tone]}`}>
                                                 {balanceText(described)}
@@ -231,6 +255,16 @@ export default function Index({
                     transferBanks={transferBanks}
                     senderBanks={senderBanks}
                     initialSubscription={splitting.subscription ?? null}
+                />
+            )}
+            {statementWindow.subscription && (
+                <StatementModal
+                    key={statementWindow.subscription.id}
+                    subscription={statementWindow.subscription}
+                    statement={statementWindow.statement}
+                    initialForm={statementWindow.form}
+                    onSwitch={(header) => statementWindow.open(header)}
+                    onClose={statementWindow.close}
                 />
             )}
         </AuthenticatedLayout>

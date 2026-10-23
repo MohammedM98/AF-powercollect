@@ -172,7 +172,7 @@ class BranchDomainsTest extends TestCase
 
     public function test_a_delegated_manager_can_manage_only_their_branch_employees_from_the_branch_domain(): void
     {
-        $manager = User::factory()->collector()->withPermissions([PermissionKey::ManagePermissions, PermissionKey::ViewSubscriptions])->create(['branch_id' => $this->north->id]);
+        $manager = User::factory()->collector()->withPermissions([PermissionKey::ManagePermissions, PermissionKey::ViewSubscriptions])->grantingWhatTheyHold()->create(['branch_id' => $this->north->id]);
         $employee = User::factory()->collector()->withPermissions([])->create(['branch_id' => $this->north->id]);
         $foreign = User::factory()->collector()->withPermissions([])->create(['branch_id' => $this->south->id]);
         $viewSubscriptions = Permission::query()->where('key', PermissionKey::ViewSubscriptions->value)->sole();

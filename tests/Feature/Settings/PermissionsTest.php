@@ -30,7 +30,7 @@ class PermissionsTest extends TestCase
     public function test_permanent_transaction_deletion_permission_is_installed_without_a_default_grant(): void
     {
         $this->seedPermissions();
-        $branchAdmin = User::factory()->branchAdmin()->create();
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create();
 
         $this->assertDatabaseHas('permissions', [
             'key' => PermissionKey::ForceDeleteTransactions->value,
@@ -54,7 +54,7 @@ class PermissionsTest extends TestCase
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $branch->id]);
 
         $this->actingAs($branchAdmin)
             ->get(route('settings.permissions.edit'))
@@ -66,10 +66,10 @@ class PermissionsTest extends TestCase
         $this->seedPermissions();
         $ownBranch = Branch::factory()->create();
         $otherBranch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $ownBranch->id]);
         User::factory()->collector()->create(['branch_id' => $ownBranch->id, 'name' => 'My Branch Collector']);
         User::factory()->collector()->create(['branch_id' => $otherBranch->id, 'name' => 'Other Branch Collector']);
-        User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id, 'name' => 'Peer Branch Admin']);
+        User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $ownBranch->id, 'name' => 'Peer Branch Admin']);
 
         $response = $this->actingAs($branchAdmin)->get(route('settings.permissions.edit'));
 
@@ -83,7 +83,7 @@ class PermissionsTest extends TestCase
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $branch->id]);
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
         $viewSubscriptions = Permission::where('key', PermissionKey::ViewSubscriptions->value)->firstOrFail();
 
@@ -101,7 +101,7 @@ class PermissionsTest extends TestCase
         $this->seedPermissions();
         $ownBranch = Branch::factory()->create();
         $otherBranch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $ownBranch->id]);
         $foreignCollector = User::factory()->collector()->create(['branch_id' => $otherBranch->id]);
         $viewSubscriptions = Permission::where('key', PermissionKey::ViewSubscriptions->value)->firstOrFail();
 
@@ -118,8 +118,8 @@ class PermissionsTest extends TestCase
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
-        $peerBranchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $branch->id]);
+        $peerBranchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $branch->id]);
 
         $this->actingAs($branchAdmin)->put(route('settings.permissions.update'), [
             'permissions' => [
@@ -175,7 +175,7 @@ class PermissionsTest extends TestCase
     {
         $this->seedPermissions();
         $confirm = Permission::create(['key' => 'collections.confirm', 'label' => 'Confirm Collections']);
-        $branchAdmin = User::factory()->branchAdmin()->create();
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create();
         $branchAdmin->permissions()->syncWithoutDetaching([$confirm->id, Permission::where('key', PermissionKey::ViewCollections->value)->value('id')]);
 
         (require database_path('migrations/2026_10_22_113315_remove_confirm_collections_permission.php'))->up();
@@ -188,7 +188,7 @@ class PermissionsTest extends TestCase
     public function test_report_scope_is_granted_without_closing_controls(): void
     {
         $this->seedPermissions();
-        $branchAdmin = User::factory()->branchAdmin()->create();
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create();
         $reportActions = fn ($groups): array => collect(collect($groups)->firstWhere('key', 'reports')['actions'])->pluck('action')->all();
 
         $this->actingAs(User::factory()->superAdmin()->create())->get(route('settings.permissions.edit'))
@@ -216,7 +216,7 @@ class PermissionsTest extends TestCase
         $this->assertFalse($employee->can('recordAnyPayment', Subscription::class));
         $this->assertSame(['review_transfers'], $employee->auditSettings()['actions']);
 
-        $manager = User::factory()->branchAdmin()->create();
+        $manager = User::factory()->branchAdmin()->grantingWhatTheyHold()->create();
         $this->actingAs($manager)->get(route('settings.permissions.edit'))->assertInertia(fn ($page) => $page
             ->where('permissionGroups', fn ($groups): bool => ! collect($groups)->contains('key', 'financial_audit')));
     }
@@ -225,7 +225,7 @@ class PermissionsTest extends TestCase
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $branch->id]);
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
         $viewSubscriptions = Permission::where('key', PermissionKey::ViewSubscriptions->value)->firstOrFail();
         $viewAreas = Permission::where('key', PermissionKey::ViewAreas->value)->firstOrFail();
@@ -244,7 +244,7 @@ class PermissionsTest extends TestCase
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $branch->id]);
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
         $viewSubscriptions = Permission::where('key', PermissionKey::ViewSubscriptions->value)->firstOrFail();
         $createBranches = Permission::where('key', PermissionKey::CreateBranches->value)->firstOrFail();
@@ -264,7 +264,7 @@ class PermissionsTest extends TestCase
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $branch->id]);
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
         $viewGovernorates = Permission::where('key', PermissionKey::ViewGovernorates->value)->firstOrFail();
         $viewSubscriptions = Permission::where('key', PermissionKey::ViewSubscriptions->value)->firstOrFail();
@@ -285,7 +285,7 @@ class PermissionsTest extends TestCase
     {
         $this->seedPermissions();
         $superAdmin = User::factory()->superAdmin()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create();
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create();
         $viewSubscriptions = Permission::where('key', PermissionKey::ViewSubscriptions->value)->firstOrFail();
 
         $this->actingAs($superAdmin)->put(route('settings.permissions.update'), [
@@ -303,7 +303,7 @@ class PermissionsTest extends TestCase
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $branch->id]);
         $collector = User::factory()->collector()->create(['branch_id' => $branch->id]);
         $viewTariffs = Permission::where('key', PermissionKey::ViewTariffs->value)->firstOrFail();
         $createTariffs = Permission::where('key', PermissionKey::CreateTariffs->value)->firstOrFail();
@@ -340,7 +340,7 @@ class PermissionsTest extends TestCase
     {
         $this->seedPermissions();
         $branch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $branch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $branch->id]);
         $dataEntry = User::factory()->dataEntry()->create(['branch_id' => $branch->id]);
         $transferPermission = Permission::where('key', PermissionKey::RecordTransferPayments->value)->firstOrFail();
         $branchAdmin->permissions()->detach($transferPermission);
@@ -362,7 +362,7 @@ class PermissionsTest extends TestCase
     {
         $this->seedPermissions();
         $ownBranch = Branch::factory()->create();
-        $branchAdmin = User::factory()->branchAdmin()->create(['branch_id' => $ownBranch->id]);
+        $branchAdmin = User::factory()->branchAdmin()->grantingWhatTheyHold()->create(['branch_id' => $ownBranch->id]);
         $ownCollector = User::factory()->collector()->create(['branch_id' => $ownBranch->id]);
         $foreignCollector = User::factory()->collector()->create();
 

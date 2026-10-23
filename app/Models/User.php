@@ -74,7 +74,40 @@ class User extends Authenticatable
 
     public function permissions(): BelongsToMany
     {
-        return $this->belongsToMany(Permission::class);
+        return $this->belongsToMany(Permission::class)->withPivot('grantable', 'granted_by');
+    }
+
+    /**
+     * Whether the user may hand this permission on to their branch's
+     * staff: the Super Admin always; anyone else only a delegable
+     * permission they hold with the right to grant it.
+     */
+    public function canGrantPermission(PermissionKey $key): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return $key->isDelegable() && $this->loadMissing('permissions')->permissions
+            ->contains(fn (Permission $permission): bool => $permission->key === $key->value && $permission->pivot->grantable);
+    }
+
+    /**
+     * Takes these permissions back from everyone this user handed them
+     * to, once the user no longer holds them.
+     *
+     * @param  array<int, int>  $permissionIds
+     */
+    public function withdrawGrantsOf(array $permissionIds): void
+    {
+        if ($permissionIds === []) {
+            return;
+        }
+
+        DB::table('permission_user')
+            ->where('granted_by', $this->id)
+            ->whereIn('permission_id', $permissionIds)
+            ->delete();
     }
 
     /**

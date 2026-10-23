@@ -235,6 +235,16 @@ enum PermissionKey: string
      * their own branch's area.) The company also controls delegation of
      * each branch's period-start setting.
      */
+    /**
+     * Whether a branch manager may hand this permission on, given the
+     * right to by the Super Admin: never a company-wide one, nor managing
+     * permissions itself, so no one but the Super Admin makes a manager.
+     */
+    public function isDelegable(): bool
+    {
+        return ! $this->isCompanyWide() && $this !== self::ManagePermissions;
+    }
+
     public function isCompanyWide(): bool
     {
         return match ($this) {

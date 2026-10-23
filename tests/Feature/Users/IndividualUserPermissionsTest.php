@@ -58,7 +58,7 @@ class IndividualUserPermissionsTest extends TestCase
         $delegated = Permission::idsFor([PermissionKey::CreateUsers, PermissionKey::ManagePermissions, PermissionKey::ViewSubscriptions]);
         $viewSubscriptions = Permission::query()->where('key', PermissionKey::ViewSubscriptions->value)->sole();
 
-        $this->actingAs($admin)->put(route('settings.permissions.update'), ['permissions' => [$manager->id => $delegated]])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->put(route('settings.permissions.update'), ['permissions' => [$manager->id => $delegated], 'grantable' => [$manager->id => [$viewSubscriptions->id]]])->assertSessionHasNoErrors();
         $this->actingAs($manager->fresh())->get(route('users.index'))->assertInertia(fn ($page) => $page->where('canCreate', true)->where('can.manageSettings', true));
         $this->post(route('users.store'), [
             'name' => 'موظف الفرع', 'username' => 'delegated.employee',

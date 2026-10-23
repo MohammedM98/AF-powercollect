@@ -11,6 +11,7 @@ import PermissionGuide, { PermissionExplanation } from './PermissionGuide';
 import EmployeeList, { EmployeeAvatar, RoleChip } from './PermissionPeople';
 import { MatrixHead, MatrixLegend, RiskBadge, SectionRow, TriToggle } from './PermissionMatrix';
 import { PermissionCompare, PermissionSummary, RiskGauge } from './PermissionInsights';
+import GrantRightPanel, { grantRightChanges } from './PermissionDelegation';
 import { CATEGORIES } from '@/lib/permissionGuide';
 import './PermissionDesign.css';
 import { useDataTable } from '@/hooks/useDataTable';
@@ -222,19 +223,26 @@ export function PermissionEditor({
     scopedToOwnBranch,
     onDirtyChange,
     auditOptions,
+    delegation = null,
     colorOf = defaultColorOf,
     onSaved,
 }) {
     const saved = employee.permissionIds;
+    const savedKeys = employee.grantableIds ?? [];
     const savedAudit =
         auditOptions && !saved.includes(auditOptions.permissionId) && employee.auditSettingsConfigured === false
             ? { scope: 'selected', branch_ids: employee.branchId ? [employee.branchId] : [], actions: [] }
             : employee.auditSettings;
-    const { data, setData, put, processing, errors } = useForm({
+    const { data, setData, put, transform, processing, errors } = useForm({
         permissions: { [employee.id]: [...saved] },
         ...(auditOptions ? { audit_settings: { [employee.id]: savedAudit } } : {}),
+        ...(delegation ? { grantable: { [employee.id]: [...savedKeys] } } : {}),
     });
     const selected = data.permissions[employee.id];
+    // The right to hand on is kept only for permissions the employee still holds, and given only to whoever manages permissions.
+    const canDelegate = Boolean(delegation && selected.includes(delegation.managePermissionsId));
+    const keys = (data.grantable?.[employee.id] ?? []).filter((id) => selected.includes(id));
+    const keyChanges = delegation ? grantRightChanges(savedKeys, keys) : { added: 0, removed: 0 };
     const auditValue = data.audit_settings?.[employee.id];
     const auditEnabled = Boolean(auditOptions && selected.includes(auditOptions.permissionId));
     const auditDraftInitialized = useRef(Boolean(auditOptions && (saved.includes(auditOptions.permissionId) || employee.auditSettingsConfigured)));
@@ -258,7 +266,13 @@ export function PermissionEditor({
               ? auditChanges
               : [];
     const dangerousGrants = [...changes, ...auditGrants].filter((change) => change.added && change.risk === 'danger');
-    const dirty = !samePermissions(saved, selected) || auditChanges.length > 0;
+    const dirty = !samePermissions(saved, selected) || auditChanges.length > 0 || keyChanges.added + keyChanges.removed > 0;
+    const tabs = canDelegate ? [...TABS, { key: 'delegation', label: 'حق المنح', icon: 'key' }] : TABS;
+    const activeTab = tabs.some((item) => item.key === tab) ? tab : 'matrix';
+    const takenFromOthers = changes.filter((change) => !change.added && employee.grantsGiven?.[change.id] > 0);
+    const grantedBy = Object.entries(
+        Object.values(employee.grantedBy ?? {}).reduce((counts, name) => ({ ...counts, [name]: (counts[name] ?? 0) + 1 }), {}),
+    );
     const template = templates.find((item) => item.role === employee.role);
     const deviations = template ? individualChanges(sections, template.permissionIds, selected).length : null;
     const color = colorOf(employee.roleLabel);
@@ -320,6 +334,10 @@ export function PermissionEditor({
         setData('audit_settings', { [employee.id]: value });
     }
 
+    function setKeys(ids) {
+        setData('grantable', { [employee.id]: ids });
+    }
+
     /** Copy a colleague's work permissions; financial audit access and its scope stay a separate decision. */
     function copyFrom(user) {
         setSelected(copyWorkPermissions(sections, selected, user.permissionIds));
@@ -330,6 +348,7 @@ export function PermissionEditor({
             ...current,
             permissions: { [employee.id]: [...saved] },
             ...(auditOptions ? { audit_settings: { [employee.id]: savedAudit } } : {}),
+            ...(delegation ? { grantable: { [employee.id]: [...savedKeys] } } : {}),
         }));
     }
 
@@ -372,7 +391,9 @@ export function PermissionEditor({
             const previous = {
                 permissions: { [employee.id]: [...saved] },
                 ...(auditOptions ? { audit_settings: { [employee.id]: savedAudit } } : {}),
+                ...(delegation ? { grantable: { [employee.id]: [...savedKeys] } } : {}),
             };
+            transform((current) => (current.grantable ? { ...current, grantable: { [employee.id]: keys } } : current));
             put('/settings/permissions', {
                 preserveScroll: true,
                 onSuccess: () => {
@@ -385,12 +406,12 @@ export function PermissionEditor({
     }
 
     function onTabKeyDown(event) {
-        const index = TABS.findIndex((item) => item.key === tab);
+        const index = tabs.findIndex((item) => item.key === activeTab);
         const step = event.key === 'ArrowLeft' ? 1 : event.key === 'ArrowRight' ? -1 : 0;
 
         if (step) {
             event.preventDefault();
-            const next = TABS[(index + step + TABS.length) % TABS.length];
+            const next = tabs[(index + step + tabs.length) % tabs.length];
             setTab(next.key);
             document.getElementById(`permission-tab-${next.key}`)?.focus();
         }
@@ -467,6 +488,12 @@ export function PermissionEditor({
                                 <b className="font-display">{counts.sensitive}</b> حساسة
                             </span>
                             <span className={`pm-hero-risk is-${heroRisk.level}`}>خطورة {heroRisk.label}</span>
+                            {grantedBy.map(([name, count]) => (
+                                <span key={name}>
+                                    <Icon name="user" className="h-4 w-4" />
+                                    منحه {name} <b className="font-display">{count}</b>
+                                </span>
+                            ))}
                             {locked.length > 0 && (
                                 <span title={locked.join('، ')}>
                                     <Icon name="lock" className="h-4 w-4" />
@@ -542,18 +569,18 @@ export function PermissionEditor({
                 )}
 
                 <div className="pm-tabs" role="tablist" aria-label="عرض صلاحيات الموظف">
-                    {TABS.map((item) => (
+                    {tabs.map((item) => (
                         <button
                             key={item.key}
                             id={`permission-tab-${item.key}`}
                             type="button"
                             role="tab"
-                            aria-selected={tab === item.key}
+                            aria-selected={activeTab === item.key}
                             aria-controls={`permission-view-${item.key}`}
-                            tabIndex={tab === item.key ? 0 : -1}
+                            tabIndex={activeTab === item.key ? 0 : -1}
                             onClick={() => setTab(item.key)}
                             onKeyDown={onTabKeyDown}
-                            className={`pm-tab ${tab === item.key ? 'is-active' : ''}`}
+                            className={`pm-tab ${activeTab === item.key ? 'is-active' : ''}`}
                         >
                             <Icon name={item.icon} className="h-4 w-4" />
                             {item.label}
@@ -563,7 +590,7 @@ export function PermissionEditor({
                 </div>
             </section>
 
-            {tab === 'matrix' && (
+            {activeTab === 'matrix' && (
                 <div id="permission-view-matrix" role="tabpanel" aria-labelledby="permission-tab-matrix" className="space-y-4">
 
                     <section className="pm-card pm-matrix" aria-label="جدول الصلاحيات">
@@ -780,7 +807,7 @@ export function PermissionEditor({
                 </div>
             )}
 
-            {tab === 'summary' && (
+            {activeTab === 'summary' && (
                 <div
                     id="permission-view-summary"
                     role="tabpanel"
@@ -809,7 +836,7 @@ export function PermissionEditor({
                 </div>
             )}
 
-            {tab === 'compare' && (
+            {activeTab === 'compare' && (
                 <div id="permission-view-compare" role="tabpanel" aria-labelledby="permission-tab-compare">
                     <PermissionCompare
                         employee={employee}
@@ -820,6 +847,21 @@ export function PermissionEditor({
                         disabled={processing}
                         onAddMissing={(ids) => setSelected([...new Set([...selected, ...ids])])}
                         onMatch={copyFrom}
+                    />
+                </div>
+            )}
+
+            {activeTab === 'delegation' && (
+                <div id="permission-view-delegation" role="tabpanel" aria-labelledby="permission-tab-delegation">
+                    <GrantRightPanel
+                        sections={sections}
+                        selected={selected}
+                        grantable={keys}
+                        delegableIds={delegation.delegableIds}
+                        grantsGiven={employee.grantsGiven}
+                        firstName={firstName}
+                        disabled={processing}
+                        onChange={setKeys}
                     />
                 </div>
             )}
@@ -900,6 +942,7 @@ export function PermissionEditor({
                         <p className="mt-1 text-sm text-gray-500">
                             {added} تُمنح · {removed} تُلغى
                             {auditChanges.length > 0 && ` · ${auditChanges.length} تغييرات في عمل التدقيق`}
+                            {keyChanges.added + keyChanges.removed > 0 && ` · حق المنح: ${keyChanges.added} يُعطى، ${keyChanges.removed} يُسحب`}
                         </p>
                         <div className="pm-review-strip">
                             <span>
@@ -919,6 +962,12 @@ export function PermissionEditor({
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto">
                         <PermissionChangeReview employee={employee} changes={changes} />
+                        {takenFromOthers.length > 0 && (
+                            <p className="mx-5 mb-5 rounded-control bg-amber-500/10 px-3.5 py-3 text-sm leading-7 text-amber-800 dark:text-amber-300 sm:mx-7">
+                                تُسحب أيضًا من الموظفين الذين منحهم {firstName} إياها:{' '}
+                                <b>{takenFromOthers.map((change) => `${change.text} (${employee.grantsGiven[change.id]})`).join('، ')}</b>
+                            </p>
+                        )}
                         {auditChanges.length > 0 && (
                             <div className="mx-5 mb-5 space-y-3 rounded-control border border-gray-100 p-4 sm:mx-7">
                                 <h4 className="font-bold text-gray-900">تغييرات عمل التدقيق</h4>
@@ -973,6 +1022,7 @@ export default function Permissions({
     filterOptions,
     scopedToOwnBranch,
     auditOptions = null,
+    delegation = null,
 }) {
     const hasUnsavedChanges = useRef(false);
     const [selectedDirty, setSelectedDirty] = useState(false);
@@ -1115,9 +1165,10 @@ export default function Permissions({
                     {selectedUser ? (
                         <PermissionEditor
                             // A fresh editor per employee and per saved state, so the levels always start from what's stored.
-                            key={`${selectedUser.id}:${selectedUser.permissionIds.join(',')}:${JSON.stringify(selectedUser.auditSettings)}`}
+                            key={`${selectedUser.id}:${selectedUser.permissionIds.join(',')}:${(selectedUser.grantableIds ?? []).join(',')}:${JSON.stringify(selectedUser.auditSettings)}`}
                             employee={selectedUser}
                             auditOptions={auditOptions}
+                            delegation={delegation}
                             sections={sections}
                             templates={roleTemplates}
                             copySources={users.data.filter((user) => user.id !== selectedUser.id)}

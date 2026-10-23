@@ -109,6 +109,7 @@ export const ACTION_MESSAGES = {
     'area-deleted': 'تم حذف المنطقة بنجاح.',
     'sub-area-deleted': 'تم حذف منطقة 2 بنجاح.',
     'permissions-updated': 'تم حفظ الصلاحيات بنجاح.',
+    'permissions-delegated': 'منح مدير فرع صلاحيات لموظف',
     'profile-updated': 'تم حفظ الملف الشخصي بنجاح.',
     'profile-devices-logged-out': 'تم تسجيل الخروج من الأجهزة المحددة.',
     'password-updated': 'تم تحديث كلمة المرور بنجاح.',

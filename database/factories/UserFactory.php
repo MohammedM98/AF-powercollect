@@ -8,6 +8,7 @@ use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -107,6 +108,15 @@ class UserFactory extends Factory
     }
 
     /** @param array<int, PermissionKey> $permissions */
+    /**
+     * Lets the user hand on every permission they hold: the right the
+     * Super Admin gives a branch manager, permission by permission.
+     */
+    public function grantingWhatTheyHold(): static
+    {
+        return $this->afterCreating(fn (User $user) => DB::table('permission_user')->where('user_id', $user->id)->update(['grantable' => true]));
+    }
+
     public function withPermissions(array $permissions): static
     {
         return $this->afterCreating(fn (User $user) => $user->permissions()->syncWithoutDetaching(Permission::idsFor($permissions)));

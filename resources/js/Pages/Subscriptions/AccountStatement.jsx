@@ -554,8 +554,8 @@ function StatementRow({
                 {entry.recordedByName ?? <Dash />}
             </td>
             {hasLineMenus && (
-                <td className="statement-screen-only text-end">
-                    {hasLineMenu(entry) && <RowActionsMenu menu={lineActionsMenu(entry, onAction)} menuLabel="إجراءات" />}
+                <td className="statement-screen-only text-center !align-middle">
+                    {hasLineMenu(entry) && <RowActionsMenu menu={lineActionsMenu(entry, onAction)} coloredMenu />}
                 </td>
             )}
         </tr>
@@ -857,8 +857,8 @@ export default function AccountStatement({ subscription, entries, summary, payme
                 <div className="data-table-container">
                     <table className="data-table data-table-ledger w-full text-start text-sm">
                         <colgroup>
-                            {COLUMN_WIDTHS.map((width, index) => <col key={index} style={{ width: `${width * (hasLineMenus ? 0.97 : 1)}%` }} />)}
-                            {hasLineMenus && <col className="statement-screen-only" style={{ width: '3%' }} />}
+                            {COLUMN_WIDTHS.map((width, index) => <col key={index} style={{ width: `${width * (hasLineMenus ? 0.955 : 1)}%` }} />)}
+                            {hasLineMenus && <col className="statement-screen-only" style={{ width: '4.5%' }} />}
                         </colgroup>
                         <thead>
                             <tr>
